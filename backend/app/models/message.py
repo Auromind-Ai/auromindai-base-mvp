@@ -13,8 +13,8 @@ class SenderType(str, enum.Enum):
 class Message(Base):
     __tablename__ = "messages"
 
-    id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"))
+    id = Column(String(36), primary_key=True, index=True)
+    conversation_id = Column(String(36), ForeignKey("conversations.id"))
     content = Column(Text)
     sender_type = Column(Enum(SenderType), default=SenderType.USER)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())

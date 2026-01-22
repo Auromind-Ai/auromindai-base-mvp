@@ -17,8 +17,8 @@ class ConversationStatus(str, enum.Enum):
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey("users.id"))
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
     external_id = Column(String, index=True) # WhatsApp number or IG handle
     contact_name = Column(String)
