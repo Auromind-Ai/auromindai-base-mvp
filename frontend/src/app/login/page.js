@@ -10,7 +10,7 @@ import { setToken, setUser, setWorkspace } from '@/lib/auth';
 export default function LoginPage() {
     const router = useRouter();
     const [formData, setFormData] = useState({
-        email: '',
+        email: 'admin@gmail.com',
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
