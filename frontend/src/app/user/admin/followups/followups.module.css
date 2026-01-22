@@ -1,0 +1,122 @@
+.container {
+    max-width: 1200px;
+}
+
+.header {
+    margin-bottom: var(--spacing-6);
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-8);
+}
+
+.section {
+    margin-bottom: var(--spacing-8);
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-4);
+}
+
+/* Follow-up List Styles */
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.item {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-4);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-200);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.item:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.leadInfo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--primary-50);
+    color: var(--primary-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.details h3 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.meta {
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+    margin-top: 0.25rem;
+}
+
+.actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnPrimary {
+    background: var(--primary-600);
+    color: white;
+    border: none;
+}
+
+.btnPrimary:hover {
+    background: var(--primary-700);
+}
+
+.btnOutline {
+    background: white;
+    border: 1px solid var(--gray-200);
+    color: var(--gray-700);
+}
+
+.btnOutline:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-300);
+}
+
+.scheduledLine {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--primary-600);
+    font-weight: 500;
+    font-size: 0.8125rem;
+}
