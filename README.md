@@ -8,7 +8,23 @@ Auromind is an advanced SaaS platform that helps businesses automate sales follo
 
 ---
 
+
+## 🎓 For Interns: Start Here!
+
+**1. Clone the Code**
+Run this terminal command to download the project:
+```bash
+git clone https://github.com/Auromind-Ai/Auromindai-Base-MVP.git
+```
+
+**2. Learn the AI System**
+We have written a simple guide to explain how our "Brain" (RAG) and "Safeguards" (MCP) work.
+👉 **[Read the AI Infrastructure Guide (AI_ARCHITECTURE.md)](./AI_ARCHITECTURE.md)**
+
+---
+
 ## 🛠 Technical Overview (By Role)
+
 
 ### 🤖 For AI Engineers
 Auromind is **not just a wrapper**. We use a **Governed AI Architecture**:
