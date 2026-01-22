@@ -1,15 +1,20 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, String, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
+from datetime import datetime
+import uuid
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True)
-    password_hash = Column(String)
     full_name = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True)
-    is_admin = Column(Boolean, default=False)
-
-    conversations = relationship("Conversation", back_populates="owner")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relations
+    # workspace_members = relationship("WorkspaceMember", back_populates="user")
+    # learning_events = relationship("LearningEvent", back_populates="user")
+    # followups = relationship("Followup", back_populates="user")
+    conversations = relationship("Conversation", back_populates="user")
+    # promises = relationship("Promise", back_populates="user")
