@@ -1,0 +1,158 @@
+.container {
+    max-width: 1200px;
+}
+
+.header {
+    margin-bottom: var(--spacing-6);
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-8);
+}
+
+.uploadSection {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-8);
+}
+
+.uploadCard {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-6);
+    box-shadow: var(--shadow-sm);
+    border: 1px dashed var(--gray-300);
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.uploadCard:hover {
+    border-color: var(--primary-400);
+    background: var(--gray-50);
+}
+
+.uploadIcon {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    background: var(--primary-50);
+    color: var(--primary-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--spacing-3);
+}
+
+.uploadCard h3 {
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+}
+
+.uploadCard p {
+    color: var(--gray-600);
+    margin-bottom: var(--spacing-4);
+}
+
+.urlInputWrapper {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.urlInput {
+    flex: 1;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    outline: none;
+}
+
+.urlInput:focus {
+    border-color: var(--primary-500);
+}
+
+/* Knowledge List */
+.knowledgeListSection {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-4);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-200);
+}
+
+.sectionHeader {
+    margin-bottom: var(--spacing-4);
+    padding-bottom: var(--spacing-3);
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+}
+
+.item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-3) 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.item:last-child {
+    border-bottom: none;
+}
+
+.itemMain {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.fileIcon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius-sm);
+    background: var(--gray-100);
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.itemName {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.itemMeta {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-top: 0.125rem;
+}
+
+.statusBadge {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.statusIndexed {
+    background: var(--success-50);
+    color: var(--success-700);
+}
+
+.statusProcessing {
+    background: var(--primary-50);
+    color: var(--primary-700);
+}
