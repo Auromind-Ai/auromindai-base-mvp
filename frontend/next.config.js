@@ -8,7 +8,9 @@ const nextConfig = {
         return [
             {
                 source: '/api/:path*',
-                destination: 'http://127.0.0.1:8000/:path*' // Proxy to Backend
+                destination: process.env.NODE_ENV === 'production'
+                    ? 'https://auromindai-base-mvp.onrender.com/:path*'
+                    : 'http://127.0.0.1:8000/:path*'
             }
         ]
     }
