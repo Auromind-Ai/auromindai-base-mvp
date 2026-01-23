@@ -34,21 +34,26 @@ with engine.connect() as conn:
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://auromindai-base-mvp.vercel.app",
-        "https://auromindai-base-mvp-git-main-santhoshs-projects-02882f9d.vercel.app" # Vercel preview branch
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {type(exc).__name__}: {str(exc)}"},
+    )
+
 @app.get("/")
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.1.2",
+        "version": "1.1.3",
         "status": "running"
     }
 
