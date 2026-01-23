@@ -18,10 +18,14 @@ app = FastAPI(
 # Create database tables on startup
 Base.metadata.create_all(bind=engine)
 
-# CORS middleware - Allow all origins for local development
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=[
+        "http://localhost:3000",
+        "https://auromindai-base-mvp.vercel.app",
+        "https://auromindai-base-mvp-git-main-santhoshs-projects-02882f9d.vercel.app" # Vercel preview branch
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,7 +35,7 @@ app.add_middleware(
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "status": "running"
     }
 
