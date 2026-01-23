@@ -18,6 +18,19 @@ app = FastAPI(
 # Create database tables on startup
 Base.metadata.create_all(bind=engine)
 
+# Manual migration for missing columns (Render/Production fix)
+from sqlalchemy import text
+with engine.connect() as conn:
+    try:
+        # Check if password_hash exists in users
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR;"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;"))
+        conn.commit()
+    except Exception as e:
+        print(f"Migration error (ignoring): {e}")
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +48,7 @@ app.add_middleware(
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "status": "running"
     }
 
