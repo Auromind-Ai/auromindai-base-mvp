@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import google.generativeai as genai
+from app.database import engine, Base
+from app import models  # This ensures all models are imported and registered with Base
 
 
 load_dotenv()
@@ -12,6 +14,9 @@ app = FastAPI(
     description="AI-Powered Business Assistant Platform",
     version="1.0.0"
 )
+
+# Create database tables on startup
+Base.metadata.create_all(bind=engine)
 
 # CORS middleware - Allow all origins for local development
 app.add_middleware(
