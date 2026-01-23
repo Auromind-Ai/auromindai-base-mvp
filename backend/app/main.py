@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 import google.generativeai as genai
 from app.database import engine, Base
-from app import models  # This ensures all models are imported and registered with Base
+# Model imports moved inside to avoid circular dependencies
 
 
 load_dotenv()
@@ -16,20 +16,23 @@ app = FastAPI(
 )
 
 # Create database tables on startup
-Base.metadata.create_all(bind=engine)
+def setup_db():
+    from app import models  # Importing inside ensure Base has them
+    Base.metadata.create_all(bind=engine)
 
-# Manual migration for missing columns (Render/Production fix)
-from sqlalchemy import text
-with engine.connect() as conn:
-    try:
-        # Check if password_hash exists in users
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR;"))
-        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;"))
-        conn.commit()
-    except Exception as e:
-        print(f"Migration error (ignoring): {e}")
+    # Manual migration for missing columns (Render/Production fix)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR;"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;"))
+            conn.commit()
+        except Exception as e:
+            print(f"Migration error (ignoring): {e}")
+
+setup_db()
 
 # CORS middleware
 app.add_middleware(
@@ -53,7 +56,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.1.3",
+        "version": "1.1.4",
         "status": "running"
     }
 
