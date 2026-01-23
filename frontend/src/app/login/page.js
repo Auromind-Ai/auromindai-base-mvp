@@ -156,7 +156,7 @@ export default function LoginPage() {
                     Secure AI Portal • SSAE 16 Compliant
                 </p>
                 <p className="mt-2 text-center text-[10px] text-slate-800 font-mono">
-                    v1.1.8
+                    v1.1.9
                 </p>
             </div>
         </div>

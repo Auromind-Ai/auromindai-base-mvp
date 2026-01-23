@@ -12,7 +12,7 @@ load_dotenv()
 app = FastAPI(
     title="Auromind API",
     description="AI-Powered Business Assistant Platform",
-    version="1.1.8"
+    version="1.1.9"
 )
 
 # Global exception handler for debugging
@@ -76,7 +76,7 @@ def startup_event():
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.1.8",
+        "version": "1.1.9",
         "status": "running"
     }
 
@@ -96,7 +96,7 @@ async def health_check():
         "status": "healthy",
         "database": db_status,
         "database_error": db_error,
-        "version": "1.1.8"
+        "version": "1.1.9"
     }
 
 # Import and include routers
