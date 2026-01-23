@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+    reactStrictMode: true,
+    env: {
+        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    },
+    // No rewrites - talk directly to the absolute URL configured in api.js
 };
 
 export default nextConfig;
