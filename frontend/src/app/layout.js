@@ -12,8 +12,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Auromind AI - v1.1.10",
-  description: "Secure AI Business Assistant (v1.1.10)",
+  title: "Auromind AI - v1.1.15",
+  description: "Secure AI Business Assistant (v1.1.15)",
 };
 
 export default function RootLayout({ children }) {
