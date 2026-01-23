@@ -4,16 +4,7 @@ const nextConfig = {
     env: {
         NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
     },
-    async rewrites() {
-        return [
-            {
-                source: '/api/:path*',
-                destination: process.env.NODE_ENV === 'production'
-                    ? 'https://auromindai-base-mvp.onrender.com/:path*'
-                    : 'http://127.0.0.1:8000/:path*'
-            }
-        ]
-    }
+    // No rewrites - talk directly to the absolute URL configured in api.js
 };
 
 export default nextConfig;
