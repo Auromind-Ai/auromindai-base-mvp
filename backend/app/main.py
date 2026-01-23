@@ -35,7 +35,7 @@ app.add_middleware(
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.1.0",
+        "version": "1.1.1",
         "status": "running"
     }
 
