@@ -35,3 +35,27 @@ class Conversation(ConversationBase):
 
     class Config:
         from_attributes = True
+
+class FollowupBase(BaseModel):
+    scheduled_at: datetime
+    message_content: Optional[str] = None
+    status: Optional[str] = "pending"
+
+class FollowupCreate(FollowupBase):
+    conversation_id: str
+
+class FollowupUpdate(BaseModel):
+    status: Optional[str] = None
+    message_content: Optional[str] = None
+
+class Followup(FollowupBase):
+    id: str
+    conversation_id: str
+    followup_count: int
+    mcp_decision: Optional[str] = None
+    mcp_reason: Optional[str] = None
+    created_at: datetime
+    executed_at: datetime
+
+    class Config:
+        from_attributes = True

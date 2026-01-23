@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import google.generativeai as genai
 
+
 load_dotenv()
 
 app = FastAPI(
@@ -34,7 +35,7 @@ async def health_check():
     return {"status": "healthy"}
 
 # Import and include routers
-from app.routers import auth, mcp, simulation, inbox, learning, brain
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
@@ -42,6 +43,7 @@ app.include_router(simulation.router, prefix="/simulation", tags=["simulation"])
 app.include_router(inbox.router)
 app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
 app.include_router(brain.router, tags=["brain"])  # RAG Knowledge Base
+app.include_router(followups.router)
 
 
 # Configure Colab API
