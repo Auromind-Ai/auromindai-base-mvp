@@ -155,9 +155,11 @@ export default function LoginPage() {
                 <p className="mt-8 text-center text-xs text-slate-600 uppercase tracking-widest font-semibold">
                     Secure AI Portal • SSAE 16 Compliant
                 </p>
-                <p className="mt-2 text-center text-[10px] text-slate-800 font-mono">
-                    v1.1.9
-                </p>
+                <div className="mt-4 flex justify-center">
+                    <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-[10px] text-blue-400 font-mono">
+                        Build v1.1.10
+                    </span>
+                </div>
             </div>
         </div>
     );
