@@ -1,0 +1,17 @@
+# Backend dependencies
+backend/node_modules/
+backend/auromind.db
+backend/__pycache__/
+backend/*/__pycache__/
+backend/.env
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/.next/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# General
+.DS_Store
+*.log
