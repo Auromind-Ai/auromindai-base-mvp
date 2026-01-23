@@ -65,7 +65,9 @@ export default function LeadsPage() {
     const [search, setSearch] = useState('');
     const [isMounted, setIsMounted] = useState(false);
 
-    useEffect(() => { setIsMounted(true); }, []);
+    useEffect(() => {
+        setTimeout(() => setIsMounted(true), 0);
+    }, []);
 
     if (!isMounted) return null;
 

@@ -110,7 +110,7 @@ export default function ChannelsPage() {
                         <Plus size={24} />
                     </div>
                     <h3 className="text-sm font-bold text-[#787878] group-hover:text-[#D4D4D4] transition-colors">Request Integration</h3>
-                    <p className="text-xs font-medium text-[#565656] mt-1">Don't see your channel? Let us know.</p>
+                    <p className="text-xs font-medium text-[#565656] mt-1">Don&apos;t see your channel? Let us know.</p>
                 </div>
             </div>
         </div>

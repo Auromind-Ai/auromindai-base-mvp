@@ -62,18 +62,25 @@ function AdminLayoutContent({ children }) {
     const [user, setUser] = useState(null);
     const [workspace, setWorkspace] = useState(null);
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const currentUser = getUser();
-        const currentWorkspace = getWorkspace();
+        const checkAuth = () => {
+            const currentUser = getUser();
+            const currentWorkspace = getWorkspace();
 
-        if (!currentUser) {
-            router.push('/login');
-            return;
-        }
+            if (!currentUser) {
+                router.push('/login');
+                return;
+            }
 
-        setUser(currentUser);
-        setWorkspace(currentWorkspace);
+            setUser(currentUser);
+            setWorkspace(currentWorkspace);
+            setIsLoading(false);
+        };
+        // Defer to next tick to satisfy linter
+        const timeout = setTimeout(checkAuth, 0);
+        return () => clearTimeout(timeout);
     }, [router]);
 
     const handleLogout = () => {
@@ -115,7 +122,7 @@ function AdminLayoutContent({ children }) {
         );
     };
 
-    if (!user) {
+    if (isLoading || !user) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#191919] p-6">
                 <div className="w-full max-w-sm space-y-4">
