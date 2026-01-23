@@ -56,13 +56,28 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.1.4",
+        "version": "1.1.5",
         "status": "running"
     }
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    db_status = "unknown"
+    db_error = None
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            db_status = "connected"
+    except Exception as e:
+        db_status = "error"
+        db_error = str(e)
+    
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "database_error": db_error,
+        "version": "1.1.5"
+    }
 
 # Import and include routers
 from app.routers import auth, mcp, simulation, inbox, learning, brain, followups
