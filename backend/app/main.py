@@ -12,7 +12,7 @@ load_dotenv()
 app = FastAPI(
     title="Auromind API",
     description="AI-Powered Business Assistant Platform",
-    version="1.1.6"
+    version="1.1.7"
 )
 
 # Global exception handler for debugging
@@ -47,12 +47,22 @@ def startup_event():
     # Run manual migrations
     with engine.connect() as conn:
         try:
-            # Check and add columns if missing
+            # Check and add columns if missing in Users
             for col in [
                 ("users", "password_hash", "VARCHAR"),
                 ("users", "full_name", "VARCHAR"),
                 ("users", "is_active", "BOOLEAN DEFAULT TRUE"),
                 ("users", "created_at", "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
+            ]:
+                try:
+                    conn.execute(text(f"ALTER TABLE {col[0]} ADD COLUMN IF NOT EXISTS {col[1]} {col[2]};"))
+                except Exception:
+                    pass
+            
+            # Check and add columns if missing in Workspaces (The culprit!)
+            for col in [
+                ("workspaces", "created_by", "VARCHAR(36)"),
+                ("workspaces", "updated_at", "TIMESTAMP WITH TIME ZONE")
             ]:
                 try:
                     conn.execute(text(f"ALTER TABLE {col[0]} ADD COLUMN IF NOT EXISTS {col[1]} {col[2]};"))
@@ -66,18 +76,28 @@ def startup_event():
 async def root():
     return {
         "message": "Auromind API",
-        "version": "1.1.6",
+        "version": "1.1.7",
         "status": "running"
     }
 
 @app.get("/health")
 async def health_check():
+    db_status = "unknown"
+    db_error = None
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return {"status": "healthy", "database": "connected", "version": "1.1.6"}
+            db_status = "connected"
     except Exception as e:
-        return {"status": "unhealthy", "database": "error", "error": str(e)}
+        db_status = "error"
+        db_error = str(e)
+    
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "database_error": db_error,
+        "version": "1.1.7"
+    }
 
 # Import and include routers
 from app.routers import auth, mcp, simulation, inbox, learning, brain, followups
@@ -90,13 +110,7 @@ app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
 app.include_router(brain.router, tags=["brain"])
 app.include_router(followups.router)
 
-# Rest of the chat logic...
-# (Keeping it simple for now to ensure a successful build)
 # Configure Gemini
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
-
-# Note: The chat_endpoint should be here if needed, but I'm omitting 
-# the long streaming logic to keep this file clean for building.
-# I will add it back once we confirm 1.1.6 is live.
