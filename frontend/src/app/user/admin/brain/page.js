@@ -301,7 +301,7 @@ export default function BrainPage() {
                             </button>
                         </div>
                         <p className="text-[10px] text-[#565656]">
-                            "Entire Website" crawls all pages (blogs, products, FAQs, etc.)
+                            &quot;Entire Website&quot; crawls all pages (blogs, products, FAQs, etc.)
                         </p>
                     </div>
                 </div>
@@ -337,7 +337,7 @@ export default function BrainPage() {
                     <div className="mt-4 pt-4 border-t border-[var(--notion-border)]">
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-sm font-bold text-[#D4D4D4]">
-                                {searchResults.results?.length || 0} results for "{searchResults.query}"
+                                {searchResults.results?.length || 0} results for &quot;{searchResults.query}&quot;
                             </h3>
                             <button
                                 onClick={() => setSearchResults(null)}

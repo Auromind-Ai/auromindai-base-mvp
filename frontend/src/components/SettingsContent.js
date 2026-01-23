@@ -66,7 +66,7 @@ const SettingsContent = () => {
                                     {(user?.name || 'U').charAt(0)}
                                 </div>
                             </div>
-                            <span className="text-[13px] font-medium text-[#e8e8e8] truncate">{user?.name || 'User'}'s Sp...</span>
+                            <span className="text-[13px] font-medium text-[#e8e8e8] truncate">{user?.name || 'User'}&apos;s Sp...</span>
                         </div>
                         <ChevronDown size={14} className="text-[#555] group-hover:text-[#787878]" />
                     </div>

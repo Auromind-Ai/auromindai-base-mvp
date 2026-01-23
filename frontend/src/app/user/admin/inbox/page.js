@@ -66,7 +66,7 @@ export default function InboxPage() {
     const leads = LEADS[ch.id] || [];
     const I = ch.icon;
 
-    useEffect(() => { setLead(leads[0] || null); }, [ch]);
+    useEffect(() => { setLead(leads[0] || null); }, [ch, leads]);
     useEffect(() => { ref.current?.scrollIntoView({ behavior: 'smooth' }); }, [lead]);
 
     return (
