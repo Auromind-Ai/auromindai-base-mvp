@@ -4,8 +4,10 @@ import React, { useMemo } from 'react';
 
 const GalaxyBackground = () => {
     // Generate star positions once for performance
-    const stars = useMemo(() => {
-        return [...Array(100)].map((_, i) => ({
+    const [stars, setStars] = React.useState([]);
+
+    React.useEffect(() => {
+        const starArray = [...Array(100)].map((_, i) => ({
             id: i,
             top: `${Math.random() * 100}%`,
             left: `${Math.random() * 100}%`,
@@ -13,6 +15,7 @@ const GalaxyBackground = () => {
             delay: `${Math.random() * 10}s`,
             duration: `${5 + Math.random() * 10}s`,
         }));
+        setStars(starArray);
     }, []);
 
     return (

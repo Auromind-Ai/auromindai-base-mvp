@@ -39,7 +39,7 @@ export default function MarketingPage() {
 
             {/* Feature Preview */}
             {/* Feature Preview */}
-            <h2 className="text-sm font-bold text-[#565656] uppercase tracking-[0.2em] mb-4 p-4">What You'll Get</h2>
+            <h2 className="text-sm font-bold text-[#565656] uppercase tracking-[0.2em] mb-4 p-4">What You&apos;ll Get</h2>
             <div className="grid grid-cols-3 gap-4 mb-8 p-4">
                 <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm hover:bg-[#252525] transition-all group">
                     <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 mb-3 border border-indigo-500/20 group-hover:scale-110 transition-transform">

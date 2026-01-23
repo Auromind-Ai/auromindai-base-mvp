@@ -37,7 +37,7 @@ const AI_INSIGHTS = [
 
 export default function DashboardPage() {
     const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
+    useEffect(() => { setTimeout(() => setMounted(true), 0); }, []);
 
     if (!mounted) return null;
 
@@ -72,8 +72,8 @@ export default function DashboardPage() {
                             <div className="flex justify-between items-start mb-4">
                                 <p className="text-[10px] font-black text-[#52525b] uppercase tracking-widest">{metric.label}</p>
                                 <span className={`flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${metric.trend === 'up' ? 'text-emerald-400' :
-                                        metric.trend === 'down' ? 'text-red-400' :
-                                            'text-[#52525b]'
+                                    metric.trend === 'down' ? 'text-red-400' :
+                                        'text-[#52525b]'
                                     }`}>
                                     {metric.trend === 'up' ? <ArrowUpRight size={12} className="mr-1" /> :
                                         metric.trend === 'down' ? <ArrowDownRight size={12} className="mr-1" /> : null}
@@ -105,8 +105,8 @@ export default function DashboardPage() {
                                     <div key={item.id} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between hover:bg-[#161617]/50 transition-colors group gap-4 sm:gap-0">
                                         <div className="flex items-center gap-4">
                                             <div className={`w-2 h-2 rounded-full shrink-0 ${item.priority === 'high' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' :
-                                                    item.priority === 'medium' ? 'bg-amber-500' :
-                                                        'bg-[#52525b]'
+                                                item.priority === 'medium' ? 'bg-amber-500' :
+                                                    'bg-[#52525b]'
                                                 }`} />
                                             <div>
                                                 <p className="text-sm font-bold text-white group-hover:text-indigo-400 transition-colors">{item.name}</p>

@@ -11,14 +11,12 @@ const SettingsContext = createContext({
 
 export const SettingsProvider = ({ children }) => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [selectedModel, setSelectedModel] = useState('auto');
-
-    useEffect(() => {
-        const savedModel = localStorage.getItem('auromind_default_model');
-        if (savedModel) {
-            setSelectedModel(savedModel);
+    const [selectedModel, setSelectedModel] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('auromind_default_model') || 'auto';
         }
-    }, []);
+        return 'auto';
+    });
 
     const updateModel = (model) => {
         setSelectedModel(model);
