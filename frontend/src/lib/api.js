@@ -1,7 +1,9 @@
-console.log("API CLIENT VERSION: 1.1.0");
+console.log("API CLIENT VERSION: 1.1.1");
 const API_BASE_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost')
   ? 'https://auromindai-base-mvp.onrender.com'
   : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+console.log("Hostname:", typeof window !== 'undefined' ? window.location.hostname : 'node');
+console.log("Selected API_BASE_URL:", API_BASE_URL);
 
 class APIClient {
   constructor() {

@@ -152,9 +152,11 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Footer Note */}
                 <p className="mt-8 text-center text-xs text-slate-600 uppercase tracking-widest font-semibold">
                     Secure AI Portal • SSAE 16 Compliant
+                </p>
+                <p className="mt-2 text-center text-[10px] text-slate-800 font-mono">
+                    v1.1.1-deploy-id
                 </p>
             </div>
         </div>
