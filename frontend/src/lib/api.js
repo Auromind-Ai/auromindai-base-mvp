@@ -1,4 +1,4 @@
-console.log("API CLIENT VERSION: 1.1.14");
+console.log("API CLIENT VERSION: 1.1.15");
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 const API_BASE_URL = isLocal ? 'http://localhost:8000' : 'https://auromindai-base-mvp.onrender.com';
 
