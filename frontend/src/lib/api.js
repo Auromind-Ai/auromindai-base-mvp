@@ -1,4 +1,4 @@
-console.log("API CLIENT VERSION: 1.1.16");
+console.log("API CLIENT VERSION: 1.1.19");
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 const API_BASE_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
   ? 'http://localhost:8000'
