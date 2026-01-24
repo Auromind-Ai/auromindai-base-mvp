@@ -140,7 +140,7 @@ export default function LoginPage() {
                     </form>
 
                     <div className="mt-8 pt-6 border-t border-slate-800/50 text-center space-y-4 text-sm">
-                        <p className="text-gray-500">Auromind AI v1.1.19</p>
+                        <p className="text-gray-500">Auromind AI v1.1.20</p>
                         <p className="text-slate-400">
                             Don't have an account?{' '}
                             <Link href="/signup" className="text-indigo-400 font-bold hover:text-indigo-300 transition-colors">
@@ -157,7 +157,7 @@ export default function LoginPage() {
                     Secure AI Portal • SSAE 16 Compliant
                 </p>
                 <p className="mt-2 text-center text-[10px] text-slate-800 font-mono">
-                    v1.1.19
+                    v1.1.20
                 </p>
             </div>
         </div>
