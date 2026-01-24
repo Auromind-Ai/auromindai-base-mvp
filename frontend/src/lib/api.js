@@ -1,6 +1,8 @@
 console.log("API CLIENT VERSION: 1.1.16");
 const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const API_BASE_URL = isLocal ? 'http://localhost:8000' : 'https://auromindai-base-mvp.onrender.com';
+const API_BASE_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+  ? 'http://localhost:8000'
+  : (process.env.NEXT_PUBLIC_API_URL || 'https://auromindai-base-mvp.onrender.com');
 
 console.log("Hostname:", typeof window !== 'undefined' ? window.location.hostname : 'node');
 console.log("Selected API_BASE_URL:", API_BASE_URL);
@@ -31,13 +33,20 @@ class APIClient {
     try {
       console.log(`Fetching: ${url}`);
       const response = await fetch(url, config);
-      const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.detail || 'Request failed');
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Request failed');
+        }
+        return data;
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON response:", text);
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
       }
 
-      return data;
     } catch (error) {
       console.error('API Error:', error, 'URL:', url);
       throw error;
