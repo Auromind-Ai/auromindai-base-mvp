@@ -15,7 +15,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 def main():
     print("🚀 Starting AuroMind Developer Setup...")
 
-    # 1. Create .env file
+    # 1. Update Code from GitHub
+    print("\n⬇️  Pulling latest code from GitHub...")
+    try:
+        subprocess.check_call(["git", "pull", "origin", "main"])
+        print("   ✅ Code updated.")
+    except Exception as e:
+        print(f"   ⚠️  Could not pull code (you might have local changes or no git). Error: {e}")
+        print("   👉 Continuing with setup...")
+
+    # 2. Create .env file
     env_path = os.path.join(os.path.dirname(__file__), ".env")
     if not os.path.exists(env_path):
         print(f"📝 Creating .env file at {env_path}...")
