@@ -34,16 +34,20 @@ def main():
     else:
         print("   ℹ️  .env file already exists. Skipping creation.")
 
-    # 2. Install Dependencies
+    # 3. Install Dependencies
     print("\n📦 Installing Python dependencies...")
+    # Ensure we look for requirements.txt in the same folder as this script
+    req_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", req_path])
         print("   ✅ Dependencies installed.")
     except subprocess.CalledProcessError:
-        print("   ❌ Failed to install dependencies. Please run 'pip install -r requirements.txt' manually.")
+        print("   ❌ Failed to install dependencies.")
 
     print("\n🎉 Setup Complete!")
-    print("   👉 Run the app with: uvicorn app.main:app --reload --port 8000")
+    print("   👉 Run the app:")
+    print("      cd backend") 
+    print("      uvicorn app.main:app --reload --port 8000")
 
 if __name__ == "__main__":
     main()
