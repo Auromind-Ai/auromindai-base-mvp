@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 import logging
 import uuid
 import os
+import os
 import google.generativeai as genai
+from groq import Groq
 
 from app.services.embedding_service import get_embedding_service
 from app.services.vector_store_service import get_vector_store
@@ -48,6 +50,13 @@ class RAGService:
         api_key = os.getenv("GOOGLE_API_KEY")
         if api_key:
             genai.configure(api_key=api_key)
+            
+        # Configure Groq
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if groq_api_key:
+            self.groq_client = Groq(api_key=groq_api_key)
+        else:
+            self.groq_client = None
     
     def ingest_document(
         self,
@@ -57,7 +66,8 @@ class RAGService:
         title: str,
         content_type: str,
         source: str = None,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        existing_entry_id: str = None  # New param for Async support
     ) -> Dict[str, Any]:
         """
         Ingest a document into the RAG system.
@@ -86,7 +96,8 @@ class RAGService:
             raise ValueError("Document text is too short")
         
         # Generate parent entry ID
-        parent_id = str(uuid.uuid4())
+        parent_id = existing_entry_id if existing_entry_id else str(uuid.uuid4())
+
         
         # Chunk the document
         chunk_metadata = {
@@ -131,17 +142,27 @@ class RAGService:
             ids=chunk_ids
         )
         
-        # Create parent BrainEntry in SQL database
-        brain_entry = BrainEntry(
-            id=parent_id,
-            workspace_id=workspace_id,
-            title=title,
-            content=text[:5000],  # Store summary/preview only
-            content_type=content_type,
-            embedding=None,  # Embeddings are in ChromaDB
-            version=1
-        )
-        db.add(brain_entry)
+        if existing_entry_id:
+            # Update existing entry
+            brain_entry = db.query(BrainEntry).filter(BrainEntry.id == existing_entry_id).first()
+            if brain_entry:
+                brain_entry.title = title
+                brain_entry.content = text[:5000]
+                brain_entry.content_type = content_type
+                # Status will be updated by the worker, but we can set defaults here if needed
+        else:
+            # Create new entry
+            brain_entry = BrainEntry(
+                id=parent_id,
+                workspace_id=workspace_id,
+                title=title,
+                content=text[:5000],  # Store summary/preview only
+                content_type=content_type,
+                embedding=None,  # Embeddings are in ChromaDB
+                version=1,
+                status="completed" # Default for synchronous calls
+            )
+            db.add(brain_entry)
         db.commit()
         
         logger.info(f"Ingested document '{title}' with {len(chunks)} chunks")
@@ -216,7 +237,8 @@ class RAGService:
         workspace_id: str,
         question: str,
         top_k: int = 5,
-        include_sources: bool = True
+        include_sources: bool = True,
+        model_name: str = "gemini"
     ) -> Dict[str, Any]:
         """
         Agentic RAG Query Loop.
@@ -287,7 +309,7 @@ class RAGService:
             }
 
         # Step 4: Synthesis
-        answer = self._generate_answer(question, context)
+        answer = self._generate_answer(question, context, model_name)
         
         # Calculate confidence
         avg_score = 0
@@ -365,11 +387,9 @@ class RAGService:
             logger.error(f"Grading failed: {e}")
             return True # Fallback to lenient if grader fails
     
-    def _generate_answer(self, question: str, context: str) -> str:
-        """Generate answer using Gemini with retrieved context."""
+    def _generate_answer(self, question: str, context: str, model_name: str = "gemini") -> str:
+        """Generate answer using Gemini or Groq with retrieved context."""
         try:
-            model = genai.GenerativeModel('gemini-2.5-flash-lite')
-            
             prompt = f"""You are a friendly business assistant. You already KNOW the user's business because they uploaded their information to you.
 
 CRITICAL RULES:
@@ -385,12 +405,27 @@ THE USER'S BUSINESS INFO (answer based on this):
 USER ASKED: {question}
 
 ANSWER (be direct, friendly, and use the business info above):"""
-            
-            response = model.generate_content(prompt)
-            return response.text
+
+            if (model_name == "auromind" or model_name == "groq") and self.groq_client:
+                # Use Groq (Llama 3)
+                completion = self.groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": "You are a helpful business assistant."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    model="llama-3.1-8b-instant",
+                    temperature=0.5,
+                )
+                return completion.choices[0].message.content
+                
+            else:
+                # Default to Gemini
+                model = genai.GenerativeModel('gemini-2.5-flash-lite')
+                response = model.generate_content(prompt)
+                return response.text
             
         except Exception as e:
-            logger.error(f"LLM generation failed: {e}")
+            logger.error(f"LLM generation failed ({model_name}): {e}")
             return f"I encountered an error generating a response. Please try again. Error: {str(e)}"
     
     def delete_entry(self, db: Session, workspace_id: str, entry_id: str) -> bool:

@@ -69,13 +69,21 @@ from fastapi.responses import StreamingResponse
 import json
 import asyncio
 
-# URL from Colab ngrok
-COLAB_API_URL = "https://privative-acidimetrical-jeffrey.ngrok-free.dev/chat"
+from fastapi.responses import StreamingResponse
+import json
+import asyncio
+from groq import Groq
 
 # Configure Gemini
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
+
+# Configure Groq
+groq_client = None
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if GROQ_API_KEY:
+    groq_client = Groq(api_key=GROQ_API_KEY)
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
@@ -107,7 +115,7 @@ async def chat_endpoint(request: ChatRequest):
                                     workspace_id=request.workspace_id,
                                     question=request.message,
                                     top_k=5,
-                                    include_sources=True
+                                    model_name=request.model
                                 )
                                 
                                 # Send sources if available
@@ -144,27 +152,49 @@ async def chat_endpoint(request: ChatRequest):
 
                         
                 elif request.model == "auromind":
-                    # Use Auromind (Colab) API
-                    async with httpx.AsyncClient(timeout=120.0) as client:
-                        response = await client.post(COLAB_API_URL, json={"message": request.message})
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            ai_text = data.get("response", "")
-                            yield f"{json.dumps({'content': ai_text})}\n"
-                        else:
-                            yield f"{json.dumps({'error': f'Auromind API Error: {response.text}'})}\n"
+                    # Use Groq API (formerly Auromind Colab)
+                    if not groq_client:
+                         yield f"{json.dumps({'error': 'Auromind AI (Groq) not configured'})}\n"
+                         return
+
+                    completion = groq_client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": "You are Auromind, a helpful AI assistant."},
+                            {"role": "user", "content": request.message}
+                        ],
+                        model="llama-3.1-8b-instant",
+                        temperature=0.7,
+                        max_tokens=1024,
+                        top_p=1,
+                        stop=None,
+                        stream=True,
+                    )
+
+                    for chunk in completion:
+                        if chunk.choices[0].delta.content:
+                             yield f"{json.dumps({'content': chunk.choices[0].delta.content})}\n"
+                             await asyncio.sleep(0)
                             
-                else:  # auto - default to Auromind
-                    async with httpx.AsyncClient(timeout=120.0) as client:
-                        response = await client.post(COLAB_API_URL, json={"message": request.message})
-                        
-                        if response.status_code == 200:
-                            data = response.json()
-                            ai_text = data.get("response", "")
-                            yield f"{json.dumps({'content': ai_text})}\n"
-                        else:
-                            yield f"{json.dumps({'error': f'API Error: {response.text}'})}\n"
+                else:  # auto - default to Auromind (Groq)
+                    # Use Groq API
+                    if not groq_client:
+                         yield f"{json.dumps({'error': 'Auromind AI (Groq) not configured'})}\n"
+                         return
+
+                    completion = groq_client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": "You are Auromind, a helpful AI assistant."},
+                            {"role": "user", "content": request.message}
+                        ],
+                        model="llama-3.1-8b-instant",
+                        temperature=0.7,
+                        stream=True,
+                    )
+
+                    for chunk in completion:
+                        if chunk.choices[0].delta.content:
+                             yield f"{json.dumps({'content': chunk.choices[0].delta.content})}\n"
+                             await asyncio.sleep(0)
                         
             except Exception as e:
                 yield f"{json.dumps({'error': str(e)})}\n"
