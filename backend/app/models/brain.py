@@ -16,6 +16,7 @@ class BrainEntry(Base):
     
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     workspace_id = Column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"))
+    title = Column(String(255))
     content = Column(Text, nullable=False)
     content_type = Column(String(50))  # text, pdf
     # Embedding vector - 1536 dimensions for OpenAI embeddings

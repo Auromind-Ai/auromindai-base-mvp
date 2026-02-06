@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '@/context/SettingsContext';
+import { getWorkspace } from '@/lib/auth';
 
 // Typewriter Component for AI Responses
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
@@ -78,8 +79,13 @@ export default function AuromindAIPage() {
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
     const messagesEndRef = useRef(null);
+
     const abortControllerRef = useRef(null);
     const lastTypedTextRef = useRef('');
+
+    // Get workspace ID for RAG
+    const workspace = getWorkspace();
+    const workspaceId = workspace?.id;
 
     useEffect(() => {
         setMounted(true);
@@ -125,7 +131,11 @@ export default function AuromindAIPage() {
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg, model: selectedModel }),
+                body: JSON.stringify({
+                    message: userMsg,
+                    model: selectedModel,
+                    workspace_id: workspaceId
+                }),
                 signal: abortControllerRef.current.signal
             });
 
@@ -255,7 +265,11 @@ export default function AuromindAIPage() {
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: newContent, model: selectedModel }),
+                body: JSON.stringify({
+                    message: newContent,
+                    model: selectedModel,
+                    workspace_id: workspaceId
+                }),
                 signal: abortControllerRef.current.signal
             });
 
@@ -329,7 +343,11 @@ export default function AuromindAIPage() {
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg, model: selectedModel }),
+                body: JSON.stringify({
+                    message: userMsg,
+                    model: selectedModel,
+                    workspace_id: workspaceId
+                }),
                 signal: abortControllerRef.current.signal
             });
 

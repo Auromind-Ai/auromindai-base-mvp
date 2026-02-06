@@ -13,6 +13,9 @@ import google.generativeai as genai
 from app.services.embedding_service import get_embedding_service
 from app.services.vector_store_service import get_vector_store
 from app.utils.text_chunker import TextChunker
+from sentence_transformers import CrossEncoder
+import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,15 @@ class RAGService:
         self.vector_store = get_vector_store()
         self.chunker = TextChunker(chunk_size=1500, chunk_overlap=200)
         
+        # Initialize Re-ranker (Cross-Encoder)
+        try:
+            logger.info("Loading Cross-Encoder model for RAG re-ranking...")
+            self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+            logger.info("Cross-Encoder loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load Cross-Encoder: {e}")
+            self.cross_encoder = None
+
         # Configure Gemini
         api_key = os.getenv("GOOGLE_API_KEY")
         if api_key:
@@ -123,6 +135,7 @@ class RAGService:
         brain_entry = BrainEntry(
             id=parent_id,
             workspace_id=workspace_id,
+            title=title,
             content=text[:5000],  # Store summary/preview only
             content_type=content_type,
             embedding=None,  # Embeddings are in ChromaDB
@@ -150,35 +163,54 @@ class RAGService:
         min_score: float = 0.1
     ) -> List[Dict[str, Any]]:
         """
-        Perform semantic search across the knowledge base.
-        
-        Args:
-            workspace_id: Workspace identifier
-            query: Search query
-            top_k: Number of results to return
-            min_score: Minimum similarity score threshold
-            
-        Returns:
-            List of search results with content and metadata
+        Perform semantic search with Cross-Encoder Re-ranking.
         """
         if not query or len(query.strip()) < 3:
-            raise ValueError("Query too short")
+            return []
         
-        # Generate query embedding
+        # 1. Retrieve MORE candidates for re-ranking (Recall Phase)
+        initial_top_k = top_k * 5  # Fetch 5x more results
+        
         query_embedding = self.embedding_service.embed_query(query)
         
-        # Search vector store
         results = self.vector_store.search(
             workspace_id=workspace_id,
             query_embedding=query_embedding,
-            top_k=top_k
+            top_k=initial_top_k
         )
         
-        # Filter by minimum score
-        filtered_results = [r for r in results if r["score"] >= min_score]
+        if not results:
+            return []
+            
+        # 2. Re-rank results (Precision Phase)
+        return self._re_rank(query, results, top_k)
+
+    def _re_rank(self, query: str, results: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
+        """Sort results using Cross-Encoder."""
+        if not self.cross_encoder or not results:
+            return results[:top_k]
+            
+        # Prepare pairs for cross-encoder
+        pairs = [[query, r["document"]] for r in results]
         
-        return filtered_results
-    
+        try:
+            # Predict scores
+            scores = self.cross_encoder.predict(pairs)
+            
+            # Attach new scores and sort
+            for i, result in enumerate(results):
+                result["re_rank_score"] = float(scores[i])
+                
+            # Sort by re-rank score (descending)
+            results.sort(key=lambda x: x["re_rank_score"], reverse=True)
+            
+            # Return top_k
+            return results[:top_k]
+            
+        except Exception as e:
+            logger.error(f"Re-ranking failed: {e}")
+            return results[:top_k]
+
     def query(
         self,
         workspace_id: str,
@@ -187,65 +219,151 @@ class RAGService:
         include_sources: bool = True
     ) -> Dict[str, Any]:
         """
-        Answer a question using RAG.
-        
-        Steps:
-        1. Search for relevant context
-        2. Build prompt with context
-        3. Generate answer using LLM
-        4. Return answer with sources
-        
-        Args:
-            workspace_id: Workspace identifier
-            question: User's question
-            top_k: Number of context chunks to retrieve
-            include_sources: Whether to include source citations
-            
-        Returns:
-            Answer with sources and confidence
+        Agentic RAG Query Loop.
+        1. Plan: Decompose query if complex.
+        2. Execute: Run re-ranked searches.
+        3. Answer: Synthesize results.
         """
-        # Retrieve relevant context
-        search_results = self.search(
-            workspace_id=workspace_id,
-            query=question,
-            top_k=top_k
-        )
         
-        if not search_results:
+        # Step 1: Agentic Planning - Decompose the question
+        sub_queries = self._decompose_query(question)
+        logger.info(f"Agent decomposed '{question}' into: {sub_queries}")
+        
+        all_results = []
+        seen_content = set()
+        
+        # Step 2: Agentic Execution - Search for each sub-query
+        for sub_q in sub_queries:
+            results = self.search(workspace_id=workspace_id, query=sub_q, top_k=top_k)
+            
+            for res in results:
+                # Deduplicate based on content hash or simplified content
+                # Using snippet as simple key for now to avoid duplicates
+                content_key = res["document"][:50]
+                if content_key not in seen_content:
+                    seen_content.add(content_key)
+                    all_results.append(res)
+        
+        # If no results from any query
+        if not all_results:
             return {
                 "answer": "I don't have enough information in my knowledge base to answer this question. Please add relevant documents to the Brain first.",
                 "sources": [],
                 "confidence": 0.0,
                 "context_used": False
             }
+            
+        # Limit total context window
+        final_context_results = all_results[:top_k * 2]  # Allow slightly more context for merged queries
         
-        # Build context from search results
+        # Build context
         context_parts = []
         sources = []
         
-        for i, result in enumerate(search_results):
+        for i, result in enumerate(final_context_results):
             context_parts.append(f"[Source {i+1}]: {result['document']}")
             sources.append({
                 "title": result["metadata"].get("title", "Unknown"),
                 "content_snippet": result["document"][:200] + "..." if len(result["document"]) > 200 else result["document"],
-                "score": result["score"]
+                "score": result.get("re_rank_score", result.get("score", 0))
             })
         
         context = "\n\n".join(context_parts)
         
-        # Generate answer using Gemini
+        # Step 3: Self-Correction / Grading
+        # Check if the context is actually relevant to the question
+        is_relevant = self._grade_documents(question, context)
+        
+        if not is_relevant:
+            logger.warning(f"Self-Correction: Context deemed irrelevant for query '{question}'")
+            # Fallback: Try one more search with simplified keywords or return honesty
+            # For this MVP, we will return a polite "I don't know" to prevent hallucination.
+            return {
+                "answer": "I searched your knowledge base, but I couldn't find specific information to answer that question accurately. Please try rephrasing or add more documents.",
+                "sources": [],
+                "confidence": 0.1,
+                "context_used": False,
+                "chunks_retrieved": len(final_context_results)
+            }
+
+        # Step 4: Synthesis
         answer = self._generate_answer(question, context)
         
-        # Calculate average confidence from search scores
-        avg_score = sum(r["score"] for r in search_results) / len(search_results)
-        
+        # Calculate confidence
+        avg_score = 0
+        if final_context_results:
+             # Normalize re-rank scores (usually logits) to 0-1 for display if needed, 
+             # but here we just take the raw or sigmoid. 
+             # For simplicity, we just use the first available score.
+             scores = [r.get("re_rank_score", r.get("score", 0)) for r in final_context_results]
+             avg_score = sum(scores) / len(scores)
+
         return {
             "answer": answer,
             "sources": sources if include_sources else [],
             "confidence": round(avg_score, 2),
             "context_used": True,
-            "chunks_retrieved": len(search_results)
+            "chunks_retrieved": len(final_context_results)
         }
+
+    def _decompose_query(self, question: str) -> List[str]:
+        """Use LLM to break down complex questions."""
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash-lite')
+            prompt = f"""You are an AI Helper. Break down the user's question into 1 to 3 atomic search queries to find the best information.
+            
+            Rules:
+            1. Return ONLY a JSON list of strings.
+            2. If the question is simple, return a list with just the original question.
+            3. Remove unnecessary words like "please", "tell me".
+            
+            User Question: "{question}"
+            
+            Output (JSON):"""
+            
+            response = model.generate_content(prompt)
+            text = response.text.strip()
+            # Clean up markdown code blocks if present
+            if text.startswith("```"):
+                text = text.replace("```json", "").replace("```", "")
+            
+            queries = json.loads(text)
+            if isinstance(queries, list):
+                return queries[:3] # Limit to 3 max
+            return [question]
+            
+        except Exception as e:
+            logger.warning(f"Query decomposition failed: {e}. Using original question.")
+            return [question]
+
+    def _grade_documents(self, question: str, context: str) -> bool:
+        """
+        Self-Correction Step: Grade if the retrieved documents actually answer the question.
+        Returns True if relevant, False if irrelevant/hallucination risk.
+        """
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash-lite')
+            prompt = f"""You are a Grader. 
+            
+            User Question: "{question}"
+            
+            Retrieved Documents:
+            {context}
+            
+            Task: Does the information in the documents contain the answer to the user's question? 
+            Return ONLY "yes" or "no".
+            
+            Decision:"""
+            
+            response = model.generate_content(prompt)
+            decision = response.text.strip().lower()
+            
+            logger.info(f"Grader decision for '{question}': {decision}")
+            
+            return "yes" in decision
+        except Exception as e:
+            logger.error(f"Grading failed: {e}")
+            return True # Fallback to lenient if grader fails
     
     def _generate_answer(self, question: str, context: str) -> str:
         """Generate answer using Gemini with retrieved context."""
