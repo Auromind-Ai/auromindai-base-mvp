@@ -151,7 +151,7 @@ async def chat_endpoint(request: ChatRequest):
                         yield f"{json.dumps({'error': f'Gemini API Error: {str(e)}'})}\n"
 
                         
-                elif request.model == "auromind":
+                elif request.model == "auromind" or request.model == "llama":
                     # Use Groq API (formerly Auromind Colab)
                     if not groq_client:
                          yield f"{json.dumps({'error': 'Auromind AI (Groq) not configured'})}\n"
