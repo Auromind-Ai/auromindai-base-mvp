@@ -18,7 +18,7 @@ I have updated the inner "Brain" instructions with these rules:
 ## 🛡️ Layer 3: Mathematical Accuracy (Temperature 0.1)
 I have lowered the "Temperature" of the AI models from **0.5 to 0.1**.
 *   **Temperature 0.1 (Current)**: The AI is very stable, predictable, and literal. It chooses the most fact-aligned words.
-*   **Temperature 0.9**: High "creativity," but high risk of making things up. 
+*   **Temperature 0.9**: High "creativity," but high risk of making things up. .
 
 ---
 
