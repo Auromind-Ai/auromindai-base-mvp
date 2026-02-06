@@ -19,7 +19,7 @@ uvicorn app.main:app --reload --port 8000
 ## 3. How to Submit Code 📝
 **Do NOT push directly to `main`.** 
 
-As a developer, **YOU** must create your own branch:
+
 
 1.  **Create YOUR Branch** (name it after what you are building):
     ```bash
@@ -32,5 +32,5 @@ As a developer, **YOU** must create your own branch:
     git push origin feature-my-new-login-page
     ```
 3.  **Go to GitHub:** Click **"Create Pull Request"**.
-    *   This sends your code to Santhosh for review.
-    *   Once approved, Santhosh will merge it into `main`.
+    *   **YOU** (the developer) create this request.
+    *   **The Team Lead** will review and merge it.
