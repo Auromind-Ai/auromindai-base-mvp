@@ -13,6 +13,14 @@ DATABASE_URL=postgresql://54674d3e1d0e411ba46e33e704bf13ed74fab9e911c34e6b1c569e
 
 **Note:** This allows you to work immediately without installing PostgreSQL locally.
 
+### 2. Add AI Keys (Required)
+Add these keys to your `backend/.env` file so the AI works:
+```bash
+GOOGLE_API_KEY=your_gemini_key
+GROQ_API_KEY=your_groq_key
+```
+*(Ask the team lead for these keys if you don't have them)*
+
 ## 2. Python Dependencies
 We added `psycopg2-binary` and `pgvector` for the new database.
 Run this inside `backend/`:
