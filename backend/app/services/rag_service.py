@@ -406,7 +406,7 @@ USER ASKED: {question}
 
 ANSWER (be direct, friendly, and use the business info above):"""
 
-            if (model_name == "auromind" or model_name == "groq") and self.groq_client:
+            if (model_name == "auromind" or model_name == "groq" or model_name == "llama") and self.groq_client:
                 # Use Groq (Llama 3)
                 completion = self.groq_client.chat.completions.create(
                     messages=[
