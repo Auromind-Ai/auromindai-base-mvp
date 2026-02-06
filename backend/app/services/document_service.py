@@ -166,8 +166,6 @@ class DocumentService:
     def extract_text_from_excel(self, file_content: bytes) -> str:
         """
         Extract text from an Excel (.xlsx) file.
-
-        Converts sheets, rows, and columns into readable text.
         """
         try:
             excel_file = io.BytesIO(file_content)
@@ -181,19 +179,27 @@ class DocumentService:
                 if df.empty:
                     continue
 
-                text_parts.append(f"[Sheet: {sheet_name}]")
-
                 # Replace NaN with empty strings
                 df = df.fillna("")
 
-                # Convert each row to a readable line
-                for _, row in df.iterrows():
-                    row_text = " | ".join(str(cell) for cell in row if str(cell).strip())
-                    if row_text:
-                        text_parts.append(row_text)
+                headers = [str(col).strip() for col in df.columns]
+
+                text_parts.append(f"[Sheet: {sheet_name}]")
+
+                # Faster than iterrows()
+                for row in df.itertuples(index=False):
+                    pairs = []
+
+                    for header, value in zip(headers, row):
+                        value = str(value).strip()
+                        if value:
+                            pairs.append(f"{header}: {value}")
+
+                    if pairs:
+                        text_parts.append(", ".join(pairs))
 
             final_text = "\n".join(text_parts)
-
+            print(final_text)
             if not final_text.strip():
                 raise ValueError("Excel file contains no readable data")
 
@@ -202,35 +208,40 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Excel extraction failed: {e}")
             raise ValueError(f"Could not extract text from Excel file: {e}")
+
         
     def extract_text_from_csv(self, file_content: bytes) -> str:
-        """
-        Extract text from a CSV file.
-        """
+       
         try:
-            csv_file = io.BytesIO(file_content)
+            import csv
 
-            # Try utf-8 first, fallback if needed
             try:
-                df = pd.read_csv(csv_file)
+                text_data = file_content.decode("utf-8")
             except UnicodeDecodeError:
-                csv_file.seek(0)
-                df = pd.read_csv(csv_file, encoding="latin-1")
+                text_data = file_content.decode("latin-1")
 
-            if df.empty:
-                raise ValueError("CSV file is empty")
+            reader = csv.reader(text_data.splitlines())
 
-            df = df.fillna("")
+            rows = list(reader)
+            if len(rows) < 2:
+                raise ValueError("CSV file has no data rows")
+
+            headers = [h.strip() for h in rows[0]]
 
             text_parts = []
 
-            for _, row in df.iterrows():
-                row_text = " | ".join(str(cell) for cell in row if str(cell).strip())
-                if row_text:
-                    text_parts.append(row_text)
+            for row in rows[1:]:
+                pairs = []
+                for header, value in zip(headers, row):
+                    value = value.strip()
+                    if value:
+                        pairs.append(f"{header}: {value}")
+
+                if pairs:
+                    text_parts.append(", ".join(pairs))
 
             final_text = "\n".join(text_parts)
-
+            print(final_text)
             if not final_text.strip():
                 raise ValueError("CSV file contains no readable data")
 
@@ -239,7 +250,6 @@ class DocumentService:
         except Exception as e:
             logger.error(f"CSV extraction failed: {e}")
             raise ValueError(f"Could not extract text from CSV file: {e}")
-
 
 class URLScraperService:
     """
