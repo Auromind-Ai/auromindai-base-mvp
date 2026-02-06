@@ -21,6 +21,9 @@ uvicorn app.main:app --reload --port 8000
 
 
 
+
+
+
 1.  **Create YOUR Branch** (name it after what you are building):
     ```bash
     git checkout -b feature-my-new-login-page
@@ -32,5 +35,5 @@ uvicorn app.main:app --reload --port 8000
     git push origin feature-my-new-login-page
     ```
 3.  **Go to GitHub:** Click **"Create Pull Request"**.
-    *   **YOU** (the developer) create this request.
-    *   **The Team Lead** will review and merge it.
+    *   This sends your code  for review.
+    *   Once approved, will merge it into `main`.
