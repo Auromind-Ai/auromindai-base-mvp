@@ -101,55 +101,33 @@ async def chat_endpoint(request: ChatRequest):
                             try:
                                 from app.services.rag_service import get_rag_service
                                 rag_service = get_rag_service()
-                                search_results = rag_service.search(
+                                
+                                # Use the new Agentic Query method
+                                rag_response = rag_service.query(
                                     workspace_id=request.workspace_id,
-                                    query=request.message,
+                                    question=request.message,
                                     top_k=5,
-                                    min_score=0.1
+                                    include_sources=True
                                 )
                                 
-                                if search_results:
-                                    context_parts = []
-                                    for i, result in enumerate(search_results):
-                                        context_parts.append(f"[Source {i+1}]: {result['document']}")
-                                        rag_sources.append({
-                                            "title": result["metadata"].get("title", "Knowledge Base"),
-                                            "score": round(result["score"], 2)
-                                        })
-                                    
-                                    context = "\n\n".join(context_parts)
-                                    prompt = f"""You are a helpful assistant for the user's business: ChatterGlow (a voice chat platform).
+                                # Send sources if available
+                                if rag_response.get("sources"):
+                                     rag_sources = rag_response["sources"]
+                                     yield f"{json.dumps({'sources': rag_sources})}\n"
+                                
+                                # Stream the answer (since query() returns full text, we fake stream it or just send it)
+                                # Ideally query() should support streaming, but for now we just yield the full answer.
+                                # To be smoother, we can yield it in chunks if we wanted, but one chunk is fine.
+                                yield f"{json.dumps({'content': rag_response['answer']})}\n"
+                                return # Stop here, we handled the response via RAG
 
-STRICT RULES - YOU MUST FOLLOW:
-1. ONLY answer based on the BUSINESS INFO below - this describes THEIR product/service
-2. NEVER use your general knowledge - ONLY use the context provided
-3. Do NOT ask questions - just answer based on what you have
-4. When they ask "what is voicechatting" or similar, describe what THEIR platform offers
-5. When they ask for links, mention it's from their website (ChatterGlow)
-6. Be friendly and helpful
-
-THEIR BUSINESS INFO:
-{context}
-
-USER QUESTION: {request.message}
-
-ANSWER (use ONLY the info above, be friendly):"""
-                                else:
-                                    # No RAG context found - tell them to add data
-                                    prompt = f"""The user asked: "{request.message}"
-
-You are a business assistant but the user hasn't uploaded relevant information about this topic to their Brain/Knowledge Base yet.
-
-Politely tell them:
-"I don't have information about that in your knowledge base yet. To help you better, please:
-1. Go to the Brain page
-2. Upload your website or documents
-3. Then I can answer questions about YOUR business!"
-
-Be friendly and helpful."""
                             except Exception as rag_error:
-                                print(f"RAG retrieval failed: {rag_error}")
-                                # Continue without RAG context
+                                print(f"RAG Agentic Loop failed: {rag_error}. Fallback to direct generation.")
+                                # Fallback logic below (standard prompt)
+                                prompt = request.message
+                        else:
+                             prompt = request.message
+
                         
                         response = model.generate_content(prompt, stream=True)
                         
