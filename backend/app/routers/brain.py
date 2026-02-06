@@ -346,7 +346,7 @@ async def list_entries(
         
         # Get vector store stats
         rag_service = get_rag_service()
-        stats = rag_service.get_stats(workspace_id)
+        stats = rag_service.get_stats(db, workspace_id)
         
         result_entries = []
         for entry in entries:
@@ -407,6 +407,7 @@ async def search_knowledge(
     try:
         rag_service = get_rag_service()
         results = rag_service.search(
+            db=db,
             workspace_id=request.workspace_id,
             query=request.query,
             top_k=request.top_k
@@ -449,6 +450,7 @@ async def query_knowledge(
     try:
         rag_service = get_rag_service()
         result = rag_service.query(
+            db=db,
             workspace_id=request.workspace_id,
             question=request.question,
             top_k=request.top_k,
@@ -474,7 +476,7 @@ async def get_brain_stats(
     """
     try:
         rag_service = get_rag_service()
-        stats = rag_service.get_stats(workspace_id)
+        stats = rag_service.get_stats(db, workspace_id)
         
         # Count entries in SQL
         entry_count = db.query(BrainEntry).filter(

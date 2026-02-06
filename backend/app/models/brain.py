@@ -31,3 +31,15 @@ class BrainEntry(Base):
     # Async Processing Status
     status = Column(String(20), default="completed")  # pending, processing, completed, failed
     error_message = Column(Text, nullable=True)
+
+class BrainChunk(Base):
+    __tablename__ = "brain_chunks"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    entry_id = Column(String(36), ForeignKey("brain.id", ondelete="CASCADE"))
+    workspace_id = Column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    content = Column(Text, nullable=False)
+    embedding = Column(Vector(384))
+    chunk_index = Column(Integer)
+    metadata_json = Column(Text) # JSON string for flexibility
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

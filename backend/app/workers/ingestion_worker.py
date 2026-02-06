@@ -50,28 +50,8 @@ async def process_document_background(
         
         # Ingest to RAG
         rag_service = get_rag_service()
-        # We need to modify ingest_document to accept an EXISTING ID or handle it
-        # Since ingest_document creates a NEW ID currently, we should refactor it OR
-        # just let it do its work and we update our entry. 
-        # Actually, standard pattern: logic is in service. 
         
-        # For now, we will call a modified ingest method or manually do the steps from service
-        # to ensure we use the SAME entry_id
-        
-        # HACK: For MVP Skeleton, we will call the existing ingest_document 
-        # But we need to update the EXISTING entry that we created in the endpoint.
-        # The existing ingest_document creates a NEW entry. 
-        # Let's fix this by deleting the placeholder and letting ingest_document create the real one?
-        # NO, that changes the ID returned to user.
-        
-        # Better: We will MANUALLY update the entry here with the result.
-        
-        # Step A: Chunking & Embedding (Simulating logic from rag_service)
-        # Note: In a real refactor, we would pass entry_id to rag_service.ingest_document
-        
-        # Temporary workaround: We update the rag_service to accept an optional entry_id?
-        # Yes, let's assume we will update rag_service next.
-        
+        # We pass the existing_entry_id to update the record created by the API
         result = rag_service.ingest_document(
             db=db,
             workspace_id=workspace_id,
