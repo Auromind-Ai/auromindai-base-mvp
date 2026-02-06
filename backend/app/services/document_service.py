@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 import io
 import logging
 import re
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +112,43 @@ class DocumentService:
         except Exception as e:
             logger.error(f"TXT extraction failed: {e}")
             raise ValueError(f"Could not read text file: {e}")
+
+    def extract_text_from_excel(self, file_content: bytes) -> str:
+        """
+        Extract text from an Excel file (.xlsx) using Pandas.
+        """
+        try:
+            # Read all sheets
+            excel_data = pd.read_excel(io.BytesIO(file_content), sheet_name=None)
+            text_parts = []
+            
+            for sheet_name, df in excel_data.items():
+                text_parts.append(f"--- Sheet: {sheet_name} ---")
+                # Convert dataframe to string with pipe separator
+                sheet_text = df.to_csv(sep="|", index=False)
+                text_parts.append(sheet_text)
+            
+            return "\n\n".join(text_parts)
+        except Exception as e:
+            logger.error(f"Excel extraction failed: {e}")
+            raise ValueError(f"Could not parse Excel file: {str(e)}")
+
+    def extract_text_from_csv(self, file_content: bytes) -> str:
+        """
+        Extract text from a CSV file using Pandas.
+        """
+        try:
+            # Detect encoding is handled by pandas with fallback if needed
+            try:
+                df = pd.read_csv(io.BytesIO(file_content))
+            except UnicodeDecodeError:
+                df = pd.read_csv(io.BytesIO(file_content), encoding="latin-1")
+            
+            # Convert to pipe-separated format for AI context
+            return df.to_csv(sep="|", index=False)
+        except Exception as e:
+            logger.error(f"CSV extraction failed: {e}")
+            raise ValueError(f"Could not parse CSV file: {str(e)}")
     
     def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
@@ -140,6 +178,12 @@ class DocumentService:
         elif filename_lower.endswith((".txt", ".md")):
             text = self.extract_text_from_txt(file_content)
             content_type = "txt"
+        elif filename_lower.endswith(".xlsx"):
+            text = self.extract_text_from_excel(file_content)
+            content_type = "xlsx"
+        elif filename_lower.endswith(".csv"):
+            text = self.extract_text_from_csv(file_content)
+            content_type = "csv"
         else:
             raise ValueError(f"Unsupported file type: {filename}")
         

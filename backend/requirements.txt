@@ -3,6 +3,7 @@ uvicorn
 sqlalchemy
 pydantic
 python-dotenv
+pandas
 google-generativeai
 chromadb
 sentence-transformers
