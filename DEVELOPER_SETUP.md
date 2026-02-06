@@ -16,10 +16,9 @@ DATABASE_URL=postgresql://54674d3e1d0e411ba46e33e704bf13ed74fab9e911c34e6b1c569e
 ### 2. Add AI Keys (Required)
 Add these keys to your `backend/.env` file so the AI works:
 ```bash
-GOOGLE_API_KEY=your_gemini_key_here
+GOOGLE_API_KEY=
 GROQ_API_KEY=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
 ```
-*(Ask the team lead for the Google key if you don't have it)*
 
 ## 2. Python Dependencies
 We added `psycopg2-binary` and `pgvector` for the new database.
