@@ -1,33 +1,15 @@
 # 🚀 Developer Setup Guide
 
-## 1. Cloud Database Connection (IMPORTANT)
-We have moved to a shared **Cloud PostgreSQL Database** so the entire team sees the same data.
-
-### Action Required:
-1.  Create or open your `backend/.env` file.
-2.  Add/Update the `DATABASE_URL` with this connection string:
-
+## 1. One-Click Setup 🚀
+Run this command from the root folder:
 ```bash
-DATABASE_URL=postgresql://54674d3e1d0e411ba46e33e704bf13ed74fab9e911c34e6b1c569e07097bc3b8:sk_pPZlQuZROizt_ZNqg2p0Y@db.prisma.io:5432/postgres?sslmode=require
+python3 backend/setup_dev.py
 ```
+*   ✅ Creates your `.env` file automatically (with Shared Cloud DB & Keys).
+*   ✅ Installs all required libraries (`pip install`).
+*   ✅ Verifies the connection to the Cloud Database.
 
-**Note:** This allows you to work immediately without installing PostgreSQL locally.
-
-### 2. Add AI Keys (Required)
-Add these keys to your `backend/.env` file so the AI works:
-```bash
-GOOGLE_API_KEY=
-GROQ_API_KEY=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
-```
-
-## 2. Python Dependencies
-We added `psycopg2-binary` and `pgvector` for the new database.
-Run this inside `backend/`:
-
-```bash
-pip install -r requirements.txt
-```
-
+## 2. Run the Server
 ## 3. Run the Server
 ```bash
 uvicorn app.main:app --reload --port 8000
