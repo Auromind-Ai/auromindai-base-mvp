@@ -513,7 +513,7 @@ export default function AuromindAIPage() {
                                                 onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                                 className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold text-[#e8e8e8] hover:bg-white/5 transition-colors border border-white/5"
                                             >
-                                                {selectedModel === 'auto' ? 'Auto' : selectedModel === 'auromind' ? 'Auromind AI' : 'Gemini'}
+                                                {selectedModel === 'auto' ? 'Auto' : selectedModel === 'auromind' ? 'Auromind AI ⚡' : 'Auromind Pro 🧠'}
                                                 <ChevronDown size={12} className={`transition-transform text-[#8a8a8a] ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
                                             </button>
                                             <AnimatePresence>
@@ -804,7 +804,7 @@ export default function AuromindAIPage() {
                     className="fixed bottom-0 left-0 md:left-[260px] right-0 bg-gradient-to-t from-[var(--notion-bg)] via-[var(--notion-bg)]/95 to-transparent px-4 md:px-8 pb-8 pt-12 z-20 pointer-events-none"
                 >
                     <div className="max-w-2xl mx-auto pointer-events-auto">
-                        <div className="bg-[var(--card)] backdrop-blur-2xl rounded-2xl border border-[var(--notion-border)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group focus-within:border-indigo-500/40 transition-all duration-500">
+                        <div className="bg-[var(--card)] backdrop-blur-2xl rounded-2xl border border-[var(--notion-border)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] group focus-within:border-indigo-500/40 transition-all duration-500">
                             <div className="px-5 pt-4">
                                 <button className="flex items-center gap-1.5 text-[13px] text-[#8a8a8a] hover:text-white transition-colors">
                                     <Sparkles size={14} />
@@ -832,7 +832,7 @@ export default function AuromindAIPage() {
                                             onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                             className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] text-[#e8e8e8] hover:bg-[#333] transition-colors"
                                         >
-                                            {selectedModel === 'auto' ? 'Auto' : selectedModel === 'auromind' ? 'Auromind AI' : 'Gemini'}
+                                            {selectedModel === 'auto' ? 'Auto' : selectedModel === 'auromind' ? 'Auromind AI ⚡' : 'Auromind Pro 🧠'}
                                             <ChevronDown size={12} className={`transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
                                         </button>
                                         <AnimatePresence>
@@ -877,13 +877,8 @@ export default function AuromindAIPage() {
                                                         }}
                                                         className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#252525] transition-colors text-left ${selectedModel === 'gemini' ? 'bg-[#252525]' : ''}`}
                                                     >
-                                                        <svg className="w-[18px] h-[18px]" viewBox="0 0 32 32" fill="none">
-                                                            <path d="M16 4L4 10L16 16L28 10L16 4Z" fill="#4285F4" />
-                                                            <path d="M4 16L16 22L28 16L28 10L16 16L4 10L4 16Z" fill="#34A853" />
-                                                            <path d="M4 22L16 28L28 22L28 16L16 22L4 16L4 22Z" fill="#FBBC04" />
-                                                            <path d="M16 28L28 22L28 16" fill="#EA4335" opacity="0.7" />
-                                                        </svg>
-                                                        <span className="flex-1 text-[14px] font-medium text-[#e8e8e8]">Gemini</span>
+                                                        <Sparkles size={18} className="text-purple-400" />
+                                                        <span className="flex-1 text-[14px] font-medium text-[#e8e8e8]">Auromind Pro</span>
                                                         {selectedModel === 'gemini' && <Check size={16} className="text-indigo-400" />}
                                                     </button>
                                                 </motion.div>

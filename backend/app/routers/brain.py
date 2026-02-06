@@ -13,6 +13,11 @@ from app.database import get_db
 from app.services.rag_service import get_rag_service
 from app.services.document_service import get_document_service, get_url_scraper
 from app.models.brain import BrainEntry
+from app.workers.ingestion_worker import process_document_background
+import uuid
+import os
+import shutil
+
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +76,12 @@ class CrawlWebsiteRequest(BaseModel):
 
 @router.post("/ingest/document")
 async def ingest_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     workspace_id: str = Form(...),
     db: Session = Depends(get_db)
 ):
+
     """
     Upload and index a document (PDF, DOCX, TXT).
     
@@ -97,26 +104,50 @@ async def ingest_document(
                 detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
             )
         
-        # Read file content
-        content = await file.read()
+        # Create entry ID and temp path
+        entry_id = str(uuid.uuid4())
+        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
         
-        # Process document
-        doc_service = get_document_service()
-        doc_result = doc_service.process_file(content, file.filename)
+        # Save file to temp
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Get file size
+        file_size = os.path.getsize(temp_file_path)
         
-        # Ingest into RAG system
-        rag_service = get_rag_service()
-        result = rag_service.ingest_document(
-            db=db,
+        # Create initial DB entry (PENDING)
+        new_entry = BrainEntry(
+            id=entry_id,
             workspace_id=workspace_id,
-            text=doc_result["text"],
             title=file.filename,
-            content_type=doc_result["content_type"],
-            source=file.filename,
-            metadata={"original_size": doc_result["size_bytes"]}
+            content="Processing...", # Placeholder
+            content_type=file_ext.replace(".", ""),
+            status="pending",
+            embedding=None
+        )
+        db.add(new_entry)
+        db.commit()
+        
+        # Trigger Background Task
+        background_tasks.add_task(
+            process_document_background,
+            entry_id=entry_id,
+            workspace_id=workspace_id,
+            file_path=temp_file_path,
+            original_filename=file.filename,
+            content_type=file_ext.replace(".", ""),
+            file_size=file_size
         )
         
-        return result
+        return {
+            "status": "pending",
+            "entry_id": entry_id,
+            "message": "File upload accepted. Processing in background.",
+            "original_filename": file.filename
+        }
+
         
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -161,6 +192,29 @@ async def ingest_url(
     except Exception as e:
         logger.error(f"URL ingestion failed: {e}")
         raise HTTPException(status_code=500, detail=f"URL ingestion failed: {str(e)}")
+
+
+@router.get("/ingest/status/{entry_id}")
+async def get_ingestion_status(
+    entry_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Check the status of a background ingestion job.
+    """
+    entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
+    
+    if not entry:
+        raise HTTPException(status_code=404, detail="Ingestion job not found")
+        
+    return {
+        "id": entry.id,
+        "status": entry.status,
+        "error_message": entry.error_message,
+        "created_at": entry.created_at,
+        "title": entry.title
+    }
+
 
 
 @router.post("/ingest/text")

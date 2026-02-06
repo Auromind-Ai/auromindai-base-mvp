@@ -21,7 +21,13 @@ class BrainEntry(Base):
     content_type = Column(String(50))  # text, pdf
     # Embedding vector - 1536 dimensions for OpenAI embeddings
     # embedding = Column(Vector(1536)) if Vector else Column(Text)
-    embedding = Column(Text)  # Will be converted to Vector after pgvector setup
+    # Embedding vector - 1536 dimensions for OpenAI embeddings (768 for Gemini/Llama)
+    embedding = Column(Vector(768)) # Using 768 for Gemini/Llama3
+    # embedding = Column(Text)  # Fallback removed
     version = Column(Integer, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Async Processing Status
+    status = Column(String(20), default="completed")  # pending, processing, completed, failed
+    error_message = Column(Text, nullable=True)
