@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 import io
 import logging
 import re
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,11 @@ class DocumentService:
     - PDF (using PyPDF2)
     - DOCX (using python-docx)
     - TXT (plain text)
+    - Excel (.xlsx) (using openpyxl via pandas)
+    - CSV (using pandas)
     """
     
-    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md"}
+    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".xlsx", ".csv"}
     MAX_FILE_SIZE_MB = 10
     
     def extract_text_from_pdf(self, file_content: bytes) -> str:
@@ -140,6 +143,12 @@ class DocumentService:
         elif filename_lower.endswith((".txt", ".md")):
             text = self.extract_text_from_txt(file_content)
             content_type = "txt"
+        elif filename_lower.endswith(".xlsx"):
+            text = self.extract_text_from_excel(file_content)
+            content_type = "xlsx"
+        elif filename_lower.endswith(".csv"):
+            text = self.extract_text_from_csv(file_content)
+            content_type = "csv"
         else:
             raise ValueError(f"Unsupported file type: {filename}")
         
@@ -154,6 +163,82 @@ class DocumentService:
             "char_count": len(text),
             "word_count": len(text.split())
         }
+    def extract_text_from_excel(self, file_content: bytes) -> str:
+        """
+        Extract text from an Excel (.xlsx) file.
+
+        Converts sheets, rows, and columns into readable text.
+        """
+        try:
+            excel_file = io.BytesIO(file_content)
+
+            # Read all sheets
+            sheets = pd.read_excel(excel_file, sheet_name=None)
+
+            text_parts = []
+
+            for sheet_name, df in sheets.items():
+                if df.empty:
+                    continue
+
+                text_parts.append(f"[Sheet: {sheet_name}]")
+
+                # Replace NaN with empty strings
+                df = df.fillna("")
+
+                # Convert each row to a readable line
+                for _, row in df.iterrows():
+                    row_text = " | ".join(str(cell) for cell in row if str(cell).strip())
+                    if row_text:
+                        text_parts.append(row_text)
+
+            final_text = "\n".join(text_parts)
+
+            if not final_text.strip():
+                raise ValueError("Excel file contains no readable data")
+
+            return final_text
+
+        except Exception as e:
+            logger.error(f"Excel extraction failed: {e}")
+            raise ValueError(f"Could not extract text from Excel file: {e}")
+        
+    def extract_text_from_csv(self, file_content: bytes) -> str:
+        """
+        Extract text from a CSV file.
+        """
+        try:
+            csv_file = io.BytesIO(file_content)
+
+            # Try utf-8 first, fallback if needed
+            try:
+                df = pd.read_csv(csv_file)
+            except UnicodeDecodeError:
+                csv_file.seek(0)
+                df = pd.read_csv(csv_file, encoding="latin-1")
+
+            if df.empty:
+                raise ValueError("CSV file is empty")
+
+            df = df.fillna("")
+
+            text_parts = []
+
+            for _, row in df.iterrows():
+                row_text = " | ".join(str(cell) for cell in row if str(cell).strip())
+                if row_text:
+                    text_parts.append(row_text)
+
+            final_text = "\n".join(text_parts)
+
+            if not final_text.strip():
+                raise ValueError("CSV file contains no readable data")
+
+            return final_text
+
+        except Exception as e:
+            logger.error(f"CSV extraction failed: {e}")
+            raise ValueError(f"Could not extract text from CSV file: {e}")
 
 
 class URLScraperService:
