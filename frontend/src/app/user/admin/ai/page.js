@@ -134,7 +134,8 @@ export default function AuromindAIPage() {
                 body: JSON.stringify({
                     message: userMsg,
                     model: selectedModel,
-                    workspace_id: workspaceId
+                    workspace_id: workspaceId,
+                    use_rag: true
                 }),
                 signal: abortControllerRef.current.signal
             });

@@ -133,15 +133,6 @@ class RAGService:
             }
             metadatas.append(meta)
         
-        # Store in vector database
-        self.vector_store.add_documents(
-            workspace_id=workspace_id,
-            documents=chunk_texts,
-            embeddings=embeddings,
-            metadatas=metadatas,
-            ids=chunk_ids
-        )
-        
         if existing_entry_id:
             # Update existing entry
             brain_entry = db.query(BrainEntry).filter(BrainEntry.id == existing_entry_id).first()
@@ -149,7 +140,6 @@ class RAGService:
                 brain_entry.title = title
                 brain_entry.content = text[:5000]
                 brain_entry.content_type = content_type
-                # Status will be updated by the worker, but we can set defaults here if needed
         else:
             # Create new entry
             brain_entry = BrainEntry(
@@ -158,11 +148,25 @@ class RAGService:
                 title=title,
                 content=text[:5000],  # Store summary/preview only
                 content_type=content_type,
-                embedding=None,  # Embeddings are in ChromaDB
+                embedding=None,  # Embeddings are in BrainChunk table
                 version=1,
                 status="completed" # Default for synchronous calls
             )
             db.add(brain_entry)
+        
+        # Flush to ensure parent_id is valid for FK
+        db.flush()
+        
+        # Store in vector database
+        self.vector_store.add_documents(
+            db=db,
+            workspace_id=workspace_id,
+            documents=chunk_texts,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            ids=chunk_ids
+        )
+        
         db.commit()
         
         logger.info(f"Ingested document '{title}' with {len(chunks)} chunks")
@@ -178,6 +182,7 @@ class RAGService:
     
     def search(
         self,
+        db: Session,
         workspace_id: str,
         query: str,
         top_k: int = 5,
@@ -195,6 +200,7 @@ class RAGService:
         query_embedding = self.embedding_service.embed_query(query)
         
         results = self.vector_store.search(
+            db=db,
             workspace_id=workspace_id,
             query_embedding=query_embedding,
             top_k=initial_top_k
@@ -234,6 +240,7 @@ class RAGService:
 
     def query(
         self,
+        db: Session,
         workspace_id: str,
         question: str,
         top_k: int = 5,
@@ -256,7 +263,7 @@ class RAGService:
         
         # Step 2: Agentic Execution - Search for each sub-query
         for sub_q in sub_queries:
-            results = self.search(workspace_id=workspace_id, query=sub_q, top_k=top_k)
+            results = self.search(db=db, workspace_id=workspace_id, query=sub_q, top_k=top_k)
             
             for res in results:
                 # Deduplicate based on content hash or simplified content
@@ -390,38 +397,40 @@ class RAGService:
     def _generate_answer(self, question: str, context: str, model_name: str = "gemini") -> str:
         """Generate answer using Gemini or Groq with retrieved context."""
         try:
-            prompt = f"""You are a friendly business assistant. You already KNOW the user's business because they uploaded their information to you.
+            prompt = f"""You are a Fact-Focused Assistant. Your ONLY goal is to provide accurate information based on the documents provided.
 
-CRITICAL RULES:
-1. You MUST answer using the BUSINESS INFO provided below - this IS their business
-2. Do NOT ask clarifying questions - you already have their info
-3. Do NOT say "I need more information" - use what's provided
-4. Be friendly, warm, and helpful like a knowledgeable friend
-5. When they ask "what is my business", describe the business from the info below
+CRITICAL GROUNDING RULES:
+1. ONLY use the information in the "[BUSINESS INFO]" section below.
+2. If the answer is not in the info, say: "I'm sorry, my knowledge base doesn't contain that specific information."
+3. Provide direct excerpts and specific details from the original text wherever possible.
+4. Do NOT hallucinate. Low temperature (0.1) is used to ensure stability.
 
-THE USER'S BUSINESS INFO (answer based on this):
+[BUSINESS INFO]:
 {context}
 
-USER ASKED: {question}
+USER QUESTION: {question}
 
-ANSWER (be direct, friendly, and use the business info above):"""
+CONCISE GROUNDED ANSWER (Literal and Direct):"""
 
             if (model_name == "auromind" or model_name == "groq" or model_name == "llama") and self.groq_client:
-                # Use Groq (Llama 3)
+                # Use Groq (Llama 3) with literal grounding
                 completion = self.groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "You are a helpful business assistant."},
+                        {"role": "system", "content": "You are a highly accurate grounding bot. You never lie or guess."},
                         {"role": "user", "content": prompt}
                     ],
                     model="llama-3.1-8b-instant",
-                    temperature=0.5,
+                    temperature=0.1, # Lower temperature = Less hallucination
                 )
                 return completion.choices[0].message.content
                 
             else:
-                # Default to Gemini
-                model = genai.GenerativeModel('gemini-2.5-flash-lite')
-                response = model.generate_content(prompt)
+                # Default to Gemini with grounding settings
+                model = genai.GenerativeModel('gemini-2.0-flash-lite')
+                response = model.generate_content(
+                    prompt,
+                    generation_config={"temperature": 0.1} # Lower temperature = Less hallucination
+                )
                 return response.text
             
         except Exception as e:
@@ -444,6 +453,7 @@ ANSWER (be direct, friendly, and use the business info above):"""
         
         # Delete from vector store (all chunks with this parent_id)
         self.vector_store.delete_by_metadata(
+            db=db,
             workspace_id=workspace_id,
             where={"parent_id": entry_id}
         )
@@ -458,9 +468,9 @@ ANSWER (be direct, friendly, and use the business info above):"""
         logger.info(f"Deleted entry {entry_id} from workspace {workspace_id}")
         return True
     
-    def get_stats(self, workspace_id: str) -> Dict[str, Any]:
+    def get_stats(self, db: Session, workspace_id: str) -> Dict[str, Any]:
         """Get RAG statistics for a workspace."""
-        vector_stats = self.vector_store.get_collection_stats(workspace_id)
+        vector_stats = self.vector_store.get_collection_stats(db, workspace_id)
         return {
             "workspace_id": workspace_id,
             "indexed_chunks": vector_stats["document_count"],

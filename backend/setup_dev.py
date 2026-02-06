@@ -3,7 +3,8 @@ import subprocess
 import sys
 
 # Shared Team Configuration
-ENV_CONTENT = """DATABASE_URL=postgresql://54674d3e1d0e411ba46e33e704bf13ed74fab9e911c34e6b1c569e07097bc3b8:sk_pPZlQuZROizt_ZNqg2p0Y@db.prisma.io:5432/postgres?sslmode=require
+# Default to Localhost for Developer Safety (Hybrid Strategy)
+ENV_CONTENT = """DATABASE_URL=postgresql://auromind:auromind@localhost:5432/auromind
 GROQ_API_KEY=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
 GOOGLE_API_KEY=
 FRONTEND_URL=http://localhost:3000
