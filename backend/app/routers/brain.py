@@ -76,7 +76,7 @@ async def ingest_document(
     db: Session = Depends(get_db)
 ):
     """
-    Upload and index a document (PDF, DOCX, TXT).
+    Upload and index a document (PDF, DOCX, TXT, Excel, CSV).
     
     The document will be:
     1. Parsed to extract text
@@ -88,7 +88,7 @@ async def ingest_document(
         if not file.filename:
             raise HTTPException(status_code=400, detail="No filename provided")
         
-        allowed_extensions = {".pdf", ".docx", ".doc", ".txt", ".md"}
+        allowed_extensions = {".pdf", ".docx", ".doc", ".txt", ".md",".xlsx",".csv"}
         file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
         
         if file_ext not in allowed_extensions:

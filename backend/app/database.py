@@ -12,7 +12,7 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
-
+print("DB URL:", engine.url)
 def get_db():
     """Dependency for database sessions"""
     db = SessionLocal()

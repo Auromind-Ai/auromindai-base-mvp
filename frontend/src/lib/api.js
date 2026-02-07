@@ -118,7 +118,7 @@ class APIClient {
   // ============== Brain / RAG Methods ==============
 
   /**
-   * Upload a document to the Brain (PDF, DOCX, TXT)
+   * Upload a document to the Brain (PDF, DOCX, TXT,csv, xlsx)
    */
   async uploadDocument(file, workspace_id) {
     const formData = new FormData();

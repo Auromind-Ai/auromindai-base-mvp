@@ -239,7 +239,7 @@ export default function BrainPage() {
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileUpload}
-                        accept=".pdf,.docx,.doc,.txt,.md"
+                        accept=".pdf,.docx,.doc,.txt,.md,.csv,.xlsx"
                         className="hidden"
                         disabled={uploading}
                     />

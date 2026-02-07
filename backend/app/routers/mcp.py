@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException,Body
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
+from app.models import workspace
 from app.routers.auth import get_current_user
 from app.services.mcp_service import MCPService
 from typing import Dict, Any, Optional
@@ -83,19 +84,22 @@ async def override_decision(
 @router.get("/rules")
 async def get_rules(
     workspace_id: str,
+    db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get MCP rules for a workspace"""
-    rules = MCPService.get_rules(uuid.UUID(workspace_id))
+    rules = MCPService.get_rules(db=db, workspace_id=uuid.UUID(workspace_id))
     return {"rules": rules}
+
 
 @router.put("/rules")
 async def update_rules(
     workspace_id: str,
-    rules: Dict[str, Any],
+    rules: Dict[str, Any]=Body(...),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
+    
 ):
     """Update MCP rules for a workspace"""
     result = MCPService.update_rules(db, uuid.UUID(workspace_id), rules)
-    return result
+    return result 

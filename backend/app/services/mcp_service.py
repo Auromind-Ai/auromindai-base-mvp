@@ -3,6 +3,7 @@ from app.models import AIAction
 from typing import Dict, Any, List
 import uuid
 from datetime import datetime
+from app.models.mcp_rule import MCPRule
 
 class MCPService:
     """Model Context Protocol - Governance layer for AI actions"""
@@ -17,6 +18,7 @@ class MCPService:
         "escalate_high_value_leads": True,
         "high_value_threshold": 10000  # Currency amount
     }
+
     
     @staticmethod
     def evaluate_action(
@@ -33,7 +35,7 @@ class MCPService:
         Evaluate an AI action and return decision: ALLOW, ESCALATE, or BLOCK
         """
         
-        rules = MCPService.get_rules(workspace_id)
+        rules = MCPService.get_rules(db, workspace_id)
         
         decision = "ALLOW"
         reason = "System verified: Action complies with all governance policies."
@@ -168,15 +170,49 @@ class MCPService:
             "decision": action.mcp_decision,
             "human_override": True
         }
-    
+            
     @staticmethod
-    def get_rules(workspace_id: uuid.UUID) -> Dict:
-        """Get MCP rules for a workspace (currently returns defaults)"""
-        return MCPService.DEFAULT_RULES
-    
+    def get_rules(db: Session, workspace_id: uuid.UUID) -> Dict:
+          
+            rules = db.query(MCPRule).filter(
+                MCPRule.workspace_id == workspace_id,
+                MCPRule.is_active == True
+            ).all()
+
+            db_rules = {r.rule_key: r.rule_value for r in rules}
+
+            return {
+                **MCPService.DEFAULT_RULES,
+                **db_rules
+            }
+            
     @staticmethod
     def update_rules(db: Session, workspace_id: uuid.UUID, rules: Dict):
-        """Update MCP rules for a workspace (TODO: implement workspace-specific rules storage)"""
-        # For MVP, we're using default rules
-        # In production, store in workspace_settings table
-        return {"message": "Rules updated (using defaults for MVP)", "rules": MCPService.DEFAULT_RULES}
+            updated = []
+
+            for key, value in rules.items():
+                rule = db.query(MCPRule).filter(
+                    MCPRule.workspace_id == workspace_id,
+                    MCPRule.rule_key == key
+                ).first()
+
+                if rule:
+                    rule.rule_value = value
+                    rule.is_active = True
+                else:
+                    rule = MCPRule(
+                        workspace_id=workspace_id,
+                        rule_key=key,
+                        rule_value=value
+                    )
+                    db.add(rule)
+
+                updated.append(key)
+
+            db.commit()
+
+            return {
+                "status": "success",
+                "updated_rules": updated,
+                "rules": MCPService.get_rules(db, workspace_id)
+            }    
