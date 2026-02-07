@@ -15,3 +15,22 @@ frontend/.env.production
 # General
 .DS_Store
 *.log
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+venv/
+
+# Chroma / Vector DB
+chroma_db/
+*.bin
+*.sqlite3
+
+# HuggingFace cache
+.cache/
+huggingface/
+
+# OS
+.DS_Store
