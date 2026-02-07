@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Brain, Upload, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe } from 'lucide-react';
 import api from '@/lib/api';
 import { getWorkspace } from '@/lib/auth';
+import FileProgress from "./FileProgress";
 
 export default function BrainPage() {
     const [entries, setEntries] = useState([]);
@@ -19,6 +20,7 @@ export default function BrainPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState(null);
     const [searching, setSearching] = useState(false);
+    const [currentEntryId, setCurrentEntryId] = useState(null);
     const fileInputRef = useRef(null);
 
     const workspace = getWorkspace();
@@ -57,8 +59,8 @@ export default function BrainPage() {
             setUploading(true);
             setError(null);
             const result = await api.uploadDocument(file, workspaceId);
-            setSuccess(`Uploaded "${result.title}" - ${result.chunks_created} chunks created`);
-            await fetchData();
+            setCurrentEntryId(result.entry_id);
+            setSuccess("File uploaded. Processing started.");
         } catch (err) {
             setError(err.message || 'Upload failed');
         } finally {
@@ -235,6 +237,14 @@ export default function BrainPage() {
             <div className="grid grid-cols-2 gap-4 mb-8 p-4">
                 {/* Document Upload */}
                 <div className="bg-[var(--card)] rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center hover:border-indigo-500/50 hover:bg-[#252525] transition-all cursor-pointer group">
+                    {currentEntryId && (
+                    <div className="mb-4 flex justify-center">
+                      <FileProgress 
+                      entryId={currentEntryId} 
+                      onDone={() => setCurrentEntryId(null)}
+                      />
+                     </div>
+                        )}
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -256,6 +266,7 @@ export default function BrainPage() {
                         {uploading ? 'Uploading...' : 'Browse Files'}
                     </button>
                 </div>
+
 
                 {/* Website Sync */}
                 <div className="bg-[var(--card)] rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center group">
