@@ -21,7 +21,10 @@ import {
     ChevronDown,
     Search,
     Menu,
-    Wand2
+    Wand2,
+    Plug,
+    Calendar as CalendarIcon,
+    Mail
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { getUser, getWorkspace, logout } from '@/lib/auth';
@@ -33,6 +36,8 @@ const MAIN_NAV_ITEMS = [
     { label: 'Home', icon: LayoutDashboard, href: '/user/admin/dashboard' },
     { label: 'Auromind AI', icon: Sparkles, href: '/user/admin/ai' },
     { label: 'Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
+    { label: 'Calendar', icon: CalendarIcon, href: '/user/admin/calendar' },
+    { label: 'Email', icon: Mail, href: '/user/admin/email' },
     { label: 'Leads / CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Tasks & Follow-ups', icon: Send, href: '/user/admin/followups' },
     { label: 'Meetings & Promises', icon: CheckCircle2, href: '/user/admin/promises' },
@@ -43,6 +48,7 @@ const MAIN_NAV_ITEMS = [
 ];
 
 const SYSTEM_NAV_ITEMS = [
+    { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
     { label: 'Automation', icon: Wand2, href: '/user/admin/automation' },
     { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
     { label: 'Settings', icon: Settings, href: '/user/admin/settings' },
