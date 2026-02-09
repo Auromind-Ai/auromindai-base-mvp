@@ -3,8 +3,8 @@ import subprocess
 import sys
 
 # Shared Team Configuration
-# Using SQLite for local development (easier setup, no PostgreSQL needed)
-ENV_CONTENT = """DATABASE_URL=sqlite:///./auromind.db
+# Default to Localhost for Developer Safety (Hybrid Strategy)
+ENV_CONTENT = """DATABASE_URL=postgresql://auromind:auromind@localhost:5432/auromind
 GROQ_API_KEY=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
 GOOGLE_API_KEY=
 FRONTEND_URL=http://localhost:3000
@@ -16,9 +16,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 OAUTH_REDIRECT_URI=http://localhost:3000/auth/google/callback
-
-# Optional: Use PostgreSQL instead (requires PostgreSQL installed and running)
-# DATABASE_URL=postgresql://auromind:auromind@localhost:5432/auromind
 """
 
 def main():
