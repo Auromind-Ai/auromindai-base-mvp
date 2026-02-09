@@ -11,6 +11,11 @@ FRONTEND_URL=http://localhost:3000
 SECRET_KEY=change_me_locally
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Google OAuth Configuration (Add your credentials here)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+OAUTH_REDIRECT_URI=http://localhost:3000/auth/google/callback
 """
 
 def main():
@@ -19,8 +24,13 @@ def main():
     # 1. Update Code from GitHub
     print("\n⬇️  Pulling latest code from GitHub...")
     try:
-        subprocess.check_call(["git", "pull", "origin", "main"])
-        print("   ✅ Code updated.")
+        # Fetch all branches
+        subprocess.check_call(["git", "fetch", "origin"])
+        # Switch to feature branch
+        subprocess.check_call(["git", "checkout", "feature/unified-rag-ingestion"])
+        # Pull latest changes
+        subprocess.check_call(["git", "pull", "origin", "feature/unified-rag-ingestion"])
+        print("   ✅ Code updated from feature/unified-rag-ingestion branch.")
     except Exception as e:
         print(f"   ⚠️  Could not pull code (you might have local changes or no git). Error: {e}")
         print("   👉 Continuing with setup...")
@@ -45,7 +55,24 @@ def main():
     except subprocess.CalledProcessError:
         print("   ❌ Failed to install dependencies.")
 
+    # 4. Run Database Migrations
+    print("\n🗄️  Running database migrations...")
+    migration_script = os.path.join(os.path.dirname(__file__), "app", "scripts", "create_integrations_table.py")
+    if os.path.exists(migration_script):
+        try:
+            subprocess.check_call([sys.executable, migration_script])
+            print("   ✅ Database migrations completed.")
+        except subprocess.CalledProcessError:
+            print("   ⚠️  Migration failed (table might already exist).")
+    else:
+        print("   ℹ️  No migration script found, skipping...")
+
     print("\n🎉 Setup Complete!")
+    print("   👉 Configure Google OAuth:")
+    print("      1. Go to https://console.cloud.google.com/")
+    print("      2. Create OAuth 2.0 credentials")
+    print("      3. Add credentials to backend/.env")
+    print("")
     print("   👉 Run the app:")
     print("      cd backend") 
     print("      uvicorn app.main:app --reload --port 8000")
