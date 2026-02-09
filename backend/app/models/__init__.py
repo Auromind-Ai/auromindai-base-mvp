@@ -1,5 +1,5 @@
 from .user import User
-from .conversation import Conversation, ChannelType, ConversationStatus
+from .conversation import Conversation, ChannelType, ConversationStatus, ChatSession, ChatMessage
 from .message import Message, SenderType
 from .ai_action import AIAction
 from .brain import BrainEntry
