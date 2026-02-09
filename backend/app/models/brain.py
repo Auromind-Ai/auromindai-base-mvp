@@ -22,6 +22,7 @@ class BrainEntry(Base):
     # Embedding vector - 1536 dimensions for OpenAI embeddings
     # embedding = Column(Vector(1536)) if Vector else Column(Text)
     # Embedding vector - 1536 dimensions for OpenAI embeddings (768 for Gemini/Llama)
+    # Embedding vector - 1536 dimensions for OpenAI embeddings (768 for Gemini/Llama)
     embedding = Column(Vector(384)) # Using 384 for all-MiniLM-L6-v2
     # embedding = Column(Text)  # Fallback removed
     version = Column(Integer, default=1)
@@ -31,6 +32,7 @@ class BrainEntry(Base):
     # Async Processing Status
     status = Column(String(20), default="completed")  # pending, processing, completed, failed
     error_message = Column(Text, nullable=True)
+    metadata_json = Column(Text, nullable=True) # Support for region, language, etc.
 
 class BrainChunk(Base):
     __tablename__ = "brain_chunks"

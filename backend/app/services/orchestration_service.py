@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.services.mcp_service import MCPService
 from app.models import BrainEntry, AIAction
+from app.services.email_service import EmailService # Added import
 import uuid
 from typing import Dict, Any, List, Optional
 
@@ -87,7 +88,14 @@ class OrchestrationService:
 
         # Implementation of specific action types
         if action_type == "followup":
-            return {"status": "success", "msg": "Follow-up queued for background delivery"}
+            # Extract email details from metadata
+            to_email = metadata.get("to_email", "default@example.com")
+            subject = metadata.get("subject", "Automated Follow-up")
+            body = metadata.get("body", "This is an automated follow-up message.")
+            
+            # Send the email using the EmailService
+            email_result = EmailService.send_email(to_email=to_email, subject=subject, body=body, metadata=metadata)
+            return {"status": "success", "msg": "Follow-up email processed", "email_result": email_result}
         elif action_type == "promise_detection":
             return {"status": "success", "msg": "Promises extracted and saved to domain entities"}
         

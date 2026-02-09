@@ -11,12 +11,12 @@ logger = logging.getLogger(__name__)
 
 class VectorStoreService:
     """
-    Manages vector storage and retrieval using PostgreSQL (pgvector).
+    Manages vector storage and retrieval using ChromaDB (Local).
     
     Features:
-    - Workspace-isolated queries
-    - Cloud-persistent storage
-    - High-performance semantic similarity search
+    - Workspace-isolated collections
+    - Local file persistence
+    - Semantic similarity search
     """
     
     _instance = None

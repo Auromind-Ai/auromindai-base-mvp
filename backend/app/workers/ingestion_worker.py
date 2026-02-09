@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.brain import BrainEntry
@@ -14,7 +15,8 @@ async def process_document_background(
     file_path: str,
     original_filename: str,
     content_type: str,
-    file_size: int
+    file_size: int,
+    metadata: Optional[Dict[str, Any]] = None # New parameter
 ):
     """
     Background task to process a document ingestion.
@@ -51,6 +53,12 @@ async def process_document_background(
         # Ingest to RAG
         rag_service = get_rag_service()
         
+        # Merge existing metadata with new incoming metadata
+        ingestion_metadata = {"original_size": file_size}
+        if metadata:
+            ingestion_metadata.update(metadata)
+
+        logger.info(f"Calling RAG ingestion for {entry_id} with title {original_filename}")
         # We pass the existing_entry_id to update the record created by the API
         result = rag_service.ingest_document(
             db=db,
@@ -59,9 +67,10 @@ async def process_document_background(
             title=original_filename,
             content_type=doc_result["content_type"],
             source=original_filename,
-            metadata={"original_size": file_size},
+            metadata=ingestion_metadata, # Pass the merged metadata
             existing_entry_id=entry_id # <--- We will add this param
         )
+        logger.info(f"RAG ingestion returned: {result}")
         
         # 3. Update status to COMPLETED
         # (The service might have updated the entry content, but we ensure status here)
