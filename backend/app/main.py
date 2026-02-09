@@ -46,19 +46,10 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         manager.disconnect(user_id, websocket)
 
 
-# CORS middleware - Allow specific origins
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:8000",
-    frontend_url,
-]
-
+# CORS middleware - Allow all origins for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allow all origins in development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
