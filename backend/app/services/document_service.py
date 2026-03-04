@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 import io
 import logging
 import re
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class DocumentService:
     - TXT (plain text)
     """
     
-    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md"}
+    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".xlsx", ".xls", ".csv"}
     MAX_FILE_SIZE_MB = 10
     
     def extract_text_from_pdf(self, file_content: bytes) -> str:
@@ -112,6 +113,39 @@ class DocumentService:
             logger.error(f"TXT extraction failed: {e}")
             raise ValueError(f"Could not read text file: {e}")
     
+    def extract_text_from_excel(self, file_content: bytes) -> str:
+        """
+        Extract text from an Excel file (xlsx, xls).
+        Converts sheets to string representation.
+        """
+        try:
+            excel_file = io.BytesIO(file_content)
+            # Read all sheets
+            dfs = pd.read_excel(excel_file, sheet_name=None, engine='openpyxl')
+            
+            text_parts = []
+            for sheet_name, df in dfs.items():
+                text_parts.append(f"--- Sheet: {sheet_name} ---")
+                # Convert to markdown or string for better readability
+                text_parts.append(df.to_string(index=False))
+            
+            return "\n\n".join(text_parts)
+        except Exception as e:
+            logger.error(f"Excel extraction failed: {e}")
+            raise ValueError(f"Could not extract text from Excel: {e}")
+
+    def extract_text_from_csv(self, file_content: bytes) -> str:
+        """
+        Extract text from a CSV file.
+        """
+        try:
+            csv_file = io.BytesIO(file_content)
+            df = pd.read_csv(csv_file)
+            return df.to_string(index=False)
+        except Exception as e:
+            logger.error(f"CSV extraction failed: {e}")
+            raise ValueError(f"Could not extract text from CSV: {e}")
+
     def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
         Process a file and extract its content.
@@ -140,6 +174,16 @@ class DocumentService:
         elif filename_lower.endswith((".txt", ".md")):
             text = self.extract_text_from_txt(file_content)
             content_type = "txt"
+        elif filename_lower.endswith((".xlsx", ".xls")):
+            text = self.extract_text_from_excel(file_content)
+            content_type = "excel"
+        elif filename_lower.endswith(".csv"):
+            text = self.extract_text_from_csv(file_content)
+            content_type = "csv"
+        elif filename_lower.endswith((".png", ".jpg", ".jpeg")):
+             # Placeholder for OCR / Vision model
+             text = f"[Image File: {filename}] (Content analysis pending)"
+             content_type = "image"
         else:
             raise ValueError(f"Unsupported file type: {filename}")
         
