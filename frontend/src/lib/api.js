@@ -1,7 +1,9 @@
 console.log("API CLIENT VERSION: 1.1.20");
-const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const API_BASE_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
-  ? 'http://localhost:8000'
+const isLocal = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const API_BASE_URL = isLocal
+  ? `http://${window.location.hostname}:8000`
   : (process.env.NEXT_PUBLIC_API_URL || 'https://auromindai-base-mvp.onrender.com');
 
 console.log("Hostname:", typeof window !== 'undefined' ? window.location.hostname : 'node');
@@ -113,6 +115,31 @@ class APIClient {
 
   async getMCPRules(workspace_id) {
     return this.get(`/mcp/rules?workspace_id=${workspace_id}`);
+  }
+
+  // ============== Chat History Methods ==============
+
+  async getChatSessions(workspace_id) {
+    return this.get(`/chat/sessions?workspace_id=${workspace_id}`);
+  }
+
+  async createChatSession(title, workspace_id) {
+    return this.post('/chat/sessions', { title, workspace_id });
+  }
+
+  async getSessionMessages(session_id) {
+    return this.get(`/chat/sessions/${session_id}/messages`);
+  }
+
+  async deleteChatSession(session_id) {
+    return this.delete(`/chat/sessions/${session_id}`);
+  }
+
+  async updateChatSession(session_id, title) {
+    return this.request(`/chat/sessions/${session_id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title })
+    });
   }
 
   // ============== Brain / RAG Methods ==============
