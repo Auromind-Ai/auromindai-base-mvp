@@ -20,11 +20,17 @@ import {
     Check,
     X,
     ChevronDown,
-    Settings
+    Settings,
+    Clock,
+    Search,
+    History,
+    Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '@/context/SettingsContext';
 import { getWorkspace } from '@/lib/auth';
+import ChatSidebar from '@/components/ChatSidebar';
+import api from '@/lib/api';
 
 // Typewriter Component for AI Responses
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
@@ -80,8 +86,24 @@ export default function AuromindAIPage() {
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
     const messagesEndRef = useRef(null);
 
+    // Chat History State
+    const [sessions, setSessions] = useState([]);
+    const [currentSessionId, setCurrentSessionId] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
     const abortControllerRef = useRef(null);
     const lastTypedTextRef = useRef('');
+
+    // File Upload Ref
+    const fileInputRef = useRef(null);
+    const [isUploading, setIsUploading] = useState(false);
+
+    // Chat Modes & Source
+    const [chatMode, setChatMode] = useState("auto"); // auto, brain_only, web_only
+    const [source, setSource] = useState("internal_web"); // internal, internal_web (Default to recommended)
+    const [isModeOpen, setIsModeOpen] = useState(false);
+    const [isSourceOpen, setIsSourceOpen] = useState(false);
+
 
     // Get workspace ID for RAG
     const workspace = getWorkspace();
@@ -89,7 +111,90 @@ export default function AuromindAIPage() {
 
     useEffect(() => {
         setMounted(true);
+        // Check authentication
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login'; // Redirect if no token
+            }
+        }
     }, []);
+
+    // Load sessions on mount
+    useEffect(() => {
+        if (workspaceId && mounted) {
+            loadSessions();
+        }
+    }, [workspaceId, mounted]);
+
+    const loadSessions = async () => {
+        try {
+            const data = await api.getChatSessions(workspaceId);
+            setSessions(data);
+
+            // Auto-select latest session if none selected
+            if (!currentSessionId && data.length > 0) {
+                handleSelectSession(data[0].id);
+            }
+        } catch (err) {
+            console.error("Failed to load sessions:", err);
+        }
+    };
+
+    const handleSelectSession = async (sessionId) => {
+        if (sessionId === currentSessionId) return;
+
+        setCurrentSessionId(sessionId);
+        setIsLoading(true);
+        setMessages([]); // Clear current messages while loading
+
+        try {
+            const history = await api.getSessionMessages(sessionId);
+            setMessages(history.map(m => ({
+                role: m.role,
+                content: m.content,
+                isStreaming: false
+            })));
+        } catch (err) {
+            console.error("Failed to load session messages:", err);
+            setMessages([{ role: 'assistant', content: "Failed to load chat history.", isError: true }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCreateSession = async () => {
+        try {
+            const newSession = await api.createChatSession("New Chat", workspaceId);
+            setSessions(prev => [newSession, ...prev]);
+            setCurrentSessionId(newSession.id);
+            setMessages([]);
+        } catch (err) {
+            console.error("Failed to create session:", err);
+        }
+    };
+
+    const handleDeleteSession = async (sessionId) => {
+        try {
+            await api.deleteChatSession(sessionId);
+            setSessions(prev => prev.filter(s => s.id !== sessionId));
+            if (currentSessionId === sessionId) {
+                setCurrentSessionId(null);
+                setMessages([]);
+            }
+        } catch (err) {
+            console.error("Failed to delete session:", err);
+        }
+    };
+
+    const handleUpdateSession = async (sessionId, title) => {
+        try {
+            await api.updateChatSession(sessionId, title);
+            setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title } : s));
+        } catch (err) {
+            console.error("Failed to update session:", err);
+        }
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -113,10 +218,11 @@ export default function AuromindAIPage() {
     };
 
     const handleExecute = async () => {
-        if (!inputValue.trim() || isLoading) return;
+        if ((!inputValue.trim() && !attachedFile) || isLoading) return;
 
         const userMsg = inputValue;
         setInputValue('');
+        setAttachedFile(null); // Clear attached file preview
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
         setIsLoading(true);
 
@@ -128,16 +234,46 @@ export default function AuromindAIPage() {
         abortControllerRef.current = new AbortController();
 
         try {
+            // Auto-create session if none exists
+            let activeSessionId = currentSessionId;
+            if (!activeSessionId) {
+                try {
+                    const newTitle = userMsg.substring(0, 30) + (userMsg.length > 30 ? '...' : '');
+                    const newSession = await api.createChatSession(newTitle || "New Chat", workspaceId);
+                    setSessions(prev => [newSession, ...prev]);
+                    setCurrentSessionId(newSession.id);
+                    activeSessionId = newSession.id;
+                } catch (sErr) {
+                    console.error("Session creation failed:", sErr);
+                }
+            } else {
+                // Auto-update title if it's the first message or title is still generic
+                const currentSession = sessions.find(s => s.id === activeSessionId);
+                if (currentSession && (currentSession.title === "New Chat" || messages.length === 2)) { // length is 2 because we just added user + assistant placeholder
+                    const newTitle = userMsg.substring(0, 30) + (userMsg.length > 30 ? '...' : '');
+                    handleUpdateSession(activeSessionId, newTitle);
+                }
+            }
+
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: userMsg,
                     model: selectedModel,
-                    workspace_id: workspaceId
+                    workspace_id: workspaceId,
+                    use_rag: true,
+                    document_id: lastUploadedId, // Pass the uploaded file ID
+                    chat_mode: chatMode,
+                    source: source,
+                    session_id: activeSessionId // Pass session ID for persistence
                 }),
                 signal: abortControllerRef.current.signal
             });
+
+            // Clear the specific document context after sending
+            setAttachedFile(null); // Clear attached file preview
+            setLastUploadedId(null); // Clear ID so subsequent messages don't force-context it
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
@@ -233,6 +369,98 @@ export default function AuromindAIPage() {
             setTimeout(() => setCopiedIndex(null), 2000);
         } catch (err) {
             console.error('Failed to copy text: ', err);
+        }
+    };
+
+    // Attached File State
+    const [attachedFile, setAttachedFile] = useState(null);
+    const [lastUploadedId, setLastUploadedId] = useState(null); // Track uploaded file ID for context
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Strict File Validation
+        // Strict File Validation
+        const allowedTypes = [
+            'application/pdf',
+            'image/png', 'image/jpeg', 'image/jpg', 'image/webp',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword',
+            'text/plain', 'text/markdown'
+        ];
+
+        // Check if type is allowed (some systems might not set type correctly for custom extensions, so we trust backend validation as fallback if type is empty but extension is valid)
+        // ideally we should also check extension
+
+        // Simplified check
+        // if (!allowedTypes.includes(file.type)) { 
+        //    ... 
+        // }
+
+        // Let's rely on the backend for strict type checking and `accept` for UI guidance. 
+        // But to keep consistency with existing logic, we expand the list.
+
+        const isTypeAllowed = allowedTypes.includes(file.type) ||
+            file.name.endsWith('.csv') ||
+            file.name.endsWith('.md') ||
+            file.name.endsWith('.xlsx') ||
+            file.name.endsWith('.xls');
+
+        if (!isTypeAllowed && file.type) { // Only block if we are sure it's wrong type
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: "I support PDF, Excel, CSV, Docs, and Images.",
+                isError: true
+            }]);
+            e.target.value = ''; // Reset input
+            return;
+        }
+
+        // Reset input
+        e.target.value = '';
+
+        setIsUploading(true);
+        try {
+            // Optimistic UI: Show file as attached immediately (preview)
+            setAttachedFile({ name: file.name, type: file.type });
+
+            // Upload to backend using the API library
+            if (!workspaceId) {
+                throw new Error("Workspace ID not found. Please refresh the page.");
+            }
+            const api = await import('@/lib/api').then(mod => mod.default);
+            // Capture response which includes entry_id
+            const uploadResponse = await api.uploadDocument(file, workspaceId);
+
+            if (uploadResponse && uploadResponse.entry_id) {
+                console.log("File uploaded, ID:", uploadResponse.entry_id);
+                setLastUploadedId(uploadResponse.entry_id);
+            }
+
+            // Note: We no longer add a "Using file..." message to the chat history here.
+            // The file shows as a preview chip instead.
+
+        } catch (err) {
+            console.error("Upload failed:", err);
+            // If upload fails, remove the preview and show error
+            setAttachedFile(null);
+
+            let errorMessage = err.message;
+            if (errorMessage.includes("Could not validate credentials") || errorMessage.includes("401")) {
+                errorMessage = "Authentication failed. Please log in again.";
+                // Optionally redirect to login
+                // window.location.href = '/login'; 
+            }
+
+            setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `Failed to upload file: ${errorMessage}`,
+                isError: true,
+                isStreaming: false
+            }]);
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -413,508 +641,351 @@ export default function AuromindAIPage() {
     ];
 
     return (
-        <div className="flex flex-col flex-1 min-h-screen bg-transparent relative pt-6 md:pt-10 overflow-x-hidden">
-            <style jsx global>{`
-                /* Hide scrollbar for Chrome, Safari and Opera */
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
-                /* Hide scrollbar for IE, Edge and Firefox */
-                .no-scrollbar {
-                    -ms-overflow-style: none;  /* IE and Edge */
-                    scrollbar-width: none;  /* Firefox */
-                }
-            `}</style>
+        <div className="flex bg-[#050505] min-h-screen text-white overflow-hidden font-sans">
+            <ChatSidebar
+                sessions={sessions}
+                currentSessionId={currentSessionId}
+                onSelectSession={handleSelectSession}
+                onCreateSession={handleCreateSession}
+                onDeleteSession={handleDeleteSession}
+                onUpdateSession={handleUpdateSession}
+                isOpen={isSidebarOpen}
+                toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            />
 
-            {/* Settings Button - Top Right */}
-            <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="absolute top-4 right-4 p-2 rounded-lg hover:bg-[#333] text-[#787878] hover:text-white transition-colors z-40"
-            >
-                <Settings size={20} />
-            </button>
-
-            {/* Hero State */}
-            <AnimatePresence>
-                {messages.length === 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 20 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="flex flex-col items-center justify-center flex-1 px-4 w-full h-full relative z-10"
-                    >
-                        {/* Content */}
-                        <div className="relative z-10 text-center">
-                            {/* Magic Icon */}
-                            <motion.div
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
-                                className="w-20 h-20 rounded-[24px] bg-[var(--notion-hover)] backdrop-blur-xl border border-[var(--notion-border)] flex items-center justify-center mb-8 shadow-2xl shadow-indigo-500/20 mx-auto group hover:border-indigo-500/30 transition-colors"
+            <div className={`flex-1 flex flex-col relative overflow-hidden`}>
+                {/* Header / Top Bar */}
+                <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 bg-[#050505] z-40">
+                    <div className="flex items-center gap-3">
+                        {!isSidebarOpen && (
+                            <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                className="p-1.5 hover:bg-white/5 rounded-md text-gray-500 hover:text-gray-300 transition-all flex items-center justify-center border border-transparent hover:border-white/10"
                             >
-                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-[24px]" />
-                                <Wand2 size={36} className="text-white relative z-10" strokeWidth={1.5} />
-                            </motion.div>
-
-                            {/* Title */}
-                            <motion.h1
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.3, duration: 0.5 }}
-                                className="text-3xl font-bold text-white mb-3 tracking-tight"
-                            >
-                                What magic shall we make happen?
-                            </motion.h1>
-
-                            <motion.p
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.4, duration: 0.5 }}
-                                className="text-[#8a8a8a] text-[15px] font-medium mb-12"
-                            >
-                                Your personal business assistant, powered by your data.
-                            </motion.p>
-                        </div>
-
-                        {/* Large Input Box */}
-                        <motion.div
-                            layoutId="chat-input-container"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.4, duration: 0.5 }}
-                            className="w-full max-w-2xl mb-8"
-                        >
-                            <div className="bg-[var(--card)] backdrop-blur-2xl rounded-2xl border border-[var(--notion-border)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden group focus-within:border-indigo-500/40 transition-all duration-500">
-                                <div className="px-5 pt-4 flex items-center justify-between">
-                                    <button className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-[11px] font-semibold uppercase tracking-wider text-[#8a8a8a] border border-white/5 hover:text-white hover:bg-white/10 transition-all">
-                                        <Sparkles size={12} className="text-indigo-400" />
-                                        <span>Add context</span>
-                                    </button>
-                                </div>
-                                <div className="px-4 py-3">
-                                    <textarea
-                                        value={inputValue}
-                                        onChange={(e) => setInputValue(e.target.value)}
-                                        onKeyDown={handleKeyDown}
-                                        placeholder="Ask, search, or make anything..."
-                                        rows={2}
-                                        className="w-full bg-transparent text-[#e8e8e8] placeholder:text-[#5a5a5a] text-[15px] resize-none outline-none leading-relaxed"
-                                        style={{ minHeight: '48px' }}
-                                    />
-                                </div>
-                                <div className="flex items-center justify-between px-4 pb-3 border-t border-[var(--notion-border)] pt-3">
-                                    <div className="flex items-center gap-3">
-                                        <button className="p-1.5 rounded-md hover:bg-[#333] text-[#5a5a5a] hover:text-[#787878] transition-colors">
-                                            <Paperclip size={16} />
-                                        </button>
-                                        <div className="relative">
-                                            <button
-                                                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                                                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold text-[#e8e8e8] hover:bg-white/5 transition-colors border border-white/5"
-                                            >
-                                                {selectedModel === 'auto' ? 'Auto' : selectedModel === 'auromind' ? 'Auromind AI ⚡' : 'Auromind Pro 🧠'}
-                                                <ChevronDown size={12} className={`transition-transform text-[#8a8a8a] ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
-                                            </button>
-                                            <AnimatePresence>
-                                                {isModelDropdownOpen && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: -10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: -10 }}
-                                                        transition={{ duration: 0.15 }}
-                                                        className="absolute top-full mt-2 left-0 w-60 bg-[var(--card)] border border-[var(--notion-border)] rounded-lg shadow-2xl overflow-hidden z-50"
-                                                    >
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedModel('auto');
-                                                                setIsModelDropdownOpen(false);
-                                                            }}
-                                                            className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#252525] transition-colors text-left ${selectedModel === 'auto' ? 'bg-[#252525]' : ''}`}
-                                                        >
-                                                            <Sparkles size={18} className="text-slate-400" />
-                                                            <span className="flex-1 text-[14px] font-medium text-[#e8e8e8]">Auto</span>
-                                                            {selectedModel === 'auto' && <Check size={16} className="text-indigo-400" />}
-                                                        </button>
-                                                        <div className="h-px bg-[#333] mx-2" />
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedModel('auromind');
-                                                                setIsModelDropdownOpen(false);
-                                                            }}
-                                                            className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#252525] transition-colors text-left ${selectedModel === 'auromind' ? 'bg-[#252525]' : ''}`}
-                                                        >
-                                                            <Sparkles size={18} className="text-indigo-400" />
-                                                            <div className="flex-1 flex items-center gap-2">
-                                                                <span className="text-[14px] font-medium text-[#e8e8e8]">Auromind AI</span>
-                                                                <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 text-[9px] font-bold rounded">Beta</span>
-                                                            </div>
-                                                            {selectedModel === 'auromind' && <Check size={16} className="text-indigo-400" />}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedModel('gemini');
-                                                                setIsModelDropdownOpen(false);
-                                                            }}
-                                                            className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#252525] transition-colors text-left ${selectedModel === 'gemini' ? 'bg-[#252525]' : ''}`}
-                                                        >
-                                                            <svg className="w-[18px] h-[18px]" viewBox="0 0 32 32" fill="none">
-                                                                <path d="M16 4L4 10L16 16L28 10L16 4Z" fill="#4285F4" />
-                                                                <path d="M4 16L16 22L28 16L28 10L16 16L4 10L4 16Z" fill="#34A853" />
-                                                                <path d="M4 22L16 28L28 22L28 16L16 22L4 16L4 22Z" fill="#FBBC04" />
-                                                                <path d="M16 28L28 22L28 16" fill="#EA4335" opacity="0.7" />
-                                                            </svg>
-                                                            <span className="flex-1 text-[14px] font-medium text-[#e8e8e8]">Gemini</span>
-                                                            {selectedModel === 'gemini' && <Check size={16} className="text-indigo-400" />}
-                                                        </button>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-                                        <button className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] text-[#5a5a5a] hover:bg-[#333] hover:text-[#787878] transition-colors">
-                                            <Globe size={12} />
-                                            All sources
-                                        </button>
-                                    </div>
-                                    <button
-                                        onClick={isLoading ? handleStop : handleExecute}
-                                        disabled={!inputValue.trim() && !isLoading}
-                                        className={`w-7 h-7 rounded-sm flex items-center justify-center transition-all ${(inputValue.trim() || isLoading)
-                                            ? 'bg-indigo-500 hover:bg-indigo-400 text-white'
-                                            : 'bg-[#333] text-[#5a5a5a]'
-                                            }`}
-                                    >
-                                        {isLoading ? <Square size={12} fill="currentColor" /> : <ArrowUp size={16} />}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="text-center mt-3 text-[12px] text-[#5a5a5a]">
-                                Get better answers from your apps
-                            </div>
-                        </motion.div>
-
-                        {/* Get Started Cards */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.5, duration: 0.5 }}
-                            className="w-full max-w-2xl"
-                        >
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[13px] text-[#787878]">Get started</span>
-                                <button className="text-[#787878] hover:text-[#a0a0a0]">
-                                    <span className="text-lg">×</span>
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {starterCards.map((card, idx) => {
-                                    const Icon = card.icon;
-                                    return (
-                                        <motion.button
-                                            key={idx}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.6 + idx * 0.1, duration: 0.4 }}
-                                            whileHover={{ y: -4, backgroundColor: "var(--notion-hover)" }}
-                                            onClick={() => setInputValue(card.label)}
-                                            className="flex flex-col items-center gap-3 p-5 bg-[var(--card)] backdrop-blur-md border border-[var(--notion-border)] rounded-[4px] hover:border-white/20 transition-all flex-1"
-                                        >
-                                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center mb-1 group-hover:bg-indigo-500/20 transition-colors">
-                                                <Icon size={20} className="text-[#8a8a8a] group-hover:text-indigo-400" />
-                                            </div>
-                                            <span className="text-[12px] font-medium text-[#9b9b9b] text-center leading-tight">
-                                                {card.label}
-                                            </span>
-                                        </motion.button>
-                                    );
-                                })}
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Chat Messages Area */}
-            {messages.length > 0 && (
-                <div className="w-full flex flex-col justify-start px-4 md:px-8 flex-1 pb-[240px]">
-                    <div className="max-w-2xl mx-auto py-8 w-full">
-                        {/* Date Header */}
-                        <div className="text-center mb-8">
-                            <span className="text-[13px] text-[#787878]">
-                                {dateStr} • <span className="text-[#9b9b9b]">Auromind AI</span>
+                                <History size={16} />
+                            </button>
+                        )}
+                        <div className="flex items-center gap-2 px-2 py-1 hover:bg-white/5 rounded-md cursor-pointer transition-colors group">
+                            <span className="text-sm font-medium text-gray-300 truncate max-w-[150px]">
+                                {workspace?.name || 'Workspace'}
                             </span>
+                            <ChevronDown size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
                         </div>
+                    </div>
 
-                        {/* Messages */}
-                        <div className="space-y-6">
-                            {messages.map((msg, idx) => (
-                                <motion.div
-                                    key={idx}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.3 }}
-                                    className={`w-full flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                >
-                                    {msg.role === 'user' ? (
-                                        <div className="group relative ml-auto w-full flex flex-col items-end">
-                                            {editingIndex === idx ? (
-                                                <div className="w-full max-w-[80%] bg-[#2a2a2a] rounded-2xl p-3 border border-indigo-500/50">
-                                                    <textarea
-                                                        value={editValue}
-                                                        onChange={(e) => setEditValue(e.target.value)}
-                                                        className="w-full bg-transparent text-[#e8e8e8] text-[15px] outline-none resize-none leading-relaxed"
-                                                        rows={Math.max(1, editValue.split('\n').length)}
-                                                        autoFocus
-                                                    />
-                                                    <div className="flex justify-end gap-2 mt-2">
-                                                        <button
-                                                            onClick={handleCancelEdit}
-                                                            className="px-3 py-1 rounded-md text-[12px] text-[#787878] hover:bg-[#333] transition-colors"
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                        <button
-                                                            onClick={handleSaveEdit}
-                                                            className="px-3 py-1 rounded-md text-[12px] bg-indigo-500 text-white hover:bg-indigo-400 transition-colors"
-                                                        >
-                                                            Rewrite
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <div className="bg-[var(--notion-hover)] backdrop-blur-xl text-white px-5 py-3 rounded-2xl rounded-tr-sm text-[15px] leading-relaxed text-left max-w-[85%] border border-[var(--notion-border)] shadow-xl">
-                                                        {msg.content}
-                                                    </div>
-                                                    {/* User Actions - Copy/Edit */}
-                                                    <div className="flex items-center gap-1 mt-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => handleCopy(msg.content, idx)}
-                                                            className="p-1 rounded-md hover:bg-[#2a2a2a] text-[#787878] hover:text-[#a0a0a0] transition-colors"
-                                                            title="Copy message"
-                                                        >
-                                                            {copiedIndex === idx ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleEdit(msg.content, idx)}
-                                                            className="p-1 rounded-md hover:bg-[#2a2a2a] text-[#787878] hover:text-[#a0a0a0] transition-colors"
-                                                            title="Edit message"
-                                                        >
-                                                            <Pencil size={12} />
-                                                        </button>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="max-w-[80%] text-left">
-                                            <div className={`text-[15px] leading-[1.7] whitespace-pre-wrap ${msg.isError ? 'text-orange-400 bg-orange-500/10 px-4 py-3 rounded-xl border border-orange-500/20' : 'text-[#e8e8e8]'}`}>
-                                                {msg.isStreaming ? (
-                                                    <Typewriter
-                                                        text={msg.content}
-                                                        onComplete={() => handleStreamingComplete(idx)}
-                                                        onUpdate={(typed) => {
-                                                            lastTypedTextRef.current = typed;
-                                                            scrollToBottom();
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    msg.content
-                                                )}
-                                            </div>
-                                            {/* Action Icons - Only show after streaming is complete (or if not streaming) */}
-                                            {!msg.isStreaming && (
-                                                <motion.div
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    className="flex items-center gap-1 mt-4"
-                                                >
-                                                    <button
-                                                        onClick={() => handleCopy(msg.content, idx)}
-                                                        className="p-1.5 rounded-md hover:bg-[#2a2a2a] text-[#787878] hover:text-[#a0a0a0] transition-colors"
-                                                        title="Copy response"
-                                                    >
-                                                        {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleRegenerate(idx)}
-                                                        className="p-1.5 rounded-md hover:bg-[#2a2a2a] text-[#787878] hover:text-[#a0a0a0] transition-colors"
-                                                        title="Regenerate response"
-                                                    >
-                                                        <RotateCcw size={14} />
-                                                    </button>
-                                                    <button className="p-1.5 rounded-md hover:bg-[#2a2a2a] text-[#787878] hover:text-[#a0a0a0] transition-colors">
-                                                        <Plus size={14} />
-                                                    </button>
-                                                    <button className="p-1.5 rounded-md hover:bg-[#2a2a2a] text-[#787878] hover:text-[#a0a0a0] transition-colors">
-                                                        <ThumbsUp size={14} />
-                                                    </button>
-                                                    <button className="p-1.5 rounded-md hover:bg-[#2a2a2a] text-[#787878] hover:text-[#a0a0a0] transition-colors">
-                                                        <ThumbsDown size={14} />
-                                                    </button>
-                                                </motion.div>
-                                            )}
-                                        </div>
-                                    )}
-                                </motion.div>
-                            ))}
-
-                            {/* Loading */}
-                            {isLoading && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="flex justify-start w-full"
-                                >
-                                    <div className="w-full max-w-2xl relative overflow-hidden rounded-2xl bg-[var(--card)] backdrop-blur-2xl p-6 border border-[var(--notion-border)] shadow-2xl">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 animate-shimmer" />
-
-                                        <div className="flex items-center gap-3 relative z-10 mb-4">
-                                            <div className="relative flex h-6 w-6 items-center justify-center">
-                                                <Sparkles className="h-5 w-5 text-indigo-400 animate-pulse" />
-                                                <motion.div
-                                                    animate={{ rotate: 360 }}
-                                                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                                    className="absolute inset-0 rounded-full border border-indigo-500/30 border-t-transparent"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3 relative z-10 opacity-30">
-                                            <div className="h-2 w-3/4 rounded-full bg-white/20 animate-pulse" />
-                                            <div className="h-2 w-full rounded-full bg-white/20 animate-pulse delay-75" />
-                                            <div className="h-2 w-5/6 rounded-full bg-white/20 animate-pulse delay-150" />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                            <div ref={messagesEndRef} />
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsSettingsOpen(true)}
+                            className="p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                        >
+                            <Settings size={20} />
+                        </button>
                     </div>
                 </div>
-            )}
 
-            {/* Input Area - Sticky at bottom */}
-            {messages.length > 0 && (
-                <motion.div
-                    layoutId="chat-input-container"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="fixed bottom-0 left-0 md:left-[260px] right-0 bg-gradient-to-t from-[var(--notion-bg)] via-[var(--notion-bg)]/95 to-transparent px-4 md:px-8 pb-8 pt-12 z-20 pointer-events-none"
-                >
-                    <div className="max-w-2xl mx-auto pointer-events-auto">
-                        <div className="bg-[var(--card)] backdrop-blur-2xl rounded-2xl border border-[var(--notion-border)] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] group focus-within:border-indigo-500/40 transition-all duration-500">
-                            <div className="px-5 pt-4">
-                                <button className="flex items-center gap-1.5 text-[13px] text-[#8a8a8a] hover:text-white transition-colors">
-                                    <Sparkles size={14} />
-                                    <span>Add context</span>
-                                </button>
-                            </div>
-                            <div className="px-4 py-2">
-                                <textarea
-                                    value={inputValue}
-                                    onChange={(e) => setInputValue(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    placeholder="Ask, search, or make anything..."
-                                    rows={1}
-                                    className="w-full bg-transparent text-[#e8e8e8] placeholder:text-[#5a5a5a] text-[15px] resize-none outline-none leading-relaxed"
-                                    style={{ minHeight: '24px', maxHeight: '120px' }}
-                                />
-                            </div>
-                            <div className="flex items-center justify-between px-4 pb-3">
-                                <div className="flex items-center gap-3">
-                                    <button className="p-1.5 rounded-md hover:bg-[#333] text-[#5a5a5a] hover:text-[#787878] transition-colors">
-                                        <Paperclip size={16} />
-                                    </button>
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                                            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] text-[#e8e8e8] hover:bg-[#333] transition-colors"
-                                        >
-                                            {selectedModel === 'auto' ? 'Auto' : selectedModel === 'auromind' ? 'Auromind AI ⚡' : 'Auromind Pro 🧠'}
-                                            <ChevronDown size={12} className={`transition-transform ${isModelDropdownOpen ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        <AnimatePresence>
-                                            {isModelDropdownOpen && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: 10 }}
-                                                    transition={{ duration: 0.15 }}
-                                                    className="absolute bottom-full mb-2 left-0 w-60 bg-[#1f1f1f] border border-[#333] rounded-lg shadow-2xl overflow-hidden z-50"
-                                                >
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedModel('auto');
-                                                            setIsModelDropdownOpen(false);
-                                                        }}
-                                                        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#252525] transition-colors text-left ${selectedModel === 'auto' ? 'bg-[#252525]' : ''}`}
-                                                    >
-                                                        <Sparkles size={18} className="text-slate-400" />
-                                                        <span className="flex-1 text-[14px] font-medium text-[#e8e8e8]">Auto</span>
-                                                        {selectedModel === 'auto' && <Check size={16} className="text-indigo-400" />}
-                                                    </button>
-                                                    <div className="h-px bg-[#333] mx-2" />
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedModel('auromind');
-                                                            setIsModelDropdownOpen(false);
-                                                        }}
-                                                        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#252525] transition-colors text-left ${selectedModel === 'auromind' ? 'bg-[#252525]' : ''}`}
-                                                    >
-                                                        <Sparkles size={18} className="text-indigo-400" />
-                                                        <div className="flex-1 flex items-center gap-2">
-                                                            <span className="text-[14px] font-medium text-[#e8e8e8]">Auromind AI</span>
-                                                            <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 text-[9px] font-bold rounded">Beta</span>
-                                                        </div>
-                                                        {selectedModel === 'auromind' && <Check size={16} className="text-indigo-400" />}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedModel('gemini');
-                                                            setIsModelDropdownOpen(false);
-                                                        }}
-                                                        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#252525] transition-colors text-left ${selectedModel === 'gemini' ? 'bg-[#252525]' : ''}`}
-                                                    >
-                                                        <Sparkles size={18} className="text-purple-400" />
-                                                        <span className="flex-1 text-[14px] font-medium text-[#e8e8e8]">Auromind Pro</span>
-                                                        {selectedModel === 'gemini' && <Check size={16} className="text-indigo-400" />}
-                                                    </button>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                    <button className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] text-[#5a5a5a] hover:bg-[#333] hover:text-[#787878] transition-colors">
-                                        <Globe size={12} />
-                                        All sources
-                                    </button>
-                                </div>
-                                <button
-                                    onClick={(isLoading || messages.some(m => m.isStreaming)) ? handleStop : handleExecute}
-                                    disabled={!inputValue.trim() && !isLoading && !messages.some(m => m.isStreaming)}
-                                    className={`w-7 h-7 rounded-sm flex items-center justify-center transition-all ${(inputValue.trim() || isLoading || messages.some(m => m.isStreaming))
-                                        ? 'bg-indigo-500 hover:bg-indigo-400 text-white'
-                                        : 'bg-[#333] text-[#5a5a5a]'
-                                        }`}
+                <div className="flex flex-col flex-1 bg-transparent relative overflow-x-hidden overflow-y-auto custom-scrollbar no-scrollbar">
+                    <style jsx global>{`
+                        /* Hide scrollbar for Chrome, Safari and Opera */
+                        .no-scrollbar::-webkit-scrollbar {
+                            display: none;
+                        }
+                        /* Hide scrollbar for IE, Edge and Firefox */
+                        .no-scrollbar {
+                            -ms-overflow-style: none;  /* IE and Edge */
+                            scrollbar-width: none;  /* Firefox */
+                        }
+                        .custom-scrollbar::-webkit-scrollbar {
+                            width: 5px;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-track {
+                            background: transparent;
+                        }
+                        .custom-scrollbar::-webkit-scrollbar-thumb {
+                            background: #1f2937;
+                            border-radius: 10px;
+                        }
+                    `}</style>
+
+                    <main className="flex-1 flex flex-col">
+                        <AnimatePresence mode="wait">
+                            {messages.length === 0 ? (
+                                <motion.div
+                                    key="hero"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 20 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                    className="flex flex-col items-center justify-center min-h-[80vh] px-4 w-full relative z-10"
                                 >
-                                    {(isLoading || messages.some(m => m.isStreaming)) ? <Square size={12} fill="currentColor" /> : <ArrowUp size={16} />}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </motion.div>
-            )}
+                                    <div className="text-center">
+                                        <motion.div
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
+                                            className="w-20 h-20 rounded-[24px] bg-[#111111] backdrop-blur-xl border border-white/10 flex items-center justify-center mb-8 shadow-2xl mx-auto group hover:border-indigo-500/30 transition-colors"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-[24px]" />
+                                            <Wand2 size={36} className="text-white relative z-10" strokeWidth={1.5} />
+                                        </motion.div>
 
-            <style jsx>{`
-                @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                }
-                .animate-shimmer {
-                    animation: shimmer 3s infinite;
-                }
-            `}</style>
+                                        <motion.h1
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: 0.3, duration: 0.5 }}
+                                            className="text-4xl font-bold text-white mb-3 tracking-tight"
+                                        >
+                                            What magic shall we make happen?
+                                        </motion.h1>
+
+                                        <motion.p
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ delay: 0.4, duration: 0.5 }}
+                                            className="text-gray-500 text-[16px] mb-12"
+                                        >
+                                            Your personal business assistant, powered by your data.
+                                        </motion.p>
+                                    </div>
+
+                                    <motion.div
+                                        layoutId="chat-input-container"
+                                        className="w-full max-w-2xl"
+                                    >
+                                        <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl group focus-within:border-indigo-500/40 transition-all duration-500 overflow-hidden">
+                                            <div className="px-5 pt-4">
+                                                <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 text-[12px] font-medium text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
+                                                    <Sparkles size={13} />
+                                                    <span>Add Context</span>
+                                                </button>
+                                            </div>
+                                            <div className="px-5 py-3">
+                                                {attachedFile && (
+                                                    <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-xl w-fit border border-white/5">
+                                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-[10px]">
+                                                            {attachedFile.type.startsWith('image/') ? <ImageIcon size={16} /> : 'DOC'}
+                                                        </div>
+                                                        <div className="flex flex-col pr-2">
+                                                            <span className="text-[12px] text-gray-200 font-medium truncate max-w-[150px]">{attachedFile.name}</span>
+                                                            <span className="text-[10px] text-gray-500 uppercase tracking-tight">Ready to analyze</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setAttachedFile(null)}
+                                                            className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                <textarea
+                                                    value={inputValue}
+                                                    onChange={(e) => setInputValue(e.target.value)}
+                                                    onKeyDown={handleKeyDown}
+                                                    placeholder="Ask anything..."
+                                                    className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[16px] resize-none outline-none leading-relaxed min-h-[80px]"
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between px-5 pb-4 border-t border-white/5 pt-3">
+                                                <div className="flex items-center gap-4">
+                                                    <button
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        disabled={isUploading}
+                                                        className={`p-1 text-gray-500 hover:text-gray-300 transition-colors ${isUploading ? 'animate-pulse' : ''}`}
+                                                    >
+                                                        <Paperclip size={18} />
+                                                    </button>
+
+                                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[13px] text-gray-400 hover:bg-white/5 cursor-pointer">
+                                                        <Globe size={14} />
+                                                        <span>All sources</span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={handleExecute}
+                                                    disabled={!inputValue.trim() || isLoading}
+                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${inputValue.trim() ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'bg-white/5 text-gray-700'}`}
+                                                >
+                                                    <ArrowUp size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Starter Cards */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-12 w-full max-w-3xl">
+                                        {starterCards.map((card, i) => (
+                                            <button
+                                                key={i}
+                                                className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all text-left group"
+                                                onClick={() => setInputValue(card.label)}
+                                            >
+                                                <card.icon size={18} className="text-gray-500 group-hover:text-indigo-400 mb-3 transition-colors" />
+                                                <span className="text-[13px] text-gray-400 group-hover:text-gray-200 transition-colors">{card.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="chat-flow"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 pt-4 pb-32"
+                                >
+                                    <div className="flex flex-col gap-8 w-full py-8">
+                                        {messages.map((msg, idx) => (
+                                            <motion.div
+                                                key={idx}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className={`flex flex-col w-full group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                                            >
+                                                {msg.role === 'user' ? (
+                                                    <div className="bg-[#1e1e1e] text-[#efefef] rounded-2xl px-5 py-3.5 max-w-[85%] border border-white/[0.03] shadow-sm">
+                                                        {editingIndex === idx ? (
+                                                            <div className="flex flex-col gap-3 min-w-[300px]">
+                                                                <textarea
+                                                                    value={editValue}
+                                                                    onChange={(e) => setEditValue(e.target.value)}
+                                                                    className="bg-transparent border-none outline-none resize-none w-full text-[15px] leading-relaxed"
+                                                                    rows={3}
+                                                                    autoFocus
+                                                                />
+                                                                <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
+                                                                    <button onClick={handleCancelEdit} className="text-xs text-gray-500 hover:text-white transition-colors">Cancel</button>
+                                                                    <button onClick={handleSaveEdit} className="text-xs bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-md text-white font-medium transition-colors">Save & Submit</button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-full pl-2">
+                                                        <div className="flex items-center gap-2.5 mb-4 px-1">
+                                                            <div className="w-6 h-6 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                                                <Wand2 size={13} className="text-white" />
+                                                            </div>
+                                                            <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Auromind AI</span>
+                                                            {msg.isStreaming && (
+                                                                <span className="flex gap-1 h-3 items-center ml-2">
+                                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" />
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className={`text-[16px] leading-relaxed text-[#d4d4d4] prose prose-invert max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
+                                                            {msg.isStreaming && msg.content === '' ? (
+                                                                <div className="flex items-center gap-3 text-gray-500 py-2">
+                                                                    <div className="relative w-4 h-4">
+                                                                        <div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full" />
+                                                                        <div className="absolute inset-0 border-2 border-transparent border-t-indigo-500 rounded-full animate-spin" />
+                                                                    </div>
+                                                                    <span className="text-sm font-medium tracking-tight">Gathering insights...</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="assistant-message-content">
+                                                                    {msg.content}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {!msg.isStreaming && (
+                                                            <div className="flex items-center gap-1 mt-6 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                                <button
+                                                                    onClick={() => handleCopy(msg.content, idx)}
+                                                                    className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                                                                    title="Copy to clipboard"
+                                                                >
+                                                                    {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRegenerate(idx)}
+                                                                    className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                                                                    title="Regenerate response"
+                                                                >
+                                                                    <RotateCcw size={14} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                    <div ref={messagesEndRef} className="h-4" />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </main>
+
+                    {/* Floating Sticky Input (when messages exist) */}
+                    {messages.length > 0 && (
+                        <div className="fixed bottom-0 left-0 lg:left-0 right-0 pointer-events-none flex justify-center pb-8 pt-10 bg-gradient-to-t from-[#050505] via-[#050505]/95 to-transparent z-30">
+                            <motion.div
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                className={`w-full max-w-2xl px-4 pointer-events-auto`}
+                            >
+                                <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl overflow-hidden focus-within:border-indigo-500/40 transition-all duration-300">
+                                    <div className="px-5 py-3">
+                                        {attachedFile && (
+                                            <div className="flex items-center gap-2 mb-2 bg-white/5 p-2 rounded-xl w-fit border border-white/5">
+                                                <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-[9px]">
+                                                    {attachedFile.type.startsWith('image/') ? <ImageIcon size={14} /> : 'DOC'}
+                                                </div>
+                                                <span className="text-[12px] text-gray-300 truncate max-w-[120px]">{attachedFile.name}</span>
+                                                <button onClick={() => setAttachedFile(null)} className="text-gray-500 hover:text-white"><X size={14} /></button>
+                                            </div>
+                                        )}
+                                        <textarea
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="Reply to Auromind..."
+                                            className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed min-h-[44px] max-h-[150px] custom-scrollbar py-1"
+                                            rows={1}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between px-5 pb-3 pt-1 border-t border-white/5 bg-[#141414]/50">
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                                                title="Attach file"
+                                            >
+                                                <Paperclip size={18} />
+                                            </button>
+                                            <div className="text-[12px] text-gray-500 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/5">
+                                                <Globe size={14} />
+                                                <span className="font-medium">Search</span>
+                                            </div>
+                                            <div className="text-[12px] text-gray-500 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition-colors border border-transparent hover:border-white/5">
+                                                <Sparkles size={14} />
+                                                <span className="font-medium">{selectedModel === 'auto' ? 'Auto' : 'Pro'}</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={handleExecute}
+                                            disabled={!inputValue.trim() || isLoading}
+                                            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${inputValue.trim() ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-gray-700'}`}
+                                        >
+                                            {isLoading ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.docx,.doc,.txt,.md"
+                onChange={handleFileUpload}
+            />
         </div>
     );
 }

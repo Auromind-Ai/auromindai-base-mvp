@@ -4,6 +4,7 @@ Provides endpoints for document ingestion, search, and RAG queries.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from app.routers.auth import get_current_user # Import auth dependency
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
@@ -31,12 +32,18 @@ class IngestTextRequest(BaseModel):
     title: str
     content: str
     workspace_id: str
+    region: Optional[str] = None
+    language: Optional[str] = None
+    cultural_context: Optional[str] = None
 
 
 class IngestURLRequest(BaseModel):
     """Request model for URL ingestion."""
     url: str
     workspace_id: str
+    region: Optional[str] = None
+    language: Optional[str] = None
+    cultural_context: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -69,6 +76,9 @@ class CrawlWebsiteRequest(BaseModel):
     url: str
     workspace_id: str
     max_pages: int = 50
+    region: Optional[str] = None
+    language: Optional[str] = None
+    cultural_context: Optional[str] = None
 
 
 
@@ -79,14 +89,18 @@ async def ingest_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     workspace_id: str = Form(...),
-    db: Session = Depends(get_db)
+    region: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
+    cultural_context: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user) # Add authentication security
 ):
 
     """
-    Upload and index a document (PDF, DOCX, TXT).
+    Upload and index a document (PDF, DOCX, TXT, Images).
     
     The document will be:
-    1. Parsed to extract text
+    1. Parsed to extract text (OCR for images if needed)
     2. Split into chunks
     3. Embedded and stored in vector database
     """
@@ -95,7 +109,7 @@ async def ingest_document(
         if not file.filename:
             raise HTTPException(status_code=400, detail="No filename provided")
         
-        allowed_extensions = {".pdf", ".docx", ".doc", ".txt", ".md"}
+        allowed_extensions = {".pdf", ".docx", ".doc", ".txt", ".md", ".png", ".jpg", ".jpeg", ".webp", ".xlsx", ".xls", ".csv"}
         file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
         
         if file_ext not in allowed_extensions:
@@ -131,6 +145,15 @@ async def ingest_document(
         db.commit()
         
         # Trigger Background Task
+        # Prepare metadata for background task
+        metadata_for_worker = {}
+        if region:
+            metadata_for_worker["region"] = region
+        if language:
+            metadata_for_worker["language"] = language
+        if cultural_context:
+            metadata_for_worker["cultural_context"] = cultural_context
+
         background_tasks.add_task(
             process_document_background,
             entry_id=entry_id,
@@ -138,14 +161,17 @@ async def ingest_document(
             file_path=temp_file_path,
             original_filename=file.filename,
             content_type=file_ext.replace(".", ""),
-            file_size=file_size
+            file_size=file_size,
+            metadata=metadata_for_worker # Pass the metadata
         )
         
         return {
             "status": "pending",
             "entry_id": entry_id,
+            "title": file.filename,
             "message": "File upload accepted. Processing in background.",
-            "original_filename": file.filename
+            "original_filename": file.filename,
+            "chunks_created": 0  # Will be updated in background
         }
 
         
@@ -174,6 +200,15 @@ async def ingest_url(
         scraper = get_url_scraper()
         scrape_result = await scraper.scrape_url(request.url)
         
+        # Prepare metadata for ingestion
+        ingestion_metadata = {}
+        if request.region:
+            ingestion_metadata["region"] = request.region
+        if request.language:
+            ingestion_metadata["language"] = request.language
+        if request.cultural_context:
+            ingestion_metadata["cultural_context"] = request.cultural_context
+
         # Ingest into RAG system
         rag_service = get_rag_service()
         result = rag_service.ingest_document(
@@ -182,7 +217,8 @@ async def ingest_url(
             text=scrape_result["text"],
             title=scrape_result["title"],
             content_type="url",
-            source=request.url
+            source=request.url,
+            metadata=ingestion_metadata # Pass the metadata
         )
         
         return result
@@ -235,6 +271,15 @@ async def ingest_text(
         if len(request.content.strip()) < 20:
             raise HTTPException(status_code=400, detail="Content too short (minimum 20 characters)")
         
+        # Prepare metadata for ingestion
+        ingestion_metadata = {}
+        if request.region:
+            ingestion_metadata["region"] = request.region
+        if request.language:
+            ingestion_metadata["language"] = request.language
+        if request.cultural_context:
+            ingestion_metadata["cultural_context"] = request.cultural_context
+
         rag_service = get_rag_service()
         result = rag_service.ingest_document(
             db=db,
@@ -242,7 +287,8 @@ async def ingest_text(
             text=request.content,
             title=request.title,
             content_type="manual",
-            source="user_input"
+            source="user_input",
+            metadata=ingestion_metadata # Pass the metadata
         )
         
         return result
@@ -293,8 +339,25 @@ async def crawl_website(
         rag_service = get_rag_service()
         total_chunks = 0
         
+        # Prepare base metadata from request
+        base_metadata = {}
+        if request.region:
+            base_metadata["region"] = request.region
+        if request.language:
+            base_metadata["language"] = request.language
+        if request.cultural_context:
+            base_metadata["cultural_context"] = request.cultural_context
+
         for page in pages:
             try:
+                # Merge base metadata with page-specific metadata
+                page_metadata = {
+                    'page_type': page['page_type'],
+                    'meta_description': page.get('meta_description', ''),
+                    'word_count': page['word_count']
+                }
+                final_metadata = {**base_metadata, **page_metadata} # Merge dictionaries
+
                 result = rag_service.ingest_document(
                     db=db,
                     workspace_id=request.workspace_id,
@@ -302,11 +365,7 @@ async def crawl_website(
                     title=page['title'],
                     content_type=f"website_{page['page_type']}",
                     source=page['url'],
-                    metadata={
-                        'page_type': page['page_type'],
-                        'meta_description': page.get('meta_description', ''),
-                        'word_count': page['word_count']
-                    }
+                    metadata=final_metadata # Pass the merged metadata
                 )
                 total_chunks += result.get('chunks_created', 0)
             except Exception as e:
@@ -346,15 +405,15 @@ async def list_entries(
         
         # Get vector store stats
         rag_service = get_rag_service()
-        stats = rag_service.get_stats(workspace_id)
+        stats = rag_service.get_stats(db, workspace_id)
         
         result_entries = []
         for entry in entries:
             result_entries.append({
                 "id": entry.id,
-                "title": entry.content[:50] + "..." if len(entry.content) > 50 else entry.content,
+                "title": entry.title or (entry.content[:50] + "..." if entry.content and len(entry.content) > 50 else entry.content),
                 "content_type": entry.content_type or "text",
-                "status": "indexed",
+                "status": entry.status or "indexed",
                 "created_at": entry.created_at.isoformat() if entry.created_at else None,
                 "word_count": len(entry.content.split()) if entry.content else 0
             })
@@ -407,6 +466,7 @@ async def search_knowledge(
     try:
         rag_service = get_rag_service()
         results = rag_service.search(
+            db=db,
             workspace_id=request.workspace_id,
             query=request.query,
             top_k=request.top_k
@@ -449,6 +509,7 @@ async def query_knowledge(
     try:
         rag_service = get_rag_service()
         result = rag_service.query(
+            db=db,
             workspace_id=request.workspace_id,
             question=request.question,
             top_k=request.top_k,
@@ -474,7 +535,7 @@ async def get_brain_stats(
     """
     try:
         rag_service = get_rag_service()
-        stats = rag_service.get_stats(workspace_id)
+        stats = rag_service.get_stats(db, workspace_id)
         
         # Count entries in SQL
         entry_count = db.query(BrainEntry).filter(

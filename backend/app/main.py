@@ -1,29 +1,55 @@
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from app.database import get_db
 from dotenv import load_dotenv
 import os
 import google.generativeai as genai
-
+from app.core.websockets import manager
 
 load_dotenv()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize resources
+    from app.database import engine, Base
+    import app.models 
+    Base.metadata.create_all(bind=engine)
+    
+    # Initialize basic logging
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger("app.main")
+    logger.info("Auromind Production System Starting...")
+    
+    yield
+    
+    # Shutdown: Cleanup
+    logger.info("Shutting down...")
+
 app = FastAPI(
     title="Auromind API",
-    description="AI-Powered Business Assistant Platform",
-    version="1.0.0"
+    description="AI-Powered Business Assistant Platform (Production)",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
-# CORS middleware - Allow specific origins
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-origins = [
-    "http://localhost:3000",
-    "http://localhost:8000",
-    frontend_url
-]
+# Websocket Endpoint
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect(user_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(user_id, websocket)
 
+
+# CORS middleware - Allow all origins for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],  # Allow all origins in development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,12 +63,15 @@ async def root():
         "status": "running"
     }
 
+# Startup event removed in favor of lifespan
+
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
 # Import and include routers
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
@@ -51,23 +80,34 @@ app.include_router(inbox.router)
 app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
 app.include_router(brain.router, tags=["brain"])  # RAG Knowledge Base
 app.include_router(followups.router)
+app.include_router(chat.router)
+app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(twilio_webhook.router)
+app.include_router(integrations.router)  # OAuth Integrations
+app.include_router(gmail.router)  # Gmail API
 
 
 # Configure Colab API
 import httpx
 from pydantic import BaseModel
+from typing import Optional
 
 class ChatRequest(BaseModel):
     message: str
     history: list = []
     model: str = "auto"  # Default to auto
-    workspace_id: str = None  # For RAG context retrieval
+    workspace_id: Optional[str] = None  # For RAG context retrieval
     use_rag: bool = True  # Whether to use RAG for context
+    document_id: Optional[str] = None  # Optional: Analyze specific document immediately
+    chat_mode: str = "auto" # auto, brain_only, web_only
+    chat_mode: str = "auto" # auto, brain_only, web_only
+    source: str = "internal" # internal, internal_web
+    session_id: Optional[str] = None # For chat history persistence
 
+from app.models.conversation import ChatSession, ChatMessage
+import uuid
+from datetime import datetime
 
-from fastapi.responses import StreamingResponse
-import json
-import asyncio
 
 from fastapi.responses import StreamingResponse
 import json
@@ -86,138 +126,116 @@ if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
 @app.post("/api/chat")
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
     try:
         async def event_generator():
             try:
-                # Determine which API to use based on model selection
-                
-                if request.model == "gemini":
-                    # Use actual Gemini API with optional RAG
-                    if not GOOGLE_API_KEY:
-                        yield f"{json.dumps({'error': 'Gemini API key not configured'})}\n"
-                        return
-                    
+                # 1. Init
+                context = ""
+                rag_sources = []
+                final_message = request.message
+                full_response = ""
+
+                # 2. Persist User Message
+                if request.session_id:
+                     user_msg = ChatMessage(
+                        id=str(uuid.uuid4()),
+                        session_id=request.session_id,
+                        role="user",
+                        content=request.message
+                     )
+                     db.add(user_msg)
+                     db.commit()
+
+                # 3. RAG Retrieval
+                rag_answered = False
+                if request.use_rag and request.workspace_id:
                     try:
-                        model = genai.GenerativeModel('gemini-2.5-flash-lite')
+                        from app.services.rag_service import get_rag_service
+                        rag_service = get_rag_service()
                         
-                        # Build prompt with RAG context if available
-                        prompt = request.message
-                        rag_sources = []
+                        rag_response = rag_service.query(
+                            db=db,
+                            workspace_id=request.workspace_id,
+                            question=request.message,
+                            top_k=5,
+                            model_name=request.model,
+                            context_document_id=request.document_id,
+                            chat_mode=request.chat_mode,
+                            source=request.source
+                        )
                         
-                        if request.use_rag and request.workspace_id:
-                            try:
-                                from app.services.rag_service import get_rag_service
-                                rag_service = get_rag_service()
-                                
-                                # Use the new Agentic Query method
-                                rag_response = rag_service.query(
-                                    workspace_id=request.workspace_id,
-                                    question=request.message,
-                                    top_k=5,
-                                    model_name=request.model
-                                )
-                                
-                                # Send sources if available
-                                if rag_response.get("sources"):
-                                     rag_sources = rag_response["sources"]
-                                     yield f"{json.dumps({'sources': rag_sources})}\n"
-                                
-                                # Stream the answer (since query() returns full text, we fake stream it or just send it)
-                                # Ideally query() should support streaming, but for now we just yield the full answer.
-                                # To be smoother, we can yield it in chunks if we wanted, but one chunk is fine.
-                                yield f"{json.dumps({'content': rag_response['answer']})}\n"
-                                return # Stop here, we handled the response via RAG
+                        if rag_response.get("context_used"):
+                            if rag_response.get("sources"):
+                                yield f"{json.dumps({'sources': rag_response['sources']})}\n"
+                            
+                            # Stream RAG answer
+                            answer = rag_response['answer']
+                            yield f"{json.dumps({'content': answer})}\n"
+                            full_response = answer
+                            rag_answered = True
+                    except Exception as rag_error:
+                        print(f"RAG Retrieval failed: {rag_error}")
 
-                            except Exception as rag_error:
-                                print(f"RAG Agentic Loop failed: {rag_error}. Fallback to direct generation.")
-                                # Fallback logic below (standard prompt)
-                                prompt = request.message
-                        else:
-                             prompt = request.message
-
+                # 4. LLM Generation (if no RAG answer)
+                if not rag_answered:
+                    if request.model == "gemini" or (request.model == "auto" and not groq_client):
+                        if not GOOGLE_API_KEY:
+                            yield f"{json.dumps({'error': 'Gemini API key not configured'})}\n"
+                            return
                         
-                        response = model.generate_content(prompt, stream=True)
-                        
-                        # If we have sources, send them first
-                        if rag_sources:
-                            yield f"{json.dumps({'sources': rag_sources})}\n"
-                        
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        # Note: We are not passing full history here yet, can be improved later
+                        response = model.generate_content(final_message, stream=True)
                         for chunk in response:
                             if chunk.text:
+                                full_response += chunk.text
                                 yield f"{json.dumps({'content': chunk.text})}\n"
-                                await asyncio.sleep(0)  # Allow other tasks to run
-                    except Exception as e:
-                        yield f"{json.dumps({'error': f'Gemini API Error: {str(e)}'})}\n"
+                                await asyncio.sleep(0)
+                                
+                    else:  # auto/llama/auromind - default to Groq
+                        if not groq_client:
+                            yield f"{json.dumps({'error': 'Auromind AI (Groq) not configured'})}\n"
+                            return
+    
+                        completion = groq_client.chat.completions.create(
+                            messages=[
+                                {"role": "system", "content": "You are Auromind, a helpful AI assistant."},
+                                {"role": "user", "content": final_message}
+                            ],
+                            model="llama-3.1-8b-instant",
+                            temperature=0.7,
+                            stream=True,
+                        )
+    
+                        for chunk in completion:
+                            if chunk.choices[0].delta.content:
+                                content = chunk.choices[0].delta.content
+                                full_response += content
+                                yield f"{json.dumps({'content': content})}\n"
+                                await asyncio.sleep(0)
 
-                        
-                elif request.model == "auromind" or request.model == "llama":
-                    # Use Groq API (formerly Auromind Colab)
-                    if not groq_client:
-                         yield f"{json.dumps({'error': 'Auromind AI (Groq) not configured'})}\n"
-                         return
+                # 5. Persist AI Message
+                if request.session_id and full_response:
+                     ai_msg = ChatMessage(
+                        id=str(uuid.uuid4()),
+                        session_id=request.session_id,
+                        role="assistant",
+                        content=full_response
+                     )
+                     db.add(ai_msg)
+                     
+                     # Update session timestamp
+                     session = db.query(ChatSession).filter(ChatSession.id == request.session_id).first()
+                     if session:
+                         session.updated_at = datetime.utcnow()
+                     
+                     db.commit()
 
-                    completion = groq_client.chat.completions.create(
-                        messages=[
-                            {"role": "system", "content": "You are Auromind, a helpful AI assistant."},
-                            {"role": "user", "content": request.message}
-                        ],
-                        model="llama-3.1-8b-instant",
-                        temperature=0.7,
-                        max_tokens=1024,
-                        top_p=1,
-                        stop=None,
-                        stream=True,
-                    )
-
-                    for chunk in completion:
-                        if chunk.choices[0].delta.content:
-                             yield f"{json.dumps({'content': chunk.choices[0].delta.content})}\n"
-                             await asyncio.sleep(0)
-                            
-                else:  # auto - default to Auromind (Groq)
-                    # Use Groq API
-                    if not groq_client:
-                         yield f"{json.dumps({'error': 'Auromind AI (Groq) not configured'})}\n"
-                         return
-
-                    completion = groq_client.chat.completions.create(
-                        messages=[
-                            {"role": "system", "content": "You are Auromind, a helpful AI assistant."},
-                            {"role": "user", "content": request.message}
-                        ],
-                        model="llama-3.1-8b-instant",
-                        temperature=0.7,
-                        stream=True,
-                    )
-
-                    for chunk in completion:
-                        if chunk.choices[0].delta.content:
-                             yield f"{json.dumps({'content': chunk.choices[0].delta.content})}\n"
-                             await asyncio.sleep(0)
-                        
             except Exception as e:
                 yield f"{json.dumps({'error': str(e)})}\n"
 
-        
-        # Log learning event (async in background would be better, but for now we'll do sync)
-        try:
-            from app.models.learning_event import LearningEvent
-            from app.database import SessionLocal
-            import uuid as uuid_lib
-            
-            # We'll log this after the response for now (in production, use background task)
-            # For now, just pass - we'll log it in a separate endpoint call from frontend
-            pass
-        except Exception as e:
-            print(f"Error logging learning event: {e}")
-        
         return StreamingResponse(event_generator(), media_type="text/plain")
     except Exception as e:
         print(f"API Error: {e}")
         return {"response": f"Error: {str(e)}"}
-
-# app.include_router(followups.router, prefix="/followups", tags=["followups"])
-# app.include_router(marketing.router, prefix="/marketing", tags=["marketing"])
-# app.include_router(promises.router, prefix="/promises", tags=["promises"])
-# app.include_router(brain.router, prefix="/brain", tags=["brain"])
