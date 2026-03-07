@@ -43,48 +43,31 @@ export default function IntegrationsPage() {
         }
     ];
 
-    const loadIntegrationStatus = async () => {
-    try {
-        const token = localStorage.getItem('token');
-        if (!token || !workspace?.id) return;
-
-        const response = await fetch(
-            `http://localhost:8000/integrations/status?workspace_id=${workspace.id}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (response.ok) {
-            const data = await response.json();
-            setIntegrations(data);
-            return data;
-        }
-    } catch (error) {
-        console.error('Failed to load status:', error);
-        }
-    };
-
     useEffect(() => {
-    if (!workspace?.id) return;
+        if (workspace?.id) {
+            loadIntegrationStatus();
+        }
+    }, [workspace]);
 
-    let interval;
+    const loadIntegrationStatus = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return; // Skip if not logged in
 
-    const startPolling = async () => {
-        interval = setInterval(async () => {
-            const data = await loadIntegrationStatus();
+            const response = await fetch(
+                `http://localhost:8000/integrations/status?workspace_id=${workspace.id}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
 
-            if (data?.gmail?.connected) {
-                clearInterval(interval); // stop polling
+            if (response.ok) {
+                const data = await response.json();
+                setIntegrations(data);
             }
-        }, 2000);
+        } catch (error) {
+            console.error('Failed to load status:', error);
+            // Continue - show all as disconnected
+        }
     };
-
-    startPolling();
-
-    return () => {
-        if (interval) clearInterval(interval);
-        };
-    }, [workspace?.id]);
-
 
     const handleConnect = async (integrationId) => {
         setLoading(true);
@@ -139,7 +122,7 @@ export default function IntegrationsPage() {
 
     return (
         <div className="min-h-screen bg-[#050505] text-white p-8">
-            <div className="max-w-6xl mx-auto">
+            <div className="w-full max-w-[1400px] mx-auto px-6">
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Integrations</h1>

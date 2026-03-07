@@ -109,19 +109,6 @@ class APIClient {
     return this.get(`/mcp/actions?workspace_id=${workspace_id}${query}`);
   }
 
-  // Workspace plan
-  async getWorkspacePlan(workspace_id) {
-    return this.get(`/workspace/plan?workspace_id=${workspace_id}`);
-  }
-
-  // Admin endpoint to change plan
-  async updateWorkspacePlan(workspace_id, plan_type) {
-    return this.request(`/admin/workspaces/${workspace_id}/plan`, {
-      method: 'PATCH',
-      body: JSON.stringify({ plan_type })
-    });
-  }
-
   async overrideDecision(action_id, approved) {
     return this.post('/mcp/override', { action_id, approved });
   }

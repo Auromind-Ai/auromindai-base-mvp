@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 import {
   ArrowRight,
   MessageSquare,
@@ -14,34 +13,8 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage() {
-  const [pricing, setPricing] = useState({
-    free_plan_price: 0.0,
-    pro_plan_price: 1000.0,
-    enterprise_plan_price: 10000.0,
-    token_limit_per_plan: { free: 10000, pro: 100000, enterprise: 1000000 }
-  });
-
- useEffect(() => {
-  const fetchPricing = async () => {
-    try {
-      const response = await fetch("http://localhost:8000/public/pricing");
-
-      if (response.ok) {
-        const data = await response.json();
-        setPricing(data);
-      }
-
-    } catch (error) {
-      console.error("Failed to fetch pricing:", error);
-    }
-  };
-
-  fetchPricing();
-
-}, []);
-
-return (
-  <div className="min-h-screen bg-black text-slate-200 selection:bg-indigo-500/30">
+  return (
+    <div className="min-h-screen bg-black text-slate-200 selection:bg-indigo-500/30">
       {/* Mesh Gradient Background Removed for Minimal Look */}
 
       {/* Navigation */}
@@ -177,7 +150,7 @@ return (
             <div className="p-10 rounded-3xl bg-slate-900/40 border border-slate-800 flex flex-col items-center">
               <h3 className="text-lg font-semibold text-slate-400 mb-6">Starter</h3>
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-extrabold text-white text-3xl">₹{pricing.free_plan_price.toFixed(2)}</span>
+                <span className="text-5xl font-extrabold text-white text-3xl">$49</span>
                 <span className="text-slate-500 font-medium">/mo</span>
               </div>
               <ul className="space-y-4 mb-10 text-sm text-slate-400 w-full">
@@ -200,7 +173,7 @@ return (
               </div>
               <h3 className="text-lg font-semibold text-indigo-400 mb-6">Professional</h3>
               <div className="flex items-baseline gap-1 mb-8 text-3xl">
-                <span className="text-5xl font-extrabold text-white">₹{pricing.pro_plan_price.toFixed(2)}</span>
+                <span className="text-5xl font-extrabold text-white">$149</span>
                 <span className="text-slate-500 font-medium">/mo</span>
               </div>
               <ul className="space-y-4 mb-10 text-sm text-slate-400 w-full">
@@ -218,10 +191,7 @@ return (
             <div className="p-10 rounded-3xl bg-slate-900/40 border border-slate-800 flex flex-col items-center">
               <h3 className="text-lg font-semibold text-slate-400 mb-6">Enterprise</h3>
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-4xl font-extrabold text-white">
-                  {pricing.enterprise_plan_price > 0 ? `₹${pricing.enterprise_plan_price.toFixed(2)}` : 'Custom'}
-                </span>
-                {pricing.enterprise_plan_price > 0 && <span className="text-slate-500 font-medium">/mo</span>}
+                <span className="text-4xl font-extrabold text-white">Custom</span>
               </div>
               <ul className="space-y-4 mb-10 text-sm text-slate-400 w-full">
                 <li className="flex items-center gap-3"><Check size={16} className="text-indigo-500" /> Dedicated support</li>
@@ -234,7 +204,7 @@ return (
               </button>
             </div>
           </div>
-        </div>         
+        </div>
       </section>
 
       {/* Footer */}
