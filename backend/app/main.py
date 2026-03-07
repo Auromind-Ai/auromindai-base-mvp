@@ -183,17 +183,12 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                 if request.use_rag and request.workspace_id:
                     try:
                         rag = get_rag_service()
-
                         answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
                             question=request.message,
                             top_k=5,
                             model_name=get_setting(db, "model_name", request.model),
-                            context_document_id=request.document_id,
-                            chat_mode=request.chat_mode,
-                            source=request.source
-                            query=request.message
                         )
 
                         if answer:

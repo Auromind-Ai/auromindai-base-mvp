@@ -81,9 +81,9 @@ export default function SettingsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(settings)
       })
-
+      console.log("Save response:", response)
       if (!response.ok) {
         throw new Error("Failed to save settings")
       }
