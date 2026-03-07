@@ -122,7 +122,7 @@ export default function IntegrationsPage() {
 
     return (
         <div className="min-h-screen bg-[#050505] text-white p-8">
-            <div className="max-w-6xl mx-auto">
+            <div className="w-full max-w-[1400px] mx-auto px-6">
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Integrations</h1>

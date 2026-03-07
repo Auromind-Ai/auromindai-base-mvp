@@ -313,3 +313,64 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes sparkleRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.sparkle-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.sparkle-border::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    rgba(255,255,255,0.8),
+    transparent,
+    rgba(255,255,255,0.6),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  animation: sparkleRotate 3s linear infinite;
+  z-index: 0;
+}
+
+.sparkle-border:hover::before {
+  opacity: 0.7;
+}
+
+.sparkle-border::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--card);
+  border-radius: inherit;
+  z-index: 1;
+}
+
+/* ensure content above sparkle layers */
+.sparkle-border > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Hide scrollbar but allow scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

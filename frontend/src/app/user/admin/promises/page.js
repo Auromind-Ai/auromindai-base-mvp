@@ -1,103 +1,183 @@
 'use client';
 
-import { CheckCircle2, Clock, AlertCircle, Calendar } from 'lucide-react';
+import { useRef } from 'react';
+import { CheckCircle2, Clock, AlertCircle, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const MOCK_PROMISES = [
-    { id: 1, customer: 'Raj Enterprises', promise: 'Send revised proposal by Friday', deadline: 'Tomorrow', status: 'pending' },
-    { id: 2, customer: 'Tech Solutions Ltd', promise: 'Follow up on implementation timeline', deadline: 'In 3 days', status: 'pending' },
-    { id: 3, customer: 'Global Corp', promise: 'Share case study PDF', deadline: 'Yesterday', status: 'overdue' },
-    { id: 4, customer: 'StartupX', promise: 'Schedule demo call', deadline: 'Completed', status: 'fulfilled' },
+  { id: 1, customer: 'Raj Enterprises', promise: 'Send revised proposal by Friday', deadline: 'Tomorrow', status: 'pending' },
+  { id: 2, customer: 'Tech Solutions Ltd', promise: 'Follow up on implementation timeline', deadline: 'In 3 days', status: 'pending' },
+  { id: 3, customer: 'Global Corp', promise: 'Share case study PDF', deadline: 'Yesterday', status: 'overdue' },
+  { id: 4, customer: 'StartupX', promise: 'Schedule demo call', deadline: 'Completed', status: 'fulfilled' },
 ];
 
 export default function PromisesPage() {
-    return (
-        <div className="max-w-5xl mx-auto">
-            <div className="mb-8 p-4">
-                <h1 className="text-2xl font-bold text-[#D4D4D4] mb-1 font-display tracking-tight">Founder Assistant</h1>
-                <p className="text-[#9b9b9b] font-medium">Keeps your commitments from slipping.</p>
-            </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-8 p-4">
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20">
-                            <Clock size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-[#D4D4D4]">6</div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Due Soon</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
-                            <AlertCircle size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-red-500">1</div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Overdue</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-                            <CheckCircle2 size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-emerald-400">12</div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Fulfilled</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  const scrollRef = useRef(null);
 
-            {/* Promises Grid */}
-            <div className="grid grid-cols-2 gap-4 p-4 mb-8">
-                {MOCK_PROMISES.map((promise) => (
-                    <div
-                        key={promise.id}
-                        className={`bg-[var(--card)] rounded-xl p-5 border ${promise.status === 'overdue' ? 'border-red-500/30' : 'border-[var(--notion-border)]'
-                            } hover:bg-[#252525] transition-all shadow-xl group`}
-                    >
-                        <div className="flex items-start justify-between mb-3 border-b border-[var(--notion-border)] pb-3">
-                            <div className="font-bold text-[#D4D4D4] tracking-tight">{promise.customer}</div>
-                            {promise.status === 'fulfilled' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.12em] rounded-full border border-emerald-500/20">
-                                    <CheckCircle2 size={12} />
-                                    Fulfilled
-                                </span>
-                            )}
-                            {promise.status === 'overdue' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-[0.12em] rounded-full border border-red-500/20">
-                                    <AlertCircle size={12} />
-                                    Overdue
-                                </span>
-                            )}
-                            {promise.status === 'pending' && (
-                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-[0.12em] rounded-full border border-amber-500/20">
-                                    <Clock size={12} />
-                                    Pending
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-[#9b9b9b] text-sm mb-4 font-medium leading-relaxed">{promise.promise}</p>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-[#565656] uppercase tracking-wider">
-                            <Calendar size={14} />
-                            <span className={promise.status === 'overdue' ? 'text-red-500' : ''}>
-                                {promise.deadline}
-                            </span>
-                        </div>
-                        {promise.status !== 'fulfilled' && (
-                            <button className="mt-5 w-full py-2 bg-[#2c2c2c] hover:bg-[#3f3f3f] text-[#D4D4D4] text-xs font-bold rounded-xl border border-[#3f3f3f] transition-all active:scale-95 shadow-sm">
-                                Mark as Fulfilled
-                            </button>
-                        )}
-                    </div>
-                ))}
+  const scrollLeft = () => {
+    scrollRef.current?.scrollBy({ left: -600, behavior: 'smooth' });
+  };
+
+  const scrollRight = () => {
+    scrollRef.current?.scrollBy({ left: 600, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="w-full max-w-[1400px] mx-auto px-6">
+
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-white">
+          Founder Assistant
+        </h1>
+
+        <p className="text-sm text-neutral-400 mt-1">
+          Keeps your commitments from slipping.
+        </p>
+      </div>
+
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-3 gap-6 mb-10">
+
+        <div className="rounded-xl p-6 border border-amber-500/20 bg-gradient-to-br from-[#1a1a1a] to-[#111]">
+          <div className="flex items-center gap-3">
+            <Clock className="text-amber-400" size={18}/>
+            <div>
+              <div className="text-xl text-white font-semibold">6</div>
+              <div className="text-xs text-neutral-400 uppercase">Due Soon</div>
             </div>
+          </div>
         </div>
-    );
+
+        <div className="rounded-xl p-6 border border-red-500/20 bg-gradient-to-br from-[#1a1a1a] to-[#111]">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="text-red-400" size={18}/>
+            <div>
+              <div className="text-xl text-red-400 font-semibold">1</div>
+              <div className="text-xs text-neutral-400 uppercase">Overdue</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-6 border border-emerald-500/20 bg-gradient-to-br from-[#1a1a1a] to-[#111]">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="text-emerald-400" size={18}/>
+            <div>
+              <div className="text-xl text-emerald-400 font-semibold">12</div>
+              <div className="text-xs text-neutral-400 uppercase">Fulfilled</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+
+      {/* Promise Cards Section */}
+      <div className="relative">
+
+        {/* Left Scroll Button */}
+        <button
+          onClick={scrollLeft}
+          className="absolute -left-10 top-1/2 -translate-y-1/2 z-10
+          bg-[#1c1c1c] border border-white/10 p-2 rounded-full hover:bg-[#2a2a2a]"
+        >
+          <ChevronLeft size={18}/>
+        </button>
+
+
+        {/* Cards Container */}
+        <div
+          ref={scrollRef}
+          className="overflow-x-auto scroll-smooth no-scrollbar"
+        >
+
+          <div className="grid grid-flow-col auto-cols-[calc((100%-48px)/3)] gap-6">
+
+            {MOCK_PROMISES.map((promise) => (
+
+              <motion.div
+                key={promise.id}
+                whileHover={{ y: -4 }}
+                className={`relative min-h-[460px] rounded-xl p-6 border flex flex-col h-full overflow-hidden
+                bg-[#0b0b0b] transition-all
+                hover:border-white/20 hover:shadow-[0_0_40px_rgba(255,255,255,0.03)]
+
+                ${promise.status === 'overdue'
+                    ? 'border-red-500/30'
+                    : 'border-white/10'}
+                `}
+                >
+
+            {/* INNER GLOW BACKGROUND */}
+            <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                    background:
+                    "radial-gradient(420px circle at 110% -10%, rgba(59,130,246,0.32), rgba(0,0,0,0) 65%)"
+                }}
+                />
+
+            {/* CARD CONTENT */}
+            <div className="relative flex flex-col h-full">
+
+                {/* Header */}
+                <div className="flex justify-between mb-3">
+                <h3 className="text-base text-white font-semibold">
+                    {promise.customer}
+                </h3>
+
+                <span className={`text-[10px] px-2 py-1 rounded-full
+                ${promise.status === 'pending' && 'bg-amber-500/10 text-amber-400'}
+                ${promise.status === 'overdue' && 'bg-red-500/10 text-red-400'}
+                ${promise.status === 'fulfilled' && 'bg-emerald-500/10 text-emerald-400'}
+                `}>
+                    {promise.status}
+                </span>
+                </div>
+
+                {/* Promise Text */}
+                <p className="text-sm text-neutral-400 mb-3">
+                {promise.promise}
+                </p>
+
+                {/* Deadline */}
+                <div className="flex items-center gap-2 text-sm text-neutral-500">
+                <Calendar size={12}/>
+                {promise.deadline}
+                </div>
+
+                {/* Button */}
+                {promise.status !== 'fulfilled' && (
+                <button className="mt-auto w-full text-xs py-2 rounded-lg
+                bg-neutral-800 hover:bg-neutral-700 border border-white/10">
+                    Mark as Fulfilled
+                </button>
+                )}
+
+            </div>
+
+            </motion.div>
+
+            ))}
+
+          </div>
+
+        </div>
+
+
+        {/* Right Scroll Button */}
+        <button
+          onClick={scrollRight}
+          className="absolute -right-10 top-1/2 -translate-y-1/2 z-10
+          bg-[#1c1c1c] border border-white/10 p-2 rounded-full hover:bg-[#2a2a2a]"
+        >
+          <ChevronRight size={18}/>
+        </button>
+
+      </div>
+
+    </div>
+  );
 }

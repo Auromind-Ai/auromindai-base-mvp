@@ -151,11 +151,14 @@ function AdminLayoutContent({ children }) {
         pathname.startsWith('/user/admin/flows/') ||
         pathname === '/user/admin/automation' ||
         pathname.startsWith('/user/admin/automation/') ||
-        pathname === '/user/admin/dashboard'
+        pathname === '/user/admin/dashboard' ||
+        pathname === '/user/admin/brain' ||
+        pathname.startsWith('/user/admin/brain/')
     );
 
     return (
-        <div className="flex min-h-screen bg-[var(--notion-bg)] text-[var(--notion-text)] font-sans relative">
+        <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative
+        bg-gradient-to-br from-[#020617] via-[#030712] to-black">
             {/* Desktop Sidebar */}
             <aside
                 className="hidden md:flex w-[260px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10"
@@ -229,7 +232,7 @@ function AdminLayoutContent({ children }) {
             </Sheet>
 
             {/* Main Content Area */}
-            <main className="flex-1 min-w-0 bg-[var(--notion-bg)] flex flex-col min-h-screen overflow-hidden">
+            <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-hidden">
                 {/* Mobile Header */}
                 <div className="md:hidden flex items-center h-14 px-4 border-b border-[var(--notion-border)] bg-[var(--notion-bg)]/80 backdrop-blur-md sticky top-0 z-50">
                     <button onClick={() => setIsMobileOpen(true)} className="p-2 -ml-2 rounded-[4px] hover:bg-[var(--notion-hover)] transition-colors">
@@ -243,7 +246,7 @@ function AdminLayoutContent({ children }) {
                         {children}
                     </div>
                 ) : (
-                    <div className="w-full max-w-[1200px] mx-auto p-4 md:p-12 md:pt-24 h-full overflow-y-auto custom-scrollbar">
+                    <div className="w-full max-w-[1600px] pl-6 pr-4 pt-10 h-full overflow-y-auto custom-scrollbar">
                         {children}
                     </div>
                 )}

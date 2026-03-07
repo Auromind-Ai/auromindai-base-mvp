@@ -6,9 +6,9 @@ import {
     Linkedin,
     Mail,
     Calendar,
-    ArrowRight,
     CheckCircle2,
-    Plus
+    Plus,
+    Zap
 } from 'lucide-react';
 
 const CHANNELS = [
@@ -19,7 +19,8 @@ const CHANNELS = [
         icon: Smartphone,
         color: 'bg-green-500',
         status: 'Connected',
-        accountId: '+91 98765 43210'
+        accountId: '+91 98765 43210',
+        tags: ['Messaging', 'Automation', 'AI Replies']
     },
     {
         id: 'instagram',
@@ -28,7 +29,8 @@ const CHANNELS = [
         icon: Instagram,
         color: 'bg-pink-500',
         status: 'Connect',
-        accountId: null
+        accountId: null,
+        tags: ['Messaging', 'Comments']
     },
     {
         id: 'linkedin',
@@ -37,7 +39,8 @@ const CHANNELS = [
         icon: Linkedin,
         color: 'bg-blue-600',
         status: 'Connect',
-        accountId: null
+        accountId: null,
+        tags: ['Outreach', 'Networking']
     },
     {
         id: 'gmail',
@@ -46,7 +49,8 @@ const CHANNELS = [
         icon: Mail,
         color: 'bg-red-500',
         status: 'Connect',
-        accountId: null
+        accountId: null,
+        tags: ['Email', 'AI Drafts']
     },
     {
         id: 'calendar',
@@ -55,64 +59,155 @@ const CHANNELS = [
         icon: Calendar,
         color: 'bg-blue-500',
         status: 'Connected',
-        accountId: 'calendar@auromind.com'
+        accountId: 'calendar@auromind.com',
+        tags: ['Meetings', 'Scheduling']
     }
 ];
 
 export default function ChannelsPage() {
+
+    const active = CHANNELS.filter(c => c.status === 'Connected').length;
+
     return (
-        <div className="max-w-5xl mx-auto space-y-8">
-            <div className="mb-8 p-4">
-                <h1 className="text-3xl font-bold text-[#D4D4D4] tracking-tight font-display mb-2">Channels & Integrations</h1>
-                <p className="text-[#9b9b9b] font-medium">Connect your communication platforms to centralize messages and automate workflows.</p>
+        <div className="w-full max-w-[1400px] mx-auto px-6 space-y-10">
+
+            {/* HEADER */}
+            <div className="p-4 text-center">
+                <h1 className="text-3xl font-bold text-[#E5E5E5] tracking-tight">
+                    Channels & Integrations
+                </h1>
+
+                <p className="text-[#9b9b9b] mt-1">
+                    Connect your communication platforms to centralize messages and automate workflows.
+                </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
+
+            {/* STATS */}
+            <div className="grid grid-cols-3 gap-4 px-4">
+
+                <div className="sparkle-border rounded-xl p-5 flex flex-col items-center justify-center text-center border border-white/10 backdrop-blur-md bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
+                    <div className="text-2xl font-bold text-white">{CHANNELS.length}</div>
+                    <div className="text-xs text-[#A1A1AA] uppercase tracking-wider">Integrations</div>
+                </div>
+
+                <div className="sparkle-border rounded-xl p-5 flex flex-col items-center justify-center text-center border border-white/10 backdrop-blur-md bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
+                    <div className="text-2xl font-bold text-white">{active}</div>
+                    <div className="text-xs text-[#A1A1AA] uppercase tracking-wider">Active</div>
+                </div>
+
+                <div className="sparkle-border rounded-xl p-5 flex flex-col items-center justify-center text-center border border-white/10 backdrop-blur-md bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
+                    <div className="text-2xl font-bold text-white">{CHANNELS.length - active}</div>
+                    <div className="text-xs text-[#A1A1AA] uppercase tracking-wider">Available</div>
+                </div>
+
+            </div>
+
+
+            {/* INTEGRATIONS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4">
+
                 {CHANNELS.map((channel) => (
+
                     <div
                         key={channel.id}
-                        className="group relative bg-[var(--card)] rounded-2xl p-6 border border-[var(--notion-border)] shadow-xl hover:bg-[#252525] transition-all duration-300 h-full flex flex-col"
+                        className="group relative rounded-2xl p-6 border border-white/10
+                                    backdrop-blur-md
+                                    bg-gradient-to-br from-white/[0.12] via-white/[0.04] to-transparent
+                                    transition-all duration-300
+                                    hover:-translate-y-1
+                                    hover:shadow-2xl
+                                    hover:shadow-indigo-500/10
+                                    hover:border-indigo-500/30"
                     >
+
+                        {/* HEADER */}
                         <div className="flex items-start justify-between mb-4">
-                            <div className={`w-12 h-12 rounded-xl ${channel.color} bg-opacity-20 flex items-center justify-center border border-white/10 shadow-lg`}>
+
+                            <div className={`w-12 h-12 rounded-xl ${channel.color} bg-opacity-20 flex items-center justify-center border border-white/10`}>
                                 <channel.icon size={24} className="text-white" />
                             </div>
+
                             {channel.status === 'Connected' ? (
-                                <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-medium">
+                                <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs">
                                     <CheckCircle2 size={12} />
                                     Active
                                 </span>
                             ) : (
-                                <button className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-medium group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                <button className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs hover:bg-indigo-600 hover:text-white transition">
                                     <Plus size={12} />
                                     Connect
                                 </button>
                             )}
+
                         </div>
 
-                        <h3 className="text-lg font-bold text-[#D4D4D4] mb-1 font-display tracking-tight">{channel.name}</h3>
-                        <p className="text-sm text-[#9b9b9b] font-medium mb-4 leading-relaxed flex-1">{channel.description}</p>
 
+                        {/* TITLE */}
+                        <h3 className="text-lg font-semibold text-white mb-1">
+                            {channel.name}
+                        </h3>
+
+                        <p className="text-sm text-[#9b9b9b] mb-4 leading-relaxed">
+                            {channel.description}
+                        </p>
+
+
+                        {/* CAPABILITY TAGS */}
+                        <div className="flex flex-wrap gap-2 mb-4">
+
+                            {channel.tags.map(tag => (
+                                <span
+                                    key={tag}
+                                    className="text-xs px-2 py-1 rounded-md bg-[#262626] text-[#9b9b9b] border border-[#2f2f2f]"
+                                >
+                                    {tag}
+                                </span>
+                            ))}
+
+                        </div>
+
+
+                        {/* AI READY BADGE */}
+                        <div className="flex items-center gap-2 text-xs text-indigo-400 mb-2">
+                            <Zap size={12}/>
+                            AI Automation Ready
+                        </div>
+
+
+                        {/* ACCOUNT */}
                         {channel.status === 'Connected' && (
-                            <div className="mt-4 pt-4 border-t border-[var(--notion-border)] flex items-center justify-between text-xs font-bold">
-                                <span className="text-[#565656] uppercase tracking-wider">Connected as</span>
-                                <span className="text-emerald-400/80 font-mono bg-emerald-500/5 px-2 py-0.5 rounded border border-emerald-500/10">{channel.accountId}</span>
+                            <div className="mt-4 pt-4 border-t border-[var(--notion-border)] flex items-center justify-between text-xs">
+                                <span className="text-[#6f6f6f]">Connected as</span>
+                                <span className="text-emerald-400 font-mono">
+                                    {channel.accountId}
+                                </span>
                             </div>
                         )}
 
-                        <div className="absolute inset-0 border-2 border-transparent group-hover:border-indigo-500/10 rounded-2xl pointer-events-none transition-all" />
                     </div>
                 ))}
 
-                {/* Proposed/Coming Soon Integration */}
-                <div className="group border border-dashed border-[var(--notion-border)] rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:bg-[var(--card)]/50 transition-all cursor-pointer min-h-[160px]">
-                    <div className="w-12 h-12 rounded-full bg-[#2c2c2c] flex items-center justify-center text-[#565656] mb-3 group-hover:text-indigo-400 group-hover:bg-[var(--card)] transition-all border border-[#3f3f3f]">
-                        <Plus size={24} />
+
+                {/* REQUEST INTEGRATION */}
+                <div className="border border-dashed border-[var(--notion-border)] rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:bg-[var(--card)]/60 transition cursor-pointer min-h-[200px]">
+
+                    <div className="w-12 h-12 rounded-full bg-[#2c2c2c] flex items-center justify-center mb-3">
+                        <Plus size={24}/>
                     </div>
-                    <h3 className="text-sm font-bold text-[#787878] group-hover:text-[#D4D4D4] transition-colors">Request Integration</h3>
-                    <p className="text-xs font-medium text-[#565656] mt-1">Don&apos;t see your channel? Let us know.</p>
+
+                    <h3 className="text-sm font-semibold text-[#D4D4D4]">
+                        Request Integration
+                    </h3>
+
+                    <p className="text-xs text-[#787878] mt-1">
+                        Don't see your channel? Let us know.
+                    </p>
+
                 </div>
+
             </div>
+
         </div>
     );
 }

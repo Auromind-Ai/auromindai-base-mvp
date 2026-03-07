@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://auromind:santhoshr123@localhost:5432/auromind")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://9ae2d0539fb6e6a1ad0fe4879e50f4bc458d853156929da5ce018092b9f249cc:sk_VtN3YJ2d1xbWIvmVFTMTD@db.prisma.io:5432/postgres?sslmode=require")
 
 engine = create_engine(
     DATABASE_URL,
