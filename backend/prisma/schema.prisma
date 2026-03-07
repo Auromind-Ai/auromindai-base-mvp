@@ -35,11 +35,13 @@ model User {
 model Workspace {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
-  created_at  DateTime @default(now())
   created_by  String?  @db.Uuid
+
+  plan_type   String   @default("starter")  // ADD THIS
+
+  created_at  DateTime @default(now())
   updated_at  DateTime? @updatedAt
 
-  // Relations
   members         WorkspaceMember[]
   learning_events LearningEvent[]
   followups       Followup[]
@@ -342,6 +344,16 @@ model MCPDecision {
   @@index([message_id])
   @@index([thread_id])
   @@map("mcp_decisions")
+}
+
+model PlatformSetting {
+  key        String   @id
+  value      String
+  value_type String   @default("string")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("platform_settings")
 }
 
 model EmailMessage {
