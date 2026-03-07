@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
 import logging
-
 from app.database import get_db
 from app.services.document_service import get_url_scraper
 from app.models.brain import BrainEntry
