@@ -4,11 +4,13 @@ import logging
 import json
 import os
 from typing import Dict, Any, Optional
+from sqlalchemy.orm import Session
 
 from app import models
 from app.services.ai_response_service import AIResponseService
 from app.services.twilio_service import TwilioService
 from app.services.email_service import EmailService
+from app.services.platform_settings_service import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +67,7 @@ class IntentClassifier:
     def __init__(self):
         self.ai_service = AIResponseService()
 
-    async def classify(self, message: str, context: Dict[str, Any]) -> Dict[str, str]:
+    async def classify(self, message: str, context: Dict[str, Any], db: Session) -> Dict[str, str]:
         """
         Classify customer intent using Claude.
         Returns: { "category": "...", "urgency": "low|medium|high" }
@@ -87,12 +89,16 @@ class IntentClassifier:
         
         user_prompt = f"Message: {message}\nContext: {json.dumps(context)}"
         
+        # Get AI settings
+        temperature = get_setting(db, "temperature", 0.1)
+        max_tokens = get_setting(db, "max_tokens", 100)
+        
         try:
             # We reuse the anthropic client from AIResponseService
             response = await self.ai_service.anthropic.messages.create(
                 model="claude-3-5-sonnet-20240620",
-                max_tokens=100,
-                temperature=0.1,
+                max_tokens=max_tokens,
+                temperature=temperature,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}]
             )
@@ -109,13 +115,13 @@ class AfterHoursResponder:
         self.twilio_service = TwilioService()
         self.email_service = EmailService()
 
-    async def handle_request(self, message: str, from_number: str, lead_context: Dict[str, Any]):
+    async def handle_request(self, message: str, from_number: str, lead_context: Dict[str, Any], db: Session):
         """
         Main handler for after-hours messages.
         """
         # 1. Classify Intent
         classifier = IntentClassifier()
-        classification = await classifier.classify(message, lead_context)
+        classification = await classifier.classify(message, lead_context, db)
         category = classification.get("category", "other")
         urgency = classification.get("urgency", "low")
         

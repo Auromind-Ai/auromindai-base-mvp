@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from app.models import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.auth import get_password_hash, verify_password, create_access_token
+from app.services.platform_settings_service import get_setting
 from datetime import timedelta
 import uuid
 
@@ -13,6 +14,12 @@ class AuthService:
         existing_user = db.query(User).filter(User.email == email).first()
         if existing_user:
             raise ValueError("Email already registered")
+        
+        # Check platform limits
+        max_workspaces = get_setting(db, "max_workspaces", 10)
+        current_workspaces = db.query(Workspace).count()
+        if current_workspaces >= max_workspaces:
+            raise ValueError(f"Maximum number of workspaces ({max_workspaces}) reached")
         
         # Create user
         hashed_password = get_password_hash(password)
@@ -27,7 +34,8 @@ class AuthService:
         # Create workspace
         workspace = Workspace(
             name=workspace_name,
-            created_by=user.id
+            created_by=user.id,
+            plan_type="starter"  # new workspaces always start on the starter tier
         )
         db.add(workspace)
         db.flush()
@@ -65,7 +73,8 @@ class AuthService:
             # Create default workspace
             workspace = Workspace(
                 name=f"{user.full_name}'s Workspace",
-                created_by=user.id
+                created_by=user.id,
+                plan_type="starter"
             )
             db.add(workspace)
             db.flush()
@@ -107,7 +116,8 @@ class AuthService:
                 {
                     "id": str(ws.id),
                     "name": ws.name,
-                    "role": role
+                    "role": role,
+                    "plan_type": getattr(ws, "plan_type", "starter")
                 }
                 for ws, role in workspaces
             ]
@@ -130,6 +140,7 @@ class AuthService:
                 "id": str(ws.id),
                 "name": ws.name,
                 "role": role,
+                "plan_type": getattr(ws, "plan_type", "starter"),
                 "created_at": ws.created_at.isoformat() if ws.created_at else None
             }
             for ws, role in workspaces

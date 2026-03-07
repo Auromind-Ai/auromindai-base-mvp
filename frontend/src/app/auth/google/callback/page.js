@@ -31,10 +31,12 @@ export default function GoogleCallbackPage() {
                 setStatus('Completing connection...');
 
                 // Send to backend
-                const response = await fetch(
-                    `http://localhost:8000/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-                    { method: 'GET' }
-                );
+              const codeVerifier = localStorage.getItem("google_code_verifier");
+
+const response = await fetch(
+  `http://localhost:8000/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&code_verifier=${encodeURIComponent(codeVerifier)}`,
+  { method: 'GET' }
+);
 
                 if (!response.ok) {
                     const errorData = await response.json();

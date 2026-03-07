@@ -71,7 +71,7 @@ async def handle_message_async(message_data: dict):
             context = {"history": "..."} # Simplified for now
             
             # Classify & Respond
-            response_data = await responder.handle_request(body, phone, context)
+            response_data = await responder.handle_request(body, phone, context, db)
             
             # Verify if response was sent (AfterHoursResponder handles sending via Twilio)
             logger.info(f"Auto-response generated: {response_data}")
