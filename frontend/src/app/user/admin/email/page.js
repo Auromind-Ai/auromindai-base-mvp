@@ -15,10 +15,6 @@ export default function EmailPage() {
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [aiData, setAiData] = useState(null);
 
-  const [sendingReply, setSendingReply] = useState(false);
-  const [editedReply, setEditedReply] = useState("");
-  const [editingReply, setEditingReply] = useState(false);
-
   useEffect(() => {
     checkConnection();
   }, []);
@@ -58,13 +54,13 @@ export default function EmailPage() {
     const token = localStorage.getItem("token");
 
     const res = await fetch(
-      `http://localhost:8000/email/inbox?workspace_id=${workspace?.id}`,
+      `http://localhost:8000/gmail/messages?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
     const data = await res.json();
 
-    setMessages(data.emails || []);
+    setMessages(data.messages || []);
   };
 
   /* ---------------------------
@@ -72,21 +68,9 @@ export default function EmailPage() {
   ---------------------------- */
 
   const openEmail = (msg) => {
-
     setSelectedEmail(msg);
-
-    setAiData({
-      id: msg.id,
-      category: msg.category,
-      priority: msg.priority,
-      confidence: msg.confidence,
-      summary: msg.summary,
-      suggested_reply: msg.suggested_reply,
-      actions: msg.actions
-    });
-     setEditedReply(msg.suggested_reply || "");
+    setAiData(msg);
   };
-
 
   /* ---------------------------
      APPROVE AUTOMATION
@@ -105,64 +89,6 @@ export default function EmailPage() {
     );
 
     alert("Automation executed");
-  };
-
-  /* ---------------------------
-     REJECT AUTOMATION
-  ---------------------------- */
-
-  const rejectAction = async () => {
-
-    const token = localStorage.getItem("token");
-
-    await fetch(
-      `http://localhost:8000/automation/reject?decision_id=${aiData.id}`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    );
-
-    alert("Automation rejected");
-  };
-
-  /* ---------------------------
-     SEND REPLY
-  ---------------------------- */
-
-  const sendReply = async () => {
-
-    if (!aiData?.suggested_reply) {
-      alert("No suggested reply available");
-      return;
-    }
-
-    setSendingReply(true);
-
-    const token = localStorage.getItem("token");
-
-    await fetch(
-      `http://localhost:8000/email/send-reply`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-        workspace_id: workspace?.id,
-        message_id: selectedEmail.id,
-        thread_id: selectedEmail.thread_id,
-        to_email: selectedEmail.from,
-        subject: selectedEmail.subject,
-        reply_text: editedReply
-      })
-      }
-    );
-
-    setSendingReply(false);
-
-    alert("Reply sent successfully");
   };
 
   /* ---------------------------
@@ -227,7 +153,9 @@ export default function EmailPage() {
 
       <div className="grid grid-cols-12 gap-6">
 
-        {/* LEFT PANEL */}
+        {/* =================================
+           LEFT PANEL (EMAIL LIST)
+        ================================= */}
 
         <div className="col-span-3 bg-[#111] rounded-xl border border-white/10">
 
@@ -252,6 +180,8 @@ export default function EmailPage() {
                 <div className="text-xs text-gray-400 truncate">
                   {msg.subject}
                 </div>
+
+                {/* BADGES */}
 
                 <div className="flex gap-2 mt-2 text-xs">
 
@@ -286,7 +216,9 @@ export default function EmailPage() {
 
         </div>
 
-        {/* CENTER PANEL */}
+        {/* =================================
+           CENTER PANEL (EMAIL DETAILS)
+        ================================= */}
 
         <div className="col-span-6 bg-[#111] rounded-xl border border-white/10 p-6">
 
@@ -308,84 +240,42 @@ export default function EmailPage() {
                 From: {selectedEmail.from}
               </div>
 
-              {/* CATEGORY */}
+              {aiData && (
 
-              <div className="bg-black/40 p-4 rounded-lg mb-4">
-                <div className="text-sm text-gray-400">Category</div>
-                <div>{aiData.category}</div>
-              </div>
+                <div className="space-y-4">
 
-              {/* PRIORITY */}
-
-              <div className="bg-black/40 p-4 rounded-lg mb-4">
-                <div className="text-sm text-gray-400">Priority</div>
-                <div>{aiData.priority}</div>
-              </div>
-
-              {/* CONFIDENCE */}
-
-              <div className="bg-black/40 p-4 rounded-lg mb-4">
-                <div className="text-sm text-gray-400">Confidence</div>
-                <div>{Math.round(aiData.confidence * 100)}%</div>
-              </div>
-
-              {/* SUMMARY */}
-
-              <div className="bg-black/40 p-4 rounded-lg mb-4">
-
-                <div className="text-sm text-gray-400 mb-2">
-                  Summary
-                </div>
-
-                <div>
-                  {aiData.summary}
-                </div>
-
-              </div>
-
-              {/* SUGGESTED REPLY */}
-
-              {aiData?.suggested_reply && (
-
-                <div className="bg-black/40 p-4 rounded-lg">
-
-                  <div className="text-sm text-gray-400 mb-2">
-                    Suggested Reply
+                  <div className="bg-black/40 p-4 rounded-lg">
+                    <div className="text-sm text-gray-400">Category</div>
+                    <div>{aiData.category}</div>
                   </div>
 
-                  {editingReply ? (
+                  <div className="bg-black/40 p-4 rounded-lg">
+                    <div className="text-sm text-gray-400">Priority</div>
+                    <div>{aiData.priority}</div>
+                  </div>
 
-                    <textarea
-                      value={editedReply}
-                      onChange={(e) => setEditedReply(e.target.value)}
-                      className="w-full bg-black border border-white/20 rounded-lg p-3 text-sm"
-                      rows={6}
-                    />
+                  <div className="bg-black/40 p-4 rounded-lg">
+                    <div className="text-sm text-gray-400">Confidence</div>
+                    <div>{Math.round(aiData.confidence * 100)}%</div>
+                  </div>
 
-                  ) : (
+                  <div className="bg-black/40 p-4 rounded-lg">
 
-                    <p className="text-sm whitespace-pre-line">
-                      {editedReply}
-                    </p>
+                    <div className="text-sm text-gray-400 mb-2">
+                      Summary
+                    </div>
 
-                  )}
+                    <div className="mb-3">
+                      {aiData.summary}
+                    </div>
 
-                  <div className="flex gap-3 mt-4">
+                    <div className="text-xs text-gray-400 space-y-1">
 
-                    <button
-                      onClick={() => setEditingReply(!editingReply)}
-                      className="bg-yellow-500 px-4 py-2 rounded-lg hover:bg-yellow-600"
-                    >
-                      {editingReply ? "Cancel" : "Edit"}
-                    </button>
+                      {aiData.date && <div>📅 {aiData.date}</div>}
+                      {aiData.time && <div>⏰ {aiData.time}</div>}
+                      {aiData.location && <div>📍 {aiData.location}</div>}
 
-                    <button
-                      onClick={sendReply}
-                      disabled={sendingReply}
-                      className="bg-green-500 px-4 py-2 rounded-lg hover:bg-green-600"
-                    >
-                      {sendingReply ? "Sending..." : "Send Reply"}
-                    </button>
+                    </div>
 
                   </div>
 
@@ -399,7 +289,9 @@ export default function EmailPage() {
 
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* =================================
+           RIGHT PANEL (AI AUTOMATION)
+        ================================= */}
 
         <div className="col-span-3 bg-[#111] rounded-xl border border-white/10 p-6">
 
@@ -407,7 +299,7 @@ export default function EmailPage() {
             AI Automation
           </h2>
 
-          {aiData && (
+          {aiData && aiData.confidence > 0.7 && (
 
             <div className="space-y-4">
 
@@ -436,6 +328,24 @@ export default function EmailPage() {
 
               )}
 
+              {/* SUGGESTED REPLY */}
+
+              {aiData.suggested_reply && (
+
+                <div className="bg-black/40 p-4 rounded-lg">
+
+                  <div className="text-sm text-gray-400 mb-2">
+                    Suggested Reply
+                  </div>
+
+                  <p className="text-sm whitespace-pre-line">
+                    {aiData.suggested_reply}
+                  </p>
+
+                </div>
+
+              )}
+
               {/* ACTION BUTTONS */}
 
               <div className="flex gap-3">
@@ -447,10 +357,7 @@ export default function EmailPage() {
                   Approve
                 </button>
 
-                <button
-                  onClick={rejectAction}
-                  className="flex-1 bg-red-500 py-2 rounded-lg hover:bg-red-600"
-                >
+                <button className="flex-1 bg-red-500 py-2 rounded-lg hover:bg-red-600">
                   Reject
                 </button>
 
