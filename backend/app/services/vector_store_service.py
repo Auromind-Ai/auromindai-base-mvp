@@ -1,162 +1,244 @@
 import logging
-import uuid
+import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func
+import uuid
 
 from app.models.brain import BrainChunk
-from app.database import engine, SessionLocal
 
 logger = logging.getLogger(__name__)
 
+
 class VectorStoreService:
-    """
-    Manages vector storage and retrieval using ChromaDB (Local).
-    
-    Features:
-    - Workspace-isolated collections
-    - Local file persistence
-    - Semantic similarity search
-    """
-    
+
     _instance = None
-    
+
     def __new__(cls):
-        """Singleton pattern."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
-    
-    def add_documents(
+
+    def add_chunks(
         self,
         db: Session,
         workspace_id: str,
-        documents: List[str],
-        embeddings: List[List[float]],
-        metadatas: List[Dict[str, Any]] = None,
-        ids: List[str] = None
+        chunks: List[Dict[str, Any]],
+        embeddings,
+        parent_id: Optional[str] = None
     ) -> List[str]:
-        """
-        Add document chunks to the PostgreSQL vector store.
-        """
-        if not documents:
-            return []
-        
-        # Generate IDs if not provided
-        if ids is None:
-            ids = [str(uuid.uuid4()) for _ in documents]
-        
-        if metadatas is None:
-            metadatas = [{} for _ in documents]
 
-        import json
-        
+        if not chunks:
+            return []
+
+        if len(chunks) != len(embeddings):
+            raise ValueError("Chunks and embeddings length mismatch")
+
         chunks_to_add = []
-        for i in range(len(documents)):
-            chunk = BrainChunk(
-                id=ids[i],
+
+        for i, chunk in enumerate(chunks):
+
+            metadata = {
+                "chunk_index": chunk.get("chunk_index"),
+                "token_count": chunk.get("token_count"),
+                "content_hash": chunk.get("id"),  # MD5 from Schunker
+                "parent_id": parent_id
+            }
+
+            db_chunk = BrainChunk(
+                id=chunk["id"],  # Use deterministic MD5 id
                 workspace_id=workspace_id,
-                entry_id=metadatas[i].get("parent_id"),
-                content=documents[i],
-                embedding=embeddings[i],
-                chunk_index=metadatas[i].get("chunk_index", 0),
-                metadata_json=json.dumps(metadatas[i])
+                entry_id=parent_id,
+                content=chunk["text"],
+                embedding=embeddings[i].tolist(),  # numpy → list
+                chunk_index=chunk.get("chunk_index", 0),
+                metadata_json=json.dumps(metadata, default=str)
             )
-            chunks_to_add.append(chunk)
-            
+
+            chunks_to_add.append(db_chunk)
+
         try:
             db.bulk_save_objects(chunks_to_add)
             db.commit()
-            logger.info(f"Added {len(documents)} chunks to pgvector (workspace {workspace_id})")
-            return ids
+
+            logger.info(
+                f"Stored {len(chunks)} chunks in workspace {workspace_id}"
+            )
+
+            return [c["id"] for c in chunks]
+
         except Exception as e:
             db.rollback()
-            logger.error(f"Failed to add documents to pgvector: {e}")
+            logger.error(f"Failed storing chunks: {e}")
+            raise
+    
+    def add_email_chunks(
+        self,
+        db: Session,
+        workspace_id: str,
+        chunks: List[Dict[str, Any]],
+        embeddings,
+        parent_id: uuid.UUID  # must be EmailMessage.id
+    ) -> List[str]:
+
+        if not chunks:
+            return []
+
+        if len(chunks) != len(embeddings):
+            raise ValueError("Email chunks and embeddings length mismatch")
+
+        chunks_to_add = []
+        stored_ids = []
+
+        for i, chunk in enumerate(chunks):
+
+            meta = chunk.get("metadata", {})
+
+            metadata = {
+                "source": "gmail",
+                "gmail_message_id": meta.get("gmail_message_id"),
+                "thread_id": meta.get("thread_id"),
+                "sender": meta.get("from"),
+                "subject": meta.get("subject"),
+                "date": meta.get("date"),
+                "category": meta.get("category"),          # new
+                "priority": meta.get("priority"),          # new
+                "direction": meta.get("direction"),        # inbound/outbound
+                "chunk_index": meta.get("chunk_index", 0)
+            }
+
+            chunk_id = uuid.uuid4()
+
+            db_chunk = BrainChunk(
+                id=chunk_id,
+                workspace_id=workspace_id,
+                entry_id=parent_id,   # EmailMessage.id
+                content=chunk["text"],
+                embedding=embeddings[i].tolist(),
+                chunk_index=meta.get("chunk_index", 0),
+                metadata_json=json.dumps(metadata, default=str)
+            )
+
+            chunks_to_add.append(db_chunk)
+            stored_ids.append(str(chunk_id))
+
+        try:
+            db.bulk_save_objects(chunks_to_add)
+            db.commit()
+
+            logger.info(
+                f"Stored {len(chunks)} email chunks for email {parent_id}"
+            )
+
+            return stored_ids
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed storing email chunks: {e}")
             raise
 
     def search(
         self,
         db: Session,
         workspace_id: str,
-        query_embedding: List[float],
-        top_k: int = 5
+        query_embedding,
+        top_k: int = 5,
+        parent_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """
-        Search for similar documents using pgvector cosine similarity.
-        """
+
         try:
-            import json
-            
-            # Using <-> for L2 distance, <=> for cosine distance, or <#> for inner product
-            # Here we use cosine distance (1 - cosine_similarity)
-            # The query calculates: embedding <=> :query_embedding
-            results = db.query(
+
+            query = db.query(
                 BrainChunk,
                 BrainChunk.embedding.cosine_distance(query_embedding).label("distance")
             ).filter(
                 BrainChunk.workspace_id == workspace_id
-            ).order_by(
+            )
+
+            if parent_id:
+                query = query.filter(BrainChunk.entry_id == parent_id)
+
+            results = query.order_by(
                 text("distance ASC")
             ).limit(top_k).all()
-            
-            formatted_results = []
+
+            formatted = []
+
             for chunk, distance in results:
-                # Convert distance to similarity score
-                similarity = 1 - float(distance) if distance is not None else 0
-                
+
+                similarity = 1 - float(distance) if distance else 0
+
                 try:
-                    meta = json.loads(chunk.metadata_json) if chunk.metadata_json else {}
+                    meta = json.loads(chunk.metadata_json)
                 except:
                     meta = {}
 
-                formatted_results.append({
+                formatted.append({
                     "id": chunk.id,
-                    "document": chunk.content,
-                    "metadata": meta,
-                    "score": similarity
+                    "text": chunk.content,
+                    "score": similarity,
+                    "metadata": meta
                 })
-            
-            return formatted_results
+
+            return formatted
+
         except Exception as e:
-            logger.error(f"pgvector search failed: {e}")
+            logger.error(f"Vector search failed: {e}")
             raise
 
-    def delete_by_metadata(self, db: Session, workspace_id: str, where: Dict[str, Any]) -> bool:
-        """
-        Delete chunks matching filters. Currently supports parent_id.
-        """
+
+    def delete_by_parent(
+        self,
+        db: Session,
+        workspace_id: str,
+        parent_id: str
+    ) -> bool:
+
         try:
-            query = db.query(BrainChunk).filter(BrainChunk.workspace_id == workspace_id)
-            
-            if "parent_id" in where:
-                query = query.filter(BrainChunk.entry_id == where["parent_id"])
-            
-            query.delete(synchronize_session=False)
+            db.query(BrainChunk).filter(
+                BrainChunk.workspace_id == workspace_id,
+                BrainChunk.entry_id == parent_id
+            ).delete(synchronize_session=False)
+
             db.commit()
             return True
+
         except Exception as e:
             db.rollback()
-            logger.error(f"Failed to delete chunks: {e}")
+            logger.error(f"Delete failed: {e}")
+      
             return False
+        
+    # WORKSPACE STATS
+    def get_collection_stats(
+        self,
+        db: Session,
+        workspace_id: str
+    ) -> Dict[str, Any]:
 
-    def get_collection_stats(self, db: Session, workspace_id: str) -> Dict[str, Any]:
-        """Get statistics for a workspace."""
         try:
             count = db.query(func.count(BrainChunk.id)).filter(
                 BrainChunk.workspace_id == workspace_id
             ).scalar()
+
             return {
                 "workspace_id": workspace_id,
-                "document_count": count or 0
+                "chunk_count": count or 0
             }
+
         except Exception as e:
-            logger.error(f"Failed to get stats: {e}")
-            return {"workspace_id": workspace_id, "document_count": 0}
+            logger.error(f"Stats failed: {e}")
+            return {
+                "workspace_id": workspace_id,
+                "chunk_count": 0
+            }
+
+
+_vector_store: Optional[VectorStoreService] = None
+
 
 def get_vector_store() -> VectorStoreService:
     global _vector_store
     if _vector_store is None:
         _vector_store = VectorStoreService()
     return _vector_store
-
-_vector_store: Optional[VectorStoreService] = None

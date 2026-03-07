@@ -5,7 +5,9 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.models.conversation import ChatSession, ChatMessage
+from uuid import UUID
 import uuid
+from datetime import datetime
 import logging
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -18,17 +20,23 @@ class ChatSessionCreate(BaseModel):
     workspace_id: str
 
 class ChatSessionResponse(BaseModel):
-    id: str
+    id: UUID
     title: Optional[str]
-    created_at: str
-    updated_at: Optional[str]
-    workspace_id: str
+    created_at: datetime
+    updated_at: Optional[datetime]
+    workspace_id: UUID
+
+    class Config:
+        from_attributes = True
 
 class ChatMessageResponse(BaseModel):
-    id: str
+    id: UUID
     role: str
     content: str
-    created_at: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class UpdateSessionRequest(BaseModel):
     title: str
@@ -44,21 +52,13 @@ async def get_sessions(
     current_user = Depends(get_current_user)
 ):
     """List all chat sessions for a workspace."""
+    
     sessions = db.query(ChatSession).filter(
         ChatSession.workspace_id == workspace_id,
         ChatSession.user_id == current_user.id
     ).order_by(ChatSession.updated_at.desc()).offset(skip).limit(limit).all()
     
-    # Convert datetime to string
-    return [
-        ChatSessionResponse(
-            id=s.id,
-            title=s.title,
-            created_at=str(s.created_at),
-            updated_at=str(s.updated_at),
-            workspace_id=s.workspace_id
-        ) for s in sessions
-    ]
+    return sessions
 
 @router.post("/sessions", response_model=ChatSessionResponse)
 async def create_session(

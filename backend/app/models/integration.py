@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, Boolean
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 from datetime import datetime
@@ -28,3 +28,43 @@ class Integration(Base):
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+
+    title = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+
+    event_date = Column(DateTime(timezone=True), nullable=False)
+    event_time = Column(String, nullable=False)
+
+    timezone = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+
+    google_event_id = Column(String, nullable=True)
+    sync_status = Column(String, default="pending")
+
+    status = Column(String, default="scheduled")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+class EmailReplyLog(Base):
+
+    __tablename__ = "email_reply_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(UUID(as_uuid=True), nullable=False)
+
+    thread_id = Column(String)
+
+    message_id = Column(String)
+
+    reply_text = Column(Text)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
