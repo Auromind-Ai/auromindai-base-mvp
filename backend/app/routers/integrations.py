@@ -8,6 +8,9 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 import os
 from datetime import datetime
+from app.services.email_monitor_service import EmailMonitor
+import requests
+
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -60,7 +63,8 @@ async def google_oauth_init(
                 "redirect_uris": [REDIRECT_URI]
             }
         },
-        scopes=SCOPES[integration_type]
+        scopes=SCOPES[integration_type],
+        autogenerate_code_verifier=False
     )
     
     flow.redirect_uri = REDIRECT_URI
@@ -68,6 +72,7 @@ async def google_oauth_init(
     authorization_url, state = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
+        prompt='consent',
         state=f"{integration_type}:{workspace_id}"  # Embed metadata in state
     )
     
@@ -140,6 +145,10 @@ async def google_oauth_callback(
             db.add(integration)
         
         db.commit()
+        
+        if integration_type == "gmail":
+            monitor = EmailMonitor()
+            monitor.run_cycle(db)
         
         return {"status": "success", "message": f"Successfully connected {integration_type}"}
     

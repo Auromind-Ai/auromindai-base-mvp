@@ -7,6 +7,12 @@ from dotenv import load_dotenv
 import os
 import google.generativeai as genai
 from app.core.websockets import manager
+from app.services.rag_service import get_rag_service
+from app.services.background_scheduler import EmailSchedulerService
+from app.database import engine
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email
+from app.routers import automation
+
 
 load_dotenv()
 
@@ -22,6 +28,18 @@ async def lifespan(app: FastAPI):
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("app.main")
     logger.info("Auromind Production System Starting...")
+
+    # #START SCHEDULER HERE
+    scheduler = EmailSchedulerService(engine)
+    scheduler.start()
+    print("🚀 Email Scheduler Started")
+
+    yield
+
+    #STOP SCHEDULER HERE
+    scheduler.stop()
+    print("🛑 Email Scheduler Stopped")
+    logger.info("Shutting down...")
     
     yield
     
@@ -34,6 +52,7 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
+
 
 # Websocket Endpoint
 @app.websocket("/ws/{user_id}")
@@ -85,6 +104,8 @@ app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(twilio_webhook.router)
 app.include_router(integrations.router)  # OAuth Integrations
 app.include_router(gmail.router)  # Gmail API
+app.include_router(email.router)
+app.include_router(automation.router)
 
 
 # Configure Colab API
@@ -99,7 +120,6 @@ class ChatRequest(BaseModel):
     workspace_id: Optional[str] = None  # For RAG context retrieval
     use_rag: bool = True  # Whether to use RAG for context
     document_id: Optional[str] = None  # Optional: Analyze specific document immediately
-    chat_mode: str = "auto" # auto, brain_only, web_only
     chat_mode: str = "auto" # auto, brain_only, web_only
     source: str = "internal" # internal, internal_web
     session_id: Optional[str] = None # For chat history persistence
@@ -149,31 +169,22 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
 
                 # 3. RAG Retrieval
                 rag_answered = False
+
                 if request.use_rag and request.workspace_id:
                     try:
-                        from app.services.rag_service import get_rag_service
-                        rag_service = get_rag_service()
-                        
-                        rag_response = rag_service.query(
+                        rag = get_rag_service()
+
+                        answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
-                            question=request.message,
-                            top_k=5,
-                            model_name=request.model,
-                            context_document_id=request.document_id,
-                            chat_mode=request.chat_mode,
-                            source=request.source
+                            query=request.message
                         )
-                        
-                        if rag_response.get("context_used"):
-                            if rag_response.get("sources"):
-                                yield f"{json.dumps({'sources': rag_response['sources']})}\n"
-                            
-                            # Stream RAG answer
-                            answer = rag_response['answer']
+
+                        if answer:
                             yield f"{json.dumps({'content': answer})}\n"
                             full_response = answer
                             rag_answered = True
+
                     except Exception as rag_error:
                         print(f"RAG Retrieval failed: {rag_error}")
 

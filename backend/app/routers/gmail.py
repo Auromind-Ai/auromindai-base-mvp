@@ -7,26 +7,44 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import base64
 from email.mime.text import MIMEText
+from google.auth.transport.requests import Request
+import os
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
 def get_gmail_service(workspace_id: str, db: Session):
-    """Get authenticated Gmail service"""
+
     integration = db.query(Integration).filter(
         Integration.workspace_id == workspace_id,
         Integration.integration_type == "google_gmail"
     ).first()
-    
+
     if not integration or not integration.is_active:
         raise HTTPException(status_code=404, detail="Gmail not connected")
-    
+
     creds = Credentials(
         token=integration.access_token,
         refresh_token=integration.refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
+        client_id=os.getenv("GOOGLE_CLIENT_ID"),
+        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
     )
-    
-    return build('gmail', 'v1', credentials=creds)
+
+    try:
+        # Force refresh if expired
+        if not creds.valid:
+            if creds.refresh_token:
+                creds.refresh(Request())
+                integration.access_token = creds.token
+                integration.token_expiry = creds.expiry
+                db.commit()
+            else:
+                raise HTTPException(status_code=401, detail="No refresh token available")
+
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Gmail re-auth required: {str(e)}")
+
+    return build("gmail", "v1", credentials=creds)
 
 @router.get("/messages")
 async def get_messages(
@@ -73,6 +91,7 @@ async def get_messages(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
 
 @router.get("/messages/{message_id}")
 async def get_message(
