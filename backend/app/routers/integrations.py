@@ -68,7 +68,6 @@ async def google_oauth_init(
     )
     
     flow.redirect_uri = REDIRECT_URI
-    # Enable PKCE
     
     authorization_url, state = flow.authorization_url(
         access_type='offline',
