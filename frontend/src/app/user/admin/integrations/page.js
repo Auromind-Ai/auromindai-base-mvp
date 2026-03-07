@@ -43,31 +43,48 @@ export default function IntegrationsPage() {
         }
     ];
 
-    useEffect(() => {
-        if (workspace?.id) {
-            loadIntegrationStatus();
-        }
-    }, [workspace]);
-
     const loadIntegrationStatus = async () => {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) return; // Skip if not logged in
+    try {
+        const token = localStorage.getItem('token');
+        if (!token || !workspace?.id) return;
 
-            const response = await fetch(
-                `http://localhost:8000/integrations/status?workspace_id=${workspace.id}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-            );
+        const response = await fetch(
+            `http://localhost:8000/integrations/status?workspace_id=${workspace.id}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-            if (response.ok) {
-                const data = await response.json();
-                setIntegrations(data);
-            }
-        } catch (error) {
-            console.error('Failed to load status:', error);
-            // Continue - show all as disconnected
+        if (response.ok) {
+            const data = await response.json();
+            setIntegrations(data);
+            return data;
+        }
+    } catch (error) {
+        console.error('Failed to load status:', error);
         }
     };
+
+    useEffect(() => {
+    if (!workspace?.id) return;
+
+    let interval;
+
+    const startPolling = async () => {
+        interval = setInterval(async () => {
+            const data = await loadIntegrationStatus();
+
+            if (data?.gmail?.connected) {
+                clearInterval(interval); // stop polling
+            }
+        }, 2000);
+    };
+
+    startPolling();
+
+    return () => {
+        if (interval) clearInterval(interval);
+        };
+    }, [workspace?.id]);
+
 
     const handleConnect = async (integrationId) => {
         setLoading(true);
