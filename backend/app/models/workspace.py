@@ -10,6 +10,8 @@ class Workspace(Base):
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
     created_by = Column(String(36), ForeignKey("users.id"))
+    # subscription plan (starter/professional/enterprise)
+    plan_type = Column(String(50), default="starter")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
