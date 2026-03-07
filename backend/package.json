@@ -3,7 +3,8 @@
     "prisma": "^5.22.0"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0"
+    "@prisma/client": "^6.19.2",
+    "recharts": "^3.7.0"
   },
   "name": "backend",
   "version": "1.0.0",

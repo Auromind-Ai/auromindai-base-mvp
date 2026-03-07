@@ -53,7 +53,6 @@ async def get_messages(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Fetch Gmail messages"""
     try:
         service = get_gmail_service(workspace_id, db)
         
@@ -100,7 +99,6 @@ async def get_message(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get full message content"""
     try:
         service = get_gmail_service(workspace_id, db)
         
@@ -124,7 +122,6 @@ async def send_email(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Send an email via Gmail"""
     try:
         service = get_gmail_service(workspace_id, db)
         

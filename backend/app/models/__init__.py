@@ -7,3 +7,4 @@ from .workspace import Workspace, WorkspaceMember
 from .followup import Followup
 from .promise import Promise
 from .learning_event import LearningEvent, FeedbackType
+from .platform_setting import PlatformSetting

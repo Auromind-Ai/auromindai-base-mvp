@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 import os
 import google.generativeai as genai
 from app.core.websockets import manager
+from app.core.middleware import MetricsMiddleware
+from app.core.middleware import APICountMiddleware
+from app.services.platform_settings_service import get_setting
 from app.services.rag_service import get_rag_service
 from app.services.background_scheduler import EmailSchedulerService
 from app.database import engine
@@ -73,6 +76,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(MetricsMiddleware)
 
 @app.get("/")
 async def root():
@@ -90,7 +94,7 @@ async def health_check():
     return {"status": "healthy"}
 
 # Import and include routers
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, admin, public
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
@@ -104,6 +108,8 @@ app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(twilio_webhook.router)
 app.include_router(integrations.router)  # OAuth Integrations
 app.include_router(gmail.router)  # Gmail API
+app.include_router(admin.router)
+app.include_router(public.router)
 app.include_router(email.router)
 app.include_router(automation.router)
 
@@ -147,6 +153,10 @@ if GROQ_API_KEY:
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
+    ai_enabled = get_setting(db, "ai_enabled", True)
+
+    if not ai_enabled:
+        return {"response": "⚠ AI system is temporarily disabled by admin."}
     try:
         async def event_generator():
             try:
@@ -177,6 +187,12 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                         answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
+                            question=request.message,
+                            top_k=5,
+                            model_name=get_setting(db, "model_name", request.model),
+                            context_document_id=request.document_id,
+                            chat_mode=request.chat_mode,
+                            source=request.source
                             query=request.message
                         )
 
@@ -190,7 +206,7 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
 
                 # 4. LLM Generation (if no RAG answer)
                 if not rag_answered:
-                    if request.model == "gemini" or (request.model == "auto" and not groq_client):
+                    if get_setting(db, "model_name", request.model) == "gemini" or (get_setting(db, "model_name", request.model) == "auto" and not groq_client):
                         if not GOOGLE_API_KEY:
                             yield f"{json.dumps({'error': 'Gemini API key not configured'})}\n"
                             return

@@ -63,14 +63,7 @@ class MCPService:
         if not keyword_result["passed"]:
             decision = "BLOCK"
             reason = f"Safety Block: Prohibited content detected ({', '.join(matched_keywords)}). Action suppressed by system."
-
-        # Rule 3: Monetary & Sensitive Policies
-        if action_type == "marketing_suggestion" and rules["no_auto_spending"]:
-            spending_result = {"rule": "no_auto_spending", "passed": False}
-            rule_results.append(spending_result)
-            decision = "ESCALATE"
-            reason = "Financial Guardrail: Marketing budget updates require multi-signature approval."
-        
+            
         # Rule 4: Domain-Specific Limits (Follow-ups)
         if action_type == "followup":
             provided_meta = context.get("provided_metadata", {})
