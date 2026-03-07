@@ -164,7 +164,8 @@ export default function BrainPage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto">
+        <div className="w-full bg-[#07070a] min-h-screen pt-12 pb-6">
+        <div className="max-w-[1400px] mx-auto px-8 space-y-6">
             {/* Notifications */}
             {success && (
                 <div className="fixed top-4 right-4 z-50 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
@@ -185,58 +186,112 @@ export default function BrainPage() {
                 </div>
             )}
 
-            <div className="mb-8 p-4">
-                <h1 className="text-2xl font-bold text-[#D4D4D4] mb-1 font-display tracking-tight">Brain (Knowledge Base)</h1>
-                <p className="text-[#9b9b9b] font-medium">Upload documents and sync websites to train your AI on your business knowledge.</p>
+            <div className="mb-10 text-center">
+                <h1 className="text-3xl font-semibold text-white tracking-tight">
+                    Brain (Knowledge Base)
+                </h1>
+
+                <p className="text-sm text-zinc-400 mt-1">
+                    Upload documents and sync websites to train your AI on your business knowledge.
+                </p>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-8 p-4">
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
-                            <Brain size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-[#D4D4D4]">
-                                {loading ? '-' : stats.knowledge_entries || entries.length}
-                            </div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Knowledge Items</div>
-                        </div>
+            <div className="grid grid-cols-3 gap-6">
+
+            {/* Card 1 */}
+            <div
+                className="relative rounded-xl p-6 border border-white/10
+                bg-[#07070a]
+                backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
+            >
+                <div className="flex items-center gap-4">
+
+                <div className="w-11 h-11 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400">
+                    <Brain size={20} />
+                </div>
+
+                <div>
+                    <div className="text-3xl font-bold text-white">
+                    {loading ? '-' : stats.knowledge_entries || entries.length}
+                    </div>
+
+                    <div className="text-xs uppercase tracking-widest text-zinc-500">
+                    Knowledge Items
                     </div>
                 </div>
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-                            <CheckCircle2 size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-[#D4D4D4]">
-                                {loading ? '-' : stats.indexed_chunks || 0}
-                            </div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Indexed Chunks</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                            <FileText size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-[#D4D4D4]">
-                                {loading ? '-' : stats.status === 'active' ? 'Active' : 'Empty'}
-                            </div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Status</div>
-                        </div>
-                    </div>
+
                 </div>
             </div>
 
+
+            {/* Card 2 */}
+            <div
+                className="relative rounded-xl p-6 border border-white/10
+                bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+                backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
+            >
+                <div className="flex items-center gap-4">
+
+                <div className="w-11 h-11 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                    <CheckCircle2 size={20} />
+                </div>
+
+                <div>
+                    <div className="text-3xl font-bold text-white">
+                    {loading ? '-' : stats.indexed_chunks || 0}
+                    </div>
+
+                    <div className="text-xs uppercase tracking-widest text-zinc-500">
+                    Indexed Chunks
+                    </div>
+                </div>
+
+                </div>
+            </div>
+
+
+            {/* Card 3 */}
+            <div
+                className="relative rounded-xl p-6 border border-white/10
+                bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+                backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
+            >
+                <div className="flex items-center gap-4">
+
+                <div className="w-11 h-11 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400">
+                    <FileText size={20} />
+                </div>
+
+                <div>
+                    <div className="text-3xl font-bold text-white">
+                    {loading ? '-' : stats.status === 'active' ? 'Active' : 'Empty'}
+                    </div>
+
+                    <div className="text-xs uppercase tracking-widest text-zinc-500">
+                    Status
+                    </div>
+                </div>
+
+                </div>
+            </div>
+
+            </div>
+
             {/* Upload Cards */}
-            <div className="grid grid-cols-2 gap-4 mb-8 p-4">
+            <div className="grid grid-cols-2 gap-6">
                 {/* Document Upload */}
-                <div className="bg-[var(--card)] rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center hover:border-indigo-500/50 hover:bg-[#252525] transition-all cursor-pointer group">
+                <div className="relative rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#0b0b0b] hover:border-indigo-500/50">
+
+            {/* Blue corner glow */}
+            <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                    background: "radial-gradient(400px circle at 100% 0%, rgba(59,130,246,0.25), transparent 60%)"
+                }}
+            />
+
+            <div className="relative">
                     {currentEntryId && (
                     <div className="mb-4 flex justify-center">
                       <FileProgress 
@@ -266,10 +321,19 @@ export default function BrainPage() {
                         {uploading ? 'Uploading...' : 'Browse Files'}
                     </button>
                 </div>
-
+                </div>
 
                 {/* Website Sync */}
-                <div className="bg-[var(--card)] rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center group">
+                <div className="relative rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#0b0b0b]">
+
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                        background: "radial-gradient(400px circle at 100% 0%, rgba(59,130,246,0.25), transparent 60%)"
+                    }}
+                />
+
+                <div className="relative">
                     <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 mx-auto mb-3 border border-emerald-500/20 group-hover:scale-110 transition-transform">
                         {(syncing || crawling) ? <Loader2 size={24} className="animate-spin" /> : <Globe size={24} />}
                     </div>
@@ -317,10 +381,13 @@ export default function BrainPage() {
                     </div>
                 </div>
             </div>
+            </div>
 
 
             {/* Search Section */}
-            <div className="bg-[var(--card)] rounded-xl p-4 border border-[var(--notion-border)] mx-4 mb-6 shadow-sm">
+            <div className="rounded-xl p-4 mb-6 border border-white/10
+            bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+            backdrop-blur-xl">
                 <div className="flex gap-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#565656]" />
@@ -375,7 +442,9 @@ export default function BrainPage() {
             </div>
 
             {/* Knowledge List */}
-            <div className="bg-[var(--card)] rounded-xl border border-[var(--notion-border)] overflow-hidden mx-4 shadow-xl mb-8">
+            <div className="rounded-xl border border-white/10 overflow-hidden shadow-xl mb-8
+            bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+            backdrop-blur-xl">
                 <div className="p-4 border-b border-[var(--notion-border)] bg-[#252525]/50 flex items-center justify-between">
                     <h2 className="font-bold text-[#D4D4D4] tracking-tight">Indexed Knowledge</h2>
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#565656]">
@@ -427,6 +496,7 @@ export default function BrainPage() {
                     </div>
                 )}
             </div>
+        </div>
         </div>
     );
 }
