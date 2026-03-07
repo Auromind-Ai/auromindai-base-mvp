@@ -24,3 +24,5 @@ google-auth-httplib2
 celery[redis]
 uvicorn[standard]
 redis
+pytz
+geopy [timezonefinder]

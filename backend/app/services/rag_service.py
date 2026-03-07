@@ -1,63 +1,674 @@
-"""
-RAG Service - Main Orchestrator for Retrieval-Augmented Generation
-Coordinates embedding, retrieval, and LLM response generation.
-"""
-
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
 import logging
-import uuid
-import os
-import google.generativeai as genai
-from groq import Groq
-
-from app.services.embedding_service import get_embedding_service
-from app.services.vector_store_service import get_vector_store
-from app.utils.text_chunker import TextChunker
-from sentence_transformers import CrossEncoder
-import json
 import re
-from app.services.orchestration_service import OrchestrationService
+import feedparser
+from matplotlib import text
+from app.utils.evaluation import token_match_percentage
+from app.models.llm_config import GroqLLM
+from app.services.vector_store_service import VectorStoreService
+from app.services.embedding_service import EmbeddingGenerator
+import uuid
+from typing import Dict, Any
+from sqlalchemy.orm import Session 
+from app.utils.text_chunker import Schunker
+import json
+import os
 
-logger = logging.getLogger(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+JSON_PATH = os.path.join(BASE_DIR, "small_talk.json")
 
+with open(JSON_PATH, "r", encoding="utf-8") as f:
+    SMALL_TALK = json.load(f)
 
-class RAGService:
-    """
-    Main RAG orchestrator that coordinates:
-    1. Document ingestion and chunking
-    2. Embedding generation
-    3. Vector storage
-    4. Semantic retrieval
-    5. LLM response generation with context
-    """
     
-    def __init__(self):
-        self.embedding_service = get_embedding_service()
-        self.vector_store = get_vector_store()
-        self.chunker = TextChunker(chunk_size=1500, chunk_overlap=200)
-        
-        # Initialize Re-ranker (Cross-Encoder)
+# Logging configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+class AgenticRAG:
+
+    def __init__(self, llm, vector_store, embedding_generator, reranker=None, top_k=3):
+        self.llm = llm
+        self.vector_store = vector_store
+        self.reranker = reranker
+        self.top_k = top_k
+        self.embedding_generator = embedding_generator 
+    
+    def chat(self, query):
+
+        small_talk_response = self.get_small_talk_response(query)
+
+        if small_talk_response:
+            print("Matched small talk")
+            return small_talk_response 
+        tool = self.decide_tool(query)
+        ...
+
+    def get_small_talk_response(self, query: str):
+        q = query.lower().strip()
+
+        # Remove punctuation
+        q = re.sub(r'[^\w\s]', '', q)
+
+        # Exact match only
+        if q in SMALL_TALK:
+            return SMALL_TALK[q]
+
+        return None
+   
+    #Semantic Search (Vector Similarity Search)
+    def semantic_search(self, db, workspace_id, query):
         try:
-            logger.info("Loading Cross-Encoder model for RAG re-ranking...")
-            self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-            logger.info("Cross-Encoder loaded successfully.")
-        except Exception as e:
-            logger.error(f"Failed to load Cross-Encoder: {e}")
-            self.cross_encoder = None
-
-        # Configure Gemini
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if api_key:
-            genai.configure(api_key=api_key)
+            query_embedding = self.embedding_generator.generate_query_embedding(
+                "Retrieve clauses specifically about: " + query
+            )
+            results = self.vector_store.search(
+                db=db,
+                workspace_id= workspace_id,
+                query_embedding=query_embedding,
+                top_k=self.top_k
+            )
+            for r in results:
+                print("------")
+                print("Chunk ID:", r["id"])
+                print("Score:", round(r["score"], 4))
+                print("Content Preview:", r["text"][:200])
+                print("-" * 40)
             
-        # Configure Groq
-        groq_api_key = os.getenv("GROQ_API_KEY")
-        if groq_api_key:
-            self.groq_client = Groq(api_key=groq_api_key)
-        else:
-            self.groq_client = None
+
+            if not results:
+                logging.warning("No documents found in vector search")
+                return []
+
+            return results
+
+        except Exception:
+            logging.exception("Vector search failed")
+            return []
+
+     #Reranking Layer
+    def rerank(self, query, documents):
+
+        if self.reranker is None:
+            return documents
+        pairs = [(query, doc["content"]) for doc in documents]
+
+        scores = self.reranker.predict(pairs)
+        scored_docs = list(zip(documents, scores))
+        scored_docs.sort(key=lambda x: x[1], reverse=True)
+        reranked_docs = [doc for doc, score in scored_docs]
+
+        return reranked_docs
     
+    def strict_topic_filter(self, original_query, context):
+        main_terms = original_query.lower().split()
+
+        filtered = []
+        for block in context.split("\n\n"):
+            score = sum(term in block.lower() for term in main_terms)
+
+            if score >= 1:   # at least 1 direct keyword match
+                filtered.append(block)
+
+        return "\n\n".join(filtered)
+    
+    #Retrieve Context
+    def retrieve_context(self, db, workspace_id, query):
+        retrieved_docs = self.semantic_search(db, workspace_id, query)
+        THRESHOLD = 0.60
+        strong_docs = [doc for doc in retrieved_docs if doc["score"] >= THRESHOLD]
+
+        reranked_docs = self.rerank(query, strong_docs)
+
+        top_docs = reranked_docs[:2]
+        context = "\n\n".join(
+            [doc["text"] for doc in top_docs]
+        )
+
+        return context
+    
+    #LLM analyzes and rewrites
+    def analyze_and_rewrite(self, query):
+        prompt = f"""
+        You are a STRICT Retrieval Query Optimization Agent.
+
+        ROLE:
+        Your ONLY task is to rewrite the user's query to improve semantic retrieval performance.
+        You are NOT allowed to answer the question.
+
+        MANDATORY RULES:
+
+        1. If the input is a greeting (hi, hello, hey), return it EXACTLY unchanged.
+        2. If the input is purely mathematical, return it EXACTLY unchanged.
+        3. Preserve all numbers, equations, and symbols exactly as written.
+        4. Do NOT answer the question.
+        5. Do NOT add explanations.
+        6. Do NOT add commentary.
+        7. Do NOT change the user's intent.
+        8. Output ONLY the rewritten query text.
+        9. If no improvement is possible, return the original query exactly.
+
+        REWRITE STRATEGY:
+
+        - If the query is short, expand it into a clear document-specific retrieval query.
+        - Replace vague references with explicit entities.
+        - Add missing contextual keywords if clearly implied.
+        - Expand single-word topic queries into section-specific queries.
+        - Improve semantic clarity for document retrieval.
+        - Keep the meaning strictly identical.
+
+        STRICT OUTPUT FORMAT:
+        Return a single line of plain text.
+        No quotes.
+        No prefixes.
+        No suffixes.
+        No extra whitespace.
+
+        User Query:
+        {query}
+
+        Rewritten Query:
+        """
+        rewritten_query = self.llm.invoke(prompt)
+        print(rewritten_query)
+        return rewritten_query.strip()
+    
+    #LLM decides which tool to use
+    def decide_tool(self, query):
+
+        prompt = f"""
+        You are a STRICT Tool Routing Agent.
+
+        Your task is to select exactly ONE tool for handling the user's query.
+        You must NOT answer the question.
+        You must NOT explain your choice.
+        You must output ONLY the tool name.
+
+        AVAILABLE TOOLS:
+
+        - vector_db
+        Use for questions answerable from internal documents, knowledge bases, PDFs, or uploaded data.
+        This is the DEFAULT tool if uncertain.
+
+        - web_search
+        Use ONLY for real-time, time-sensitive, or current information requests.
+
+        - calculator
+        Use ONLY for pure mathematical expressions containing numbers and operators.
+
+        - direct_answer
+        Use ONLY for hi, hello, hey, introduce yourself or casual small talk.
+
+        ROUTING RULES (STRICT):
+
+        1. Choose "calculator" ONLY if:
+        - The query is purely a mathematical expression
+        - Contains only numbers, operators, parentheses
+        - Example: 45*3, (100+20)/5
+
+        2. Choose "web_search" ONLY if:
+        - The user explicitly requests current or time-sensitive information
+        - Includes words like: latest, today, current, now, live, breaking, recent
+        - Mentions a specific year (e.g., 2026 results, 2025 election updates)
+
+        3. Choose "direct_answer" ONLY if:
+        - The query is a greeting or casual small talk
+        - Use for general knowledge, explanations, and questions not tied to internal documents.
+
+        4. Otherwise, ALWAYS choose "vector_db".
+
+        OUTPUT FORMAT:
+        Return exactly ONE of the following words:
+        vector_db
+        web_search
+        calculator
+        direct_answer
+
+        No punctuation.
+        No extra text.
+        No explanation.
+
+        User Query:
+        {query}
+
+        Selected Tool:
+        """
+
+        decision = self.llm.invoke(prompt)
+        print(decision)
+        return decision.strip().lower()
+
+    def web_search(self, query):
+
+        try:
+            url = f"https://news.google.com/rss/search?q={query.replace(' ', '+')}"
+            feed = feedparser.parse(url)
+
+            if not feed.entries:
+                return ""
+
+            content = ""
+
+            for entry in feed.entries[:5]:
+                content += f"""
+                Title: {entry.title}
+                Link: {entry.link}
+                Published: {entry.published}
+
+                """
+
+            return content.strip()
+
+        except Exception as e:
+            logging.exception("Web search error")
+            return ""
+
+
+    def calculator_tool(self, query):
+        if not re.match(r'^[0-9+\-*/(). ]+$', query):
+            return "Invalid mathematical expression."
+
+        try:
+            print(query)
+            result = eval(query, {"__builtins__": None}, {})
+            return str(result)
+        except:
+            return "Calculation error"
+        
+    #Reasoning Engine   
+    def agent_loop(self, db, workspace_id, query):
+        print(query)
+
+        small_talk = self.get_small_talk_response(query)
+        if small_talk:
+            return small_talk
+        
+        #Rewrite
+        rewritten_query =self.analyze_and_rewrite(query)
+        print(rewritten_query)
+        #Decide tool
+        tool = self.decide_tool(rewritten_query)
+
+        context = None
+
+        #Tool execution
+        if tool == "vector_db":
+
+            context = self.iterative_retrieval(db, workspace_id, rewritten_query)
+
+            if not context or not context.strip():
+                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+            
+            #Synthesize
+            synthesized_info = self.synthesize_information(query, context)
+
+            if not synthesized_info or not synthesized_info.strip():
+                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+
+            #Generate Final Output
+            final_answer = self.generate_final_output(query, synthesized_info)
+
+            if not final_answer or not final_answer.strip():
+                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+
+            return final_answer
+
+
+        elif tool == "web_search":
+
+            context = self.web_search(rewritten_query)
+            print("WEB SEARCH CONTEXT:", context)
+
+            if not context or not context.strip():
+                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+
+
+        elif tool == "calculator":
+            result = self.calculator_tool(query)
+
+            if not result or not result.strip():
+                return "Calculation error."
+
+            return result
+
+
+        elif tool == "direct_answer":
+
+            response = self.get_small_talk_response(query)
+
+            if response:
+                return response
+            else:
+                return "Hello! How can I assist you today?"
+        
+
+        #Final Answer
+        final_prompt = f"""
+        You are a STRICT knowledge-based AI assistant.
+
+        ROLE:
+        Answer the user's question using ONLY the provided context.
+        You must NOT use prior knowledge.
+        You must NOT guess.
+        You must NOT hallucinate.
+
+        HARD RULES (MANDATORY):
+
+        1. Use ONLY the information explicitly present in the Context section.
+        2. If the answer is not fully supported by the context, respond EXACTLY with:
+        I don’t know. Please upload relevant knowledge.
+        3. Do NOT add external facts.
+        4. Do NOT infer beyond the provided text.
+        5. Do NOT explain your reasoning.
+        6. Do NOT mention the word "context" in your answer.
+        7. If the answer exists, respond clearly and concisely.
+        8. If multiple answers are supported, include only what is explicitly stated.
+
+        OUTPUT REQUIREMENTS:
+        - Provide only the final answer.
+        - No explanations.
+        - No disclaimers.
+        - No extra commentary.
+        - No formatting unless present in the context.
+
+        Question:
+        {query}
+
+        Context:
+        {context}
+
+        Answer:
+        """
+
+        final_answer = self.llm.invoke(final_prompt)
+
+        if not final_answer or not final_answer.strip():
+           return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+
+        return final_answer
+
+    #Context Evaluation
+    def evaluate_context(self, query, context):
+        
+        if not context.strip():
+            return False
+
+        prompt = f"""
+        You are a retrieval validation agent.
+
+        Your task is to determine whether the provided Context contains
+        enough information to answer the Question.
+
+        You must NOT answer the question.
+        You must NOT explain your reasoning.
+        You must output ONLY YES or NO.
+
+        VALIDATION RULES:
+
+        1. Answer YES if the Context contains explicit statements
+        that directly address the main intent of the Question.
+
+        2. The Context does NOT need to contain every possible detail,
+        but it must contain enough relevant information
+        to reasonably generate an answer.
+
+        3. Do NOT use outside knowledge.
+        4. Do NOT assume facts not present in the Context.
+        5. If the Context is clearly unrelated or lacks key information,
+        answer NO.
+
+        OUTPUT FORMAT:
+        Return exactly one word:
+        YES
+        or
+        NO
+
+        Question:
+        {query}
+
+        Context:
+        {context}
+
+        Validation Result:
+        """
+
+
+        decision = self.llm.invoke(prompt).strip().upper()
+
+        print(decision)
+
+        return decision.startswith("YES")
+
+    #Query Refinement (Self-Correction)
+    def refine_query(self, query, previous_context):
+
+        prompt = f"""
+        You are a STRICT Retrieval Recovery Agent.
+
+        The previous retrieval attempt did NOT fully answer the question.
+
+        Your task is to rewrite the Original Question to improve document retrieval quality.
+
+        You must NOT answer the question.
+        You must NOT explain anything.
+        You must output ONLY the rewritten query text.
+
+        MANDATORY RULES:
+
+        1. Preserve the original intent exactly.
+        2. Make the query more specific and retrieval-friendly.
+        3. Replace vague words with explicit terms.
+        4. Expand implicit references if clearly identifiable.
+        5. Add only keywords explicitly present in Previous Context.
+        6. Do NOT introduce new assumptions.
+        7. Do NOT invent new facts.
+        8. Do NOT change meaning.
+        9. If the question is already optimal, return it unchanged.
+        10.Do NOT introduce new entities, conditions, or concepts.
+
+        OUTPUT FORMAT:
+        - Single line of plain text
+        - No quotes
+        - No prefixes or suffixes
+        - No commentary
+        - No extra whitespace
+
+        Original Question:
+        {query}
+
+        Previous Context:
+        {previous_context}
+
+        Rewritten Query:
+        """
+
+        refined_query = self.llm.invoke(prompt)
+        print(refined_query)
+        return refined_query.strip()
+    
+    #Iterative Retrieval Loop
+    def iterative_retrieval(self, db, workspace_id, query, max_iterations=2):
+
+        current_query = query
+        last_context = ""
+
+        for i in range(max_iterations):
+
+            #Retrieve
+            context = self.retrieve_context(db, workspace_id, current_query)
+            context = self.strict_topic_filter(query, context)
+
+            if not context or not context.strip():
+                logging.warning("No context retrieved from vector DB")
+                return ""
+
+            last_context = context
+
+            is_sufficient = self.evaluate_context(query, context)
+
+            if is_sufficient:
+                logging.info(f"Context sufficient at iteration {i+1}")
+                return context
+
+            #Refine query
+            current_query = self.refine_query(current_query, context)
+
+            if not current_query or not current_query.strip():
+                logging.warning("Query refinement failed")
+                break
+
+        logging.warning("Max iterations reached, context insufficient")
+        return ""
+    
+    #Combine multiple retrieved chunks into a structured
+    def synthesize_information(self, query, context):
+
+        prompt = f"""
+        You are a STRICT legal clause extraction engine.
+
+        ROLE:
+        From the Retrieved Context, identify and extract ALL clauses,
+        sub-clauses, numbered items, bullet points, and provisos
+        that explicitly relate to the User Question.
+
+        You are performing literal extraction only.
+
+        NON-NEGOTIABLE RULES:
+
+        1. Use ONLY text that appears in Retrieved Context.
+        2. Extract COMPLETE clauses exactly as written.
+        3. If a clause spans multiple lines, include the FULL clause.
+        4. Preserve original wording, punctuation, and numbering exactly.
+        5. Maintain original order of appearance.
+        6. Do NOT merge separate clauses.
+        7. Do NOT split a single clause.
+        8. Do NOT paraphrase.
+        9. Do NOT summarize.
+        10. Do NOT interpret meaning beyond explicit wording.
+        11. Do NOT skip similar structured clauses.
+        12. Do NOT stop after the first relevant match.
+        13. Exclude clearly unrelated sections.
+        14. If no relevant clause exists, output EXACTLY:
+        No relevant clause found.
+
+        STRICT OUTPUT RULES:
+
+        - If original numbering exists (1., 2., 3., etc.), preserve it exactly.
+        - If bullet formatting exists, preserve it exactly.
+        - Do NOT create new numbering.
+        - Do NOT add headings.
+        - Do NOT add commentary.
+        - Output ONLY the extracted clauses.
+
+        CRITICAL FORMATTING RULE:
+
+        - Every numbered clause (e.g., 1., 2., 3.) MUST start on a new line.
+        - Insert EXACTLY one blank line between clauses.
+        - Do NOT place multiple clauses in a single paragraph.
+        - Preserve all newline characters exactly.
+
+        User Question:
+        {query}
+
+        Retrieved Context:
+        {context}
+
+        Extracted Clauses:
+        """
+        synthesized = self.llm.invoke(prompt)
+
+        return synthesized.strip()
+
+
+    def hallucination_guard(self, answer, context):
+
+        if "not available" in answer.lower():
+            return answer
+
+        if len(answer.strip()) == 0:
+            return "Information not available in provided documents."
+
+        return answer
+    
+    def format_for_chatgpt_style(self, text: str) -> str:
+        formatted = re.sub(r'\s(?=\d+\.\s)', '\n\n', text)
+
+        return formatted.strip()
+
+    def generate_final_output(self, query, synthesized_info):
+
+        prompt = f"""
+        You are a STRICT legal clause extraction engine.
+
+        OBJECTIVE:
+        Identify and extract ALL clauses, sub-clauses, bullet points,
+        numbered items, and provisos from VERIFIED INFORMATION
+        that directly answer the USER QUESTION.
+
+        You are performing literal extraction only.
+
+        ABSOLUTE RULES (NON-NEGOTIABLE):
+
+        1. Use ONLY text that appears inside VERIFIED INFORMATION.
+        2. Extract COMPLETE clauses exactly as written.
+        3. If a clause spans multiple lines, include the FULL clause.
+        4. Do NOT truncate.
+        5. Do NOT summarize.
+        6. Do NOT paraphrase.
+        7. Do NOT merge separate clauses.
+        8. Do NOT split a single clause into multiple parts.
+        9. Preserve original numbering and bullet formatting exactly.
+        10. If multiple relevant clauses exist, extract ALL of them.
+        11. Do NOT stop after the first match.
+        12. Do NOT infer meaning beyond explicit wording.
+        13. If nothing directly answers the question, output EXACTLY:
+        Information not available in provided documents.
+
+        STRICT OUTPUT FORMAT:
+
+        - If original text contains numbering (1., 2., 3., etc.), preserve it exactly.
+        - If original text contains bullet points, preserve them exactly.
+        - Maintain original order of appearance.
+        - Do NOT generate new numbering.
+        - Do NOT add commentary.
+        - Do NOT add headings.
+        - Output ONLY the extracted clauses.
+
+        USER QUESTION:
+        {query}
+
+        VERIFIED INFORMATION:
+        {synthesized_info}
+
+        EXTRACTED CLAUSES:
+        """
+
+        try:
+            result = self.llm.invoke(prompt)
+
+            if not result or not result.strip():
+                logging.warning("Empty LLM response")
+                return "Information not available in provided documents."
+
+            logging.info("LLM response generated successfully")
+            
+            cleaned_answer = self.hallucination_guard(result.strip(), synthesized_info)
+            formatted_answer = self.format_for_chatgpt_style(cleaned_answer)
+
+            
+            accuracy = token_match_percentage(cleaned_answer, synthesized_info)
+            print("Answer Accuracy:", accuracy, "%")
+            print("Verified Info Length:", len(synthesized_info.split("\n")))
+            print("FINAL ANSWER RAW:")
+            print(repr(cleaned_answer))
+            print(formatted_answer)
+            return formatted_answer
+        
+        except Exception as e:
+            logging.exception("Error generating final output")
+            return "System error while generating answer."
+        
     def ingest_document(
         self,
         db: Session,
@@ -108,33 +719,20 @@ class RAGService:
             **(metadata or {})
         }
         
-        chunks = self.chunker.split_text(text, chunk_metadata)
+        chunker = Schunker()
+        chunks = chunker.build_chunks(text)
         
         if not chunks:
             raise ValueError("No chunks could be created from document")
         
-        logger.info(f"Created {len(chunks)} chunks for document: {title}")
+        logging.info(f"Created {len(chunks)} chunks for document: {title}")
         
         # Generate embeddings for all chunks
-        chunk_texts = [c["content"] for c in chunks]
-        embeddings = self.embedding_service.embed_texts(chunk_texts)
+        chunk_texts = [c["text"] for c in chunks]
+        embedding = EmbeddingGenerator()
+        embeddings = embedding.generate_embeddings(chunk_texts)
         
         # Prepare data for vector store
-        chunk_ids = [str(uuid.uuid4()) for _ in chunks]
-        metadatas = []
-        for i, chunk in enumerate(chunks):
-            meta = {
-                "title": title,
-                "content_type": content_type,
-                "source": source or "",
-                "parent_id": parent_id,
-                "chunk_index": chunk["chunk_index"],
-                "word_count": chunk["word_count"]
-            }
-            # Include custom metadata in each chunk
-            if metadata:
-                meta.update(metadata)
-            metadatas.append(meta)
         
         import json
         metadata_json_str = json.dumps(metadata) if metadata else None
@@ -166,18 +764,17 @@ class RAGService:
         db.flush()
         
         # Store in vector database
-        self.vector_store.add_documents(
+        self.vector_store.add_chunks(
             db=db,
             workspace_id=workspace_id,
-            documents=chunk_texts,
+            chunks=chunks,   # pass original chunk objects
             embeddings=embeddings,
-            metadatas=metadatas,
-            ids=chunk_ids
+            parent_id=parent_id
         )
         
         db.commit()
         
-        logger.info(f"Ingested document '{title}' with {len(chunks)} chunks")
+        logging.info(f"Ingested document '{title}' with {len(chunks)} chunks")
         
         return {
             "status": "success",
@@ -185,548 +782,24 @@ class RAGService:
             "title": title,
             "content_type": content_type,
             "chunks_created": len(chunks),
-            "total_words": sum(c["word_count"] for c in chunks)
-        }
-    
-    def search(
-        self,
-        db: Session,
-        workspace_id: str,
-        query: str,
-        top_k: int = 5,
-        min_score: float = 0.1
-    ) -> List[Dict[str, Any]]:
-        """
-        Perform semantic search with Cross-Encoder Re-ranking.
-        """
-        if not query or len(query.strip()) < 3:
-            return []
-        
-        # 1. Retrieve MORE candidates for re-ranking (Recall Phase)
-        initial_top_k = top_k * 5  # Fetch 5x more results
-        
-        query_embedding = self.embedding_service.embed_query(query)
-        
-        results = self.vector_store.search(
-            db=db,
-            workspace_id=workspace_id,
-            query_embedding=query_embedding,
-            top_k=initial_top_k
-        )
-        
-        if not results:
-            return []
-            
-        # 2. Re-rank results (Precision Phase)
-        return self._re_rank(query, results, top_k)
-
-    def _re_rank(self, query: str, results: List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:
-        """Sort results using Cross-Encoder."""
-        if not self.cross_encoder or not results:
-            return results[:top_k]
-            
-        # Prepare pairs for cross-encoder
-        pairs = [[query, r["document"]] for r in results]
-        
-        try:
-            # Predict scores
-            scores = self.cross_encoder.predict(pairs)
-            
-            # Attach new scores and sort
-            for i, result in enumerate(results):
-                result["re_rank_score"] = float(scores[i])
-                
-            # Sort by re-rank score (descending)
-            results.sort(key=lambda x: x["re_rank_score"], reverse=True)
-            
-            # Return top_k
-            return results[:top_k]
-            
-        except Exception as e:
-            logger.error(f"Re-ranking failed: {e}")
-            return results[:top_k]
-
-    def query(
-        self,
-        db: Session,
-        workspace_id: str,
-        question: str,
-        top_k: int = 5,
-        include_sources: bool = True,
-        model_name: str = "gemini",
-        context_document_id: str = None, # Optional: Force focus on specific document
-        chat_mode: str = "auto", # auto, brain_only, web_only
-        source: str = "internal" # internal, internal_web
-    ) -> Dict[str, Any]:
-        """
-        Agentic RAG Query Loop with Strict Modes.
-        Modes:
-        - auto: Decide best approach.
-        - brain_only: Use ONLY internal DB.
-        - web_only: Use ONLY external knowledge/web.
-        
-        Source:
-        - internal: DB (+ Web if auto/web_only)
-        - internal_web: Force web search if available.
-        """
-        
-        # 1. Select System Prompt based on Persona
-        # Strict Business Persona
-        system_prompt = """You are AuromindAI, a business execution assistant.
-        
-        CORE RULES:
-        1. MODE: {mode_description}
-        2. SOURCE: {source_description}
-        3. TONE: Professional, concise, actionable. No technical jargon.
-        4. GOAL: Turn user intent into clear business outcomes.
-        
-        RESTRICTIONS:
-        - Never expose technical routing or internal tools.
-        - Never ask user to choose tools.
-        - Respect selected dropdown state exactly.
-        """
-        
-        mode_desc = "Decide best approach automatically."
-        source_desc = "Internal data first. Web only if needed."
-        
-        if chat_mode == "brain_only":
-            mode_desc = "Use ONLY internal data. Do NOT use web."
-            source_desc = "Internal data only."
-        elif chat_mode == "web_only":
-            mode_desc = "Use ONLY external/general data. Ignore internal context."
-            source_desc = "Web/General knowledge only."
-            
-        system_prompt = system_prompt.format(mode_description=mode_desc, source_description=source_desc)
-        
-        
-        # Step 1: Retrieval (Context Gathering)
-        all_results = []
-        
-        # SKIP RAG IF WEB_ONLY
-        if chat_mode != "web_only":
-            
-            # PRIORITIZE SPECIFIC DOCUMENT IF PROVIDED
-            if context_document_id:
-                logger.info(f"Targeting specific document: {context_document_id}")
-                try:
-                    from app.models.brain import BrainEntry
-                    target_doc = db.query(BrainEntry).filter(BrainEntry.id == context_document_id).first()
-                    if target_doc:
-                        logger.info(f"Found target document: {target_doc.title}")
-                        # Create a synthetic result for the target doc
-                        content_preview = target_doc.content
-                        if not content_preview or len(content_preview) < 10:
-                            content_preview = f"Document '{target_doc.title}' is currently processing. Please wait a moment."
-                        
-                        all_results.append({
-                            "document": content_preview, # Use stored content (summary/preview)
-                            "metadata": {"title": target_doc.title, "source": target_doc.id, "type": "Direct Context"},
-                            "score": 1.0 # Highest priority
-                        })
-                    else:
-                        logger.warning(f"Target document {context_document_id} not found in DB.")
-                except Exception as e:
-                    logger.error(f"Failed to retrieve target document {context_document_id}: {e}")
-            
-            # STANDARD RAG SEARCH (If no specific doc forced)
-            if not all_results and not context_document_id: 
-                sub_queries = self._decompose_query(question)
-                logger.info(f"Agent decomposed '{question}' into: {sub_queries}")
-                
-                seen_content = set()
-                
-                # Step 2: Agentic Execution - Search for each sub-query
-                for sub_q in sub_queries:
-                    results = self.search(db=db, workspace_id=workspace_id, query=sub_q, top_k=top_k)
-                    
-                    for res in results:
-                        # Deduplicate based on content hash or simplified content
-                        # Using snippet as simple key for now to avoid duplicates
-                        content_key = res["document"][:50]
-                        if content_key not in seen_content:
-                            seen_content.add(content_key)
-                            all_results.append(res)
-        else:
-            logger.info("Chat Mode is WEB_ONLY. Skipping RAG retrieval.")
-        
-        # If no results from any query
-        if not all_results:
-            return {
-                "answer": "I don't have enough information in my knowledge base to answer this question. Please add relevant documents to the Brain first.",
-                "sources": [],
-                "confidence": 0.0,
-                "context_used": False
-            }
-            
-        # Limit total context window
-        final_context_results = all_results[:top_k * 2]  # Allow slightly more context for merged queries
-        
-        # Build context
-        context_parts = []
-        sources = []
-        
-        for i, result in enumerate(final_context_results):
-            title = result["metadata"].get("title", "Unknown")
-            context_parts.append(f"[Source {i+1}] (Title: {title}): {result['document']}")
-            sources.append({
-                "title": title,
-                "content_snippet": result["document"][:200] + "..." if len(result["document"]) > 200 else result["document"],
-                "score": result.get("re_rank_score", result.get("score", 0))
-            })
-        
-        context = "\n\n".join(context_parts)
-        logger.info(f"RAG Context built with {len(final_context_results)} chunks. Total length: {len(context)}")
-        
-        # Step 3: Self-Correction / Grading
-        # Check if the context is actually relevant to the question
-        is_relevant = self._grade_documents(question, context)
-        
-        if not is_relevant:
-            logger.warning(f"Self-Correction: Grader rejected context for query '{question}'")
-            # Log the context that was rejected (truncated for logs)
-            logger.debug(f"Rejected context snippet: {context[:500]}...")
-            return {
-                "answer": "I searched your knowledge base, but I couldn't find specific information to answer that question accurately. Please try rephrasing or add more documents.",
-                "sources": [],
-                "confidence": 0.1,
-                "context_used": False,
-                "chunks_retrieved": len(final_context_results)
-            }
-
-        # Step 4: Synthesis
-        answer = self._generate_answer(db, question, context, workspace_id, model_name)
-        
-        # Calculate confidence
-        avg_score = 0
-        if final_context_results:
-             # Normalize re-rank scores (usually logits) to 0-1 for display if needed, 
-             # but here we just take the raw or sigmoid. 
-             # For simplicity, we just use the first available score.
-             scores = [r.get("re_rank_score", r.get("score", 0)) for r in final_context_results]
-             avg_score = sum(scores) / len(scores)
-
-        return {
-            "answer": answer,
-            "sources": sources if include_sources else [],
-            "confidence": round(avg_score, 2),
-            "context_used": True,
-            "chunks_retrieved": len(final_context_results)
+            "total_words": sum(len(c["text"].split()) for c in chunks)
         }
 
-    def _decompose_query(self, question: str) -> List[str]:
-        """Use LLM to break down complex questions."""
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            prompt = f"""You are an AI Helper. Break down the user's question into 1 to 3 atomic search queries to find the best information.
-            
-            Rules:
-            1. Return ONLY a JSON list of strings.
-            2. If the question is simple, return a list with just the original question.
-            3. Remove unnecessary words like "please", "tell me".
-            
-            User Question: "{question}"
-            
-            Output (JSON):"""
-            
-            response = model.generate_content(prompt)
-            text = response.text.strip()
-            # Clean up markdown code blocks if present
-            if text.startswith("```"):
-                text = text.replace("```json", "").replace("```", "")
-            
-            queries = json.loads(text)
-            if isinstance(queries, list):
-                return queries[:3] # Limit to 3 max
-            return [question]
-            
-        except Exception as e:
-            logger.warning(f"Query decomposition failed: {e}. Trying Groq fallback.")
-            if self.groq_client:
-                try:
-                    prompt = f"Break down this question into 1-3 atomic search queries. Return ONLY a JSON list of strings. Question: {question}"
-                    completion = self.groq_client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        model="llama-3.1-8b-instant",
-                        temperature=0.1,
-                        response_format={"type": "json_object"}
-                    )
-                    content = completion.choices[0].message.content
-                    data = json.loads(content)
-                    if "queries" in data: return data["queries"]
-                    if isinstance(data, list): return data
-                    # Fallback if it's an object with other keys
-                    for val in data.values():
-                        if isinstance(val, list): return val
-                except Exception as groq_err:
-                    logger.error(f"Groq decomposition fallback failed: {groq_err}")
-            
-            return [question]
+_embedding_generator = None
 
-    def _grade_documents(self, question: str, context: str) -> bool:
-        """
-        Self-Correction Step: Grade if the retrieved documents actually answer the question.
-        Returns True if relevant, False if irrelevant/hallucination risk.
-        """
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            prompt = f"""You are a Grader. 
-            
-            User Question: "{question}"
-            
-            Retrieved Documents:
-            {context}
-            
-            Task: Does the information in the documents contain the answer to the user's question? 
-            Return ONLY "yes" or "no".
-            
-            Decision:"""
-            
-            response = model.generate_content(prompt)
-            decision = response.text.strip().lower()
-            
-            logger.info(f"Grader decision for '{question}': {decision}")
-            
-            return "yes" in decision
-        except Exception as e:
-            logger.warning(f"Grading failed: {e}. Trying Groq fallback.")
-            if self.groq_client:
-                try:
-                    prompt = f"""Identify if the provided context contains information that can answer the user's question.
-Question: {question}
+def get_rag_service():
 
-Context:
-{context}
+    global _embedding_generator
 
-Answer with 'yes' if there is ANY relevant info, or 'no' if there is absolutely nothing related.
-Return ONLY 'yes' or 'no'."""
-                    completion = self.groq_client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        model="llama-3.1-8b-instant",
-                        temperature=0.1
-                    )
-                    decision = completion.choices[0].message.content.strip().lower()
-                    logger.info(f"Groq grading decision: {decision}")
-                    return "yes" in decision
-                except Exception as groq_err:
-                    logger.error(f"Groq grading fallback failed: {groq_err}")
-            return True # Fallback to lenient if grader fails
-    
-    def _generate_answer(self, db: Session, question: str, context: str, workspace_id: str, model_name: str = "gemini") -> str:
-        """Generate answer using Gemini or Groq with retrieved context, capable of tool use."""
-        try:
-            tools = self._get_tools()
-            
-            prompt_parts = [
+    if _embedding_generator is None:
+        _embedding_generator = EmbeddingGenerator()
 
-                f"""You are Auromind AI, a business-only AI assistant.
+    llm = GroqLLM()
+    vector_store = VectorStoreService()
 
-                CORE BEHAVIOR:
-                1.  **Greetings/Chat**: If the user says "hi", "hello", or asks a general business question, respond professionally and offer help. DO NOT refuse greetings.
-                2.  **Business Only**: For specific requests, handle ONLY business-related topics.
-                3.  **Refusal**: If the user asks for personal advice, entertainment, or unrelated topics, refuse politely.
-
-                FILE/CONTEXT ANALYSIS RULES (Only apply if context is provided):
-                1.  **Business Check**: Is the content a business document (invoice, report, contract, dashboard)?
-                2.  **Strict Refusal**: If the *content* is personal/irrelevant (e.g. holiday photo, personal blog), refuse with: "This file doesn’t seem business-related. Please upload a business document or image."
-
-                PDF ANALYSIS SPECIFICS:
-                1.  **Identify Type**: Contract, Proposal, Invoice, Report, Policy, or Pitch Deck.
-                2.  **Extract**: Important clauses, financial figures, timelines, obligations, risks.
-                3.  **Unreadable**: If scanned/illegible, say: "This document appears to be unreadable or scanned. Please upload a clearer version."
-
-                IMAGE ANALYSIS SPECIFICS:
-                1.  **Context**: Invoice, Dashboard, Product, Marketing Creative, Legal Screenshot, or Error Screen.
-                2.  **Extract**: Key numbers, dates, names, issues, opportunities.
-                3.  **Unclear**: If illegible, say: "Please re-upload a clearer image."
-
-                STRICT OUTPUT FORMAT (For Business Files):
-                **Document Type**: [Context/Type from above]
-                **Summary**: [One sentence summary]
-                **Key Insights/Findings**: [Bullet points - data, findings, clauses, figures]
-                **Risks / Red Flags**: [Specific warnings, obligations, or issues]
-                **Recommended Actions**: [Specific opportunities, fixes, or next steps]
-
-                TONE & GROUNDING:
-                - Professional, concise, actionable.
-                - Use ONLY provided context.
-                - If answer is missing, say: "I'm sorry, my knowledge base doesn't contain that specific information."
-
-                CONFIDENTIALITY & PRIVACY:
-                1.  **Confidential**: Treat this as sensitive business data.
-                2.  **Scope**: Do NOT reference this content outside this specific analysis.
-                3.  **No Personal Inference**: Do NOT infer or mention personal details (home address, family, non-business habits) unless explicitly relevant to the business context.
-
-                [BUSINESS INFO]:
-                {context}
-                
-                USER QUESTION: {question}
-                
-                CONCISE BUSINESS RESPONSE:"""
-            ]
-
-            if (model_name == "auromind" or model_name == "groq" or model_name == "llama") and self.groq_client:
-                # Use Groq (Llama 3) with literal grounding
-                completion = self.groq_client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": prompt_parts[0]},
-                        {"role": "user", "content": question}
-                    ],
-                    model="llama-3.1-8b-instant",
-                    temperature=0.1, # Lower temperature = Less hallucination
-                    # Groq tool use would be integrated here if available
-                )
-                return completion.choices[0].message.content
-                
-            else:
-                # Default to Gemini with grounding settings and tool use
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                chat_session = model.start_chat(tools=tools)
-                
-                response = chat_session.send_message(
-                    prompt_parts + [question],
-                    generation_config={"temperature": 0.1}
-                )
-                
-                # Check for tool calls
-                try:
-                    tool_call = response.candidates[0].content.parts[0].function_call
-                    logger.info(f"LLM called tool: {tool_call.function.name} with args: {tool_call.function.args}")
-                    
-                    # Execute the tool
-                    tool_output = self._call_tool(tool_call, db, workspace_id) # Use the passed db
-                    
-                    # Send tool output back to the model
-                    tool_response_parts = [
-                        response.candidates[0].content,
-                        genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                            name=tool_call.function.name,
-                            response=tool_output
-                        ))
-                    ]
-                    final_response = chat_session.send_message(tool_response_parts)
-                    return final_response.text
-                    
-                except AttributeError:
-                    # No tool call, just a regular text response
-                    return response.text
-                    
-        except Exception as e:
-            logger.error(f"Primary LLM generation failed ({model_name}): {e}. Attempting cascade fallback.")
-            
-            # Cascade Fallback: If not already using Groq, and Gemini failed, try Groq
-            if model_name != "groq" and model_name != "llama" and model_name != "auromind" and self.groq_client:
-                try:
-                    logger.info("Cascade Fallback: Triggering Groq (Llama 3) after Gemini failure.")
-                    completion = self.groq_client.chat.completions.create(
-                        messages=[
-                            {"role": "system", "content": prompt_parts[0]},
-                            {"role": "user", "content": question}
-                        ],
-                        model="llama-3.1-8b-instant",
-                        temperature=0.1
-                    )
-                    return completion.choices[0].message.content
-                except Exception as groq_err:
-                    logger.error(f"Cascade Fallback failed: {groq_err}")
-            
-            return f"I encountered an error generating a response. Please try again. Error: {str(e)}"
-    
-    def delete_entry(self, db: Session, workspace_id: str, entry_id: str) -> bool:
-        """
-        Delete a knowledge entry and all its chunks.
-        
-        Args:
-            db: Database session
-            workspace_id: Workspace identifier
-            entry_id: Entry ID to delete
-            
-        Returns:
-            True if successful
-        """
-        from app.models.brain import BrainEntry
-        
-        # Delete from vector store (all chunks with this parent_id)
-        self.vector_store.delete_by_metadata(
-            db=db,
-            workspace_id=workspace_id,
-            where={"parent_id": entry_id}
-        )
-        
-        # Delete from SQL database
-        db.query(BrainEntry).filter(
-            BrainEntry.id == entry_id,
-            BrainEntry.workspace_id == workspace_id
-        ).delete()
-        db.commit()
-        
-        logger.info(f"Deleted entry {entry_id} from workspace {workspace_id}")
-        return True
-    
-    def get_stats(self, db: Session, workspace_id: str) -> Dict[str, Any]:
-        """Get RAG statistics for a workspace."""
-        vector_stats = self.vector_store.get_collection_stats(db, workspace_id)
-        return {
-            "workspace_id": workspace_id,
-            "indexed_chunks": vector_stats["document_count"],
-            "status": "active" if vector_stats["document_count"] > 0 else "empty"
-        }
-
-    def _get_tools(self):
-        """Returns the list of tools available to the RAG agent."""
-        return [
-            genai.protos.FunctionDeclaration(
-                name="trigger_followup",
-                description="Triggers an automated follow-up email to a lead or customer. Use this tool when the user's intent clearly indicates a need to send a follow-up, or when a sales opportunity requires direct communication.",
-                parameters=genai.protos.Schema(
-                    type=genai.protos.Type.OBJECT,
-                    properties={
-                        "to_email": genai.protos.Schema(type=genai.protos.Type.STRING, description="The email address of the recipient."),
-                        "subject": genai.protos.Schema(type=genai.protos.Type.STRING, description="The subject line of the follow-up email."),
-                        "body": genai.protos.Schema(type=genai.protos.Type.STRING, description="The main content/body of the follow-up email."),
-                        "workspace_id": genai.protos.Schema(type=genai.protos.Type.STRING, description="The ID of the current workspace.")
-                    },
-                    required=["to_email", "subject", "body", "workspace_id"],
-                ),
-            ),
-        ]
-
-    def _call_tool(self, tool_call, db: Session, workspace_id: str):
-        """Executes the specified tool call."""
-        if tool_call.function.name == "trigger_followup":
-            args = {k: v for k, v in tool_call.function.args.items()}
-            
-            # Ensure workspace_id from tool call matches current workspace_id
-            if args.get("workspace_id") != workspace_id:
-                logger.error(f"Mismatch in workspace_id for tool call: {args.get('workspace_id')} vs {workspace_id}")
-                return {"error": "Workspace ID mismatch for tool call."}
-
-            try:
-                # Call OrchestrationService to process the intent
-                result = OrchestrationService.process_intent(
-                    db=db,
-                    workspace_id=uuid.UUID(workspace_id), # Use the workspace_id from the query context
-                    action_type="followup",
-                    intent_raw=f"Triggered follow-up to {args['to_email']}",
-                    metadata={
-                        "to_email": args["to_email"],
-                        "subject": args["subject"],
-                        "body": args["body"]
-                    }
-                )
-                return result
-            except Exception as e:
-                logger.error(f"Error executing trigger_followup tool: {e}")
-                return {"error": str(e)}
-        return {"error": f"Tool {tool_call.function.name} not found."}
-
-
-# Global instance
-_rag_service: Optional[RAGService] = None
-
-
-def get_rag_service() -> RAGService:
-    """Get the global RAG service instance."""
-    global _rag_service
-    if _rag_service is None:
-        _rag_service = RAGService()
-    return _rag_service
+    return AgenticRAG(
+        llm=llm,
+        vector_store=vector_store,
+        embedding_generator=_embedding_generator,
+        top_k=5
+    )

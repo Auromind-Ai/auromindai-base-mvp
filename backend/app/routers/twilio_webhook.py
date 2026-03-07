@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from .. import models, schemas, database
 from app.services.twilio_service import TwilioService
-from app.services.rag_service import get_rag_service
+from app.services.rag_service import AgenticRAG
 from twilio.twiml.messaging_response import MessagingResponse
 import logging
 import uuid
@@ -46,7 +46,8 @@ async def process_incoming_message(from_number: str, body: str, conversation_id:
         workspace_id = workspace.id
         
         # 1. Generate AI Response
-        rag_service = get_rag_service()
+        rag = AgenticRAG()
+        rag_service = rag.agent_loop()
         
         response = rag_service.query(
             db=db,
