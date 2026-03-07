@@ -4,6 +4,7 @@ from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from app.models.integration import Integration, EmailReplyLog
 from uuid import UUID
+import os
 
 class EmailReplyExecutor:
 
@@ -14,10 +15,7 @@ class EmailReplyExecutor:
 
         reply_data = self.extract_reply_data(action)
 
-        access_token = self.get_gmail_access_token(
-            db=db,
-            workspace_id=workspace_id
-        )
+        integration = self.get_gmail_access_token(db, workspace_id)
 
         mime_message = self.build_reply_message(
             to_email=reply_data["to_email"],
@@ -29,7 +27,7 @@ class EmailReplyExecutor:
         encoded_message = self.encode_message(mime_message)
 
         self.send_gmail_reply(
-            access_token=access_token,
+            integration=integration,
             thread_id=reply_data["thread_id"],
             encoded_message=encoded_message
         )
@@ -64,7 +62,7 @@ class EmailReplyExecutor:
     
 
     def get_gmail_access_token(self, db, workspace_id):
-        
+
         print("Fetching Gmail token for workspace:", workspace_id)
 
         workspace_uuid = UUID(workspace_id)
@@ -78,14 +76,13 @@ class EmailReplyExecutor:
             )
             .first()
         )
+
         print("Integration record:", integration)
 
         if not integration:
             raise Exception("Gmail integration not found")
-        
-        
 
-        return integration.access_token
+        return integration
     
     def build_reply_message( self, to_email, subject, message_id, reply_text):
         
@@ -110,28 +107,28 @@ class EmailReplyExecutor:
 
         return encoded_message
 
-    def send_gmail_reply(
-        self,
-        access_token,
-        thread_id,
-        encoded_message
-    ):
+    def send_gmail_reply(self, integration, thread_id, encoded_message):
         print("Sending Gmail reply...")
         print("Thread ID:", thread_id)
 
-        credentials = Credentials(token=access_token)
+        credentials = Credentials(
+            token=integration.access_token,
+            refresh_token=integration.refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=os.getenv("GOOGLE_CLIENT_ID"),
+            client_secret=os.getenv("GOOGLE_CLIENT_SECRET")
+        )
 
         service = build("gmail", "v1", credentials=credentials)
 
-        body = {
-            "raw": encoded_message,
-            "threadId": thread_id
-        }
-
         service.users().messages().send(
             userId="me",
-            body=body
+            body={
+                "raw": encoded_message,
+                "threadId": thread_id
+            }
         ).execute()
+
         print("Email sent successfully")
 
     def log_reply_event(
