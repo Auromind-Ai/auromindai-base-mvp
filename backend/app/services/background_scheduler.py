@@ -15,7 +15,11 @@ class EmailSchedulerService:
         self.scheduler.add_job(
             self._run_email_monitor,
             trigger="interval",
+<<<<<<< HEAD
             minutes=60,
+=======
+            minutes=40,
+>>>>>>> f8d6353531b504bd8a2a12d055d0a5f351e392b0
             max_instances=1,
             coalesce=True,
             misfire_grace_time=60
