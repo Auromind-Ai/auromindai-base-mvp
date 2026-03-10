@@ -177,7 +177,7 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                      db.add(user_msg)
                      db.commit()
 
-                # 3. RAG Retrieval
+                 # 3. RAG Retrieval
                 rag_answered = False
 
                 if request.use_rag and request.workspace_id:
@@ -187,6 +187,7 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                         answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
+<<<<<<< HEAD
                             question=request.message,
                             top_k=5,
                             model_name=get_setting(db, "model_name", request.model),
@@ -194,6 +195,10 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                             chat_mode=request.chat_mode,
                             source=request.source,
                             query=request.message
+=======
+                            query=request.message,
+                            # model_name=get_setting(db, "model_name", request.model),
+>>>>>>> f8d6353531b504bd8a2a12d055d0a5f351e392b0
                         )
 
                         if answer:
