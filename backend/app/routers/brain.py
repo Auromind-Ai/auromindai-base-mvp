@@ -9,15 +9,15 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
 import logging
-
 from app.database import get_db
-from app.services.rag_service import get_rag_service
-from app.services.document_service import get_document_service, get_url_scraper
+from app.services.document_service import get_url_scraper
 from app.models.brain import BrainEntry
 from app.workers.ingestion_worker import process_document_background
 import uuid
 import os
 import shutil
+from app.services.rag_service import get_rag_service
+from app.utils.website_scraper import Webscrapper
 
 
 logger = logging.getLogger(__name__)
@@ -210,8 +210,8 @@ async def ingest_url(
             ingestion_metadata["cultural_context"] = request.cultural_context
 
         # Ingest into RAG system
-        rag_service = get_rag_service()
-        result = rag_service.ingest_document(
+        rag = get_rag_service()
+        result = rag.ingest_document(
             db=db,
             workspace_id=request.workspace_id,
             text=scrape_result["text"],
@@ -280,8 +280,8 @@ async def ingest_text(
         if request.cultural_context:
             ingestion_metadata["cultural_context"] = request.cultural_context
 
-        rag_service = get_rag_service()
-        result = rag_service.ingest_document(
+        rag = get_rag_service()
+        result = rag.ingest_document(
             db=db,
             workspace_id=request.workspace_id,
             text=request.content,
@@ -306,40 +306,25 @@ async def crawl_website(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """
-    Crawl an entire website and index all pages.
-    
-    This will:
-    1. Start from the given URL
-    2. Follow internal links (up to max_pages)
-    3. Extract and clean content from each page
-    4. Detect page types (blog, product, FAQ, about, etc.)
-    5. Index all pages with proper metadata
-    
-    The crawl runs in the background. Check /brain/stats for progress.
-    """
-    from app.services.website_crawler_service import get_website_crawler
-    
+
     try:
-        # Validate URL
         url = request.url.strip()
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
-        
-        # Start crawl
-        crawler = get_website_crawler()
-        crawler.max_pages = min(request.max_pages, 100)  # Cap at 100 pages
-        
-        pages = await crawler.crawl_website(url)
-        
-        if not pages:
-            raise HTTPException(status_code=400, detail="No pages could be crawled from this website")
-        
-        # Ingest all pages
-        rag_service = get_rag_service()
+
+        # 🔹 Use your existing Webscrapper
+        scraper = Webscrapper(url)
+        pages = scraper.scrapper_choose()
+
+        if not pages or isinstance(pages, str):
+            raise HTTPException(
+                status_code=400,
+                detail="No pages could be crawled from this website"
+            )
+
+        rag = get_rag_service()
         total_chunks = 0
-        
-        # Prepare base metadata from request
+
         base_metadata = {}
         if request.region:
             base_metadata["region"] = request.region
@@ -350,43 +335,50 @@ async def crawl_website(
 
         for page in pages:
             try:
-                # Merge base metadata with page-specific metadata
-                page_metadata = {
-                    'page_type': page['page_type'],
-                    'meta_description': page.get('meta_description', ''),
-                    'word_count': page['word_count']
-                }
-                final_metadata = {**base_metadata, **page_metadata} # Merge dictionaries
+                # 🟢 Convert your scraper output → API expected format
+                content = " ".join(
+                    page.get("paragraphs", []) +
+                    page.get("headings", []) +
+                    page.get("sub_headings", []) +
+                    page.get("list_point", [])
+                )
 
-                result = rag_service.ingest_document(
+                page_metadata = {
+                    "word_count": len(content.split())
+                }
+
+                final_metadata = {**base_metadata, **page_metadata}
+            
+                result = rag.ingest_document(
                     db=db,
                     workspace_id=request.workspace_id,
-                    text=page['content'],
-                    title=page['title'],
-                    content_type=f"website_{page['page_type']}",
-                    source=page['url'],
-                    metadata=final_metadata # Pass the merged metadata
+                    text=content,
+                    title=page.get("title", ""),
+                    content_type="website_page",
+                    source=page.get("url", url),
+                    metadata=final_metadata
                 )
-                total_chunks += result.get('chunks_created', 0)
+
+                total_chunks += result.get("chunks_created", 0)
+
             except Exception as e:
-                logger.warning(f"Failed to ingest page {page['url']}: {e}")
+                logger.warning(f"Failed to ingest page: {e}")
                 continue
-        
+
         return {
             "status": "success",
             "website": url,
             "pages_crawled": len(pages),
             "chunks_created": total_chunks,
-            "page_types": list(set(p['page_type'] for p in pages)),
-            "message": f"Successfully indexed {len(pages)} pages from your website"
+            "message": f"Successfully indexed {len(pages)} pages"
         }
-        
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
     except Exception as e:
         logger.error(f"Website crawl failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Website crawl failed: {str(e)}")
-
+        raise HTTPException(
+            status_code=500,
+            detail=f"Website crawl failed: {str(e)}"
+        )
 
 @router.get("/entries")
 async def list_entries(
@@ -401,34 +393,57 @@ async def list_entries(
     try:
         entries = db.query(BrainEntry).filter(
             BrainEntry.workspace_id == workspace_id
-        ).order_by(BrainEntry.created_at.desc()).offset(skip).limit(limit).all()
-        
+        ).order_by(
+            BrainEntry.created_at.desc()
+        ).offset(skip).limit(limit).all()
+
         # Get vector store stats
-        rag_service = get_rag_service()
-        stats = rag_service.get_stats(db, workspace_id)
-        
+        rag = get_rag_service()
+        stats = rag.vector_store.get_collection_stats(
+            db=db,
+            workspace_id=workspace_id
+        )
+
+        chunk_count = stats.get("chunk_count", 0)
+
         result_entries = []
+        has_pending = False
+
         for entry in entries:
+            if entry.status == "pending":
+                has_pending = True
+
             result_entries.append({
                 "id": entry.id,
-                "title": entry.title or (entry.content[:50] + "..." if entry.content and len(entry.content) > 50 else entry.content),
+                "title": entry.title or (
+                    entry.content[:50] + "..."
+                    if entry.content and len(entry.content) > 50
+                    else entry.content
+                ),
                 "content_type": entry.content_type or "text",
                 "status": entry.status or "indexed",
                 "created_at": entry.created_at.isoformat() if entry.created_at else None,
                 "word_count": len(entry.content.split()) if entry.content else 0
             })
-        
+
+        # Dynamic workspace status
+        if chunk_count == 0 and not entries:
+            workspace_status = "empty"
+        elif has_pending:
+            workspace_status = "processing"
+        else:
+            workspace_status = "ready"
+
         return {
             "entries": result_entries,
             "total": len(result_entries),
-            "indexed_chunks": stats["indexed_chunks"],
-            "status": stats["status"]
+            "indexed_chunks": chunk_count,
+            "status": workspace_status
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to list entries: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.delete("/entries/{entry_id}")
 async def delete_entry(
@@ -440,8 +455,8 @@ async def delete_entry(
     Delete a knowledge entry and all its chunks.
     """
     try:
-        rag_service = get_rag_service()
-        success = rag_service.delete_entry(db, workspace_id, entry_id)
+        rag = get_rag_service()
+        success = rag.delete_entry(db, workspace_id, entry_id)
         
         if success:
             return {"status": "success", "message": "Entry deleted"}
@@ -464,8 +479,8 @@ async def search_knowledge(
     Returns matching chunks ranked by relevance.
     """
     try:
-        rag_service = get_rag_service()
-        results = rag_service.search(
+        rag = get_rag_service()
+        results = rag.search(
             db=db,
             workspace_id=request.workspace_id,
             query=request.query,
@@ -507,8 +522,8 @@ async def query_knowledge(
     3. Return the answer with source citations
     """
     try:
-        rag_service = get_rag_service()
-        result = rag_service.query(
+        rag = get_rag_service()
+        result = rag.query(
             db=db,
             workspace_id=request.workspace_id,
             question=request.question,
@@ -534,8 +549,11 @@ async def get_brain_stats(
     Get statistics for the knowledge base.
     """
     try:
-        rag_service = get_rag_service()
-        stats = rag_service.get_stats(db, workspace_id)
+        rag = get_rag_service()
+        stats = rag.vector_store.get_collection_stats(
+            db=db,
+            workspace_id=workspace_id
+        )
         
         # Count entries in SQL
         entry_count = db.query(BrainEntry).filter(

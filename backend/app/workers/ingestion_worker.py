@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.brain import BrainEntry
 import traceback
+from app.services.embedding_service import EmbeddingGenerator
+from app.services.vector_store_service import get_vector_store
+from app.utils.text_chunker import Schunker
 
 logger = logging.getLogger(__name__)
 
@@ -52,26 +55,53 @@ async def process_document_background(
         
         # Ingest to RAG
         rag_service = get_rag_service()
-        
-        # Merge existing metadata with new incoming metadata
+       # Merge existing metadata with new incoming metadata
         ingestion_metadata = {"original_size": file_size}
         if metadata:
             ingestion_metadata.update(metadata)
 
-        logger.info(f"Calling RAG ingestion for {entry_id} with title {original_filename}")
-        # We pass the existing_entry_id to update the record created by the API
-        result = rag_service.ingest_document(
+        logger.info(f"Starting vector ingestion for {entry_id}")
+
+        # 🔥 Use singleton embedding generator
+        embedding_generator = EmbeddingGenerator()
+
+        # 🔥 Use singleton vector store
+        vector_store = get_vector_store()
+
+        # 🔥 Use Schunker directly
+        chunker = Schunker()
+
+        # 1️⃣ Build chunks
+        chunks = chunker.build_chunks(doc_result["text"])
+
+        if not chunks:
+            raise ValueError("No chunks generated from document")
+
+        # Attach metadata to each chunk
+        for chunk in chunks:
+            chunk["metadata"] = ingestion_metadata
+        
+        print("Chunks:", len(chunks))
+        
+
+        # 2️⃣ Generate embeddings
+        embeddings = embedding_generator.generate_embeddings(
+            [chunk["text"] for chunk in chunks]
+        )
+
+        print("Embeddings:", len(embeddings))
+        print("Embeddings shape:", embeddings.shape)
+
+        # 3️⃣ Store in vector DB
+        vector_store.add_chunks(
             db=db,
             workspace_id=workspace_id,
-            text=doc_result["text"],
-            title=original_filename,
-            content_type=doc_result["content_type"],
-            source=original_filename,
-            metadata=ingestion_metadata, # Pass the merged metadata
-            existing_entry_id=entry_id # <--- We will add this param
+            chunks=chunks,
+            embeddings=embeddings,
+            parent_id=entry_id
         )
-        logger.info(f"RAG ingestion returned: {result}")
         
+        logger.info(f"Stored {len(chunks)} chunks for entry {entry_id}")
         # 3. Update status to COMPLETED
         # (The service might have updated the entry content, but we ensure status here)
         entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()

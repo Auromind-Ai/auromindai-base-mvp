@@ -10,9 +10,9 @@ from anthropic import AsyncAnthropic
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from app import models, schemas
+from app.services.platform_settings_service import get_setting
 from app.services.rag_service import RAGService
-from app.services.vector_store_service import VectorStoreService
+from app import models
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -82,6 +82,10 @@ class AIResponseService:
         """
         context = await self.enrich_context(db, conversation_id)
         
+        # Get AI settings from platform config
+        temperature = get_setting(db, "temperature", 0.7)
+        max_tokens = get_setting(db, "max_tokens", 1000)
+        
         # Define Strategies
         strategies = [
             {"name": "direct_answer", "label": "💡 Direct Answer", "desc": "Concise, direct response."},
@@ -135,8 +139,8 @@ class AIResponseService:
             # Call Claude
             response = await self.anthropic.messages.create(
                 model="claude-3-5-sonnet-20240620",
-                max_tokens=1000,
-                temperature=0.7,
+                max_tokens=max_tokens,
+                temperature=temperature,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}]
                 # tools=tools # We could pass tools if we wanted functional tool calls

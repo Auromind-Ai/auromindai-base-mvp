@@ -1,0 +1,202 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { FileText, AlertCircle, CheckCircle, Clock } from "lucide-react"
+
+export default function LogsPage() {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [filter, setFilter] = useState("all")
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch("http://localhost:8000/admin/logs")
+        if (!response.ok) throw new Error("Failed to fetch logs")
+        const data = await response.json()
+        setLogs(Array.isArray(data) ? data : data.logs || [])
+        setError(null)
+      } catch (err) {
+        setError(err.message)
+        setLogs([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchLogs()
+  }, [])
+
+  const filteredLogs = logs.filter(log => {
+    if (filter === "error") return log.level === "ERROR"
+    if (filter === "warning") return log.level === "WARNING"
+    if (filter === "info") return log.level === "INFO"
+    return true
+  })
+
+  const errorCount = logs.filter(l => l.level === "ERROR")?.length || 0
+  const warningCount = logs.filter(l => l.level === "WARNING")?.length || 0
+  const infoCount = logs.filter(l => l.level === "INFO")?.length || 0
+
+  const getLevelColor = (level) => {
+    switch (level?.toUpperCase()) {
+      case "ERROR":
+        return "bg-red-900/30 text-red-300"
+      case "WARNING":
+        return "bg-yellow-900/30 text-yellow-300"
+      case "INFO":
+        return "bg-blue-900/30 text-blue-300"
+      default:
+        return "bg-gray-900/30 text-gray-300"
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-black p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">System Logs</h1>
+          <p className="text-gray-400">View system events, errors, and warnings</p>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-indigo-500 mx-auto mb-4"></div>
+              <p className="text-gray-400">Loading logs...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 mb-6">
+            <p className="text-red-300">Error: {error}</p>
+          </div>
+        )}
+
+        {/* Content */}
+        {!loading && !error && (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <StatCard
+                icon={AlertCircle}
+                label="Errors"
+                value={errorCount}
+                color="text-red-400"
+              />
+              <StatCard
+                icon={Clock}
+                label="Warnings"
+                value={warningCount}
+                color="text-yellow-400"
+              />
+              <StatCard
+                icon={CheckCircle}
+                label="Info"
+                value={infoCount}
+                color="text-blue-400"
+              />
+            </div>
+
+            {/* Filter */}
+            <div className="mb-6 flex gap-2">
+              <button
+                onClick={() => setFilter("all")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  filter === "all"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilter("error")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  filter === "error"
+                    ? "bg-red-600 text-white"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                Errors
+              </button>
+              <button
+                onClick={() => setFilter("warning")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  filter === "warning"
+                    ? "bg-yellow-600 text-white"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                Warnings
+              </button>
+              <button
+                onClick={() => setFilter("info")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  filter === "info"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                Info
+              </button>
+            </div>
+
+            {/* Logs Table */}
+            <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
+              <h2 className="text-xl font-semibold text-white mb-6">Recent Logs</h2>
+
+              {filteredLogs.length > 0 ? (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                  {filteredLogs.map((log, index) => (
+                    <div
+                      key={log.id || index}
+                      className="bg-black border border-white/5 rounded-lg p-4 hover:border-white/10 transition"
+                    >
+                      <div className="flex items-start gap-4">
+                        <span className={`text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap ${getLevelColor(log.level)}`}>
+                          {log.level || "INFO"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-mono text-sm break-words">{log.message}</p>
+                          {log.details && (
+                            <p className="text-gray-500 text-xs mt-2">{log.details}</p>
+                          )}
+                        </div>
+                        <span className="text-gray-500 text-xs whitespace-nowrap">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleString() : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-400">No logs found for the selected filter</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StatCard({ icon: Icon, label, value, color }) {
+  return (
+    <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <Icon className={color} size={24} />
+      </div>
+      <p className="text-gray-400 text-sm mb-2">{label}</p>
+      <p className="text-white text-2xl font-bold">{value}</p>
+    </div>
+  )
+}
