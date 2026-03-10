@@ -47,7 +47,7 @@ export default function IntegrationsPage() {
         if (workspace?.id) {
             loadIntegrationStatus();
         }
-    }, [workspace]);
+    }, [workspace?.id]);
 
     const loadIntegrationStatus = async () => {
         try {

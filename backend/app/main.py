@@ -192,7 +192,7 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                             model_name=get_setting(db, "model_name", request.model),
                             context_document_id=request.document_id,
                             chat_mode=request.chat_mode,
-                            source=request.source
+                            source=request.source,
                             query=request.message
                         )
 
