@@ -1,9 +1,7 @@
 {
-  "devDependencies": {
-    "prisma": "^5.22.0"
-  },
   "dependencies": {
-    "@prisma/client": "^6.19.2",
+    "@prisma/client": "^5.22.0",
+    "prisma": "^5.22.0",
     "recharts": "^3.7.0"
   },
   "name": "backend",

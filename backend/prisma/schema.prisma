@@ -36,6 +36,8 @@ model Workspace {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
   created_at  DateTime @default(now())
+  
+  planType    String   @default("free") @map("plan_type")
   created_by  String?  @db.Uuid
   updated_at  DateTime? @updatedAt
 

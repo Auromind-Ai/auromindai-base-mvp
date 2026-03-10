@@ -12,7 +12,6 @@ export default function MarketingPage() {
             bg-gradient-to-r from-[#0B1220] via-[#0E1A33] to-[#14284D] 
             p-6 shadow-xl">
 
-                {/* Title */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-white mb-1 font-display tracking-tight">
                         Digital Marketing Assistant
@@ -22,10 +21,8 @@ export default function MarketingPage() {
                     </p>
                 </div>
 
-                {/* Connect Accounts */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
                     <div className="flex items-start gap-4">
-
                         <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20">
                             <AlertCircle size={24} />
                         </div>
@@ -50,100 +47,124 @@ export default function MarketingPage() {
                                     Connect Google Ads
                                 </button>
                             </div>
-
                         </div>
                     </div>
                 </div>
-
             </div>
 
+            {/* WHAT YOU'LL GET SECTION */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] lg:grid-rows-[auto_1fr] gap-8">
 
-            {/* WHAT YOU'LL GET */}
-            <h2 className="text-sm font-bold text-white uppercase tracking-[0.2em] mb-4">
-                What You&apos;ll Get
-            </h2>
+                {/* LEFT ROW 1 */}
+                <div>
+                    <h2 className="text-3xl font-bold text-white mb-3">
+                        What You'll Get
+                    </h2>
 
-            <div className="grid grid-cols-3 gap-5 mb-10">
-
-                {/* CARD */}
-                <div className="rounded-xl p-5 border border-white/10 
-                bg-gradient-to-r from-[#0B1220] via-[#0E1A33] to-[#14284D] 
-                shadow-sm hover:shadow-lg transition group">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
-                        <BarChart3 size={20} />
-                    </div>
-
-                    <h3 className="font-semibold text-white mb-1">
-                        Performance Dashboard
-                    </h3>
-
-                    <p className="text-sm text-gray-500">
-                        Real-time ad spend, ROAS, and conversion metrics.
+                    <p className="text-slate-400 mb-8 max-w-xl">
+                        Unlock powerful AI tools to manage your marketing campaigns,
+                        optimise ad spend and grow your business faster with AuroMind.
                     </p>
                 </div>
 
+                {/* RIGHT SIDE CARD (spans 2 rows) */}
+                <div className="sparkle-card rounded-2xl border border-white/10 
+                bg-gradient-to-b from-[#0B1220] via-[#0E1A33] to-[#14284D] 
+                p-8 text-center flex flex-col items-center justify-center
+                lg:row-span-2">
 
-                {/* CARD */}
-                <div className="rounded-xl p-5 border border-white/10 
-                bg-gradient-to-r from-[#0B1220] via-[#0E1A33] to-[#14284D] 
-                shadow-sm hover:shadow-lg transition group">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
-                        <Target size={20} />
+                    <div className="relative z-10 flex flex-col items-center justify-center flex-1">
+
+                        <div className="w-20 h-20 rounded-[2rem] bg-indigo-500/10 flex items-center justify-center mb-6">
+                            <TrendingUp size={36} className="text-indigo-400"/>
+                        </div>
+
+                        <h3 className="text-xl font-semibold text-white mb-2">
+                            No campaigns to show
+                        </h3>
+
+                        <p className="text-sm text-slate-400 mb-6 max-w-xs">
+                            Connect your ad accounts above to start seeing your campaigns
+                            and AI-powered insights.
+                        </p>
+
+                        <div className="flex gap-2">
+                            <div className="w-2 h-2 bg-white/20 rounded-full"/>
+                            <div className="w-2 h-2 bg-white/20 rounded-full"/>
+                            <div className="w-2 h-2 bg-white/20 rounded-full"/>
+                        </div>
+
                     </div>
-
-                    <h3 className="font-semibold text-white mb-1">
-                        AI Suggestions
-                    </h3>
-
-                    <p className="text-sm text-gray-500">
-                        Budget allocation and audience targeting recommendations.
-                    </p>
                 </div>
 
+                {/* LEFT ROW 2 (feature cards) */}
+                <div className="grid grid-cols-3 gap-5 auto-rows-fr">
 
-                {/* CARD */}
-                <div className="rounded-xl p-5 border border-white/10 
-                bg-gradient-to-r from-[#0B1220] via-[#0E1A33] to-[#14284D] 
-                shadow-sm hover:shadow-lg transition group">
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3 group-hover:scale-110 transition-transform">
-                        <Zap size={20} />
+                    <div className="sparkle-card rounded-xl p-6 border border-white/10 
+                    bg-gradient-to-r from-[#0B1220] via-[#0E1A33] to-[#14284D] 
+                    shadow-sm hover:shadow-lg transition group flex flex-col">
+
+                        <div className="relative z-10">
+
+                        <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3">
+                            <BarChart3 size={20}/>
+                        </div>
+
+                        <h3 className="font-semibold text-white mb-1">
+                            Performance Dashboard
+                        </h3>
+
+                        <p className="text-sm text-gray-400">
+                            Real-time ad spend, ROAS, and conversion metrics.
+                        </p>
+
+                    </div>
                     </div>
 
-                    <h3 className="font-semibold text-white mb-1">
-                        Quick Actions
-                    </h3>
+                    <div className="sparkle-card rounded-xl p-6 border border-white/10 
+                    bg-gradient-to-r from-[#0B1220] via-[#0E1A33] to-[#14284D] 
+                    shadow-sm hover:shadow-lg transition group flex flex-col">
 
-                    <p className="text-sm text-gray-500">
-                        One-click pause, boost, or duplicate campaigns.
-                    </p>
+                        <div className="relative z-10">
+
+                        <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3">
+                            <Target size={20}/>
+                        </div>
+
+                        <h3 className="font-semibold text-white mb-1">
+                            AI Suggestions
+                        </h3>
+
+                        <p className="text-sm text-gray-400">
+                            Budget allocation and audience targeting recommendations.
+                        </p>
+
+                    </div>
+                    </div>
+
+                    <div className="sparkle-card rounded-xl p-6 border border-white/10 
+                    bg-gradient-to-r from-[#0B1220] via-[#0E1A33] to-[#14284D] 
+                    shadow-sm hover:shadow-lg transition group flex flex-col">
+
+                        <div className="relative z-10">
+                        <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 mb-3">
+                            <Zap size={20}/>
+                        </div>
+
+                        <h3 className="font-semibold text-white mb-1">
+                            Quick Actions
+                        </h3>
+
+                        <p className="text-sm text-gray-400">
+                            One-click pause, boost, or duplicate campaigns.
+                        </p>
+
+                    </div>
+                    </div>
+
                 </div>
 
             </div>
-
-
-            {/* EMPTY STATE */}
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
-
-                <div className="w-20 h-20 rounded-[2rem] bg-gray-100 flex items-center justify-center mx-auto mb-6 rotate-3">
-                    <TrendingUp size={36} className="text-gray-400" />
-                </div>
-
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    No campaigns to show
-                </h3>
-
-                <p className="text-sm text-gray-500 mb-8 max-w-sm mx-auto">
-                    Connect your ad accounts above to start seeing your campaigns and AI-powered insights.
-                </p>
-
-                <div className="flex justify-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-gray-300" />
-                    <div className="w-2 h-2 rounded-full bg-gray-300" />
-                    <div className="w-2 h-2 rounded-full bg-gray-300" />
-                </div>
-
-            </div>
-
         </div>
     );
 }

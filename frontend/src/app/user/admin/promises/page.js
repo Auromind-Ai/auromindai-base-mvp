@@ -24,7 +24,22 @@ export default function PromisesPage() {
   };
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-6">
+    <div className="relative min-h-screen w-full">
+
+  {/* BACKGROUND IMAGE */}
+  <div
+    className="fixed inset-0 -z-50 bg-center bg-cover bg-no-repeat"
+    style={{
+      backgroundImage: "url('/images/Meeting3_Background.png')"
+    }}
+  />
+
+  {/* DARK OVERLAY */}
+  {/* <div className="absolute inset-0 -z-10 bg-black/70 backdrop-blur-[2px]" />  Background with cards*/} 
+  <div className="fixed inset-0 -z-40 bg-black/20" />
+
+  {/* CONTENT WRAPPER */}
+  <div className="w-full max-w-[1400px] mx-auto px-6 py-10">
 
       {/* Header */}
       <div className="mb-8">
@@ -37,11 +52,10 @@ export default function PromisesPage() {
         </p>
       </div>
 
-
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-6 mb-10">
 
-        <div className="rounded-xl p-6 border border-amber-500/20 bg-gradient-to-br from-[#1a1a1a] to-[#111]">
+        <div className="rounded-xl p-6 border border-amber-500/20 bg-black/40 backdrop-blur-sm transition hover:border-white/20">
           <div className="flex items-center gap-3">
             <Clock className="text-amber-400" size={18}/>
             <div>
@@ -51,28 +65,27 @@ export default function PromisesPage() {
           </div>
         </div>
 
-        <div className="rounded-xl p-6 border border-red-500/20 bg-gradient-to-br from-[#1a1a1a] to-[#111]">
+        <div className="rounded-xl p-6 border border-red-500/20 bg-black/40 backdrop-blur-sm transition hover:border-white/20">
           <div className="flex items-center gap-3">
             <AlertCircle className="text-red-400" size={18}/>
             <div>
-              <div className="text-xl text-red-400 font-semibold">1</div>
+              <div className="text-xl text-white font-semibold">1</div>
               <div className="text-xs text-neutral-400 uppercase">Overdue</div>
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl p-6 border border-emerald-500/20 bg-gradient-to-br from-[#1a1a1a] to-[#111]">
+        <div className="rounded-xl p-6 border border-emerald-500/20 bg-black/40 backdrop-blur-sm transition hover:border-white/20">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="text-emerald-400" size={18}/>
             <div>
-              <div className="text-xl text-emerald-400 font-semibold">12</div>
+              <div className="text-xl text-white font-semibold">12</div>
               <div className="text-xs text-neutral-400 uppercase">Fulfilled</div>
             </div>
           </div>
         </div>
 
       </div>
-
 
       {/* Promise Cards Section */}
       <div className="relative">
@@ -86,14 +99,13 @@ export default function PromisesPage() {
           <ChevronLeft size={18}/>
         </button>
 
-
         {/* Cards Container */}
         <div
           ref={scrollRef}
           className="overflow-x-auto scroll-smooth no-scrollbar"
         >
 
-          <div className="grid grid-flow-col auto-cols-[calc((100%-48px)/3)] gap-6">
+          <div className="grid grid-flow-col auto-cols-[85%] md:auto-cols-[calc((100%-48px)/3)] gap-6">
 
             {MOCK_PROMISES.map((promise) => (
 
@@ -101,8 +113,9 @@ export default function PromisesPage() {
                 key={promise.id}
                 whileHover={{ y: -4 }}
                 className={`relative min-h-[460px] rounded-xl p-6 border flex flex-col h-full overflow-hidden
-                bg-[#0b0b0b] transition-all
-                hover:border-white/20 hover:shadow-[0_0_40px_rgba(255,255,255,0.03)]
+                bg-black/40 backdrop-blur-sm
+                transition-all
+                hover:border-white/20 hover:shadow-[0_0_60px_rgba(59,130,246,0.15)]
 
                 ${promise.status === 'overdue'
                     ? 'border-red-500/30'
@@ -155,17 +168,11 @@ export default function PromisesPage() {
                     Mark as Fulfilled
                 </button>
                 )}
-
             </div>
-
             </motion.div>
-
             ))}
-
           </div>
-
         </div>
-
 
         {/* Right Scroll Button */}
         <button
@@ -177,7 +184,7 @@ export default function PromisesPage() {
         </button>
 
       </div>
-
+      </div>
     </div>
   );
 }
