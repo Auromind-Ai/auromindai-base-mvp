@@ -5,6 +5,7 @@ import { Brain, Upload, Link, FileText, CheckCircle2, Trash2, Search, Loader2, A
 import api from '@/lib/api';
 import { getWorkspace } from '@/lib/auth';
 import FileProgress from "./FileProgress";
+import AnimatedCounter from "../AnimatedCounter";
 
 export default function BrainPage() {
     const [entries, setEntries] = useState([]);
@@ -213,7 +214,7 @@ export default function BrainPage() {
 
                 <div>
                     <div className="text-3xl font-bold text-white">
-                    {loading ? '-' : stats.knowledge_entries || entries.length}
+                    {loading ? '-' : <AnimatedCounter value={stats.knowledge_entries || entries.length} />}
                     </div>
 
                     <div className="text-xs uppercase tracking-widest text-zinc-500">
@@ -239,7 +240,7 @@ export default function BrainPage() {
 
                 <div>
                     <div className="text-3xl font-bold text-white">
-                    {loading ? '-' : stats.indexed_chunks || 0}
+                    {loading ? '-' : <AnimatedCounter value={stats.indexed_chunks || 0} />}
                     </div>
 
                     <div className="text-xs uppercase tracking-widest text-zinc-500">

@@ -15,3 +15,5 @@ frontend/.env.production
 # General
 .DS_Store
 *.log
+
+/generated/prisma

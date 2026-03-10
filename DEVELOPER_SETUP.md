@@ -3,7 +3,7 @@
 ## 1. One-Click Setup 
 Run this command from the root folder:
 ```bash
-python3 backend/setup_dev.py
+python backend/setup_dev.py
 ```
 *   ✅ **Auto-Updates** your code (runs `git pull` for you).
 *   ✅ Creates your `.env` file automatically (with Shared Cloud DB & Keys).

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import AnimatedCounter from "../AnimatedCounter";
 import {
   Bell,
   Calendar,
@@ -143,7 +144,26 @@ export default function DashboardPage() {
             </div>
 
             <h3 className="text-3xl font-bold text-white">
-              {metric.value}
+
+              {metric.label === "Total Revenue" && (
+                <AnimatedCounter
+                  value={12.4}
+                  formatter={(v)=>`₹${v.toFixed(1)}L`}
+                />
+              )}
+
+              {metric.label === "Active Leads" && (
+                <AnimatedCounter value={124} />
+              )}
+
+              {metric.label === "Conversion Rate" && (
+                <AnimatedCounter value={18} formatter={(v)=>`${Math.floor(v)}%`} />
+              )}
+
+              {metric.label === "Avg. Response Time" && (
+                <AnimatedCounter value={12} formatter={(v)=>`${Math.floor(v)}m`} />
+              )}
+
             </h3>
 
             <p className="text-xs text-white/70 mt-1">
@@ -202,9 +222,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="p-4 space-y-2">
-
                 {ATTENTION_ITEMS.map((item) => (
-
                   <motion.div
                     key={item.id}
                     whileHover={{x:4}}
@@ -221,7 +239,6 @@ export default function DashboardPage() {
                           : 'bg-zinc-500'}`} />
 
                       <div>
-
                         <p className="text-sm font-medium">
                           {item.name}
                         </p>
@@ -241,7 +258,6 @@ export default function DashboardPage() {
                     </div>
                   </motion.div>
                 ))}
-
               </div>
             </div>
           </div>
@@ -270,13 +286,11 @@ export default function DashboardPage() {
                   </div>
 
                 ))}
-
               </div>
 
               <button className="w-full mt-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500">
                 View Full Report
               </button>
-
             </div>
 
             {/* SCHEDULE */}
@@ -352,7 +366,6 @@ export default function DashboardPage() {
                     transition={{ duration: 0.9 }}
                     className="bg-gradient-to-r from-cyan-500 to-emerald-500"
                   />
-
                 </div>
 
                 {/* Flow Stats */}
@@ -381,19 +394,12 @@ export default function DashboardPage() {
 
                     </motion.div>
                   ))}
-
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }
