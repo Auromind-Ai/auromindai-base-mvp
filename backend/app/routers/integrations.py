@@ -64,11 +64,7 @@ async def google_oauth_init(
             }
         },
         scopes=SCOPES[integration_type],
-<<<<<<< HEAD
-        autogenerate_code_verifier = False
-=======
         autogenerate_code_verifier=False
->>>>>>> dev
     )
     
     flow.redirect_uri = REDIRECT_URI
