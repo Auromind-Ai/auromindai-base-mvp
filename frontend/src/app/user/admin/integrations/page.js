@@ -121,18 +121,18 @@ export default function IntegrationsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white p-8">
-            <div className="w-full max-w-[1400px] mx-auto px-6">
+        <div className="min-h-screen bg-[#050505] text-white p-4 lg:p-8">
+            <div className="w-full max-w-[1400px] mx-auto px-4 lg:px-6">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold mb-2">Integrations</h1>
-                    <p className="text-gray-400">
+                    <h1 className="text-xl lg:text-3xl font-bold mb-2">Integrations</h1>
+                    <p className="text-xs lg:text-sm text-gray-400">
                         Connect your business tools to unlock AI automation
                     </p>
                 </div>
 
                 {/* Integration Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                     {availableIntegrations.map((integration) => {
                         const Icon = integration.icon;
                         const status = integrations[integration.id];
@@ -140,12 +140,12 @@ export default function IntegrationsPage() {
                         return (
                             <div
                                 key={integration.id}
-                                className={`bg-[#111111] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all ${integration.comingSoon ? 'opacity-70' : ''}`}
+                                className={`bg-[#111111] border border-white/10 rounded-2xl p-4 lg:p-6 hover:border-white/20 transition-all ${integration.comingSoon ? 'opacity-70' : ''}`}
                             >
                                 {/* Icon & Header */}
                                 <div className="flex items-start justify-between mb-4">
-                                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center`}>
-                                        <Icon size={24} className="text-white" />
+                                    <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center`}>
+                                        <Icon size={20} className="text-white lg:w-6 lg:h-6" />
                                     </div>
                                     {integration.comingSoon ? (
                                         <div className="flex items-center gap-1 text-yellow-500 text-sm">
@@ -166,13 +166,13 @@ export default function IntegrationsPage() {
                                 </div>
 
                                 {/* Name & Description */}
-                                <h3 className="text-xl font-semibold mb-2">{integration.name}</h3>
+                                <h3 className="text-base lg:text-xl font-semibold mb-2">{integration.name}</h3>
                                 <p className="text-gray-400 text-sm mb-4">{integration.description}</p>
 
                                 {/* Features */}
                                 <ul className="space-y-2 mb-6">
                                     {integration.features.map((feature, idx) => (
-                                        <li key={idx} className="flex items-center gap-2 text-sm text-gray-300">
+                                        <li key={idx} className="flex items-center gap-2 text-xs lg:text-sm text-gray-300">
                                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                                             {feature}
                                         </li>
@@ -191,7 +191,7 @@ export default function IntegrationsPage() {
                                 {integration.comingSoon ? (
                                     <button
                                         disabled
-                                        className="w-full px-4 py-2 bg-yellow-500/10 text-yellow-500 rounded-lg font-medium cursor-not-allowed flex items-center justify-center gap-2"
+                                        className="w-full px-4 py-2 text-xs lg:text-sm bg-yellow-500/10 text-yellow-500 rounded-lg font-medium cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         <Clock size={16} />
                                         Coming Soon
@@ -215,7 +215,7 @@ export default function IntegrationsPage() {
                                     <button
                                         onClick={() => handleConnect(integration.id)}
                                         disabled={loading}
-                                        className="w-full px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        className="w-full px-4 py-2 text-xs lg:text-sm bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         Connect {integration.name}
                                         <ExternalLink size={16} />
@@ -228,8 +228,8 @@ export default function IntegrationsPage() {
 
                 {/* Help Section */}
                 <div className="mt-8 p-6 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
-                    <h3 className="text-lg font-semibold mb-2">Need help connecting?</h3>
-                    <p className="text-gray-400 text-sm mb-4">
+                    <h3 className="text-sm lg:text-lg font-semibold mb-2">Need help connecting?</h3>
+                    <p className="text-xs lg:text-sm text-gray-400 mb-4">
                         Google Calendar is ready to connect! Gmail and Zoho CRM integrations are coming soon.
                     </p>
                     <a

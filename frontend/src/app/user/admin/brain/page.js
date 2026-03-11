@@ -165,8 +165,8 @@ export default function BrainPage() {
     }
 
     return (
-        <div className="w-full bg-[#07070a] min-h-screen pt-12 pb-6">
-        <div className="max-w-[1400px] mx-auto px-8 space-y-6">
+        <div className="w-full bg-[#07070a] min-h-screen pt-6 md:pt-10 lg:pt-12 pb-6">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-8 space-y-6">
             {/* Notifications */}
             {success && (
                 <div className="fixed top-4 right-4 z-50 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
@@ -188,36 +188,36 @@ export default function BrainPage() {
             )}
 
             <div className="mb-10 text-center">
-                <h1 className="text-3xl font-semibold text-white tracking-tight">
+                <h1 className="text-xl lg:text-3xl font-semibold text-white tracking-tight">
                     Brain (Knowledge Base)
                 </h1>
 
-                <p className="text-sm text-zinc-400 mt-1">
+                <p className="text-xs sm:text-sm text-zinc-400 mt-1">
                     Upload documents and sync websites to train your AI on your business knowledge.
                 </p>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
 
             {/* Card 1 */}
             <div
-                className="relative rounded-xl p-6 border border-white/10
+                className="relative rounded-xl p-4 md:p-6 border border-white/10
                 bg-[#07070a]
                 backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
             >
                 <div className="flex items-center gap-4">
 
-                <div className="w-11 h-11 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400">
+                <div className="w-10 h-10 md:w-11 md:h-11 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400">
                     <Brain size={20} />
                 </div>
 
                 <div>
-                    <div className="text-3xl font-bold text-white">
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white">
                     {loading ? '-' : <AnimatedCounter value={stats.knowledge_entries || entries.length} />}
                     </div>
 
-                    <div className="text-xs uppercase tracking-widest text-zinc-500">
+                    <div className="text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
                     Knowledge Items
                     </div>
                 </div>
@@ -228,7 +228,7 @@ export default function BrainPage() {
 
             {/* Card 2 */}
             <div
-                className="relative rounded-xl p-6 border border-white/10
+                className="relative rounded-xl p-4 md:p-6 border border-white/10
                 bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
                 backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
             >
@@ -239,7 +239,7 @@ export default function BrainPage() {
                 </div>
 
                 <div>
-                    <div className="text-3xl font-bold text-white">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
                     {loading ? '-' : <AnimatedCounter value={stats.indexed_chunks || 0} />}
                     </div>
 
@@ -254,7 +254,7 @@ export default function BrainPage() {
 
             {/* Card 3 */}
             <div
-                className="relative rounded-xl p-6 border border-white/10
+                className="relative rounded-xl p-4 md:p-6 border border-white/10
                 bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
                 backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
             >
@@ -265,7 +265,7 @@ export default function BrainPage() {
                 </div>
 
                 <div>
-                    <div className="text-3xl font-bold text-white">
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
                     {loading ? '-' : stats.status === 'active' ? 'Active' : 'Empty'}
                     </div>
 
@@ -280,9 +280,9 @@ export default function BrainPage() {
             </div>
 
             {/* Upload Cards */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {/* Document Upload */}
-                <div className="relative rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#0b0b0b] hover:border-indigo-500/50">
+                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#0b0b0b] hover:border-indigo-500/50">
 
             {/* Blue corner glow */}
             <div
@@ -325,7 +325,7 @@ export default function BrainPage() {
                 </div>
 
                 {/* Website Sync */}
-                <div className="relative rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#0b0b0b]">
+                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#0b0b0b]">
 
                 <div
                     className="absolute inset-0 pointer-events-none"
@@ -349,7 +349,7 @@ export default function BrainPage() {
                             className="w-full px-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all font-medium"
                             disabled={syncing || crawling}
                         />
-                        <div className="flex gap-2">
+                        <div className="flex flex-col lg:flex-row gap-2">
                             <button
                                 onClick={handleUrlSync}
                                 disabled={syncing || crawling || !urlInput.trim()}
@@ -389,7 +389,7 @@ export default function BrainPage() {
             <div className="rounded-xl p-4 mb-6 border border-white/10
             bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
             backdrop-blur-xl">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#565656]" />
                         <input
@@ -404,8 +404,7 @@ export default function BrainPage() {
                     <button
                         onClick={handleSearch}
                         disabled={searching || !searchQuery.trim()}
-                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                    >
+                        className="w-full lg:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
                         {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                         Search
                     </button>
@@ -434,7 +433,7 @@ export default function BrainPage() {
                                             {(result.score * 100).toFixed(0)}% match
                                         </span>
                                     </div>
-                                    <p className="text-xs text-[#9b9b9b] line-clamp-2">{result.content}</p>
+                                    <p className="text-xs sm:text-sm text-[#9b9b9b] line-clamp-2">{result.content}</p>
                                 </div>
                             ))}
                         </div>
@@ -467,7 +466,7 @@ export default function BrainPage() {
                 ) : (
                     <div className="divide-y divide-[#2f2f2f]">
                         {entries.map((item) => (
-                            <div key={item.id} className="p-4 flex items-center justify-between hover:bg-[#252525] transition-all group">
+                            <div key={item.id} className="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 hover:bg-[#252525] transition-all group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-[#2c2c2c] border border-[#3f3f3f] flex items-center justify-center text-[#787878] group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all shadow-sm">
                                         {item.content_type === 'url' ? <Link size={18} /> : <FileText size={18} />}
@@ -479,7 +478,7 @@ export default function BrainPage() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 sm:self-center">
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.15em] rounded-full border border-emerald-500/20">
                                         <CheckCircle2 size={12} />
                                         {item.status || 'indexed'}

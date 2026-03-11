@@ -27,6 +27,7 @@ const SettingsContent = () => {
     const [appearance, setAppearance] = useState('system');
     const [notifications, setNotifications] = useState(true);
     const [soundEffects, setSoundEffects] = useState(true);
+    const [showMobileMenu, setShowMobileMenu] = useState(true);
 
     const handleAppearanceChange = (value) => {
         setAppearance(value);
@@ -56,7 +57,12 @@ const SettingsContent = () => {
     return (
         <div className="flex h-full w-full bg-[#1f1f1f] overflow-hidden">
             {/* Sidebar */}
-            <div className="w-56 bg-[#191919] border-r border-[#333] flex flex-col">
+            <div className={`
+                    bg-[#191919] border-r border-[#333] flex flex-col
+                    w-full lg:w-56
+                    ${showMobileMenu ? 'block' : 'hidden'}
+                    lg:block
+                `}>
                 {/* Account Section */}
                 <div className="p-4">
                     <div className="flex items-center justify-between px-2 py-1.5 hover:bg-[#252525] rounded transition-colors cursor-pointer group">
@@ -81,7 +87,10 @@ const SettingsContent = () => {
                     {sidebarItems.filter(item => item.section === 'Account').map((item) => (
                         <button
                             key={item.id}
-                            onClick={() => setActiveTab(item.id)}
+                            onClick={() => {
+                                setActiveTab(item.id);
+                                setShowMobileMenu(false);
+                            }}
                             className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${activeTab === item.id
                                 ? 'bg-[#333] text-white'
                                 : 'text-[#a0a0a0] hover:bg-[#252525] hover:text-[#e8e8e8]'
@@ -121,16 +130,29 @@ const SettingsContent = () => {
             </div>
 
             {/* Content */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className={`
+                flex-1 flex flex-col min-w-0
+                ${showMobileMenu ? 'hidden lg:flex' : 'flex'}
+                `}>
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-[#333]">
+
+                    <div className="flex items-center gap-3">
+                    {/* Back button mobile */}
+                    <button
+                        onClick={() => setShowMobileMenu(true)}
+                        className="lg:hidden text-[#aaa] hover:text-white"
+                    >
+                        ←
+                    </button>
                     <h2 className="text-lg font-semibold text-white">
                         {sidebarItems.find(item => item.id === activeTab)?.label || 'Settings'}
                     </h2>
                 </div>
+                </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-5 sm:p-6 lg:p-8 custom-scrollbar">
                     {activeTab === 'account' && (
                         <div className="max-w-2xl mx-auto space-y-12">
                             {/* Account Section */}
@@ -403,5 +425,4 @@ const SettingsContent = () => {
         </div>
     );
 };
-
 export default SettingsContent;
