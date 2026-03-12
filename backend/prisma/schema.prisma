@@ -17,6 +17,8 @@ model User {
   id              String            @id @default(uuid()) @db.Uuid
   email           String            @unique
   full_name       String
+  password_hash   String?
+  is_active       Boolean           @default(true)
   created_at      DateTime          @default(now())
   password_hash   String
   is_active       Boolean @default(true)
@@ -35,12 +37,23 @@ model User {
 model Workspace {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
+<<<<<<< HEAD
+=======
+  created_by  String?
+  created_at  DateTime @default(now())
+<<<<<<< HEAD
+  updated_at  DateTime @updatedAt
+=======
+  
+  planType    String   @default("free") @map("plan_type")
+>>>>>>> f316561f43a5252146c5da735295ebf04d323ba3
   created_by  String?  @db.Uuid
 
   plan_type   String   @default("starter")  // ADD THIS
 
   created_at  DateTime @default(now())
   updated_at  DateTime? @updatedAt
+>>>>>>> dev
 
   members         WorkspaceMember[]
   learning_events LearningEvent[]
@@ -71,6 +84,25 @@ model WorkspaceMember {
 }
 
 model LearningEvent {
+<<<<<<< HEAD
+  id                      String   @id @default(uuid())
+  workspace_id            String
+  user_message            String   @db.Text
+  ai_response             String   @db.Text
+  conversation_id         String?
+  ai_action_id            String?
+  mcp_verdict             String?
+  mcp_confidence          Float?
+  feedback_type           String   @default("no_feedback")
+  feedback_comment        String?  @db.Text
+  feedback_timestamp      DateTime?
+  execution_success       Boolean?
+  user_satisfaction_score Float?
+  pattern_tags            Json?
+  used_in_training        Boolean  @default(false)
+  promoted_to_rule        Boolean  @default(false)
+  created_at              DateTime @default(now())
+=======
   id               String   @id @default(uuid()) @db.Uuid
   workspace_id     String   @db.Uuid
   user_id          String?  @db.Uuid
@@ -79,14 +111,26 @@ model LearningEvent {
   outcome          String?
   confidence_score Float?
   created_at       DateTime @default(now())
+>>>>>>> dev
 
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  user      User?     @relation(fields: [user_id], references: [id])
 
-  @@map("learning_events")
+  @@map("ai_learning_events")
 }
 
 model Followup {
+<<<<<<< HEAD
+  id               String    @id @default(uuid())
+  conversation_id  String?
+  scheduled_at     DateTime
+  status           String    @default("pending")
+  message_content  String?   @db.Text
+  followup_count   Int       @default(0)
+  mcp_decision     String?
+  mcp_reason       String?   @db.Text
+  created_at       DateTime  @default(now())
+  executed_at      DateTime?
+=======
   id           String    @id @default(uuid()) @db.Uuid
   workspace_id String    @db.Uuid
   user_id      String?   @db.Uuid
@@ -95,14 +139,34 @@ model Followup {
   status       String    @default("pending")
   due_date     DateTime?
   created_at   DateTime  @default(now())
+>>>>>>> dev
 
-  workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  user      User?     @relation(fields: [user_id], references: [id])
+  workspace_id     String?
+  user_id          String?
+
+  workspace Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [user_id], references: [id])
 
   @@map("followups")
 }
 
 model AIAction {
+<<<<<<< HEAD
+  id               String   @id @default(uuid())
+  workspace_id     String
+  action_type      String
+  intent           String?  @db.Text
+  intent_raw       String?  @db.Text
+  confidence       Float?
+  mcp_decision     String?
+  mcp_reason       String?  @db.Text
+  rule_results     Json?
+  context_refs     Json?
+  execution_status String   @default("pending")
+  human_override   Boolean  @default(false)
+  action_metadata  Json?
+  created_at       DateTime @default(now())
+=======
   id           String   @id @default(uuid()) @db.Uuid
   workspace_id String   @db.Uuid
   action_type  String
@@ -110,6 +174,7 @@ model AIAction {
   decision     String?
   approved     Boolean?
   created_at   DateTime @default(now())
+>>>>>>> dev
 
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   ai_learning_events  AILearningEvent[]
@@ -174,9 +239,15 @@ model BrainChunk {
 }
 
 model Conversation {
+<<<<<<< HEAD
+  id           String   @id @default(uuid())
+  workspace_id String?
+  user_id      String?
+=======
   id           String   @id @default(uuid()) @db.Uuid
   workspace_id String?  @db.Uuid // Optional for now as Python didn't have it mandatory
   user_id      String?  @db.Uuid
+>>>>>>> dev
   title        String?
   
   // Fields from Python model
@@ -245,12 +316,23 @@ model Message {
 }
 
 model Promise {
+<<<<<<< HEAD
+  id           String   @id @default(uuid())
+  workspace_id String
+  user_id      String?
+  description  String   @db.Text
+  due_date     DateTime?
+=======
   id           String   @id @default(uuid()) @db.Uuid
   workspace_id String   @db.Uuid
   user_id      String?  @db.Uuid
   promise_text String   @db.Text
+>>>>>>> dev
   status       String   @default("pending")
+  source       String   @default("manual")
+  ai_action_id String?
   created_at   DateTime @default(now())
+  resolved_at  DateTime?
 
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   user      User?     @relation(fields: [user_id], references: [id])

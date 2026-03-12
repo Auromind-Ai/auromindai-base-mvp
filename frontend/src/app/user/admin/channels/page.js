@@ -69,15 +69,15 @@ export default function ChannelsPage() {
     const active = CHANNELS.filter(c => c.status === 'Connected').length;
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto px-6 space-y-10">
+        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-5 lg:px-6 space-y-8 sm:space-y-10">
 
             {/* HEADER */}
             <div className="p-4 text-center">
-                <h1 className="text-3xl font-bold text-[#E5E5E5] tracking-tight">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#E5E5E5] tracking-tight">
                     Channels & Integrations
                 </h1>
 
-                <p className="text-[#9b9b9b] mt-1">
+                <p className="text-xs sm:text-sm text-[#9b9b9b] mt-1">
                     Connect your communication platforms to centralize messages and automate workflows.
                 </p>
             </div>
@@ -87,31 +87,31 @@ export default function ChannelsPage() {
             <div className="grid grid-cols-3 gap-4 px-4">
 
                 <div className="sparkle-border rounded-xl p-5 flex flex-col items-center justify-center text-center border border-white/10 backdrop-blur-md bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
-                    <div className="text-2xl font-bold text-white">{CHANNELS.length}</div>
-                    <div className="text-xs text-[#A1A1AA] uppercase tracking-wider">Integrations</div>
+                    <div className="text-xl sm:text-2xl font-bold text-white">{CHANNELS.length}</div>
+                    <div className="text-[10px] sm:text-xs text-[#A1A1AA] uppercase tracking-wider">Integrations</div>
                 </div>
 
                 <div className="sparkle-border rounded-xl p-5 flex flex-col items-center justify-center text-center border border-white/10 backdrop-blur-md bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
-                    <div className="text-2xl font-bold text-white">{active}</div>
-                    <div className="text-xs text-[#A1A1AA] uppercase tracking-wider">Active</div>
+                    <div className="text-xl sm:text-2xl font-bold text-white">{active}</div>
+                    <div className="text-[10px] sm:text-xs text-[#A1A1AA] uppercase tracking-wider">Active</div>
                 </div>
 
                 <div className="sparkle-border rounded-xl p-5 flex flex-col items-center justify-center text-center border border-white/10 backdrop-blur-md bg-gradient-to-br from-indigo-500/20 via-purple-500/10 to-transparent hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300">
-                    <div className="text-2xl font-bold text-white">{CHANNELS.length - active}</div>
-                    <div className="text-xs text-[#A1A1AA] uppercase tracking-wider">Available</div>
+                    <div className="text-xl sm:text-2xl font-bold text-white">{CHANNELS.length - active}</div>
+                    <div className="text-[10px] sm:text-xs text-[#A1A1AA] uppercase tracking-wider">Available</div>
                 </div>
 
             </div>
 
 
             {/* INTEGRATIONS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4">
 
                 {CHANNELS.map((channel) => (
 
                     <div
                         key={channel.id}
-                        className="group relative rounded-2xl p-6 border border-white/10
+                        className="group relative rounded-2xl p-5 sm:p-6 border border-white/10
                                     backdrop-blur-md
                                     bg-gradient-to-br from-white/[0.12] via-white/[0.04] to-transparent
                                     transition-all duration-300
@@ -144,11 +144,11 @@ export default function ChannelsPage() {
 
 
                         {/* TITLE */}
-                        <h3 className="text-lg font-semibold text-white mb-1">
+                        <h3 className="text-base sm:text-lg font-semibold text-white mb-1">
                             {channel.name}
                         </h3>
 
-                        <p className="text-sm text-[#9b9b9b] mb-4 leading-relaxed">
+                        <p className="text-xs sm:text-sm text-[#9b9b9b] mb-4 leading-relaxed">
                             {channel.description}
                         </p>
 
@@ -190,9 +190,9 @@ export default function ChannelsPage() {
 
 
                 {/* REQUEST INTEGRATION */}
-                <div className="border border-dashed border-[var(--notion-border)] rounded-2xl p-6 flex flex-col items-center justify-center text-center hover:bg-[var(--card)]/60 transition cursor-pointer min-h-[200px]">
+                <div className="border border-dashed border-[var(--notion-border)] rounded-2xl p-5 sm:p-6 flex flex-col items-center justify-center text-center hover:bg-[var(--card)]/60 transition cursor-pointer min-h-[200px]">
 
-                    <div className="w-12 h-12 rounded-full bg-[#2c2c2c] flex items-center justify-center mb-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#2c2c2c] flex items-center justify-center mb-3">
                         <Plus size={24}/>
                     </div>
 

@@ -157,8 +157,7 @@ function AdminLayoutContent({ children }) {
     );
 
     return (
-        <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative
-        bg-gradient-to-br from-[#020617] via-[#030712] to-black">
+        <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
             {/* Desktop Sidebar */}
             <aside
                 className="hidden md:flex w-[260px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10"
@@ -242,14 +241,14 @@ function AdminLayoutContent({ children }) {
                 </div>
 
                 {isFullScreenPage ? (
-                    <div className="w-full flex-1 flex flex-col overflow-hidden">
-                        {children}
-                    </div>
-                ) : (
-                    <div className="w-full max-w-[1600px] pl-6 pr-4 pt-10 h-full overflow-y-auto custom-scrollbar">
-                        {children}
-                    </div>
-                )}
+    <div className="w-full flex-1 flex flex-col overflow-hidden bg-transparent">
+        {children}
+    </div>
+) : (
+    <div className="w-full h-full overflow-hidden bg-transparent">
+        {children}
+    </div>
+)}
             </main>
 
             {/* Settings Modal */}
