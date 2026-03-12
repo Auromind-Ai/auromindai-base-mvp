@@ -14,6 +14,7 @@ export default function IntegrationsPage() {
       const response = await fetch('http://localhost:8000/admin/integrations')
       if (!response.ok) throw new Error('Failed to fetch integrations')
       const result = await response.json()
+      console.log('Fetched Integrations:', result)
       setData(result)
     } catch (err) {
       setError(err.message)
@@ -69,15 +70,15 @@ export default function IntegrationsPage() {
           <tbody>
             {data.map((item) => (
               <tr key={item.id} className="border-t border-white/10">
-                <td className="px-4 py-3">{item.workspace}</td>
+                <td className="px-4 py-3">{item.workspace_name}</td>
                 <td className="px-4 py-3">{item.integration_type}</td>
                 <td className="px-4 py-3">{item.connected_email}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded text-xs ${
-                    item.status === 'Connected' ? 'bg-green-600' :
-                    item.status === 'Expired' ? 'bg-red-600' : 'bg-yellow-600'
+                    item.is_active === true ? 'bg-green-600' :
+                    item.is_active === false ? 'bg-red-600' : 'bg-yellow-600'
                   }`}>
-                    {item.status}
+                    {item.is_active}
                   </span>
                 </td>
                 <td className="px-4 py-3">{item.token_expiry ? new Date(item.token_expiry).toLocaleString() : 'N/A'}</td>

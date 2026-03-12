@@ -19,7 +19,7 @@ class SimulationRequest(BaseModel):
 async def run_simulation(
     request: SimulationRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    # current_user = Depends(get_current_user)
 ):
     """
     Simulate a governed AI action through the full architecture:

@@ -8,14 +8,14 @@ import os
 import google.generativeai as genai
 from app.core.websockets import manager
 from app.core.middleware import MetricsMiddleware
-from app.core.middleware import APICountMiddleware
 from app.services.platform_settings_service import get_setting
 from app.services.rag_service import get_rag_service
 from app.services.background_scheduler import EmailSchedulerService
 from app.database import engine
 from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email
 from app.routers import automation
-
+from app.routers import admin
+from app.routers.metric import router as metric_router
 
 load_dotenv()
 
@@ -36,8 +36,6 @@ async def lifespan(app: FastAPI):
     scheduler = EmailSchedulerService(engine)
     scheduler.start()
     print("🚀 Email Scheduler Started")
-
-    yield
 
     #STOP SCHEDULER HERE
     scheduler.stop()
@@ -71,7 +69,10 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
 # CORS middleware - Allow all origins for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -88,10 +89,6 @@ async def root():
 
 # Startup event removed in favor of lifespan
 
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
 
 # Import and include routers
 from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, admin, public
@@ -112,8 +109,7 @@ app.include_router(admin.router)
 app.include_router(public.router)
 app.include_router(email.router)
 app.include_router(automation.router)
-
-
+app.include_router(metric_router)
 # Configure Colab API
 import httpx
 from pydantic import BaseModel
@@ -186,13 +182,8 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                         answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
-                            question=request.message,
-                            top_k=5,
-                            model_name=get_setting(db, "model_name", request.model),
-                            context_document_id=request.document_id,
-                            chat_mode=request.chat_mode,
-                            source=request.source
-                            query=request.message
+                            query=request.message,
+                            # model_name=get_setting(db, "model_name", request.model),
                         )
 
                         if answer:

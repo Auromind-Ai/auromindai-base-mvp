@@ -95,13 +95,21 @@ class AuthService:
             raise ValueError("User account is inactive")
         
         # Get user's workspaces
+       
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
         ).filter(WorkspaceMember.user_id == user.id).all()
-        
+
+        # Get workspace id
+        workspace_id = str(workspaces[0][0].id) if workspaces else None
+
         # Create access token
         access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email}
+            data={
+                "sub": str(user.id),
+                "email": user.email,
+                "workspace_id": workspace_id
+            }
         )
         
         return {

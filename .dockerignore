@@ -1,0 +1,39 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Virtual env
+venv
+.env
+
+# Logs
+logs
+*.log
+
+# Uploads / temp files
+temp_uploads
+tmp
+
+# Vector DB
+chroma_db
+
+# Cache
+.cache
+
+# Git
+.git
+.gitignore
+
+# Node leftovers
+node_modules
+
+# Build
+dist
+build
+
+# OS
+.DS_Store

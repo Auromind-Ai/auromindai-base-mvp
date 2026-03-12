@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import {
   ArrowRight,
   MessageSquare,
@@ -13,6 +14,36 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const [pricing, setPricing] = useState({
+    starter: 49,
+    professional: 149,
+    enterprise: 'Custom'
+  });
+
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/public/pricing');
+        if (response.ok) {
+          const data = await response.json();
+          setPricing({
+            starter: data.free_plan_price || 49,
+            professional: data.pro_plan_price || 149,
+            enterprise: 'Custom'
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch pricing:', error);
+      }
+    };
+
+    fetchPricing();
+  }, []);
+
+  const formatPrice = (price) => {
+    if (price === 'Custom') return price;
+    return `₹${price}`;
+  };
   return (
     <div className="min-h-screen bg-black text-slate-200 selection:bg-indigo-500/30">
       {/* Mesh Gradient Background Removed for Minimal Look */}
@@ -150,7 +181,7 @@ export default function LandingPage() {
             <div className="p-10 rounded-3xl bg-slate-900/40 border border-slate-800 flex flex-col items-center">
               <h3 className="text-lg font-semibold text-slate-400 mb-6">Starter</h3>
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-5xl font-extrabold text-white text-3xl">$49</span>
+                <span className="text-5xl font-extrabold text-white text-3xl">{formatPrice(pricing.starter)}</span>
                 <span className="text-slate-500 font-medium">/mo</span>
               </div>
               <ul className="space-y-4 mb-10 text-sm text-slate-400 w-full">
@@ -173,7 +204,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-semibold text-indigo-400 mb-6">Professional</h3>
               <div className="flex items-baseline gap-1 mb-8 text-3xl">
-                <span className="text-5xl font-extrabold text-white">$149</span>
+                <span className="text-5xl font-extrabold text-white">{formatPrice(pricing.professional)}</span>
                 <span className="text-slate-500 font-medium">/mo</span>
               </div>
               <ul className="space-y-4 mb-10 text-sm text-slate-400 w-full">
@@ -191,7 +222,7 @@ export default function LandingPage() {
             <div className="p-10 rounded-3xl bg-slate-900/40 border border-slate-800 flex flex-col items-center">
               <h3 className="text-lg font-semibold text-slate-400 mb-6">Enterprise</h3>
               <div className="flex items-baseline gap-1 mb-8">
-                <span className="text-4xl font-extrabold text-white">Custom</span>
+                <span className="text-4xl font-extrabold text-white">{formatPrice(pricing.enterprise)}</span>
               </div>
               <ul className="space-y-4 mb-10 text-sm text-slate-400 w-full">
                 <li className="flex items-center gap-3"><Check size={16} className="text-indigo-500" /> Dedicated support</li>

@@ -36,7 +36,7 @@ class OrchestrationService:
         context_refs = [str(e.id) for e in context_entries]
         enriched_context = {
             "business_rules": [e.content for e in context_entries],
-            "provided_metadata": metadata or {}
+           "provided_metadata": (metadata or {}).get("provided_metadata", {})
         }
 
         # 2. Governance Evaluation (Decision Layer / MCP)
@@ -46,7 +46,6 @@ class OrchestrationService:
             workspace_id=workspace_id,
             action_type=action_type,
             intent=intent_raw, # In a real system, this would be an extracted intent
-            intent_raw=intent_raw,
             context=enriched_context,
             confidence=0.95, # Mock confidence for now
             context_refs=context_refs

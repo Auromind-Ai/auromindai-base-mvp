@@ -72,7 +72,12 @@ class APIClient {
       body: JSON.stringify(body),
     });
   }
-
+  async patch(endpoint, body) {
+  return this.request(endpoint, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
   async delete(endpoint) {
     return this.request(endpoint, { method: 'DELETE' });
   }
@@ -141,9 +146,26 @@ class APIClient {
       body: JSON.stringify({ title })
     });
   }
+    // ================= Admin AI Activity =================
 
-  // ============== Brain / RAG Methods ==============
+    async getAIActivity() {
+      return this.get("/admin/ai_actions");
+    }
 
+    // ================= Admin Token Methods =================
+
+    async getAdminTokens() {
+      return this.get("/admin/tokens")
+    }
+
+    async updateTokenLimit(workspace_id, custom_token_limit) {
+      return this.request(`/admin/tokens/${workspace_id}/limit`, {
+        method: "PATCH",
+        body: JSON.stringify({ custom_token_limit })
+      })
+    }
+
+      // ============== Brain / RAG Methods ==============
   /**
    * Upload a document to the Brain (PDF, DOCX, TXT)
    */
@@ -166,6 +188,29 @@ class APIClient {
     }
     return data;
   }
+
+
+  
+    // ================= Admin Workspace Methods =================
+
+    async getAdminWorkspaces() {
+      return this.get('/admin/workspaces');
+    }
+
+    async editWorkspacePlan(workspace_id, plan_type) {
+      return this.request(`/admin/workspaces/${workspace_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ plan_type })
+      });
+    }
+
+    async resetWorkspaceLimits(workspace_id) {
+      return this.post(`/admin/workspaces/${workspace_id}/reset-limits`);
+    }
+
+   async toggleWorkspaceStatus(workspace_id) {
+  return this.post(`/admin/workspaces/${workspace_id}/toggle-status`);
+}
 
   /**
    * Sync a URL to the Brain
@@ -223,6 +268,8 @@ class APIClient {
     return this.get(`/brain/stats?workspace_id=${workspace_id}`);
   }
 }
+
+
 
 
 export const api = new APIClient();

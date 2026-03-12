@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.brain import EmailMessage, MCPDecision
 from app.routers.auth import get_current_user
 import json
 from app.services.email_reply_excutor import EmailReplyExecutor
-from fastapi import APIRouter, Depends, HTTPException
+
 
 router = APIRouter(prefix="/email", tags=["email"])
 

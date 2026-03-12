@@ -17,10 +17,6 @@ class SignupRequest(BaseModel):
     full_name: str
     workspace_name: str
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str = None  # Optional for testing
-
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -30,7 +26,13 @@ class WorkspaceResponse(BaseModel):
     id: str
     name: str
     role: str
-
+class CurrentUser:
+    def __init__(self, user, workspace_id):
+        self.id = user.id
+        self.email = user.email
+        self.full_name = user.full_name
+        self.workspace_id = workspace_id
+        self.user = user
 # Dependency to get current user
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -45,16 +47,17 @@ async def get_current_user(
     payload = decode_access_token(token)
     if payload is None:
         raise credentials_exception
-    
     user_id: str = payload.get("sub")
+    workspace_id: str = payload.get("workspace_id")
+
     if user_id is None:
         raise credentials_exception
-    
+
     user = AuthService.get_user_by_id(db, user_id)
     if user is None:
         raise credentials_exception
-    
-    return user
+
+    return  CurrentUser(user, workspace_id)
 
 @router.post("/signup")
 async def signup(request: SignupRequest, db: Session = Depends(get_db)):
@@ -79,10 +82,17 @@ async def signup(request: SignupRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/login")
-async def login(request: LoginRequest, db: Session = Depends(get_db)):
-    """Login and get access token"""
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
     try:
-        result = AuthService.login(db, request.email, request.password)
+        result = AuthService.login(
+            db,
+            email=form_data.username,   # username → email
+            password=form_data.password
+        )
+
         return result
     except ValueError as e:
         raise HTTPException(
@@ -108,3 +118,4 @@ async def get_workspaces(
     """Get all workspaces for current user"""
     workspaces = AuthService.get_user_workspaces(db, current_user.id)
     return {"workspaces": workspaces}
+
