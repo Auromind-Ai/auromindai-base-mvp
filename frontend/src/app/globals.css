@@ -374,3 +374,68 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Email Page Center Container's scrollbar affects UI look */
+
+.email-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.email-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.email-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 20px;
+}
+
+.email-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.28);
+}
+
+/* Marketing Page Cards Animation */
+
+.sparkle-card {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* rotating border light */
+.sparkle-card::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 260deg,
+    #3b82f6 300deg,
+    #60a5fa 320deg,
+    transparent 340deg
+  );
+
+  animation: rotateBorder 3s linear infinite;
+
+  z-index: 0;
+}
+
+/* card background layer */
+.sparkle-card::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  background: linear-gradient(to right,#0B1220,#0E1A33,#14284D);
+
+  z-index: 1;
+}
+
+@keyframes rotateBorder {
+  to {
+    transform: rotate(360deg);
+  }
+}
