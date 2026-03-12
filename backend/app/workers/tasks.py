@@ -1,6 +1,6 @@
 from app.core.celery_app import celery_app
 from app.services.after_hours_service import OfficeHoursManager, AfterHoursResponder, IntentClassifier
-from app.mcp.orchestrator import MCPOrchestrator
+# from app.mcp.orchestrator import MCPOrchestrator
 from app.services.ai_response_service import AIResponseService
 from app.database import SessionLocal
 from app.models import Conversation, Message

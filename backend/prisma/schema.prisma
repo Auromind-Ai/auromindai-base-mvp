@@ -12,6 +12,16 @@ enum FeedbackType {
   NEGATIVE
   NEUTRAL
 }
+enum ChannelType {
+  WEB
+  WHATSAPP
+  INSTAGRAM
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
 
 model User {
   id              String            @id @default(uuid()) @db.Uuid
@@ -173,23 +183,23 @@ model BrainChunk {
 
 model Conversation {
   id           String   @id @default(uuid()) @db.Uuid
-  workspace_id String?  @db.Uuid // Optional for now as Python didn't have it mandatory
+  workspace_id String?  @db.Uuid
+  phone        String   @db.VarChar(20)
   user_id      String?  @db.Uuid
-  title        String?
-  
-  // Fields from Python model
-  channel      String   @default("WEB") // Enum in Python, String here for simplicity
+
+  channel      ChannelType @default(WEB)
   external_id  String?
   contact_name String?
-  status       String   @default("OPEN")
-  
+  status       ConversationStatus @default(OPEN)
+
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  workspace Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspace_id], references: [id])
   user      User?      @relation(fields: [user_id], references: [id])
   messages  Message[]
-  ai_learning_events  AILearningEvent[]
+
+  ai_learning_events AILearningEvent[]
 
   @@map("conversations")
 }
@@ -224,22 +234,32 @@ model ChatMessage {
 }
 
 model Message {
-  id              String   @id @default(uuid()) @db.Uuid
-  conversation_id String   @db.Uuid
-  
-  // Fields from Python model
-  role            String? // Keeping role for compatibility if needed
-  sender_type     String  @default("USER") // USER, AI, AGENT, SYSTEM
-  content         String  @db.Text
-  timestamp       DateTime @default(now())
-  is_read         Boolean  @default(false)
-  metadata_json   String?  @db.Text
+  id             String   @id @default(uuid())
+  conversationId String   @db.Uuid
+  content        String?
+  senderType     SenderType  @default(USER)
+  status         MessageStatus @default(RECEIVED)
+  timestamp      DateTime    @default(now())
+  isRead         Boolean     @default(false)
+  source         String?
+  externalId     String?
+  metadataJson   String?
 
-  created_at      DateTime @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
 
-  conversation Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
 
-  @@map("messages")
+enum SenderType {
+  USER
+  AI
+  AGENT
+  SYSTEM
+}
+
+enum MessageStatus {
+  RECEIVED
+  SUGGESTED
+  SENT
 }
 
 model Promise {

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app import models, schemas
-from app.services.rag_service import RAGService
+from app.services.rag_service import get_rag_service
 from app.services.vector_store_service import VectorStoreService
 
 # Configure logging
@@ -22,7 +22,7 @@ class AIResponseService:
     def __init__(self):
         self.anthropic = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         self.redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
-        self.rag_service = RAGService()
+        self.rag_service = get_rag_service()
         # self.vector_store = VectorStoreService() # Placeholder for future vector search
 
     async def enrich_context(self, db: Session, conversation_id: str) -> Dict[str, Any]:
