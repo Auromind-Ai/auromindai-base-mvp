@@ -1,38 +1,45 @@
 services:
-  postgres:
-    image: postgres:16-alpine
+
+  redis:
+    image: redis:7-alpine
+    container_name: auromind_redis
+    restart: unless-stopped
+
+
+  db:
+    image: pgvector/pgvector:pg16
     container_name: auromind_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: auromind
-      POSTGRES_PASSWORD: auromind
-      POSTGRES_DB: auromind
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Arunjack007@
+      POSTGRES_DB: auromindai
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U auromind" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: auromind_backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     volumes:
+      - ./backend/logs:/app/logs 
       - ./backend:/app
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://auromind:auromind@postgres:5432/auromind
+      DATABASE_URL: postgresql+psycopg2://postgres:Arunjack007%40@db:5432/auromindai
+      REDIS_URL: redis://redis:6379
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
-      postgres:
-        condition: service_healthy
+      - redis
+      - db
+
 
   frontend:
     build:
@@ -50,5 +57,7 @@ services:
     depends_on:
       - backend
 
+
 volumes:
   postgres_data:
+  

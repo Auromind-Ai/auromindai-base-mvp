@@ -1,70 +1,98 @@
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer
+from sqlalchemy import Column, String, DateTime, Text, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
 from app.database import Base
-from datetime import datetime
 import uuid
+
+
+# ==============================
+# OAuth Integrations
+# ==============================
 
 class Integration(Base):
     __tablename__ = "integrations"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(UUID(as_uuid=True), nullable=False)
-    
-    # Integration type: 'google_calendar', 'gmail', 'zoho_crm'
-    integration_type = Column(String(50), nullable=False)
-    
-    # OAuth tokens
-    access_token = Column(Text, nullable=True)
-    refresh_token = Column(Text, nullable=True)
-    token_expiry = Column(DateTime, nullable=True)
-    
-    # Connected account info
-    connected_email = Column(String(255), nullable=True)
-    connected_account_id = Column(String(255), nullable=True)
-    
-    # Status
-    is_active = Column(Boolean, default=True)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
+
+    integration_type = Column(String(50), nullable=False)
+    # gmail / google_calendar / zoho_crm
+
+    access_token = Column(Text)
+    refresh_token = Column(Text)
+    token_expiry = Column(DateTime)
+
+    connected_email = Column(String(255))
+    connected_account_id = Column(String(255))
+
+    is_active = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+# ==============================
+# Calendar Events
+# ==============================
 
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    workspace_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
 
-    title = Column(String, nullable=True)
-    description = Column(Text, nullable=True)
+    title = Column(String)
+    description = Column(Text)
 
     event_date = Column(DateTime(timezone=True), nullable=False)
     event_time = Column(String, nullable=False)
 
-    timezone = Column(String, nullable=True)
-    location = Column(String, nullable=True)
+    timezone = Column(String)
+    location = Column(String)
 
-    google_event_id = Column(String, nullable=True)
+    google_event_id = Column(String, index=True)
+
     sync_status = Column(String, default="pending")
+    # pending / synced / failed
 
     status = Column(String, default="scheduled")
+    # scheduled / completed / cancelled
 
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ==============================
+# Email Reply Logs
+# ==============================
 
 class EmailReplyLog(Base):
-
     __tablename__ = "email_reply_logs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    workspace_id = Column(UUID(as_uuid=True), nullable=False)
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False
+    )
 
-    thread_id = Column(String)
+    thread_id = Column(String, index=True)
 
-    message_id = Column(String)
+    message_id = Column(String, index=True)
 
     reply_text = Column(Text)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

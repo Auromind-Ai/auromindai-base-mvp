@@ -80,8 +80,8 @@ async def create_session(
     return ChatSessionResponse(
         id=session.id,
         title=session.title,
-        created_at=str(session.created_at),
-        updated_at=str(session.updated_at),
+        created_at=session.created_at,
+        updated_at=session.updated_at,
         workspace_id=session.workspace_id
     )
 

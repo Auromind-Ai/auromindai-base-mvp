@@ -65,25 +65,46 @@ class MCPService:
             reason = f"Safety Block: Prohibited content detected ({', '.join(matched_keywords)}). Action suppressed by system."
             
         # Rule 4: Domain-Specific Limits (Follow-ups)
-        if action_type == "followup":
-            provided_meta = context.get("provided_metadata", {})
+        if action_type.lower() == "followup":
+
+            provided_meta = (
+                context.get("provided_metadata")
+                or context.get("metadata", {}).get("provided_metadata")
+                or {}
+)
             followup_count = provided_meta.get("followup_count", 0)
+
             limit_passed = followup_count < rules["max_followups_per_conversation"]
-            limit_result = {"rule": "max_followups", "actual": followup_count, "limit": rules["max_followups_per_conversation"], "passed": limit_passed}
-            rule_results.append(limit_result)
-            
+
+            rule_results.append({
+                "rule": "max_followups",
+                "actual": followup_count,
+                "limit": rules["max_followups_per_conversation"],
+                "passed": limit_passed
+            })
+
             if not limit_passed:
                 decision = "BLOCK"
-                reason = "Engagement Limit: Maximum autonomous follow-up sequence reached for this lead."
-            
-            # High Value Escalation
-            if rules["escalate_high_value_leads"]:
-                val = provided_meta.get("lead_value", 0)
-                if val >= rules["high_value_threshold"]:
-                    rule_results.append({"rule": "high_value_escalation", "value": val, "passed": False})
-                    decision = "ESCALATE"
-                    reason = f"High-Value Protocol: Lead value (${val}) qualifies for mandatory human review."
+                reason = "Engagement Limit: Maximum autonomous follow-up sequence reached."
 
+            # High value check
+            val = provided_meta.get("lead_value", 0)
+
+            print("LEAD VALUE:", val)
+            print("THRESHOLD:", rules["high_value_threshold"])
+
+            if rules.get("escalate_high_value_leads") and val >= rules["high_value_threshold"]:
+
+                rule_results.append({
+                    "rule": "high_value_escalation",
+                    "value": val,
+                    "passed": False
+                })
+
+                if decision != "BLOCK":
+                    decision = "ESCALATE"
+
+                reason = f"High-Value Protocol: Lead value (${val}) requires human review."
         # Log action with full audit trail
         ai_action = AIAction(
             workspace_id=str(workspace_id),

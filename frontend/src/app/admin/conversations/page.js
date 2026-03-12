@@ -15,6 +15,7 @@ export default function ConversationsPage() {
         const response = await fetch("http://localhost:8000/admin/conversations")
         if (!response.ok) throw new Error("Failed to fetch conversations")
         const data = await response.json()
+          console.log("API Response:", data)
         setConversations(Array.isArray(data) ? data : data.conversations || [])
         setError(null)
       } catch (err) {
@@ -103,7 +104,7 @@ export default function ConversationsPage() {
                       {conversations.map((conv) => (
                         <tr key={conv.id} className="border-b border-white/5 hover:bg-white/5 transition">
                           <td className="py-4 px-4 text-white font-mono text-sm">{conv.id?.slice(0, 8) || "N/A"}...</td>
-                          <td className="py-4 px-4 text-gray-300">{conv.user_email || conv.user_name || "N/A"}</td>
+                          <td className="py-4 px-4 text-gray-300">{conv.user_name || conv.user_email || "N/A"}</td>
                           <td className="py-4 px-4 text-gray-300 text-right">{conv.message_count || 0}</td>
                           <td className="py-4 px-4 text-gray-400 text-sm">
                             {conv.created_at ? new Date(conv.created_at).toLocaleDateString() : "N/A"}
@@ -117,7 +118,7 @@ export default function ConversationsPage() {
                                 ? "bg-green-900/30 text-green-300"
                                 : "bg-gray-900/30 text-gray-300"
                             }`}>
-                              {conv.is_active ? "Active" : "Closed"}
+                              {conv.status? "OPEN" : "CLOSED"}
                             </span>
                           </td>
                         </tr>

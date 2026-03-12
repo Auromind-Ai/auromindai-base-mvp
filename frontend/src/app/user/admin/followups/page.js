@@ -6,9 +6,6 @@ const MOCK_LEADS = [
   { id: 1, name: 'Ananya Patel', email: 'ananya@company.com', status: 'pending', scheduledFor: 'Today, 3:00 PM', aiDraft: 'Following up on our conversation about your Q1 goals...' },
   { id: 2, name: 'Vikram Singh', email: 'vikram@startup.io', status: 'sent', scheduledFor: 'Yesterday', aiDraft: null },
   { id: 3, name: 'Neha Gupta', email: 'neha@enterprise.com', status: 'overdue', scheduledFor: '2 days ago', aiDraft: 'Hi Neha, just checking in on the proposal we discussed...' },
-  { id: 1, name: 'Ananya Patel', email: 'ananya@company.com', status: 'pending', scheduledFor: 'Today, 3:00 PM', aiDraft: 'Following up on our conversation about your Q1 goals...' },
-  { id: 2, name: 'Vikram Singh', email: 'vikram@startup.io', status: 'sent', scheduledFor: 'Yesterday', aiDraft: null },
-  { id: 3, name: 'Neha Gupta', email: 'neha@enterprise.com', status: 'overdue', scheduledFor: '2 days ago', aiDraft: 'Hi Neha, just checking in on the proposal we discussed...' },
 ];
 
 export default function FollowUpsPage() {

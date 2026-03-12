@@ -14,6 +14,7 @@ export default function AIGovernancePage() {
       const response = await fetch('http://localhost:8000/admin/ai-governance')
       if (!response.ok) throw new Error('Failed to fetch AI governance data')
       const result = await response.json()
+      console.log(result)
       setData(result)
     } catch (err) {
       setError(err.message)
@@ -74,12 +75,12 @@ export default function AIGovernancePage() {
           <tbody>
             {data.map((item) => (
               <tr key={item.id} className="border-t border-white/10">
-                <td className="px-4 py-3">{item.action}</td>
-                <td className="px-4 py-3">{item.rule_triggered}</td>
-                <td className="px-4 py-3">{item.workspace}</td>
+                <td className="px-4 py-3">{item.action_type}</td>
+                <td className="px-4 py-3">{item.mcp_reason}</td>
+                <td className="px-4 py-3">{item.workspace_id}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded text-xs ${
-                    item.decision === 'Blocked' ? 'bg-red-600' : 'bg-yellow-600'
+                    item.mcp_decision === 'block' ? 'bg-red-600' : 'bg-yellow-600'
                   }`}>
                     {item.decision}
                   </span>

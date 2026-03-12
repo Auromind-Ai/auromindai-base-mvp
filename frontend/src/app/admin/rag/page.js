@@ -14,6 +14,7 @@ export default function RAGBrainPage() {
       const response = await fetch('http://localhost:8000/admin/rag')
       if (!response.ok) throw new Error('Failed to fetch RAG data')
       const result = await response.json()
+      console.log(result)
       setData(result)
     } catch (err) {
       setError(err.message)
@@ -69,15 +70,15 @@ export default function RAGBrainPage() {
           <tbody>
             {data.map((item) => (
               <tr key={item.id} className="border-t border-white/10">
-                <td className="px-4 py-3">{item.workspace}</td>
-                <td className="px-4 py-3">{item.entry_title}</td>
+                <td className="px-4 py-3">{item.workspace_id}</td>
+                <td className="px-4 py-3">{item.title}</td>
                 <td className="px-4 py-3">{item.chunk_count}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded text-xs ${
-                    item.embedding_status === 'Completed' ? 'bg-green-600' :
-                    item.embedding_status === 'Processing' ? 'bg-yellow-600' : 'bg-red-600'
+                    item.status?.toLowerCase() === 'completed' ? 'bg-green-600' :
+                    item.status?.toLowerCase() === 'processing' ? 'bg-yellow-600' : 'bg-red-600'
                   }`}>
-                    {item.embedding_status}
+                    {item.status}
                   </span>
                 </td>
                 <td className="px-4 py-3">{new Date(item.created_at).toLocaleString()}</td>

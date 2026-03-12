@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Activity, RefreshCw } from 'lucide-react'
+import api from "@/lib/api"
 
 export default function AIActivityPage() {
   const [data, setData] = useState([])
@@ -11,9 +12,9 @@ export default function AIActivityPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/admin/ai-actions')
-      if (!response.ok) throw new Error('Failed to fetch AI actions')
-      const result = await response.json()
+      const response = await api.getAIActivity()
+      const result = response
+      console.log('Fetched AI actions:', result)
       setData(result)
     } catch (err) {
       setError(err.message)
@@ -77,14 +78,14 @@ export default function AIActivityPage() {
                 <td className="px-4 py-3">{item.confidence}%</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded text-xs ${
-                    item.mcp_decision === 'Allow' ? 'bg-green-600' :
-                    item.mcp_decision === 'Block' ? 'bg-red-600' : 'bg-yellow-600'
+                    item.mcp_decision?.toLowerCase() === 'allow' ? 'bg-green-600' :
+                    item.mcp_decision?.toLowerCase() === 'block' ? 'bg-red-600' : 'bg-yellow-600'
                   }`}>
                     {item.mcp_decision}
                   </span>
                 </td>
                 <td className="px-4 py-3">{item.execution_status}</td>
-                <td className="px-4 py-3">{new Date(item.timestamp).toLocaleString()}</td>
+                <td className="px-4 py-3">{new Date(item.created_at).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
