@@ -26,3 +26,13 @@ uvicorn[standard]
 redis
 pytz
 geopy [timezonefinder]
+feedparser
+matplotlib
+tiktoken
+apscheduler
+timezonefinder
+passlib[bcrypt]
+pydantic[email]
+scrapy
+ddgs
+scrapy-playwright

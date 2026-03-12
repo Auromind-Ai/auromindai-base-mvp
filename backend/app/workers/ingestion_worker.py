@@ -62,16 +62,16 @@ async def process_document_background(
 
         logger.info(f"Starting vector ingestion for {entry_id}")
 
-        # 🔥 Use singleton embedding generator
+        # Use singleton embedding generator
         embedding_generator = EmbeddingGenerator()
 
-        # 🔥 Use singleton vector store
+        # Use singleton vector store
         vector_store = get_vector_store()
 
-        # 🔥 Use Schunker directly
+        # Use Schunker directly
         chunker = Schunker()
 
-        # 1️⃣ Build chunks
+        # 1️Build chunks
         chunks = chunker.build_chunks(doc_result["text"])
 
         if not chunks:

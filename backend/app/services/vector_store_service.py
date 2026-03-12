@@ -72,70 +72,70 @@ class VectorStoreService:
             logger.error(f"Failed storing chunks: {e}")
             raise
     
-    def add_email_chunks(
-        self,
-        db: Session,
-        workspace_id: str,
-        chunks: List[Dict[str, Any]],
-        embeddings,
-        parent_id: uuid.UUID  # must be EmailMessage.id
-    ) -> List[str]:
+    # def add_email_chunks(
+    #     self,
+    #     db: Session,
+    #     workspace_id: str,
+    #     chunks: List[Dict[str, Any]],
+    #     embeddings,
+    #     parent_id: uuid.UUID  # must be EmailMessage.id
+    # ) -> List[str]:
 
-        if not chunks:
-            return []
+    #     if not chunks:
+    #         return []
 
-        if len(chunks) != len(embeddings):
-            raise ValueError("Email chunks and embeddings length mismatch")
+    #     if len(chunks) != len(embeddings):
+    #         raise ValueError("Email chunks and embeddings length mismatch")
 
-        chunks_to_add = []
-        stored_ids = []
+    #     chunks_to_add = []
+    #     stored_ids = []
 
-        for i, chunk in enumerate(chunks):
+    #     for i, chunk in enumerate(chunks):
 
-            meta = chunk.get("metadata", {})
+    #         meta = chunk.get("metadata", {})
 
-            metadata = {
-                "source": "gmail",
-                "gmail_message_id": meta.get("gmail_message_id"),
-                "thread_id": meta.get("thread_id"),
-                "sender": meta.get("from"),
-                "subject": meta.get("subject"),
-                "date": meta.get("date"),
-                "category": meta.get("category"),          # new
-                "priority": meta.get("priority"),          # new
-                "direction": meta.get("direction"),        # inbound/outbound
-                "chunk_index": meta.get("chunk_index", 0)
-            }
+    #         metadata = {
+    #             "source": "gmail",
+    #             "gmail_message_id": meta.get("gmail_message_id"),
+    #             "thread_id": meta.get("thread_id"),
+    #             "sender": meta.get("from"),
+    #             "subject": meta.get("subject"),
+    #             "date": meta.get("date"),
+    #             "category": meta.get("category"),          # new
+    #             "priority": meta.get("priority"),          # new
+    #             "direction": meta.get("direction"),        # inbound/outbound
+    #             "chunk_index": meta.get("chunk_index", 0)
+    #         }
 
-            chunk_id = uuid.uuid4()
+    #         chunk_id = uuid.uuid4()
 
-            db_chunk = BrainChunk(
-                id=chunk_id,
-                workspace_id=workspace_id,
-                entry_id=parent_id,   # EmailMessage.id
-                content=chunk["text"],
-                embedding=embeddings[i].tolist(),
-                chunk_index=meta.get("chunk_index", 0),
-                metadata_json=json.dumps(metadata, default=str)
-            )
+    #         db_chunk = BrainChunk(
+    #             id=chunk_id,
+    #             workspace_id=workspace_id,
+    #             entry_id=parent_id,   # EmailMessage.id
+    #             content=chunk["text"],
+    #             embedding=embeddings[i].tolist(),
+    #             chunk_index=meta.get("chunk_index", 0),
+    #             metadata_json=json.dumps(metadata, default=str)
+    #         )
 
-            chunks_to_add.append(db_chunk)
-            stored_ids.append(str(chunk_id))
+    #         chunks_to_add.append(db_chunk)
+    #         stored_ids.append(str(chunk_id))
 
-        try:
-            db.bulk_save_objects(chunks_to_add)
-            db.commit()
+    #     try:
+    #         db.bulk_save_objects(chunks_to_add)
+    #         db.commit()
 
-            logger.info(
-                f"Stored {len(chunks)} email chunks for email {parent_id}"
-            )
+    #         logger.info(
+    #             f"Stored {len(chunks)} email chunks for email {parent_id}"
+    #         )
 
-            return stored_ids
+    #         return stored_ids
 
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Failed storing email chunks: {e}")
-            raise
+    #     except Exception as e:
+    #         db.rollback()
+    #         logger.error(f"Failed storing email chunks: {e}")
+    #         raise
 
     def search(
         self,

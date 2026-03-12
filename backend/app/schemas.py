@@ -19,6 +19,17 @@ class Message(MessageBase):
     class Config:
         from_attributes = True
 
+class SendReply(BaseModel):
+    conversation_id: str
+    phone: str
+    message: str
+
+
+class AISuggest(BaseModel):
+    conversation_id: str
+    workspace_id: str
+    message: str
+
 class ConversationBase(BaseModel):
     contact_name: str
     channel: ChannelType

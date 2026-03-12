@@ -19,15 +19,38 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+
+    workspace_id = Column(String(36), index=True)
+
+    phone = Column(String(20), index=True)
+
     user_id = Column(String(36), ForeignKey("users.id"))
+
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-    external_id = Column(String, index=True) # WhatsApp number or IG handle
+
+    external_id = Column(String, index=True)
+
     contact_name = Column(String)
+
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=func.now(),
+        nullable=False,
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     owner = relationship("User", back_populates="conversations")
+
     messages = relationship("Message", back_populates="conversation")
 
 
