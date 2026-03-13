@@ -41,15 +41,6 @@ class AgenticRAG:
         self.top_k = top_k
         self.embedding_generator = embedding_generator 
     
-    def chat(self, query):
-
-        small_talk_response = self.get_small_talk_response(query)
-
-        if small_talk_response:
-            print("Matched small talk")
-            return small_talk_response 
-        tool = self.decide_tool(query)
-        ...
 
     def get_small_talk_response(self, query: str):
         q = query.lower().strip()
@@ -187,10 +178,16 @@ class AgenticRAG:
         7. Do NOT change the user's intent.
         8. Output ONLY the rewritten query text.
         9. If no improvement is possible, return the original query exactly.
+        10. Only remove filler words
+        11. Do not replace domain terms
 
         REWRITE STRATEGY:
 
-        - If the query is short, expand it into a clear document-specific retrieval query.
+        - If the query is short, keep it unchanged.
+            Only rewrite if wording is ambiguous.
+            Do NOT expand terminology.
+            Do NOT introduce new words.
+            
         - Replace vague references with explicit entities.
         - Add missing contextual keywords if clearly implied.
         - Expand single-word topic queries into section-specific queries.
@@ -598,7 +595,7 @@ class AgenticRAG:
     def agent_loop(self, db, workspace_id, query):
         print(query)
 
-        website_names = []
+        website_names = []  
 
         small_talk = self.get_small_talk_response(query)
         if small_talk:
@@ -762,7 +759,7 @@ class AgenticRAG:
 
             formatted = "\n".join(f"{i+1}. {c}" for i, c in enumerate(clauses))
             print(formatted)
-            return formatted
+            return self.add_followup(query, formatted)
                     
         #Rewrite
         rewritten_query =self.analyze_and_rewrite(query)
@@ -826,7 +823,7 @@ class AgenticRAG:
             response = self.get_small_talk_response(query)
 
             if response:
-                return response
+                return self.add_followup(query, response)
             else:
                 return "Hello! How can I assist you today?"
             
@@ -837,7 +834,7 @@ class AgenticRAG:
             if not email_data:
                 return "No email found."
 
-            return email_data
+            return self.add_followup(query, email_data)
         
 
         #Final Answer
@@ -891,8 +888,7 @@ class AgenticRAG:
         if not final_answer or not final_answer.strip():
            return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
 
-        return final_answer
-
+        return self.add_followup(query, final_answer)
     #Context Evaluation
     def evaluate_context(self, query, context):
         
@@ -1161,6 +1157,7 @@ class AgenticRAG:
             
             cleaned_answer = self.hallucination_guard(result.strip(), synthesized_info)
             formatted_answer = self.format_for_chatgpt_style(cleaned_answer)
+           
 
             accuracy = token_match_percentage(cleaned_answer, synthesized_info)
 
@@ -1171,12 +1168,37 @@ class AgenticRAG:
             print("FINAL ANSWER FORMATTED:")
             print(formatted_answer)
 
-            return formatted_answer
+            return self.add_followup(query, formatted_answer)
 
         except Exception as e:
                 logging.exception("Error generating final output")
                 return "System error while generating answer."
 
+    def add_followup(self, query, answer):
+
+        prompt = f"""
+        You are a helpful assistant.
+
+        Based on the user's question and the answer provided,
+        generate ONE short follow-up question that might help the user continue.
+
+        RULES:
+        - Only one question
+        - Maximum 12 words
+        - No explanation
+
+        User Question:
+        {query}
+
+        Answer:
+        {answer}
+
+        Follow-up question:
+        """
+
+        followup = self.llm.invoke(prompt)
+
+        return f"{answer}\n\nFollow-up question:\n{followup}"
         
     def ingest_document(
         self,
@@ -1220,8 +1242,6 @@ class AgenticRAG:
         embeddings = embedding.generate_embeddings(chunk_texts)
         
         # Prepare data for vector store
-        
-        import json
         metadata_json_str = json.dumps(metadata) if metadata else None
 
         if existing_entry_id:
@@ -1254,7 +1274,7 @@ class AgenticRAG:
         self.vector_store.add_chunks(
             db=db,
             workspace_id=workspace_id,
-            chunks=chunks,   # pass original chunk objects
+            chunks=chunks,   
             embeddings=embeddings,
             parent_id=parent_id
         )
