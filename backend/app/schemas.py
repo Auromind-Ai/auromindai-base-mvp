@@ -71,3 +71,10 @@ class Followup(FollowupBase):
 
     class Config:
         from_attributes = True
+
+
+class PaymentSettings(BaseModel):
+    razorpay_key: str
+    razorpay_secret: str
+    paypal_client: str
+    paypal_secret: str
