@@ -1,6 +1,6 @@
 fastapi==0.135.1
 uvicorn[standard]==0.34.0
-
+anthropic
 SQLAlchemy==2.0.48
 psycopg2-binary
 pgvector==0.4.2
@@ -40,9 +40,10 @@ google-auth-httplib2
 google-generativeai
 
 apscheduler
-passlib[bcrypt]
-python-jose[cryptography]
 
+python-jose[cryptography]
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 twilio==9.10.2
 groq==1.1.1
 

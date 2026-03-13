@@ -267,7 +267,7 @@ class AgenticRAG:
 
         3. Choose "direct_answer" ONLY if:
         - The query is a greeting or casual small talk
-        - Use for general knowledge, explanations, and questions not tied to internal documents.
+        - Use ONLY for greetings or casual conversation, and questions not tied to internal documents.
 
         4. Otherwise, ALWAYS choose "vector_db".
 
@@ -711,24 +711,25 @@ class AgenticRAG:
             context = context[:8000]
 
             final_prompt = f"""
-            You are a STRICT information extraction system.
+            You are a professional information extraction system.
+
+            TASK:
+            Extract the statements from the website content that answer the user's question.
 
             RULES:
             - Use ONLY the WEBSITE CONTENT.
-            - Do NOT summarize.
-            - Do NOT explain.
-            - Do NOT invent sections.
-            - Do NOT add introductions.
-            - Return only the clauses that appear in the website.
-            - If a clause contains multiple sentences, keep them in the same numbered item.
-            - Do NOT split one clause into multiple numbers.
-            - Do NOT remove years, numbers, or dates.
-            - Preserve the original wording exactly.
+            - Do NOT invent information.
+            - Do NOT add new facts.
+            - Preserve the original meaning of the text.
+            - Improve readability if needed (fix grammar or missing words).
+            - Keep sentences complete and clear.
 
-            If the clauses are numbered or bulleted, preserve the original wording.
-
-            Output format:
-            Return the extracted clauses as plain numbered lines.
+            Guidelines:
+            - Write a clear explanation
+            - Avoid numbered lists
+            - Avoid repeating the question
+            - Combine information naturally
+            - Answer in 4-6 sentences
 
 
             Question:
@@ -737,7 +738,7 @@ class AgenticRAG:
             WEBSITE CONTENT:
             {context}
 
-            Extracted clauses:
+            Extracted information:
             """
             response = self.llm.invoke(final_prompt)
 
@@ -799,7 +800,6 @@ class AgenticRAG:
             sources = web_data.get("sources", [])
 
             for s in sources:
-                domain = urlparse(s).netloc
                 domain = urlparse(s).netloc.replace("www.", "")
                 website_names.append(domain)
 
@@ -839,32 +839,21 @@ class AgenticRAG:
 
         #Final Answer
         final_prompt = f"""
-        You are a STRICT knowledge-based AI assistant.
+        You are a professional AI assistant.
 
-        ROLE:
-        Answer the user's question using ONLY the provided context.
-        You must NOT use prior knowledge.
-        You must NOT guess.
-        You must NOT hallucinate.
+        Your task is to answer the user's question using ONLY the provided context.
 
-        HARD RULES (MANDATORY):
+        RULES:
+        1. Use only the information from the context.
+        2. Do NOT invent facts.
+        3. If the answer is not found in the context, say:
+            "No recent information found."
 
-        1. Use ONLY the information explicitly present in the Context section.
-        2. If the answer is not fully supported by the context, respond EXACTLY with:
-        I don’t know. Please upload relevant knowledge.
-        3. Do NOT add external facts.
-        4. Do NOT infer beyond the provided text.
-        5. Do NOT explain your reasoning.
-        6. Do NOT mention the word "context" in your answer.
-        7. If the answer exists, respond clearly and concisely.
-        8. If multiple answers are supported, include only what is explicitly stated.
-        
-        OUTPUT REQUIREMENTS:
-        - Provide only the final answer.
-        - No explanations.
-        - No disclaimers.
-        - No extra commentary.
-        - No formatting unless present in the context.
+        OUTPUT FORMAT:
+        - Provide a clear and professional explanation.
+        - Write in 2–8 sentences.
+        - Use simple language.
+        - If helpful, include short bullet points.
 
         Question:
         {query}
@@ -874,9 +863,8 @@ class AgenticRAG:
 
         Answer:
         """
-
         final_answer = self.llm.invoke(final_prompt)
-        source_text = "\n".join(f"- {site}" for site in website_names)
+        source_text = "\n".join(f"• {site}" for site in website_names)
 
         final_answer = f"""
         {final_answer}
@@ -1182,10 +1170,11 @@ class AgenticRAG:
         Based on the user's question and the answer provided,
         generate ONE short follow-up question that might help the user continue.
 
-        RULES:
-        - Only one question
-        - Maximum 12 words
-        - No explanation
+       RULES:
+        - Ask one helpful follow-up question.
+        - Maximum 15 words.
+        - Must relate to the topic.
+        - No explanation.
 
         User Question:
         {query}

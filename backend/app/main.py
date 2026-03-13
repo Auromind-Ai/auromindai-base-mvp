@@ -7,12 +7,17 @@ from dotenv import load_dotenv
 import os
 import google.generativeai as genai
 from app.core.websockets import manager
+from app.core.middleware import MetricsMiddleware
 from app.services.rag_service import get_rag_service
+from app.services.platform_settings_service import get_setting
 from app.services.background_scheduler import EmailSchedulerService
 from app.database import engine
 from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email
 from app.routers import automation
-
+from app.routers import admin
+from app.routers.metric import router as metric_router
+from app.core.logger import logger
+from app.core.request_logger import RequestLoggingMiddleware
 
 load_dotenv()
 
@@ -52,7 +57,8 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
-
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Websocket Endpoint
 @app.websocket("/ws/{user_id}")
@@ -90,7 +96,7 @@ async def health_check():
     return {"status": "healthy"}
 
 # Import and include routers
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, admin, public
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
@@ -106,7 +112,9 @@ app.include_router(integrations.router)  # OAuth Integrations
 app.include_router(gmail.router)  # Gmail API
 app.include_router(email.router)
 app.include_router(automation.router)
-
+app.include_router(metric_router)
+app.include_router(admin.router)
+app.include_router(public.router)
 
 # Configure Colab API
 import httpx
