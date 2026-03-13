@@ -22,43 +22,19 @@ class ConversationStatus(str, enum.Enum):
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("workspaces.id", ondelete="CASCADE"),
-        index=True,
-        nullable=False
-    )
-
-    user_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        index=True
-    )
-
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    user_id = Column(String(36), ForeignKey("users.id"))
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-
-    external_id = Column(String, index=True)  # whatsapp number / IG handle
+    external_id = Column(String, index=True) # WhatsApp number or IG handle
     contact_name = Column(String)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
-
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     owner = relationship("User", back_populates="conversations")
+    messages = relationship("Message", back_populates="conversation")
 
-    messages = relationship(
-        "Message",
-        back_populates="conversation",
-        cascade="all, delete-orphan"
-    )
-
-
-# ===============================
-# AI Chat Sessions
-# ===============================
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"

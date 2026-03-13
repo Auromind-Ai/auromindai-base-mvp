@@ -1,6 +1,6 @@
 from .user import User
 from .conversation import Conversation, ChannelType, ConversationStatus, ChatSession, ChatMessage
-from .message import Message, SenderType
+from .message import Message, SenderType, MessageStatus
 from .ai_action import AIAction
 from .brain import BrainEntry
 from .workspace import Workspace, WorkspaceMember

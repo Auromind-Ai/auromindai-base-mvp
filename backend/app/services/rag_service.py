@@ -1,7 +1,5 @@
 import logging
 import re
-import feedparser
-from matplotlib import text
 from app.utils.evaluation import token_match_percentage
 from app.models.llm_config import GroqLLM
 from app.services.vector_store_service import VectorStoreService
@@ -12,6 +10,14 @@ from sqlalchemy.orm import Session
 from app.utils.text_chunker import Schunker
 import json
 import os
+from app.models.brain import EmailMessage , MCPDecision
+from ddgs import DDGS
+import requests
+from bs4 import BeautifulSoup
+from app.utils.website_scraper import Webscrapper
+import numpy as np
+from urllib.parse import urlparse
+from app.models.brain import BrainEntry
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, "small_talk.json")
@@ -35,15 +41,6 @@ class AgenticRAG:
         self.top_k = top_k
         self.embedding_generator = embedding_generator 
     
-    def chat(self, query):
-
-        small_talk_response = self.get_small_talk_response(query)
-
-        if small_talk_response:
-            print("Matched small talk")
-            return small_talk_response 
-        tool = self.decide_tool(query)
-        ...
 
     def get_small_talk_response(self, query: str):
         q = query.lower().strip()
@@ -56,6 +53,39 @@ class AgenticRAG:
             return SMALL_TALK[q]
 
         return None
+    
+    def extract_url(self, query):
+
+        urls = re.findall(r'https?://\S+', query)
+
+        if urls:
+            return urls[0]
+
+        return None  
+    
+    
+    def select_relevant_sections(self, scraped_data, query):
+
+        query_words = set(query.lower().split())
+        scored_pages = []
+
+        for page in scraped_data:
+
+            headings = " ".join(page.get("headings", [])).lower()
+            sub_headings = " ".join(page.get("sub_headings", [])).lower()
+
+            combined = headings + " " + sub_headings
+            heading_words = set(combined.split())
+
+            overlap = len(query_words.intersection(heading_words))
+
+            scored_pages.append((overlap, page))
+
+        scored_pages.sort(key=lambda x: x[0], reverse=True)
+
+        # return ONLY the most relevant page
+        return [scored_pages[0][1]]
+    
    
     #Semantic Search (Vector Similarity Search)
     def semantic_search(self, db, workspace_id, query):
@@ -148,10 +178,16 @@ class AgenticRAG:
         7. Do NOT change the user's intent.
         8. Output ONLY the rewritten query text.
         9. If no improvement is possible, return the original query exactly.
+        10. Only remove filler words
+        11. Do not replace domain terms
 
         REWRITE STRATEGY:
 
-        - If the query is short, expand it into a clear document-specific retrieval query.
+        - If the query is short, keep it unchanged.
+            Only rewrite if wording is ambiguous.
+            Do NOT expand terminology.
+            Do NOT introduce new words.
+            
         - Replace vague references with explicit entities.
         - Add missing contextual keywords if clearly implied.
         - Expand single-word topic queries into section-specific queries.
@@ -191,14 +227,25 @@ class AgenticRAG:
         Use for questions answerable from internal documents, knowledge bases, PDFs, or uploaded data.
         This is the DEFAULT tool if uncertain.
 
-        - web_search
-        Use ONLY for real-time, time-sensitive, or current information requests.
+       - web_search
+        Use this tool when the user's question requires information
+        from the internet or public sources.
 
         - calculator
         Use ONLY for pure mathematical expressions containing numbers and operators.
 
         - direct_answer
         Use ONLY for hi, hello, hey, introduce yourself or casual small talk.
+
+        - direct_storage
+        Use this tool when the user query refers to structured data stored in the system database.
+
+        Typical data sources include:
+        emails, inbox messages, senders, subjects, priorities, summaries, conversation records,
+        or any stored communication data.
+
+        Use this tool whenever the answer should be retrieved from internal system records
+        instead of knowledge documents or the internet.
 
         ROUTING RULES (STRICT):
 
@@ -207,16 +254,35 @@ class AgenticRAG:
         - Contains only numbers, operators, parentheses
         - Example: 45*3, (100+20)/5
 
-        2. Choose "web_search" ONLY if:
-        - The user explicitly requests current or time-sensitive information
-        - Includes words like: latest, today, current, now, live, breaking, recent
-        - Mentions a specific year (e.g., 2026 results, 2025 election updates)
+        2. Choose "web_search" when the query requires information
+        from the internet or public sources that is not stored in
+        the system's internal documents or database.
+
+        Use this tool for:
+        - General knowledge questions
+        - Definitions or explanations of topics
+        - Information about people, companies, technologies
+        - Current events or time-sensitive information
+        - Questions asking about things outside the system's stored data
 
         3. Choose "direct_answer" ONLY if:
         - The query is a greeting or casual small talk
         - Use for general knowledge, explanations, and questions not tied to internal documents.
 
         4. Otherwise, ALWAYS choose "vector_db".
+
+        5. Choose "direct_storage" if the query is about retrieving or inspecting
+        structured records stored in the system database.
+
+        This includes queries related to:
+        - emails
+        - inbox messages
+        - senders or recipients
+        - email subjects
+        - email summaries
+        - email priority or category
+        - conversation threads
+        - stored system messages
 
         OUTPUT FORMAT:
         Return exactly ONE of the following words:
@@ -242,27 +308,85 @@ class AgenticRAG:
     def web_search(self, query):
 
         try:
-            url = f"https://news.google.com/rss/search?q={query.replace(' ', '+')}"
-            feed = feedparser.parse(url)
 
-            if not feed.entries:
-                return ""
+            results = []
+            sources = []
+            seen_domains = set()
 
-            content = ""
+            with DDGS() as ddgs:
+                search_results = ddgs.text(query, max_results=6)
 
-            for entry in feed.entries[:5]:
-                content += f"""
-                Title: {entry.title}
-                Link: {entry.link}
-                Published: {entry.published}
+            for r in search_results:
 
-                """
+                url = r.get("href")
+                title = r.get("title", "")
+                snippet = r.get("body", "")
 
-            return content.strip()
+                if not url:
+                    continue
 
-        except Exception as e:
+                # Avoid duplicate domains
+                domain = url.split("/")[2] if "://" in url else url
+                if domain in seen_domains:
+                    continue
+
+                seen_domains.add(domain)
+
+                try:
+
+                    page = requests.get(
+                        url,
+                        timeout=8,
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+
+                    if page.status_code != 200:
+                        continue
+
+                    soup = BeautifulSoup(page.text, "html.parser")
+
+                    # Remove noise
+                    for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+                        tag.decompose()
+
+                    text = soup.get_text(separator=" ")
+                    text = " ".join(text.split())
+
+                    # If scraping fails fallback to snippet
+                    if len(text) < 200:
+                        text = snippet
+
+                    if len(text) < 50:
+                        continue
+
+                    text = text[:1500]
+
+                    results.append(
+                        f"""
+                        Title: {title}
+                        URL: {url}
+                        Content:
+                        {text}
+                        """
+                    )
+
+                    sources.append(url)
+
+                    # limit context size
+                    if len(results) >= 3:
+                        break
+
+                except Exception:
+                    continue
+
+            return {
+                "context": "\n\n".join(results),
+                "sources": sources
+            }
+
+        except Exception:
             logging.exception("Web search error")
-            return ""
+            return {"context": "", "sources": []}
 
 
     def calculator_tool(self, query):
@@ -276,21 +400,373 @@ class AgenticRAG:
         except:
             return "Calculation error"
         
+    def parse_email_query(self, query):
+
+        print("User query:", query)
+
+        prompt = f"""
+        You are an email query understanding engine.
+
+        Your task is to convert a user query into structured filters
+        for searching emails stored in a database.
+
+        Available filters:
+        - priority (high, medium, low)
+        - category (meeting, invoice, job, business, marketing, personal, other)
+        - sender
+        - date
+        - intent (latest, summary, details)
+
+        Rules:
+        - Return ONLY valid JSON
+        - Do NOT include explanations
+        - Do NOT include markdown
+        - Do NOT include text before or after JSON
+
+        Example:
+
+        User Query: last email
+
+        Output:
+        {{
+        "priority": null,
+        "category": null,
+        "sender": null,
+        "intent": "latest"
+        }}
+
+        User Query:
+        {query}
+        """
+
+        response = self.llm.invoke(prompt)
+
+        print("Raw LLM response:", response)
+
+        try:
+
+            #Remove markdown code blocks
+            cleaned = re.sub(r"```json", "", response, flags=re.IGNORECASE)
+            cleaned = re.sub(r"```", "", cleaned)
+
+            #Extract JSON block
+            match = re.search(r"\{.*?\}", cleaned, re.DOTALL)
+
+            if match:
+                json_str = match.group()
+                filters = json.loads(json_str)
+            else:
+                print("No JSON found in response")
+                return {}
+
+            print("Parsed filters:", filters)
+
+            return filters
+
+        except Exception as e:
+
+            print("JSON parse error:", e)
+            print("Cleaned response:", cleaned)
+
+            return {}
+
+        
+    def query_emails(self, db, workspace_id, filters):
+
+        print("Applying filters:", filters)
+
+        query = db.query(MCPDecision).join(
+            EmailMessage,
+            MCPDecision.message_id == EmailMessage.gmail_message_id
+        ).filter(
+            MCPDecision.workspace_id == workspace_id
+        )
+
+        if filters.get("priority"):
+            print("Filtering by priority:", filters["priority"])
+            query = query.filter(
+                MCPDecision.priority == filters["priority"]
+            )
+
+        if filters.get("sender"):
+            query = query.filter(
+                EmailMessage.sender.ilike(f"%{filters['sender']}%")
+            )
+
+        if filters.get("category"):
+            print("Filtering by category:", filters["category"])
+            query = query.filter(
+                MCPDecision.category == filters["category"]
+            )
+
+        #Intent handling
+        if filters.get("intent") == "latest":
+            limit = 1
+            print("Intent detected: latest → returning 1 email")
+        else:
+            limit = 2
+
+        results = query.order_by(
+            MCPDecision.created_at.desc()
+        ).limit(limit).all()
+
+        print("Emails found:", len(results))
+
+        return results
+
+    def generate_email_summary(self, subject, body):
+
+        prompt = f"""
+        You are an AI assistant that summarizes emails.
+
+        Rules:
+        - Maximum 3 sentences
+        - Focus only on the main purpose of the email
+        - Do not add greeting text
+        - Return plain text summary only
+
+        Subject:
+        {subject}
+
+        Email Body:
+        {body}
+        """
+
+        response = self.llm.invoke(prompt)
+
+        return response.strip()
+    
+    def build_email_response(self, db, results):
+        print("Building response for emails:", len(results))
+
+        response = ""
+
+        for r in results:
+            print("Processing message_id:", r.message_id)
+
+            email = db.query(EmailMessage).filter(
+                EmailMessage.gmail_message_id == r.message_id
+            ).first()
+
+            if not email:
+                print("Email record not found:", r.message_id)
+                continue
+
+            summary = r.summary
+
+            if not summary or "Summary not available" in summary.lower():
+
+                summary = self.generate_email_summary(
+                    email.subject,
+                    email.body
+                )
+
+                # store generated summary for future
+                r.summary = summary
+                db.commit()
+
+            response += f"""
+            Sender: {email.sender}
+
+            Subject: {email.subject}
+
+            Priority: {r.priority}
+
+            Summary:
+            {summary}
+
+            -------------
+            """
+        print("Final response built")
+        return response
+            
+    def email_storage_tool(self, db, workspace_id, query):
+
+        filters = self.parse_email_query(query)
+
+        results = self.query_emails(db, workspace_id, filters)
+
+        if not results:
+            return "No emails found."
+
+        return self.build_email_response(db, results)
+        
     #Reasoning Engine   
     def agent_loop(self, db, workspace_id, query):
         print(query)
 
+        website_names = []  
+
         small_talk = self.get_small_talk_response(query)
         if small_talk:
             return small_talk
-        
+
+        start_url = self.extract_url(query)
+
+        if start_url:
+            print("URL detected:", start_url)
+
+            scraper = Webscrapper(start_url)
+            single_page = bool(start_url)
+            scraped_data = scraper.scrapper_choose(single_page)
+
+            if not scraped_data or isinstance(scraped_data, str):
+                return "Unable to read the website."
+              
+            scraped_data = self.select_relevant_sections(scraped_data, query)
+
+            website_sections = []
+
+            for page in scraped_data:
+                heading = " ".join(page.get("headings", []))
+                sub_headings = page.get("sub_headings", [])
+                paragraphs = page.get("paragraphs", [])
+                lists = page.get("list_point", [])
+
+                section_text = ""
+
+                if heading:
+                    section_text += f"{heading}\n"
+
+                for sh in sub_headings:
+                    section_text += f"{sh}\n"
+
+                for para in paragraphs:
+                    if para.strip():
+                        section_text += f"{para.strip()}\n"
+
+                if lists:
+                    for item in lists:
+                        section_text += f"- {item.strip()}\n"
+
+                section_text = section_text.strip()
+
+                if section_text:
+                    website_sections.append(section_text)
+
+            if not website_sections:
+                return "Website content could not be extracted."
+
+            chunker = Schunker()
+
+            chunks = []
+            for section in website_sections:
+                section_chunks = chunker.build_chunks(section)
+                chunks.extend(section_chunks)
+
+            if not chunks:
+                return "Unable to process website content."
+
+            chunk_texts = [c["text"] for c in chunks]
+
+            embeddings = self.embedding_generator.generate_embeddings(chunk_texts)
+
+            clean_query = re.sub(r"https?://\S+", "", query).strip()
+            clean_query = clean_query.strip()
+            
+            if not clean_query:
+                clean_query = query
+
+            query_embedding = self.embedding_generator.generate_query_embedding(clean_query)
+
+            scores = []
+
+            query_words = set(clean_query.lower().split())
+
+            for i, emb in enumerate(embeddings):
+
+                emb = np.array(emb)
+                query_vec = np.array(query_embedding)
+
+                similarity = np.dot(query_vec, emb) / (
+                    np.linalg.norm(query_vec) * np.linalg.norm(emb)
+                )
+
+                chunk_words = set(chunk_texts[i].lower().split())
+
+                keyword_overlap = len(query_words.intersection(chunk_words))
+
+                final_score = (similarity * 0.7) + (keyword_overlap * 0.3)
+
+                scores.append((final_score, chunk_texts[i]))
+
+            scores.sort(key=lambda x: x[0], reverse=True)
+
+            top_score = scores[0][0]
+
+            top_chunks = []
+            top_chunks.append(scores[0][1])   # best chunk always
+
+            for score, text in scores[1:]:
+
+                similarity_ratio = score / top_score
+
+                if similarity_ratio > 0.75:# strict filtering
+                    top_chunks.append(text)
+
+                if len(top_chunks) >= 3:
+                    break
+
+            context = "\n\n".join(top_chunks)
+            context = context[:8000]
+
+            final_prompt = f"""
+            You are a STRICT information extraction system.
+
+            RULES:
+            - Use ONLY the WEBSITE CONTENT.
+            - Do NOT summarize.
+            - Do NOT explain.
+            - Do NOT invent sections.
+            - Do NOT add introductions.
+            - Return only the clauses that appear in the website.
+            - If a clause contains multiple sentences, keep them in the same numbered item.
+            - Do NOT split one clause into multiple numbers.
+            - Do NOT remove years, numbers, or dates.
+            - Preserve the original wording exactly.
+
+            If the clauses are numbered or bulleted, preserve the original wording.
+
+            Output format:
+            Return the extracted clauses as plain numbered lines.
+
+
+            Question:
+            {clean_query}
+
+            WEBSITE CONTENT:
+            {context}
+
+            Extracted clauses:
+            """
+            response = self.llm.invoke(final_prompt)
+
+            response = response.replace("```", "").strip()
+
+            lines = response.split("\n")
+
+            clauses = []
+
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                line = re.sub(r"^\d+\.\s*", "", line)
+                line = re.sub(r"\[\d+\]", "", line)   # remove citations
+                
+                clauses.append(line)
+
+            formatted = "\n".join(f"{i+1}. {c}" for i, c in enumerate(clauses))
+            print(formatted)
+            return self.add_followup(query, formatted)
+                    
         #Rewrite
         rewritten_query =self.analyze_and_rewrite(query)
         print(rewritten_query)
         #Decide tool
         tool = self.decide_tool(rewritten_query)
 
-        context = None
 
         #Tool execution
         if tool == "vector_db":
@@ -317,11 +793,20 @@ class AgenticRAG:
 
         elif tool == "web_search":
 
-            context = self.web_search(rewritten_query)
-            print("WEB SEARCH CONTEXT:", context)
+            web_data = self.web_search(rewritten_query)
 
-            if not context or not context.strip():
-                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+            context = web_data.get("context", "")
+            sources = web_data.get("sources", [])
+
+            for s in sources:
+                domain = urlparse(s).netloc
+                domain = urlparse(s).netloc.replace("www.", "")
+                website_names.append(domain)
+
+            print("WEB SEARCH CONTEXT:", context[:500])
+
+            if not context.strip():
+                return "Unable to retrieve relevant information from the internet."
 
 
         elif tool == "calculator":
@@ -338,9 +823,18 @@ class AgenticRAG:
             response = self.get_small_talk_response(query)
 
             if response:
-                return response
+                return self.add_followup(query, response)
             else:
                 return "Hello! How can I assist you today?"
+            
+        elif tool == "direct_storage":
+
+            email_data = self.email_storage_tool(db, workspace_id, query)
+
+            if not email_data:
+                return "No email found."
+
+            return self.add_followup(query, email_data)
         
 
         #Final Answer
@@ -364,7 +858,7 @@ class AgenticRAG:
         6. Do NOT mention the word "context" in your answer.
         7. If the answer exists, respond clearly and concisely.
         8. If multiple answers are supported, include only what is explicitly stated.
-
+        
         OUTPUT REQUIREMENTS:
         - Provide only the final answer.
         - No explanations.
@@ -382,12 +876,19 @@ class AgenticRAG:
         """
 
         final_answer = self.llm.invoke(final_prompt)
+        source_text = "\n".join(f"- {site}" for site in website_names)
+
+        final_answer = f"""
+        {final_answer}
+
+        Sources:
+        {source_text}
+        """
 
         if not final_answer or not final_answer.strip():
            return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
 
-        return final_answer
-
+        return self.add_followup(query, final_answer)
     #Context Evaluation
     def evaluate_context(self, query, context):
         
@@ -624,6 +1125,7 @@ class AgenticRAG:
         12. Do NOT infer meaning beyond explicit wording.
         13. If nothing directly answers the question, output EXACTLY:
         Information not available in provided documents.
+        
 
         STRICT OUTPUT FORMAT:
 
@@ -655,19 +1157,48 @@ class AgenticRAG:
             
             cleaned_answer = self.hallucination_guard(result.strip(), synthesized_info)
             formatted_answer = self.format_for_chatgpt_style(cleaned_answer)
+           
 
-            
             accuracy = token_match_percentage(cleaned_answer, synthesized_info)
+
             print("Answer Accuracy:", accuracy, "%")
             print("Verified Info Length:", len(synthesized_info.split("\n")))
             print("FINAL ANSWER RAW:")
             print(repr(cleaned_answer))
+            print("FINAL ANSWER FORMATTED:")
             print(formatted_answer)
-            return formatted_answer
-        
+
+            return self.add_followup(query, formatted_answer)
+
         except Exception as e:
-            logging.exception("Error generating final output")
-            return "System error while generating answer."
+                logging.exception("Error generating final output")
+                return "System error while generating answer."
+
+    def add_followup(self, query, answer):
+
+        prompt = f"""
+        You are a helpful assistant.
+
+        Based on the user's question and the answer provided,
+        generate ONE short follow-up question that might help the user continue.
+
+        RULES:
+        - Only one question
+        - Maximum 12 words
+        - No explanation
+
+        User Question:
+        {query}
+
+        Answer:
+        {answer}
+
+        Follow-up question:
+        """
+
+        followup = self.llm.invoke(prompt)
+
+        return f"{answer}\n\nFollow-up question:\n{followup}"
         
     def ingest_document(
         self,
@@ -680,29 +1211,7 @@ class AgenticRAG:
         metadata: Dict[str, Any] = None,
         existing_entry_id: str = None  # New param for Async support
     ) -> Dict[str, Any]:
-        """
-        Ingest a document into the RAG system.
-        
-        Steps:
-        1. Chunk the document
-        2. Generate embeddings for each chunk
-        3. Store in vector database
-        4. Create BrainEntry records
-        
-        Args:
-            db: Database session
-            workspace_id: Workspace identifier
-            text: Document text content
-            title: Document title
-            content_type: Type (pdf, docx, url, manual)
-            source: Source URL or filename
-            metadata: Additional metadata
-            
-        Returns:
-            Ingestion result with entry ID and chunk count
-        """
-        from app.models.brain import BrainEntry
-        
+         
         if not text or len(text.strip()) < 10:
             raise ValueError("Document text is too short")
         
@@ -733,8 +1242,6 @@ class AgenticRAG:
         embeddings = embedding.generate_embeddings(chunk_texts)
         
         # Prepare data for vector store
-        
-        import json
         metadata_json_str = json.dumps(metadata) if metadata else None
 
         if existing_entry_id:
@@ -767,7 +1274,7 @@ class AgenticRAG:
         self.vector_store.add_chunks(
             db=db,
             workspace_id=workspace_id,
-            chunks=chunks,   # pass original chunk objects
+            chunks=chunks,   
             embeddings=embeddings,
             parent_id=parent_id
         )

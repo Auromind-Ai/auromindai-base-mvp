@@ -48,7 +48,12 @@ class Webscrapper:
         if not self.safety_check():
             return None
         
-        response = requests.get(self.url, timeout=10, allow_redirects = True)
+        response = requests.get(
+            self.url,
+            timeout=10,
+            allow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
         self.html = response.text
         self.soup = BeautifulSoup(self.html, "lxml")
         
@@ -132,19 +137,45 @@ class Webscrapper:
          return []
        
 
+    def scrapper_choose(self, single_page=False):
 
-    def scrapper_choose(self):
         html = self.detect_website()
 
         if not html:
             return "website is not available"
+
         site_type = self.website_extract(html)
 
         try:
-            if site_type =="static":
+            if single_page:
+                print("single page mode")
+
+                if site_type == "static":
+                    self.static.max_depth = 0
+                    return self.static_scrapper()
+
+                else:
+                    data = self.dynamic_scrapper()
+
+                    # single page
+                    if isinstance(data, list):
+
+                        for page in data:
+                            if page.get("url") == self.url:
+                                return [page]
+
+                        # fallback
+                        if len(data) > 0:
+                            return [data[0]]
+
+                    return data
+
+            if site_type == "static":
                 return self.static_scrapper()
+
             else:
                 return self.dynamic_scrapper()
+
         except Exception as e:
             print("ERROR:", e)
             print(self.scrapper_choose)
