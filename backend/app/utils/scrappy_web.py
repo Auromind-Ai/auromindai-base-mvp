@@ -40,16 +40,22 @@ class Scrappyweb(scrapy.Spider):
         print("start parse_site")
         if response.url in self.visited:
             return
+        response.selector.remove_namespaces()
+
+        # remove header footer nav
+        for bad in response.xpath("//header | //footer | //nav | //aside"):
+            bad.root.getparent().remove(bad.root)
         
         self.visited.add(response.url)
 
         dynamic_content = {}
 
+        content_area = response.xpath("//main | //article | //section")
+
         dynamic_content["title"] = response.xpath("//title/text()").get()
-        dynamic_content["headings"] = response.xpath("//h1/text()").getall()
-        dynamic_content["sub_headings"] = response.xpath("//h2/text()").getall()
-        dynamic_content["paragraphs"] = response.xpath("//p/text()").getall()
-        dynamic_content["list_point"] = response.xpath("//li/text()").getall()
+        dynamic_content["headings"] = content_area.xpath(".//h1/text()").getall()
+        dynamic_content["paragraphs"] = content_area.xpath(".//p/text()").getall()
+        dynamic_content["list_point"] = content_area.xpath(".//li/text()").getall()
         
         yield dynamic_content
 
@@ -58,7 +64,8 @@ class Scrappyweb(scrapy.Spider):
             if (
                 "?" in url or
                 "#" in url or
-                any(word in url.lower() for word in self.blocked_keywords)
+                any(word in url.lower() for word in self.blocked_keywords) or
+                url.lower().endswith((".pdf",".jpg",".jpeg",".png",".svg",".gif",".zip"))
             ):
                 continue
             
@@ -68,4 +75,3 @@ class Scrappyweb(scrapy.Spider):
                 meta={"playwright": True},
                 callback=self.parse_site
             )
-
