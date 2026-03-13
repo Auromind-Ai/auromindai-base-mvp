@@ -177,7 +177,8 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                         answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
-                            query=request.message
+                            query=request.message,
+                            
                         )
 
                         if answer:
