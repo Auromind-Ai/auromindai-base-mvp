@@ -15,6 +15,7 @@ from . import (
     system,
     ai_learning,
     settings,
+    payments
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -35,3 +36,4 @@ router.include_router(rag.router)
 router.include_router(system.router)
 router.include_router(ai_learning.router)
 router.include_router(settings.router)
+router.include_router(payments.router)
