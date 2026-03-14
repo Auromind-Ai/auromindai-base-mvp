@@ -26,10 +26,13 @@ async def lifespan(app: FastAPI):
     from app.database import engine, Base
     import app.models 
     
-    # Enable pgvector extension first
-    with engine.connect() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        conn.commit()
+    # Enable pgvector extension first (requires superuser - non-fatal for local dev)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.commit()
+    except Exception as e:
+        print(f"⚠️  pgvector extension not available (embeddings will use Text fallback): {e}")
     
     # Add missing columns to existing tables if they don't exist
     with engine.connect() as conn:

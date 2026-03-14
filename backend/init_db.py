@@ -3,12 +3,8 @@ Initialize database tables
 
 Run this script to create all tables in the database.
 """
-<<<<<<< HEAD
 from sqlalchemy import text
-from app.database import engine, Base
-=======
 from app.database import engine, Base, SessionLocal
->>>>>>> dev
 from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.message import Message

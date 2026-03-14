@@ -27,7 +27,7 @@ export default function EmailPage() {
   const checkConnection = async () => {
     const token = localStorage.getItem("token");
     const res = await fetch(
-      `http://localhost:8000/integrations/status?workspace_id=${workspace?.id}`,
+      `http://localhost:8002/integrations/status?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const data = await res.json();
@@ -45,7 +45,7 @@ export default function EmailPage() {
     const token = localStorage.getItem("token");
 
     const res = await fetch(
-      `http://localhost:8000/email/inbox?workspace_id=${workspace?.id}`,
+      `http://localhost:8002/email/inbox?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -78,7 +78,7 @@ export default function EmailPage() {
     const token = localStorage.getItem("token");
 
     await fetch(
-      `http://localhost:8000/automation/approve?decision_id=${aiData.id}`,
+      `http://localhost:8002/automation/approve?decision_id=${aiData.id}`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
@@ -92,7 +92,7 @@ export default function EmailPage() {
     const token = localStorage.getItem("token");
 
     await fetch(
-      `http://localhost:8000/automation/reject?decision_id=${aiData.id}`,
+      `http://localhost:8002/automation/reject?decision_id=${aiData.id}`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
@@ -114,7 +114,7 @@ export default function EmailPage() {
     const token = localStorage.getItem("token");
 
     await fetch(
-      `http://localhost:8000/email/send-reply`,
+      `http://localhost:8002/email/send-reply`,
       {
         method: "POST",
         headers: {

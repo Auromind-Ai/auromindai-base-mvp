@@ -2,9 +2,8 @@ console.log("API CLIENT VERSION: 1.1.20");
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-const API_BASE_URL = isLocal
-  ? `http://${window.location.hostname}:8000`
-  : (process.env.NEXT_PUBLIC_API_URL || 'https://auromindai-base-mvp.onrender.com');
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+  (isLocal ? `http://${window.location.hostname}:8002` : 'https://auromindai-base-mvp.onrender.com');
 
 console.log("Hostname:", typeof window !== 'undefined' ? window.location.hostname : 'node');
 console.log("Selected API_BASE_URL:", API_BASE_URL);

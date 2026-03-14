@@ -32,7 +32,7 @@ export default function GoogleCallbackPage() {
 
                 // Send to backend
                 const response = await fetch(
-                    `http://localhost:8000/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+                    `http://localhost:8002/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
                     { method: 'GET' }
                 );
 

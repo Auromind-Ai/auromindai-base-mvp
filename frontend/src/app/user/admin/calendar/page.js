@@ -18,7 +18,7 @@ export default function CalendarPage() {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(
-                `http://localhost:8000/integrations/status?workspace_id=${workspace?.id}`,
+                `http://localhost:8002/integrations/status?workspace_id=${workspace?.id}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
 

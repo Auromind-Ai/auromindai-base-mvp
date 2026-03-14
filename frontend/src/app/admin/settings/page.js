@@ -58,7 +58,7 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const response = await fetch("http://localhost:8000/admin/settings")
+      const response = await fetch("http://localhost:8002/admin/settings")
       if (!response.ok) {
         throw new Error("Failed to fetch settings")
       }
@@ -76,7 +76,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
-      const response = await fetch("http://localhost:8000/admin/settings", {
+      const response = await fetch("http://localhost:8002/admin/settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

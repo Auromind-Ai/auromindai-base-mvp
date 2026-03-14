@@ -55,7 +55,7 @@ export default function IntegrationsPage() {
             if (!token) return; // Skip if not logged in
 
             const response = await fetch(
-                `http://localhost:8000/integrations/status?workspace_id=${workspace.id}`,
+                `http://localhost:8002/integrations/status?workspace_id=${workspace.id}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
 
@@ -75,7 +75,7 @@ export default function IntegrationsPage() {
             if (integrationId === 'calendar' || integrationId === 'gmail') {
                 const token = localStorage.getItem('token');
                 const response = await fetch(
-                    `http://localhost:8000/integrations/google/auth/${integrationId}?workspace_id=${workspace.id}`,
+                    `http://localhost:8002/integrations/google/auth/${integrationId}?workspace_id=${workspace.id}`,
                     { headers: { 'Authorization': `Bearer ${token}` } }
                 );
 
@@ -107,7 +107,7 @@ export default function IntegrationsPage() {
             try {
                 const token = localStorage.getItem('token');
                 await fetch(
-                    `http://localhost:8000/integrations/disconnect/google_${integrationId}?workspace_id=${workspace.id}`,
+                    `http://localhost:8002/integrations/disconnect/google_${integrationId}?workspace_id=${workspace.id}`,
                     {
                         method: 'DELETE',
                         headers: { 'Authorization': `Bearer ${token}` }

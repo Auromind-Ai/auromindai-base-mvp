@@ -12,7 +12,7 @@ import {
   Cpu
 } from 'lucide-react'
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
+const BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8002'
 
 export default function SystemHealthPage() {
   const [data, setData] = useState(null)

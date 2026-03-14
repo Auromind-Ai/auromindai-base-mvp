@@ -11,7 +11,7 @@ export default function AILearningPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/admin/learning-events')
+      const response = await fetch('http://localhost:8002/admin/learning-events')
       if (!response.ok) throw new Error('Failed to fetch learning events')
       const result = await response.json()
       setData(result)

@@ -25,7 +25,7 @@ export default function AdminDashboard() {
 
         setLoading(true)
 
-        const res = await fetch("http://localhost:8000/admin/dashboard")
+        const res = await fetch("http://localhost:8002/admin/dashboard")
 
         if (!res.ok) {
           throw new Error("Failed to fetch dashboard")
