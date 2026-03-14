@@ -349,7 +349,11 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                             db=db,
                             workspace_id=request.workspace_id,
                             query=request.message,
+<<<<<<< HEAD
                             # model_name=get_setting(db, "model_name", request.model),
+=======
+                            
+>>>>>>> origin/veera
                         )
 
                         if answer:
