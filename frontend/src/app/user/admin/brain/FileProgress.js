@@ -13,7 +13,7 @@ export default function FileProgress({ entryId, onDone }) {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(
-          `http://localhost:8000/brain/ingest/status/${entryId}`
+          `http://localhost:8002/brain/ingest/status/${entryId}`
         );
 
         if (!res.ok) {

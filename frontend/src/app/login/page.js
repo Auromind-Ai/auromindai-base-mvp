@@ -30,7 +30,7 @@ export default function LoginPage() {
             body.append("username", formData.email);
             body.append("password", formData.password);
 
-            const response = await fetch("http://localhost:8000/auth/login", {
+            const response = await fetch("http://localhost:8002/auth/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded"

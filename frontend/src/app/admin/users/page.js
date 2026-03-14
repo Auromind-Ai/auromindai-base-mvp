@@ -12,7 +12,7 @@ export default function UsersPage() {
     const fetchUsers = async () => {
       try {
         setLoading(true)
-        const response = await fetch("http://localhost:8000/admin/users")
+        const response = await fetch("http://localhost:8002/admin/users")
         if (!response.ok) throw new Error("Failed to fetch users")
         const data = await response.json()
         setUsers(Array.isArray(data) ? data : data.users || [])
