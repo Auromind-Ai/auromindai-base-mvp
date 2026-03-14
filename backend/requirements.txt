@@ -31,9 +31,10 @@ timezonefinder==8.2.1
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
+<<<<<<< HEAD
 
 apscheduler
-passlib
+passlib[bcrypt]
 pydantic[email]
 twilio==9.10.2
 groq==1.1.1
@@ -45,3 +46,5 @@ google.generativeai
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 sentence-transformers==5.2.3
+ddgs
+scrapy-playwright
