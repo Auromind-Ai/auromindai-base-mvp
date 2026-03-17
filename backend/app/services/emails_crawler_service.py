@@ -164,23 +164,23 @@ class EmailsCrawlerService:
 
         return "\n".join(lines)
     
-    def create_email_chunks(self, email_data):
-        chunk = {
-            "text": email_data["body"],
-            "metadata": {
-                "gmail_message_id": email_data["message_id"],
-                "thread_id": email_data.get("thread_id"),
-                "from": email_data["from"],
-                "subject": email_data["subject"],
-                "date": email_data["date"],
-                "category": email_data.get("category"),
-                "priority": email_data.get("priority"),
-                "direction": email_data.get("direction", "inbound"),
-                "chunk_index": 0
-            }
-        }
+    # def create_email_chunks(self, email_data):
+    #     chunk = {
+    #         "text": email_data["body"],
+    #         "metadata": {
+    #             "gmail_message_id": email_data["message_id"],
+    #             "thread_id": email_data.get("thread_id"),
+    #             "from": email_data["from"],
+    #             "subject": email_data["subject"],
+    #             "date": email_data["date"],
+    #             "category": email_data.get("category"),
+    #             "priority": email_data.get("priority"),
+    #             "direction": email_data.get("direction", "inbound"),
+    #             "chunk_index": 0
+    #         }
+    #     }
 
-        return [chunk]
+    #     return [chunk]
     
     def process_email_pipeline(self, db, workspace_id, parsed_email, raw_message):
 
@@ -198,43 +198,43 @@ class EmailsCrawlerService:
         db.add(email)
         db.flush() 
 
-        email_chunks = self.create_email_chunks({
-        **parsed_email,
-        "thread_id": raw_message.get("threadId"),
-        "direction": "inbound"
-    })
+    #     email_chunks = self.create_email_chunks({
+    #     **parsed_email,
+    #     "thread_id": raw_message.get("threadId"),
+    #     "direction": "inbound"
+    # })
 
-        if not email_chunks:
-            return
+    #     if not email_chunks:
+    #         return
 
-        texts = [chunk["text"] for chunk in email_chunks]
+    #     texts = [chunk["text"] for chunk in email_chunks]
 
-        embedding_generator = EmbeddingGenerator()
-        embeddings = embedding_generator.generate_embeddings(texts)
+    #     embedding_generator = EmbeddingGenerator()
+    #     embeddings = embedding_generator.generate_embeddings(texts)
 
-        entry = BrainEntry(
-            id=uuid.uuid4(),
-            workspace_id=workspace_id,
-            title=parsed_email["subject"],
-            content=parsed_email["body"],
-            content_type="email",
-            metadata_json=json.dumps({
-                "provider": "gmail",
-                "gmail_message_id": parsed_email["message_id"],
-                "from": parsed_email["from"],
-                "date": parsed_email["date"]
-            })
-        )
+    #     entry = BrainEntry(
+    #         id=uuid.uuid4(),
+    #         workspace_id=workspace_id,
+    #         title=parsed_email["subject"],
+    #         content=parsed_email["body"],
+    #         content_type="email",
+    #         metadata_json=json.dumps({
+    #             "provider": "gmail",
+    #             "gmail_message_id": parsed_email["message_id"],
+    #             "from": parsed_email["from"],
+    #             "date": parsed_email["date"]
+    #         })
+    #     )
 
-        db.add(entry)
-        db.flush()
+    #     db.add(entry)
+    #     db.flush()
         
-        self.vector_store.add_email_chunks(
-            db=db,
-            workspace_id=workspace_id,
-            chunks=email_chunks,
-            embeddings=embeddings,
-            parent_id=entry.id 
-        )
+    #     self.vector_store.add_email_chunks(
+    #         db=db,
+    #         workspace_id=workspace_id,
+    #         chunks=email_chunks,
+    #         embeddings=embeddings,
+    #         parent_id=entry.id 
+    #     )
 
         print("Email embedded and stored successfully")

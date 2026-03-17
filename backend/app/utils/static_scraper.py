@@ -4,6 +4,7 @@ import requests
 from urllib.parse import urljoin
 from urllib.parse import urlparse
 import time
+import re
 
 blocked_keywords = [
     "login", "signin", "signup",
@@ -16,6 +17,19 @@ class Staticscraper():
         self.url = url
         self.max_depth = 3
         self.base_domain = urlparse(url).netloc.lower().replace("www.", "")
+
+    
+
+    def clean_text(self, text):
+        text = re.sub(r"http\S+", "", text)        # remove links
+        text = re.sub(r"\s+", " ", text)           # normalize spaces
+        text = re.sub(r"[^\x00-\x7F]+", "", text)  # remove emojis/unicode
+        text = text.strip()
+
+        if len(text) < 30:
+            return None
+
+        return text
 
     def static_scrap (self):
         print("web scrapping started")
@@ -34,19 +48,57 @@ class Staticscraper():
             visited.add(current_url)
 
             try:
-                response = requests.get(current_url, timeout=10)
+                response = requests.get(
+                    current_url,
+                    timeout=10,
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
 
                 if response.status_code != 200:
                     continue
 
                 soup = BeautifulSoup(response.text, "lxml")
+                
+                for tag in soup([
+                    "script","style","noscript",
+                    "nav","header","footer","aside",
+                    "form","button","input"
+                ]):
+                    tag.decompose()
 
                 title = soup.title.string if soup.title else ""
 
-                headings = [h.get_text(strip=True) for h in soup.find_all("h1")]
-                sub_headings = [h2.get_text(strip=True) for h2 in soup.find_all("h2")]
-                paragraphs = [p.get_text(strip=True) for p in soup.find_all("p")]
-                list_point = [li.get_text(strip = True) for li in soup.find_all("li")]
+                main_content = (
+                    soup.find("main")
+                    or soup.find("article")
+                    or soup.find("div", {"role": "main"})
+                    or soup.find("div", {"id": "content"})
+                    or soup
+                )
+
+                headings = [
+                    self.clean_text(h.get_text())
+                    for h in main_content.find_all("h1")
+                    if self.clean_text(h.get_text())
+                ]
+
+                sub_headings = [
+                    self.clean_text(h.get_text())
+                    for h in main_content.find_all("h2")
+                    if self.clean_text(h.get_text())
+                ]
+
+                paragraphs = [
+                    self.clean_text(p.get_text())
+                    for p in main_content.find_all("p")
+                    if self.clean_text(p.get_text())
+                ]
+
+                list_point = [
+                    self.clean_text(li.get_text())
+                    for li in main_content.find_all("li")
+                    if self.clean_text(li.get_text())
+                ]
 
                 page_content.append({
                     "url": current_url,
@@ -58,10 +110,17 @@ class Staticscraper():
                 })
 
                 for a in soup.find_all("a", href=True):
+
                     full_url = urljoin(current_url, a["href"])
                     full_url = full_url.split("#")[0]
                     full_url = full_url.split("?")[0]
                     link_domain = urlparse(full_url).netloc.lower().replace("www.", "")
+
+                    if any(full_url.lower().endswith(ext) for ext in [
+                        ".jpg",".jpeg",".png",".gif",".svg",
+                        ".pdf",".zip",".doc",".docx",".xls",".xlsx"
+                    ]):
+                        continue
 
                     if link_domain != self.base_domain:
                         continue
