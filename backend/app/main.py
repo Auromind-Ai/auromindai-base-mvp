@@ -18,38 +18,33 @@ from app.routers import admin
 from app.routers.metric import router as metric_router
 from app.core.logger import logger
 from app.core.request_logger import RequestLoggingMiddleware
+from app.routers.admin import impersonate
+
 
 load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize resources
-    from app.database import engine, Base
-    import app.models 
-    Base.metadata.create_all(bind=engine)
-    
-    # Initialize basic logging
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("app.main")
-    logger.info("Auromind Production System Starting...")
 
-    # #START SCHEDULER HERE
+    # Startup
+    from app.database import engine, Base
+    import app.models
+
+    Base.metadata.create_all(bind=engine)
+
+    logger.info("🚀 Auromind Production System Starting...")
+
     scheduler = EmailSchedulerService(engine)
     scheduler.start()
-    print("🚀 Email Scheduler Started")
 
-    yield
+    logger.info("Email Scheduler Started")
 
-    #STOP SCHEDULER HERE
+    yield   # <-- Application runs here
+
+    # Shutdown
     scheduler.stop()
-    print("🛑 Email Scheduler Stopped")
-    logger.info("Shutting down...")
-    
-    yield
-    
-    # Shutdown: Cleanup
-    logger.info("Shutting down...")
+
+    logger.info("🛑 Auromind Production System Stopped")
 
 app = FastAPI(
     title="Auromind API",
@@ -79,6 +74,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 
 @app.get("/")
 async def root():
@@ -113,9 +110,7 @@ app.include_router(gmail.router)  # Gmail API
 app.include_router(email.router)
 app.include_router(automation.router)
 app.include_router(metric_router)
-app.include_router(admin.router)
-app.include_router(public.router)
-
+app.include_router(impersonate.router)
 # Configure Colab API
 import httpx
 from pydantic import BaseModel
