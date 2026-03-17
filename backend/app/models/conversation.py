@@ -24,40 +24,27 @@ class Conversation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
 
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("workspaces.id", ondelete="CASCADE"),
-        index=True,
-        nullable=False
-    )
-
     user_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("users.id"),
         index=True
     )
 
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-
-    external_id = Column(String, index=True)  # whatsapp number / IG handle
+    external_id = Column(String, index=True)
     contact_name = Column(String)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     owner = relationship("User", back_populates="conversations")
-
-    messages = relationship(
-        "Message",
-        back_populates="conversation",
-        cascade="all, delete-orphan"
-    )
+    messages = relationship("Message", back_populates="conversation")
 
 
 # ===============================
-# AI Chat Sessions
+# Chat Sessions
 # ===============================
 
 class ChatSession(Base):
