@@ -7,7 +7,6 @@ COPY package*.json ./
 
 # Install dependencies
 RUN npm install --legacy-peer-deps
-
 # Copy application code
 COPY . .
 
