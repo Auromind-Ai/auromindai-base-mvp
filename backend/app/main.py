@@ -19,6 +19,7 @@ from app.routers import admin
 from app.routers.metric import router as metric_router
 from app.core.logger import logger
 from app.core.request_logger import RequestLoggingMiddleware
+from app.routers.admin import impersonate
 
 
 load_dotenv()
@@ -110,6 +111,7 @@ app.include_router(public.router)
 app.include_router(email.router)
 app.include_router(automation.router)
 app.include_router(metric_router)
+app.include_router(impersonate.router)
 # Configure Colab API
 import httpx
 from pydantic import BaseModel
