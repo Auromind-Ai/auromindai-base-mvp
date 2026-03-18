@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 sys.path.append(os.getcwd())
 
 from app.database import SessionLocal
-from app.services.rag_service import get_rag_service
+from app.services.agentic_rag.rag_service import get_rag_service
 
 def test_pgvector():
     db = SessionLocal()

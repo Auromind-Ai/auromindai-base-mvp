@@ -1,9 +1,10 @@
 from app.models.brain import ConversationThread
 from app.models.brain import MCPDecision
-from app.services.vector_store_service import VectorStoreService
-from app.services.embedding_service import EmbeddingGenerator
+from app.services.agentic_rag.vector_store_service import VectorStoreService
+from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import json
-from app.models.llm_config import GroqLLM
+from app.config.llm_config import GroqLLM
+from app.models.integration import Integration
 
 
 class EmailMCPService:
@@ -21,7 +22,6 @@ class EmailMCPService:
 
             context = self.retrieve_memory_context(db, workspace_id, email_data)
             print("Memory context fetched")
-
             
             category_result = self.classify_category(email_data, context)
             category = category_result.get("category")
@@ -45,8 +45,10 @@ class EmailMCPService:
             suggested_reply = self.generate_suggested_reply(
                 email_data,
                 category,
-                context
-                )
+                context,
+                db,
+                workspace_id
+            )
             
             print("Suggested reply generated")
 
@@ -417,11 +419,31 @@ class EmailMCPService:
         except Exception as e:
             print("Summary generation error:", e)
             return "Summary not available."
+        
+    def get_workspace_user_name(self, db, workspace_id):
+
+        integration = (
+            db.query(Integration)
+            .filter(
+                Integration.workspace_id == workspace_id,
+                Integration.integration_type == "google_gmail",
+                Integration.is_active == True
+            )
+            .first()
+        )
+
+        if not integration:
+            return ""
+
+        try:
+            metadata = json.loads(integration.metadata_json)
+            return metadata.get("name", "")
+        except:
+            return ""
     
     
     #Generate suggested reply
-    def generate_suggested_reply(self, email_data, category, context):
-
+    def generate_suggested_reply(self, email_data, category, context, db, workspace_id):
         print("Generating suggested reply...")
 
         try:
@@ -473,6 +495,11 @@ class EmailMCPService:
             )
 
             reply = response.strip()
+
+            user_name = self.get_workspace_user_name(db, workspace_id)
+
+            if user_name:
+                reply = f"{reply}\n\nBest regards,\n{user_name}"
 
             # Safety: hard length cap
             if len(reply) > 1200:
@@ -531,6 +558,7 @@ class EmailMCPService:
                     })
 
             elif category == "invoice":
+                requires_user_permission = False
                 actions.append({
                     "type": "create_invoice_entry",
                     "data": entities

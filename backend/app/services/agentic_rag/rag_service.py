@@ -1,9 +1,9 @@
 import logging
 import re
 from app.utils.evaluation import token_match_percentage
-from app.models.llm_config import GroqLLM
-from app.services.vector_store_service import VectorStoreService
-from app.services.embedding_service import EmbeddingGenerator
+from app.config.llm_config import GroqLLM
+from app.services.agentic_rag.vector_store_service import VectorStoreService
+from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import uuid
 from typing import Dict, Any
 from sqlalchemy.orm import Session 
@@ -12,12 +12,25 @@ import json
 import os
 from app.models.brain import EmailMessage , MCPDecision
 from ddgs import DDGS
-import requests
 from bs4 import BeautifulSoup
 from app.utils.website_scraper import Webscrapper
 import numpy as np
 from urllib.parse import urlparse
 from app.models.brain import BrainEntry
+from app.config.settings import settings
+from app.services.agentic_rag.reranker_service import RerankerService
+import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential
+import numexpr as ne
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=8)
+)
+def safe_llm_call(llm, prompt):
+    return llm.invoke(prompt)
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, "small_talk.json")
@@ -34,7 +47,7 @@ logging.basicConfig(
 
 class AgenticRAG:
 
-    def __init__(self, llm, vector_store, embedding_generator, reranker=None, top_k=3):
+    def __init__(self, llm, vector_store, embedding_generator, reranker=None, top_k=settings.RAG_TOP_K):
         self.llm = llm
         self.vector_store = vector_store
         self.reranker = reranker
@@ -100,11 +113,10 @@ class AgenticRAG:
                 top_k=self.top_k
             )
             for r in results:
-                print("------")
-                print("Chunk ID:", r["id"])
-                print("Score:", round(r["score"], 4))
-                print("Content Preview:", r["text"][:200])
-                print("-" * 40)
+                logging.info("------")
+                logging.info("Chunk ID: %s", r["id"])
+                logging.info("Score: %.4f", r["score"])
+                logging.info("Content Preview: %s", r["text"][:200])
             
 
             if not results:
@@ -122,7 +134,7 @@ class AgenticRAG:
 
         if self.reranker is None:
             return documents
-        pairs = [(query, doc["content"]) for doc in documents]
+        pairs = [(query, doc["text"]) for doc in documents]
 
         scores = self.reranker.predict(pairs)
         scored_docs = list(zip(documents, scores))
@@ -146,7 +158,7 @@ class AgenticRAG:
     #Retrieve Context
     def retrieve_context(self, db, workspace_id, query):
         retrieved_docs = self.semantic_search(db, workspace_id, query)
-        THRESHOLD = 0.60
+        THRESHOLD = settings.VECTOR_THRESHOLD
         strong_docs = [doc for doc in retrieved_docs if doc["score"] >= THRESHOLD]
 
         reranked_docs = self.rerank(query, strong_docs)
@@ -206,8 +218,8 @@ class AgenticRAG:
 
         Rewritten Query:
         """
-        rewritten_query = self.llm.invoke(prompt)
-        print(rewritten_query)
+        rewritten_query = safe_llm_call(self.llm, prompt)
+        logging.info(rewritten_query)
         return rewritten_query.strip()
     
     #LLM decides which tool to use
@@ -267,7 +279,7 @@ class AgenticRAG:
 
         3. Choose "direct_answer" ONLY if:
         - The query is a greeting or casual small talk
-        - Use for general knowledge, explanations, and questions not tied to internal documents.
+        - Use ONLY for greetings or casual conversation, and questions not tied to internal documents.
 
         4. Otherwise, ALWAYS choose "vector_db".
 
@@ -301,8 +313,8 @@ class AgenticRAG:
         Selected Tool:
         """
 
-        decision = self.llm.invoke(prompt)
-        print(decision)
+        decision = safe_llm_call(self.llm, prompt)
+        logging.info(decision)
         return decision.strip().lower()
 
     def web_search(self, query):
@@ -314,7 +326,7 @@ class AgenticRAG:
             seen_domains = set()
 
             with DDGS() as ddgs:
-                search_results = ddgs.text(query, max_results=6)
+                search_results = ddgs.text(query, max_results=settings.WEB_RESULTS)
 
             for r in search_results:
 
@@ -334,11 +346,11 @@ class AgenticRAG:
 
                 try:
 
-                    page = requests.get(
-                        url,
-                        timeout=8,
-                        headers={"User-Agent": "Mozilla/5.0"}
-                    )
+                    with httpx.Client(timeout=8) as client:
+                        page = client.get(
+                            url,
+                            headers={"User-Agent": "Mozilla/5.0"}
+                        )
 
                     if page.status_code != 200:
                         continue
@@ -390,19 +402,20 @@ class AgenticRAG:
 
 
     def calculator_tool(self, query):
+
         if not re.match(r'^[0-9+\-*/(). ]+$', query):
             return "Invalid mathematical expression."
 
         try:
-            print(query)
-            result = eval(query, {"__builtins__": None}, {})
+            result = ne.evaluate(query)
             return str(result)
-        except:
+
+        except Exception:
             return "Calculation error"
         
     def parse_email_query(self, query):
 
-        print("User query:", query)
+        logging.info(f"User query: {query}")
 
         prompt = f"""
         You are an email query understanding engine.
@@ -439,9 +452,9 @@ class AgenticRAG:
         {query}
         """
 
-        response = self.llm.invoke(prompt)
+        response = safe_llm_call(self.llm, prompt)
 
-        print("Raw LLM response:", response)
+        logging.info(f"Raw LLM response: {response}")
 
         try:
 
@@ -456,24 +469,24 @@ class AgenticRAG:
                 json_str = match.group()
                 filters = json.loads(json_str)
             else:
-                print("No JSON found in response")
+                logging.info("No JSON found in response")
                 return {}
 
-            print("Parsed filters:", filters)
+            logging.info("Parsed filters:", filters)
 
             return filters
 
         except Exception as e:
 
-            print("JSON parse error:", e)
-            print("Cleaned response:", cleaned)
+            logging.info("JSON parse error:", e)
+            logging.info("Cleaned response:", cleaned)
 
             return {}
 
         
     def query_emails(self, db, workspace_id, filters):
 
-        print("Applying filters:", filters)
+        logging.info("Applying filters:", filters)
 
         query = db.query(MCPDecision).join(
             EmailMessage,
@@ -483,7 +496,7 @@ class AgenticRAG:
         )
 
         if filters.get("priority"):
-            print("Filtering by priority:", filters["priority"])
+            logging.info("Filtering by priority:", filters["priority"])
             query = query.filter(
                 MCPDecision.priority == filters["priority"]
             )
@@ -494,7 +507,7 @@ class AgenticRAG:
             )
 
         if filters.get("category"):
-            print("Filtering by category:", filters["category"])
+            logging.info(f"Filtering by category: {filters['category']}")
             query = query.filter(
                 MCPDecision.category == filters["category"]
             )
@@ -502,7 +515,7 @@ class AgenticRAG:
         #Intent handling
         if filters.get("intent") == "latest":
             limit = 1
-            print("Intent detected: latest → returning 1 email")
+            logging.info("Intent detected: latest → returning 1 email")
         else:
             limit = 2
 
@@ -510,7 +523,7 @@ class AgenticRAG:
             MCPDecision.created_at.desc()
         ).limit(limit).all()
 
-        print("Emails found:", len(results))
+        logging.info(f"Emails found: {len(results)}")
 
         return results
 
@@ -532,24 +545,24 @@ class AgenticRAG:
         {body}
         """
 
-        response = self.llm.invoke(prompt)
+        response = safe_llm_call(self.llm, prompt)
 
         return response.strip()
     
     def build_email_response(self, db, results):
-        print("Building response for emails:", len(results))
+        logging.info("Building response for emails:", len(results))
 
         response = ""
 
         for r in results:
-            print("Processing message_id:", r.message_id)
+            logging.info("Processing message_id:", r.message_id)
 
             email = db.query(EmailMessage).filter(
                 EmailMessage.gmail_message_id == r.message_id
             ).first()
 
             if not email:
-                print("Email record not found:", r.message_id)
+                logging.info("Email record not found:", r.message_id)
                 continue
 
             summary = r.summary
@@ -577,7 +590,7 @@ class AgenticRAG:
 
             -------------
             """
-        print("Final response built")
+        logging.info("Final response built")
         return response
             
     def email_storage_tool(self, db, workspace_id, query):
@@ -593,7 +606,7 @@ class AgenticRAG:
         
     #Reasoning Engine   
     def agent_loop(self, db, workspace_id, query):
-        print(query)
+        logging.info(query)
 
         website_names = []  
 
@@ -604,7 +617,7 @@ class AgenticRAG:
         start_url = self.extract_url(query)
 
         if start_url:
-            print("URL detected:", start_url)
+            logging.info("URL detected:", start_url)
 
             scraper = Webscrapper(start_url)
             single_page = bool(start_url)
@@ -707,28 +720,29 @@ class AgenticRAG:
                 if len(top_chunks) >= 3:
                     break
 
+            top_chunks = top_chunks[:5]
             context = "\n\n".join(top_chunks)
-            context = context[:8000]
 
             final_prompt = f"""
-            You are a STRICT information extraction system.
+            You are a professional information extraction system.
+
+            TASK:
+            Extract the statements from the website content that answer the user's question.
 
             RULES:
             - Use ONLY the WEBSITE CONTENT.
-            - Do NOT summarize.
-            - Do NOT explain.
-            - Do NOT invent sections.
-            - Do NOT add introductions.
-            - Return only the clauses that appear in the website.
-            - If a clause contains multiple sentences, keep them in the same numbered item.
-            - Do NOT split one clause into multiple numbers.
-            - Do NOT remove years, numbers, or dates.
-            - Preserve the original wording exactly.
+            - Do NOT invent information.
+            - Do NOT add new facts.
+            - Preserve the original meaning of the text.
+            - Improve readability if needed (fix grammar or missing words).
+            - Keep sentences complete and clear.
 
-            If the clauses are numbered or bulleted, preserve the original wording.
-
-            Output format:
-            Return the extracted clauses as plain numbered lines.
+            Guidelines:
+            - Write a clear explanation
+            - Avoid numbered lists
+            - Avoid repeating the question
+            - Combine information naturally
+            - Answer in 4-6 sentences
 
 
             Question:
@@ -737,9 +751,9 @@ class AgenticRAG:
             WEBSITE CONTENT:
             {context}
 
-            Extracted clauses:
+            Extracted information:
             """
-            response = self.llm.invoke(final_prompt)
+            response = safe_llm_call(self.llm, final_prompt)
 
             response = response.replace("```", "").strip()
 
@@ -758,12 +772,12 @@ class AgenticRAG:
                 clauses.append(line)
 
             formatted = "\n".join(f"{i+1}. {c}" for i, c in enumerate(clauses))
-            print(formatted)
+            logging.info(formatted)
             return self.add_followup(query, formatted)
                     
         #Rewrite
         rewritten_query =self.analyze_and_rewrite(query)
-        print(rewritten_query)
+        logging.info(rewritten_query)
         #Decide tool
         tool = self.decide_tool(rewritten_query)
 
@@ -799,11 +813,10 @@ class AgenticRAG:
             sources = web_data.get("sources", [])
 
             for s in sources:
-                domain = urlparse(s).netloc
                 domain = urlparse(s).netloc.replace("www.", "")
                 website_names.append(domain)
 
-            print("WEB SEARCH CONTEXT:", context[:500])
+            logging.info("WEB SEARCH CONTEXT:", context[:500])
 
             if not context.strip():
                 return "Unable to retrieve relevant information from the internet."
@@ -839,32 +852,21 @@ class AgenticRAG:
 
         #Final Answer
         final_prompt = f"""
-        You are a STRICT knowledge-based AI assistant.
+        You are a professional AI assistant.
 
-        ROLE:
-        Answer the user's question using ONLY the provided context.
-        You must NOT use prior knowledge.
-        You must NOT guess.
-        You must NOT hallucinate.
+        Your task is to answer the user's question using ONLY the provided context.
 
-        HARD RULES (MANDATORY):
+        RULES:
+        1. Use only the information from the context.
+        2. Do NOT invent facts.
+        3. If the answer is not found in the context, say:
+            "No recent information found."
 
-        1. Use ONLY the information explicitly present in the Context section.
-        2. If the answer is not fully supported by the context, respond EXACTLY with:
-        I don’t know. Please upload relevant knowledge.
-        3. Do NOT add external facts.
-        4. Do NOT infer beyond the provided text.
-        5. Do NOT explain your reasoning.
-        6. Do NOT mention the word "context" in your answer.
-        7. If the answer exists, respond clearly and concisely.
-        8. If multiple answers are supported, include only what is explicitly stated.
-        
-        OUTPUT REQUIREMENTS:
-        - Provide only the final answer.
-        - No explanations.
-        - No disclaimers.
-        - No extra commentary.
-        - No formatting unless present in the context.
+        OUTPUT FORMAT:
+        - Provide a clear and professional explanation.
+        - Write in 2–8 sentences.
+        - Use simple language.
+        - If helpful, include short bullet points.
 
         Question:
         {query}
@@ -874,9 +876,8 @@ class AgenticRAG:
 
         Answer:
         """
-
-        final_answer = self.llm.invoke(final_prompt)
-        source_text = "\n".join(f"- {site}" for site in website_names)
+        final_answer = safe_llm_call(self.llm, final_prompt)
+        source_text = "\n".join(f"• {site}" for site in website_names)
 
         final_answer = f"""
         {final_answer}
@@ -935,9 +936,9 @@ class AgenticRAG:
         """
 
 
-        decision = self.llm.invoke(prompt).strip().upper()
+        decision = safe_llm_call(self.llm, prompt).strip().upper()
 
-        print(decision)
+        logging.info(decision)
 
         return decision.startswith("YES")
 
@@ -984,8 +985,8 @@ class AgenticRAG:
         Rewritten Query:
         """
 
-        refined_query = self.llm.invoke(prompt)
-        print(refined_query)
+        refined_query = safe_llm_call(self.llm, prompt)
+        logging.info(refined_query)
         return refined_query.strip()
     
     #Iterative Retrieval Loop
@@ -1077,7 +1078,7 @@ class AgenticRAG:
 
         Extracted Clauses:
         """
-        synthesized = self.llm.invoke(prompt)
+        synthesized = safe_llm_call(self.llm, prompt)
 
         return synthesized.strip()
 
@@ -1147,7 +1148,7 @@ class AgenticRAG:
         """
 
         try:
-            result = self.llm.invoke(prompt)
+            result = safe_llm_call(self.llm, prompt)
 
             if not result or not result.strip():
                 logging.warning("Empty LLM response")
@@ -1161,12 +1162,12 @@ class AgenticRAG:
 
             accuracy = token_match_percentage(cleaned_answer, synthesized_info)
 
-            print("Answer Accuracy:", accuracy, "%")
-            print("Verified Info Length:", len(synthesized_info.split("\n")))
-            print("FINAL ANSWER RAW:")
-            print(repr(cleaned_answer))
-            print("FINAL ANSWER FORMATTED:")
-            print(formatted_answer)
+            logging.info("Answer Accuracy:", accuracy, "%")
+            logging.info("Verified Info Length:", len(synthesized_info.split("\n")))
+            logging.info("FINAL ANSWER RAW:")
+            logging.info(repr(cleaned_answer))
+            logging.info("FINAL ANSWER FORMATTED:")
+            logging.info(formatted_answer)
 
             return self.add_followup(query, formatted_answer)
 
@@ -1179,12 +1180,16 @@ class AgenticRAG:
         prompt = f"""
         You are a helpful assistant.
 
-        Based on the user's question and the answer provided,
-        generate ONE short follow-up question that might help the user continue.
+        Based on the user's question and the answer,
+        generate ONE useful follow-up question that helps
+        the user continue exploring the same topic.
 
-        RULES:
-        - Only one question
-        - Maximum 12 words
+        Rules:
+        - Maximum 15 words
+        - Must relate directly to the answer
+        - Must help the user learn more
+        - Do not repeat the same information
+        - Ask only ONE question
         - No explanation
 
         User Question:
@@ -1196,7 +1201,7 @@ class AgenticRAG:
         Follow-up question:
         """
 
-        followup = self.llm.invoke(prompt)
+        followup = safe_llm_call(self.llm, prompt)
 
         return f"{answer}\n\nFollow-up question:\n{followup}"
         
@@ -1308,5 +1313,6 @@ def get_rag_service():
         llm=llm,
         vector_store=vector_store,
         embedding_generator=_embedding_generator,
-        top_k=5
+        top_k=settings.RAG_TOP_K,
+        reranker = RerankerService()
     )
