@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 from sqlalchemy import Column, String, DateTime, Text, Boolean, ForeignKey
-=======
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, Float
->>>>>>> veera
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
