@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
+import { setToken, getAdminBackup, restoreAdminToken } from "@/lib/auth";
 import {
   Bell,
   Calendar,
@@ -11,7 +12,8 @@ import {
   ArrowDownRight,
   Sparkles,
   AlertCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  ShieldAlert  
 } from 'lucide-react';
 
 const METRICS = [
@@ -61,19 +63,62 @@ const AI_INSIGHTS = [
   { text: 'WhatsApp messages sent between 2–4 PM convert 15% better.' },
 ];
 
-export default function DashboardPage() {
-
+export default function DashboardPage({ children }) {
   const [mounted, setMounted] = useState(false);
+  const [isImpersonated, setIsImpersonated] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
-  if (!mounted) return null;
+useEffect(() => {
 
+  console.log("📊 DASHBOARD LOADED")
+
+  const token = localStorage.getItem("token")
+
+  console.log("Stored token:", token)
+
+  if (!token) {
+    console.log("⚠️ No token found")
+    setMounted(true)
+    return
+  }
+
+  const payload = decodeJwt(token)
+
+  console.log("TOKEN WORKSPACE:", payload.workspace_id)
+
+  console.log("LOCALSTORAGE WORKSPACE:", localStorage.getItem("workspace"))
+  console.log("LOCALSTORAGE WORKSPACE_ID:", localStorage.getItem("workspace_id"))
+
+  console.log("Decoded token payload:", payload)
+
+  console.log("Workspace ID from token:", payload?.workspace_id)
+
+  console.log("Impersonated:", payload?.impersonated)
+
+  if (payload?.impersonated) {
+    console.log("🟡 ADMIN IMPERSONATION MODE")
+    setIsImpersonated(true)
+  }
+
+  setMounted(true)
+
+}, [])
+if (!mounted) return null;
   return (
-
     <div className="min-h-screen bg-[#0b0b10] text-white">
+      {isImpersonated && (
+        <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border-b border-amber-500/25 px-6 py-2.5 text-amber-400 text-sm font-semibold">
+          <ShieldAlert size={15} />
+          Admin Viewing Mode — you are viewing this dashboard as the user.
+          <button
+            onClick={exitImpersonation}
+            className="ml-4 px-3 py-1 rounded bg-amber-600/10 text-amber-300 text-xs"
+          >
+            Exit impersonation
+          </button>
+        </div>
+      )}
+
       <div className="max-w-[1700px] mx-auto px-6 py-8 space-y-10">
 
         {/* HEADER */}
@@ -403,3 +448,28 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+function decodeJwt(token) {
+  try {
+    const base64Url = token.split('.')[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    )
+    return JSON.parse(jsonPayload)
+  } catch {
+    return null
+  }
+}
+const exitImpersonation = () => {
+    const ok = restoreAdminToken();
+    if (!ok) {
+      alert("No admin backup token found. Please log in again as admin.");
+      return;
+    }
+    // reload so UI uses admin token again
+    window.location.reload();
+  };

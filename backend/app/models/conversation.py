@@ -33,16 +33,21 @@ class Conversation(Base):
 )
 
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-    external_id = Column(String, index=True) # WhatsApp number or IG handle
+    external_id = Column(String, index=True)
     contact_name = Column(String)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     owner = relationship("User", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation")
 
+
+# ===============================
+# Chat Sessions
+# ===============================
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
