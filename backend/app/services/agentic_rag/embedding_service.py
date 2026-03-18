@@ -6,14 +6,31 @@ import numpy as np
 
 class EmbeddingGenerator:
 
-    def __init__(self, model_name="BAAI/bge-small-en-v1.5", device="cpu"):
-        self.model = SentenceTransformer(model_name, device=device)
-        self.dimension = self.model.get_sentence_embedding_dimension()
+    _model = None
+    _dimension = None
 
-        logging.info(
-            f"Embedding model loaded: {model_name} | "
-            f"Dimension: {self.dimension}"
-        )
+    def __init__(self, model_name="BAAI/bge-small-en-v1.5", device="cpu"):
+        if EmbeddingGenerator._model is None:
+            logging.info(f"🔥 Loading embedding model ONCE: {model_name}")
+
+            EmbeddingGenerator._model = SentenceTransformer(
+                model_name,
+                device=device
+            )
+
+            EmbeddingGenerator._dimension = (
+                EmbeddingGenerator._model.get_sentence_embedding_dimension()
+            )
+
+            logging.info(
+                f"Embedding model loaded: {model_name} | "
+                f"Dimension: {EmbeddingGenerator._dimension}"
+            )
+
+        # reuse
+        self.model = EmbeddingGenerator._model
+        self.dimension = EmbeddingGenerator._dimension
+
 
     # Generate embeddings for full document
     def generate_embeddings(self, chunks, batch_size=32):
