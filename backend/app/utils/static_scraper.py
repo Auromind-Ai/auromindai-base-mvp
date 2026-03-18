@@ -104,7 +104,6 @@ class Staticscraper():
                     "url": current_url,
                     "title": title,
                     "headings": headings,
-                    "sub_headings": sub_headings,
                     "paragraphs": paragraphs,
                     "list_point" : list_point,
                 })

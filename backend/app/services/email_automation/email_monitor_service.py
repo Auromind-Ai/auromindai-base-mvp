@@ -1,16 +1,16 @@
 #shedular always run background 5 minutes once call EmailMonitor
 import logging
-from datetime import datetime
 from sqlalchemy.orm import Session
-from app.services.emails_crawler_service import EmailsCrawlerService
+from app.services.email_automation.emails_crawler_service import EmailsCrawlerService
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from app.models.integration import Integration
-from app.services.email_mcp_service import EmailMCPService
-from app.services.email_automation_engine import AutomationEngine
+from app.services.email_automation.email_mcp_service import EmailMCPService
+from app.services.email_automation.email_automation_engine import AutomationEngine
 import os
 from sqlalchemy import text
 from google.auth.transport.requests import Request
+import uuid
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -199,16 +199,16 @@ class EmailMonitor:
 
     def update_last_processed_id(self, db, workspace_id, message_id):
         db.execute(
-                text("""
-                    INSERT INTO email_states (workspace_id, last_email_id, created_at, updated_at)
-                    VALUES (:wid, :mid, NOW(), NOW())
-                    ON CONFLICT (workspace_id)
-                    DO UPDATE SET
-                        last_email_id = :mid,
-                        updated_at = NOW()
-                """),
-                {"wid": workspace_id, "mid": message_id}
-            )
+            text("""
+                INSERT INTO email_states (id, workspace_id, last_email_id, created_at, updated_at)
+                VALUES (:id, :wid, :mid, NOW(), NOW())
+                ON CONFLICT (workspace_id)
+                DO UPDATE SET
+                    last_email_id = :mid,
+                    updated_at = NOW()
+            """),
+            {"id": str(uuid.uuid4()), "wid": workspace_id, "mid": message_id}
+        )
         db.commit()
 
     

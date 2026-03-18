@@ -1,6 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import sessionmaker
-from app.services.email_monitor_service import EmailMonitor
+from app.services.email_automation.email_monitor_service import EmailMonitor
 from datetime import datetime
 
 class EmailSchedulerService:
@@ -15,7 +15,7 @@ class EmailSchedulerService:
         self.scheduler.add_job(
             self._run_email_monitor,
             trigger="interval",
-            minutes=40,
+            minutes=1,
             max_instances=1,
             coalesce=True,
             misfire_grace_time=60

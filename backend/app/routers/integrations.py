@@ -8,7 +8,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 import os
 from datetime import datetime
-from app.services.email_monitor_service import EmailMonitor
+from app.services.email_automation.email_monitor_service import EmailMonitor
 import requests
 
 

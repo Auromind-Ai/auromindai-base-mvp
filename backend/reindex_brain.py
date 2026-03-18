@@ -6,7 +6,7 @@ sys.path.append(os.getcwd())
 
 from app.database import SessionLocal
 from app.models.brain import BrainEntry, BrainChunk
-from app.services.rag_service import get_rag_service
+from app.services.agentic_rag.rag_service import get_rag_service
 
 def reindex_brain():
     db = SessionLocal()

@@ -3,8 +3,6 @@ import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func
-import uuid
-
 from app.models.brain import BrainChunk
 
 logger = logging.getLogger(__name__)

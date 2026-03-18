@@ -7,11 +7,21 @@ from dotenv import load_dotenv
 import os
 import google.generativeai as genai
 from app.core.websockets import manager
-from app.services.rag_service import get_rag_service
+from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.background_scheduler import EmailSchedulerService
 from app.database import engine
 from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email
 from app.routers import automation
+from app.models.conversation import ChatSession, ChatMessage
+import uuid
+from datetime import datetime
+from fastapi.responses import StreamingResponse
+import json
+import asyncio
+from groq import Groq
+from pydantic import BaseModel
+from typing import Optional
+from app.services.agentic_rag.guardrails_service import GuardrailsService
 
 
 load_dotenv()
@@ -89,8 +99,6 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-# Import and include routers
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
@@ -108,10 +116,7 @@ app.include_router(email.router)
 app.include_router(automation.router)
 
 
-# Configure Colab API
-import httpx
-from pydantic import BaseModel
-from typing import Optional
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -123,16 +128,6 @@ class ChatRequest(BaseModel):
     chat_mode: str = "auto" # auto, brain_only, web_only
     source: str = "internal" # internal, internal_web
     session_id: Optional[str] = None # For chat history persistence
-
-from app.models.conversation import ChatSession, ChatMessage
-import uuid
-from datetime import datetime
-
-
-from fastapi.responses import StreamingResponse
-import json
-import asyncio
-from groq import Groq
 
 # Configure Gemini
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -174,16 +169,30 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                     try:
                         rag = get_rag_service()
 
+                        guard = GuardrailsService()
+    
+                        #Secure pipeline (INPUT)
+                        guard_result = await guard.secure_pipeline(request.message)
+
+                        if guard_result["status"] == "blocked":
+                            yield f"{json.dumps({'content': guard_result['message']})}\n"
+                            return
+
+                        safe_query = guard_result["safe_query"]
+
+                        #RAG
                         answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
-                            query=request.message,
-                            
+                            query=safe_query
                         )
 
                         if answer:
-                            yield f"{json.dumps({'content': answer})}\n"
-                            full_response = answer
+                            # OUTPUT SECURITY
+                            safe_answer = await guard.secure_response(answer)
+
+                            yield f"{json.dumps({'content': safe_answer})}\n"
+                            full_response = safe_answer
                             rag_answered = True
 
                     except Exception as rag_error:
@@ -201,8 +210,9 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                         response = model.generate_content(final_message, stream=True)
                         for chunk in response:
                             if chunk.text:
-                                full_response += chunk.text
-                                yield f"{json.dumps({'content': chunk.text})}\n"
+                                guard = GuardrailsService()
+                                full_response = await guard.secure_response(full_response)
+                                yield f"{json.dumps({'content': full_response})}\n"
                                 await asyncio.sleep(0)
                                 
                     else:  # auto/llama/auromind - default to Groq
