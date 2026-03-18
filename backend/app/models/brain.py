@@ -178,16 +178,22 @@ class EmailMessage(Base):
 
     stored_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
 class EmailState(Base):
     __tablename__ = "email_states"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     workspace_id = Column(
         UUID(as_uuid=True),
         ForeignKey("workspaces.id", ondelete="CASCADE"),
-        primary_key=True
+        unique=True,
+        index=True,
+        nullable=False
     )
 
-    last_email_id = Column(Text)
+    last_email_id = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

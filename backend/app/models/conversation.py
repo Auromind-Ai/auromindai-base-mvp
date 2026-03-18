@@ -1,7 +1,6 @@
 from sqlalchemy import Column, ForeignKey, String, DateTime, Enum, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
 import enum
 import uuid
 from app.database import Base
@@ -87,21 +86,4 @@ class ChatMessage(Base):
     metadata_json = Column(Text)
 
     session = relationship("ChatSession", back_populates="messages")
-class EmailState(Base):
-    __tablename__ = "email_states"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("workspaces.id", ondelete="CASCADE"),
-        unique=True,
-        index=True,
-        nullable=False
-    )
-
-    last_email_id = Column(Text, nullable=True)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
