@@ -82,11 +82,13 @@ export default function EmailPage() {
       confidence: msg.confidence,
       summary: msg.summary,
       suggested_reply: msg.suggested_reply,
-      actions: msg.actions
+      actions: typeof msg.actions === "string"
+        ? JSON.parse(msg.actions)
+        : msg.actions
     });
-     setEditedReply(msg.suggested_reply || "");
-  };
 
+    setEditedReply(msg.suggested_reply || "");
+  };
 
   /* ---------------------------
      APPROVE AUTOMATION
@@ -150,13 +152,13 @@ export default function EmailPage() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-        workspace_id: workspace?.id,
-        message_id: selectedEmail.id,
-        thread_id: selectedEmail.thread_id,
-        to_email: selectedEmail.from,
-        subject: selectedEmail.subject,
-        reply_text: editedReply
-      })
+          workspace_id: workspace?.id,
+          message_id: selectedEmail.id,
+          thread_id: selectedEmail.thread_id,
+          to_email: selectedEmail.from,
+          subject: selectedEmail.subject,
+          reply_text: editedReply
+        })
       }
     );
 
@@ -184,6 +186,15 @@ export default function EmailPage() {
       </div>
     );
   }
+
+  /* ---------------------------
+     🔥 MEETING CHECK (IMPORTANT)
+  ---------------------------- */
+
+  const isMeetingAction =
+    aiData?.category === "meeting" &&
+    Array.isArray(aiData?.actions) &&
+    aiData.actions.length > 0;
 
   /* ===========================================================
      UI
@@ -308,42 +319,29 @@ export default function EmailPage() {
                 From: {selectedEmail.from}
               </div>
 
-              {/* CATEGORY */}
-
               <div className="bg-black/40 p-4 rounded-lg mb-4">
                 <div className="text-sm text-gray-400">Category</div>
                 <div>{aiData.category}</div>
               </div>
-
-              {/* PRIORITY */}
 
               <div className="bg-black/40 p-4 rounded-lg mb-4">
                 <div className="text-sm text-gray-400">Priority</div>
                 <div>{aiData.priority}</div>
               </div>
 
-              {/* CONFIDENCE */}
-
               <div className="bg-black/40 p-4 rounded-lg mb-4">
                 <div className="text-sm text-gray-400">Confidence</div>
                 <div>{Math.round(aiData.confidence * 100)}%</div>
               </div>
 
-              {/* SUMMARY */}
-
               <div className="bg-black/40 p-4 rounded-lg mb-4">
-
                 <div className="text-sm text-gray-400 mb-2">
                   Summary
                 </div>
-
                 <div>
                   {aiData.summary}
                 </div>
-
               </div>
-
-              {/* SUGGESTED REPLY */}
 
               {aiData?.suggested_reply && (
 
@@ -407,36 +405,32 @@ export default function EmailPage() {
             AI Automation
           </h2>
 
-          {aiData && (
+          {aiData && isMeetingAction && (
 
             <div className="space-y-4">
 
-              {/* ACTION PLAN */}
+              <div className="bg-black/40 p-4 rounded-lg">
 
-              {aiData.actions?.length > 0 && (
-
-                <div className="bg-black/40 p-4 rounded-lg">
-
-                  <div className="text-sm text-gray-400 mb-2">
-                    Planned Actions
-                  </div>
-
-                  {aiData.actions.map((action, index) => (
-
-                    <div
-                      key={index}
-                      className="text-sm text-green-400"
-                    >
-                      • {action.type.replaceAll("_", " ")}
-                    </div>
-
-                  ))}
-
+                <div className="text-sm text-gray-400 mb-2">
+                  Planned Actions
                 </div>
 
-              )}
+                {aiData.actions.map((action, index) => (
 
-              {/* ACTION BUTTONS */}
+                  <div
+                    key={index}
+                    className="text-sm text-green-400"
+                  >
+                    • {action?.type?.replaceAll("_", " ")}
+                  </div>
+
+                ))}
+
+              </div>
+
+              <div className="text-xs text-gray-400">
+                This email requires approval to schedule a calendar event.
+              </div>
 
               <div className="flex gap-3">
 
@@ -458,6 +452,12 @@ export default function EmailPage() {
 
             </div>
 
+          )}
+
+          {aiData && !isMeetingAction && (
+            <div className="text-sm text-gray-500">
+              No automation required
+            </div>
           )}
 
         </div>

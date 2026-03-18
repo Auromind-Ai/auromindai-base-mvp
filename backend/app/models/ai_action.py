@@ -2,12 +2,17 @@ from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Float, Boolea
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 class AIAction(Base):
     __tablename__ = "ai_actions"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    workspace_id = Column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
     action_type = Column(String(100), nullable=False)  # followup, marketing_suggestion, promise_detection
     intent = Column(Text)
     intent_raw = Column(Text) # The raw input or prompt that triggered the action

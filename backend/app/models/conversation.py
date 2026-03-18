@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 import enum
 import uuid
 from app.database import Base
+from sqlalchemy.dialects.postgresql import UUID
 
 class ChannelType(str, enum.Enum):
     WHATSAPP = "WHATSAPP"
@@ -18,13 +19,15 @@ class ConversationStatus(str, enum.Enum):
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-
-    workspace_id = Column(String(36), index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"))
 
     phone = Column(String(20), index=True)
 
-    user_id = Column(String(36), ForeignKey("users.id"))
+    user_id = Column(
+    UUID(as_uuid=True),
+    ForeignKey("users.id")
+)
 
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
 
@@ -60,9 +63,12 @@ class ChatSession(Base):
     """
     __tablename__ = "chat_sessions"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    workspace_id = Column(String(36), index=True) # Linked to workspace
-    user_id = Column(String(36), ForeignKey("users.id"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"))
+    user_id = Column(
+    UUID(as_uuid=True),
+    ForeignKey("users.id")
+)
     title = Column(String, default="New Chat")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -85,8 +91,12 @@ class ChatMessage(Base):
     """
     __tablename__ = "chat_messages"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    session_id = Column(String(36), ForeignKey("chat_sessions.id"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(
+    UUID(as_uuid=True),
+    ForeignKey("chat_sessions.id"),
+    nullable=False
+    )
     role = Column(String) # user, assistant, system
     content = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -96,3 +106,21 @@ class ChatMessage(Base):
 
     session = relationship("ChatSession", back_populates="messages")
 
+class EmailState(Base):
+    __tablename__ = "email_states"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+
+    last_email_id = Column(Text, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

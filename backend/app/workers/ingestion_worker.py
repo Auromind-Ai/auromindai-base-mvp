@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.brain import BrainEntry
 import traceback
-from app.services.embedding_service import EmbeddingGenerator
-from app.services.vector_store_service import get_vector_store
+from app.services.agentic_rag.embedding_service import EmbeddingGenerator
+from app.services.agentic_rag.vector_store_service import get_vector_store
 from app.utils.text_chunker import Schunker
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ async def process_document_background(
             return
 
         # 2. Process File
-        from app.services.rag_service import get_rag_service
+        from backend.app.services.agentic_rag.rag_service import get_rag_service
         from app.services.document_service import get_document_service
         
         # Read file from temp path

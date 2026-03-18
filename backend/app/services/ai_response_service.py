@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app import models, schemas
-from app.services.rag_service import get_rag_service
-from app.services.vector_store_service import VectorStoreService
+from app.services.agentic_rag.rag_service import get_rag_service
+from app.services.agentic_rag.vector_store_service import VectorStoreService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

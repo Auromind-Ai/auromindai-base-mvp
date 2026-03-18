@@ -17,7 +17,7 @@ from app.workers.ingestion_worker import process_document_background
 import uuid
 import os
 import shutil
-from app.services.rag_service import get_rag_service
+from app.services.agentic_rag.rag_service import get_rag_service
 from app.utils.website_scraper import Webscrapper
 
 

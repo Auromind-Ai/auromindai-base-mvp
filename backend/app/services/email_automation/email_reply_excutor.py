@@ -89,12 +89,13 @@ class EmailReplyExecutor:
         print("Building reply message")
         print("To:", to_email)
         print("Subject:", subject)
-
+        sender_email = "me" 
         message = MIMEText(reply_text)
 
         message["To"] = to_email
+        message["From"] = sender_email
         message["Subject"] = f"Re: {subject}"
-        message["In-Reply-To"] = message_id
+        message["Reply-To"] = sender_email
         message["References"] = message_id
 
         return message

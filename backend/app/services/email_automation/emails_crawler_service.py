@@ -3,12 +3,9 @@ from email.parser import BytesParser
 from email import policy
 from bs4 import BeautifulSoup
 import re
-import hashlib
-from app.services.embedding_service import EmbeddingGenerator
-from app.services.vector_store_service import VectorStoreService
-from app.models.brain import BrainEntry
-import uuid
-import json
+from app.services.agentic_rag.embedding_service import EmbeddingGenerator
+from app.services.agentic_rag.vector_store_service import VectorStoreService
+# from app.models.brain import BrainEntry
 from app.models.brain import EmailMessage
 
 

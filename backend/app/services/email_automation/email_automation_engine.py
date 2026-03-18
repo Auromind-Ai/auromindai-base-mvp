@@ -1,8 +1,9 @@
 import json
 from app.models.brain import MCPDecision
-from app.services.calender_executor import CalendarExecutor
-from app.services.email_reply_excutor import EmailReplyExecutor
+from app.services.email_automation.calender_executor import CalendarExecutor
+from app.services.email_automation.email_reply_excutor import EmailReplyExecutor
 from app.models.brain import EmailMessage
+
 
 class AutomationEngine:
 
@@ -11,6 +12,7 @@ class AutomationEngine:
         self.ACTION_REGISTRY = {
               "propose_calendar_event": CalendarExecutor(),
               "suggest_reply": EmailReplyExecutor(),
+
          }
 
     def approve_and_execute(self, db, decision_id):

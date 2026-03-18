@@ -1,8 +1,9 @@
-from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer
+from sqlalchemy import Column, String, DateTime, Text, Boolean, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 from datetime import datetime
 import uuid
+from sqlalchemy.sql import func
 
 class Integration(Base):
     __tablename__ = "integrations"
