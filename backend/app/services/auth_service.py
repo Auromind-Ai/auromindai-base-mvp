@@ -153,3 +153,74 @@ class AuthService:
             }
             for ws, role in workspaces
         ]
+    @staticmethod
+    def email_login(db: Session, email: str, full_name: str = None, workspace_name: str = "My Workspace"):
+
+        user = db.query(User).filter(User.email == email).first()
+
+        # If user doesn't exist → auto create
+        if not user:
+
+            user = User(
+                email=email,
+                password_hash=None,
+                full_name=full_name or email.split("@")[0].title()
+            )
+
+            db.add(user)
+            db.flush()
+
+            workspace = Workspace(
+                name=workspace_name or f"{user.full_name}'s Workspace",
+                created_by=user.id,
+                plan_type="starter"
+            )
+
+            db.add(workspace)
+            db.flush()
+
+            member = WorkspaceMember(
+                workspace_id=workspace.id,
+                user_id=user.id,
+                role="founder"
+            )
+
+            db.add(member)
+            db.commit()
+
+        # get workspaces
+        workspaces = db.query(Workspace, WorkspaceMember.role).join(
+            WorkspaceMember,
+            WorkspaceMember.workspace_id == Workspace.id
+        ).filter(
+            WorkspaceMember.user_id == user.id
+        ).all()
+
+        workspace_id = str(workspaces[0][0].id) if workspaces else None
+
+        access_token = create_access_token(
+            data={
+                "sub": str(user.id),
+                "email": user.email,
+                "workspace_id": workspace_id
+            }
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "full_name": user.full_name
+            },
+            "workspaces": [
+                {
+                    "id": str(ws.id),
+                    "name": ws.name,
+                    "role": role,
+                    "plan_type": getattr(ws, "plan_type", "starter")
+                }
+                for ws, role in workspaces
+            ]
+        }

@@ -26,10 +26,19 @@ class MessageStatus(str, enum.Enum):
 class Message(Base):
     __tablename__ = "messages"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        index=True
+    )
 
-
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id"),
+        nullable=False,
+        index=True
+    )
 
     content = Column(Text)
 
@@ -50,9 +59,9 @@ class Message(Base):
 
     is_read = Column(Boolean, default=False)
 
-    source = Column(String(50), nullable=True)  # whatsapp / webchat / instagram
+    source = Column(String(50), nullable=True)
 
-    external_id = Column(String(100), nullable=True)  # Twilio message SID
+    external_id = Column(String(100), nullable=True)
 
     metadata_json = Column(Text, nullable=True)
 

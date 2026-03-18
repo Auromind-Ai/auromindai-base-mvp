@@ -70,6 +70,27 @@ function AdminLayoutContent({ children }) {
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
     const [isLoading, setIsLoading] = useState(true);
 
+
+    useEffect(() => {
+
+  const adminToken = localStorage.getItem("admin_backup_token")
+
+  if (!adminToken) return
+
+  try {
+    const payload = JSON.parse(atob(adminToken.split(".")[1]))
+
+    if (payload?.impersonated) {
+      console.log("❌ Invalid admin token → removing")
+      localStorage.removeItem("admin_backup_token")
+    }
+
+  } catch {
+    localStorage.removeItem("admin_backup_token")
+  }
+
+}, [])
+
     useEffect(() => {
         const checkAuth = () => {
             const currentUser = getUser();
