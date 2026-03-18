@@ -3,6 +3,7 @@ from sqlalchemy.sql import func
 from app.database import Base
 import uuid
 import enum
+from sqlalchemy.dialects.postgresql import UUID
 
 class FeedbackType(enum.Enum):
     THUMBS_UP = "thumbs_up"
@@ -13,16 +14,24 @@ class FeedbackType(enum.Enum):
 class LearningEvent(Base):
     __tablename__ = "ai_learning_events"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    workspace_id = Column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"))
     
     # Conversation Context
     user_message = Column(Text, nullable=False)
     ai_response = Column(Text, nullable=False)
-    conversation_id = Column(String(36), ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    conversation_id = Column(
+    UUID(as_uuid=True),
+    ForeignKey("conversations.id", ondelete="SET NULL"),
+    nullable=True
+)
     
     # MCP Decision
-    ai_action_id = Column(String(36), ForeignKey("ai_actions.id", ondelete="SET NULL"), nullable=True)
+    ai_action_id = Column(
+    UUID(as_uuid=True),
+    ForeignKey("ai_actions.id", ondelete="SET NULL"),
+    nullable=True
+)
     mcp_verdict = Column(String(50))  # ALLOW, ESCALATE, BLOCK
     mcp_confidence = Column(Float)
     

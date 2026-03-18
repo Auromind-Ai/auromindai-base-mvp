@@ -1,6 +1,6 @@
 from datetime import datetime
 import pytz
-from app.models.llm_config import GroqLLM
+from app.config.llm_config import GroqLLM
 from datetime import timedelta
 from app.models.integration import CalendarEvent
 from googleapiclient.discovery import build

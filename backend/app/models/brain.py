@@ -49,10 +49,10 @@ class BrainChunk(Base):
 class ConversationThread(Base):
     __tablename__ = "conversation_threads"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     workspace_id = Column(
-        String(36),
+        UUID(as_uuid=True),
         ForeignKey("workspaces.id", ondelete="CASCADE"),
         index=True
     )
@@ -77,10 +77,10 @@ class ConversationThread(Base):
 class MCPDecision(Base):
     __tablename__ = "mcp_decisions"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     workspace_id = Column(
-        String(36),
+        UUID(as_uuid=True),
         ForeignKey("workspaces.id", ondelete="CASCADE"),
         index=True
     )

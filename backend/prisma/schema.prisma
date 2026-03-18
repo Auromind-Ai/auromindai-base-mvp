@@ -453,3 +453,37 @@ model Integration {
   @@index([workspace_id])
   @@map("integrations")
 }
+
+model DashboardNotification {
+  id          String   @id @default(uuid())
+  workspaceId String   @map("workspace_id")
+  message     String
+  type        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("dashboard_notifications")
+}
+
+model Invoice {
+  id              String   @id @default(uuid()) @db.Uuid
+  workspaceId     String   @db.Uuid @map("workspace_id")
+
+  invoiceNumber   String?  @map("invoice_number")
+  companyName     String?  @map("company_name")
+
+  transactionType String?  @map("transaction_type")
+
+  amount          Float?
+  currency        String?
+
+  dueDate         String?  @map("due_date")
+  paymentDate     String?  @map("payment_date")
+
+  status          String   @default("pending")
+
+  sourceEmailId   String?  @map("source_email_id")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("invoices")
+}

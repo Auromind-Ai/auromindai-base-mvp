@@ -36,3 +36,5 @@ pydantic[email]
 scrapy
 ddgs
 scrapy-playwright
+tenacity
+numexpr

@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 import enum
 from app.database import Base
 from sqlalchemy.dialects.postgresql import UUID
+import uuid
 
 
 class SenderType(str, enum.Enum):
@@ -22,7 +23,8 @@ class MessageStatus(str, enum.Enum):
 class Message(Base):
     __tablename__ = "messages"
 
-    id = Column(String(36), primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
 
     conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
 
