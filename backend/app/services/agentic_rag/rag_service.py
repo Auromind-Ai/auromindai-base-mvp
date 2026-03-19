@@ -22,6 +22,7 @@ from app.services.agentic_rag.reranker_service import RerankerService
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 import numexpr as ne
+from app.services.agentic_rag.reasoning_agent import run_reasoning
 
 
 @retry(
@@ -225,96 +226,247 @@ class AgenticRAG:
     #LLM decides which tool to use
     def decide_tool(self, query):
 
+    #     prompt = f"""
+    #     You are a STRICT Tool Routing Agent.
+
+    #     Your task is to select exactly ONE tool for handling the user's query.
+    #     You must NOT answer the question.
+    #     You must NOT explain your choice.
+    #     You must output ONLY the tool name.
+
+    #     AVAILABLE TOOLS:
+
+    #     - vector_db
+    #     Use for questions answerable from internal documents, knowledge bases, PDFs, or uploaded data.
+    #     This is the DEFAULT tool if uncertain.
+
+    #    - web_search
+    #     Use this tool when the user's question requires information
+    #     from the internet or public sources.
+
+    #     - calculator
+    #     Use ONLY for pure mathematical expressions containing numbers and operators.
+
+    #     - direct_answer
+    #     Use ONLY for hi, hello, hey, introduce yourself or casual small talk.
+
+    #     - direct_storage
+    #     Use this tool when the user query refers to structured data stored in the system database.
+
+    #     Typical data sources include:
+    #     emails, inbox messages, senders, subjects, priorities, summaries, conversation records,
+    #     or any stored communication data.
+
+    #     Use this tool whenever the answer should be retrieved from internal system records
+    #     instead of knowledge documents or the internet.
+
+    #     - reasoning
+
+    #     Use this tool ONLY when the user's request requires thinking, transformation, or content generation.
+
+    #     Applicable for:
+    #     - explanation (why, how, describe)
+    #     - analysis (breakdown, insights, evaluation)
+    #     - summarization (shorten, condense, key points)
+    #     - comparison (differences, pros/cons)
+    #     - structured generation (agenda, report, steps, plan)
+
+    #     Use reasoning when:
+    #     - the answer must be CREATED, not retrieved
+    #     - the task involves multi-step thinking or interpretation
+    #     - the user is asking to process or transform information
+
+    #     Examples:
+    #     - explain how AI works
+    #     - compare React vs Angular
+    #     - summarize this document
+    #     - create a meeting agenda for sales discussion
+    #     - analyze this business data
+
+    #     DO NOT use reasoning if:
+    #     - the answer can be directly retrieved from internal documents → use vector_db
+    #     - the query is about stored system data (emails, records) → use direct_storage
+    #     - the query is a simple mathematical expression → use calculator
+    #     - the query is casual conversation → use direct_answer
+
+    #     ROUTING RULES (STRICT):
+
+    #     1. Choose "calculator" ONLY if:
+    #     - The query is purely a mathematical expression
+    #     - Contains only numbers, operators, parentheses
+    #     - Example: 45*3, (100+20)/5
+
+    #     2. Choose "web_search" when the query requires information
+    #     from the internet or public sources that is not stored in
+    #     the system's internal documents or database.
+
+    #     Use this tool for:
+    #     - General knowledge questions
+    #     - Definitions or explanations of topics
+    #     - Information about people, companies, technologies
+    #     - Current events or time-sensitive information
+    #     - Questions asking about things outside the system's stored data
+
+    #     3. Choose "direct_answer" ONLY if:
+    #     - The query is a greeting or casual small talk
+    #     - Use ONLY for greetings or casual conversation, and questions not tied to internal documents.
+
+    #     4. Otherwise, ALWAYS choose "vector_db".
+
+    #     5. Choose "direct_storage" if the query is about retrieving or inspecting
+    #     structured records stored in the system database.
+
+    #     This includes queries related to:
+    #     - emails
+    #     - inbox messages
+    #     - senders or recipients
+    #     - email subjects
+    #     - email summaries
+    #     - email priority or category
+    #     - conversation threads
+    #     - stored system messages
+
+    #     6. Choose "reasoning" ONLY if:
+
+    #     - The query requires:
+    #         explanation, summarization, comparison, analysis, or content generation
+    #     AND
+    #     - The answer cannot be directly retrieved from:
+    #         - vector_db
+    #         - system storage
+
+    #     AND
+    #     - The task involves transforming or generating content
+
+    #     DO NOT choose reasoning if:
+    #     - factual lookup → vector_db
+    #     - stored data → direct_storage
+
+    #     OUTPUT FORMAT:
+    #     Return exactly ONE of the following words:
+    #     vector_db
+    #     web_search
+    #     calculator
+    #     direct_answer
+    #     reasoning
+
+    #     No punctuation.
+    #     No extra text.
+    #     No explanation.
+
+    #     User Query:
+    #     {query}
+
+    #     Selected Tool:
+    #     """
+
         prompt = f"""
-        You are a STRICT Tool Routing Agent.
+    You are an intelligent tool routing agent.
 
-        Your task is to select exactly ONE tool for handling the user's query.
-        You must NOT answer the question.
-        You must NOT explain your choice.
-        You must output ONLY the tool name.
+    Your task is to select the SINGLE best tool to handle the user's query.
 
-        AVAILABLE TOOLS:
+    You must:
+    - Return ONLY the tool name
+    - Do NOT explain your reasoning
+    - Do NOT answer the question
 
-        - vector_db
-        Use for questions answerable from internal documents, knowledge bases, PDFs, or uploaded data.
-        This is the DEFAULT tool if uncertain.
+    -----------------------------------
+    AVAILABLE TOOLS:
 
-       - web_search
-        Use this tool when the user's question requires information
-        from the internet or public sources.
+    - vector_db  
+    Internal knowledge: documents, PDFs, company data, stored knowledge
 
-        - calculator
-        Use ONLY for pure mathematical expressions containing numbers and operators.
+    - web_search  
+    External/public knowledge from the internet
 
-        - direct_answer
-        Use ONLY for hi, hello, hey, introduce yourself or casual small talk.
+    - calculator  
+    Pure mathematical expressions only
 
-        - direct_storage
-        Use this tool when the user query refers to structured data stored in the system database.
+    - direct_answer  
+    Greetings or casual conversation
 
-        Typical data sources include:
-        emails, inbox messages, senders, subjects, priorities, summaries, conversation records,
-        or any stored communication data.
+    - direct_storage  
+    Structured internal records (emails, inbox, messages, sender, subject, etc.)
 
-        Use this tool whenever the answer should be retrieved from internal system records
-        instead of knowledge documents or the internet.
+    - reasoning  
+    Thinking, transformation, or content generation tasks
 
-        ROUTING RULES (STRICT):
+    -----------------------------------
+    DECISION INTELLIGENCE STRATEGY:
 
-        1. Choose "calculator" ONLY if:
-        - The query is purely a mathematical expression
-        - Contains only numbers, operators, parentheses
-        - Example: 45*3, (100+20)/5
+    Step 1: Understand the intent deeply
+    - Is the user asking to retrieve existing information?
+    - Or to generate/transform information?
 
-        2. Choose "web_search" when the query requires information
-        from the internet or public sources that is not stored in
-        the system's internal documents or database.
+    Step 2: Decide source of truth
 
-        Use this tool for:
-        - General knowledge questions
-        - Definitions or explanations of topics
-        - Information about people, companies, technologies
-        - Current events or time-sensitive information
-        - Questions asking about things outside the system's stored data
+    A. Internal-first principle:
+    - If the query could reasonably belong to company data, policies, documents, or stored knowledge
+    → prefer vector_db
 
-        3. Choose "direct_answer" ONLY if:
-        - The query is a greeting or casual small talk
-        - Use ONLY for greetings or casual conversation, and questions not tied to internal documents.
+    B. External knowledge:
+    - If the query is clearly about general/public/global information
+    → use web_search
 
-        4. Otherwise, ALWAYS choose "vector_db".
+    Step 3: Storage detection (strict)
+    - Use direct_storage ONLY when the query clearly refers to stored records
+    - The intent must involve accessing stored messages/data (emails, inbox, etc.)
+    - Do NOT assume storage based on names or entities alone
 
-        5. Choose "direct_storage" if the query is about retrieving or inspecting
-        structured records stored in the system database.
+    Step 4: Reasoning detection
+    - Use reasoning ONLY if:
+    • The task requires explanation, summarization, comparison, analysis, or generation
+    • The answer must be CREATED, not retrieved
 
-        This includes queries related to:
-        - emails
-        - inbox messages
-        - senders or recipients
-        - email subjects
-        - email summaries
-        - email priority or category
-        - conversation threads
-        - stored system messages
+    Step 5: Special cases
+    - Pure math → calculator
+    - Greetings → direct_answer
 
-        OUTPUT FORMAT:
-        Return exactly ONE of the following words:
-        vector_db
-        web_search
-        calculator
-        direct_answer
+    -----------------------------------
+    DECISION PRIORITY (very important):
 
-        No punctuation.
-        No extra text.
-        No explanation.
+    1. calculator (strict match only)
+    2. direct_answer (greetings only)
+    3. direct_storage (ONLY if clearly about stored records)
+    4. reasoning (if transformation/generation required)
+    5. vector_db (default for internal or unclear queries)
+    6. web_search (ONLY if clearly external/public knowledge)
 
-        User Query:
-        {query}
+    -----------------------------------
+    DISAMBIGUATION RULES:
 
-        Selected Tool:
-        """
+    - If a query has multiple meanings:
+    → choose the most logical and commonly used interpretation
+
+    - If unsure between vector_db and web_search:
+    → ALWAYS choose vector_db
+
+    - Never assume email/storage context unless explicitly indicated
+
+    -----------------------------------
+    OUTPUT FORMAT:
+
+    Return exactly ONE word:
+    vector_db
+    web_search
+    calculator
+    direct_answer
+    direct_storage
+    reasoning
+
+    No punctuation.
+    No explanation.
+
+    -----------------------------------
+    User Query:
+    {query}
+
+    Selected Tool:
+    """
+        
 
         decision = safe_llm_call(self.llm, prompt)
-        logging.info(decision)
+        print(decision)
         return decision.strip().lower()
 
     def web_search(self, query):
@@ -606,7 +758,7 @@ class AgenticRAG:
         
     #Reasoning Engine   
     def agent_loop(self, db, workspace_id, query):
-        logging.info(query)
+        print(query)
 
         website_names = []  
 
@@ -848,6 +1000,15 @@ class AgenticRAG:
                 return "No email found."
 
             return self.add_followup(query, email_data)
+        
+        elif tool == "reasoning":
+
+            reasoning_output = run_reasoning(query)
+
+            if not reasoning_output or not reasoning_output.strip():
+                return "Unable to generate reasoning-based answer."
+
+            return self.add_followup(query, reasoning_output)
         
 
         #Final Answer
