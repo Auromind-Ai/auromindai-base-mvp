@@ -1,9 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { 
+  Settings, 
+  Cpu, 
+  CreditCard, 
+  Globe, 
+  Bell, 
+  ShieldAlert, 
+  Zap, 
+  Save, 
+  RefreshCw,
+  Phone,
+  Key,
+  Database,
+  Layers
+} from "lucide-react"
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -19,7 +31,7 @@ export default function SettingsPage() {
     rpm_limit: 60,
     context_window: 8192,
 
-    // Rate-limits (new global controls)
+    // Rate-limits
     api_rpm_limit: 60,
     api_tpm_limit: 100000,
     workspace_token_limit: 1000000,
@@ -44,12 +56,30 @@ export default function SettingsPage() {
     max_workspaces: 10,
     max_users_per_workspace: 50,
     max_conversations: 1000,
+
+    // Global Credentials (New)
+    twilio_account_sid: "",
+    twilio_auth_token: "",
+    twilio_from_number: "",
+    openai_api_key: "",
+    gemini_api_key: "",
+    anthropic_api_key: "",
+    groq_api_key: "",
+
+    // Payment Gateways
+    razorpay_key: "",
+    razorpay_secret: "",
+    paypal_client_id: "",
+    paypal_secret: "",
   })
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
+  const [activeTab, setActiveTab] = useState("general")
+
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
   useEffect(() => {
     fetchSettings()
@@ -58,12 +88,9 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const response = await fetch("http://localhost:8000/admin/settings")
-      if (!response.ok) {
-        throw new Error("Failed to fetch settings")
-      }
+      const response = await fetch(`${API}/admin/settings`)
+      if (!response.ok) throw new Error("Failed to fetch settings")
       const data = await response.json()
-      // merge with defaults so missing keys don't become undefined
       setSettings(prev => ({ ...prev, ...data }))
       setError(null)
     } catch (err) {
@@ -76,18 +103,13 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
-      const response = await fetch("http://localhost:8000/admin/settings", {
+      const response = await fetch(`${API}/admin/settings`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings)
       })
-      console.log("Save response:", response)
-      if (!response.ok) {
-        throw new Error("Failed to save settings")
-      }
-
+      if (!response.ok) throw new Error("Failed to save settings")
+      
       const updatedSettings = await response.json()
       setSettings(updatedSettings)
       setSuccess(true)
@@ -101,10 +123,7 @@ export default function SettingsPage() {
   }
 
   const handleInputChange = (key, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }))
+    setSettings(prev => ({ ...prev, [key]: value }))
   }
 
   const handleTokenLimitChange = (plan, value) => {
@@ -119,462 +138,510 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-indigo-500 mx-auto mb-4"></div>
-              <p className="text-gray-400">Loading settings...</p>
-            </div>
-          </div>
-        </div>
+      <div className="flex flex-col items-center justify-center h-96">
+        <div className="w-12 h-12 rounded-full border-t-2 border-indigo-500 animate-spin mb-4" />
+        <p className="text-gray-400 font-medium">Loading environment...</p>
       </div>
     )
   }
 
+  const tabs = [
+    { id: "general", name: "General", icon: Settings },
+    { id: "ai", name: "AI Intelligence", icon: Cpu },
+    { id: "pricing", name: "Pricing & Plans", icon: CreditCard },
+    { id: "payments", name: "Payments", icon: Layers },
+    { id: "infra", name: "Infrastructure", icon: Globe },
+    { id: "features", name: "Feature Toggles", icon: Zap },
+  ]
+
+  const AI_PROVIDERS = [
+    { id: "openai", name: "OpenAI", models: ["gpt-4o", "gpt-4-turbo"], key: "openai_api_key", color: "bg-emerald-500" },
+    { id: "google", name: "Google Gemini", models: ["gemini-1.5-pro", "gemini-1.5-flash"], key: "gemini_api_key", color: "bg-blue-500" },
+    { id: "anthropic", name: "Anthropic", models: ["claude-3-5-sonnet"], key: "anthropic_api_key", color: "bg-orange-500" },
+    { id: "groq", name: "Groq (Llama)", models: ["llama-3.1-70b"], key: "groq_api_key", color: "bg-red-500" },
+  ]
+
   return (
-    <div className="min-h-screen bg-[#050505] p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
+    <div className="space-y-8 animate-in fade-in duration-700">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/[0.05]">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Platform Settings</h1>
-          <p className="text-gray-400">Control center for your SaaS platform</p>
+          <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/50 tracking-tight mb-2">
+            System Settings
+          </h1>
+          <p className="text-gray-500 font-medium">Manage platform architecture and global credentials</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-black font-bold rounded-2xl hover:bg-gray-200 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(255,255,255,0.1)] active:scale-95"
+        >
+          {saving ? <RefreshCw className="animate-spin w-4 h-4 text-black" /> : <Save className="w-4 h-4 text-black" />}
+          {saving ? "Deploying..." : "Save Changes"}
+        </button>
+      </div>
+
+      {/* Alerts */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center gap-3">
+          <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+          <span className="text-sm font-medium">{error}</span>
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl flex items-center gap-3">
+          <Zap className="w-5 h-5 flex-shrink-0" />
+          <span className="text-sm font-medium">Settings synchronized successfully!</span>
+        </div>
+      )}
+
+      {/* Main Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Navigation Tabs */}
+        <div className="lg:col-span-3 space-y-1">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all relative overflow-hidden group ${
+                  isActive 
+                    ? "text-white bg-white/5 shadow-xl" 
+                    : "text-gray-500 hover:text-white hover:bg-white/[0.02]"
+                }`}
+              >
+                {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
+                <Icon className={`w-4 h-4 ${isActive ? "text-indigo-500" : "group-hover:text-white"}`} />
+                {tab.name}
+              </button>
+            )
+          })}
         </div>
 
-        {/* Error/Success Messages */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-            <p className="text-red-400">Error: {error}</p>
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
-            <p className="text-green-400">Settings saved successfully!</p>
-          </div>
-        )}
-
-        {/* Settings Sections */}
-        <div className="space-y-8">
-          {/* Pricing Settings */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">Pricing Settings</CardTitle>
-              <CardDescription className="text-gray-400">
-                Configure pricing for your plans
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Free Plan Price 
-                  </label>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={settings.free_plan_price}
-                    onChange={(e) => handleInputChange("free_plan_price", parseFloat(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Pro Plan Price
-                  </label>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={settings.pro_plan_price}
-                    onChange={(e) => handleInputChange("pro_plan_price", parseFloat(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Enterprise Plan Price 
-                  </label>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={settings.enterprise_plan_price}
-                    onChange={(e) => handleInputChange("enterprise_plan_price", parseFloat(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Token Limits Per Plan
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Free</label>
-                    <Input
-                      type="number"
-                      value={settings.token_limit_per_plan.free}
-                      onChange={(e) => handleTokenLimitChange("free", e.target.value)}
-                      className="bg-[#0c0c0c] border border-white/10 text-white"
-                    />
+        {/* Content Pane */}
+        <div className="lg:col-span-9">
+          <div className="bg-[#0c0c0c] border border-white/[0.03] rounded-[32px] p-8 min-h-[500px] shadow-2xl overflow-hidden relative group/pane">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            
+            {/* Tab: General */}
+            {activeTab === "general" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                      <Bell className="text-orange-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Platform Announcements</h3>
+                      <p className="text-xs text-gray-500">Global banner visibility</p>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Pro</label>
-                    <Input
-                      type="number"
-                      value={settings.token_limit_per_plan.pro}
-                      onChange={(e) => handleTokenLimitChange("pro", e.target.value)}
-                      className="bg-[#0c0c0c] border border-white/10 text-white"
-                    />
+                  <div className="grid gap-6">
+                    <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl hover:bg-white/[0.04] transition-all">
+                      <div>
+                        <p className="text-sm font-bold">Display Banner</p>
+                        <p className="text-xs text-gray-500">Toggle public announcement visibility</p>
+                      </div>
+                      <input 
+                        type="checkbox"
+                        checked={settings.announcement_enabled}
+                        onChange={(e) => handleInputChange("announcement_enabled", e.target.checked)}
+                        className="w-5 h-5 accent-indigo-500 rounded-lg" 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-xs font-bold text-gray-500 uppercase px-2">Message Content</p>
+                       <input 
+                        type="text"
+                        value={settings.announcement_message}
+                        onChange={(e) => handleInputChange("announcement_message", e.target.value)}
+                        placeholder="Type system alert here..."
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">Enterprise</label>
-                    <Input
-                      type="number"
-                      value={settings.token_limit_per_plan.enterprise}
-                      onChange={(e) => handleTokenLimitChange("enterprise", e.target.value)}
-                      className="bg-[#0c0c0c] border border-white/10 text-white"
-                    />
+                </section>
+
+                <section>
+                   <div className="flex items-center gap-3 mb-6 pt-4">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                      <Database className="text-purple-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Platform Constraints</h3>
+                      <p className="text-xs text-gray-500">Global resource limits</p>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI Settings */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">AI Settings</CardTitle>
-              <CardDescription className="text-gray-400">
-                Configure AI model parameters
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Temperature
-                  </label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="2"
-                    value={settings.temperature}
-                    onChange={(e) => handleInputChange("temperature", parseFloat(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Max Tokens
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.max_tokens}
-                    onChange={(e) => handleInputChange("max_tokens", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    RPM Limit
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.rpm_limit}
-                    onChange={(e) => handleInputChange("rpm_limit", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Context Window
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.context_window}
-                    onChange={(e) => handleInputChange("context_window", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Rate Limit Controls */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">Rate Limit Controls</CardTitle>
-              <CardDescription className="text-gray-400">
-                Global throttling settings for the API
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    API Requests Per Minute
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.api_rpm_limit}
-                    onChange={(e) => handleInputChange("api_rpm_limit", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    API Tokens Per Minute
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.api_tpm_limit}
-                    onChange={(e) => handleInputChange("api_tpm_limit", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Workspace Token Limit
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.workspace_token_limit}
-                    onChange={(e) => handleInputChange("workspace_token_limit", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI Model Configuration */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">AI Model Configuration</CardTitle>
-              <CardDescription className="text-gray-400">
-                Select which model the platform should use by default
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Model Name
-                </label>
-                <select
-                  value={settings.model_name}
-                  onChange={(e) => handleInputChange("model_name", e.target.value)}
-                  className="w-full bg-[#0c0c0c] border border-white/10 text-white rounded-lg p-2"
-                >
-                  <option value="gpt-4o">OpenAI GPT-4o</option>
-                  <option value="claude">Anthropic Claude</option>
-                  <option value="gemini">Google Gemini</option>
-                  <option value="grok">xAI Grok</option>
-                </select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Global Announcement */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">Global Announcement</CardTitle>
-              <CardDescription className="text-gray-400">
-                Configure a banner message that shows across the frontend
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-white">Enabled</label>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.announcement_enabled}
-                    onChange={(e) => handleInputChange("announcement_enabled", e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-white/10 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Message
-                </label>
-                <Input
-                  type="text"
-                  value={settings.announcement_message}
-                  onChange={(e) => handleInputChange("announcement_message", e.target.value)}
-                  className="bg-[#0c0c0c] border border-white/10 text-white"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI System Control */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">AI System Control</CardTitle>
-              <CardDescription className="text-gray-400">
-                Disable all AI responses platform-wide
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="text-sm font-medium text-white">AI Enabled</label>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.ai_enabled}
-                    onChange={(e) => handleInputChange("ai_enabled", e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-white/10 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Feature Toggles */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">Feature Toggles</CardTitle>
-              <CardDescription className="text-gray-400">
-                Enable or disable platform features
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Gmail Integration</label>
-                    <p className="text-xs text-gray-400">Allow users to connect Gmail accounts</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                      { label: "Max Workspaces", key: "max_workspaces" },
+                      { label: "Users/Workspace", key: "max_users_per_workspace" },
+                      { label: "Max Conversations", key: "max_conversations" }
+                    ].map(item => (
+                      <div key={item.key} className="space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
+                        <input 
+                          type="number"
+                          value={settings[item.key]}
+                          onChange={(e) => handleInputChange(item.key, parseInt(e.target.value) || 0)}
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none font-mono"
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.enable_gmail_integration}
-                      onChange={(e) => handleInputChange("enable_gmail_integration", e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">Calendar Integration</label>
-                    <p className="text-xs text-gray-400">Allow users to connect calendar services</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.enable_calendar_integration}
-                      onChange={(e) => handleInputChange("enable_calendar_integration", e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">RAG Brain</label>
-                    <p className="text-xs text-gray-400">Enable RAG knowledge base features</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.enable_rag}
-                      onChange={(e) => handleInputChange("enable_rag", e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-medium text-white">AI Learning</label>
-                    <p className="text-xs text-gray-400">Enable AI learning and feedback systems</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={settings.enable_ai_learning}
-                      onChange={(e) => handleInputChange("enable_ai_learning", e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                  </label>
-                </div>
+                </section>
               </div>
-            </CardContent>
-          </Card>
+            )}
 
-          {/* Platform Limits */}
-          <Card className="bg-white/[0.02] border border-white/5">
-            <CardHeader>
-              <CardTitle className="text-white">Platform Limits</CardTitle>
-              <CardDescription className="text-gray-400">
-                Set limits for platform usage
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Max Workspaces
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.max_workspaces}
-                    onChange={(e) => handleInputChange("max_workspaces", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Max Users Per Workspace
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.max_users_per_workspace}
-                    onChange={(e) => handleInputChange("max_users_per_workspace", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Max Conversations
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.max_conversations}
-                    onChange={(e) => handleInputChange("max_conversations", parseInt(e.target.value) || 0)}
-                    className="bg-[#0c0c0c] border border-white/10 text-white"
-                  />
-                </div>
+            {/* Tab: AI Intelligence */}
+            {activeTab === "ai" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                        <Cpu className="text-indigo-500 w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold">AI Provider Hub</h3>
+                        <p className="text-xs text-gray-500">Select model and configure keys</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
+                        <span className="text-xs font-bold text-gray-500">AI ENABLED</span>
+                        <input 
+                          type="checkbox"
+                          checked={settings.ai_enabled}
+                          onChange={(e) => handleInputChange("ai_enabled", e.target.checked)}
+                          className="w-5 h-5 accent-red-500 rounded-lg" 
+                        />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {AI_PROVIDERS.map(provider => {
+                      const isConfigured = settings[provider.key]?.length > 0;
+                      const isActive = provider.models.includes(settings.model_name);
+
+                      return (
+                        <div key={provider.id} className={`p-6 rounded-3xl border transition-all ${isActive ? 'bg-indigo-500/5 border-indigo-500/30' : 'bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03]'}`}>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-lg ${provider.color} opacity-20`} />
+                              <h4 className="font-bold">{provider.name}</h4>
+                            </div>
+                            {isConfigured ? (
+                              <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full uppercase tracking-tighter">CONFIGURED</span>
+                            ) : (
+                              <span className="text-[10px] font-black text-gray-500 bg-white/5 px-2 py-1 rounded-full uppercase tracking-tighter">API KEY MISSING</span>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-3">
+                             <input 
+                              type="password"
+                              value={settings[provider.key]}
+                              onChange={(e) => handleInputChange(provider.key, e.target.value)}
+                              placeholder={`Enter ${provider.name} API Key`}
+                              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                            />
+                            <select
+                              value={isActive ? settings.model_name : ""}
+                              onChange={(e) => handleInputChange("model_name", e.target.value)}
+                              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none appearance-none"
+                            >
+                              <option value="" disabled>Select Model...</option>
+                              {provider.models.map(m => (
+                                <option key={m} value={m}>{m}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+
+                <section>
+                   <div className="flex items-center gap-3 mb-6 pt-4">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                      <Layers className="text-blue-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Response Tuning</h3>
+                      <p className="text-xs text-gray-500">Fine-tune AI output behavior</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    {[
+                      { label: "Temp", key: "temperature", step: 0.1 },
+                      { label: "Max Output", key: "max_tokens" },
+                      { label: "RPM Limit", key: "rpm_limit" },
+                      { label: "Ctx Window", key: "context_window" }
+                    ].map(item => (
+                      <div key={item.key} className="space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
+                        <input 
+                          type="number"
+                          step={item.step || 1}
+                          value={settings[item.key]}
+                          onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
               </div>
-            </CardContent>
-          </Card>
+            )}
 
-          {/* Save Button */}
-          <div className="flex justify-end pt-4">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-2"
-            >
-              {saving ? "Saving..." : "Save Settings"}
-            </Button>
+            {/* Tab: Pricing & Plans */}
+            {activeTab === "pricing" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                      <CreditCard className="text-green-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Monetization</h3>
+                      <p className="text-xs text-gray-500">Plan structures and pricing (₹)</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                      { label: "Free Plan Price", key: "free_plan_price" },
+                      { label: "Pro Plan Price", key: "pro_plan_price" },
+                      { label: "Enterprise Price", key: "enterprise_plan_price" }
+                    ].map(item => (
+                      <div key={item.key} className="space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
+                        <div className="relative">
+                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                           <input 
+                            type="number"
+                            value={settings[item.key]}
+                            onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl pl-8 pr-4 py-3 text-sm focus:border-indigo-500 outline-none font-bold"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                   <div className="flex items-center gap-3 mb-6 pt-4">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <Zap className="text-emerald-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Quota Management</h3>
+                      <p className="text-xs text-gray-500">Monthly token allocations</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {["free", "pro", "enterprise"].map(plan => (
+                      <div key={plan} className="space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{plan} limit</p>
+                        <input 
+                          type="number"
+                          value={settings.token_limit_per_plan[plan]}
+                          onChange={(e) => handleTokenLimitChange(plan, e.target.value)}
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* Tab: Payments */}
+            {activeTab === "payments" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                      <Layers className="text-indigo-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Payment Gateways</h3>
+                      <p className="text-xs text-gray-500">Configure global transaction providers</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {/* Razorpay Section */}
+                    <div className="p-6 rounded-3xl bg-white/[0.01] border border-white/[0.05] space-y-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center text-[10px] font-black italic">RP</div>
+                        <h4 className="font-bold">Razorpay (India)</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Key ID</p>
+                           <input 
+                            type="text"
+                            value={settings.razorpay_key}
+                            onChange={(e) => handleInputChange("razorpay_key", e.target.value)}
+                            placeholder="rzp_live_..."
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Secret Key</p>
+                           <input 
+                            type="password"
+                            value={settings.razorpay_secret}
+                            onChange={(e) => handleInputChange("razorpay_secret", e.target.value)}
+                            placeholder="••••••••••••••••"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PayPal Section */}
+                    <div className="p-6 rounded-3xl bg-white/[0.01] border border-white/[0.05] space-y-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-[10px] font-black italic">PP</div>
+                        <h4 className="font-bold">PayPal (Global)</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Client ID</p>
+                           <input 
+                            type="text"
+                            value={settings.paypal_client_id}
+                            onChange={(e) => handleInputChange("paypal_client_id", e.target.value)}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Client Secret</p>
+                           <input 
+                            type="password"
+                            value={settings.paypal_secret}
+                            onChange={(e) => handleInputChange("paypal_secret", e.target.value)}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* Tab: Infrastructure */}
+            {activeTab === "infra" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                      <Phone className="text-red-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Twilio Integration</h3>
+                      <p className="text-xs text-gray-500">WhatsApp and SMS provider</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Account SID</p>
+                       <input 
+                        type="text"
+                        value={settings.twilio_account_sid}
+                        onChange={(e) => handleInputChange("twilio_account_sid", e.target.value)}
+                        placeholder="ACxxxxxxxxxxxxxxxx..."
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Auth Token</p>
+                       <input 
+                        type="password"
+                        value={settings.twilio_auth_token}
+                        onChange={(e) => handleInputChange("twilio_auth_token", e.target.value)}
+                        placeholder="••••••••••••••••"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">From Number</p>
+                       <input 
+                        type="text"
+                        value={settings.twilio_from_number}
+                        onChange={(e) => handleInputChange("twilio_from_number", e.target.value)}
+                        placeholder="+1234567890"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* Tab: Features */}
+            {activeTab === "features" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+                      <Zap className="text-yellow-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Capability Toggles</h3>
+                      <p className="text-xs text-gray-500">Enable/disable core modules</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[
+                      { label: "Gmail Integration", desc: "Allow mailbox connections", key: "enable_gmail_integration" },
+                      { label: "Calendar Sync", desc: "Enable meeting schedulers", key: "enable_calendar_integration" },
+                      { label: "RAG Brain", desc: "Enable vector knowledge base", key: "enable_rag" },
+                      { label: "AI Learning", desc: "Enable feedback loops", key: "enable_ai_learning" }
+                    ].map(feat => (
+                      <div key={feat.key} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl hover:bg-white/[0.04] transition-all">
+                        <div>
+                          <p className="text-sm font-bold">{feat.label}</p>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold mt-1 tracking-tight">{feat.desc}</p>
+                        </div>
+                        <input 
+                          type="checkbox"
+                          checked={settings[feat.key]}
+                          onChange={(e) => handleInputChange(feat.key, e.target.checked)}
+                          className="w-5 h-5 accent-indigo-500 rounded-lg" 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
+
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slide-in-from-right-4 {
+          from { transform: translateX(1rem); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-in {
+          animation-fill-mode: both;
+        }
+      `}</style>
     </div>
   )
 }

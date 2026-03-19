@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
-import { setToken, getAdminBackup, restoreAdminToken } from "@/lib/auth";
+import { getUser, restoreAdminToken, setToken, getAdminBackup } from '@/lib/auth';
 import {
   Bell,
   Calendar,
@@ -13,8 +13,38 @@ import {
   Sparkles,
   AlertCircle,
   MoreHorizontal,
+  CheckCircle2,
   ShieldAlert  
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+const SecretLoginBanner = () => {
+    const router = useRouter();
+    const isImpersonating = typeof window !== 'undefined' && localStorage.getItem('is_impersonating') === 'true';
+    const user = getUser();
+
+    if (!isImpersonating) return null;
+
+    const handleExit = () => {
+        restoreAdminToken();
+        window.location.href = '/admin';
+    };
+
+    return (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-sm font-medium shadow-lg animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2">
+                <Sparkles size={16} className="animate-pulse" />
+                <span>Secret Login Mode: Viewing {user?.name || user?.email}'s dashboard</span>
+            </div>
+            <button 
+                onClick={handleExit}
+                className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors border border-white/30"
+            >
+                Exit & Return to Admin
+            </button>
+        </div>
+    );
+};
 
 const METRICS = [
   {
@@ -63,7 +93,7 @@ const AI_INSIGHTS = [
   { text: 'WhatsApp messages sent between 2–4 PM convert 15% better.' },
 ];
 
-export default function DashboardPage({ children }) {
+export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
 
@@ -105,344 +135,186 @@ useEffect(() => {
 }, [])
 if (!mounted) return null;
   return (
-    <div className="min-h-screen bg-[#0b0b10] text-white">
+    <div className="min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar">
+      <SecretLoginBanner />
       {isImpersonated && (
-        <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border-b border-amber-500/25 px-6 py-2.5 text-amber-400 text-sm font-semibold">
+        <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl mb-6 px-6 py-2.5 text-amber-400 text-sm font-semibold">
           <ShieldAlert size={15} />
           Admin Viewing Mode — you are viewing this dashboard as the user.
           <button
             onClick={exitImpersonation}
-            className="ml-4 px-3 py-1 rounded bg-amber-600/10 text-amber-300 text-xs"
+            className="ml-4 px-3 py-1 rounded bg-amber-600/10 text-amber-300 text-xs hover:bg-amber-600/20 transition-colors"
           >
             Exit impersonation
           </button>
         </div>
       )}
-
-      <div className="max-w-[1700px] mx-auto px-6 py-8 space-y-10">
-
+      <div className="max-w-[1600px] mx-auto space-y-8">
         {/* HEADER */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Dashboard
-            </h1>
-            <p className="text-sm text-zinc-400 mt-1">
-              Overview of your business performance
-            </p>
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
+            <p className="text-sm text-zinc-500">Good morning! Here are your key actions for today.</p>
           </div>
-
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-white/10 bg-white/5 hover:bg-white/10">
+            <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
               <Calendar size={14} />
-              Last 7 Days
+              <span className="hidden xs:inline">Oct 12 - Oct 18, 2023</span>
+              <span className="xs:hidden">Current Week</span>
               <ChevronDown size={14} />
-            </button>
-
-            <button className="relative p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10">
-              <Bell size={18} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-indigo-500 rounded-full" />
-            </button>
-
+            </div>
+            <div className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
+              <Bell size={18} className="text-zinc-400" />
+              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
+            </div>
           </div>
         </header>
-        {/* METRICS */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+
+        {/* METRICS GRID */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {METRICS.map((metric, i) => (
-        <motion.div
-          key={i}
-          whileHover={{ y: -6, scale: 1.02 }}
-          className="relative rounded-xl overflow-hidden shadow-xl"
-        >
-
-          {/* Gradient Background */}
-
-          <div className={`absolute inset-0 bg-gradient-to-br ${metric.gradient} opacity-90`} />
-
-          {/* Glass Overlay */}
-
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-xl border border-white/10" />
-
-          {/* Content */}
-
-          <div className="relative z-10 p-6">
-
-            <div className="flex justify-between mb-4">
-
-              <p className="text-xs uppercase text-white/80 tracking-wider">
-                {metric.label}
-              </p>
-
-              <span className={`flex items-center gap-1 text-xs font-semibold
-              ${metric.trend === 'up'
-                ? 'text-emerald-300'
-                : metric.trend === 'down'
-                ? 'text-red-300'
-                : 'text-zinc-300'}`}>
-
-                {metric.trend === 'up' && <ArrowUpRight size={14} />}
-                {metric.trend === 'down' && <ArrowDownRight size={14} />}
-
-                {metric.change}
-
-              </span>
-            </div>
-
-            <h3 className="text-3xl font-bold text-white">
-
-              {metric.label === "Total Revenue" && (
-                <AnimatedCounter
-                  value={12.4}
-                  formatter={(v)=>`₹${v.toFixed(1)}L`}
-                />
-              )}
-
-              {metric.label === "Active Leads" && (
-                <AnimatedCounter value={124} />
-              )}
-
-              {metric.label === "Conversion Rate" && (
-                <AnimatedCounter value={18} formatter={(v)=>`${Math.floor(v)}%`} />
-              )}
-
-              {metric.label === "Avg. Response Time" && (
-                <AnimatedCounter value={12} formatter={(v)=>`${Math.floor(v)}m`} />
-              )}
-
-            </h3>
-
-            <p className="text-xs text-white/70 mt-1">
-              {metric.subtext}
-            </p>
-
-          </div>
-
-        </motion.div>
-          ))}
-        </section>
-        {/* MAIN GRID */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-
-          {/* LEFT SIDE */}
-          <div className="xl:col-span-2 space-y-8">
-
-            {/* ANALYTICS CHART */}
-            <div className="rounded-xl bg-[#0f0f15] border border-white/5 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-sm font-semibold">
-                  Performance Analytics
-                </h2>
-
-                <span className="text-xs text-zinc-400">
-                  Last 7 days
+            <motion.div
+              key={metric.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="relative group rounded-2xl p-5 border border-white/5 bg-[#0f0f15]/50 hover:border-white/10 transition-all cursor-default overflow-hidden"
+            >
+              <div className={`absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r ${metric.gradient} opacity-50`} />
+              <div className="flex justify-between items-start mb-4">
+                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">{metric.label}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  metric.trend === 'up' ? 'text-emerald-400 bg-emerald-400/10' : 
+                  metric.trend === 'down' ? 'text-rose-400 bg-rose-400/10' : 
+                  'text-zinc-400 bg-white/5'
+                }`}>
+                  {metric.change}
                 </span>
               </div>
-
-              {/* Simple animated bar chart */}
-              <div className="flex items-end gap-2 h-[220px]">
-                {[45,65,55,80,60,95,75,85,65,90].map((v,i)=>(
-                  <motion.div
-                    key={i}
-                    initial={{height:0}}
-                    animate={{height:`${v}%`}}
-                    transition={{delay:i*0.05}}
-                    className="w-full rounded bg-gradient-to-t from-purple-500 to-indigo-500"
-                  />
-                ))}
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{metric.value}</span>
+                <span className="text-[10px] text-zinc-600 font-medium">{metric.subtext}</span>
               </div>
-            </div>
+            </motion.div>
+          ))}
+        </div>
 
-            {/* NEEDS ATTENTION */}
-            <div className="rounded-xl bg-[#0f0f15] border border-white/5">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-
-                <h2 className="text-sm font-semibold flex items-center gap-2">
-                  <AlertCircle size={16} className="text-indigo-400" />
-                  Needs Attention
-                </h2>
-
-                <button className="text-xs text-zinc-400 hover:text-white">
-                  View All
-                </button>
+        {/* MAIN GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
+          
+          {/* LEFT COLUMN: ACTION CENTER & AI INSIGHTS */}
+          <div className="xl:col-span-2 space-y-8">
+            
+            {/* UNIFIED ACTION CENTER */}
+            <section className="relative rounded-2xl overflow-hidden border border-white/5 bg-[#0f0f15]/50 backdrop-blur-xl">
+              <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white/90">Unified Action Center</h2>
+                <button className="text-xs text-zinc-500 hover:text-indigo-400 transition-colors">Settings</button>
               </div>
-
-              <div className="p-4 space-y-2">
-                {ATTENTION_ITEMS.map((item) => (
-                  <motion.div
-                    key={item.id}
-                    whileHover={{x:4}}
-                    className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5"
-                  >
-
-                    <div className="flex items-center gap-4">
-
-                      <div className={`w-2 h-2 rounded-full
-                      ${item.priority === 'high'
-                          ? 'bg-red-500'
-                          : item.priority === 'medium'
-                          ? 'bg-amber-500'
-                          : 'bg-zinc-500'}`} />
-
-                      <div>
-                        <p className="text-sm font-medium">
-                          {item.name}
-                        </p>
-
-                        <p className="text-xs text-zinc-500">
-                          {item.status}
-                        </p>
-
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs text-zinc-500">
-                        {item.time}
-                      </span>
-                      <MoreHorizontal size={16} />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT SIDE */}
-          <div className="space-y-8">
-
-            {/* AI PANEL */}
-            <div className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 p-6">
-
-              <div className="flex items-center gap-2 text-indigo-400 mb-4">
-                <Sparkles size={16} />
-                AI Insights
-              </div>
-
-              <div className="space-y-3">
-                {AI_INSIGHTS.map((insight, i) => (
-
-                  <div
-                    key={i}
-                    className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/10"
-                  >
-                    <p className="text-sm text-indigo-100/70">
-                      {insight.text}
-                    </p>
-                  </div>
-
-                ))}
-              </div>
-
-              <button className="w-full mt-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500">
-                View Full Report
-              </button>
-            </div>
-
-            {/* SCHEDULE */}
-            <div className="rounded-xl bg-[#0f0f15] border border-white/5 p-6">
-
-              <h3 className="text-sm font-semibold mb-4">
-                Upcoming Schedule
-              </h3>
-
-              <div className="space-y-4">
+              <div className="p-4 space-y-3">
                 {[
-                  { date: 24, title: 'Team Review', time: '2:00 PM • Zoom' },
-                  { date: 25, title: 'Product Launch', time: '10:00 AM • Main Hall' }
-                ].map((event, i) => (
-
-                  <div key={i} className="flex items-center gap-4">
-
-                    <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 text-sm font-semibold">
-                      {event.date}
+                  { id: 1, title: 'Respond to Client Inquiry (Emma R.)', type: 'Email', priority: 'High', color: 'text-emerald-400 bg-emerald-400/10' },
+                  { id: 2, title: 'Review Q4 Sales Forecast', type: 'AI Analysis', priority: 'Due Today', color: 'text-zinc-400 bg-white/5' },
+                  { id: 3, title: "Draft follow-up email for 'Apex Dynamics'", type: 'AI Generated', priority: 'Action needed', color: 'text-zinc-400 bg-white/5' },
+                ].map((item) => (
+                  <div key={item.id} className="group flex items-center gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer">
+                    <div className="w-5 h-5 rounded border border-white/20 flex items-center justify-center group-hover:border-indigo-500/50 transition-colors">
+                      {item.id === 1 && <CheckCircle2 size={12} className="text-indigo-500" />}
                     </div>
-                    <div>
-
-                      <p className="text-sm">
-                        {event.title}
-                      </p>
-
-                      <p className="text-xs text-zinc-500">
-                        {event.time}
-                      </p>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-white/80">{item.title}</h4>
+                      <p className="text-xs text-zinc-500 mt-0.5">{item.type}</p>
                     </div>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium ${item.color}`}>
+                      {item.priority}
+                    </span>
                   </div>
                 ))}
               </div>
+            </section>
 
-              {/* TODAY FLOW */}
-              <div className="rounded-xl bg-[#0f0f15] border border-white/5 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-sm font-semibold text-white">
-                    Today's Flow
-                  </h2>
-                  <span className="text-xs text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">
-                    Live
-                  </span>
+            {/* AI INSIGHTS */}
+            <section className="relative rounded-2xl p-8 overflow-hidden border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 blur-[100px] -mr-32 -mt-32" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 blur-[100px] -ml-32 -mb-32" />
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-indigo-400 mb-6 font-semibold tracking-wide uppercase text-[10px]">
+                  <Sparkles size={14} />
+                  AI Insights
                 </div>
+                
+                <h3 className="text-xl font-medium text-white/90 mb-8 max-w-md leading-relaxed">
+                  Good morning, {getUser()?.name || 'User'}!<br />
+                  Here are your key actions for today.
+                </h3>
 
-                {/* Gradient Progress Pipeline */}
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden flex mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
+                    <p className="text-xs font-semibold text-indigo-400 mb-2 uppercase tracking-widest">AI Recommendation</p>
+                    <p className="text-sm text-zinc-300 leading-relaxed group-hover:text-white transition-colors line-clamp-3">
+                      Personalize follow-up email for Apex Dynamics based on recent interaction (High Conversion probability).
+                    </p>
+                    <div className="mt-4 flex items-center gap-2">
+                       <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full font-medium">High Conversion probability</span>
+                    </div>
+                  </div>
 
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "30%" }}
-                    transition={{ duration: 0.6 }}
-                    className="bg-gradient-to-r from-purple-500 to-indigo-500"
-                  />
-
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "20%" }}
-                    transition={{ duration: 0.7 }}
-                    className="bg-gradient-to-r from-indigo-500 to-blue-500"
-                  />
-
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "15%" }}
-                    transition={{ duration: 0.8 }}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-500"
-                  />
-
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "35%" }}
-                    transition={{ duration: 0.9 }}
-                    className="bg-gradient-to-r from-cyan-500 to-emerald-500"
-                  />
-                </div>
-
-                {/* Flow Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-
-                  {[
-                    { label: 'New', count: 42 },
-                    { label: 'Working', count: 28 },
-                    { label: 'Review', count: 12 },
-                    { label: 'Closed', count: 24 }
-                  ].map((stat, i) => (
-
-                    <motion.div
-                      key={i}
-                      whileHover={{ y: -4 }}
-                      className="text-center p-4 rounded-lg bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 transition"
-                    >
-
-                      <p className="text-2xl font-bold text-white">
-                        {stat.count}
-                      </p>
-
-                      <p className="text-xs text-zinc-400 mt-1">
-                        {stat.label}
-                      </p>
-
-                    </motion.div>
-                  ))}
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
+                      <p className="text-xs font-semibold text-zinc-400 mb-1">Lead Score Update</p>
+                      <p className="text-sm text-white/80">5 New High-intent Leads identified via LinkedIn</p>
+                    </div>
+                    <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
+                      <p className="text-xs font-semibold text-zinc-400 mb-1">Content Summary</p>
+                      <p className="text-sm text-white/80">Customer feedback highlights positive reception to new feature.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
+
+          {/* RIGHT COLUMN: PERFORMANCE OVERVIEW */}
+          <div className="space-y-8">
+            {[
+              { label: 'Performance Overview', sub: 'Growth Metrics (This Week)', change: '+14.5%' },
+              { label: 'Engagement Analytics', sub: 'Interaction Trends (This Week)', change: '+8.2%' },
+            ].map((chart, i) => (
+              <section key={i} className="rounded-2xl border border-white/5 bg-[#0f0f15]/50 overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-white/90">{chart.label}</h2>
+                    <p className="text-[10px] text-zinc-500 mt-1">{chart.sub}</p>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">{chart.change}</span>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-end gap-2 h-[120px] mb-4">
+                    {[40, 60, 45, 90, 55, 75, 85].map((v, idx) => (
+                      <div key={idx} className="flex-1 relative group">
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: `${v}%` }}
+                          transition={{ delay: idx * 0.1 }}
+                          className={`w-full rounded-t-sm transition-all ${idx === (i === 0 ? 3 : 5) ? 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 hover:bg-white/10'}`}
+                        />
+                        {idx === (i === 0 ? 3 : 5) && (
+                           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-1 text-[8px] font-bold text-indigo-400 px-1 py-0.5 bg-indigo-500/20 rounded">
+                             +14.5%
+                           </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-[8px] text-zinc-600 font-medium uppercase tracking-widest px-1">
+                    <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+                  </div>
+                </div>
+              </section>
+            ))}
+          </div>
+
         </div>
       </div>
     </div>

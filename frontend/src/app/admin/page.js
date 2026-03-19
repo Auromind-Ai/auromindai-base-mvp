@@ -1,326 +1,177 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Users, MessageSquare, Zap, Building2, TrendingUp, AlertCircle } from "lucide-react"
+import { Users, MessageSquare, Zap, Building2, Activity, Clock } from "lucide-react"
+import { authHeader } from "@/lib/auth"
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function AdminDashboard() {
-
   const [analytics, setAnalytics] = useState(null)
-
   const [users, setUsers] = useState({ total: 0, active: 0 })
   const [workspaces, setWorkspaces] = useState({ total: 0 })
   const [conversations, setConversations] = useState({ total: 0, active: 0 })
-
   const [recentWorkspaces, setRecentWorkspaces] = useState([])
   const [recentConversations, setRecentConversations] = useState([])
-
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-
     const fetchDashboard = async () => {
-
       try {
-
         setLoading(true)
+        const res = await fetch(`${API_BASE}/admin/dashboard`, {
+          headers: { ...authHeader() }
+        })
 
-        const res = await fetch("http://localhost:8000/admin/dashboard")
-
-        if (!res.ok) {
-          throw new Error("Failed to fetch dashboard")
-        }
+        if (!res.ok) throw new Error("Failed to fetch dashboard")
 
         const data = await res.json()
-        console.log("Raw Dashboard Response:", data)
-        console.log("Dashboard Data:", data)
 
         setUsers(data.users || { total: 0, active: 0 })
         setWorkspaces(data.workspaces || { total: 0 })
         setConversations(data.conversations || { total: 0, active: 0 })
-
         setRecentWorkspaces(data.recent_workspaces || [])
         setRecentConversations(data.recent_conversations || [])
-
         setAnalytics(data.analytics)
-
         setError(null)
 
       } catch (err) {
-
         setError(err.message)
-
       } finally {
-
         setLoading(false)
-
       }
-
     }
 
     fetchDashboard()
-
   }, [])
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
+      </div>
+    )
+  }
 
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 max-w-2xl mx-auto mt-12 text-center">
+        <h3 className="text-red-400 font-bold mb-2">Dashboard Error</h3>
+        <p className="text-red-300/80 text-sm">{error}</p>
+      </div>
+    )
+  }
 
   return (
+    <div className="animate-in fade-in duration-500">
+      <div className="mb-10 flex flex-col items-start gap-1">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold tracking-widest uppercase rounded-full mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+          Owner Command Center
+        </div>
+        <h1 className="text-4xl font-extrabold text-white tracking-tight">Platform Overview</h1>
+        <p className="text-gray-500 text-sm mt-1 border-l-2 border-indigo-500/30 pl-3">
+          Real-time metrics and system health monitoring.
+        </p>
+      </div>
 
-    <div className="min-h-screen bg-black p-8">
+      {/* Top Level Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+        <MetricCard icon={Users} label="Total Users" value={users.total} subValue={`${users.active} Active Now`} color="text-blue-400" />
+        <MetricCard icon={Building2} label="Network Workspaces" value={workspaces.total} subValue="Active environments" color="text-indigo-400" />
+        <MetricCard icon={MessageSquare} label="AI Conversations" value={conversations.total} subValue={`${conversations.active} Open sessions`} color="text-purple-400" />
+        <MetricCard icon={Zap} label="API Activity (Today)" value={(analytics?.api_calls_today || 0).toLocaleString()} subValue={`${analytics?.avg_response_time || 0}ms avg response`} color="text-green-400" />
+      </div>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        
+        {/* Recent Workspaces */}
+        <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl -mr-10 -mt-10 transition-opacity group-hover:bg-indigo-500/10" />
+          
+          <div className="flex items-center gap-3 mb-6">
+            <Building2 className="text-gray-400" size={20} />
+            <h2 className="text-lg font-bold text-white tracking-wide">Recent Workspaces</h2>
+          </div>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-gray-400">Welcome to your admin dashboard</p>
+          <div className="space-y-1">
+            {recentWorkspaces.length === 0 ? (
+              <p className="text-gray-500 text-sm py-4">No workspaces found.</p>
+            ) : (
+              recentWorkspaces.map((workspace) => (
+                <div key={workspace.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.02] transition-colors border border-transparent hover:border-white/5">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-200">{workspace.name}</span>
+                    <span className="text-xs text-gray-500">{workspace.owner_email}</span>
+                  </div>
+                  <StatusBadge active={workspace.is_active} />
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
+        {/* Recent Conversations */}
+        <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl -mr-10 -mt-10 transition-opacity group-hover:bg-purple-500/10" />
 
-
-        {loading && (
-          <p className="text-gray-400">Loading dashboard...</p>
-        )}
-
-        {error && (
-          <div className="bg-red-900/20 border border-red-500 rounded-lg p-4 mb-6">
-            <p className="text-red-300">{error}</p>
+          <div className="flex items-center gap-3 mb-6">
+            <Activity className="text-gray-400" size={20} />
+            <h2 className="text-lg font-bold text-white tracking-wide">Live Conversations</h2>
           </div>
-        )}
 
-
-
-        {!loading && !error && (
-
-          <>
-
-            {/* Metrics */}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-
-              <MetricCard
-                icon={Users}
-                label="Total Users"
-                value={users.total}
-                trend="+12%"
-              />
-
-              <MetricCard
-                icon={Building2}
-                label="Workspaces"
-                value={workspaces.total}
-                trend="+8%"
-              />
-
-              <MetricCard
-                icon={MessageSquare}
-                label="Active Conversations"
-                value={conversations.active}
-                trend="+24%"
-              />
-
-              <MetricCard
-                icon={Zap}
-                label="API Calls Today"
-                value={(analytics?.api_calls_today || 0).toLocaleString()}
-                trend="+18%"
-              />
-
-            </div>
-
-
-
-            {/* System Overview */}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
-              <div className="lg:col-span-2 bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
-
-                <h2 className="text-xl font-semibold text-white mb-6">
-                  System Overview
-                </h2>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-
-                  <OverviewItem label="Uptime" value={`${analytics?.uptime_percent || 99.9}%`} />
-
-                  <OverviewItem label="Avg Response Time" value={`${analytics?.avg_response_time || 120}ms`} />
-
-                  <OverviewItem label="Active Users Now" value={users.active} />
-
-                  <OverviewItem label="Total Conversations" value={conversations.total} />
-
-                  <OverviewItem label="Token Usage" value={(analytics?.total_token_usage || 0).toLocaleString()} />
-
-                </div>
-
-              </div>
-
-
-
-              <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
-
-                <h2 className="text-xl font-semibold text-white mb-6">
-                  Quick Stats
-                </h2>
-
-                <div className="space-y-4">
-
-                  <QuickStat
-                    label="Revenue (MTD)"
-                    value={`$${(analytics?.total_revenue || 0).toLocaleString()}`}
-                    icon={TrendingUp}
-                  />
-
-                  <QuickStat
-                    label="Avg Users/Workspace"
-                    value={workspaces.total > 0 ? Math.round(users.total / workspaces.total) : 0}
-                    icon={Users}
-                  />
-
-                  <QuickStat
-                    label="Error Rate"
-                    value={`${(analytics?.error_rate || 0).toFixed(2)}%`}
-                    icon={AlertCircle}
-                  />
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-
-            {/* Recent Activity */}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-              {/* Recent Workspaces */}
-
-              <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
-
-                <h2 className="text-xl font-semibold text-white mb-6">
-                  Recent Workspaces
-                </h2>
-
-                {recentWorkspaces.map((workspace) => (
-
-                  <div
-                    key={workspace.id}
-                    className="flex justify-between py-3 border-b border-white/5"
-                  >
-
-                    <div>
-                      <p className="text-white text-sm">{workspace.name}</p>
-                      <p className="text-gray-400 text-xs">{workspace.owner_email}</p>
-                    </div>
-
-                    <span
-                      className={
-                        workspace.is_active
-                          ? "text-green-400 text-xs"
-                          : "text-gray-400 text-xs"
-                      }
-                    >
-                      {workspace.is_active ? "Active" : "Inactive"}
+          <div className="space-y-1">
+            {recentConversations.length === 0 ? (
+              <p className="text-gray-500 text-sm py-4">No recent conversations.</p>
+            ) : (
+              recentConversations.map((conv) => (
+                <div key={conv.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.02] transition-colors border border-transparent hover:border-white/5">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-200 truncate max-w-[200px]">{conv.user_email}</span>
+                    <span className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <Clock size={10} /> Active Session
                     </span>
-
                   </div>
-
-                ))}
-
-              </div>
-
-
-
-              {/* Recent Conversations */}
-
-              <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
-
-                <h2 className="text-xl font-semibold text-white mb-6">
-                  Recent Conversations
-                </h2>
-
-                <div className="space-y-2">
-
-                  {recentConversations.map((conv) => (
-
-                    <div
-                      key={conv.id}
-                      className="flex justify-between items-center py-3 px-3 rounded-lg hover:bg-white/5 transition"
-                    >
-
-                      <div>
-                        <p className="text-white text-sm">{conv.user_email}</p>
-                        <p className="text-gray-400 text-xs">
-                          {conv.message_count || 0} messages
-                        </p>
-                      </div>
-
-                      <span
-                        className={
-                          conv.status === "OPEN"
-                            ? "bg-blue-900/30 text-blue-300 px-2 py-1 rounded text-xs"
-                            : "bg-gray-900/30 text-gray-300 px-2 py-1 rounded text-xs"
-                        }
-                      >
-                        {conv.status === "OPEN" ? "Active" : "Closed"}
-                      </span>
-
-                    </div>
-
-                  ))}
-
+                  <ConvBadge status={conv.status} />
                 </div>
-
-              </div>
-
-            </div>
-
-          </>
-
-        )}
+              ))
+            )}
+          </div>
+        </div>
 
       </div>
-
-    </div>
-
-  )
-
-}
-
-
-
-function MetricCard({ icon: Icon, label, value, trend }) {
-  return (
-    <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
-      <div className="flex justify-between mb-4">
-        <Icon className="text-indigo-400" size={24} />
-        <span className="text-green-400 text-sm">{trend}</span>
-      </div>
-      <p className="text-gray-400 text-sm">{label}</p>
-      <p className="text-white text-2xl font-bold">{value}</p>
     </div>
   )
 }
 
-function OverviewItem({ label, value }) {
+function MetricCard({ icon: Icon, label, value, subValue, color }) {
   return (
-    <div className="bg-black border border-white/5 rounded-lg p-4">
-      <p className="text-gray-400 text-xs">{label}</p>
-      <p className="text-white font-semibold">{value}</p>
+    <div className="bg-[#0a0a0a] border border-white/5 rounded-3xl p-6 relative overflow-hidden group hover:border-white/10 transition-colors">
+      <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-40 transition-opacity">
+        <Icon className={color} size={48} strokeWidth={1.5} />
+      </div>
+      <div className="relative z-10 flex flex-col h-full justify-between gap-4">
+        <p className="text-gray-500 text-xs font-bold tracking-wider uppercase">{label}</p>
+        <div>
+          <p className="text-4xl font-extrabold text-white tracking-tight mb-1">{value}</p>
+          <p className="text-gray-500 text-xs font-medium">{subValue}</p>
+        </div>
+      </div>
     </div>
   )
 }
 
-function QuickStat({ label, value, icon: Icon }) {
-  return (
-    <div className="flex justify-between py-3 px-4 bg-black border border-white/5 rounded-lg">
-      <div>
-        <p className="text-gray-400 text-sm">{label}</p>
-        <p className="text-white font-bold text-lg">{value}</p>
-      </div>
-      <Icon className="text-indigo-400" size={20} />
-    </div>
-  )
+function StatusBadge({ active }) {
+  if (active) {
+    return <span className="px-2.5 py-1 bg-green-500/10 text-green-400 text-[10px] uppercase font-bold tracking-wider rounded-md border border-green-500/20">Active</span>
+  }
+  return <span className="px-2.5 py-1 bg-gray-500/10 text-gray-400 text-[10px] uppercase font-bold tracking-wider rounded-md border border-gray-500/20">Inactive</span>
+}
+
+function ConvBadge({ status }) {
+  if (status === "OPEN") {
+    return <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 text-[10px] uppercase font-bold tracking-wider rounded-md border border-blue-500/20">Open</span>
+  }
+  return <span className="px-2.5 py-1 bg-gray-800 text-gray-400 text-[10px] uppercase font-bold tracking-wider rounded-md border border-white/5">Closed</span>
 }

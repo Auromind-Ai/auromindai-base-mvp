@@ -241,8 +241,8 @@ export default function LeadsPage() {
       <div
         className={`
           flex-1 flex flex-col
-          p-4 md:p-6 lg:p-8
-          gap-4 lg:gap-6
+          p-3 sm:p-6 lg:p-8
+          gap-6 lg:gap-8
           overflow-y-auto
           custom-scrollbar
           ${mobileView === "leads" ? "hidden lg:flex" : "flex"}
@@ -251,177 +251,160 @@ export default function LeadsPage() {
 
         {selectedLead && (
           <>
-            {/* CENTER COLUMN */}
-            <div className="col-span-2 space-y-8">
-
-              {/* LEAD HEADER */}
-                <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4">
-
-                {/* LEFT SECTION */}
-                <div className="flex items-center gap-4">
-
-                    {/* Back Button (mobile) */}
+            {/* MAIN CONTENT GRID */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 lg:gap-12">
+              
+              {/* LEFT COLUMN - HEADER & CHAT */}
+              <div className="xl:col-span-8 space-y-6">
+                
+                {/* LEAD HEADER */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-white/5 pb-6 lg:pb-8">
+                  <div className="flex items-center gap-4 lg:gap-6">
                     <button
-                    onClick={() => setMobileView("leads")}
-                    className="lg:hidden w-8 h-8 rounded-md bg-white/5 flex items-center justify-center hover:bg-white/10"
+                      onClick={() => setMobileView("leads")}
+                      className="lg:hidden w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10"
                     >
-                    ←
+                      ←
                     </button>
 
-                    {/* Avatar */}
-                    <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-lg font-semibold text-white">
-                    {selectedLead.name.charAt(0)}
+                    <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-lg lg:text-xl font-bold text-white shadow-xl shadow-indigo-600/20 border border-white/10">
+                      {selectedLead.name.charAt(0)}
                     </div>
 
-                    {/* Name + Meta */}
-                    <div className="flex flex-col gap-1">
-                    <h2 className="text-lg lg:text-xl font-semibold text-white leading-none">
+                    <div className="flex flex-col gap-1.5">
+                      <h2 className="text-xl lg:text-2xl font-bold text-white tracking-tight leading-none">
                         {selectedLead.name}
-                    </h2>
-
-                    <div className="flex items-center gap-2">
-                        {/* Deal Value */}
-                        <span className="px-2 py-1 text-[11px] rounded-md bg-white/5 border border-white/10 text-zinc-300">
-                        {selectedLead.value}
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-white/5 border border-white/10 text-indigo-400">
+                          {selectedLead.value}
                         </span>
-
-                        {/* Status */}
-                        <button className="flex items-center gap-2 px-2 py-1 text-[11px] rounded-md bg-white/5 border border-white/10 hover:bg-white/10">
-                        <div className={`w-1.5 h-1.5 rounded-full ${STATUSES.find(s => s.id === selectedLead.status).color}`} />
-                        {STATUSES.find(s => s.id === selectedLead.status).label}
-                        <ChevronDown size={10} />
+                        <button className="flex items-center gap-2 px-2 py-1 text-[10px] font-bold rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                          <div className={`w-1.5 h-1.5 rounded-full ${STATUSES.find(s => s.id === selectedLead.status).color}`} />
+                          {STATUSES.find(s => s.id === selectedLead.status).label}
+                          <ChevronDown size={10} />
                         </button>
-                    </div>
-                </div>
-            </div>
-
-                {/* RIGHT SECTION — AI SCORE */}
-                <div className="flex flex-col items-end">
-                    <span className="text-[10px] uppercase tracking-wide text-zinc-500">
-                    AI Trust Score
-                    </span>
-
-                    <div className="flex items-center gap-2 mt-1">
-
-                    <span className="text-xl lg:text-2xl font-bold text-white">
-                        {selectedLead.score}%
-                    </span>
-
-                    <span className="px-2 py-1 text-[10px] font-semibold text-emerald-400 bg-emerald-400/10 rounded">
-                        {selectedLead.prob} P(c)
-                    </span>
-
-                    </div>
-                </div>
-            </div>
-
-              {/* CHAT PANEL */}
-              <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#26262d] via-[#1a1a20] to-[#101015] shadow-[0_30px_80px_rgba(0,0,0,0.75)] backdrop-blur-xl p-6 space-y-5 min-h-[420px]">
-                <div className="flex justify-between">
-                  <h4 className="text-xs uppercase tracking-widest text-zinc-500 flex items-center gap-2">
-                    <MessageSquare size={14} />
-                    Conversation
-                  </h4>
-
-                  <button className="text-xs text-indigo-400 flex items-center gap-1">
-                    Open full chat
-                    <ArrowUpRight size={12} />
-                  </button>
-                </div>
-
-                <div className="space-y-5 pt-2">
-                  {MOCK_MESSAGES.map((m, i) => (
-                    <div key={i} className={`flex flex-col ${m.role === 'me' ? 'items-end' : 'items-start'}`}>
-
-                      <div
-                        className={`px-4 py-2.5 rounded-xl text-xs lg:text-sm max-w-[85%] shadow-md hover:shadow-[0_0_12px_rgba(255,255,255,0.05)]
-                        ${m.role === 'me'
-                          ? 'bg-gradient-to-br from-[#45454f] to-[#26262d] text-white border border-white/10'
-                          : 'bg-[#1a1a20] text-zinc-300 border border-white/5'
-                        }`}
-                      >
-                        {m.text}
                       </div>
+                    </div>
+                  </div>
 
-                      <span className="text-[10px] text-zinc-500 mt-1">
-                        {m.time}
+                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t border-dashed border-white/5 pt-4 sm:pt-0 sm:border-t-0 px-2 sm:px-0">
+                    <span className="text-[10px] uppercase font-black tracking-widest text-[#444]">
+                      Lead Quality
+                    </span>
+                    <div className="flex items-center gap-2.5 mt-1">
+                      <span className="text-2xl lg:text-3xl font-black text-white italic">
+                        {selectedLead.score}%
+                      </span>
+                      <span className="px-2 py-0.5 text-[9px] font-bold text-emerald-400 bg-emerald-400/10 rounded-full border border-emerald-400/20">
+                        {selectedLead.prob} CONF
                       </span>
                     </div>
-                  ))}
+                  </div>
+                </div>
+
+                {/* CHAT PANEL */}
+                <div className="rounded-3xl border border-white/5 bg-[#121218] p-6 lg:p-8 space-y-6 shadow-2xl relative overflow-hidden group/chat">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+                  
+                  <div className="flex justify-between items-center relative z-10">
+                    <h4 className="text-[11px] font-black uppercase tracking-[3px] text-[#555] flex items-center gap-3">
+                      <MessageSquare size={16} className="text-indigo-500" />
+                      Conversation Log
+                    </h4>
+                    <button className="text-[11px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 flex items-center gap-2 px-3 py-1.5 bg-indigo-500/5 rounded-full border border-indigo-500/10 transition-all">
+                      Open Nexus
+                      <ArrowUpRight size={14} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6 pt-4 relative z-10">
+                    {MOCK_MESSAGES.map((m, i) => (
+                      <div key={i} className={`flex flex-col ${m.role === 'me' ? 'items-end' : 'items-start'}`}>
+                        <div
+                          className={`px-5 py-3 rounded-2xl text-sm max-w-[90%] sm:max-w-[80%] lg:max-w-[70%] shadow-xl transition-all duration-300
+                          ${m.role === 'me'
+                            ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white border border-white/10 shadow-indigo-600/10'
+                            : 'bg-[#1a1a24] text-[#E5E5E5] border border-white/10'
+                          }`}
+                        >
+                          {m.text}
+                        </div>
+                        <span className="text-[10px] font-medium text-[#444] mt-2 px-1">
+                          {m.time}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* RIGHT COLUMN */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-
-              {/* TASKS */}
-              <div className="rounded-xl border border-indigo-500/20 bg-gradient-to-br from-white/[0.18] via-white/[0.08] to-transparent overflow-hidden backdrop-blur">
-
-                <div className="p-5 border-b border-indigo-500/10 text-xs uppercase tracking-widest text-indigo-300">
-                  Flow & Objectives
-                </div>
-
-                {MOCK_TASKS.map(task => (
-                  <div key={task.id} className="p-4 flex items-center justify-between hover:bg-white/[0.03]">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center
-                        ${task.done ? 'bg-indigo-500 border-indigo-500' : 'border-zinc-600'}`}
-                      >
-                        {task.done && <Check size={12} />}
-                      </div>
-                    <div>
-
-                        <p className={`text-sm ${task.done ? 'line-through text-zinc-500' : 'text-white'}`}>
-                          {task.label}
-                        </p>
-
-                        <div className="text-xs text-zinc-500 flex gap-3 mt-1">
-
-                          <span className="flex items-center gap-1">
-                            <Clock size={10} /> {task.due}
-                          </span>
-
-                          <span className="flex items-center gap-1">
-                            <User size={10} /> {task.owner}
-                          </span>
-
+              {/* RIGHT COLUMN - TASKS & AI */}
+              <div className="xl:col-span-4 space-y-8">
+                {/* FLOW OBJECTIVES */}
+                <div className="rounded-3xl border border-white/5 bg-[#121218] overflow-hidden shadow-2xl">
+                  <div className="p-6 border-b border-white/5 bg-white/[0.02]">
+                    <h4 className="text-[11px] font-black uppercase tracking-[3px] text-[#555]">
+                      Active Flow Logic
+                    </h4>
+                  </div>
+                  <div className="divide-y divide-white/5">
+                    {MOCK_TASKS.map(task => (
+                      <div key={task.id} className="p-5 flex items-start justify-between hover:bg-white/[0.02] transition-colors group">
+                        <div className="flex items-start gap-4">
+                          <div
+                            className={`w-6 h-6 rounded-lg border-2 mt-0.5 flex items-center justify-center transition-all
+                            ${task.done ? 'bg-indigo-500 border-indigo-500 shadow-lg shadow-indigo-500/20' : 'border-[#333] group-hover:border-[#444]'}`}
+                          >
+                            {task.done && <Check size={14} strokeWidth={3} className="text-white" />}
+                          </div>
+                          <div>
+                            <p className={`text-[14px] font-bold ${task.done ? 'line-through text-[#444]' : 'text-[#E5E5E5]'}`}>
+                              {task.label}
+                            </p>
+                            <div className="flex items-center gap-4 mt-1.5">
+                              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#555]">
+                                <Clock size={12} className="text-zinc-600" /> {task.due}
+                              </span>
+                              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#555]">
+                                <User size={12} className="text-zinc-600" /> {task.owner}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <MoreHorizontal size={14} className="text-zinc-600" />
+                    ))}
                   </div>
-                ))}
-            </div>
+                </div>
 
-              {/* AI INSIGHTS */}
-              <div className="rounded-xl border border-indigo-500/20 bg-gradient-to-br from-white/[0.18] via-white/[0.08] to-transparent p-5 space-y-4">
+                {/* AI INSIGHTS */}
+                <div className="rounded-3xl border border-indigo-500/10 bg-[#121218] p-6 lg:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/10 blur-[60px] -mr-24 -mt-24 pointer-events-none" />
+                  
+                  <h4 className="text-[11px] font-black uppercase tracking-[3px] text-indigo-400 relative z-10">
+                    Agent Intelligence
+                  </h4>
 
-                <h4 className="text-xs uppercase tracking-widest text-indigo-300">
-                  Contextual Intelligence
-                </h4>
-
-                {[
-                  { icon: Sparkles, text: 'This lead is hot — follow up now.', color: 'text-indigo-400' },
-                  { icon: Target, text: 'Users from WhatsApp convert 40% faster.', color: 'text-emerald-400' },
-                  { icon: TrendingUp, text: 'Suggesting to ask for PAN card next.', color: 'text-blue-400' }
-                ].map((item, i) => (
-
-                  <div
-                    key={i}
-                    className="group flex items-start gap-3 p-3 rounded-lg border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-indigo-400/30 transition-all cursor-pointer"
-                  >
-
-                    <div className="w-8 h-8 rounded-md flex items-center justify-center bg-white/[0.05] border border-white/10 group-hover:scale-105 transition">
-                      <item.icon size={14} className={item.color} />
-                    </div>
-
-                    <p className="text-sm text-white leading-relaxed">
-                      {item.text}
-                    </p>
+                  <div className="space-y-4 relative z-10">
+                    {[
+                      { icon: Sparkles, text: 'This lead is hot — follow up now.', color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
+                      { icon: Target, text: 'Users from WhatsApp convert 40% faster.', color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                      { icon: TrendingUp, text: 'Suggesting to ask for PAN card next.', color: 'text-blue-400', bg: 'bg-blue-400/10' }
+                    ].map((item, i) => (
+                      <div
+                        key={i}
+                        className="group flex items-start gap-4 p-4 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.06] hover:border-indigo-400/20 transition-all cursor-pointer"
+                      >
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.bg} border border-white/5`}>
+                          <item.icon size={18} className={item.color} />
+                        </div>
+                        <p className="text-sm font-medium text-[#E5E5E5] leading-relaxed flex-1">
+                          {item.text}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           </>
@@ -429,4 +412,5 @@ export default function LeadsPage() {
       </div>
     </main>
   </div>
-);}
+  );
+}

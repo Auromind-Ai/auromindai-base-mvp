@@ -1,120 +1,112 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Mail, CheckCircle, ExternalLink, Loader2 } from "lucide-react";
-import { getToken, setAdminBackup,authHeader } from "@/lib/auth";
+import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";
 
 export default function UsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [impersonating, setImpersonating] = useState(null);
 
- useEffect(() => {
+  useEffect(() => {
+    const decodeJwt = (token) => {
+      try {
+        return JSON.parse(atob(token.split(".")[1]));
+      } catch {
+        return null;
+      }
+    };
 
-  const decodeJwt = (token) => {
+    const current = getToken();
     try {
-      return JSON.parse(atob(token.split(".")[1]));
-    } catch {
-      return null;
-    }
-  }
-
-  const current = getToken()
-
-  try {
-
-    const payload = decodeJwt(current)
-
-  if (current && !payload?.impersonated) {
-  localStorage.setItem("admin_backup_token", current) // 🔥 ALWAYS overwrite
-}
-
-  } catch (err) {
-    console.error("Could not set admin backup:", err)
-  }
-
-  const fetchUsers = async () => {
-
-    try {
-
-      setLoading(true)
-
-      const res = await fetch(`${API_BASE}/admin/users`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader(),
-        },
-      })
-
-      if (!res.ok) throw new Error("Failed to fetch users")
-
-      const data = await res.json()
-
-      setUsers(Array.isArray(data) ? data : data.users || [])
-      setError(null)
-
+      const payload = decodeJwt(current);
+      if (current && !payload?.impersonated) {
+        localStorage.setItem("admin_backup_token", current); // 🔥 ALWAYS overwrite
+      }
     } catch (err) {
-
-      setError(err.message)
-      setUsers([])
-
-    } finally {
-
-      setLoading(false)
-
+      console.error("Could not set admin backup:", err);
     }
 
-  }
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const token = getToken();
 
-  fetchUsers()
+        if (!token || token === "null") {
+          router.push("/login?redirect=/admin/users");
+          return;
+        }
 
-}, [])
+        const res = await fetch(`${API_BASE}/admin/users`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader(),
+          },
+        });
+
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+
+        if (!res.ok) throw new Error("Failed to fetch users");
+        const data = await res.json();
+        setUsers(Array.isArray(data) ? data : data.users || []);
+        setError(null);
+      } catch (err) {
+        setError(err.message);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleViewDashboard = async (userId) => {
+    console.log("🚀 ADMIN CLICKED IMPERSONATE");
+    setImpersonating(userId);
 
-  console.log("🚀 ADMIN CLICKED IMPERSONATE")
-  console.log("Target user:", userId)
+    try {
+      const adminToken = localStorage.getItem("admin_backup_token") || getToken();
+      console.log("🔑 Admin token:", adminToken);
 
-  setImpersonating(userId);
+      const res = await fetch(`${API_BASE}/admin/impersonate/${userId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
 
-  try {
+      console.log("📡 Impersonate API status:", res.status);
 
-    const adminToken = localStorage.getItem("admin_backup_token") || getToken();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Failed to create impersonation session");
+      }
 
-    console.log("🔑 Admin token:", adminToken)
+      const data = await res.json();
+      console.log("📦 API Response:", data);
 
-    const res = await fetch(`${API_BASE}/admin/impersonate/${userId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${adminToken}`,
-      },
-    });
+      const { session_id } = data;
+      if (!session_id) {
+        throw new Error("No session ID returned from server");
+      }
 
-    console.log("📡 Impersonate API status:", res.status)
-
-    const data = await res.json()
-
-    console.log("📦 API Response:", data)
-
-    const { session_id } = data
-
-    console.log("🧠 Session ID:", session_id)
-
-    const url = `${CLIENT_URL}/impersonate/${session_id}`;
-
-    console.log("🌐 Opening URL:", url)
-
-    window.open(url, "_blank", "noopener,noreferrer");
-
-  } catch (err) {
-
-    console.error("❌ Impersonation failed:", err);
-
+      console.log("🧠 Session ID:", session_id);
+      const url = `${CLIENT_URL}/impersonate/${session_id}`;
+      console.log("🌐 Opening URL:", url);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("❌ Impersonation failed:", err);
+      alert("Could not start impersonation: " + err.message);
   } finally {
 
     setImpersonating(null);

@@ -5,8 +5,6 @@ from sqlalchemy.dialects.postgresql import UUID
 import enum
 import uuid
 from app.database import Base
-from sqlalchemy.dialects.postgresql import UUID
-import uuid
 
 
 
@@ -35,27 +33,18 @@ class Message(Base):
 
     conversation_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("conversations.id"),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
 
     content = Column(Text)
 
-    sender_type = Column(
-        Enum(SenderType),
-        default=SenderType.USER
-    )
+    sender_type = Column(Enum(SenderType), default=SenderType.USER)
 
-    status = Column(
-        Enum(MessageStatus),
-        default=MessageStatus.RECEIVED
-    )
+    status = Column(Enum(MessageStatus), default=MessageStatus.RECEIVED)
 
-    timestamp = Column(
-        DateTime(timezone=True),
-        server_default=func.now()
-    )
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
 
     is_read = Column(Boolean, default=False)
 
@@ -63,7 +52,7 @@ class Message(Base):
 
     external_id = Column(String(100), nullable=True)
 
-    metadata_json = Column(Text, nullable=True)
+    metadata_json = Column(Text)
 
     conversation = relationship(
         "Conversation",

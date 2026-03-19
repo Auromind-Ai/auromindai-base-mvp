@@ -22,18 +22,25 @@ class ConversationStatus(str, enum.Enum):
 class Conversation(Base):
     __tablename__ = "conversations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"))
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        index=True,
+        nullable=True # Keep nullable=True if it was nullable in base
+    )
 
     phone = Column(String(20), index=True)
 
     user_id = Column(
-    UUID(as_uuid=True),
-    ForeignKey("users.id")
-)
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True
+    )
 
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-    external_id = Column(String, index=True)
+    external_id = Column(String, index=True)  # whatsapp number / IG handle
     contact_name = Column(String)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
@@ -42,7 +49,11 @@ class Conversation(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     owner = relationship("User", back_populates="conversations")
-    messages = relationship("Message", back_populates="conversation")
+    messages = relationship(
+        "Message",
+        back_populates="conversation",
+        cascade="all, delete-orphan"
+    )
 
 
 # ===============================

@@ -1,13 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar, Database, Mail, CheckCircle2, XCircle, ExternalLink, RefreshCw, Clock } from 'lucide-react';
+import { 
+    Calendar, 
+    Mail, 
+    Search, 
+    ChevronDown, 
+    Plus, 
+    Check, 
+    X,
+    Filter,
+    ArrowUpDown,
+    Grid
+} from 'lucide-react';
 import { getWorkspace } from '@/lib/auth';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function IntegrationsPage() {
     const [integrations, setIntegrations] = useState({
         calendar: { connected: false, email: null },
-        zoho: { connected: false, account: null },
         gmail: { connected: false, email: null }
     });
     const [loading, setLoading] = useState(false);
@@ -15,31 +27,22 @@ export default function IntegrationsPage() {
 
     const availableIntegrations = [
         {
-            id: 'calendar',
-            name: 'Google Calendar',
-            description: 'Sync your calendar for intelligent meeting scheduling',
-            icon: Calendar,
-            color: 'from-blue-500 to-cyan-500',
-            features: ['Auto-schedule meetings', 'Check availability', 'Send calendar invites'],
-            comingSoon: false
-        },
-        {
-            id: 'zoho',
-            name: 'Zoho CRM',
-            description: 'Connect your CRM for lead management and automation',
-            icon: Database,
-            color: 'from-orange-500 to-red-500',
-            features: ['Auto-update leads', 'Sync contacts', 'Track interactions'],
-            comingSoon: true
-        },
-        {
             id: 'gmail',
             name: 'Gmail',
-            description: 'Send emails and manage communication',
+            subHeader: 'Most popular',
+            description: 'Draft replies, summarize threads, & search your inbox',
             icon: Mail,
-            color: 'from-purple-500 to-pink-500',
-            features: ['Send emails', 'Email templates', 'Track responses'],
-            comingSoon: false
+            iconColor: '#EA4335',
+            connected: false
+        },
+        {
+            id: 'calendar',
+            name: 'Google Calendar',
+            subHeader: '#2 popular',
+            description: 'Manage your schedule and coordinate meetings effortlessly',
+            icon: Calendar,
+            iconColor: '#4285F4',
+            connected: false
         }
     ];
 
@@ -52,10 +55,10 @@ export default function IntegrationsPage() {
     const loadIntegrationStatus = async () => {
         try {
             const token = localStorage.getItem('token');
-            if (!token) return; // Skip if not logged in
+            if (!token) return;
 
             const response = await fetch(
-                `http://localhost:8000/integrations/status?workspace_id=${workspace.id}`,
+                `${API}/integrations/status?workspace_id=${workspace.id}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
 
@@ -65,34 +68,29 @@ export default function IntegrationsPage() {
             }
         } catch (error) {
             console.error('Failed to load status:', error);
-            // Continue - show all as disconnected
         }
     };
 
     const handleConnect = async (integrationId) => {
         setLoading(true);
         try {
-            if (integrationId === 'calendar' || integrationId === 'gmail') {
-                const token = localStorage.getItem('token');
-                const response = await fetch(
-                    `http://localhost:8000/integrations/google/auth/${integrationId}?workspace_id=${workspace.id}`,
-                    { headers: { 'Authorization': `Bearer ${token}` } }
-                );
+            const token = localStorage.getItem('token');
+            const response = await fetch(
+                `${API}/integrations/google/auth/${integrationId}?workspace_id=${workspace.id}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
 
-                if (!response.ok) {
-                    const error = await response.json();
-                    alert(`Connection failed: ${error.detail || 'Unknown error'}`);
-                    console.error('OAuth init failed:', error);
-                    return;
-                }
+            if (!response.ok) {
+                const error = await response.json();
+                alert(`Connection failed: ${error.detail || 'Unknown error'}`);
+                return;
+            }
 
-                const data = await response.json();
-
-                if (data.authorization_url) {
-                    window.location.href = data.authorization_url;
-                } else {
-                    alert('OAuth not configured - check backend .env');
-                }
+            const data = await response.json();
+            if (data.authorization_url) {
+                window.location.href = data.authorization_url;
+            } else {
+                alert('OAuth not configured - check backend .env');
             }
         } catch (error) {
             console.error('Connection failed:', error);
@@ -107,7 +105,7 @@ export default function IntegrationsPage() {
             try {
                 const token = localStorage.getItem('token');
                 await fetch(
-                    `http://localhost:8000/integrations/disconnect/google_${integrationId}?workspace_id=${workspace.id}`,
+                    `${API}/integrations/disconnect/google_${integrationId}?workspace_id=${workspace.id}`,
                     {
                         method: 'DELETE',
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -121,124 +119,94 @@ export default function IntegrationsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white p-4 lg:p-8">
-            <div className="w-full max-w-[1400px] mx-auto px-4 lg:px-6">
+        <div className="min-h-screen bg-[#1a1a1a] text-[#E5E5E5] p-6 lg:p-12 font-sans overflow-y-auto">
+            <div className="max-w-6xl mx-auto relative">
+                
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-xl lg:text-3xl font-bold mb-2">Integrations</h1>
-                    <p className="text-xs lg:text-sm text-gray-400">
-                        Connect your business tools to unlock AI automation
+                <div className="mb-10 pt-4">
+                    <h1 className="text-4xl font-semibold text-white mb-3">Connectors</h1>
+                    <p className="text-[#888] text-[15px] max-w-2xl leading-relaxed">
+                        Connect Auromind to your apps, files, and services. Connectors are built by Auromind and reviewed by our security team for safety.
                     </p>
                 </div>
 
-                {/* Integration Cards */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-                    {availableIntegrations.map((integration) => {
-                        const Icon = integration.icon;
-                        const status = integrations[integration.id];
+                {/* Toolbar */}
+                <div className="flex flex-wrap items-center gap-3 mb-10">
+                    <div className="relative flex-1 min-w-[300px]">
+                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#555]" />
+                        <input 
+                            type="text" 
+                            placeholder="Search"
+                            className="w-full bg-[#262626] border border-white/5 rounded-xl py-2.5 pl-11 pr-4 text-[15px] text-white placeholder:text-[#555] outline-none focus:border-white/10 transition-all"
+                        />
+                    </div>
+                    
+                    {[
+                        { label: 'Sort', icon: ArrowUpDown },
+                        { label: 'Type', icon: Grid },
+                        { label: 'Categories', icon: Filter }
+                    ].map((btn) => (
+                        <button key={btn.label} className="flex items-center gap-2 px-4 py-2.5 bg-[#262626] border border-white/5 rounded-xl text-[14px] text-[#D4D4D4] hover:bg-[#2d2d2d] transition-all">
+                            {btn.label}
+                            <ChevronDown size={14} className="text-[#666]" />
+                        </button>
+                    ))}
+                </div>
 
+                {/* Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {availableIntegrations.map((item) => {
+                        const isConnected = integrations[item.id]?.connected;
+                        const Icon = item.icon;
+                        
                         return (
-                            <div
-                                key={integration.id}
-                                className={`bg-[#111111] border border-white/10 rounded-2xl p-4 lg:p-6 hover:border-white/20 transition-all ${integration.comingSoon ? 'opacity-70' : ''}`}
+                            <div 
+                                key={item.id}
+                                className="group bg-[#262626] border border-white/5 rounded-2xl p-5 flex items-start gap-5 hover:border-white/10 transition-all cursor-default"
                             >
-                                {/* Icon & Header */}
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center`}>
-                                        <Icon size={20} className="text-white lg:w-6 lg:h-6" />
-                                    </div>
-                                    {integration.comingSoon ? (
-                                        <div className="flex items-center gap-1 text-yellow-500 text-sm">
-                                            <Clock size={16} />
-                                            <span>Coming Soon</span>
-                                        </div>
-                                    ) : status?.connected ? (
-                                        <div className="flex items-center gap-1 text-green-500 text-sm">
-                                            <CheckCircle2 size={16} />
-                                            <span>Connected</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-1 text-gray-500 text-sm">
-                                            <XCircle size={16} />
-                                            <span>Not connected</span>
-                                        </div>
-                                    )}
+                                {/* Platform Icon Wrapper */}
+                                <div className="w-14 h-14 rounded-xl bg-[#1c1c1c] border border-white/5 flex items-center justify-center flex-shrink-0">
+                                    <Icon size={28} style={{ color: item.iconColor }} />
                                 </div>
 
-                                {/* Name & Description */}
-                                <h3 className="text-base lg:text-xl font-semibold mb-2">{integration.name}</h3>
-                                <p className="text-gray-400 text-sm mb-4">{integration.description}</p>
-
-                                {/* Features */}
-                                <ul className="space-y-2 mb-6">
-                                    {integration.features.map((feature, idx) => (
-                                        <li key={idx} className="flex items-center gap-2 text-xs lg:text-sm text-gray-300">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                                            {feature}
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                {/* Connected Info */}
-                                {status?.connected && status?.email && (
-                                    <div className="mb-4 p-3 bg-white/5 rounded-lg">
-                                        <p className="text-xs text-gray-400">Connected as</p>
-                                        <p className="text-sm font-medium">{status.email}</p>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className="text-[17px] font-medium text-white">{item.name}</h3>
+                                        <span className="text-[11px] text-[#555] font-medium uppercase tracking-wider">{item.subHeader}</span>
                                     </div>
-                                )}
+                                    <p className="text-[#888] text-[14px] leading-snug">
+                                        {item.description}
+                                    </p>
+                                </div>
 
                                 {/* Action Button */}
-                                {integration.comingSoon ? (
-                                    <button
-                                        disabled
-                                        className="w-full px-4 py-2 text-xs lg:text-sm bg-yellow-500/10 text-yellow-500 rounded-lg font-medium cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                        <Clock size={16} />
-                                        Coming Soon
-                                    </button>
-                                ) : status?.connected ? (
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleDisconnect(integration.id)}
-                                            className="flex-1 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg font-medium transition-colors"
+                                <div className="pt-1">
+                                    {isConnected ? (
+                                        <button 
+                                            onClick={() => handleDisconnect(item.id)}
+                                            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#666] hover:bg-red-500/10 hover:text-red-400 transition-all"
+                                            title="Click to disconnect"
                                         >
-                                            Disconnect
+                                            <Check size={20} />
                                         </button>
-                                        <button
-                                            onClick={loadIntegrationStatus}
-                                            className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                                    ) : (
+                                        <button 
+                                            onClick={() => handleConnect(item.id)}
+                                            disabled={loading}
+                                            className="w-10 h-10 rounded-xl bg-[#333] border border-white/5 flex items-center justify-center text-[#D4D4D4] hover:bg-[#3d3d3d] hover:text-white hover:border-white/10 transition-all disabled:opacity-50"
                                         >
-                                            <RefreshCw size={16} />
+                                            <Plus size={20} />
                                         </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => handleConnect(integration.id)}
-                                        disabled={loading}
-                                        className="w-full px-4 py-2 text-xs lg:text-sm bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                    >
-                                        Connect {integration.name}
-                                        <ExternalLink size={16} />
-                                    </button>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         );
                     })}
                 </div>
 
-                {/* Help Section */}
-                <div className="mt-8 p-6 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl">
-                    <h3 className="text-sm lg:text-lg font-semibold mb-2">Need help connecting?</h3>
-                    <p className="text-xs lg:text-sm text-gray-400 mb-4">
-                        Google Calendar is ready to connect! Gmail and Zoho CRM integrations are coming soon.
-                    </p>
-                    <a
-                        href="/OAUTH_SETUP.md"
-                        className="text-indigo-400 hover:text-indigo-300 text-sm font-medium flex items-center gap-1"
-                    >
-                        View setup guide
-                        <ExternalLink size={14} />
-                    </a>
+                {/* Footer / Empty space simulation */}
+                <div className="mt-12 text-center text-[#444] text-[13px]">
+                    <p>Auromind AI securely handles your data according to our privacy policy.</p>
                 </div>
             </div>
         </div>

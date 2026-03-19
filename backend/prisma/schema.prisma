@@ -30,8 +30,6 @@ model User {
   password_hash   String?
   is_active       Boolean           @default(true)
   created_at      DateTime          @default(now())
-  password_hash   String
-  is_active       Boolean @default(true)
   
   // Relations
   workspace_members WorkspaceMember[]
@@ -47,23 +45,10 @@ model User {
 model Workspace {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
-<<<<<<< HEAD
-=======
-  created_by  String?
-  created_at  DateTime @default(now())
-<<<<<<< HEAD
-  updated_at  DateTime @updatedAt
-=======
-  
-  planType    String   @default("free") @map("plan_type")
->>>>>>> f316561f43a5252146c5da735295ebf04d323ba3
   created_by  String?  @db.Uuid
-
-  plan_type   String   @default("starter")  // ADD THIS
-
+  plan_type   String   @default("starter")
   created_at  DateTime @default(now())
   updated_at  DateTime? @updatedAt
->>>>>>> dev
 
   members         WorkspaceMember[]
   learning_events LearningEvent[]
@@ -94,13 +79,16 @@ model WorkspaceMember {
 }
 
 model LearningEvent {
-<<<<<<< HEAD
-  id                      String   @id @default(uuid())
-  workspace_id            String
-  user_message            String   @db.Text
-  ai_response             String   @db.Text
-  conversation_id         String?
-  ai_action_id            String?
+  id                      String   @id @default(uuid()) @db.Uuid
+  workspace_id            String   @db.Uuid
+  user_id                 String?  @db.Uuid
+  event_type              String?
+  context                 String?  @db.Text
+  outcome                 String?
+  user_message            String?  @db.Text
+  ai_response             String?  @db.Text
+  conversation_id         String?  @db.Uuid
+  ai_action_id            String?  @db.Uuid
   mcp_verdict             String?
   mcp_confidence          Float?
   feedback_type           String   @default("no_feedback")
@@ -112,47 +100,20 @@ model LearningEvent {
   used_in_training        Boolean  @default(false)
   promoted_to_rule        Boolean  @default(false)
   created_at              DateTime @default(now())
-=======
-  id               String   @id @default(uuid()) @db.Uuid
-  workspace_id     String   @db.Uuid
-  user_id          String?  @db.Uuid
-  event_type       String
-  context          String?  @db.Text
-  outcome          String?
-  confidence_score Float?
-  created_at       DateTime @default(now())
->>>>>>> dev
 
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [user_id], references: [id])
 
-  @@map("ai_learning_events")
+  @@map("learning_events")
 }
 
 model Followup {
-<<<<<<< HEAD
-  id               String    @id @default(uuid())
-  conversation_id  String?
-  scheduled_at     DateTime
-  status           String    @default("pending")
-  message_content  String?   @db.Text
-  followup_count   Int       @default(0)
-  mcp_decision     String?
-  mcp_reason       String?   @db.Text
-  created_at       DateTime  @default(now())
-  executed_at      DateTime?
-=======
-  id           String    @id @default(uuid()) @db.Uuid
-  workspace_id String    @db.Uuid
-  user_id      String?   @db.Uuid
-  title        String
-  description  String?   @db.Text
-  status       String    @default("pending")
-  due_date     DateTime?
-  created_at   DateTime  @default(now())
->>>>>>> dev
-
-  workspace_id     String?
-  user_id          String?
+  id               String    @id @default(uuid()) @db.Uuid
+  workspace_id     String?   @db.Uuid
+  user_id          String?   @db.Uuid
+  conversation_id  String?   @db.Uuid
+  title            String?
+  description      String?   @db.Text
 
   workspace Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   user      User?      @relation(fields: [user_id], references: [id])
@@ -161,30 +122,24 @@ model Followup {
 }
 
 model AIAction {
-<<<<<<< HEAD
-  id               String   @id @default(uuid())
-  workspace_id     String
+  id               String   @id @default(uuid()) @db.Uuid
+  workspace_id     String   @db.Uuid
   action_type      String
+  description      String?  @db.Text
   intent           String?  @db.Text
   intent_raw       String?  @db.Text
+  description      String?  @db.Text
   confidence       Float?
+  decision         String?
   mcp_decision     String?
   mcp_reason       String?  @db.Text
   rule_results     Json?
   context_refs     Json?
   execution_status String   @default("pending")
+  approved         Boolean?
   human_override   Boolean  @default(false)
   action_metadata  Json?
   created_at       DateTime @default(now())
-=======
-  id           String   @id @default(uuid()) @db.Uuid
-  workspace_id String   @db.Uuid
-  action_type  String
-  description  String?  @db.Text
-  decision     String?
-  approved     Boolean?
-  created_at   DateTime @default(now())
->>>>>>> dev
 
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   ai_learning_events  AILearningEvent[]
@@ -220,8 +175,6 @@ model Brain {
   @@map("brain")
 }
 
-
-
 model BrainChunk {
   id            String @id @default(uuid()) @db.Uuid
 
@@ -249,25 +202,12 @@ model BrainChunk {
 }
 
 model Conversation {
-<<<<<<< HEAD
-  id           String   @id @default(uuid())
-  workspace_id String?
-  user_id      String?
-=======
   id           String   @id @default(uuid()) @db.Uuid
   workspace_id String?  @db.Uuid
-  phone        String   @db.VarChar(20)
+  phone        String?  @db.VarChar(20)
   user_id      String?  @db.Uuid
-<<<<<<< HEAD
->>>>>>> dev
   title        String?
-  
-  // Fields from Python model
-  channel      String   @default("WEB") // Enum in Python, String here for simplicity
-=======
-
   channel      ChannelType @default(WEB)
->>>>>>> veera
   external_id  String?
   contact_name String?
   status       ConversationStatus @default(OPEN)
@@ -314,7 +254,6 @@ model ChatMessage {
 }
 
 model Message {
-  id             String   @id @default(uuid())
   conversationId String   @db.Uuid
   content        String?
   senderType     SenderType  @default(USER)
@@ -343,18 +282,12 @@ enum MessageStatus {
 }
 
 model Promise {
-<<<<<<< HEAD
-  id           String   @id @default(uuid())
-  workspace_id String
-  user_id      String?
-  description  String   @db.Text
-  due_date     DateTime?
-=======
   id           String   @id @default(uuid()) @db.Uuid
   workspace_id String   @db.Uuid
   user_id      String?  @db.Uuid
-  promise_text String   @db.Text
->>>>>>> dev
+  description  String?  @db.Text
+  promise_text String?  @db.Text
+  due_date     DateTime?
   status       String   @default("pending")
   source       String   @default("manual")
   ai_action_id String?
@@ -414,8 +347,7 @@ model ConversationThread {
   last_category     String?
   last_priority     String?
 
-  status            String   @default("open")  // open / closed / waiting
-
+  status            String   @default("open")
   last_message_id   String?
 
   created_at        DateTime @default(now())
@@ -443,8 +375,7 @@ model MCPDecision {
   suggested_reply           String?
 
   requires_user_permission  Boolean  @default(false)
-  user_action               String?  // pending / approved / rejected
-
+  user_action               String?
   executed_actions_json     Json?
 
   created_at                DateTime @default(now())
@@ -479,8 +410,7 @@ model EmailMessage {
   subject          String?  @db.Text
   body             String   @db.Text
 
-  direction        String   @db.VarChar(20) // inbound / outbound
-
+  direction        String   @db.VarChar(20)
   is_processed     Boolean  @default(false)
 
   created_at       DateTime @db.Timestamptz(6)
