@@ -10,9 +10,10 @@ from anthropic import AsyncAnthropic
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from app import models, schemas
+from app.services.platform_settings_service import get_setting
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.agentic_rag.vector_store_service import VectorStoreService
+from app import models, schemas
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,11 @@ logger = logging.getLogger(__name__)
 class AIResponseService:
     def __init__(self):
         self.anthropic = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        self.redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+        try:
+            self.redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+        except Exception as e:
+            logger.warning(f"Could not connect to Redis: {e}")
+            self.redis = None
         self.rag_service = get_rag_service()
         # self.vector_store = VectorStoreService() # Placeholder for future vector search
 
@@ -66,14 +71,9 @@ class AIResponseService:
             "conversation_history": history_str,
             "last_message": last_user_msg,
             "conversation_id": conversation_id,
-            "lead_name": contact_name,
-            "lead_phone": contact_phone,
-            "conversation_history": history,
-            "last_message": last_message,
-            "company_knowledge": company_knowledge,
-            "crm_data": mcp_context.get('crm_lead', {}),
-            "calendar_slots": mcp_context.get('calendar_slots', []),
-            "mcp_tools": orchestrator.get_tool_definitions() # Pass tools to Claude
+            "crm_data": {}, # Placeholder
+            "calendar_slots": [], # Placeholder
+            "company_knowledge": knowledge_snippet
         }
 
     async def generate_variants(self, db: Session, conversation_id: str) -> Dict[str, Any]:

@@ -122,5 +122,8 @@ export const restoreAdminToken = () => {
 
   localStorage.setItem("token", backup)
   localStorage.removeItem("admin_backup_token")
+  localStorage.removeItem("is_impersonating")
+  // optionally clear workspace to force re-fetch or restore if backed up
+  // for now, just clearing the flag is enough to stop the banner
   return true
 }

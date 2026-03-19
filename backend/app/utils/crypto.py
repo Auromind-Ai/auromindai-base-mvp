@@ -2,6 +2,8 @@ from cryptography.fernet import Fernet
 import os
 
 SECRET_KEY = os.getenv("ENCRYPTION_KEY", Fernet.generate_key())
+if isinstance(SECRET_KEY, str):
+    SECRET_KEY = SECRET_KEY.encode()
 fernet = Fernet(SECRET_KEY)
 
 def encrypt_value(value: str) -> str:

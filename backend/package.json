@@ -1,12 +1,4 @@
 {
-<<<<<<< HEAD
-=======
-  "dependencies": {
-    "@prisma/client": "^5.22.0",
-    "prisma": "^5.22.0",
-    "recharts": "^3.7.0"
-  },
->>>>>>> dev
   "name": "backend",
   "version": "1.0.0",
   "description": "",
@@ -20,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@prisma/client": "^5.22.0",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "recharts": "^3.7.0"
   }
 }

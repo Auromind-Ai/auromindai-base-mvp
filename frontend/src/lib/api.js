@@ -3,24 +3,26 @@ import { getWorkspaceIdFromToken } from "@/lib/auth"
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-const API_BASE_URL = isLocal
-  ? `http://${window.location.hostname}:8000`
-  : (process.env.NEXT_PUBLIC_API_URL || 'https://auromindai-base-mvp.onrender.com');
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ||
+  (isLocal ? 'http://localhost:8000' : 'https://auromindai-base-mvp.onrender.com');
 
 console.log("Hostname:", typeof window !== 'undefined' ? window.location.hostname : 'node');
 console.log("Selected API_BASE_URL:", API_BASE_URL);
 
 class APIClient {
-  constructor() {
-    this.baseURL = API_BASE_URL;
+  constructor(baseURL = API_BASE_URL) {
+    this.baseURL = baseURL;
+    console.log("APIClient initialized with baseURL:", this.baseURL);
   }
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const isPostOrPut = options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH';
+    
     const config = {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers,
       },
     };
@@ -33,9 +35,14 @@ class APIClient {
       }
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    config.signal = controller.signal;
+
     try {
       console.log(`Fetching: ${url}`);
       const response = await fetch(url, config);
+      clearTimeout(timeoutId);
 
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.indexOf("application/json") !== -1) {

@@ -1,5 +1,7 @@
 'use client';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -28,12 +30,12 @@ export default function GoogleCallbackPage() {
                     return;
                 }
 
-                setStatus('Completing connection...');
+                setStatus('Completing connection...`);
 
                 // Send to backend
                 const response = await fetch(
-                    `http://localhost:8000/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-                    { method: 'GET' }
+                    `${API}/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+                    { method: `GET' }
                 );
 
                 if (!response.ok) {

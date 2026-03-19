@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useParams } from "next/navigation"
-import { setToken, backupAdminToken } from "@/lib/auth"
+import { setToken, setUser, setWorkspace, backupAdminToken } from "@/lib/auth"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
@@ -11,55 +11,91 @@ export default function Page() {
   const params = useParams()
 
   useEffect(() => {
-
     async function start() {
+      try {
+        console.log("🚀 START IMPERSONATION PAGE")
+        const sessionId = params?.session_id
+        
+        if (!sessionId) {
+          throw new Error("No session ID found")
+        }
 
-      console.log("🚀 START IMPERSONATION PAGE")
+        const url = `${API_BASE}/admin/impersonate/session/${sessionId}`
+        console.log("Calling API:", url)
 
-      console.log("Session param:", params.session_id)
+        const res = await fetch(url, { cache: "no-store" })
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.detail || "Failed to start session")
+        }
 
-      const url = `${API_BASE}/admin/impersonate/session/${params.session_id}`
+        const data = await res.json()
+        console.log("✅ [DEBUG] Session Data:", data)
+        
+        if (!data.token || !data.user) {
+           throw new Error("Invalid session response from server")
+        }
 
-      console.log("Calling API:", url)
+        // 1. Storage Operations
+        console.log("💾 [DEBUG] Storage: Backing up admin and setting user...")
+        backupAdminToken()
+        setToken(data.token)
+        setUser(data.user)
+        localStorage.setItem("is_impersonating", "true")
 
-      const res = await fetch(url, { cache: "no-store" })
+        // 2. Fetch Workspaces
+        console.log("🔍 [DEBUG] Fetching workspaces...")
+        try {
+          const wsRes = await fetch(`${API_BASE}/auth/workspaces`, {
+            headers: { 'Authorization': `Bearer ${data.token}` }
+          })
+          
+          if (wsRes.ok) {
+            const { workspaces = [] } = await wsRes.json()
+            console.log("🏢 [DEBUG] Workspaces:", workspaces)
+            
+            let targetWorkspace = null
+            try {
+              const payload = JSON.parse(atob(data.token.split(".")[1]))
+              if (payload.workspace_id) {
+                 targetWorkspace = workspaces.find(w => w.id === payload.workspace_id)
+              }
+            } catch (pErr) { console.warn("Payload decode fail", pErr) }
 
-      console.log("API status:", res.status)
+            if (!targetWorkspace && workspaces.length > 0) targetWorkspace = workspaces[0]
+            
+            if (targetWorkspace) {
+              console.log("📍 [DEBUG] Setting workspace:", targetWorkspace.name)
+              setWorkspace(targetWorkspace)
+              localStorage.setItem("workspace_id", targetWorkspace.id)
+            } else {
+              console.warn("⚠️ No workspace found")
+              localStorage.removeItem("workspace")
+            }
+          }
+        } catch (wsErr) {
+          console.error("Failed workspace fetch", wsErr)
+        }
 
-      const data = await res.json()
+        console.log("🚀 [DEBUG] Final check before redirect:", {
+            token: !!localStorage.getItem('token'),
+            user: !!localStorage.getItem('user'),
+            is_imp: localStorage.getItem('is_impersonating')
+        })
 
-      console.log("Received token:", data.token)
+        // 3. Final Redirect
+        window.location.replace("/user/admin/dashboard")
 
-      const payload = JSON.parse(atob(data.token.split(".")[1]))
-
-      console.log("Decoded token payload:", payload)
-
-      // backup admin token
-      backupAdminToken()
-setToken(data.token)
-
-const wsRes = await fetch(`${API_BASE}/auth/workspaces`, {
-  headers: {
-    Authorization: `Bearer ${data.token}`
-  }
-})
-
-const dataWs = await wsRes.json()
-const workspaces = dataWs.workspaces
-
-const workspace = workspaces.find(w => w.id === payload.workspace_id)
-
-localStorage.setItem("workspace_id", workspace.id)
-localStorage.setItem("workspace", JSON.stringify(workspace))
-
-window.location.replace("/user/admin/dashboard")
-
+      } catch (err) {
+        console.error("❌ [CRITICAL] Impersonation failed:", err)
+        alert("Impersonation failed: " + err.message)
+      }
     }
 
     if (params?.session_id) {
       start()
     }
-
+  }, [params])
   }, [params])
 
   return (
