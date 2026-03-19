@@ -21,10 +21,15 @@ def init_db():
     """Create all tables"""
     print("Creating database tables...")
     
-    # Enable pgvector extension first
-    with engine.connect() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        conn.commit()
+    # Enable pgvector extension first (non-fatal if permissions are missing)
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            conn.commit()
+            print("✅ pgvector extension enabled.")
+    except Exception as e:
+        print(f"⚠️  Could not enable pgvector (might require superuser): {e}")
+        print("   Continuing with table creation...")
     
     # Add missing columns to existing tables if they don't exist
     with engine.connect() as conn:

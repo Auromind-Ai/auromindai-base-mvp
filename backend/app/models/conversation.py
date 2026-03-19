@@ -22,7 +22,6 @@ class ConversationStatus(str, enum.Enum):
 class Conversation(Base):
     __tablename__ = "conversations"
 
-<<<<<<< HEAD
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
 
     workspace_id = Column(
@@ -31,6 +30,8 @@ class Conversation(Base):
         index=True,
         nullable=False
     )
+
+    phone = Column(String(20), index=True)
 
     user_id = Column(
         UUID(as_uuid=True),
@@ -41,49 +42,15 @@ class Conversation(Base):
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
 
     external_id = Column(String, index=True)  # whatsapp number / IG handle
-=======
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
 
-    workspace_id = Column(String(36), index=True)
-
-    phone = Column(String(20), index=True)
-
-    user_id = Column(String(36), ForeignKey("users.id"))
-
-    channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-
-    external_id = Column(String, index=True)
-
->>>>>>> origin/veera
     contact_name = Column(String)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
 
-<<<<<<< HEAD
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     owner = relationship("User", back_populates="conversations")
-=======
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        default=func.now(),
-        nullable=False,
-    )
-
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
-    owner = relationship("User", back_populates="conversations")
-
-    messages = relationship("Message", back_populates="conversation")
->>>>>>> origin/veera
 
     messages = relationship(
         "Message",

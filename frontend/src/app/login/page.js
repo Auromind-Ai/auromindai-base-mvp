@@ -1,14 +1,18 @@
 'use client';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, ArrowRight, Loader2, Cpu, Lock } from 'lucide-react';
-import { setToken, setUser, setWorkspace } from '@/lib/auth';
+import { setToken, setUser, setWorkspace, isAuthenticated } from '@/lib/auth';
 
 export default function LoginPage() {
 
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const redirectPath = searchParams.get('redirect');
 
     const [formData, setFormData] = useState({
         email: '',
@@ -17,6 +21,13 @@ export default function LoginPage() {
 
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Auto-redirect if already logged in
+    useEffect(() => {
+        if (isAuthenticated()) {
+            router.push(redirectPath || '/user/admin/dashboard');
+        }
+    }, [router, redirectPath]);
 
     const handleSubmit = async (e) => {
 
@@ -30,7 +41,7 @@ export default function LoginPage() {
             body.append("username", formData.email);
             body.append("password", formData.password);
 
-            const response = await fetch("http://localhost:8002/auth/login", {
+            const response = await fetch(`${API}/auth/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded"
@@ -49,11 +60,16 @@ export default function LoginPage() {
             setToken(data.access_token);
             setUser(data.user);
 
+            // Set backup if it's an admin
+            if (data.user?.role === 'admin' || data.user?.is_platform_admin) {
+                localStorage.setItem("admin_backup_token", data.access_token);
+            }
+
             if (data.workspaces && data.workspaces.length > 0) {
                 setWorkspace(data.workspaces[0]);
             }
 
-            router.push('/user/admin/dashboard');
+            router.push(redirectPath || '/user/admin/dashboard');
 
         } catch (err) {
             setError(err.message || 'Login failed. Please check your credentials.');
@@ -104,17 +120,16 @@ export default function LoginPage() {
 
                 <div className="flex flex-col items-center mb-8">
 
-                    <Link href="/" className="group flex items-center gap-3 mb-6">
-
+                    <div 
+                        className="group flex items-center gap-3 mb-6 cursor-default select-none transition-transform active:scale-95"
+                    >
                         <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
                             <Cpu className="text-white" size={24} strokeWidth={2.5} />
                         </div>
-
                         <span className="text-3xl font-extrabold text-white tracking-tight">
                             Auromind
                         </span>
-
-                    </Link>
+                    </div>
 
                     <h1 className="text-2xl font-bold text-white mb-2">
                         Welcome back
@@ -126,8 +141,7 @@ export default function LoginPage() {
 
                 </div>
 
-                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl relative">
-
+                <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
                     {error && (
                         <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-shake">
                             {error}

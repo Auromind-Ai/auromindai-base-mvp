@@ -8,3 +8,5 @@ from .followup import Followup
 from .promise import Promise
 from .learning_event import LearningEvent, FeedbackType
 from .platform_setting import PlatformSetting
+from .payments import PaymentSettings
+from .impersonation import ImpersonationSession

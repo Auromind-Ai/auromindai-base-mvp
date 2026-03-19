@@ -20,7 +20,7 @@ export default function LogsPage() {
 
         setLoading(true)
 
-        const response = await fetch("http://localhost:8002/admin/logs")
+        const response = await fetch("http://localhost:8000/admin/logs")
 
         if (!response.ok) throw new Error("Failed to fetch logs")
 

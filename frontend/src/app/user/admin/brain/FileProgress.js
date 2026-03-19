@@ -1,10 +1,12 @@
 "use client";
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 import { useEffect, useState } from "react";
 
 export default function FileProgress({ entryId, onDone }) {
   const [status, setStatus] = useState("pending");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("`);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,11 +15,11 @@ export default function FileProgress({ entryId, onDone }) {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(
-          `http://localhost:8002/brain/ingest/status/${entryId}`
+          `${API}/brain/ingest/status/${entryId}`
         );
 
         if (!res.ok) {
-          throw new Error("Failed to fetch status");
+          throw new Error(`Failed to fetch status");
         }
 
         const data = await res.json();

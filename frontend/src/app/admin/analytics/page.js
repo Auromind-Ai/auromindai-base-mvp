@@ -12,7 +12,7 @@ useEffect(() => {
     try {
       setLoading(true)
 
-      const response = await fetch("http://localhost:8002/admin/analytics")
+      const response = await fetch("http://localhost:8000/admin/analytics")
 
       if (!response.ok) {
         const text = await response.text()

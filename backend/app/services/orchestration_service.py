@@ -99,3 +99,41 @@ class OrchestrationService:
             return {"status": "success", "msg": "Promises extracted and saved to domain entities"}
         
         return {"status": "success", "msg": "Generic action executed"}
+
+    @staticmethod
+    def execute_flow(
+        db: Session,
+        workspace_id: uuid.UUID,
+        flow_data: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Executes a sequence of actions based on a flow graph.
+        Follows the edges to traverse the automation logic.
+        """
+        results = []
+        nodes = flow_data.get("nodes", [])
+        edges = flow_data.get("edges", [])
+        
+        # Simple linear traversal for MVP
+        # Start with trigger, then follow edges
+        current_node = next((n for n in nodes if n["type"] == "trigger"), None)
+        
+        while current_node:
+            if current_node["type"] == "action":
+                res = OrchestrationService._execute_action(
+                    db=db,
+                    action_id=uuid.uuid4(), # Virtual action ID for execution
+                    action_type=current_node.get("config", {}).get("type", "generic"),
+                    metadata=current_node.get("config", {})
+                )
+                results.append({"node_id": current_node["id"], "result": res})
+            
+            # Find next node
+            edge = next((e for e in edges if e["source"] == current_node["id"]), None)
+            if edge:
+                current_node = next((n for n in nodes if n["id"] == edge["target"]), None)
+            else:
+                current_node = None
+                
+        return results
+

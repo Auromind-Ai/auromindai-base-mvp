@@ -11,7 +11,7 @@ export default function RAGBrainPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8002/admin/rag')
+      const response = await fetch('http://localhost:8000/admin/rag')
       if (!response.ok) throw new Error('Failed to fetch RAG data')
       const result = await response.json()
       console.log(result)
