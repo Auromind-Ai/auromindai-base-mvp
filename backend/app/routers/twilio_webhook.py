@@ -5,7 +5,7 @@ from app.services.twilio_service import TwilioService
 from twilio.twiml.messaging_response import MessagingResponse
 import logging
 import uuid
-from app.services.rag_service import get_rag_service
+from app.services.agentic_rag.rag_service import get_rag_service
 from app.workers.tasks import process_whatsapp_message
 from datetime import datetime
 from app.models.message import MessageStatus

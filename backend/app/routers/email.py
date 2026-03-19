@@ -4,7 +4,7 @@ from app.database import get_db
 from app.models.brain import EmailMessage, MCPDecision
 from app.routers.auth import get_current_user
 import json
-from app.services.email_reply_excutor import EmailReplyExecutor
+from app.services.email_automation.email_reply_excutor import EmailReplyExecutor
 
 
 router = APIRouter(prefix="/email", tags=["email"])

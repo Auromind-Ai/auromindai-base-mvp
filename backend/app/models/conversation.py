@@ -1,10 +1,10 @@
 from sqlalchemy import Column, ForeignKey, String, DateTime, Enum, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
 import enum
 import uuid
 from app.database import Base
+from sqlalchemy.dialects.postgresql import UUID
 
 
 class ChannelType(str, enum.Enum):
@@ -28,7 +28,7 @@ class Conversation(Base):
         UUID(as_uuid=True),
         ForeignKey("workspaces.id", ondelete="CASCADE"),
         index=True,
-        nullable=False
+        nullable=True # Keep nullable=True if it was nullable in base
     )
 
     phone = Column(String(20), index=True)
@@ -40,18 +40,15 @@ class Conversation(Base):
     )
 
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-
     external_id = Column(String, index=True)  # whatsapp number / IG handle
-
     contact_name = Column(String)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     owner = relationship("User", back_populates="conversations")
-
     messages = relationship(
         "Message",
         back_populates="conversation",
@@ -60,26 +57,18 @@ class Conversation(Base):
 
 
 # ===============================
-# AI Chat Sessions
+# Chat Sessions
 # ===============================
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("workspaces.id", ondelete="CASCADE"),
-        index=True
-    )
-
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"))
     user_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        index=True
-    )
-
+    UUID(as_uuid=True),
+    ForeignKey("users.id")
+)
     title = Column(String, default="New Chat")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -99,16 +88,13 @@ class ChatSession(Base):
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
-        index=True
+    UUID(as_uuid=True),
+    ForeignKey("chat_sessions.id"),
+    nullable=False
     )
-
-    role = Column(String)  # user / assistant / system
-
+    role = Column(String) # user, assistant, system
     content = Column(Text)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -116,3 +102,4 @@ class ChatMessage(Base):
     metadata_json = Column(Text)
 
     session = relationship("ChatSession", back_populates="messages")
+

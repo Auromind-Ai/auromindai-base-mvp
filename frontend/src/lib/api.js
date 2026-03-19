@@ -1,4 +1,5 @@
 console.log("API CLIENT VERSION: 1.1.20");
+import { getWorkspaceIdFromToken } from "@/lib/auth"
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
@@ -243,9 +244,13 @@ class APIClient {
   /**
    * Get all Brain entries for a workspace
    */
-  async getBrainEntries(workspace_id) {
-    return this.get(`/brain/entries?workspace_id=${workspace_id}`);
-  }
+async getBrainEntries() {
+
+  const workspace_id = getWorkspaceIdFromToken()
+
+  return this.get(`/brain/entries?workspace_id=${workspace_id}`);
+
+}
 
   /**
    * Delete a Brain entry

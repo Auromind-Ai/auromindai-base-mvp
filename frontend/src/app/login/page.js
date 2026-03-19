@@ -14,11 +14,7 @@ export default function LoginPage() {
     const searchParams = useSearchParams();
     const redirectPath = searchParams.get('redirect');
 
-    const [formData, setFormData] = useState({
-        email: '',
-        password: ''
-    });
-
+    const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -30,49 +26,50 @@ export default function LoginPage() {
     }, [router, redirectPath]);
 
     const handleSubmit = async (e) => {
-
         e.preventDefault();
         setError('');
         setLoading(true);
 
         try {
-
-            const body = new URLSearchParams();
-            body.append("username", formData.email);
-            body.append("password", formData.password);
-
             const response = await fetch(`${API}/auth/login`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/json"
                 },
-                body
+                body: JSON.stringify({ email: email })
             });
 
             const data = await response.json();
-
             console.log("Login API Response:", data);
 
             if (!response.ok) {
                 throw new Error(data.detail || "Login failed");
             }
 
+            // 🔥 Backup admin token if applicable
+            const adminToken = localStorage.getItem("admin_backup_token");
+            localStorage.clear();
+            if (adminToken) {
+                localStorage.setItem("admin_backup_token", adminToken);
+            }
+
+            // Set fresh data
             setToken(data.access_token);
             setUser(data.user);
 
-            // Set backup if it's an admin
             if (data.user?.role === 'admin' || data.user?.is_platform_admin) {
                 localStorage.setItem("admin_backup_token", data.access_token);
             }
 
             if (data.workspaces && data.workspaces.length > 0) {
                 setWorkspace(data.workspaces[0]);
+                localStorage.setItem("workspace_id", data.workspaces[0].id);
             }
 
             router.push(redirectPath || '/user/admin/dashboard');
 
         } catch (err) {
-            setError(err.message || 'Login failed. Please check your credentials.');
+            setError(err.message || 'Login failed');
         } finally {
             setLoading(false);
         }
@@ -111,6 +108,7 @@ export default function LoginPage() {
 
         <div className="min-h-screen bg-slate-950 text-slate-200 flex items-center justify-center p-6 font-sans">
 
+            {/* background glow */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-900/20 blur-[120px]" />
                 <div className="absolute bottom-[10%] right-[-5%] w-[35%] h-[35%] rounded-full bg-purple-900/15 blur-[100px]" />
@@ -118,6 +116,7 @@ export default function LoginPage() {
 
             <div className="w-full max-w-md animate-fade-in">
 
+                {/* logo */}
                 <div className="flex flex-col items-center mb-8">
 
                     <div 
@@ -136,7 +135,7 @@ export default function LoginPage() {
                     </h1>
 
                     <p className="text-slate-400 text-center">
-                        Login to your AI workforce dashboard
+                        Login with your email
                     </p>
 
                 </div>
@@ -156,96 +155,45 @@ export default function LoginPage() {
                                 Email Address
                             </label>
 
+                            <label className="text-sm font-medium text-slate-300 ml-1">Email Address</label>
                             <div className="relative">
-
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-500">
-                                    <Mail size={18}/>
-                                </div>
-
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                                 <input
                                     type="email"
-                                    value={formData.email}
-                                    onChange={(e) =>
-                                        setFormData({
-                                            ...formData,
-                                            email: e.target.value
-                                        })
-                                    }
                                     required
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-slate-800/50 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                                    placeholder="owner@business.com"
                                 />
-
                             </div>
-
-                        </div>
-
-                        <div className="space-y-2">
-
-                            <label className="text-sm font-semibold text-slate-300 ml-1">
-                                Password
-                            </label>
-
-                            <div className="relative">
-
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-500">
-                                    <Lock size={18}/>
-                                </div>
-
-                                <input
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={(e) =>
-                                        setFormData({
-                                            ...formData,
-                                            password: e.target.value
-                                        })
-                                    }
-                                    required
-                                    className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white"
-                                />
-
-                            </div>
-
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-2xl shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group transition-all"
                         >
-
                             {loading ? (
-                                <>
-                                    <Loader2 className="animate-spin" size={20}/>
-                                    Verifying...
-                                </>
+                                <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
                                 <>
-                                    Continue
-                                    <ArrowRight size={20}/>
+                                    Log In to Console
+                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                                 </>
                             )}
-
                         </button>
-
                     </form>
 
                     <div className="mt-8 text-center text-sm text-slate-400">
-
                         Don't have an account?{" "}
-
                         <Link href="/signup" className="text-indigo-400 font-bold">
                             Sign up free
                         </Link>
-
                     </div>
-
                 </div>
-
             </div>
-
         </div>
-
     );
 
 }

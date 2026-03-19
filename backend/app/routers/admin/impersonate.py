@@ -2,8 +2,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
-
-
 import uuid
 
 from app.database import get_db
@@ -24,12 +22,9 @@ def create_impersonation_session(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-
-
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
- 
         raise HTTPException(status_code=404, detail="User not found")
 
     print(f"🚀 CREATING IMPERSONATION SESSION for user {user_id}")
@@ -61,6 +56,7 @@ def create_impersonation_session(
     return {
         "session_id": session_id
     }
+
 @router.get("/impersonate/session/{session_id}")
 def start_impersonation(
     session_id: str,
@@ -108,12 +104,9 @@ def start_impersonation(
 
     user = db.query(User).filter(User.id == user_id).first()
 
-
-
     workspace = db.query(Workspace).filter(
         Workspace.created_by == user.id
     ).first()
-
 
     workspace_id = str(workspace.id) if workspace else None
 
@@ -124,7 +117,6 @@ def start_impersonation(
         "impersonated": True,
         "admin_id": str(admin_id)
     }
-
 
     token = create_access_token(
         data=token_data,

@@ -1,27 +1,27 @@
 import logging
 import os
 
-# create logs folder
-os.makedirs("logs", exist_ok=True)
+# project root path
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
-LOG_FILE = "logs/app.log"
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+
+# create logs folder
+os.makedirs(LOG_DIR, exist_ok=True)
+
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
 
 logger = logging.getLogger("auromind")
 logger.setLevel(logging.INFO)
-
-# prevent duplicate logs
 logger.propagate = False
 
-# formatter
 formatter = logging.Formatter(
     "%(asctime)s | %(levelname)s | %(message)s"
 )
 
-# file handler
 file_handler = logging.FileHandler(LOG_FILE)
 file_handler.setFormatter(formatter)
 
-# console handler (optional)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
