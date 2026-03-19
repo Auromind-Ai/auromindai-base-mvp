@@ -1,0 +1,145 @@
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from datetime import datetime, timezone, timedelta
+
+
+import uuid
+
+from app.database import get_db
+from app.models.user import User
+from app.models.workspace import Workspace
+from app.models.impersonation import ImpersonationSession
+from app.utils.auth import create_access_token
+from app.routers.auth import get_current_user
+
+router = APIRouter()
+
+# In-memory fallback for environments with DB restrictions
+SESSION_CACHE = {}
+
+@router.post("/impersonate/{user_id}")
+def create_impersonation_session(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+ 
+        raise HTTPException(status_code=404, detail="User not found")
+
+    print(f"🚀 CREATING IMPERSONATION SESSION for user {user_id}")
+    session_id = str(uuid.uuid4())
+    print(f"🧠 Generated Session ID: {session_id}")
+
+    session = ImpersonationSession(
+        session_id=session_id,
+        admin_id=current_user.id,
+        user_id=user.id,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=5)
+    )
+
+    try:
+        db.add(session)
+        db.commit()
+        print("✅ Session saved to DB")
+    except Exception as e:
+        print(f"⚠️ FAILED to save session to DB (using in-memory fallback): {e}")
+        db.rollback()
+    
+    # Always save to in-memory fallback to be safe
+    SESSION_CACHE[session_id] = {
+        "admin_id": str(current_user.id),
+        "user_id": str(user.id),
+        "expires_at": session.expires_at
+    }
+
+    return {
+        "session_id": session_id
+    }
+@router.get("/impersonate/session/{session_id}")
+def start_impersonation(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+
+    print("🚀 START IMPERSONATION SESSION")
+    print("Session ID:", session_id)
+
+    # Try DB first
+    session = db.query(ImpersonationSession).filter(
+        ImpersonationSession.session_id == session_id
+    ).first()
+
+    admin_id = None
+    user_id = None
+    expires_at = None
+
+    if session:
+        if session.used:
+            raise HTTPException(status_code=400, detail="Session already used")
+        admin_id = session.admin_id
+        user_id = session.user_id
+        expires_at = session.expires_at
+    elif session_id in SESSION_CACHE:
+        cached = SESSION_CACHE.pop(session_id) # One-time use
+        admin_id = cached["admin_id"]
+        user_id = cached["user_id"]
+        expires_at = cached["expires_at"]
+        print(f"📦 Using cached session for {user_id}")
+    
+    if not admin_id or not user_id:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+
+    if expires_at:
+        # Ensure we have a datetime object for comparison
+        if isinstance(expires_at, str):
+            try:
+                expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except:
+                pass
+        
+        if isinstance(expires_at, datetime) and expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Session expired")
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+
+
+    workspace = db.query(Workspace).filter(
+        Workspace.created_by == user.id
+    ).first()
+
+
+    workspace_id = str(workspace.id) if workspace else None
+
+    token_data = {
+        "sub": str(user.id),
+        "email": user.email,
+        "workspace_id": workspace_id,
+        "impersonated": True,
+        "admin_id": str(admin_id)
+    }
+
+
+    token = create_access_token(
+        data=token_data,
+        expires_delta=timedelta(minutes=15)
+    )
+
+    if session:
+        session.used = True
+        db.commit()
+
+    return {
+        "token": token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.full_name if hasattr(user, 'full_name') else user.email.split('@')[0]
+        }
+    }

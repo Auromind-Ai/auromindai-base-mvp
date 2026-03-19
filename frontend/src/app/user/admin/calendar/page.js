@@ -1,5 +1,7 @@
 'use client';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 import { useState, useEffect } from 'react';
 import { Calendar, ExternalLink, Settings, Plus } from 'lucide-react';
 import { getWorkspace } from '@/lib/auth';
@@ -16,10 +18,10 @@ export default function CalendarPage() {
 
     const checkConnection = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token`);
             const response = await fetch(
-                `http://localhost:8002/integrations/status?workspace_id=${workspace?.id}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
+                `${API}/integrations/status?workspace_id=${workspace?.id}`,
+                { headers: { `Authorization': `Bearer ${token}` } }
             );
 
             if (response.ok) {

@@ -22,7 +22,11 @@ logger = logging.getLogger(__name__)
 class AIResponseService:
     def __init__(self):
         self.anthropic = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        self.redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+        try:
+            self.redis = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379"))
+        except Exception as e:
+            logger.warning(f"Could not connect to Redis: {e}")
+            self.redis = None
         self.rag_service = get_rag_service()
         # self.vector_store = VectorStoreService() # Placeholder for future vector search
 

@@ -1,416 +1,371 @@
-'use client'
+'use client';
 
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-Search,
-Phone,
-Instagram,
-Globe,
-Mail,
-Paperclip,
-Zap,
-Sparkles,
-Send,
-Clock,
-User,
-Star,
-Calendar,
-ArrowRight,
-ChevronRight,
-Info
-} from 'lucide-react'
-
-const API = "http://localhost:8000"
+    Search,
+    Phone,
+    Instagram,
+    Globe,
+    Mail,
+    Paperclip,
+    Zap,
+    Sparkles,
+    Send,
+    Clock,
+    User,
+    Star,
+    Calendar,
+    ArrowRight,
+    ChevronRight,
+    MoreHorizontal,
+    Info
+} from 'lucide-react';
 
 const CHANNELS = [
-{ id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#22c55e' },
-{ id: 'instagram', label: 'Instagram', icon: Instagram, color: '#ec4899' },
-{ id: 'web', label: 'Web Chat', icon: Globe, color: '#3b82f6' },
-{ id: 'email', label: 'Email', icon: Mail, color: '#f97316' }
-]
+    { id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#25D366' },
+    { id: 'instagram', label: 'Instagram', icon: Instagram, color: '#E4405F' },
+    { id: 'email', label: 'Email', icon: Mail, color: '#EA4335' }
+];
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function InboxPage() {
-
-const [channel,setChannel]=useState(CHANNELS[0])
-const [conversations,setConversations]=useState([])
-const [messages,setMessages]=useState([])
-const [selected,setSelected]=useState(null)
-const [input,setInput]=useState("")
-const [aiSuggestion,setAiSuggestion]=useState("")
-const [showInfo,setShowInfo]=useState(true)
-
-const bottomRef=useRef(null)
-
-useEffect(()=>{
-fetchConversations()
-},[])
-
-useEffect(()=>{
-bottomRef.current?.scrollIntoView({behavior:"smooth"})
-},[messages])
-
-async function fetchConversations(){
-const res=await fetch(`${API}/twilio/conversations`)
-const data = await res.json()
-
-if (Array.isArray(data)) {
-setConversations(data)
-} else if (Array.isArray(data.data)) {
-setConversations(data.data)
-} else {
-setConversations([])
-}
-if(data.length>0){
-setSelected(data[0])
-fetchMessages(data[0].id)
-}
-}
-
-async function fetchMessages(id){
-const res=await fetch(`${API}/twilio/conversations/${id}`)
-const data=await res.json()
-setMessages(data)
-}
-
-async function sendMessage(){
-
-if(!input.trim()) return
-
-await fetch(`${API}/twilio/send-reply`,{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-conversation_id:selected.id,
-phone:selected.phone,
-message:input
-})
-})
-
-setInput("")
-fetchMessages(selected.id)
-
-}
-
-async function generateSuggestion(){
-
-if(!selected) return
-
-const res=await fetch(`${API}/twilio/ai-suggest`,{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-conversation_id:selected.id,
-workspace_id:selected.workspace_id,
-message:messages[messages.length-1]?.content || ""
-})
-})
-
-const data=await res.json()
-setAiSuggestion(data.suggestion)
-
-}
-
-function useSuggestion(){
-setInput(aiSuggestion)
-setAiSuggestion("")
-}
-
-const Icon = channel.icon
-
-return (
-<div className="h-screen flex flex-col bg-[#0f0f0f]">
-
-<div className="flex items-center gap-1 px-4 py-3 bg-[#161616] border-b border-[#1f1f1f]">
-{CHANNELS.map((c)=>{
-const Ic=c.icon
-const active=channel.id===c.id
-return(
-<button
-key={c.id}
-onClick={()=>setChannel(c)}
-className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-medium transition-all ${active?'text-white':'text-[#666] hover:text-[#999]'}`}
-style={{backgroundColor:active?c.color:'transparent'}}
->
-<Ic size={15}/>
-{c.label}
-</button>
-)
-})}
-</div>
-
-<div className="flex flex-1 overflow-hidden">
-
-<div className="w-[340px] bg-[#161616] border-r border-[#1f1f1f] flex flex-col">
-
-<div className="p-4">
-<div className="flex items-center gap-2 text-[13px] font-semibold mb-4" style={{color:channel.color}}>
-<Icon size={15}/>
-{channel.label} Leads
-</div>
-
-<div className="relative">
-<Search size={15} className="absolute left-3 top-3 text-[#444]" />
-<input
-placeholder="Search"
-className="w-full pl-10 pr-4 py-2.5 bg-[#1c1c1c] border border-[#282828] rounded-xl text-[13px] text-white"
-/>
-</div>
-</div>
-
-<div className="flex-1 overflow-y-auto px-2">
-
-{Array.isArray(conversations) && conversations.map((c)=>{
-
-const selectedConv=selected?.id===c.id
-
-return(
-<button
-key={c.id}
-onClick={()=>{
-setSelected(c)
-fetchMessages(c.id)
-}}
-className={`w-full p-3 mb-1 rounded-xl text-left ${selectedConv?'bg-[#1f1f1f]':'hover:bg-[#1a1a1a]'}`}
->
-<div className="flex items-center gap-3">
-
-<div className="w-11 h-11 rounded-full flex items-center justify-center text-[14px] font-semibold"
-style={{backgroundColor:`${channel.color}18`,color:channel.color}}>
-{c.phone?.slice(-2)}
-</div>
-
-<div className="flex-1">
-
-<div className="text-[13px] text-white">
-{c.phone}
-</div>
-
-<div className="text-[11px] text-[#666] truncate">
-Conversation
-</div>
-
-</div>
-
-</div>
-</button>
-)
-
-})}
-
-</div>
-
-</div>
-
-<div className="flex-1 flex flex-col bg-[#0f0f0f]">
-
-{selected ? (
-
-<>
-
-<div className="flex items-center justify-between px-6 py-4 bg-[#161616] border-b border-[#1f1f1f]">
-
-<div className="flex items-center gap-3">
-
-<div className="w-11 h-11 rounded-full flex items-center justify-center text-[14px] font-semibold"
-style={{backgroundColor:`${channel.color}18`,color:channel.color}}>
-{selected.phone?.slice(-2)}
-</div>
-
-<div>
-<h3 className="text-[14px] font-semibold text-white">
-{selected.phone}
-</h3>
-<p className="text-[12px]" style={{color:channel.color}}>
-{channel.label}
-</p>
-</div>
-
-</div>
-
-<button onClick={()=>setShowInfo(!showInfo)}>
-<Info size={18}/>
-</button>
-
-</div>
-
-<div className="flex-1 overflow-y-auto p-6">
-
-<div className="max-w-3xl mx-auto space-y-3">
-
-{messages.map((m)=>{
-
-const isUser=m.sender_type==="USER"
-const isAI=m.sender_type==="AI"
-
-return(
-
-<div key={m.id} className={`flex ${isUser?'justify-start':'justify-end'}`}>
-
-{isAI && m.status==="SUGGESTED" ? (
-
-<div className="p-4 rounded-2xl bg-purple-900/20 border border-purple-500/20">
-
-<div className="flex items-center gap-2 text-purple-400 mb-2">
-<Sparkles size={13}/>
-AI Suggestion
-</div>
-
-<p className="text-[13px] text-white">
-{m.content}
-</p>
-
-<button
-onClick={()=>setInput(m.content)}
-className="mt-3 text-[12px] text-purple-400 flex items-center gap-1"
->
-Use reply
-<ChevronRight size={14}/>
-</button>
-
-</div>
-
-) : (
-
-<div
-className={`max-w-[75%] px-4 py-3 ${isUser?'rounded-[20px_20px_20px_6px]':'rounded-[20px_20px_6px_20px]'}`}
-style={{backgroundColor:isUser?'#1c1c1c':channel.color}}
->
-
-<p className="text-[13px] text-white">
-{m.content}
-</p>
-
-</div>
-
-)}
-
-</div>
-
-)
-
-})}
-
-<div ref={bottomRef}/>
-
-</div>
-
-</div>
-
-<div className="p-4 bg-[#161616] border-t border-[#1f1f1f]">
-
-<div className="max-w-3xl mx-auto">
-
-<div className="flex items-center gap-2 mb-3">
-
-<button
-onClick={generateSuggestion}
-className="text-[11px] font-medium px-3 py-1.5 rounded-lg"
-style={{backgroundColor:`${channel.color}12`,color:channel.color}}
->
-Suggest Reply
-</button>
-
-</div>
-
-{aiSuggestion && (
-
-<div className="p-3 mb-3 rounded-xl bg-purple-900/20 border border-purple-500/20">
-
-<div className="flex justify-between items-center">
-
-<p className="text-sm text-white">
-{aiSuggestion}
-</p>
-
-<button
-onClick={useSuggestion}
-className="text-purple-400 text-xs"
->
-Use
-</button>
-
-</div>
-
-</div>
-
-)}
-
-<div className="flex items-center gap-3">
-
-<input
-value={input}
-onChange={(e)=>setInput(e.target.value)}
-placeholder="Type message..."
-className="flex-1 px-4 py-3 bg-[#1c1c1c] border border-[#282828] rounded-xl text-[13px] text-white"
-/>
-
-<button
-onClick={sendMessage}
-className="flex items-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold text-white"
-style={{backgroundColor:channel.color}}
->
-<Send size={16}/>
-Send
-</button>
-
-</div>
-
-</div>
-
-</div>
-
-</>
-
-) : (
-
-<div className="flex-1 flex items-center justify-center text-[#444]">
-Select conversation
-</div>
-
-)}
-
-</div>
-
-<AnimatePresence>
-
-{showInfo && selected && (
-
-<motion.div
-initial={{width:0}}
-animate={{width:300}}
-exit={{width:0}}
-className="bg-[#161616] border-l border-[#1f1f1f]"
->
-
-<div className="p-5">
-
-<div className="text-white text-sm mb-4">
-Lead Details
-</div>
-
-<div className="text-xs text-[#777]">
-Phone
-</div>
-
-<div className="text-white mb-4">
-{selected.phone}
-</div>
-
-</div>
-
-</motion.div>
-
-)}
-
-</AnimatePresence>
-
-</div>
-
-</div>
-)
+    const [ch, setCh] = useState(CHANNELS[0]);
+    const [conversations, setConversations] = useState([]);
+    const [messages, setMessages] = useState([]);
+    const [lead, setLead] = useState(null);
+    const [msg, setMsg] = useState('');
+    const [aiSuggestion, setAiSuggestion] = useState("");
+    const [showInfo, setShowInfo] = useState(false);
+    const [showSidebar, setShowSidebar] = useState(true);
+    const ref = useRef(null);
+
+    useEffect(() => { 
+        fetchConversations(); 
+    }, []);
+
+    useEffect(() => { 
+        if (lead) fetchMessages(lead.id);
+    }, [lead]);
+
+    useEffect(() => { 
+        ref.current?.scrollIntoView({ behavior: 'smooth' }); 
+    }, [messages]);
+
+    async function fetchConversations() {
+        try {
+            const res = await fetch(`${API}/twilio/conversations`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setConversations(data);
+                if (data.length > 0 && !lead) {
+                    setLead(data[0]);
+                }
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async function fetchMessages(id) {
+        try {
+            const res = await fetch(`${API}/twilio/conversations/${id}`);
+            const data = await res.json();
+            setMessages(data);
+        } catch (e) { console.error(e); }
+    }
+
+    async function sendMessage() {
+        if (!msg.trim() || !lead) return;
+        try {
+            await fetch(`${API}/twilio/send-reply`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    conversation_id: lead.id,
+                    phone: lead.phone,
+                    message: msg
+                })
+            });
+            setMsg("");
+            fetchMessages(lead.id);
+        } catch (e) { console.error(e); }
+    }
+
+    async function generateSuggestion() {
+        if (!lead) return;
+        try {
+            const res = await fetch(`${API}/twilio/ai-suggest`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    conversation_id: lead.id,
+                    workspace_id: lead.workspace_id,
+                    message: messages[messages.length - 1]?.content || ""
+                })
+            });
+            const data = await res.json();
+            setAiSuggestion(data.suggestion);
+        } catch (e) { console.error(e); }
+    }
+
+    function useSuggestion() {
+        setMsg(aiSuggestion);
+        setAiSuggestion("");
+    }
+
+    const filteredLeads = conversations.filter(c => c.channel.toLowerCase() === ch.id);
+    const I = ch.icon;
+
+    return (
+        <div className="h-screen flex flex-col bg-[#0f0f0f]">
+            {/* Tabs */}
+            <div className="flex items-center gap-1 px-4 py-3 bg-[#161616] border-b border-[#1f1f1f]">
+                {CHANNELS.map((c) => {
+                    const Icon = c.icon;
+                    const on = ch.id === c.id;
+                    const count = conversations.filter(conv => conv.channel.toLowerCase() === c.id).length;
+                    return (
+                        <button
+                            key={c.id}
+                            onClick={() => setCh(c)}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-medium transition-all ${on ? 'text-white' : 'text-[#666] hover:text-[#999]'}`}
+                            style={{ backgroundColor: on ? c.color : 'transparent' }}
+                        >
+                            <Icon size={15} strokeWidth={2} />
+                            {c.label}
+                            {count > 0 && <span className="ml-1 text-[11px] bg-white/20 px-2 py-0.5 rounded-full">{count}</span>}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Leads */}
+                <AnimatePresence>
+                    {showSidebar && (
+                        <motion.div 
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: 340, opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            className="bg-[#161616] border-r border-[#1f1f1f] flex flex-col overflow-hidden"
+                        >
+                    <div className="p-4">
+                        <div className="flex items-center gap-2 text-[13px] font-semibold mb-4" style={{ color: ch.color }}>
+                            <I size={15} strokeWidth={2} />
+                            WhatsApp Inbox
+                        </div>
+                        <div className="relative">
+                            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#444]" strokeWidth={2} />
+                            <input
+                                placeholder="Search conversations..."
+                                className="w-full pl-10 pr-4 py-2.5 bg-[#1c1c1c] border border-[#282828] rounded-xl text-[13px] text-white placeholder:text-[#555] outline-none focus:border-[#333] transition-colors"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto px-2">
+                        {filteredLeads.map((l) => {
+                            const sel = lead?.id === l.id;
+                            return (
+                                <button
+                                    key={l.id}
+                                    onClick={() => setLead(l)}
+                                    className={`w-full p-3 mb-1 rounded-xl text-left transition-all ${sel ? 'bg-[#1f1f1f]' : 'hover:bg-[#1a1a1a]'}`}
+                                    style={{ borderLeft: sel ? `3px solid ${ch.color}` : '3px solid transparent' }}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-[14px] font-semibold shrink-0" style={{ backgroundColor: `${ch.color}18`, color: ch.color }}>
+                                            {l.phone?.slice(-2)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className={`text-[13px] font-medium text-white`}>{l.phone}</span>
+                                                <span className="text-[11px] text-[#555]">Active</span>
+                                            </div>
+                                            <p className="text-[12px] text-[#666] truncate leading-relaxed">Lead from {ch.label}</p>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <span className="text-[10px] font-medium px-2 py-1 rounded-md" style={{ backgroundColor: `${ch.color}15`, color: ch.color }}>{l.status}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </motion.div>
+            )}
+            </AnimatePresence>
+
+                {/* Chat */}
+                <div className="flex-1 flex flex-col bg-[#0f0f0f]">
+                    {lead ? (
+                        <>
+                            <div className="flex items-center justify-between px-6 py-4 bg-[#161616] border-b border-[#1f1f1f]">
+                                <div className="flex items-center gap-3">
+                                    {!showSidebar && (
+                                        <button onClick={() => setShowSidebar(true)} className="p-2 hover:bg-white/5 rounded-lg text-[#666]">
+                                            <ChevronRight size={20} />
+                                        </button>
+                                    )}
+                                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-[14px] font-semibold" style={{ backgroundColor: `${ch.color}18`, color: ch.color }}>
+                                        {lead.phone?.slice(-2)}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-[14px] font-semibold text-white">{lead.phone}</h3>
+                                        <p className="text-[12px] flex items-center gap-1.5" style={{ color: ch.color }}>
+                                            <I size={12} strokeWidth={2} />
+                                            {ch.label}
+                                            <span className="text-emerald-400 ml-1">● Online</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={() => {
+                                            const newState = !showInfo;
+                                            setShowInfo(newState);
+                                            if (newState) setShowSidebar(false);
+                                        }} 
+                                        className={`p-2.5 rounded-lg transition-colors ${showInfo ? 'bg-[#1f1f1f]' : 'hover:bg-[#1a1a1a]'}`} 
+                                        style={{ color: showInfo ? ch.color : '#666' }}
+                                    >
+                                        <Info size={18} strokeWidth={2} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 relative">
+                                {/* WHATSAPP STYLE BACKGROUND */}
+                                <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ 
+                                    backgroundImage: `url("https://www.transparenttextures.com/patterns/carbon-fibre.png")`,
+                                    backgroundColor: '#000' 
+                                }} />
+                                
+                                <div className="max-w-3xl mx-auto space-y-3 relative z-10">
+                                    {messages.map((m) => {
+                                        const isUser = m.sender_type === "USER";
+                                        const isAI = m.sender_type === "AI";
+                                        const isSuggested = m.status === "SUGGESTED";
+
+                                        return (
+                                            <div key={m.id} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>
+                                                {isAI && isSuggested ? (
+                                                    <div className="max-w-[75%] p-4 rounded-2xl" style={{ backgroundColor: `${ch.color}10`, border: `1px solid ${ch.color}20` }}>
+                                                        <div className="flex items-center gap-2 mb-2" style={{ color: ch.color }}>
+                                                            <Sparkles size={13} strokeWidth={2} />
+                                                            <span className="text-[12px] font-semibold">AI Suggestion</span>
+                                                        </div>
+                                                        <p className="text-[13px] text-[#bbb] leading-relaxed">{m.content}</p>
+                                                        <button onClick={() => setMsg(m.content)} className="flex items-center gap-1 mt-3 text-[12px] font-medium" style={{ color: ch.color }}>
+                                                            Use reply <ChevronRight size={14} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className={`max-w-[75%] px-4 py-3 ${isUser ? 'rounded-[20px_20px_20px_6px]' : 'rounded-[20px_20px_6px_20px]'}`} style={{ backgroundColor: isUser ? '#1c1c1c' : ch.color }}>
+                                                        <p className="text-[13px] text-white leading-relaxed">{m.content}</p>
+                                                        <p className="text-[10px] text-white/50 mt-2">{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    <div ref={ref} />
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-[#161616] border-t border-[#1f1f1f]">
+                                <div className="max-w-3xl mx-auto">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <button onClick={generateSuggestion} className="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors" style={{ backgroundColor: `${ch.color}12`, color: ch.color }}>
+                                            Suggest Reply
+                                        </button>
+                                    </div>
+                                    
+                                    {aiSuggestion && (
+                                        <div className="p-3 mb-3 rounded-xl flex justify-between items-center" style={{ backgroundColor: `${ch.color}15`, border: `1px solid ${ch.color}30` }}>
+                                            <p className="text-sm text-white">{aiSuggestion}</p>
+                                            <button onClick={useSuggestion} className="text-xs px-3 py-1 hover:bg-white/5 rounded-lg transition" style={{ color: ch.color }}>Use</button>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            value={msg}
+                                            onChange={(e) => setMsg(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                                            placeholder="Type a message..."
+                                            className="flex-1 px-4 py-3 bg-[#1c1c1c] border border-[#282828] rounded-xl text-[13px] text-white placeholder:text-[#555] outline-none focus:border-[#333]"
+                                        />
+                                        <button className="p-3 rounded-xl transition-colors" style={{ backgroundColor: `${ch.color}15`, color: ch.color }}>
+                                            <Zap size={18} strokeWidth={2} />
+                                        </button>
+                                        <button onClick={sendMessage} className="flex items-center gap-2 px-5 py-3 rounded-xl text-[13px] font-semibold text-white transition-all active:scale-95" style={{ backgroundColor: ch.color }}>
+                                            <Send size={16} strokeWidth={2} />
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex items-center justify-center text-[#444] text-[14px]">Select a conversation</div>
+                    )}
+                </div>
+
+                {/* Info Panel */}
+                <AnimatePresence>
+                    {showInfo && lead && (
+                        <motion.div
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: 300, opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="bg-[#161616] border-l border-[#1f1f1f] overflow-hidden"
+                        >
+                            <div className="w-[300px] h-full overflow-y-auto p-5">
+                                <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-5">Lead Details</p>
+
+                                <div className="text-center mb-6">
+                                    <div className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-xl font-bold" style={{ backgroundColor: `${ch.color}18`, color: ch.color }}>
+                                        {lead.phone?.slice(-2)}
+                                    </div>
+                                    <h4 className="text-[15px] font-semibold text-white">{lead.phone}</h4>
+                                    <p className="text-[12px] text-[#666] mt-1">Lead ID: {lead.id.slice(0,8)}</p>
+                                </div>
+
+                                <div className="space-y-4 mb-6">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[12px] text-[#666]">Channel</span>
+                                        <span className="text-[12px] flex items-center gap-1.5" style={{ color: ch.color }}>
+                                            <I size={13} strokeWidth={2} />
+                                            {ch.label}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[12px] text-[#666]">Status</span>
+                                        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400`}>
+                                            {lead.status}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {[{ icon: User, text: 'Assign Agent' }, { icon: Star, text: 'Mark Priority' }, { icon: Calendar, text: 'Schedule Follow-up' }].map((a, i) => (
+                                        <button key={i} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1c1c1c] border border-[#282828] text-[13px] text-white hover:border-[#333] transition-colors">
+                                            <a.icon size={16} strokeWidth={2} className="text-[#666]" />
+                                            {a.text}
+                                        </button>
+                                    ))}
+                                    <button className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[13px] font-semibold text-white transition-colors" style={{ backgroundColor: ch.color }}>
+                                        <ArrowRight size={16} strokeWidth={2} />
+                                        Convert to Deal
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </div>
+    );
 }

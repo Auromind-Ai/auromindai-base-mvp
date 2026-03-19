@@ -1,11 +1,13 @@
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import get_db
-from dotenv import load_dotenv
-import os
 import google.generativeai as genai
 from app.core.websockets import manager
 from app.core.middleware import MetricsMiddleware
@@ -17,8 +19,7 @@ from app.routers import auth, mcp, simulation, inbox, learning, brain, followups
 from app.routers import automation
 from app.routers import admin
 from app.routers.metric import router as metric_router
-
-load_dotenv()
+# load_dotenv() moved to top
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,21 +55,35 @@ async def lifespan(app: FastAPI):
         result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='workspaces' AND column_name='created_by'"))
         if not result.fetchone():
             print("Adding created_by column to workspaces table...")
-            conn.execute(text("ALTER TABLE workspaces ADD COLUMN created_by VARCHAR(36) REFERENCES users(id)"))
+            conn.execute(text("ALTER TABLE workspaces ADD COLUMN created_by UUID REFERENCES users(id)"))
             conn.commit()
         
         # Check and add updated_at column to workspaces table
         result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='workspaces' AND column_name='updated_at'"))
         if not result.fetchone():
             print("Adding updated_at column to workspaces table...")
-            conn.execute(text("ALTER TABLE workspaces ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()"))
+            conn.execute(text("ALTER TABLE workspaces ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE"))
+            conn.commit()
+
+        # Check and add custom_token_limit column to workspaces table
+        result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='workspaces' AND column_name='custom_token_limit'"))
+        if not result.fetchone():
+            print("Adding custom_token_limit column to workspaces table...")
+            conn.execute(text("ALTER TABLE workspaces ADD COLUMN custom_token_limit INTEGER"))
+            conn.commit()
+
+        # Check and add plan_type column to workspaces table
+        result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='workspaces' AND column_name='plan_type'"))
+        if not result.fetchone():
+            print("Adding plan_type column to workspaces table...")
+            conn.execute(text("ALTER TABLE workspaces ADD COLUMN plan_type VARCHAR(50) DEFAULT 'starter'"))
             conn.commit()
         
         # Check and add workspace_id column to conversations table
         result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='conversations' AND column_name='workspace_id'"))
         if not result.fetchone():
             print("Adding workspace_id column to conversations table...")
-            conn.execute(text("ALTER TABLE conversations ADD COLUMN workspace_id VARCHAR(36) REFERENCES workspaces(id) ON DELETE CASCADE"))
+            conn.execute(text("ALTER TABLE conversations ADD COLUMN workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE"))
             conn.commit()
         
         # Check and add title column to conversations table
@@ -106,7 +121,7 @@ async def lifespan(app: FastAPI):
             if not result.fetchone():
                 print(f"Adding {col} column to followups table...")
                 if col == 'conversation_id':
-                    conn.execute(text("ALTER TABLE followups ADD COLUMN conversation_id VARCHAR(36) REFERENCES conversations(id) ON DELETE CASCADE"))
+                    conn.execute(text("ALTER TABLE followups ADD COLUMN conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE"))
                 elif col == 'scheduled_at':
                     conn.execute(text("ALTER TABLE followups ADD COLUMN scheduled_at TIMESTAMP WITH TIME ZONE NOT NULL"))
                 elif col in ['message_content', 'mcp_reason']:
@@ -135,7 +150,7 @@ async def lifespan(app: FastAPI):
                 elif col == 'source':
                     conn.execute(text("ALTER TABLE promises ADD COLUMN source VARCHAR(50) DEFAULT 'manual'"))
                 elif col == 'ai_action_id':
-                    conn.execute(text("ALTER TABLE promises ADD COLUMN ai_action_id VARCHAR(36) REFERENCES ai_actions(id) ON DELETE SET NULL"))
+                    conn.execute(text("ALTER TABLE promises ADD COLUMN ai_action_id UUID REFERENCES ai_actions(id) ON DELETE SET NULL"))
                 elif col == 'resolved_at':
                     conn.execute(text("ALTER TABLE promises ADD COLUMN resolved_at TIMESTAMP WITH TIME ZONE"))
                 conn.commit()
@@ -176,7 +191,7 @@ async def lifespan(app: FastAPI):
                     if col in ['user_message', 'ai_response', 'feedback_comment']:
                         conn.execute(text(f"ALTER TABLE ai_learning_events ADD COLUMN {col} TEXT"))
                     elif col in ['conversation_id', 'ai_action_id']:
-                        conn.execute(text(f"ALTER TABLE ai_learning_events ADD COLUMN {col} VARCHAR(36)"))
+                        conn.execute(text(f"ALTER TABLE ai_learning_events ADD COLUMN {col} UUID"))
                     elif col in ['mcp_verdict', 'feedback_type']:
                         conn.execute(text(f"ALTER TABLE ai_learning_events ADD COLUMN {col} VARCHAR(50)"))
                     elif col in ['mcp_confidence', 'user_satisfaction_score']:
@@ -201,15 +216,12 @@ async def lifespan(app: FastAPI):
     scheduler = EmailSchedulerService(engine)
     scheduler.start()
     print("🚀 Email Scheduler Started")
-
-    #STOP SCHEDULER HERE
-    scheduler.stop()
-    print("🛑 Email Scheduler Stopped")
-    logger.info("Shutting down...")
     
     yield
     
     # Shutdown: Cleanup
+    scheduler.stop()
+    print("🛑 Email Scheduler Stopped")
     logger.info("Shutting down...")
 
 app = FastAPI(
@@ -231,12 +243,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         manager.disconnect(user_id, websocket)
 
 
-# CORS middleware - Allow all origins for local development
+# CORS middleware - Hardened for local development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -256,7 +268,7 @@ async def root():
 
 
 # Import and include routers
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, admin, public
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, admin, public, automation
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
@@ -352,11 +364,6 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                             db=db,
                             workspace_id=request.workspace_id,
                             query=request.message,
-<<<<<<< HEAD
-                            # model_name=get_setting(db, "model_name", request.model),
-=======
-                            
->>>>>>> origin/veera
                         )
 
                         if answer:

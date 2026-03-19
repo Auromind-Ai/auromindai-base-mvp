@@ -73,7 +73,7 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
 
 export default function AuromindAIPage() {
     // API Configuration - uses environment variable for backend URL
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8002';
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);

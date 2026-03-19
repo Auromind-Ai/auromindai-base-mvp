@@ -1,5 +1,7 @@
 'use client';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 import { useState, useEffect } from "react";
 import { Inbox, RefreshCw, ExternalLink } from "lucide-react";
 import { getWorkspace } from "@/lib/auth";
@@ -25,9 +27,9 @@ export default function EmailPage() {
   }, []);
 
   const checkConnection = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token`);
     const res = await fetch(
-      `http://localhost:8002/integrations/status?workspace_id=${workspace?.id}`,
+      `${API}/integrations/status?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const data = await res.json();
@@ -42,10 +44,10 @@ export default function EmailPage() {
   };
 
   const loadMessages = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem(`token`);
 
     const res = await fetch(
-      `http://localhost:8002/email/inbox?workspace_id=${workspace?.id}`,
+      `${API}/email/inbox?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -67,7 +69,7 @@ export default function EmailPage() {
       actions: msg.actions
     });
 
-    setEditedReply(msg.suggested_reply || "");
+    setEditedReply(msg.suggested_reply || `");
 
     if (window.innerWidth < 1024) {
     setMobileView("chat");
@@ -75,12 +77,12 @@ export default function EmailPage() {
   };
 
   const approveAction = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token`);
 
     await fetch(
-      `http://localhost:8002/automation/approve?decision_id=${aiData.id}`,
+      `${API}/automation/approve?decision_id=${aiData.id}`,
       {
-        method: "POST",
+        method: `POST",
         headers: { Authorization: `Bearer ${token}` }
       }
     );
@@ -89,12 +91,12 @@ export default function EmailPage() {
   };
 
   const rejectAction = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token`);
 
     await fetch(
-      `http://localhost:8002/automation/reject?decision_id=${aiData.id}`,
+      `${API}/automation/reject?decision_id=${aiData.id}`,
       {
-        method: "POST",
+        method: `POST",
         headers: { Authorization: `Bearer ${token}` }
       }
     );
@@ -111,12 +113,12 @@ export default function EmailPage() {
 
     setSendingReply(true);
 
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token`);
 
     await fetch(
-      `http://localhost:8002/email/send-reply`,
+      `${API}/email/send-reply`,
       {
-        method: "POST",
+        method: `POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`

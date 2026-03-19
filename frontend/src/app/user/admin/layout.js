@@ -7,6 +7,7 @@ import {
     Sparkles,
     LayoutDashboard,
     MessageSquare,
+    Zap,
     Send,
     CheckCircle2,
     TrendingUp,
@@ -27,31 +28,24 @@ import {
     Mail
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { getUser, getWorkspace, logout } from '@/lib/auth';
+import { getUser, getWorkspace, logout, restoreAdminToken } from '@/lib/auth';
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 
 const MAIN_NAV_ITEMS = [
-    { label: 'Home', icon: LayoutDashboard, href: '/user/admin/dashboard' },
-    { label: 'Auromind AI', icon: Sparkles, href: '/user/admin/ai' },
-    { label: 'Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
-    { label: 'Calendar', icon: CalendarIcon, href: '/user/admin/calendar' },
-    { label: 'Email', icon: Mail, href: '/user/admin/email' },
-    { label: 'Leads / CRM', icon: Users, href: '/user/admin/leads' },
-    { label: 'Tasks & Follow-ups', icon: Send, href: '/user/admin/followups' },
-    { label: 'Meetings & Promises', icon: CheckCircle2, href: '/user/admin/promises' },
-    { label: 'Brain', icon: Brain, href: '/user/admin/brain' },
-    { label: 'Marketing', icon: TrendingUp, href: '/user/admin/marketing' },
-    { label: 'Flows & Templates', icon: Wand2, href: '/user/admin/flows' },
+    { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
+    { label: 'AI Workspace', icon: Sparkles, href: '/user/admin/ai' },
+    { label: 'Omni-Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
+    { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
+    { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
+    { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
 ];
 
 const SYSTEM_NAV_ITEMS = [
-    { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
-    { label: 'Automation', icon: Wand2, href: '/user/admin/automation' },
-    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
-    { label: 'Settings', icon: Settings, href: '/user/admin/settings' },
+    // Settings logic is handled via handleClick in renderNavItem
+    { label: 'Settings', icon: Settings, href: '#' },
 ];
 
 export default function AdminLayout({ children }) {
@@ -74,8 +68,17 @@ function AdminLayoutContent({ children }) {
         const checkAuth = () => {
             const currentUser = getUser();
             const currentWorkspace = getWorkspace();
+            const token = localStorage.getItem('token');
+
+            console.log("🛡️ Layout Auth Check:", { 
+                user: currentUser?.email, 
+                hasWorkspace: !!currentWorkspace,
+                hasToken: !!token,
+                isImpersonating: localStorage.getItem('is_impersonating') === 'true'
+            });
 
             if (!currentUser) {
+                console.warn("🚫 No current user found, redirecting to login");
                 router.push('/login');
                 return;
             }
@@ -153,7 +156,11 @@ function AdminLayoutContent({ children }) {
         pathname.startsWith('/user/admin/automation/') ||
         pathname === '/user/admin/dashboard' ||
         pathname === '/user/admin/brain' ||
-        pathname.startsWith('/user/admin/brain/')
+        pathname.startsWith('/user/admin/brain/') ||
+        pathname === '/user/admin/channels' ||
+        pathname.startsWith('/user/admin/channels/') ||
+        pathname === '/user/admin/integrations' ||
+        pathname.startsWith('/user/admin/integrations/')
     );
 
     return (
@@ -195,7 +202,21 @@ function AdminLayoutContent({ children }) {
                     </div>
                 </div>
 
-                <div className="p-2 border-t border-[var(--notion-border)] mt-auto">
+                <div className="p-2 border-t border-[var(--notion-border)] mt-auto space-y-2">
+                    {/* Back to Admin Button */}
+                    {typeof window !== 'undefined' && localStorage.getItem('admin_backup_token') && (
+                        <button
+                            onClick={() => {
+                                restoreAdminToken();
+                                window.location.href = '/admin';
+                            }}
+                            className="w-full flex items-center gap-3 px-2 py-1.5 rounded-[4px] bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-sm transition-colors border border-indigo-500/20"
+                        >
+                            <Shield size={14} />
+                            <span>Back to Admin</span>
+                        </button>
+                    )}
+
                     <div className="flex items-center gap-3 px-2 py-1.5 rounded-[4px] hover:bg-[var(--notion-hover)] cursor-pointer group transition-colors">
                         <div className="w-5 h-5 rounded-[4px] bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold">
                             {user.email?.charAt(0).toUpperCase()}
@@ -210,20 +231,48 @@ function AdminLayoutContent({ children }) {
                 </div>
             </aside>
 
-            {/* Mobile Mobile Drawer (Sheet) */}
+            {/* Mobile Drawer (Sheet) */}
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-                <SheetContent side="left" className="p-0 w-[300px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
-                    <div className="flex flex-col h-full bg-[#050505]">
+                <SheetContent side="left" className="p-0 w-[280px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
+                    <div className="flex flex-col h-full bg-[#0f0f12]">
+                        {/* Workspace Brand */}
                         <div className="h-14 flex items-center px-4 border-b border-white/5">
-                            <span className="font-medium text-sm text-[#D4D4D4]">Menu</span>
-                        </div>
-                        <div className="flex-1 px-2 py-4 overflow-y-auto">
-                            <div className="space-y-0.5">
-                                {MAIN_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                                <div className="w-5 h-5 rounded-[4px] bg-indigo-500 flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
+                                    {workspace?.name?.charAt(0) || 'A'}
+                                </div>
+                                <span className="font-medium text-sm truncate text-[#D4D4D4]">{workspace?.name || 'Auromind'}</span>
                             </div>
-                            <div className="mt-6 space-y-0.5">
-                                <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mb-1">System</div>
-                                {SYSTEM_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                        </div>
+
+                        {/* Navigation */}
+                        <div className="flex-1 px-2 py-4 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-6">
+                                <div className="space-y-0.5">
+                                    {MAIN_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                                </div>
+                                <div className="space-y-0.5">
+                                    <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mb-1">
+                                        System
+                                    </div>
+                                    {SYSTEM_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* User Profile */}
+                        <div className="p-3 border-t border-white/5 bg-[#141418]">
+                            <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-xs text-white font-bold">
+                                    {user.email?.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-[#D4D4D4] font-medium truncate">{user.name || 'User'}</p>
+                                    <p className="text-[10px] text-[#555] truncate">{user.email}</p>
+                                </div>
+                                <button onClick={handleLogout} className="text-[#9b9b9b] hover:text-white transition-colors p-1">
+                                    <LogOut size={16} />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -231,24 +280,47 @@ function AdminLayoutContent({ children }) {
             </Sheet>
 
             {/* Main Content Area */}
-            <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-hidden">
-                {/* Mobile Header */}
-                <div className="md:hidden flex items-center h-14 px-4 border-b border-[var(--notion-border)] bg-[var(--notion-bg)]/80 backdrop-blur-md sticky top-0 z-50">
-                    <button onClick={() => setIsMobileOpen(true)} className="p-2 -ml-2 rounded-[4px] hover:bg-[var(--notion-hover)] transition-colors">
-                        <Menu size={20} className="text-[#D4D4D4]" />
-                    </button>
-                    <span className="ml-3 font-medium text-sm text-[#D4D4D4]">Auromind</span>
+            <main className="flex-1 min-w-0 flex flex-col min-h-screen relative overflow-hidden bg-[var(--notion-bg)]">
+                {/* Impersonation Banner */}
+                {typeof window !== 'undefined' && localStorage.getItem('admin_backup_token') && (
+                    <div className="bg-indigo-600 px-4 py-2 flex items-center justify-between text-white text-xs font-bold z-[60] shadow-lg animate-in slide-in-from-top duration-300">
+                        <div className="flex items-center gap-2">
+                            <Shield size={14} className="animate-pulse" />
+                            <span>SECRET LOGIN MODE: Impersonating {user?.name || user?.email}</span>
+                        </div>
+                        <button 
+                            onClick={() => {
+                                restoreAdminToken();
+                                window.location.href = '/admin';
+                            }}
+                            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md transition-colors border border-white/10"
+                        >
+                            Exit & Return to Admin
+                        </button>
+                    </div>
+                )}
+
+                {/* Mobile Top Navigation */}
+                <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-[var(--notion-border)] bg-[var(--notion-bg)]/80 backdrop-blur-md sticky top-0 z-50">
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setIsMobileOpen(true)} 
+                            className="p-2 -ml-2 rounded-lg hover:bg-[var(--notion-hover)] transition-colors active:scale-95"
+                        >
+                            <Menu size={20} className="text-[#D4D4D4]" />
+                        </button>
+                        <span className="font-semibold text-sm text-[#D4D4D4] tracking-tight">Auromind</span>
+                    </div>
+                    
+                    {/* Compact Profile Circle for Mobile Header */}
+                    <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold border border-white/10">
+                        {user.email?.charAt(0).toUpperCase()}
+                    </div>
                 </div>
 
-                {isFullScreenPage ? (
-    <div className="w-full flex-1 flex flex-col overflow-hidden bg-transparent">
-        {children}
-    </div>
-) : (
-    <div className="w-full h-full overflow-hidden bg-transparent">
-        {children}
-    </div>
-)}
+                <div className={`w-full flex-1 flex flex-col overflow-hidden ${isFullScreenPage ? '' : 'overflow-y-auto custom-scrollbar'}`}>
+                    {children}
+                </div>
             </main>
 
             {/* Settings Modal */}

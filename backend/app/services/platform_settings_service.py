@@ -107,6 +107,21 @@ def initialize_default_settings(db: Session):
         "max_workspaces": 10,
         "max_users_per_workspace": 50,
         "max_conversations": 1000,
+
+        # Channel & Infrastructure (Global Credentials)
+        "twilio_account_sid": "",
+        "twilio_auth_token": "",
+        "twilio_from_number": "",
+        "openai_api_key": "",
+        "gemini_api_key": "",
+        "anthropic_api_key": "",
+        "groq_api_key": "",
+
+        # Payment Gateways
+        "razorpay_key": "",
+        "razorpay_secret": "",
+        "paypal_client_id": "",
+        "paypal_secret": "",
     }
 
     existing_keys = {s.key for s in db.query(PlatformSetting.key).all()}

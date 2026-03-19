@@ -31,7 +31,7 @@ timezonefinder==8.2.1
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
-<<<<<<< HEAD
+
 
 apscheduler
 passlib[bcrypt]
@@ -48,3 +48,4 @@ torch
 sentence-transformers==5.2.3
 ddgs
 scrapy-playwright
+anthropic

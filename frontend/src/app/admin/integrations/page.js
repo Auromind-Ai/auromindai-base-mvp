@@ -11,7 +11,7 @@ export default function IntegrationsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8002/admin/integrations')
+      const response = await fetch('http://localhost:8000/admin/integrations')
       if (!response.ok) throw new Error('Failed to fetch integrations')
       const result = await response.json()
       console.log('Fetched Integrations:', result)
