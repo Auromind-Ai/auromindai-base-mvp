@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+from sqlalchemy.sql import func
 
 
 # ==============================

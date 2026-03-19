@@ -75,4 +75,3 @@ class Scrappyweb(scrapy.Spider):
                 meta={"playwright": True},
                 callback=self.parse_site
             )
-

@@ -4,11 +4,12 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 
 class AIAction(Base):
     __tablename__ = "ai_actions"
-
+    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     workspace_id = Column(

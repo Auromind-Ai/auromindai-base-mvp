@@ -7,24 +7,29 @@ from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from app.database import get_db
+from app.database import get_db, engine, Base
 import google.generativeai as genai
 from app.core.websockets import manager
-from app.core.middleware import MetricsMiddleware
-from app.services.platform_settings_service import get_setting
-from app.services.rag_service import get_rag_service
+from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.background_scheduler import EmailSchedulerService
-from app.database import engine
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email
-from app.routers import automation
-from app.routers import admin
-from app.routers.metric import router as metric_router
-# load_dotenv() moved to top
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email, automation, admin, metric
+from app.models.conversation import ChatSession, ChatMessage
+import uuid
+from datetime import datetime
+from fastapi.responses import StreamingResponse
+import json
+import asyncio
+from groq import Groq
+from pydantic import BaseModel
+from typing import Optional
+from app.services.agentic_rag.guardrails_service import GuardrailsService
+from app.core.logger import logger
+from app.core.request_logger import RequestLoggingMiddleware
+from app.middleware.metrics_middleware import MetricsMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Initialize resources
-    from app.database import engine, Base
     import app.models 
     
     # Enable pgvector extension first (requires superuser - non-fatal for local dev)
@@ -206,23 +211,17 @@ async def lifespan(app: FastAPI):
     
     Base.metadata.create_all(bind=engine)
     
-    # Initialize basic logging
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("app.main")
-    logger.info("Auromind Production System Starting...")
+    logger.info("🚀 Auromind Production System Starting...")
 
-    # #START SCHEDULER HERE
     scheduler = EmailSchedulerService(engine)
     scheduler.start()
-    print("🚀 Email Scheduler Started")
+    logger.info("Email Scheduler Started")
     
     yield
     
     # Shutdown: Cleanup
     scheduler.stop()
-    print("🛑 Email Scheduler Stopped")
-    logger.info("Shutting down...")
+    logger.info("🛑 Auromind Production System Stopped")
 
 app = FastAPI(
     title="Auromind API",
@@ -230,7 +229,6 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
-
 
 # Websocket Endpoint
 @app.websocket("/ws/{user_id}")
@@ -255,6 +253,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(MetricsMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 
 @app.get("/")
 async def root():
@@ -267,9 +266,11 @@ async def root():
 # Startup event removed in favor of lifespan
 
 
-# Import and include routers
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, admin, public, automation
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
+# Import and include routers
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 app.include_router(simulation.router, prefix="/simulation", tags=["simulation"])
@@ -282,15 +283,54 @@ app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(twilio_webhook.router)
 app.include_router(integrations.router)  # OAuth Integrations
 app.include_router(gmail.router)  # Gmail API
-app.include_router(admin.router)
-app.include_router(public.router)
 app.include_router(email.router)
 app.include_router(automation.router)
-app.include_router(metric_router)
-# Configure Colab API
-import httpx
-from pydantic import BaseModel
-from typing import Optional
+app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(metric.router, prefix="/metrics", tags=["metrics"])
+
+# Mock RAG agent interaction
+class ChatQueryRequest(BaseModel): # Renamed to avoid conflict with existing ChatRequest
+    message: str
+    workspace_id: str
+
+@app.post("/chat/query")
+async def chat_query(request: ChatQueryRequest, db: Session = Depends(get_db)):
+    """
+    Simulated chat endpoint with MCP guardrails and RAG
+    """
+    try:
+        # 1. Guardrails Check
+        guardrails = GuardrailsService()
+        is_safe, reason, safe_query = guardrails.check_query(request.message)
+        
+        if not is_safe:
+            return {
+                "answer": f"I cannot process this request. Safety alert: {reason}",
+                "sources": [],
+                "actions": []
+            }
+        
+        # 2. RAG Loop
+        rag = get_rag_service()
+        answer = rag.agent_loop(
+            db=db,
+            workspace_id=request.workspace_id,
+            query=safe_query
+        )
+
+        if answer:
+            return {
+                "answer": answer,
+                "sources": [], 
+                "actions": []
+            }
+            
+        return {"answer": "I'm not sure how to help with that yet.", "sources": [], "actions": []}
+        
+    except Exception as e:
+        logger.error(f"Error in chat_query: {e}")
+        return {"error": str(e)}
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -303,16 +343,6 @@ class ChatRequest(BaseModel):
     source: str = "internal" # internal, internal_web
     session_id: Optional[str] = None # For chat history persistence
 
-from app.models.conversation import ChatSession, ChatMessage
-import uuid
-from datetime import datetime
-
-
-from fastapi.responses import StreamingResponse
-import json
-import asyncio
-from groq import Groq
-
 # Configure Gemini
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
@@ -324,16 +354,8 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
-
-print("GOOGLE:", os.getenv("GOOGLE_API_KEY"))
-print("GROQ:", os.getenv("GROQ_API_KEY"))
-
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
-    ai_enabled = get_setting(db, "ai_enabled", True)
-
-    if not ai_enabled:
-        return {"response": "⚠ AI system is temporarily disabled by admin."}
     try:
         async def event_generator():
             try:
@@ -354,21 +376,37 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                      db.add(user_msg)
                      db.commit()
 
-                 # 3. RAG Retrieval
+                # 3. RAG Retrieval
                 rag_answered = False
 
                 if request.use_rag and request.workspace_id:
                     try:
                         rag = get_rag_service()
+
+                        guard = GuardrailsService()
+    
+                        #Secure pipeline (INPUT)
+                        guard_result = await guard.secure_pipeline(request.message)
+
+                        if guard_result["status"] == "blocked":
+                            yield f"{json.dumps({'content': guard_result['message']})}\n"
+                            return
+
+                        safe_query = guard_result["safe_query"]
+
+                        #RAG
                         answer = rag.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
-                            query=request.message,
+                            query=safe_query
                         )
 
                         if answer:
-                            yield f"{json.dumps({'content': answer})}\n"
-                            full_response = answer
+                            # OUTPUT SECURITY
+                            safe_answer = await guard.secure_response(answer)
+
+                            yield f"{json.dumps({'content': safe_answer})}\n"
+                            full_response = safe_answer
                             rag_answered = True
 
                     except Exception as rag_error:
@@ -376,7 +414,7 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
 
                 # 4. LLM Generation (if no RAG answer)
                 if not rag_answered:
-                    if get_setting(db, "model_name", request.model) == "gemini" or (get_setting(db, "model_name", request.model) == "auto" and not groq_client):
+                    if request.model == "gemini" or (request.model == "auto" and not groq_client):
                         if not GOOGLE_API_KEY:
                             yield f"{json.dumps({'error': 'Gemini API key not configured'})}\n"
                             return
@@ -386,8 +424,9 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                         response = model.generate_content(final_message, stream=True)
                         for chunk in response:
                             if chunk.text:
-                                full_response += chunk.text
-                                yield f"{json.dumps({'content': chunk.text})}\n"
+                                guard = GuardrailsService()
+                                full_response = await guard.secure_response(full_response)
+                                yield f"{json.dumps({'content': full_response})}\n"
                                 await asyncio.sleep(0)
                                 
                     else:  # auto/llama/auromind - default to Groq

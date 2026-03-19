@@ -11,12 +11,14 @@ from datetime import datetime, timezone
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-# Pydantic models
-class SignupRequest(BaseModel):
+
+# ---------- Request Models ----------
+
+class EmailLoginRequest(BaseModel):
     email: EmailStr
-    password: str
-    full_name: str
-    workspace_name: str
+    full_name: str | None = None
+    workspace_name: str | None = "My Workspace"
+
 
 class UserResponse(BaseModel):
     id: str
@@ -31,19 +33,27 @@ class WorkspaceResponse(BaseModel):
 class SecretLoginRequest(BaseModel):
     key: str
 
+
+# ---------- Current User Wrapper ----------
+
 class CurrentUser:
-    def __init__(self, user, workspace_id):
+    def __init__(self, user, workspace_id, impersonated=False, admin_id=None):
         self.id = user.id
         self.email = user.email
         self.full_name = user.full_name
         self.workspace_id = workspace_id
         self.user = user
+        self.impersonated = impersonated
+        self.admin_id = admin_id
 
-# Dependency to get current user
+
+# ---------- Dependency: get current user ----------
+
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -58,13 +68,21 @@ async def get_current_user(
             pass
 
     log_auth(f"🔒 Authenticating token: {token[:10]}...")
-    payload = decode_access_token(token)
-    if payload is None:
+    
+    try:
+        payload = decode_access_token(token)
+    except Exception:
         log_auth("❌ Token decode failed")
+        raise credentials_exception
+
+    if payload is None:
+        log_auth("❌ Token payload is None")
         raise credentials_exception
     
     user_id: str = payload.get("sub")
     workspace_id: str = payload.get("workspace_id")
+    impersonated = payload.get("impersonated", False)
+    admin_id = payload.get("admin_id")
 
     if user_id is None:
         log_auth("❌ Token missing sub")
@@ -72,34 +90,37 @@ async def get_current_user(
 
     log_auth(f"👤 Token claims user_id: {user_id}")
     user = AuthService.get_user_by_id(db, user_id)
+
     if user is None:
         log_auth(f"❌ User {user_id} not found in DB")
         raise credentials_exception
 
     log_auth(f"✅ Authenticated: {user.email}")
-    return  CurrentUser(user, workspace_id)
+    return CurrentUser(
+        user=user,
+        workspace_id=workspace_id,
+        impersonated=impersonated,
+        admin_id=admin_id
+    )
 
-@router.post("/signup")
-async def signup(request: SignupRequest, db: Session = Depends(get_db)):
-    """Create a new user and workspace"""
+
+# ---------- Email Login ----------
+
+@router.post("/login")
+async def login(request: EmailLoginRequest, db: Session = Depends(get_db)):
     try:
-        user, workspace = AuthService.signup(
+        result = AuthService.email_login(
             db=db,
             email=request.email,
-            password=request.password,
             full_name=request.full_name,
             workspace_name=request.workspace_name
         )
-        
-        # Auto-login after signup
-        login_result = AuthService.login(db, request.email, request.password)
-        
-        return {
-            "message": "User created successfully",
-            **login_result
-        }
+        return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
 
 @router.post("/login/secret")
 async def login_secret(
@@ -119,38 +140,23 @@ async def login_secret(
     
     return AuthService.login(db, admin.email)
 
-@router.post("/login")
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    try:
-        result = AuthService.login(
-            db,
-            email=form_data.username,   # username → email
-            password=form_data.password
-        )
 
-        return result
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+# ---------- Current user ----------
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user = Depends(get_current_user)):
-    """Get current user information"""
+async def get_current_user_info(current_user: CurrentUser = Depends(get_current_user)):
     return {
         "id": str(current_user.id),
         "email": current_user.email,
         "full_name": current_user.full_name
     }
 
+
+# ---------- Workspaces ----------
+
 @router.get("/workspaces")
 async def get_workspaces(
-    current_user = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all workspaces for current user"""

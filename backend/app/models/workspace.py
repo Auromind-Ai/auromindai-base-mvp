@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 import uuid
+from sqlalchemy.dialects.postgresql import UUID
 
 
 class Workspace(Base):

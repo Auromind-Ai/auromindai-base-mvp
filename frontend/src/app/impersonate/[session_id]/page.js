@@ -67,6 +67,7 @@ export default function Page() {
             if (targetWorkspace) {
               console.log("📍 [DEBUG] Setting workspace:", targetWorkspace.name)
               setWorkspace(targetWorkspace)
+              localStorage.setItem("workspace_id", targetWorkspace.id)
             } else {
               console.warn("⚠️ No workspace found")
               localStorage.removeItem("workspace")
@@ -82,10 +83,8 @@ export default function Page() {
             is_imp: localStorage.getItem('is_impersonating')
         })
 
-        // 3. Final Redirect with query param for easier debugging
-        setTimeout(() => {
-            window.location.replace("/user/admin/dashboard?debug_imp=1")
-        }, 300)
+        // 3. Final Redirect
+        window.location.replace("/user/admin/dashboard")
 
       } catch (err) {
         console.error("❌ [CRITICAL] Impersonation failed:", err)
@@ -93,9 +92,10 @@ export default function Page() {
       }
     }
 
-    if (params) {
+    if (params?.session_id) {
       start()
     }
+  }, [params])
   }, [params])
 
   return (
