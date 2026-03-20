@@ -1,5 +1,7 @@
 from dotenv import load_dotenv
 import os
+
+from app.core.middleware import MetricsMiddleware
 load_dotenv()
 
 from contextlib import asynccontextmanager
@@ -25,7 +27,7 @@ from typing import Optional
 from app.services.agentic_rag.guardrails_service import GuardrailsService
 from app.core.logger import logger
 from app.core.request_logger import RequestLoggingMiddleware
-from app.middleware.metrics_middleware import MetricsMiddleware
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -211,7 +213,7 @@ async def lifespan(app: FastAPI):
     
     Base.metadata.create_all(bind=engine)
     
-    logger.info("🚀 Auromind Production System Starting...")
+    logger.info("Auromind Production System Starting...")
 
     scheduler = EmailSchedulerService(engine)
     scheduler.start()
@@ -221,7 +223,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown: Cleanup
     scheduler.stop()
-    logger.info("🛑 Auromind Production System Stopped")
+    logger.info(" Auromind Production System Stopped")
 
 app = FastAPI(
     title="Auromind API",
