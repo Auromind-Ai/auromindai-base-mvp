@@ -5,6 +5,12 @@ from app.models.automation import AutomationFlow
 import uuid
 from pydantic import BaseModel
 from typing import List, Optional
+from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from app.database import get_db  # change path if needed
+
+router = APIRouter()
 
 class FlowPromptRequest(BaseModel):
     prompt: str
