@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react";
 import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+<<<<<<< HEAD
 import { Users, CheckCircle, Mail, ExternalLink } from "lucide-react";
+=======
+import { Users, CheckCircle, Mail,ExternalLink  } from 'lucide-react';
+>>>>>>> 36cbb02 (feat: refactor chat system with billing, guardrails, and streaming support)
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";

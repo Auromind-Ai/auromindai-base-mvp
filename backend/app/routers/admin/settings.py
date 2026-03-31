@@ -23,6 +23,7 @@ async def get_platform_settings(db: Session = Depends(get_db)) -> Dict[str, Any]
 async def update_platform_settings(
     updates: Dict[str, Any],
     db: Session = Depends(get_db)
+ 
 ) -> Dict[str, Any]:
     """
     Update platform settings.

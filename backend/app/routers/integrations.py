@@ -11,6 +11,8 @@ from datetime import datetime
 from app.services.email_automation.email_monitor_service import EmailMonitor
 import requests
 
+from app.services.platform_settings_service import get_setting
+
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -45,7 +47,16 @@ async def google_oauth_init(
     """
     if integration_type not in ["calendar", "gmail"]:
         raise HTTPException(status_code=400, detail="Invalid integration type")
-    
+    integration_flags = {
+    "gmail": get_setting(db, "enable_gmail_integration", True),
+    "calendar": get_setting(db, "enable_calendar_integration", True)
+}
+
+    if not integration_flags.get(integration_type, True):
+        raise HTTPException(
+            status_code=403,
+            detail=f"{integration_type.capitalize()} integration disabled by admin"
+        )
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         raise HTTPException(
             status_code=500,

@@ -1,3 +1,4 @@
+from fastapi import APIRouter, Depends
 from app.services.email_automation.email_automation_engine import AutomationEngine
 from app.services.agentic_wiring_service import agentic_wiring_service
 from app.routers.auth import get_current_user

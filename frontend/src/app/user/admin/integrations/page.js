@@ -7,8 +7,7 @@ import {
     Search, 
     ChevronDown, 
     Plus, 
-    Check, 
-    X,
+    Check,
     Filter,
     ArrowUpDown,
     Grid
@@ -19,10 +18,11 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function IntegrationsPage() {
     const [integrations, setIntegrations] = useState({
-        calendar: { connected: false, email: null },
-        gmail: { connected: false, email: null }
+        calendar: { connected: false, email: null, enabled: true },
+        gmail: { connected: false, email: null, enabled: true }
     });
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState(""); // ✅ NEW
     const workspace = getWorkspace();
 
     const availableIntegrations = [
@@ -33,7 +33,6 @@ export default function IntegrationsPage() {
             description: 'Draft replies, summarize threads, & search your inbox',
             icon: Mail,
             iconColor: '#EA4335',
-            connected: false
         },
         {
             id: 'calendar',
@@ -42,7 +41,6 @@ export default function IntegrationsPage() {
             description: 'Manage your schedule and coordinate meetings effortlessly',
             icon: Calendar,
             iconColor: '#4285F4',
-            connected: false
         }
     ];
 
@@ -54,7 +52,7 @@ export default function IntegrationsPage() {
 
     const loadIntegrationStatus = async () => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             if (!token) return;
 
             const response = await fetch(
@@ -73,8 +71,11 @@ export default function IntegrationsPage() {
 
     const handleConnect = async (integrationId) => {
         setLoading(true);
+        setErrorMessage(""); // reset
+
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
+
             const response = await fetch(
                 `${API}/integrations/google/auth/${integrationId}?workspace_id=${workspace.id}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
@@ -82,19 +83,21 @@ export default function IntegrationsPage() {
 
             if (!response.ok) {
                 const error = await response.json();
-                alert(`Connection failed: ${error.detail || 'Unknown error'}`);
+                setErrorMessage(error.detail || "Something went wrong"); // ✅ NO ALERT
                 return;
             }
 
             const data = await response.json();
+
             if (data.authorization_url) {
                 window.location.href = data.authorization_url;
             } else {
-                alert('OAuth not configured - check backend .env');
+                setErrorMessage("OAuth not configured properly");
             }
+
         } catch (error) {
             console.error('Connection failed:', error);
-            alert(`Connection failed: ${error.message}`);
+            setErrorMessage(error.message);
         } finally {
             setLoading(false);
         }
@@ -103,7 +106,7 @@ export default function IntegrationsPage() {
     const handleDisconnect = async (integrationId) => {
         if (confirm(`Disconnect ${integrationId}?`)) {
             try {
-                const token = localStorage.getItem('token');
+                const token = sessionStorage.getItem('token');
                 await fetch(
                     `${API}/integrations/disconnect/google_${integrationId}?workspace_id=${workspace.id}`,
                     {
@@ -123,77 +126,66 @@ export default function IntegrationsPage() {
             <div className="max-w-6xl mx-auto relative">
                 
                 {/* Header */}
-                <div className="mb-10 pt-4">
+                <div className="mb-6 pt-4">
                     <h1 className="text-4xl font-semibold text-white mb-3">Connectors</h1>
                     <p className="text-[#888] text-[15px] max-w-2xl leading-relaxed">
-                        Connect Auromind to your apps, files, and services. Connectors are built by Auromind and reviewed by our security team for safety.
+                        Connect Auromind to your apps, files, and services.
                     </p>
                 </div>
 
-                {/* Toolbar */}
-                <div className="flex flex-wrap items-center gap-3 mb-10">
-                    <div className="relative flex-1 min-w-[300px]">
-                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#555]" />
-                        <input 
-                            type="text" 
-                            placeholder="Search"
-                            className="w-full bg-[#262626] border border-white/5 rounded-xl py-2.5 pl-11 pr-4 text-[15px] text-white placeholder:text-[#555] outline-none focus:border-white/10 transition-all"
-                        />
+                {/* ✅ ERROR MESSAGE UI */}
+                {errorMessage && (
+                    <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                        ❌ {errorMessage}
                     </div>
-                    
-                    {[
-                        { label: 'Sort', icon: ArrowUpDown },
-                        { label: 'Type', icon: Grid },
-                        { label: 'Categories', icon: Filter }
-                    ].map((btn) => (
-                        <button key={btn.label} className="flex items-center gap-2 px-4 py-2.5 bg-[#262626] border border-white/5 rounded-xl text-[14px] text-[#D4D4D4] hover:bg-[#2d2d2d] transition-all">
-                            {btn.label}
-                            <ChevronDown size={14} className="text-[#666]" />
-                        </button>
-                    ))}
-                </div>
+                )}
 
                 {/* Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {availableIntegrations.map((item) => {
                         const isConnected = integrations[item.id]?.connected;
+                        const isDisabled = integrations[item.id]?.enabled === false;
                         const Icon = item.icon;
-                        
+
                         return (
                             <div 
                                 key={item.id}
-                                className="group bg-[#262626] border border-white/5 rounded-2xl p-5 flex items-start gap-5 hover:border-white/10 transition-all cursor-default"
+                                className="group bg-[#262626] border border-white/5 rounded-2xl p-5 flex items-start gap-5"
                             >
-                                {/* Platform Icon Wrapper */}
-                                <div className="w-14 h-14 rounded-xl bg-[#1c1c1c] border border-white/5 flex items-center justify-center flex-shrink-0">
+                                <div className="w-14 h-14 rounded-xl bg-[#1c1c1c] flex items-center justify-center">
                                     <Icon size={28} style={{ color: item.iconColor }} />
                                 </div>
 
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <h3 className="text-[17px] font-medium text-white">{item.name}</h3>
-                                        <span className="text-[11px] text-[#555] font-medium uppercase tracking-wider">{item.subHeader}</span>
-                                    </div>
-                                    <p className="text-[#888] text-[14px] leading-snug">
-                                        {item.description}
-                                    </p>
+                                <div className="flex-1">
+                                    <h3 className="text-white text-[17px]">{item.name}</h3>
+                                    <p className="text-[#888] text-[14px]">{item.description}</p>
+
+                                    {/* ✅ DISABLED LABEL */}
+                                    {isDisabled && (
+                                        <p className="text-red-400 text-xs mt-1">
+                                            Disabled by admin
+                                        </p>
+                                    )}
                                 </div>
 
-                                {/* Action Button */}
-                                <div className="pt-1">
+                                <div>
                                     {isConnected ? (
                                         <button 
                                             onClick={() => handleDisconnect(item.id)}
-                                            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#666] hover:bg-red-500/10 hover:text-red-400 transition-all"
-                                            title="Click to disconnect"
+                                            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center"
                                         >
                                             <Check size={20} />
                                         </button>
                                     ) : (
                                         <button 
                                             onClick={() => handleConnect(item.id)}
-                                            disabled={loading}
-                                            className="w-10 h-10 rounded-xl bg-[#333] border border-white/5 flex items-center justify-center text-[#D4D4D4] hover:bg-[#3d3d3d] hover:text-white hover:border-white/10 transition-all disabled:opacity-50"
+                                            disabled={loading || isDisabled}
+                                            title={isDisabled ? "Disabled by admin" : ""}
+                                            className={`w-10 h-10 rounded-xl flex items-center justify-center 
+                                                ${isDisabled 
+                                                    ? 'bg-[#222] text-[#555] cursor-not-allowed' 
+                                                    : 'bg-[#333] hover:bg-[#3d3d3d]'
+                                                }`}
                                         >
                                             <Plus size={20} />
                                         </button>
@@ -202,11 +194,6 @@ export default function IntegrationsPage() {
                             </div>
                         );
                     })}
-                </div>
-
-                {/* Footer / Empty space simulation */}
-                <div className="mt-12 text-center text-[#444] text-[13px]">
-                    <p>Auromind AI securely handles your data according to our privacy policy.</p>
                 </div>
             </div>
         </div>

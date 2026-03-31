@@ -102,7 +102,7 @@ useEffect(() => {
 
   console.log("📊 DASHBOARD LOADED")
 
-  const token = localStorage.getItem("token")
+  const token = sessionStorage.getItem("token")
 
   console.log("Stored token:", token)
 
@@ -116,8 +116,8 @@ useEffect(() => {
 
   console.log("TOKEN WORKSPACE:", payload.workspace_id)
 
-  console.log("LOCALSTORAGE WORKSPACE:", localStorage.getItem("workspace"))
-  console.log("LOCALSTORAGE WORKSPACE_ID:", localStorage.getItem("workspace_id"))
+  console.log("SESSIONSTORAGE WORKSPACE:", sessionStorage.getItem("workspace"))
+  console.log("SESSIONSTORAGE WORKSPACE_ID:", sessionStorage.getItem("workspace_id"))
 
   console.log("Decoded token payload:", payload)
 
@@ -137,18 +137,6 @@ if (!mounted) return null;
   return (
     <div className="min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar">
       <SecretLoginBanner />
-      {isImpersonated && (
-        <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl mb-6 px-6 py-2.5 text-amber-400 text-sm font-semibold">
-          <ShieldAlert size={15} />
-          Admin Viewing Mode — you are viewing this dashboard as the user.
-          <button
-            onClick={exitImpersonation}
-            className="ml-4 px-3 py-1 rounded bg-amber-600/10 text-amber-300 text-xs hover:bg-amber-600/20 transition-colors"
-          >
-            Exit impersonation
-          </button>
-        </div>
-      )}
       <div className="max-w-[1600px] mx-auto space-y-8">
         {/* HEADER */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

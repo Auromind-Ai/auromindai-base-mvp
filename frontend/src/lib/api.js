@@ -1,5 +1,5 @@
 console.log("API CLIENT VERSION: 1.1.20");
-import { getWorkspaceIdFromToken } from "@/lib/auth"
+import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
 const isLocal = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
@@ -18,37 +18,47 @@ class APIClient {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const isPostOrPut = options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH';
+    const { headers: optionHeaders, ...restOptions } = options;
     
     const config = {
-      ...options,
+      ...restOptions,
       headers: {
         ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
-        ...options.headers,
+        ...optionHeaders,
       },
     };
 
     // Add auth token if available
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-    config.signal = controller.signal;
+    const controller = options.signal ? null : new AbortController();
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
+    if (!config.signal && controller) {
+      config.signal = controller.signal;
+    }
 
     try {
       console.log(`Fetching: ${url}`);
       const response = await fetch(url, config);
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
 
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.detail || 'Request failed');
+          console.error("FULL ERROR:", data);
+          const message =
+            data?.message ||
+            data?.detail?.message ||
+            data?.detail ||
+            data?.error?.message ||
+            'Request failed';
+          throw new Error(message);
         }
         return data;
       } else {
@@ -59,35 +69,39 @@ class APIClient {
 
     } catch (error) {
       console.error('API Error:', error, 'URL:', url);
+      if (timeoutId) clearTimeout(timeoutId);
       throw error;
     }
   }
 
-  async get(endpoint) {
-    return this.request(endpoint, { method: 'GET' });
+  async get(endpoint, options = {}) {
+    return this.request(endpoint, { ...options, method: 'GET' });
   }
 
-  async post(endpoint, body) {
+  async post(endpoint, body, options = {}) {
     return this.request(endpoint, {
+      ...options,
       method: 'POST',
       body: JSON.stringify(body),
     });
   }
 
-  async put(endpoint, body) {
+  async put(endpoint, body, options = {}) {
     return this.request(endpoint, {
+      ...options,
       method: 'PUT',
       body: JSON.stringify(body),
     });
   }
-  async patch(endpoint, body) {
-  return this.request(endpoint, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
-}
-  async delete(endpoint) {
-    return this.request(endpoint, { method: 'DELETE' });
+  async patch(endpoint, body, options = {}) {
+    return this.request(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+  async delete(endpoint, options = {}) {
+    return this.request(endpoint, { ...options, method: 'DELETE' });
   }
 
   // Auth methods
@@ -110,6 +124,33 @@ class APIClient {
 
   async getWorkspaces() {
     return this.get('/auth/workspaces');
+  }
+
+  // Billing methods
+  async getBillingStatus(workspace_id) {
+    return this.get(`/billing/status?workspace_id=${workspace_id}`);
+  }
+
+  async getBillingPlan(workspace_id, options = {}) {
+    return this.get(`/billing/plan?workspace_id=${workspace_id}`, options);
+  }
+
+  async getBillingUsage(workspace_id, options = {}) {
+    return this.get(`/billing/usage?workspace_id=${workspace_id}`, options);
+  }
+
+  async createBillingSubscription(workspace_id, plan, provider = "razorpay", options = {}) {
+    return this.post('/billing/create-subscription', {
+      workspace_id,
+      plan,
+      provider,
+    }, options);
+  }
+  async getPlatformSettings() {
+  return this.get("/admin/settings")
+}
+  async verifyBillingPayment(payload, options = {}) {
+    return this.post('/billing/verify-payment', payload, options);
   }
 
   // MCP methods
@@ -182,7 +223,7 @@ class APIClient {
     formData.append('file', file);
     formData.append('workspace_id', workspace_id);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const token = typeof window !== 'undefined' ? getToken() : null;
 
     const response = await fetch(`${this.baseURL}/brain/ingest/document`, {
       method: 'POST',
@@ -207,7 +248,7 @@ class APIClient {
 
     async editWorkspacePlan(workspace_id, plan_type) {
       return this.request(`/admin/workspaces/${workspace_id}`, {
-        method: 'PATCH',
+        method: "POST",
         body: JSON.stringify({ plan_type })
       });
     }

@@ -1,15 +1,12 @@
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-import psutil
-from app.core.metrics import CPU_PERCENT, MEMORY_PERCENT
+from app.core.metrics import get_system_metrics_snapshot
 
 router = APIRouter(tags=["metrics"])
 
 @router.get("/metrics")
-def metrics():
-
-    CPU_PERCENT.set(psutil.cpu_percent())
-    MEMORY_PERCENT.set(psutil.virtual_memory().percent)
+async def metrics(request: Request):
+    await get_system_metrics_snapshot(request.app)
 
     return Response(
         generate_latest(),

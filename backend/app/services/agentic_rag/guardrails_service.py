@@ -1,7 +1,12 @@
 import logging
 import re
+import asyncio
+import threading
 
 class GuardrailsService:
+    _sync_loop = None
+    _sync_loop_thread = None
+    _sync_loop_lock = threading.Lock()
 
     def __init__(self, llm=None, nemo_guard=None):
        
@@ -16,6 +21,35 @@ class GuardrailsService:
         self.initialized = True
 
         self.logger.info("GuardrailsService ready")
+
+    @classmethod
+    def _ensure_sync_loop(cls):
+        with cls._sync_loop_lock:
+            if cls._sync_loop and cls._sync_loop.is_running():
+                return cls._sync_loop
+
+            loop = asyncio.new_event_loop()
+
+            def _run_loop():
+                asyncio.set_event_loop(loop)
+                loop.run_forever()
+
+            thread = threading.Thread(target=_run_loop, name="guardrails-sync-loop", daemon=True)
+            thread.start()
+            cls._sync_loop = loop
+            cls._sync_loop_thread = thread
+            return cls._sync_loop
+
+    def _run_sync(self, coroutine):
+        loop = self._ensure_sync_loop()
+        future = asyncio.run_coroutine_threadsafe(coroutine, loop)
+        return future.result()
+
+    def secure_pipeline_sync(self, query: str, user_role: str = "user") -> dict:
+        return self._run_sync(self.secure_pipeline(query, user_role=user_role))
+
+    def secure_response_sync(self, response: str) -> str:
+        return self._run_sync(self.secure_response(response))
 
 
     # INPUT GUARD LAYER
