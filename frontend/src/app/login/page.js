@@ -48,6 +48,7 @@ export default function LoginPage() {
 
             // 🔥 Backup admin token if applicable
             const adminToken = localStorage.getItem("admin_backup_token");
+            sessionStorage.clear();
             localStorage.clear();
             if (adminToken) {
                 localStorage.setItem("admin_backup_token", adminToken);
@@ -63,7 +64,7 @@ export default function LoginPage() {
 
             if (data.workspaces && data.workspaces.length > 0) {
                 setWorkspace(data.workspaces[0]);
-                localStorage.setItem("workspace_id", data.workspaces[0].id);
+                sessionStorage.setItem("workspace_id", data.workspaces[0].id);
             }
 
             router.push(redirectPath || '/user/admin/dashboard');

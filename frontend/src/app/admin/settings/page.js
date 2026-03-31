@@ -14,50 +14,86 @@ import {
   Phone,
   Key,
   Database,
-  Layers
+  Layers,
+  Plus,
+  Trash2 
 } from "lucide-react"
-
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
-    // Pricing
+
+    // ---------------- Pricing ----------------
     free_plan_price: 0.0,
     pro_plan_price: 1000.0,
     enterprise_plan_price: 10000.0,
-    token_limit_per_plan: { free: 1, pro: 100000, enterprise: 1000000 },
 
-    // AI Controls
+    free_plan_name: "Free",
+    pro_plan_name: "Pro",
+    enterprise_plan_name: "Business",
+
+
+    free_plan_desc: "Try Auromind for free and see the ROI yourself.",
+    pro_plan_desc: "Everything you need to automate and scale.",
+    enterprise_plan_desc: "Enterprise-grade scale for large teams.",
+
+    free_plan_features: [
+      "100 AI Replies",
+      "Basic Workflows",
+      "Meta API Included"
+    ],
+
+    pro_plan_features: [
+      "Unlimited AI Replies",
+      "Advanced Workflows",
+      "Priority Support",
+      "Full Analytics"
+    ],
+
+    enterprise_plan_features: [
+      "Dedicated Manager",
+      "Custom API Access",
+      "On-premise Options",
+      "Global SLA"
+    ],
+
+    token_limit_per_plan: { 
+      free: 0, 
+      pro: 100000, 
+      enterprise: 1000000 
+    },
+
+    // ---------------- AI Controls ----------------
     temperature: 0.8,
     max_tokens: 4096,
     rpm_limit: 60,
     context_window: 8192,
 
-    // Rate-limits
+    // ---------------- Rate Limits ----------------
     api_rpm_limit: 60,
     api_tpm_limit: 100000,
     workspace_token_limit: 1000000,
 
-    // AI Model selection
+    // ---------------- AI Model ----------------
     model_name: "gpt-4o",
 
-    // Announcement banner
+    // ---------------- Announcement ----------------
     announcement_enabled: false,
     announcement_message: "",
 
-    // AI kill switch
+    // ---------------- AI Kill Switch ----------------
     ai_enabled: true,
 
-    // Feature Toggles
+    // ---------------- Feature Toggles ----------------
     enable_gmail_integration: true,
     enable_calendar_integration: true,
     enable_rag: true,
     enable_ai_learning: true,
 
-    // Platform Limits
+    // ---------------- Platform Limits ----------------
     max_workspaces: 10,
     max_users_per_workspace: 50,
     max_conversations: 1000,
 
-    // Global Credentials (New)
+    // ---------------- Credentials ----------------
     twilio_account_sid: "",
     twilio_auth_token: "",
     twilio_from_number: "",
@@ -66,13 +102,13 @@ export default function SettingsPage() {
     anthropic_api_key: "",
     groq_api_key: "",
 
-    // Payment Gateways
+    // ---------------- Payments ----------------
     razorpay_key: "",
     razorpay_secret: "",
-    paypal_client_id: "",
-    paypal_secret: "",
+    payu_merchant_key: "",
+    payu_salt: "",
   })
-
+  
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -400,8 +436,10 @@ export default function SettingsPage() {
             )}
 
             {/* Tab: Pricing & Plans */}
-            {activeTab === "pricing" && (
+             {activeTab === "pricing" && (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+ 
+                {/* ── Prices ── */}
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
@@ -414,15 +452,15 @@ export default function SettingsPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
-                      { label: "Free Plan Price", key: "free_plan_price" },
-                      { label: "Pro Plan Price", key: "pro_plan_price" },
+                      { label: "Free Plan Price",  key: "free_plan_price"       },
+                      { label: "Pro Plan Price",   key: "pro_plan_price"        },
                       { label: "Enterprise Price", key: "enterprise_plan_price" }
                     ].map(item => (
                       <div key={item.key} className="space-y-2">
                         <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
                         <div className="relative">
-                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
-                           <input 
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                          <input
                             type="number"
                             value={settings[item.key]}
                             onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
@@ -433,9 +471,10 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </section>
-
+ 
+                {/* ── Token Quotas ── */}
                 <section>
-                   <div className="flex items-center gap-3 mb-6 pt-4">
+                  <div className="flex items-center gap-3 mb-6 pt-4">
                     <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
                       <Zap className="text-emerald-500 w-5 h-5" />
                     </div>
@@ -448,7 +487,7 @@ export default function SettingsPage() {
                     {["free", "pro", "enterprise"].map(plan => (
                       <div key={plan} className="space-y-2">
                         <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{plan} limit</p>
-                        <input 
+                        <input
                           type="number"
                           value={settings.token_limit_per_plan[plan]}
                           onChange={(e) => handleTokenLimitChange(plan, e.target.value)}
@@ -458,6 +497,107 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </section>
+ 
+                {/* ── Plan Content (Name · Description · Features) ── */}
+                <section>
+                  <div className="flex items-center gap-3 mb-6 pt-4 border-t border-white/5">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                      <Layers className="text-indigo-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Plan Content</h3>
+                      <p className="text-xs text-gray-500">Names, descriptions &amp; features shown on landing page</p>
+                    </div>
+                  </div>
+ 
+                  <div className="space-y-6">
+                    {[
+                      { id: "free",       label: "Free Plan",      accent: "green"  },
+                      { id: "pro",        label: "Pro Plan",        accent: "indigo" },
+                      { id: "enterprise", label: "Enterprise Plan", accent: "purple" },
+                    ].map(({ id, label, accent }) => {
+                      const ring  = { green: "ring-green-500/20",  indigo: "ring-indigo-500/20",  purple: "ring-purple-500/20"  }[accent]
+                      const badge = { green: "bg-green-500/10 text-green-400", indigo: "bg-indigo-500/10 text-indigo-400", purple: "bg-purple-500/10 text-purple-400" }[accent]
+                      const addBtn= { green: "border-green-500/20 text-green-400 hover:bg-green-500/10", indigo: "border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/10", purple: "border-purple-500/20 text-purple-400 hover:bg-purple-500/10" }[accent]
+                      const features = settings[`${id}_plan_features`] || []
+ 
+                      return (
+                        <div key={id} className={`p-6 rounded-3xl bg-white/[0.01] border border-white/[0.05] ring-1 ${ring} space-y-5`}>
+                          
+                          {/* Badge */}
+                          <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${badge}`}>
+                            {label}
+                          </span>
+ 
+                          {/* Name + Description */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-bold text-gray-500 uppercase px-1">Plan Name</p>
+                              <input
+                                type="text"
+                                value={settings[`${id}_plan_name`] || ""}
+                                onChange={(e) => handleInputChange(`${id}_plan_name`, e.target.value)}
+                                placeholder="e.g. Free"
+                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none font-semibold"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-bold text-gray-500 uppercase px-1">Description</p>
+                              <input
+                                type="text"
+                                value={settings[`${id}_plan_desc`] || ""}
+                                onChange={(e) => handleInputChange(`${id}_plan_desc`, e.target.value)}
+                                placeholder="Short tagline for this plan"
+                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"
+                              />
+                            </div>
+                          </div>
+ 
+                          {/* Features list */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase px-1">Features</p>
+                            <div className="space-y-2">
+                              {features.map((feat, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-white/20 flex-shrink-0" />
+                                  <input
+                                    type="text"
+                                    value={feat}
+                                    onChange={(e) => {
+                                      const updated = [...features]
+                                      updated[idx] = e.target.value
+                                      handleInputChange(`${id}_plan_features`, updated)
+                                    }}
+                                    placeholder={`Feature ${idx + 1}`}
+                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm focus:border-indigo-500 outline-none"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const updated = features.filter((_, i) => i !== idx)
+                                      handleInputChange(`${id}_plan_features`, updated)
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => handleInputChange(`${id}_plan_features`, [...features, ""])}
+                              className={`mt-1 flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${addBtn}`}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                              Add Feature
+                            </button>
+                          </div>
+ 
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+ 
               </div>
             )}
 
@@ -506,33 +646,36 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    {/* PayPal Section */}
+                    {/* PayU Section */}
                     <div className="p-6 rounded-3xl bg-white/[0.01] border border-white/[0.05] space-y-4">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-[10px] font-black italic">PP</div>
-                        <h4 className="font-bold">PayPal (Global)</h4>
+                        <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center text-[10px] font-black italic">PU</div>
+                        <h4 className="font-bold">PayU (India)</h4>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Client ID</p>
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Merchant Key</p>
                            <input 
                             type="text"
-                            value={settings.paypal_client_id}
-                            onChange={(e) => handleInputChange("paypal_client_id", e.target.value)}
+                            value={settings.payu_merchant_key}
+                            onChange={(e) => handleInputChange("payu_merchant_key", e.target.value)}
+                            placeholder="merchant_key"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Client Secret</p>
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Salt</p>
                            <input 
                             type="password"
-                            value={settings.paypal_secret}
-                            onChange={(e) => handleInputChange("paypal_secret", e.target.value)}
+                            value={settings.payu_salt}
+                            onChange={(e) => handleInputChange("payu_salt", e.target.value)}
+                            placeholder="••••••••••••••••"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
                       </div>
                     </div>
+                  
                   </div>
                 </section>
               </div>

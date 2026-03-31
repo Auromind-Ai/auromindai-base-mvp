@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 import uuid
-from sqlalchemy.dialects.postgresql import UUID
 
 
 class Workspace(Base):
@@ -19,17 +18,22 @@ class Workspace(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
+    billing_owner_id = Column(
+    UUID(as_uuid=True),
+    ForeignKey("users.id", ondelete="SET NULL"),
+    nullable=True
+)
+    provider_customer_id = Column(String, unique=True, index=True, nullable=True)
 
     custom_token_limit = Column(Integer)
-
-    plan_type = Column(String(50), default="starter")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     ai_actions = relationship("AIAction", back_populates="workspace")
-
+    members = relationship("WorkspaceMember", backref="workspace", cascade="all, delete-orphan")
+    subscription = relationship("Subscription", backref="workspace")
 
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
@@ -52,3 +56,7 @@ class WorkspaceMember(Base):
     # founder / team_member
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "user_id", name="uq_workspace_user"),
+    )

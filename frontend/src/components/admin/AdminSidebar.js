@@ -37,14 +37,12 @@ export default function AdminSidebar() {
     { name: "Logs", href: "/admin/logs", icon: FileText },
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: "Billing", href: "/admin/billing", icon: CreditCard },
-    { name: "Payment Gateway", href: "/admin/payments", icon: Wallet },
     { name: "AI Activity", href: "/admin/ai-activity", icon: Activity },
     { name: "AI Governance", href: "/admin/ai-governance", icon: Shield },
     { name: "Integrations", href: "/admin/integrations", icon: Plug },
     { name: "RAG Brain", href: "/admin/rag", icon: Brain },
     { name: "System Health", href: "/admin/system", icon: Heart },
     { name: "AI Learning", href: "/admin/ai-learning", icon: TrendingUp },
-    { name: "API Keys", href: "/admin/settings/api-keys", icon: Key },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ]
 

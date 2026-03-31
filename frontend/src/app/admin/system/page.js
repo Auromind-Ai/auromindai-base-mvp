@@ -205,10 +205,7 @@ export default function SystemHealthPage() {
         Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : '—'}
       </div>
 
-      <details className="mt-4 text-xs text-gray-400">
-        <summary>Raw JSON</summary>
-        <pre className="mt-2">{JSON.stringify(data, null, 2)}</pre>
-      </details>
+      
     </div>
   )
 }

@@ -1,34 +1,39 @@
 // src/lib/auth.js
 export const setToken = (token) => {
   if (typeof window !== 'undefined' && token) {
-    localStorage.setItem('token', token);
+    sessionStorage.setItem('token', token);
   }
 };
 
 export const getToken = () => {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
+    return sessionStorage.getItem('token');
   }
   return null;
 };
 
 export const removeToken = () => {
   if (typeof window !== 'undefined') {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('workspace');
+    sessionStorage.removeItem('workspace_id');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('workspace');
+    localStorage.removeItem('workspace_id');
   }
 };
 
 export const setUser = (user) => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('user', JSON.stringify(user));
+    sessionStorage.setItem('user', JSON.stringify(user));
   }
 };
 
 export const getUser = () => {
   if (typeof window !== 'undefined') {
-    const user = localStorage.getItem('user');
+    const user = sessionStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   }
   return null;
@@ -36,19 +41,22 @@ export const getUser = () => {
 
 export const setWorkspace = (workspace) => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('workspace', JSON.stringify(workspace));
+    sessionStorage.setItem('workspace', JSON.stringify(workspace));
   }
 };
 
 export const getWorkspace = () => {
   if (typeof window !== 'undefined') {
-    const workspace = localStorage.getItem('workspace');
+    const workspace = sessionStorage.getItem('workspace');
     return workspace ? JSON.parse(workspace) : null;
   }
   return null;
 };
 
-export const isAuthenticated = () => !!getToken();
+export const isAuthenticated = () => {
+  if (typeof window === 'undefined') return false;
+  return !!sessionStorage.getItem("token");
+};
 
 export const logout = () => {
   removeToken();
@@ -78,7 +86,7 @@ export const clearAdminBackup = () => {
 };
 export const getWorkspaceIdFromToken = () => {
 
-  const token = localStorage.getItem("token")
+  const token = getToken()
 
   if (!token) return null
 
@@ -109,7 +117,7 @@ export const authHeader = () => {
 /* Restore admin token as active token (exit impersonation) */
 export const backupAdminToken = () => {
   if (typeof window !== "undefined") {
-    const token = localStorage.getItem("token")
+    const token = getToken()
     if (token) {
       localStorage.setItem("admin_backup_token", token)
     }
@@ -120,7 +128,7 @@ export const restoreAdminToken = () => {
   const backup = localStorage.getItem("admin_backup_token")
   if (!backup) return false
 
-  localStorage.setItem("token", backup)
+  sessionStorage.setItem("token", backup)
   localStorage.removeItem("admin_backup_token")
   localStorage.removeItem("is_impersonating")
   // optionally clear workspace to force re-fetch or restore if backed up

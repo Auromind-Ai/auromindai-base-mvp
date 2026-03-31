@@ -67,10 +67,10 @@ export default function Page() {
             if (targetWorkspace) {
               console.log("📍 [DEBUG] Setting workspace:", targetWorkspace.name)
               setWorkspace(targetWorkspace)
-              localStorage.setItem("workspace_id", targetWorkspace.id)
+              sessionStorage.setItem("workspace_id", targetWorkspace.id)
             } else {
               console.warn("⚠️ No workspace found")
-              localStorage.removeItem("workspace")
+              sessionStorage.removeItem("workspace")
             }
           }
         } catch (wsErr) {
@@ -78,8 +78,8 @@ export default function Page() {
         }
 
         console.log("🚀 [DEBUG] Final check before redirect:", {
-            token: !!localStorage.getItem('token'),
-            user: !!localStorage.getItem('user'),
+            token: !!sessionStorage.getItem('token'),
+            user: !!sessionStorage.getItem('user'),
             is_imp: localStorage.getItem('is_impersonating')
         })
 
@@ -95,7 +95,6 @@ export default function Page() {
     if (params?.session_id) {
       start()
     }
-  }, [params])
   }, [params])
 
   return (

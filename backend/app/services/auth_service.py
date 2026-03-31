@@ -5,6 +5,9 @@ from app.utils.auth import get_password_hash, verify_password, create_access_tok
 from app.services.platform_settings_service import get_setting
 from datetime import timedelta
 import uuid
+from app.models.subscription import Subscription
+from app.models.plan import Plan
+from app.core.enums import SubscriptionStatus
 
 class AuthService:
     @staticmethod
@@ -35,7 +38,6 @@ class AuthService:
         workspace = Workspace(
             name=workspace_name,
             created_by=user.id,
-            plan_type="starter"  # new workspaces always start on the starter tier
         )
         db.add(workspace)
         db.flush()
@@ -74,7 +76,6 @@ class AuthService:
             workspace = Workspace(
                 name=f"{user.full_name}'s Workspace",
                 created_by=user.id,
-                plan_type="starter"
             )
             db.add(workspace)
             db.flush()
@@ -173,7 +174,6 @@ class AuthService:
             workspace = Workspace(
                 name=workspace_name or f"{user.full_name}'s Workspace",
                 created_by=user.id,
-                plan_type="starter"
             )
 
             db.add(workspace)

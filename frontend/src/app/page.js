@@ -810,7 +810,22 @@ const SaaSMockup = () => {
 
 export default function LandingPage() {
   const containerRef = useRef(null);
+  const [settings, setSettings] = useState(null);
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/admin/settings");
+        const data = await res.json();
+        setSettings(data);
+        console.log("Fetched settings:", data);
+      } catch (err) {
+        console.error("Settings fetch error:", err);
+      }
+    };
+
+    fetchSettings();
+  }, []);
   // --- Smooth Scroll (Lenis) ---
   useEffect(() => {
     const lenis = new Lenis({
@@ -1322,35 +1337,65 @@ export default function LandingPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
                 {[
-                  { plan: 'Free', price: '₹0', desc: 'Try Auromind for free and see the ROI yourself.', features: ['100 AI Replies', 'Basic Workflows', 'Meta API Included'] },
-                  { plan: 'Pro', price: '₹2,490', desc: 'Everything you need to automate and scale.', features: ['Unlimited AI Replies', 'Advanced Workflows', 'Priority Support', 'Full Analytics'], popular: true },
-                  { plan: 'Business', price: 'Custom', desc: 'Enterprise-grade scale for large teams.', features: ['Dedicated Manager', 'Custom API Access', 'On-premise Options', 'Global SLA'] }
+                  {
+                    plan: settings?.free_plan_name ?? "Free",
+                    price: `₹${settings?.free_plan_price ?? 0}`,
+                    desc: settings?.free_plan_desc ?? "Try Auromind for free and see the ROI yourself.",
+                    features: settings?.free_plan_features ?? ["100 AI Replies", "Basic Workflows", "Meta API Included"],
+                    popular: false,
+                  },
+                  {
+                    plan: settings?.pro_plan_name ?? "Pro",
+                    price: `₹${settings?.pro_plan_price ?? 2490}`,
+                    desc: settings?.pro_plan_desc ?? "Everything you need to automate and scale.",
+                    features: settings?.pro_plan_features ?? ["Unlimited AI Replies", "Advanced Workflows", "Priority Support", "Full Analytics"],
+                    popular: true,
+                  },
+                  {
+                    plan: settings?.enterprise_plan_name ?? "Business",
+                      price: (!settings?.enterprise_plan_price || settings?.enterprise_plan_price === 0) ? "Custom": `₹${settings.enterprise_plan_price}`,
+                    desc: settings?.enterprise_plan_desc ?? "Enterprise-grade scale for large teams.",
+                    features: settings?.enterprise_plan_features ?? ["Dedicated Manager", "Custom API Access", "On-premise Options", "Global SLA"],
+                    popular: false,
+                  },
                 ].map((tier, i) => (
                   <div
                     key={i}
-                    className={`p-12 rounded-[2.5rem] bg-white border border-black/5 flex flex-col relative transition-all hover:shadow-2xl ${tier.popular ? 'ring-2 ring-black border-transparent' : ''}`}
+                    className={`p-12 rounded-[2.5rem] bg-white border border-black/5 flex flex-col relative transition-all hover:shadow-2xl ${tier.popular ? "ring-2 ring-black border-transparent" : ""
+                      }`}
                   >
                     {tier.popular && (
                       <div className="absolute top-0 right-10 -translate-y-1/2 bg-black text-white text-[10px] font-black px-6 py-2 rounded-full uppercase tracking-widest z-20">
                         Recommended
                       </div>
                     )}
+
                     <h3 className="text-2xl font-black mb-4 text-black tracking-tight">{tier.plan}</h3>
                     <p className="text-sm text-black/40 mb-10 font-medium leading-relaxed">{tier.desc}</p>
+
                     <div className="mb-12 flex items-baseline gap-2">
                       <span className="text-6xl font-black tracking-tighter text-black">{tier.price}</span>
-                      {tier.price !== 'Custom' && <span className="text-black/30 text-xs font-black uppercase tracking-widest">/mo</span>}
+                      {tier.price !== "Custom" && (
+                        <span className="text-black/30 text-xs font-black uppercase tracking-widest">/mo</span>
+                      )}
                     </div>
+
                     <ul className="space-y-6 mb-16 flex-1">
                       {tier.features.map((f, j) => (
                         <li key={j} className="flex items-center gap-4 text-sm text-black font-medium">
-                          <CheckCircle2 size={18} className="text-black/10" />
+                          <CheckCircle2 size={18} className="text-black/10 flex-shrink-0" />
                           <span>{f}</span>
                         </li>
                       ))}
                     </ul>
-                    <button className={`w-full py-5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${tier.popular ? 'bg-black text-white hover:bg-zinc-800' : 'bg-white border border-black/10 text-black hover:bg-black/5'}`}>
-                      {tier.plan === 'Free' ? 'Get Started' : tier.plan === 'Pro' ? 'Go Pro' : 'Contact Sales'}
+
+                    <button
+                      className={`w-full py-5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${tier.popular
+                          ? "bg-black text-white hover:bg-zinc-800"
+                          : "bg-white border border-black/10 text-black hover:bg-black/5"
+                        }`}
+                    >
+                      {i === 0 ? "Get Started" : i === 1 ? `Go ${tier.plan}` : "Contact Sales"}
                     </button>
                   </div>
                 ))}

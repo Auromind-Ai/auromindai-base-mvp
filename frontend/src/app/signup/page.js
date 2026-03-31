@@ -2,13 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Mail, Lock, User, Building, ArrowRight, Loader2, Cpu, CheckCircle2 } from 'lucide-react';
 import api from '@/lib/api';
-import { setToken, setUser, setWorkspace } from '@/lib/auth';
 
 export default function SignupPage() {
-    const router = useRouter();
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -24,22 +21,16 @@ export default function SignupPage() {
         setLoading(true);
 
         try {
-            const response = await api.signup(
+            const data = await api.signup(
                 formData.email,
                 formData.password,
                 formData.full_name,
                 formData.workspace_name
             );
+            console.log("Signup response:", data);
 
-            // Store auth data (auto-login after signup)
-            setToken(response.access_token);
-            setUser(response.user);
-            if (response.workspaces && response.workspaces.length > 0) {
-                setWorkspace(response.workspaces[0]);
-            }
-
-            // Redirect to dashboard
-            router.push('/user/admin/dashboard');
+            alert("Account created successfully. Please login.");
+            window.location.href = "/login";
         } catch (err) {
             setError(err.message || 'Signup failed. Please try again.');
         } finally {

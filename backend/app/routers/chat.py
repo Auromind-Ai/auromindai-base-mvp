@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.models.conversation import ChatSession, ChatMessage
+from app.models.workspace import WorkspaceMember
 from uuid import UUID
 import uuid
 from datetime import datetime
@@ -67,6 +68,13 @@ async def create_session(
     current_user = Depends(get_current_user)
 ):
     """Create a new chat session."""
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == request.workspace_id,
+        WorkspaceMember.user_id == current_user.id,
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Workspace not found or access denied")
+
     session = ChatSession(
         id=str(uuid.uuid4()),
         workspace_id=request.workspace_id,
