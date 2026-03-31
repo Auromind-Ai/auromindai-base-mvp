@@ -1,29 +1,40 @@
 import uuid
 import json
-from typing import Optional, Dict, Any, Generator
+from datetime import datetime
+from typing import Optional, Dict, Any, AsyncGenerator, Tuple
+
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from app.services.billing_service import BillingService
+
+from app.core.exceptions import (
+    BillingError,
+    GuardrailError,
+    ChatProcessingError,
+    RAGError,
+    WorkspaceAccessError,
+)
+from app.core.logger import logger
+from app.models.conversation import ChatMessage, ChatSession
 from app.services.agentic_rag.guardrails_service import GuardrailsService
 from app.services.agentic_rag.rag_service import get_rag_service
-from app.models.conversation import ChatMessage, ChatSession
-from app.core.exceptions import (BillingError,GuardrailError,ChatProcessingError,RAGError,WorkspaceAccessError,)
-from app.core.logger import logger
-from datetime import datetime
-from pydantic import BaseModel
-import google.generativeai as genai
-from groq import Groq
-from typing import Tuple
-
+from app.services.billing_service import BillingService
+from app.services.llm_router import LLMRouter  # 🔥 Added LLMRouter back
 
 class ChatServiceConfig(BaseModel):
-    """Configuration for chat service."""
     model_config = {"arbitrary_types_allowed": True}
     google_api_key: Optional[str] = None
-    groq_client: Optional[Groq] = None
+    groq_client: Optional[Any] = None
 
 
 class ChatService:
-    """Service layer for chat operations."""
+    """
+    Merged chat service:
+    - Workspace access validation
+    - Credit reservation / finalize / release
+    - Guardrails input/output protection
+    - RAG first, then LLM fallback
+    - Safe streaming with cleanup in finally
+    """
 
     def __init__(self, config: ChatServiceConfig):
         self.config = config
@@ -33,7 +44,6 @@ class ChatService:
     def _validate_workspace_access(
         self, db: Session, workspace_id: str, user_id: str
     ) -> Any:
-        """Validate user has access to workspace."""
         try:
             workspace = self.billing_service._get_workspace_for_user(
                 db=db, workspace_id=workspace_id, user_id=user_id
@@ -54,7 +64,6 @@ class ChatService:
         amount: int = 1,
         description: str = "chat operation",
     ) -> Any:
-        """Reserve credits for operation."""
         try:
             reservation = self.billing_service.reserve_credits(
                 db=db,
@@ -71,25 +80,33 @@ class ChatService:
         except Exception as e:
             raise BillingError(f"Credit reservation failed: {str(e)}")
 
-    def _check_guardrails(self, message: str) -> Tuple[bool, str, str]:
-        """Check message against guardrails."""
+    #  Issue 1 Fix: Made Async and reverted to secure_pipeline
+    async def _check_guardrails(self, message: str) -> Dict[str, Any]:
         try:
-            is_safe, reason, safe_query = self.guardrails_service.check_query(message)
-            if not is_safe:
-                raise GuardrailError(f"Content policy violation: {reason}")
-            return is_safe, reason, safe_query
+            result = await self.guardrails_service.secure_pipeline(message)
+            if not isinstance(result, dict):
+                raise GuardrailError("Guardrails returned invalid response")
+
+            if result.get("status") == "blocked":
+                raise GuardrailError(result.get("message") or "Content policy violation")
+
+            safe_query = result.get("safe_query")
+            if not safe_query:
+                raise GuardrailError("Guardrails did not return a safe query")
+
+            return result
         except GuardrailError:
             raise
         except Exception as e:
             raise GuardrailError(f"Guardrails validation failed: {str(e)}")
 
-    def _get_rag_answer(
+    #  Issue 1 & 2 Fix: Made Async, returns dict to preserve meta
+    async def _get_rag_answer(
         self, db: Session, workspace_id: str, query: str
-    ) -> Optional[str]:
-        """Retrieve answer from RAG."""
+    ) -> Any:
         try:
             rag = get_rag_service()
-            answer = rag.agent_loop(
+            answer = await rag.agent_loop(
                 db=db,
                 workspace_id=workspace_id,
                 query=query,
@@ -106,7 +123,6 @@ class ChatService:
         request_message: str,
         response_text: str,
     ) -> None:
-        """Finalize credit usage."""
         try:
             tokens_used = self.billing_service.estimate_tokens(
                 request_message, response_text
@@ -123,7 +139,6 @@ class ChatService:
     def _release_credits(
         self, db: Session, reservation_id: str, reason: str
     ) -> None:
-        """Release reserved credits."""
         try:
             self.billing_service.release_credit_reservation(
                 db=db,
@@ -139,10 +154,9 @@ class ChatService:
             db.rollback()
         except Exception as e:
             logger.warning(f"Failed rollback before release (ignored): {e}")
-
         self._release_credits(db, reservation_id, reason)
-
-    def handle_chat_query(
+    #  Issue 1 Fix: Made Async
+    async def handle_chat_query(
         self,
         db: Session,
         message: str,
@@ -150,16 +164,15 @@ class ChatService:
         user_id: str,
     ) -> Dict[str, Any]:
         """
-        Handle synchronous chat query with full transaction safety.
-        
-        Entire operation is atomic: reserve → process → finalize/release.
+        One-shot chat:
+        reserve -> guardrails -> RAG -> finalize/release
         """
         reservation_key = f"chat-query:{workspace_id}:{uuid.uuid4()}"
-
         reservation = None
 
         try:
             self._validate_workspace_access(db, workspace_id, user_id)
+
             reservation = self._reserve_credits(
                 db=db,
                 workspace_id=workspace_id,
@@ -168,12 +181,27 @@ class ChatService:
                 description="chat.query reservation",
             )
 
-            is_safe, reason, safe_query = self._check_guardrails(message)
-            answer = self._get_rag_answer(db=db, workspace_id=workspace_id, query=safe_query)
+            guard_result = await self._check_guardrails(message)
+            safe_query = guard_result["safe_query"]
 
-            if answer:
-                self._finalize_billing(db, reservation.id, message, answer)
-                return {"answer": answer, "sources": [], "actions": []}
+            answer_data = await self._get_rag_answer(
+                db=db,
+                workspace_id=workspace_id,
+                query=safe_query,
+            )
+
+            if answer_data:
+                # Handle dict or string to preserve meta
+                if isinstance(answer_data, dict):
+                    raw_answer = answer_data.get("answer", "")
+                    meta = answer_data.get("meta", {})
+                else:
+                    raw_answer = answer_data
+                    meta = {}
+
+                safe_answer = await self.guardrails_service.secure_response(raw_answer)
+                self._finalize_billing(db, reservation.id, message, safe_answer)
+                return {"answer": safe_answer, "sources": [], "actions": [], "meta": meta}
 
             self._release_credits(db, reservation.id, "no_answer_generated")
             return {
@@ -182,22 +210,27 @@ class ChatService:
                 "actions": [],
             }
 
-        except (GuardrailError, RAGError, BillingError, WorkspaceAccessError) as e:
+        except (GuardrailError, RAGError, BillingError, WorkspaceAccessError):
             if reservation is not None:
                 try:
-                    self._force_release_reservation(db, reservation.id, f"error:{type(e).__name__}")
+                    self._force_release_reservation(
+                        db, reservation.id, "error:handled_exception"
+                    )
                 except Exception as release_err:
                     logger.error(f"Failed force-release reservation: {release_err}")
             raise
         except Exception as e:
             if reservation is not None:
                 try:
-                    self._force_release_reservation(db, reservation.id, f"error:{type(e).__name__}")
+                    self._force_release_reservation(
+                        db, reservation.id, f"error:{type(e).__name__}"
+                    )
                 except Exception as release_err:
                     logger.error(f"Failed force-release reservation: {release_err}")
             raise ChatProcessingError(f"Chat query failed: {str(e)}")
 
-    def handle_stream_chat(
+    #  Issue 1, 2, & 3 Fixes applied here
+    async def handle_stream_chat(
         self,
         db: Session,
         message: str,
@@ -206,12 +239,10 @@ class ChatService:
         use_rag: bool,
         model: str,
         user_id: str,
-    ) -> Generator[str, None, None]:
+    ) -> AsyncGenerator[str, None]:
         """
-        Handle streaming chat with transaction safety.
-        
-        Yields: JSON-encoded chat chunks
-        Raises: Various exceptions on critical failures
+        Streaming chat:
+        reserve -> guardrails -> RAG -> LLM fallback -> finalize/release
         """
         reservation = None
         final_billing_reason = "no_response_generated"
@@ -240,7 +271,6 @@ class ChatService:
                 description="api.chat reservation",
             )
 
-            # Store user message in session
             if session_id:
                 user_msg = ChatMessage(
                     id=str(uuid.uuid4()),
@@ -251,86 +281,85 @@ class ChatService:
                 db.add(user_msg)
                 db.flush()
 
-            # Check guardrails
-            try:
-                guard_result = self.guardrails_service.secure_pipeline_sync(message)
-                if guard_result["status"] == "blocked":
-                    final_billing_reason = "guardrails_blocked"
-                    yield f"{json.dumps({'content': guard_result['message']})}\n"
-                    return
-                safe_query = guard_result["safe_query"]
-            except Exception as e:
-                final_billing_reason = f"guardrails_error:{type(e).__name__}"
-                raise GuardrailError(f"Guardrails check failed: {str(e)}")
+            guard_result = await self.guardrails_service.secure_pipeline(message)
+            if guard_result["status"] == "blocked":
+                final_billing_reason = "guardrails_blocked"
+                yield f"{json.dumps({'content': guard_result['message']})}\n"
+                return
 
-            # Try RAG if enabled
+            safe_query = guard_result["safe_query"]
+
             rag_answered = False
             if use_rag:
                 try:
-                    answer = self._get_rag_answer(
-                        db=db, workspace_id=workspace_id, query=safe_query
+                    answer_data = await self._get_rag_answer(
+                        db=db,
+                        workspace_id=workspace_id,
+                        query=safe_query,
                     )
-                    if answer:
-                        safe_answer = self.guardrails_service.secure_response_sync(answer)
+                    if answer_data:
+                        if isinstance(answer_data, dict):
+                            result = answer_data
+                        else:
+                            result = {
+                                "answer": answer_data,
+                                "meta": {
+                                    "query": message,
+                                    "rewritten_query": safe_query,
+                                    "tool": "unknown",
+                                    "model": model,
+                                    "confidence_score": None,
+                                    "source": "fallback"
+                                }
+                            }
+
+                        safe_answer = await self.guardrails_service.secure_response(result["answer"])
                         full_response = safe_answer
                         rag_answered = True
-                        yield f"{json.dumps({'content': safe_answer})}\n"
+                        
+                        #  Meta Data Yielded correctly
+                        yield json.dumps({
+                            "content": safe_answer,
+                            "meta": result.get("meta")
+                        }) + "\n"
                         chunks_successfully_sent = True
+
                 except RAGError as e:
                     logger.error(f"RAG failed in stream: {e}")
                 except Exception as e:
                     logger.error(f"Unexpected error in RAG: {e}")
 
-            # Fallback to LLM if RAG didn't answer
             if not rag_answered:
-                if model == "gemini" or (model == "auto" and not self.config.groq_client):
-                    if not self.config.google_api_key:
-                        final_billing_reason = "gemini_not_configured"
-                        raise ChatProcessingError("Gemini API not configured")
+                try:
+                    #  Re-integrated LLMRouter fallback
+                    router = LLMRouter()
+                    result = await router.generate(
+                        safe_query,
+                        model=model
+                    )
 
-                    try:
-                        model_obj = genai.GenerativeModel("gemini-1.5-flash")
-                        response = model_obj.generate_content(safe_query, stream=True)
+                    content = result["content"]
+                    full_response = content
 
-                        for chunk in response:
-                            if chunk.text:
-                                full_response += chunk.text
-                                yield f"{json.dumps({'content': chunk.text})}\n"
-                                chunks_successfully_sent = True
-                    except Exception as e:
-                        final_billing_reason = f"gemini_error:{type(e).__name__}"
-                        raise ChatProcessingError(f"Gemini request failed: {str(e)}")
+                    yield f"{json.dumps({'content': content})}\n"
+                    
+                    # 🔥 Fallback Meta Data Yielded correctly
+                    fallback_meta = {
+                        "query": message,
+                        "rewritten_query": safe_query,
+                        "tool": "reasoning",
+                        "model": result.get("model", model),
+                        "confidence_score": None,
+                        "source": "llm"
+                    }
+                    yield f"{json.dumps({'meta': fallback_meta})}\n"
 
-                else:
-                    if not self.config.groq_client:
-                        final_billing_reason = "groq_not_configured"
-                        raise ChatProcessingError("Groq API not configured")
+                    chunks_successfully_sent = True
+                except Exception as e:
+                    final_billing_reason = f"llm_error:{type(e).__name__}"
+                    logger.error(f"LLMRouter fallback failed: {str(e)}")
+                    yield f"{json.dumps({'error': str(e)})}\n"
 
-                    try:
-                        completion = self.config.groq_client.chat.completions.create(
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": "You are Auromind, a helpful AI assistant.",
-                                },
-                                {"role": "user", "content": safe_query},
-                            ],
-                            model="llama-3.1-8b-instant",
-                            temperature=0.7,
-                            stream=True,
-                        )
-
-                        for chunk in completion:
-                            if chunk.choices[0].delta.content:
-                                content = chunk.choices[0].delta.content
-                                full_response += content
-                                yield f"{json.dumps({'content': content})}\n"
-                                chunks_successfully_sent = True
-                    except Exception as e:
-                        final_billing_reason = f"groq_error:{type(e).__name__}"
-                        raise ChatProcessingError(f"Groq request failed: {str(e)}")
-
-            # Store AI response in session
             if session_id and full_response:
                 ai_msg = ChatMessage(
                     id=str(uuid.uuid4()),
@@ -356,7 +385,6 @@ class ChatService:
             logger.error(f"Stream chat error: {e}")
             raise ChatProcessingError(f"Chat stream failed: {str(e)}")
         finally:
-            # Always finalize or release billing with guaranteed commit on release path.
             if reservation is not None:
                 try:
                     if chunks_successfully_sent:

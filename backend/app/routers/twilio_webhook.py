@@ -246,13 +246,13 @@ def send_reply(data: schemas.SendReply, db: Session = Depends(get_db)):
             data.message
         )
         
-        return {"status": "sent"}
+    return {"status": "sent"}
 
 
 
 # AI SUGGEST
 @router.post("/ai-suggest")
-def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
+async def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
 
     messages = db.query(models.Message).filter(
         models.Message.conversation_id == data.conversation_id
@@ -272,7 +272,7 @@ def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
 
     rag = get_rag_service()
 
-    reply = rag.agent_loop(
+    reply = await rag.agent_loop(
         db=db,
         workspace_id=data.workspace_id,
         query=query
