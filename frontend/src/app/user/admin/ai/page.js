@@ -32,6 +32,17 @@ import { getWorkspace } from '@/lib/auth';
 import ChatSidebar from '@/components/ChatSidebar';
 import api from '@/lib/api';
 
+
+const MODELS = [
+  { id: "auto", name: "✨ Auto", plan: "free" },
+  { id: "groq", name: "⚡ Fast (Groq)", plan: "free" },
+  { id: "sonnet", name: "🧠 Smart (Sonnet)", plan: "free" },
+  { id: "opus", name: "🧪 Deep (Opus)", plan: "pro" },
+  { id: "gemini_flash", name: "💡 Flash (Gemini)", plan: "pro" }
+];
+
+
+
 // Typewriter Component for AI Responses
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     const [displayedText, setDisplayedText] = useState('');
@@ -84,6 +95,22 @@ export default function AuromindAIPage() {
     const [copiedIndex, setCopiedIndex] = useState(null);
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+    const user = { plan: "free" }; // temporary (replace later)
+    const getModelName = () => {
+    const model = MODELS.find(m => m.id === selectedModel);
+    return model ? model.name : "✨ Auto";
+    };
+
+    const handleModelSelect = (model) => {
+    if (model.plan === "pro" && (!user || user.plan !== "pro")) {
+        alert("Upgrade to use this model 🚀");
+        return;
+    }
+
+    setSelectedModel(model.id);
+    setIsModelDropdownOpen(false);
+    };
+
     const messagesEndRef = useRef(null);
     const [isPlusOpen, setIsPlusOpen] = useState(false);
     const plusRef = useRef(null);
@@ -111,6 +138,57 @@ export default function AuromindAIPage() {
     // Get workspace ID for RAG
     const workspace = getWorkspace();
     const workspaceId = workspace?.id;
+    const sendFeedback = async (type, msg, idx) => {
+  try {
+    const userMessage = messages[idx - 1]?.content || "";
+
+    console.log("🔥 FULL MSG:", msg);
+    console.log("🔥 META:", msg.meta);
+
+    await fetch(`${API_URL}/feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: msg.meta?.query || userMessage,
+        answer: msg.content,
+        feedback: type,
+
+        // ✅ MUST COME FROM meta
+        rewritten_query: msg.meta?.rewritten_query,
+        tool: msg.meta?.tool,
+        model: msg.meta?.model,
+        latency_ms: msg.meta?.latency_ms,
+        confidence_score: msg.meta?.confidence_score,
+        source: msg.meta?.source,
+        session_id: currentSessionId
+      }),
+    });
+
+    console.log("✅ FEEDBACK SENT WITH META");
+
+    setMessages(prev =>
+      prev.map((m, i) =>
+        i === idx ? { ...m, voted: true } : m
+      )
+    );
+
+  } catch (err) {
+    console.error("❌ Feedback error:", err);
+  }
+};
+
+    useEffect(() => {
+    const handleClickOutside = (e) => {
+        if (!e.target.closest(".model-dropdown")) {
+        setIsModelDropdownOpen(false);
+        }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+    }, []);
 
     useEffect(() => {
         setMounted(true);
@@ -285,6 +363,8 @@ export default function AuromindAIPage() {
     const handleExecute = async () => {
         if ((!inputValue.trim() && !attachedFile) || isLoading) return;
 
+        const startTime = Date.now()
+
         const userMsg = inputValue;
         setInputValue('');
         setAttachedFile(null); // Clear attached file preview
@@ -356,12 +436,33 @@ export default function AuromindAIPage() {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
-                        if (data.content) {
-                            fullText += data.content;
-                            setMessages(prev => prev.map((msg, i) =>
-                                i === prev.length - 1 ? { ...msg, content: fullText } : msg
-                            ));
-                        } else if (data.error) {
+                        if (data.content || data.meta) {
+
+                                if (data.content) {
+                                    fullText += data.content;   // ✅ IMPORTANT FIX
+                                }
+
+                                setMessages(prev => prev.map((msg, i) =>
+                                    i === prev.length - 1
+                                        ? {
+                                            ...msg,
+                                            content: data.content
+                                                ? msg.content + data.content
+                                                : msg.content,
+                                            meta: (
+                                                data.meta &&
+                                                typeof data.meta === "object" &&
+                                                Object.keys(data.meta).length > 0
+                                            )
+                                                ? {
+                                                    ...data.meta,
+                                                    latency_ms: Date.now() - startTime
+                                                }
+                                                : msg.meta
+                                        }
+                                        : msg
+                                ));
+                            }else if (data.error) {
                             // Show error message in UI
                             const errorMsg = data.error.includes('429') || data.error.includes('quota')
                                 ? "⚠️ API rate limit exceeded. Please wait a moment and try again."
@@ -755,14 +856,6 @@ export default function AuromindAIPage() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setIsSettingsOpen(true)}
-                            className="p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-                        >
-                            <Settings size={20} />
-                        </button>
-                    </div>
                 </div>
 
                 <div className="flex flex-col flex-1 bg-transparent relative overflow-hidden">
@@ -977,23 +1070,42 @@ export default function AuromindAIPage() {
                                                             )}
                                                         </div>
                                                         {!msg.isStreaming && (
-                                                            <div className="flex items-center gap-1 mt-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                                <button
-                                                                    onClick={() => handleCopy(msg.content, idx)}
-                                                                    className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-                                                                    title="Copy to clipboard"
-                                                                >
-                                                                    {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleRegenerate(idx)}
-                                                                    className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-                                                                    title="Regenerate response"
-                                                                >
-                                                                    <RotateCcw size={14} />
-                                                                </button>
-                                                            </div>
-                                                        )}
+  <div className="flex items-center gap-1 mt-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+
+    {/* Copy */}
+    <button
+      onClick={() => handleCopy(msg.content, idx)}
+      className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+    >
+      {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+    </button>
+
+    {/* Regenerate */}
+    <button
+      onClick={() => handleRegenerate(idx)}
+      className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+    >
+      <RotateCcw size={14} />
+    </button>
+
+    {/* 👍 FEEDBACK */}
+    <button
+      onClick={() => sendFeedback("up", msg, idx)}
+      className="p-1.5 rounded-md hover:bg-green-500/10 text-gray-500 hover:text-green-400 transition-colors"
+    >
+      <ThumbsUp size={14} />
+    </button>
+
+    {/* 👎 FEEDBACK */}
+    <button
+      onClick={() => sendFeedback("down", msg, idx)}
+      className="p-1.5 rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
+    >
+      <ThumbsDown size={14} />
+    </button>
+
+  </div>
+)}
                                                     </div>
                                                 )}
                                             </motion.div>
@@ -1016,7 +1128,7 @@ export default function AuromindAIPage() {
                             className="w-full max-w-3xl px-4 pointer-events-auto"
                         >
                                 <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl focus-within:border-indigo-500/40 transition-all duration-300">
-                                    <div ref={plusRef} className="relative flex items-center px-4 py-3">
+                                    <div ref={plusRef} className="relative flex items-center px-4 py-3 gap-2">
 
   {/* PLUS BUTTON */}
   <button
@@ -1026,7 +1138,43 @@ export default function AuromindAIPage() {
     <Plus size={18} />
   </button>
 
-  {/* DROPDOWN */}
+  {/* MODEL SELECTOR */}
+  <div className="relative model-dropdown">
+
+    <button
+      onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+      className="px-2 py-1 rounded-md text-xs bg-white/5 text-gray-300 hover:bg-white/10"
+    >
+      {getModelName()}
+    </button>
+
+    {isModelDropdownOpen && (
+      <div className="absolute bottom-10 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-52 p-2 z-50">
+
+        {MODELS.map((model) => (
+          <button
+            key={model.id}
+            onClick={() => handleModelSelect(model)}
+            className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
+          >
+            <span>{model.name}</span>
+
+            {model.plan === "pro" && user.plan !== "pro" && (
+              <span className="text-yellow-400 text-xs">🔒</span>
+            )}
+
+            {selectedModel === model.id && (
+              <span className="text-green-400">✓</span>
+            )}
+          </button>
+        ))}
+
+      </div>
+    )}
+
+  </div>
+
+  {/* EXISTING DROPDOWN */}
   {isPlusOpen && (
     <div className="absolute bottom-14 left-4 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
       
@@ -1047,14 +1195,6 @@ export default function AuromindAIPage() {
       >
         <Globe size={16} />
         Search
-      </button>
-
-      <button
-        onClick={() => setIsPlusOpen(false)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
-      >
-        <Sparkles size={16} />
-        {selectedModel === 'auto' ? 'Auto' : 'Pro'}
       </button>
 
     </div>

@@ -1,6 +1,5 @@
 from sentence_transformers import SentenceTransformer
 import logging
-import hashlib
 import numpy as np
 
 
@@ -11,7 +10,7 @@ class EmbeddingGenerator:
 
     def __init__(self, model_name="BAAI/bge-small-en-v1.5", device="cpu"):
         if EmbeddingGenerator._model is None:
-            logging.info(f"🔥 Loading embedding model ONCE: {model_name}")
+            logging.info(f"Loading embedding model ONCE: {model_name}")
 
             EmbeddingGenerator._model = SentenceTransformer(
                 model_name,
@@ -44,7 +43,6 @@ class EmbeddingGenerator:
             convert_to_numpy=True,
             normalize_embeddings=True
         )
-        print("Norm:", np.linalg.norm(embeddings))
 
         if embeddings.shape[1] != self.dimension:
             raise ValueError(

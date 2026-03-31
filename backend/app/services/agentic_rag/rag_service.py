@@ -1,7 +1,7 @@
 import logging
 import re
 from app.utils.evaluation import token_match_percentage
-from app.config.llm_config import GroqLLM
+from app.services.llm_router import LLMRouter
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import uuid
@@ -23,14 +23,21 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
 import numexpr as ne
 from app.services.agentic_rag.reasoning_agent import run_reasoning
+from app.services.agentic_rag.reinforcement import ReinforcementEngine
+from app.services.agentic_rag.learning_cache import learning_cache
+from app.utils.confidence import compute_confidence
 
 
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=8)
-)
-def safe_llm_call(llm, prompt):
-    return llm.invoke(prompt)
+router = LLMRouter()
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
+async def safe_llm_call(prompt):
+    result = await router.generate(prompt)
+    return {
+        "content": result["content"],
+        "model": result.get("model", "unknown")
+    }
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -54,7 +61,22 @@ class AgenticRAG:
         self.reranker = reranker
         self.top_k = top_k
         self.embedding_generator = embedding_generator 
+        self.router = LLMRouter()
+
     
+    def format_response(self, answer, query, rewritten_query=None, tool=None, confidence=None):
+        return {
+            "answer": answer,
+            "meta": {
+                "query": query,
+                "rewritten_query": rewritten_query,
+                "tool": tool,
+                "model": "auto",
+                "confidence_score": confidence if confidence is not None else 0.5,
+                "source": tool
+            }
+        }
+
 
     def get_small_talk_response(self, query: str):
         q = query.lower().strip()
@@ -111,13 +133,7 @@ class AgenticRAG:
                 query_embedding=query_embedding,
                 top_k=self.top_k
             )
-            for r in results:
-                logging.info("------")
-                logging.info("Chunk ID: %s", r["id"])
-                logging.info("Score: %.4f", r["score"])
-                logging.info("Content Preview: %s", r["text"][:200])
             
-
             if not results:
                 logging.warning("No documents found in vector search")
                 return []
@@ -162,15 +178,19 @@ class AgenticRAG:
 
         reranked_docs = self.rerank(query, strong_docs)
 
-        top_docs = reranked_docs[:2]
+        # top_docs = reranked_docs[:2]
+        top_docs = reranked_docs[:self.top_k]
         context = "\n\n".join(
             [doc["text"] for doc in top_docs]
         )
 
-        return context
+        return {
+            "context": context,
+            "docs": top_docs   
+        }
     
     #LLM analyzes and rewrites
-    def analyze_and_rewrite(self, query):
+    async def analyze_and_rewrite(self, query):
         prompt = f"""
         You are a STRICT Retrieval Query Optimization Agent.
 
@@ -217,12 +237,22 @@ class AgenticRAG:
 
         Rewritten Query:
         """
-        rewritten_query = safe_llm_call(self.llm, prompt)
-        logging.info(rewritten_query)
+        rewritten_query = await safe_llm_call(prompt)
+       
+        rewritten_query = rewritten_query["content"].strip()
+
+        #APPLY REWRITE RULES
+        rules = learning_cache.get("rewrite_rules", {})
+
+        remove_words = rules.get("remove_words", [])
+
+        for word in remove_words:
+            rewritten_query = rewritten_query.replace(word, "")
+
         return rewritten_query.strip()
     
     #LLM decides which tool to use
-    def decide_tool(self, query):
+    async def decide_tool(self, query):
 
         prompt = f"""
       You are a deterministic AI Tool Router for a production SaaS system.
@@ -326,9 +356,8 @@ class AgenticRAG:
     Selected Tool:
         """
         
-        decision = safe_llm_call(self.llm, prompt)
-        print(decision)
-        return decision.strip().lower()
+        decision = await safe_llm_call(prompt)
+        return decision["content"].strip().lower()
 
     def web_search(self, query):
 
@@ -426,9 +455,7 @@ class AgenticRAG:
         except Exception:
             return "Calculation error"
         
-    def parse_email_query(self, query):
-
-        logging.info(f"User query: {query}")
+    async def parse_email_query(self, query):
 
         prompt = f"""
         You are an email query understanding engine.
@@ -465,15 +492,15 @@ class AgenticRAG:
         {query}
         """
 
-        response = safe_llm_call(self.llm, prompt)
-
-        logging.info(f"Raw LLM response: {response}")
+        response = await safe_llm_call(prompt)
 
         try:
 
             #Remove markdown code blocks
-            cleaned = re.sub(r"```json", "", response, flags=re.IGNORECASE)
-            cleaned = re.sub(r"```", "", cleaned)
+            content = response["content"]  
+
+            cleaned = re.sub(r"```json", "", content, flags=re.IGNORECASE)
+            cleaned = re.sub(r"```", "", cleaned).strip()
 
             #Extract JSON block
             match = re.search(r"\{.*?\}", cleaned, re.DOTALL)
@@ -485,7 +512,7 @@ class AgenticRAG:
                 logging.info("No JSON found in response")
                 return {}
 
-            logging.info("Parsed filters:", filters)
+            logging.info(f"Parsed filters: {filters}")
 
             return filters
 
@@ -540,7 +567,7 @@ class AgenticRAG:
 
         return results
 
-    def generate_email_summary(self, subject, body):
+    async def generate_email_summary(self, subject, body):
 
         prompt = f"""
         You are an AI assistant that summarizes emails.
@@ -558,11 +585,11 @@ class AgenticRAG:
         {body}
         """
 
-        response = safe_llm_call(self.llm, prompt)
+        response = await safe_llm_call(prompt)
 
-        return response.strip()
+        return response["content"].strip()
     
-    def build_email_response(self, db, results):
+    async def build_email_response(self, db, results):
         logging.info("Building response for emails:", len(results))
 
         response = ""
@@ -582,7 +609,7 @@ class AgenticRAG:
 
             if not summary or "Summary not available" in summary.lower():
 
-                summary = self.generate_email_summary(
+                summary = await self.generate_email_summary(
                     email.subject,
                     email.body
                 )
@@ -606,26 +633,35 @@ class AgenticRAG:
         logging.info("Final response built")
         return response
             
-    def email_storage_tool(self, db, workspace_id, query):
+    async def email_storage_tool(self, db, workspace_id, query):
 
-        filters = self.parse_email_query(query)
+        filters = await self.parse_email_query(query)
 
         results = self.query_emails(db, workspace_id, filters)
 
         if not results:
             return "No emails found."
 
-        return self.build_email_response(db, results)
+        return await self.build_email_response(db, results)
         
     #Reasoning Engine   
-    def agent_loop(self, db, workspace_id, query):
-        print(query)
+    async def agent_loop(self, db, workspace_id, query):
 
         website_names = []  
 
         small_talk = self.get_small_talk_response(query)
         if small_talk:
-            return small_talk
+            response = await self.add_followup(query, small_talk)
+
+            confidence = compute_confidence(tool="direct_answer")
+
+            return self.format_response(
+                response,
+                query,
+                query,               
+                "direct_answer",     
+                confidence
+            )
 
         start_url = self.extract_url(query)
 
@@ -637,7 +673,7 @@ class AgenticRAG:
             scraped_data = scraper.scrapper_choose(single_page)
 
             if not scraped_data or isinstance(scraped_data, str):
-                return "Unable to read the website."
+                return self.format_response("Unable to read the website.", query)
               
             scraped_data = self.select_relevant_sections(scraped_data, query)
 
@@ -766,9 +802,9 @@ class AgenticRAG:
 
             Extracted information:
             """
-            response = safe_llm_call(self.llm, final_prompt)
+            response = await safe_llm_call(final_prompt)
 
-            response = response.replace("```", "").strip()
+            response = response["content"].replace("```", "").strip()
 
             lines = response.split("\n")
 
@@ -786,37 +822,128 @@ class AgenticRAG:
 
             formatted = "\n".join(f"{i+1}. {c}" for i, c in enumerate(clauses))
             logging.info(formatted)
-            return self.add_followup(query, formatted)
+            response = await self.add_followup(query, formatted)
+            confidence = compute_confidence(tool="web_search")
+
+            return self.format_response(
+                response,
+                query,
+                query,
+                "web_search",
+                confidence
+            )
                     
         #Rewrite
-        rewritten_query =self.analyze_and_rewrite(query)
+        rewritten_query = await self.analyze_and_rewrite(query)
         logging.info(rewritten_query)
+        
         #Decide tool
-        tool = self.decide_tool(rewritten_query)
+        tool =  await self.decide_tool(rewritten_query)
+        
+        #RULE BASED TOOL OVERRIDE
+        rules = learning_cache.get("tool_rules", [])
+
+        for rule in rules:
+            if rule.get("success_rate", 0) < 60:
+                continue
+
+            matched = False
+
+            for keyword in rule.get("top_keywords", []):
+                if keyword in rewritten_query.lower():
+                    tool = rule["tool"]
+                    matched = True
+                    break
+
+            if matched:
+                break
+
+
+        #llm learning
+        memory = learning_cache.get("memory", {}) if learning_cache else {}
+        good_queries = memory.get("good_queries", [])[:3]
+        tool_insights = memory.get("tool_insights", {})
+
+        if tool_insights:
+            best_tool = max(tool_insights, key=lambda t: tool_insights[t]["positive"])
+
+            current_score = tool_insights.get(tool, {}).get("positive", 0)
+            best_score = tool_insights.get(best_tool, {}).get("positive", 0)
+
+            #ADD CONTROL
+            if best_score > current_score + 2:
+               
+                tool = best_tool
+
+        # Reinforcement Hook
+        engine = ReinforcementEngine(db)
+
+        adjusted = engine.adjust_pipeline(
+            query=query,
+            rewritten_query=rewritten_query,
+            tool=tool
+        )
+
+        rewritten_query = adjusted["rewritten_query"]
+        tool = adjusted["tool"]
 
 
         #Tool execution
         if tool == "vector_db":
 
-            context = self.iterative_retrieval(db, workspace_id, rewritten_query)
+            
+            result = await self.iterative_retrieval(db, workspace_id, rewritten_query)
+
+            context = result.get("context", "")
+            retrieved_docs = result.get("docs", [])
 
             if not context or not context.strip():
-                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+                return self.format_response(
+                    "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.",
+                    query,
+                    rewritten_query,
+                    tool,
+                    confidence=0.2  
+                )
             
             #Synthesize
-            synthesized_info = self.synthesize_information(query, context)
+            synthesized_info = await self.synthesize_information(query, context)
 
             if not synthesized_info or not synthesized_info.strip():
-                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+                return self.format_response(
+                    "The requested information is not available in the current knowledge base.",
+                    query,
+                    rewritten_query,
+                    tool,
+                    confidence=0.3
+                )
 
             #Generate Final Output
-            final_answer = self.generate_final_output(query, synthesized_info)
+            final_answer = await self.generate_final_output(query, synthesized_info)
 
             if not final_answer or not final_answer.strip():
-                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+                return self.format_response(
+                    "The requested information is not available in the current knowledge base.",
+                    query,
+                    rewritten_query,
+                    tool,
+                    confidence=0.3
+                )
 
-            return final_answer
+            confidence = compute_confidence(
+                tool="vector_db",
+                retrieved_docs=retrieved_docs,
+                answer=final_answer,
+                context=context
+            )
 
+            return self.format_response(
+                final_answer,
+                query,
+                rewritten_query,
+                tool,
+                confidence
+            )
 
         elif tool == "web_search":
 
@@ -829,10 +956,92 @@ class AgenticRAG:
                 domain = urlparse(s).netloc.replace("www.", "")
                 website_names.append(domain)
 
-            logging.info("WEB SEARCH CONTEXT:", context[:500])
+            logging.info(f"WEB SEARCH CONTEXT: {context[:500]}")
 
             if not context.strip():
-                return "Unable to retrieve relevant information from the internet."
+                return self.format_response(
+                    "Unable to retrieve relevant information from the internet.",
+                    query,
+                    rewritten_query,
+                    tool,
+                    confidence=0.3
+                )
+            good_queries = []
+
+            if learning_cache:
+                good_queries = learning_cache.get("memory", {}).get("good_queries", [])[:3]
+
+            extra_context = ""
+
+            if good_queries:
+                examples = "\n".join([f"- {q}" for q in good_queries])
+                extra_context = f"\n\nGood examples:\n{examples}"
+
+            improvements = learning_cache.get("prompt_improvements", {})
+
+            extra_rules = "\n".join(
+                improvements.get("answer_generation_prompt", [])
+            )
+
+            #Final Answer
+            final_prompt = f"""
+            You are a professional AI assistant.
+
+            {extra_rules}
+
+            Your task is to answer the user's question using ONLY the provided context.
+
+            RULES:
+            1. Use only the information from the context.
+            2. Do NOT invent facts.
+            3. If the answer is not found in the context, say:
+                "No recent information found."
+
+            OUTPUT FORMAT:
+            - Provide a clear and professional explanation.
+            - Write in 2–8 sentences.
+            - Use simple language.
+            - If helpful, include short bullet points.
+
+            {extra_context}
+
+            Question:
+            {query}
+
+            Context:
+            {context}
+
+            Answer:
+            """
+            llm_response = await safe_llm_call(final_prompt)
+            final_answer = llm_response["content"]
+            source_text = "\n".join(f"• {site}" for site in website_names)
+
+            final_answer = f"""
+            {final_answer}
+
+            Sources:
+            {source_text}
+            """
+
+            if not llm_response or not llm_response["content"].strip():
+                return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
+
+            res = await self.add_followup(query, final_answer)
+            
+            confidence = compute_confidence(
+                tool="web_search",
+                answer=final_answer,
+                context=context
+            )
+
+            return self.format_response(
+                res,
+                query,
+                rewritten_query,
+                tool,
+                confidence
+            )
 
 
         elif tool == "calculator":
@@ -841,79 +1050,82 @@ class AgenticRAG:
             if not result or not result.strip():
                 return "Calculation error."
 
-            return result
+            confidence = compute_confidence(tool="calculator")
 
+            return self.format_response(
+                result,
+                query,
+                rewritten_query,
+                tool,
+                confidence
+            )
 
         elif tool == "direct_answer":
 
             response = self.get_small_talk_response(query)
+            response = await self.add_followup(query, response)
 
             if response:
-                return self.add_followup(query, response)
+                confidence = compute_confidence(tool="direct_answer")
+
+                return self.format_response(
+                    response,
+                    query,
+                    rewritten_query,
+                    tool,
+                    confidence
+                )
+            
             else:
                 return "Hello! How can I assist you today?"
             
         elif tool == "direct_storage":
 
-            email_data = self.email_storage_tool(db, workspace_id, query)
+            email_data = await self.email_storage_tool(db, workspace_id, query)
 
             if not email_data:
-                return "No email found."
+                return self.format_response(
+                    "No email found.",
+                    query,
+                    rewritten_query,
+                    tool
+                )
 
-            return self.add_followup(query, email_data)
+            response = await self.add_followup(query, email_data)
+            
+            confidence = compute_confidence(tool="direct_storage")
+
+            return self.format_response(
+                response,
+                query,
+                rewritten_query,
+                tool,
+                confidence
+            )
         
         elif tool == "reasoning":
 
-            reasoning_output = run_reasoning(query)
+            reasoning_output = await run_reasoning(query)
 
             if not reasoning_output or not reasoning_output.strip():
                 return "Unable to generate reasoning-based answer."
 
-            return self.add_followup(query, reasoning_output)
+            res = await self.add_followup(query, reasoning_output)
+            confidence = compute_confidence(tool="reasoning")
+
+            return self.format_response(
+                res,
+                query,
+                rewritten_query,
+                tool,
+                confidence
+            )
         
 
-        #Final Answer
-        final_prompt = f"""
-        You are a professional AI assistant.
-
-        Your task is to answer the user's question using ONLY the provided context.
-
-        RULES:
-        1. Use only the information from the context.
-        2. Do NOT invent facts.
-        3. If the answer is not found in the context, say:
-            "No recent information found."
-
-        OUTPUT FORMAT:
-        - Provide a clear and professional explanation.
-        - Write in 2–8 sentences.
-        - Use simple language.
-        - If helpful, include short bullet points.
-
-        Question:
-        {query}
-
-        Context:
-        {context}
-
-        Answer:
-        """
-        final_answer = safe_llm_call(self.llm, final_prompt)
-        source_text = "\n".join(f"• {site}" for site in website_names)
-
-        final_answer = f"""
-        {final_answer}
-
-        Sources:
-        {source_text}
-        """
-
-        if not final_answer or not final_answer.strip():
-           return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
-
-        return self.add_followup(query, final_answer)
+        
+    
     #Context Evaluation
-    def evaluate_context(self, query, context):
+    async def evaluate_context(self, query, context):
         
         if not context.strip():
             return False
@@ -958,14 +1170,15 @@ class AgenticRAG:
         """
 
 
-        decision = safe_llm_call(self.llm, prompt).strip().upper()
+        decision = await safe_llm_call(prompt)
+        decision = decision["content"].strip().upper()
 
         logging.info(decision)
 
         return decision.startswith("YES")
 
     #Query Refinement (Self-Correction)
-    def refine_query(self, query, previous_context):
+    async def refine_query(self, query, previous_context):
 
         prompt = f"""
         You are a STRICT Retrieval Recovery Agent.
@@ -1007,12 +1220,12 @@ class AgenticRAG:
         Rewritten Query:
         """
 
-        refined_query = safe_llm_call(self.llm, prompt)
+        refined_query = await safe_llm_call(prompt)
         logging.info(refined_query)
-        return refined_query.strip()
+        return refined_query["content"].strip()
     
     #Iterative Retrieval Loop
-    def iterative_retrieval(self, db, workspace_id, query, max_iterations=2):
+    async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2):
 
         current_query = query
         last_context = ""
@@ -1020,33 +1233,46 @@ class AgenticRAG:
         for i in range(max_iterations):
 
             #Retrieve
-            context = self.retrieve_context(db, workspace_id, current_query)
+            result = self.retrieve_context(db, workspace_id, current_query)
+
+            context = result.get("context", "")
+            docs = result.get("docs", [])
+
             context = self.strict_topic_filter(query, context)
 
             if not context or not context.strip():
                 logging.warning("No context retrieved from vector DB")
-                return ""
+                return {
+                    "context": "",
+                    "docs": []
+                }
 
             last_context = context
 
-            is_sufficient = self.evaluate_context(query, context)
+            is_sufficient = await self.evaluate_context(query, context)
 
             if is_sufficient:
                 logging.info(f"Context sufficient at iteration {i+1}")
-                return context
+                return {
+                    "context": context,
+                    "docs": docs
+                }
 
             #Refine query
-            current_query = self.refine_query(current_query, context)
+            current_query = await self.refine_query(current_query, context)
 
             if not current_query or not current_query.strip():
                 logging.warning("Query refinement failed")
                 break
 
         logging.warning("Max iterations reached, context insufficient")
-        return ""
+        return {
+            "context": last_context,
+            "docs": []
+        }
     
     #Combine multiple retrieved chunks into a structured
-    def synthesize_information(self, query, context):
+    async def synthesize_information(self, query, context):
 
         prompt = f"""
         You are a STRICT legal clause extraction engine.
@@ -1100,9 +1326,9 @@ class AgenticRAG:
 
         Extracted Clauses:
         """
-        synthesized = safe_llm_call(self.llm, prompt)
+        synthesized = await safe_llm_call(prompt)
 
-        return synthesized.strip()
+        return synthesized["content"].strip()
 
 
     def hallucination_guard(self, answer, context):
@@ -1120,7 +1346,17 @@ class AgenticRAG:
 
         return formatted.strip()
 
-    def generate_final_output(self, query, synthesized_info):
+    async def generate_final_output(self, query, synthesized_info):
+
+        good_queries = []
+
+        if learning_cache:
+            good_queries = learning_cache.get("memory", {}).get("good_queries", [])[:3]
+
+        extra_context = ""
+
+        if good_queries:
+            extra_context = f"\n\nGood examples:\n{good_queries}"
 
         prompt = f"""
         You are a STRICT legal clause extraction engine.
@@ -1160,6 +1396,8 @@ class AgenticRAG:
         - Do NOT add headings.
         - Output ONLY the extracted clauses.
 
+        {extra_context}
+
         USER QUESTION:
         {query}
 
@@ -1170,15 +1408,17 @@ class AgenticRAG:
         """
 
         try:
-            result = safe_llm_call(self.llm, prompt)
+            result = await safe_llm_call(prompt)
 
-            if not result or not result.strip():
+            content = result["content"] if isinstance(result, dict) else result
+            if not content or not content.strip():
+
                 logging.warning("Empty LLM response")
                 return "Information not available in provided documents."
 
             logging.info("LLM response generated successfully")
             
-            cleaned_answer = self.hallucination_guard(result.strip(), synthesized_info)
+            cleaned_answer = self.hallucination_guard(content.strip(), synthesized_info)
             formatted_answer = self.format_for_chatgpt_style(cleaned_answer)
            
 
@@ -1191,13 +1431,13 @@ class AgenticRAG:
             logging.info("FINAL ANSWER FORMATTED:")
             logging.info(formatted_answer)
 
-            return self.add_followup(query, formatted_answer)
+            return await self.add_followup(query, formatted_answer)
 
         except Exception as e:
                 logging.exception("Error generating final output")
                 return "System error while generating answer."
 
-    def add_followup(self, query, answer):
+    async def add_followup(self, query, answer):
 
         prompt = f"""
         You are a helpful assistant.
@@ -1223,9 +1463,9 @@ class AgenticRAG:
         Follow-up question:
         """
 
-        followup = safe_llm_call(self.llm, prompt)
+        followup = await safe_llm_call(prompt)
 
-        return f"{answer}\n\nFollow-up question:\n{followup}"
+        return f"{answer}\n\nFollow-up question:\n{followup['content']}"
         
     def ingest_document(
         self,
@@ -1328,11 +1568,11 @@ def get_rag_service():
     if _embedding_generator is None:
         _embedding_generator = EmbeddingGenerator()
 
-    llm = GroqLLM()
+   
     vector_store = VectorStoreService()
 
     return AgenticRAG(
-        llm=llm,
+        llm = None,
         vector_store=vector_store,
         embedding_generator=_embedding_generator,
         top_k=settings.RAG_TOP_K,

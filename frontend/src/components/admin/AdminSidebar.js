@@ -29,6 +29,7 @@ export default function AdminSidebar() {
 
   const menu = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+    { name: "RAG Analytics", href: "/admin/rag_analytics", icon: LayoutDashboard },
     { name: "Workspaces", href: "/admin/workspaces", icon: Building2 },
     { name: "Users", href: "/admin/users", icon: Users },
     { name: "Token Usage", href: "/admin/tokens", icon: Coins },

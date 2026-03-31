@@ -1,18 +1,34 @@
-from app.config.llm_config import GroqLLM
 from tenacity import retry, stop_after_attempt, wait_exponential
+from app.services.llm_router import LLMRouter
+from app.services.agentic_rag.learning_cache import learning_cache
 
-llm = GroqLLM()
+router = LLMRouter()
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
-def safe_llm_call(prompt):
-    return llm.invoke(prompt)
+async def safe_llm_call(prompt):
+    result = await router.generate(prompt)
+    return result["content"]
 
 
-def run_reasoning(query: str) -> str:
+async def run_reasoning(query: str) -> str:
+
+    good_queries = []
+
+    if learning_cache:
+        good_queries = learning_cache.get("memory", {}).get("good_queries", [])[:3]
+
+    extra_context = ""
+
+    if good_queries:
+        examples = "\n".join([f"- {q}" for q in good_queries])
+        extra_context = f"\n\nGood examples:\n{examples}"
+
 
     prompt = f"""
     You are an advanced AI assistant.
+
+    {extra_context}
 
     Your job is to understand the user's query and respond appropriately.
 
@@ -39,7 +55,7 @@ def run_reasoning(query: str) -> str:
 
     Special Handling:
     - If meeting-related → generate proper meeting agenda
-    - If comparison → table format
+    - If comparison
     - If summary → short and clear
     - If analysis → structured insights
 
@@ -49,4 +65,5 @@ def run_reasoning(query: str) -> str:
     Final Answer:
     """
 
-    return safe_llm_call(prompt).strip()
+    response = await safe_llm_call(prompt)
+    return response.strip()
