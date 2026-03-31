@@ -42,7 +42,7 @@ edge_cases = [
 ]
 
 
-# 📊 STATS
+# STATS
 stats = {
     "total": 0,
     "pass": 0,

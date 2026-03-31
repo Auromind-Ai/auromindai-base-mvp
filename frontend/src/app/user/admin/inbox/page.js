@@ -45,8 +45,14 @@ export default function InboxPage() {
         fetchConversations(); 
     }, []);
 
-    useEffect(() => { 
-        if (lead) fetchMessages(lead.id);
+    useEffect(() => {
+        if (!lead) return;
+
+        const interval = setInterval(() => {
+            fetchMessages(lead.id);
+        }, 2000); 
+
+        return () => clearInterval(interval);
     }, [lead]);
 
     useEffect(() => { 
@@ -55,7 +61,7 @@ export default function InboxPage() {
 
     async function fetchConversations() {
         try {
-            const res = await fetch(`${API}/twilio/conversations`);
+            const res = await fetch(`${API}/twilio/local/conversations`);
             const data = await res.json();
             if (Array.isArray(data)) {
                 setConversations(data);
@@ -68,7 +74,7 @@ export default function InboxPage() {
 
     async function fetchMessages(id) {
         try {
-            const res = await fetch(`${API}/twilio/conversations/${id}`);
+            const res = await fetch(`${API}/twilio/local/conversations/${id}`);
             const data = await res.json();
             setMessages(data);
         } catch (e) { console.error(e); }
@@ -152,7 +158,7 @@ export default function InboxPage() {
                     <div className="p-4">
                         <div className="flex items-center gap-2 text-[13px] font-semibold mb-4" style={{ color: ch.color }}>
                             <I size={15} strokeWidth={2} />
-                            WhatsApp Inbox
+                            Instagram Inbox
                         </div>
                         <div className="relative">
                             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#444]" strokeWidth={2} />

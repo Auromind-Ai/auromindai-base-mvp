@@ -30,14 +30,13 @@ export default function GoogleCallbackPage() {
                     return;
                 }
 
-                setStatus('Completing connection...`);
+                setStatus('Completing connection...');
 
-                // Send to backend
                 const response = await fetch(
-                    `${API}/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-                    { method: `GET' }
+                `${API}/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+                { method: 'GET' }
                 );
-
+                
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.detail || 'Failed to complete connection');

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
 from .. import models, schemas, database
 from app.services.twilio_service import TwilioService
@@ -6,9 +6,14 @@ from twilio.twiml.messaging_response import MessagingResponse
 import logging
 import uuid
 from app.services.agentic_rag.rag_service import get_rag_service
-from app.workers.tasks import process_whatsapp_message
 from datetime import datetime
 from app.models.message import MessageStatus
+import requests
+import os
+from dotenv import load_dotenv
+load_dotenv()
+from app.services.lead_agent_local import lead_agent_local
+from app.services.lead_agent_local import get_all_conversations, get_messages as get_local_messages  
 
 logger = logging.getLogger(__name__)
 
@@ -26,46 +31,40 @@ def get_db():
     finally:
         db.close()
 
-async def process_incoming_message(from_number: str, body: str, db: Session):
+# COMMON MESSAGE PROCESSOR (WHATSAPP + INSTAGRAM)
+async def process_incoming_message(from_number: str, body: str, db: Session, channel: str):
 
-    logger.info(f"Processing message from {from_number}: {body}")
+    logger.info(f"[{channel}] Processing message from {from_number}: {body}")
 
     try:
-
         workspace = db.query(models.Workspace).first()
         if not workspace:
-            logger.error("No workspace found")
             return
 
         workspace_id = workspace.id
 
-        # 🔹 Find conversation
+        #Find conversation
         conversation = db.query(models.Conversation).filter(
-            models.Conversation.phone == from_number
+            models.Conversation.phone == from_number,
+            models.Conversation.channel == channel
         ).first()
 
-        # 🔹 Create conversation if not exists
+        #Create conversation
         if not conversation:
-            # include timestamps here so SQLAlchemy inserts valid values even
-            # if the underlying table lacks a default for updated_at.
-           
-
             now = datetime.utcnow()
             conversation = models.Conversation(
                 id=str(uuid.uuid4()),
                 phone=from_number,
                 workspace_id=workspace_id,
+                channel=channel,
                 created_at=now,
                 updated_at=now,
             )
-
             db.add(conversation)
             db.commit()
             db.refresh(conversation)
 
-            logger.info(f"New conversation created: {conversation.id}")
-
-        # 🔹 Save user message (ALWAYS)
+        #Save ONLY USER message
         user_message = models.Message(
             id=str(uuid.uuid4()),
             conversation_id=conversation.id,
@@ -76,91 +75,152 @@ async def process_incoming_message(from_number: str, body: str, db: Session):
 
         db.add(user_message)
         db.commit()
-                
-        # 1. Generate AI Response
-        rag = get_rag_service()
 
-        ai_reply = rag.agent_loop(
-            db=db,
-            workspace_id=workspace_id,
-            query=body
-        )
+       
+        #AUTO LEAD AGENT REPLY
 
-        if not ai_reply:
-            ai_reply = "I'm here to help. Could you please provide more details?"
+        reply = lead_agent_local(from_number, body)
 
-        
-        # Save AI message
-        ai_message = models.Message(
-            id=str(uuid.uuid4()),
-            conversation_id=conversation.id,
-            content=ai_reply,
-            sender_type=models.SenderType.AI,
-            status=models.MessageStatus.SUGGESTED
-        )
-
-        db.add(ai_message)
-        db.commit()
-
-        # # Send message
-        # twilio_service = TwilioService()
-        # twilio_service.send_whatsapp_message(
-        #     f"whatsapp:{from_number}",
-        #     ai_reply
-        # )
+        if reply:
+            # ONLY INSTAGRAM
+            if channel == "INSTAGRAM":
+                send_instagram_message(from_number, reply)
 
     except Exception as e:
-        logger.error(f"Error processing incoming message: {e}")
+        logger.error(f"Error: {e}")
+
+
+
+# WHATSAPP WEBHOOK
 
 @router.post("/webhook")
-
 async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
-    print("TWILIO WEBHOOK HIT")
-    """
-    Webhook endpoint for Twilio to send incoming messages.
-    Offloads processing to Celery.
-    """
     try:
         form_data = await request.form()
         from_number = form_data.get("From")
         body = form_data.get("Body")
-        
+
         if not from_number or not body:
-            return {"status": "ignored", "reason": "missing_data"}
-            
-        logger.info(f"Received WhatsApp message from {from_number}. Queuing task.")
-        
-        # Prepare data for serializable task
-        message_data = {
-            "from": from_number.replace("whatsapp:", ""),
-            "message": body,
-            "raw_from": from_number
-        }
-        
-        # Enqueue Task
+            return {"status": "ignored"}
+
         await process_incoming_message(
             from_number.replace("whatsapp:", ""),
             body,
-            db
+            db,
+            channel="whatsapp"
         )
-        print("Processing incoming message:", from_number, body)
-        # Return empty TwiML to signal we handled it
+
         resp = MessagingResponse()
         return str(resp)
-        
-    except Exception as e:
-        logger.error(f"Webhook error: {e}", exc_info=True)
-        return {"status": "error", "reason": str(e)}
 
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return {"status": "error"}
+
+# INSTAGRAM WEBHOOK VERIFY
+@router.get("/instagram/webhook")
+async def verify_instagram(request: Request):
+    VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")
+
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
+
+    if mode == "subscribe" and token == VERIFY_TOKEN:
+        return int(challenge)   #  MUST return only this
+
+    return "Verification failed"
+
+# INSTAGRAM RECEIVE
+
+@router.post("/instagram/webhook")
+async def instagram_webhook(request: Request, db: Session = Depends(get_db)):
+    try:
+        data = await request.json()
+
+        for entry in data.get("entry", []):
+
+            #  messaging format (REAL DM)
+            for msg_event in entry.get("messaging", []):
+                sender_id = msg_event.get("sender", {}).get("id")
+                text = msg_event.get("message", {}).get("text")
+
+                if sender_id and text:
+
+                    await process_incoming_message(
+                        sender_id,
+                        text,
+                        db,
+                        channel="INSTAGRAM"
+                    )
+
+            #  changes format (test button)
+            for change in entry.get("changes", []):
+                value = change.get("value", {})
+
+                sender_id = value.get("sender", {}).get("id")
+                text = value.get("message", {}).get("text")
+
+                if sender_id and text:
+
+                    await process_incoming_message(
+                        sender_id,
+                        text,
+                        db,
+                        channel="INSTAGRAM"
+                    )
+
+        return {"status": "ok"}
+
+    except Exception as e:
+        return {"status": "error"}
+
+
+
+# SEND INSTAGRAM MESSAGE
+def send_instagram_message(psid: str, text: str):
+    page_id = os.getenv("META_PAGE_ID")
+
+    url = f"https://graph.facebook.com/v18.0/{page_id}/messages"
+
+    payload = {
+        "recipient": {"id": psid},
+        "message": {"text": text},
+        "messaging_type": "RESPONSE"
+    }
+
+    params = {
+        "access_token": os.getenv("META_PAGE_ACCESS_TOKEN")
+    }
+
+    res = requests.post(url, json=payload, params=params)
+
+    return res.json()
+
+
+
+# GET CONVERSATIONS
 @router.get("/conversations")
 def list_conversations(db: Session = Depends(get_db)):
+    return db.query(models.Conversation).all()
 
-    conversations = db.query(models.Conversation).all()
+#GET MESSAGES
 
-    return conversations
+@router.get("/conversations/{conversation_id}")
+def get_messages(conversation_id: str, db: Session = Depends(get_db)):
+    return db.query(models.Message).filter(
+        models.Message.conversation_id == conversation_id
+    ).order_by(models.Message.timestamp.asc()).all()
 
+
+
+#SEND REPLY (MULTI CHANNEL)
 @router.post("/send-reply")
 def send_reply(data: schemas.SendReply, db: Session = Depends(get_db)):
+
+    conversation = db.query(models.Conversation).filter(
+        models.Conversation.id == data.conversation_id
+    ).first()
 
     message = models.Message(
         id=str(uuid.uuid4()),
@@ -173,23 +233,24 @@ def send_reply(data: schemas.SendReply, db: Session = Depends(get_db)):
     db.add(message)
     db.commit()
 
-    twilio = TwilioService()
-    twilio.send_whatsapp_message(
-        f"whatsapp:{data.phone}",
-        data.message
-    )
+    if conversation.channel == "whatsapp":
+        twilio = TwilioService()
+        twilio.send_whatsapp_message(
+            f"whatsapp:{data.phone}",
+            data.message
+        )
 
-    return {"status": "sent"}
+    elif conversation.channel == "INSTAGRAM":
+        send_instagram_message(
+            conversation.phone, 
+            data.message
+        )
+        
+        return {"status": "sent"}
 
-@router.get("/conversations/{conversation_id}")
-def get_messages(conversation_id: str, db: Session = Depends(get_db)):
 
-    messages = db.query(models.Message).filter(
-        models.Message.conversation_id == conversation_id
-    ).order_by(models.Message.timestamp.asc()).all()
 
-    return messages
-
+# AI SUGGEST
 @router.post("/ai-suggest")
 def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
 
@@ -198,8 +259,8 @@ def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
     ).order_by(models.Message.timestamp.desc()).limit(5).all()
 
     history = "\n".join(
-    [f"{m.sender_type}: {m.content}" for m in reversed(messages)]
-)
+        [f"{m.sender_type}: {m.content}" for m in reversed(messages)]
+    )
 
     query = f"""
     Conversation History:
@@ -218,3 +279,11 @@ def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
     )
 
     return {"suggestion": reply}
+
+@router.get("/local/conversations")
+def local_conversations():
+    return get_all_conversations()
+
+@router.get("/local/conversations/{user_id}")
+def local_messages(user_id: str):
+    return get_local_messages(user_id)  

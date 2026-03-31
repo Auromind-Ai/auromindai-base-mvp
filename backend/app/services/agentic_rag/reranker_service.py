@@ -5,7 +5,7 @@ class RerankerService:
 
     def __init__(self):
         if RerankerService._model is None:
-            print("🔥 Loading reranker model (only once)...")
+            print("Loading reranker model (only once)...")
             RerankerService._model = CrossEncoder("BAAI/bge-reranker-large")
 
         self.model = RerankerService._model

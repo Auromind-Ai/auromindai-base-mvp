@@ -3,32 +3,31 @@ from app.models.brain import MCPDecision
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import json
-from app.config.llm_config import GroqLLM
+from app.services.llm_router import LLMRouter
 from app.models.integration import Integration
 import time
-
+import asyncio
 
 class EmailMCPService:
 
     def __init__(self):
         self.vector_store = VectorStoreService()
-        self.embeddings = EmbeddingGenerator()
-        self.llm = GroqLLM()
+        self.embeddings = EmbeddingGenerator() 
+        self.router = LLMRouter()
     
-    def safe_llm_call(self, **kwargs):
-        retries = 3
-        delay = 1
+    def safe_llm_call(self, prompt=None, system_prompt=None, user_prompt=None, temperature=0.0):
+        
+        # Build final prompt (same logic as GroqLLM)
+        if system_prompt and user_prompt:
+            final_prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
+        elif prompt:
+            final_prompt = prompt
+        else:
+            raise ValueError("Invalid input")
 
-        for attempt in range(retries):
-            try:
-                return self.llm.invoke(**kwargs)
-
-            except Exception as e:
-                print(f"LLM error attempt {attempt+1}: {e}")
-                time.sleep(delay * (2 ** attempt))  # exponential backoff
-
-        return None
-    
+        result = asyncio.run(self.router.generate(final_prompt))
+        return result["content"]
+      
     def safe_json_parse(self, text):
         try:
             text = text.strip()
@@ -270,7 +269,7 @@ class EmailMCPService:
                 Return JSON:
                 {
                 "invoice_id": "<string_or_null>",
-                "amount": "<string_or_null>",
+                "amount": "<string_or_null>", 
                 "currency": "<string_or_null>",
                 "due_date": "<string_or_null>"
                 }

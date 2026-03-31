@@ -1,6 +1,7 @@
 from datetime import datetime
 import pytz
-from app.config.llm_config import GroqLLM
+from app.services.llm_router import LLMRouter
+import asyncio
 from datetime import timedelta
 from app.models.integration import CalendarEvent
 from googleapiclient.discovery import build
@@ -20,7 +21,19 @@ tf = TimezoneFinder()
 class CalendarExecutor:
 
     def __init__(self):
-        self.llm = GroqLLM()
+        self.router = LLMRouter()
+
+    def safe_llm_call(self, prompt=None, system_prompt=None, user_prompt=None):
+
+        if system_prompt and user_prompt:
+            final_prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
+        elif prompt:
+            final_prompt = prompt
+        else:
+            raise ValueError("Invalid input")
+
+        result = asyncio.run(self.router.generate(final_prompt))
+        return result["content"]
 
     def execute(self, db, workspace_id, action, decision):
 
@@ -216,7 +229,7 @@ class CalendarExecutor:
         Generate a short meeting title (max 6 words).
         """
 
-        response = self.llm.invoke(
+        response = self.safe_llm_call(
             system_prompt=system_prompt,
             user_prompt=summary
         )
