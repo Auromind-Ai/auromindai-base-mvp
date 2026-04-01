@@ -8,7 +8,7 @@ export const setToken = (token) => {
   if (!isBrowser || !token) return;
 
   sessionStorage.setItem("token", token);
-  localStorage.setItem("token", token); // 🔥 keep both in sync
+  localStorage.setItem("token", token); 
 };
 
 export const getToken = () => {
@@ -16,7 +16,7 @@ export const getToken = () => {
 
   return (
     sessionStorage.getItem("token") ||
-    localStorage.getItem("token") // 🔥 fallback
+    localStorage.getItem("token")
   );
 };
 
@@ -45,7 +45,7 @@ export const getUser = () => {
     const user = sessionStorage.getItem("user");
     return user ? JSON.parse(user) : null;
   } catch {
-    return null; // 🔥 avoid crash if corrupted
+    return null; 
   }
 };
 
@@ -71,13 +71,13 @@ export const getWorkspace = () => {
 
 export const isAuthenticated = () => {
   if (!isBrowser) return false;
-  return !!getToken(); // 🔥 use unified getter
+  return !!getToken(); 
 };
 
 export const logout = () => {
   removeToken();
   if (isBrowser) {
-    window.location.replace("/login"); // 🔥 better than href (no history)
+    window.location.replace("/login"); //  better than href (no history)
   }
 };
 
@@ -102,7 +102,7 @@ export const getWorkspaceIdFromToken = () => {
   try {
     const base64 = token.split(".")[1];
 
-    // 🔥 fix: handle URL-safe base64
+    //fix: handle URL-safe base64
     const decoded = atob(base64.replace(/-/g, "+").replace(/_/g, "/"));
 
     const payload = JSON.parse(decoded);
@@ -133,7 +133,7 @@ export const backupAdminToken = () => {
   const token = getToken();
   if (token) {
     localStorage.setItem("admin_backup_token", token);
-    localStorage.setItem("is_impersonating", "true"); // 🔥 useful flag
+    localStorage.setItem("is_impersonating", "true"); //  useful flag
   }
 };
 
@@ -144,7 +144,7 @@ export const restoreAdminToken = () => {
   if (!backup) return false;
 
   sessionStorage.setItem("token", backup);
-  localStorage.setItem("token", backup); // 🔥 sync
+  localStorage.setItem("token", backup); 
 
   localStorage.removeItem("admin_backup_token");
   localStorage.removeItem("is_impersonating");
