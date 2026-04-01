@@ -5,9 +5,9 @@ import { Coins, TrendingUp, Calendar } from "lucide-react"
 import api from "@/lib/api"
 
 const PLAN_LIMITS = {
-  starter: 100000,
-  professional: 500000,
-  enterprise: 2000000
+  free: 100,
+  pro: 10000,
+  enterprise: 1000000
 }
 
 export default function TokenUsagePage() {

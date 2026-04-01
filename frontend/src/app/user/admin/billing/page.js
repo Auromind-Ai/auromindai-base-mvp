@@ -26,6 +26,7 @@ export default function BillingHistoryPage() {
         setError("")
 
         const data = await api.getBillingStatus(id)
+        console.log("[BILLING HISTORY] Fetched billing data:", data)
         setBilling(data)
       } catch (fetchError) {
         console.error("[BILLING HISTORY] Unable to load billing data:", fetchError)
@@ -40,17 +41,21 @@ export default function BillingHistoryPage() {
   }, [])
 
   const usage = useMemo(() => {
-    const used = Number(billing?.usage?.credits_used ?? billing?.credits_used ?? 0)
-    const total = Number(billing?.usage?.total_limit ?? billing?.total_limit ?? 0)
+    const used = Number(billing?.credits_used ?? 0) 
+    const total = Number(billing?.total_limit ?? 0) 
     const remaining = Number(
-      billing?.usage?.credits_remaining ?? billing?.credits_remaining ?? Math.max(total - used, 0)
+      billing?.credits_remaining ?? Math.max(total - used, 0)
     )
+    
+    // Calculate percentage based on credits
     const percent = total > 0 ? Math.min((used / total) * 100, 100) : 0
+    
     console.log("[BILLING HISTORY] Calculated usage:", { used, total, remaining, percent })
+    
     return {
-      used,
-      total,
-      remaining,
+      used: Number(used.toFixed(2)),          
+      total: Number(total.toFixed(2)),       
+      remaining: Number(remaining.toFixed(2)), 
       percent,
     }
   }, [billing])
