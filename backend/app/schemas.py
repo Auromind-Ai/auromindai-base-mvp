@@ -70,3 +70,27 @@ class Followup(FollowupBase):
 
     class Config:
         from_attributes = True
+
+class CreateSubscriptionRequest(BaseModel):
+    workspace_id: str
+    plan: str
+    provider: str = "razorpay"
+
+
+class VerifyPaymentRequest(BaseModel):
+    workspace_id: str
+    plan: str
+    provider: str = "razorpay"
+    payment_id: str | None = None
+    subscription_id: str | None = None
+    signature: str | None = None
+
+
+class LegacyCreateOrderRequest(BaseModel):
+    workspace_id: str
+    amount: int
+
+
+class LegacyUpgradePlanRequest(BaseModel):
+    workspace_id: str
+    plan: str
