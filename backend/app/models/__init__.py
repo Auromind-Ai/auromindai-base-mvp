@@ -12,3 +12,6 @@ from .impersonation import ImpersonationSession
 from .token_ledger import TokenLedger
 from .invoice import Invoice 
 from .billing import Payment
+from .subscription import Subscription
+from .plan import Plan
+from .feedback import Feedback, LearningData
