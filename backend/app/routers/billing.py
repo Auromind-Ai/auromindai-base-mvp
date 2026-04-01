@@ -5,33 +5,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
 from app.services.billing import BillingService
+from app.schemas import CreateSubscriptionRequest, LegacyCreateOrderRequest, VerifyPaymentRequest
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 
-class CreateSubscriptionRequest(BaseModel):
-    workspace_id: str
-    plan: str
-    provider: str = "razorpay"
-
-
-class VerifyPaymentRequest(BaseModel):
-    workspace_id: str
-    plan: str
-    provider: str = "razorpay"
-    payment_id: str | None = None
-    subscription_id: str | None = None
-    signature: str | None = None
-
-
-class LegacyCreateOrderRequest(BaseModel):
-    workspace_id: str
-    amount: int
-
-
-class LegacyUpgradePlanRequest(BaseModel):
-    workspace_id: str
-    plan: str
 
 
 def get_billing_service() -> BillingService:
