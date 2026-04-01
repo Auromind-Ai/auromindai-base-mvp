@@ -5,7 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.logger import logger
-from app.models.credit_ledger import CreditLedger
+from app.models.token_ledger import TokenLedger
 
 
 RESERVATION_TTL_SECONDS = int(os.getenv("BILLING_RESERVATION_TTL_SECONDS", "1800"))
@@ -13,26 +13,24 @@ RESERVATION_TTL_SECONDS = int(os.getenv("BILLING_RESERVATION_TTL_SECONDS", "1800
 
 def cleanup_stale_reservations(db: Session) -> int:
     now = datetime.now(timezone.utc)
-    stale_reservations = (
-        db.query(CreditLedger)
+    # Update matching reservations in a single statement to avoid partial state
+    released_count = (
+        db.query(TokenLedger)
         .filter(
-            CreditLedger.status == "reserved",
-            CreditLedger.expires_at.isnot(None),
-            CreditLedger.expires_at < now,
+            TokenLedger.status == "reserved",
+            TokenLedger.expires_at.isnot(None),
+            TokenLedger.expires_at < now,
         )
-        .all()
+        .update(
+            {"status": "released", "description": "auto_cleanup_expired"},
+            synchronize_session=False,
+        )
     )
-
-    released_count = 0
-    for reservation in stale_reservations:
-        reservation.status = "released"
-        reservation.description = "auto_cleanup_expired"
-        released_count += 1
 
     if released_count:
         db.flush()
 
-    return released_count
+    return int(released_count or 0)
 
 
 class ReservationCleanupSchedulerService:

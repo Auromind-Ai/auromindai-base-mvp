@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column("payment_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("entry_type", sa.String(length=50), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
-        sa.Column("credits_delta", sa.Integer(), nullable=False),
+        sa.Column("tokens_delta", sa.Integer(), nullable=False),
         sa.Column("reference_key", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("metadata_json", sa.Text(), nullable=True),

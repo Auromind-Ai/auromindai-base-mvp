@@ -123,7 +123,7 @@ An attacker or buggy client can:
 **Why it's worse:**
 - Credit balance calculation includes reserved credits:
   ```python
-  net_expr = sum(credits_delta)  # includes BOTH posted and reserved
+  net_expr = sum(tokens_delta)  # includes BOTH posted and reserved
   ```
 - So reserved = effectively consumed
 - But can be released without billing finalization
@@ -140,10 +140,10 @@ An attacker or buggy client can:
    def reserve_credits(self, ...):
        # Count active reservations for workspace
        active_reservations = (
-           db.query(func.count(CreditLedger.id))
+           db.query(func.count(TokenLedger.id))
            .filter(
-               CreditLedger.workspace_id == workspace_id,
-               CreditLedger.status == "reserved",
+               TokenLedger.workspace_id == workspace_id,
+               TokenLedger.status == "reserved",
            )
            .scalar()
        )
@@ -280,7 +280,7 @@ def handle_webhook(self, ...):
 **The Problem:**
 ```python
 def cleanup_stale_reservations(db: Session) -> int:
-    stale_reservations = db.query(CreditLedger).filter(...).all()
+    stale_reservations = db.query(TokenLedger).filter(...).all()
     
     for reservation in stale_reservations:
         reservation.status = "released"
@@ -307,11 +307,11 @@ def cleanup_stale_reservations(db: Session) -> int:
 def cleanup_stale_reservations(db: Session) -> int:
     now = datetime.now(timezone.utc)
     released_count = (
-        db.query(CreditLedger)
+        db.query(TokenLedger)
         .filter(
-            CreditLedger.status == "reserved",
-            CreditLedger.expires_at.isnot(None),
-            CreditLedger.expires_at < now,
+            TokenLedger.status == "reserved",
+            TokenLedger.expires_at.isnot(None),
+            TokenLedger.expires_at < now,
         )
         .update({"status": "released"})
     )
@@ -747,7 +747,7 @@ async def handle_stream_chat(self, ...):
 
 **The Problem:**
 ```python
-def _get_credit_balance_locked(self, db: Session, workspace_id: str):
+def _get_token_balance_locked(self, db: Session, workspace_id: str):
     # Queries at DEFAULT isolation level (Read Committed in PostgreSQL)
     added_expr = func.sum(case(...) where status == "posted")
     used_expr = func.sum(case(...) where status == "posted")
@@ -756,7 +756,7 @@ def _get_credit_balance_locked(self, db: Session, workspace_id: str):
 ```
 
 **Issue:**
-- If another transaction is in the middle of updating credits_delta
+- If another transaction is in the middle of updating tokens_delta
 - This query might see partial state
 - Credit balance = incorrect
 
@@ -774,7 +774,7 @@ def reserve_credits(self, db: Session, ...):
     db.connection().execution_options(isolation_level="READ_COMMITTED")
     
     # Or use explicit lock
-    db.query(CreditLedger).filter(...).with_for_update().update(...)
+    db.query(TokenLedger).filter(...).with_for_update().update(...)
 ```
 
 ---
@@ -1090,7 +1090,7 @@ Before going to production:
        workspace_id = Column(UUID, ForeignKey(...))
        operation = Column(String)  # "reserve", "finalize", "release"
        credits_before = Column(Integer)
-       credits_delta = Column(Integer)
+       tokens_delta = Column(Integer)
        credits_after = Column(Integer)
        reason = Column(String)
        created_at = Column(DateTime, server_default=func.now())
@@ -1118,14 +1118,14 @@ Before going to production:
 
 # Speed up reservation cleanup
 Index("idx_credit_ledger_status_expires", 
-      CreditLedger.status, 
-      CreditLedger.expires_at,
-      postgresql_where=(CreditLedger.status == 'reserved'))
+      TokenLedger.status, 
+      TokenLedger.expires_at,
+      postgresql_where=(TokenLedger.status == 'reserved'))
 
 # Speed up credit balance calculations
 Index("idx_credit_ledger_workspace_status",
-      CreditLedger.workspace_id,
-      CreditLedger.status)
+      TokenLedger.workspace_id,
+      TokenLedger.status)
 
 # Prevent duplicate webhooks faster
 Index("idx_webhook_event_provider_id",

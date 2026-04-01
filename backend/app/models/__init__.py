@@ -9,6 +9,6 @@ from .promise import Promise
 from .learning_event import LearningEvent, FeedbackType
 from .platform_setting import PlatformSetting
 from .impersonation import ImpersonationSession
-from .credit_ledger import CreditLedger
+from .token_ledger import TokenLedger
 from .invoice import Invoice 
 from .billing import Payment

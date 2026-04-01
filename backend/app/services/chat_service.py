@@ -1,5 +1,6 @@
 import uuid
 import json
+import asyncio
 from datetime import datetime
 from typing import Optional, Dict, Any, AsyncGenerator, Tuple
 
@@ -17,8 +18,9 @@ from app.core.logger import logger
 from app.models.conversation import ChatMessage, ChatSession
 from app.services.agentic_rag.guardrails_service import GuardrailsService
 from app.services.agentic_rag.rag_service import get_rag_service
-from app.services.billing_service import BillingService
-from app.services.llm_router import LLMRouter  # 🔥 Added LLMRouter back
+from app.services.billing import BillingService
+from app.services.llm_router import LLMRouter 
+from app.database import SessionLocal
 
 class ChatServiceConfig(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
@@ -56,7 +58,7 @@ class ChatService:
         except Exception as e:
             raise WorkspaceAccessError(f"Failed to validate workspace access: {str(e)}")
 
-    def _reserve_credits(
+    def _reserve_tokens(
         self,
         db: Session,
         workspace_id: str,
@@ -65,7 +67,7 @@ class ChatService:
         description: str = "chat operation",
     ) -> Any:
         try:
-            reservation = self.billing_service.reserve_credits(
+            reservation = self.billing_service.reserve_tokens(
                 db=db,
                 workspace_id=workspace_id,
                 amount=amount,
@@ -73,12 +75,12 @@ class ChatService:
                 description=description,
             )
             if not reservation:
-                raise BillingError("Failed to reserve credits")
+                raise BillingError("Failed to reserve tokens")
             return reservation
         except BillingError:
             raise
         except Exception as e:
-            raise BillingError(f"Credit reservation failed: {str(e)}")
+            raise BillingError(f"Token reservation failed: {str(e)}")
 
     #  Issue 1 Fix: Made Async and reverted to secure_pipeline
     async def _check_guardrails(self, message: str) -> Dict[str, Any]:
@@ -124,37 +126,37 @@ class ChatService:
         response_text: str,
     ) -> None:
         try:
-            tokens_used = self.billing_service.estimate_tokens(
+            actual_tokens_used = self.billing_service.estimate_tokens(
                 request_message, response_text
             )
-            self.billing_service.finalize_credit_usage(
+            self.billing_service.finalize_token_usage(
                 db=db,
                 reservation_id=reservation_id,
-                tokens_used=tokens_used,
+                tokens_used=actual_tokens_used,
             )
         except Exception as e:
             logger.error(f"Failed to finalize billing: {e}")
             raise BillingError(f"Billing finalization failed: {str(e)}")
 
-    def _release_credits(
+    def _release_token_reservation(
         self, db: Session, reservation_id: str, reason: str
     ) -> None:
         try:
-            self.billing_service.release_credit_reservation(
+            self.billing_service.release_token_reservation(
                 db=db,
                 reservation_id=reservation_id,
                 reason=reason,
             )
         except Exception as e:
-            logger.error(f"Failed to release credits: {e}")
-            raise BillingError(f"Credit release failed: {str(e)}")
+            logger.error(f"Failed to release tokens: {e}")
+            raise BillingError(f"tokens release failed: {str(e)}")
 
     def _force_release_reservation(self, db: Session, reservation_id: str, reason: str):
         try:
             db.rollback()
         except Exception as e:
             logger.warning(f"Failed rollback before release (ignored): {e}")
-        self._release_credits(db, reservation_id, reason)
+        self._release_token_reservation(db, reservation_id, reason)
     #  Issue 1 Fix: Made Async
     async def handle_chat_query(
         self,
@@ -173,16 +175,17 @@ class ChatService:
         try:
             self._validate_workspace_access(db, workspace_id, user_id)
 
-            reservation = self._reserve_credits(
+            # Run guardrails BEFORE reserving credits to avoid DoS via blocked prompts
+            guard_result = await self._check_guardrails(message)
+            safe_query = guard_result["safe_query"]
+            estimated_tokens = BillingService.estimate_reservation_amount(message=message, use_rag=True)
+            reservation = self._reserve_tokens(
                 db=db,
                 workspace_id=workspace_id,
                 reference_key=reservation_key,
-                amount=1,
+                amount=estimated_tokens,
                 description="chat.query reservation",
             )
-
-            guard_result = await self._check_guardrails(message)
-            safe_query = guard_result["safe_query"]
 
             answer_data = await self._get_rag_answer(
                 db=db,
@@ -203,7 +206,7 @@ class ChatService:
                 self._finalize_billing(db, reservation.id, message, safe_answer)
                 return {"answer": safe_answer, "sources": [], "actions": [], "meta": meta}
 
-            self._release_credits(db, reservation.id, "no_answer_generated")
+            self._release_token_reservation(db, reservation.id, "no_answer_generated")
             return {
                 "answer": "I'm not sure how to help with that yet.",
                 "sources": [],
@@ -232,7 +235,7 @@ class ChatService:
     #  Issue 1, 2, & 3 Fixes applied here
     async def handle_stream_chat(
         self,
-        db: Session,
+        # 🚨 REMOVED: db: Session. We manage DB context explicitly now.
         message: str,
         workspace_id: str,
         session_id: Optional[str],
@@ -241,155 +244,168 @@ class ChatService:
         user_id: str,
     ) -> AsyncGenerator[str, None]:
         """
-        Streaming chat:
-        reserve -> guardrails -> RAG -> LLM fallback -> finalize/release
+        Streaming chat with Safe Short-Lived DB Transactions:
+        1. Pre-stream (Reserve & Save User Msg) -> COMMIT & CLOSE DB
+        2. Stream (RAG & LLM) -> NO DB CONNECTION HELD
+        3. Post-stream (Finalize & Save AI Msg) -> NEW DB SESSION, COMMIT & CLOSE
         """
-        reservation = None
+        reservation_id = None
         final_billing_reason = "no_response_generated"
         full_response = ""
         chunks_successfully_sent = False
+        safe_query = message
 
-        try:
-            workspace = self._validate_workspace_access(db, workspace_id, user_id)
+        # =========================================================
+        # PHASE 1: PRE-STREAM TRANSACTION (Fast & Durable)
+        # =========================================================
+        with SessionLocal() as db:
+            try:
+                workspace = self._validate_workspace_access(db, workspace_id, user_id)
 
-            session = None
-            if session_id:
-                session = db.query(ChatSession).filter(
-                    ChatSession.id == session_id,
-                    ChatSession.user_id == user_id,
-                ).first()
-                if not session:
-                    raise ChatProcessingError("Session not found")
-                if str(session.workspace_id) != str(workspace.id):
-                    raise WorkspaceAccessError("Session does not belong to this workspace")
+                if session_id:
+                    session = db.query(ChatSession).filter(
+                        ChatSession.id == session_id,
+                        ChatSession.user_id == user_id,
+                    ).first()
+                    if not session:
+                        raise ChatProcessingError("Session not found")
+                    if str(session.workspace_id) != str(workspace.id):
+                        raise WorkspaceAccessError("Session does not belong to this workspace")
 
-            reservation = self._reserve_credits(
-                db=db,
-                workspace_id=workspace_id,
-                reference_key=f"api-chat:{workspace_id}:{uuid.uuid4()}",
-                amount=1,
-                description="api.chat reservation",
-            )
-
-            if session_id:
-                user_msg = ChatMessage(
-                    id=str(uuid.uuid4()),
-                    session_id=session_id,
-                    role="user",
-                    content=message,
+                # Guardrails BEFORE reservation
+                guard_result = await self.guardrails_service.secure_pipeline(message)
+                if guard_result["status"] == "blocked":
+                    yield f"{json.dumps({'content': guard_result['message']})}\n"
+                    return
+                safe_query = guard_result["safe_query"]
+                estimated_tokens = BillingService.estimate_reservation_amount(
+                message=message, 
+                use_rag=use_rag)
+                # Reserve Tokens
+                reservation = self._reserve_tokens(
+                    db=db,
+                    workspace_id=workspace_id,
+                    reference_key=f"api-chat:{workspace_id}:{uuid.uuid4()}",
+                    amount=estimated_tokens,
+                    description="api.chat reservation",
                 )
-                db.add(user_msg)
-                db.flush()
+                reservation_id = reservation.id
 
-            guard_result = await self.guardrails_service.secure_pipeline(message)
-            if guard_result["status"] == "blocked":
-                final_billing_reason = "guardrails_blocked"
-                yield f"{json.dumps({'content': guard_result['message']})}\n"
-                return
+                # Save User Message
+                if session_id:
+                    user_msg = ChatMessage(
+                        id=str(uuid.uuid4()),
+                        session_id=session_id,
+                        role="user",
+                        content=message,
+                    )
+                    db.add(user_msg)
 
-            safe_query = guard_result["safe_query"]
+                # 🔥 COMMIT NOW. The charge is locked, the user message is safe.
+                db.commit() 
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Pre-stream setup failed: {e}")
+                raise
+        
+        # --- DB CONNECTION IS NOW RETURNED TO THE POOL ---
 
+        # =========================================================
+        # PHASE 2: STREAMING (Slow Network Bound - NO DB HELD)
+        # =========================================================
+        try:
             rag_answered = False
             if use_rag:
                 try:
-                    answer_data = await self._get_rag_answer(
-                        db=db,
-                        workspace_id=workspace_id,
-                        query=safe_query,
-                    )
+                    # Open a quick, short-lived session just for the RAG lookup
+                    with SessionLocal() as rag_db:
+                        answer_data = await asyncio.wait_for(
+                            self._get_rag_answer(db=rag_db, workspace_id=workspace_id, query=safe_query),
+                            timeout=15,
+                        )
+                        
                     if answer_data:
-                        if isinstance(answer_data, dict):
-                            result = answer_data
-                        else:
-                            result = {
-                                "answer": answer_data,
-                                "meta": {
-                                    "query": message,
-                                    "rewritten_query": safe_query,
-                                    "tool": "unknown",
-                                    "model": model,
-                                    "confidence_score": None,
-                                    "source": "fallback"
-                                }
-                            }
+                        result = answer_data if isinstance(answer_data, dict) else {
+                            "answer": answer_data,
+                            "meta": {"query": message, "rewritten_query": safe_query, "source": "fallback"}
+                        }
 
                         safe_answer = await self.guardrails_service.secure_response(result["answer"])
                         full_response = safe_answer
                         rag_answered = True
                         
-                        #  Meta Data Yielded correctly
-                        yield json.dumps({
-                            "content": safe_answer,
-                            "meta": result.get("meta")
-                        }) + "\n"
+                        yield json.dumps({"content": safe_answer, "meta": result.get("meta")}) + "\n"
                         chunks_successfully_sent = True
 
-                except RAGError as e:
-                    logger.error(f"RAG failed in stream: {e}")
+                except asyncio.TimeoutError:
+                    logger.warning("RAG call timed out, falling back to LLM")
                 except Exception as e:
                     logger.error(f"Unexpected error in RAG: {e}")
 
             if not rag_answered:
                 try:
-                    #  Re-integrated LLMRouter fallback
                     router = LLMRouter()
-                    result = await router.generate(
-                        safe_query,
-                        model=model
+                    result = await asyncio.wait_for(
+                        router.generate(safe_query, model=model),
+                        timeout=30,
                     )
-
                     content = result["content"]
                     full_response = content
 
                     yield f"{json.dumps({'content': content})}\n"
                     
-                    # 🔥 Fallback Meta Data Yielded correctly
                     fallback_meta = {
-                        "query": message,
-                        "rewritten_query": safe_query,
-                        "tool": "reasoning",
-                        "model": result.get("model", model),
-                        "confidence_score": None,
-                        "source": "llm"
+                        "query": message, "rewritten_query": safe_query, 
+                        "tool": "reasoning", "model": result.get("model", model), "source": "llm"
                     }
                     yield f"{json.dumps({'meta': fallback_meta})}\n"
-
                     chunks_successfully_sent = True
+
                 except Exception as e:
                     final_billing_reason = f"llm_error:{type(e).__name__}"
                     logger.error(f"LLMRouter fallback failed: {str(e)}")
                     yield f"{json.dumps({'error': str(e)})}\n"
 
-            if session_id and full_response:
-                ai_msg = ChatMessage(
-                    id=str(uuid.uuid4()),
-                    session_id=session_id,
-                    role="assistant",
-                    content=full_response,
-                )
-                db.add(ai_msg)
-
-                session = db.query(ChatSession).filter(
-                    ChatSession.id == session_id,
-                    ChatSession.user_id == user_id,
-                ).first()
-                if session:
-                    session.updated_at = datetime.utcnow()
-
-                db.flush()
-
-        except (BillingError, GuardrailError, ChatProcessingError, RAGError, WorkspaceAccessError):
-            raise
         except Exception as e:
             final_billing_reason = f"runtime_error:{type(e).__name__}"
             logger.error(f"Stream chat error: {e}")
             raise ChatProcessingError(f"Chat stream failed: {str(e)}")
+
+        # =========================================================
+        # PHASE 3: POST-STREAM CLEANUP (Fresh Transaction)
+        # =========================================================
         finally:
-            if reservation is not None:
-                try:
-                    if chunks_successfully_sent:
-                        self._finalize_billing(db, reservation.id, message, full_response)
-                    else:
-                        self._force_release_reservation(db, reservation.id, final_billing_reason)
-                except Exception as billing_cleanup_error:
-                    logger.error(f"Billing cleanup error: {billing_cleanup_error}")
+            if reservation_id:
+                # 🔥 Open a FRESH DB session to guarantee cleanup.
+                # If the stream died unexpectedly, the previous DB session might be poisoned.
+                with SessionLocal() as cleanup_db:
+                    try:
+                        if chunks_successfully_sent and full_response:
+                            # 1. Finalize Billing
+                            self._finalize_billing(cleanup_db, reservation_id, message, full_response)
+
+                            # 2. Save AI Response & Update Session
+                            if session_id:
+                                ai_msg = ChatMessage(
+                                    id=str(uuid.uuid4()),
+                                    session_id=session_id,
+                                    role="assistant",
+                                    content=full_response,
+                                )
+                                cleanup_db.add(ai_msg)
+
+                                session = cleanup_db.query(ChatSession).filter(
+                                    ChatSession.id == session_id
+                                ).first()
+                                if session:
+                                    session.updated_at = datetime.utcnow()
+                            
+                            cleanup_db.commit()
+                        else:
+                            self._force_release_reservation(cleanup_db, reservation_id, final_billing_reason)
+                            cleanup_db.commit()
+                            
+                    except Exception as billing_cleanup_error:
+                        cleanup_db.rollback()
+                        # This is now a critical ops alert. If this fails, the DB is unreachable.
+                        logger.critical(f"CRITICAL: Failed to finalize billing/save message for reservation {reservation_id}: {billing_cleanup_error}")
