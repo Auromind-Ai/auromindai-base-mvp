@@ -9,7 +9,6 @@ import traceback
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 from app.services.agentic_rag.vector_store_service import get_vector_store
 from app.utils.text_chunker import Schunker
-from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.document_service import get_document_service
 
 logger = logging.getLogger(__name__)
@@ -55,7 +54,9 @@ async def process_document_background(
         doc_result = doc_service.process_file(content, original_filename)
         
         # Ingest to RAG
-        rag_service = get_rag_service()
+        embedding_generator = EmbeddingGenerator()
+        vector_store = get_vector_store()
+        chunker = Schunker()
        # Merge existing metadata with new incoming metadata
         ingestion_metadata = {"original_size": file_size}
         if metadata:

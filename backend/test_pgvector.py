@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 sys.path.append(os.getcwd())
 
 from app.database import SessionLocal
-from app.services.agentic_rag.rag_service import get_rag_service
+from app.services.agentic_rag.ingestion_layer import IngestionLayer
+from app.services.agentic_rag.vector_store_service import VectorStoreService
+from app.services.agentic_rag.embedding_service import EmbeddingGenerator
+from app.services.agentic_rag.retrieval_layer import RetrievalLayer
+from app.services.agentic_rag.reranker_service import RerankerService
+from app.config.settings import settings
 
 def test_pgvector():
     db = SessionLocal()
@@ -21,14 +26,25 @@ def test_pgvector():
         print(f"Warning: Could not create workspace: {e}")
         db.rollback()
 
-    rag_service = get_rag_service()
+    vector_store = VectorStoreService()
+    embedding = EmbeddingGenerator()
+    reranker = RerankerService()
+
+    ingestion = IngestionLayer(vector_store=vector_store)
+
+    retrieval = RetrievalLayer(
+        vector_store=vector_store,
+        embedding_generator=embedding,
+        reranker=reranker,
+        top_k=settings.RAG_TOP_K
+    )
     
     print("\n--- Phase 1: Ingestion ---")
     text = "This is a test document about AuromindAI. It explains how the business works and how it helps companies automate their growth."
     title = "Test Doc"
     
     try:
-        result = rag_service.ingest_document(
+        result = ingestion.ingest_document(
             db=db,
             workspace_id=workspace_id,
             text=text,
@@ -39,7 +55,11 @@ def test_pgvector():
         
         print("\n--- Phase 2: Search Migrated Docs ---")
         query = "What is mentioned in the Regional Sales Report 2025?"
-        search_results = rag_service.search(db=db, workspace_id="247a0a2b_8e3b_4075_ac3c_510fbda3ac0b", query=query)
+        search_results = retrieval.semantic_search(
+            db=db,
+            workspace_id=workspace_id,
+            query=query
+        )
         
         if search_results:
             print(f"✅ Search successful! Found {len(search_results)} results.")

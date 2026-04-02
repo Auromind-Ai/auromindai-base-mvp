@@ -6,11 +6,18 @@ sys.path.append(os.getcwd())
 
 from app.database import SessionLocal
 from app.models.brain import BrainEntry, BrainChunk
-from app.services.agentic_rag.rag_service import get_rag_service
+from app.services.agentic_rag.rag_service import build_rag_system
+from app.utils.text_chunker import Schunker
 
 def reindex_brain():
     db = SessionLocal()
-    rag_service = get_rag_service()
+    orchestrator = build_rag_system()
+
+    retrieval = orchestrator.retrieval
+    vector_store = retrieval.vector_store
+    embedding = retrieval.embedding_generator
+
+    chunker = Schunker()
     
     try:
         # Get all brain entries
@@ -35,15 +42,14 @@ def reindex_brain():
                 "source": "migrated",
                 "parent_id": entry.id
             }
-            chunks_data = rag_service.chunker.split_text(entry.content, chunk_metadata)
-            
+            chunks_data = chunker.build_chunks(entry.content) 
             if not chunks_data:
                 print(f"  ⚠️ No chunks created for '{entry.title}'.")
                 continue
                 
-            chunks = [c["content"] for c in chunks_data]
+            chunks = [c["text"] for c in chunks_data]
             # 2. Embedding
-            embeddings = rag_service.embedding_service.embed_texts(chunks)
+            embeddings = embedding.generate_embeddings(chunks)
             
             # 3. Save Chunks
             metadatas = []
@@ -60,7 +66,7 @@ def reindex_brain():
                     "chunk_index": i
                 })
             
-            rag_service.vector_store.add_documents(
+            vector_store.add_chunks(
                 db=db,
                 workspace_id=entry.workspace_id,
                 documents=chunks,

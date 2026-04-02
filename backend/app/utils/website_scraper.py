@@ -113,10 +113,10 @@ class Webscrapper:
     def dynamic_scrapper(self):
          print("dynamic called")
 
-        #  output_file = "dynamic_output.json"
+         output_file = "dynamic_output.json"
         
-        #  if os.path.exists(output_file):
-        #      os.remove(output_file)
+         if os.path.exists(output_file):
+             os.remove(output_file)
 
          scrapy_settings = Settings()
          scrapy_settings.setmodule(my_settings)
@@ -129,9 +129,9 @@ class Webscrapper:
          thread.start()
          thread.join()
         
-        #  if os.path.exists(output_file):
-        #     with open(output_file, "r", encoding="utf-8") as f:
-        #         return json.load(f)
+         if os.path.exists(output_file):
+            with open(output_file, "r", encoding="utf-8") as f:
+                return json.load(f)
 
          
          return []

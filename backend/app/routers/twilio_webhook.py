@@ -5,7 +5,6 @@ from app.services.twilio_service import TwilioService
 from twilio.twiml.messaging_response import MessagingResponse
 import logging
 import uuid
-from app.services.agentic_rag.rag_service import get_rag_service
 from datetime import datetime
 from app.models.message import MessageStatus
 import requests
@@ -14,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from app.services.lead_agent_local import lead_agent_local
 from app.services.lead_agent_local import get_all_conversations, get_messages as get_local_messages  
+from fastapi import Request
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +252,7 @@ def send_reply(data: schemas.SendReply, db: Session = Depends(get_db)):
 
 # AI SUGGEST
 @router.post("/ai-suggest")
-def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
+async def ai_suggest(data: schemas.AISuggest, req: Request,  db: Session = Depends(get_db)):
 
     messages = db.query(models.Message).filter(
         models.Message.conversation_id == data.conversation_id
@@ -270,9 +270,9 @@ def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
     {data.message}
     """
 
-    rag = get_rag_service()
+    orchestrator = req.app.state.orchestrator
 
-    reply = rag.agent_loop(
+    reply = await orchestrator.agent_loop(
         db=db,
         workspace_id=data.workspace_id,
         query=query

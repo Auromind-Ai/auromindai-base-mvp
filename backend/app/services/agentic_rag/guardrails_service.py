@@ -96,7 +96,7 @@ class GuardrailsService:
             "steal data", "password cracking", "brute force",
             "make bomb", "build weapon", "illegal activity",
             "drugs", "buy drugs", "sell drugs",
-            "how to kill", "harm someone"
+            "how to kill", "harm someone", "illegal"
         ]
 
         for word in keywords:
