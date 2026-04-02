@@ -1,11 +1,13 @@
 import os
 import uuid
 from app.database import SessionLocal
-from app.services.agentic_rag.rag_service import get_rag_service
+from app.services.agentic_rag.ingestion_layer import IngestionLayer
+from app.services.agentic_rag.vector_store_service import VectorStoreService
 
 def seed_brain():
     db = SessionLocal()
-    rag = get_rag_service()
+    vector_store = VectorStoreService()
+    ingestion = IngestionLayer(vector_store=vector_store)
     
     # Check if we have a workspace
     # ideally we fetch one, or create a default "demo-workspace"
@@ -52,7 +54,7 @@ def seed_brain():
     """
     
     try:
-        result = rag.ingest_document(
+        result = ingestion.ingest_document(
             db=db,
             workspace_id=str(workspace.id),
             text=sample_text,

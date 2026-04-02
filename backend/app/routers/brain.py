@@ -16,7 +16,9 @@ from app.workers.ingestion_worker import process_document_background
 import uuid
 import os
 import shutil
-from app.services.agentic_rag.rag_service import get_rag_service
+from fastapi import Request
+from app.services.agentic_rag.ingestion_layer import IngestionLayer
+from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.utils.website_scraper import Webscrapper
 
 
@@ -210,15 +212,17 @@ async def ingest_url(
             ingestion_metadata["cultural_context"] = request.cultural_context
 
         # Ingest into RAG system
-        rag = get_rag_service()
-        result = rag.ingest_document(
+        vector_store = VectorStoreService()
+        ingestion = IngestionLayer(vector_store=vector_store)
+
+        result = ingestion.ingest_document(
             db=db,
             workspace_id=request.workspace_id,
             text=scrape_result["text"],
             title=scrape_result["title"],
             content_type="url",
             source=request.url,
-            metadata=ingestion_metadata # Pass the metadata
+            metadata=ingestion_metadata
         )
         
         return result
@@ -280,15 +284,17 @@ async def ingest_text(
         if request.cultural_context:
             ingestion_metadata["cultural_context"] = request.cultural_context
 
-        rag = get_rag_service()
-        result = rag.ingest_document(
+        vector_store = VectorStoreService()
+        ingestion = IngestionLayer(vector_store=vector_store)
+
+        result = ingestion.ingest_document(
             db=db,
             workspace_id=request.workspace_id,
             text=request.content,
             title=request.title,
             content_type="manual",
             source="user_input",
-            metadata=ingestion_metadata # Pass the metadata
+            metadata=ingestion_metadata
         )
         
         return result
@@ -322,7 +328,8 @@ async def crawl_website(
                 detail="No pages could be crawled from this website"
             )
 
-        rag = get_rag_service()
+        vector_store = VectorStoreService()
+        ingestion = IngestionLayer(vector_store=vector_store)
         total_chunks = 0
 
         base_metadata = {}
@@ -349,7 +356,7 @@ async def crawl_website(
 
                 final_metadata = {**base_metadata, **page_metadata}
             
-                result = rag.ingest_document(
+                result = ingestion.ingest_document(
                     db=db,
                     workspace_id=request.workspace_id,
                     text=content,
@@ -383,6 +390,7 @@ async def crawl_website(
 @router.get("/entries")
 async def list_entries(
     workspace_id: str,
+    request: Request,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db)
@@ -398,8 +406,10 @@ async def list_entries(
         ).offset(skip).limit(limit).all()
 
         # Get vector store stats
-        rag = get_rag_service()
-        stats = rag.vector_store.get_collection_stats(
+        orchestrator = request.app.state.orchestrator
+        vector_store = orchestrator.retrieval.vector_store
+
+        stats = vector_store.get_collection_stats(
             db=db,
             workspace_id=workspace_id
         )
@@ -449,14 +459,20 @@ async def list_entries(
 async def delete_entry(
     entry_id: str,
     workspace_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Delete a knowledge entry and all its chunks.
     """
     try:
-        rag = get_rag_service()
-        success = rag.delete_entry(db, workspace_id, entry_id)
+        orchestrator = request.app.state.orchestrator
+
+        success = orchestrator.retrieval.vector_store.delete_entry(
+            db=db,
+            workspace_id=workspace_id,
+            entry_id=entry_id
+        )
         
         if success:
             return {"status": "success", "message": "Entry deleted"}
@@ -479,12 +495,12 @@ async def search_knowledge(
     Returns matching chunks ranked by relevance.
     """
     try:
-        rag = get_rag_service()
-        results = rag.search(
+        orchestrator = request.app.state.orchestrator
+
+        results = orchestrator.retrieval.semantic_search(
             db=db,
             workspace_id=request.workspace_id,
-            query=request.query,
-            top_k=request.top_k
+            query=request.query
         )
         
         return {
@@ -522,13 +538,12 @@ async def query_knowledge(
     3. Return the answer with source citations
     """
     try:
-        rag = get_rag_service()
-        result = rag.query(
+        orchestrator = request.app.state.orchestrator
+
+        result = await orchestrator.agent_loop(
             db=db,
             workspace_id=request.workspace_id,
-            question=request.question,
-            top_k=request.top_k,
-            include_sources=request.include_sources
+            query=request.question
         )
         
         return result
@@ -543,14 +558,17 @@ async def query_knowledge(
 @router.get("/stats")
 async def get_brain_stats(
     workspace_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Get statistics for the knowledge base.
     """
     try:
-        rag = get_rag_service()
-        stats = rag.vector_store.get_collection_stats(
+        orchestrator = request.app.state.orchestrator
+        vector_store = orchestrator.retrieval.vector_store
+
+        stats = vector_store.get_collection_stats(
             db=db,
             workspace_id=workspace_id
         )

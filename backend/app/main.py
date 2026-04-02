@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from app.database import get_db, engine
 from app.core.websockets import manager
-from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.background_scheduler import EmailSchedulerService
 from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email, automation, admin, metric
 from app.models.conversation import ChatSession, ChatMessage
@@ -24,6 +23,7 @@ from app.routers.feedback import router as feedback_router
 from app.services.agentic_rag.cache_loader import load_learning_cache
 from app.database import SessionLocal
 from app.database import Base, engine
+from app.services.agentic_rag.rag_service import build_rag_system
 
 load_dotenv()
 
@@ -33,6 +33,8 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     
     logger.info("Auromind Production System Starting...")
+    orchestrator = build_rag_system()
+    app.state.orchestrator = orchestrator
 
     db = SessionLocal()
     try:
@@ -140,8 +142,8 @@ async def chat_query(request: ChatQueryRequest, db: Session = Depends(get_db)):
             }
         
         # 2. RAG Loop
-        rag = get_rag_service()
-        answer = await rag.agent_loop(
+        orchestrator = app.state.orchestrator
+        answer = await orchestrator.agent_loop(
             db=db,
             workspace_id=request.workspace_id,
             query=safe_query
@@ -198,7 +200,6 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
 
                 if request.use_rag and request.workspace_id:
                     try:
-                        rag = get_rag_service()
 
                         guard = GuardrailsService()
     
@@ -212,7 +213,8 @@ async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
                         safe_query = guard_result["safe_query"]
 
                         #RAG
-                        answer = await rag.agent_loop(
+                        orchestrator = app.state.orchestrator
+                        answer = await orchestrator.agent_loop(
                             db=db,
                             workspace_id=request.workspace_id,
                             query=safe_query

@@ -6,12 +6,10 @@ from datetime import datetime
 import asyncio
 
 import redis.asyncio as redis
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic    
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
-
 from app.services.platform_settings_service import get_setting
-from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app import models, schemas
 
@@ -27,7 +25,7 @@ class AIResponseService:
         except Exception as e:
             logger.warning(f"Could not connect to Redis: {e}")
             self.redis = None
-        self.rag_service = get_rag_service()
+        self.orchestrator = None 
         # self.vector_store = VectorStoreService() # Placeholder for future vector search
 
     async def enrich_context(self, db: Session, conversation_id: str) -> Dict[str, Any]:
@@ -55,13 +53,21 @@ class AIResponseService:
         # We can search based on the last user message
         last_user_msg = next((m.content for m in reversed(messages) if m.sender_type == 'USER'), "")
         knowledge_snippet = ""
-        if last_user_msg:
-             # This is a synchronous call in RAGService, might want to make it async or run in executor
-             # For now, we'll keep it simple or skip if performance is key
-             try:
-                 knowledge_snippet = self.rag_service.retrieve_context(last_user_msg, "default_workspace_id", db) # Placeholder workspace
-             except Exception:
-                 logger.warning("Failed to retrieve RAG context")
+
+        if last_user_msg and self.orchestrator:
+            try:
+                retrieval = self.orchestrator.retrieval
+
+                result = retrieval.retrieve_context(
+                    db=db,
+                    workspace_id="default_workspace_id",
+                    query=last_user_msg
+                )
+
+                knowledge_snippet = result.get("context", "")
+
+            except Exception:
+                logger.warning("Failed to retrieve RAG context")
 
         # 4. Construct Context Object
         return {
