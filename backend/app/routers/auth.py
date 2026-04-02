@@ -128,6 +128,9 @@ async def login_secret(
     db: Session = Depends(get_db)
 ):
     import os
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    
     master_key = os.getenv("OWNER_SECRET_KEY")
     if not master_key or request.key != master_key:
         raise HTTPException(status_code=401, detail="Invalid secret key")
