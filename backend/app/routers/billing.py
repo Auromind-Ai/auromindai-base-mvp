@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
 from app.services.billing import BillingService
-from app.schemas import CreateSubscriptionRequest, LegacyCreateOrderRequest, VerifyPaymentRequest
+from app.schemas import CreateSubscriptionRequest, LegacyCreateOrderRequest, LegacyUpgradePlanRequest, VerifyPaymentRequest
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -115,7 +115,7 @@ def get_billing_status(
             user_id=str(current_user.id),
         )
     except ValueError as exc:
-        print("🔥 BILLING ERROR:", str(exc))
+        print(" BILLING ERROR:", str(exc))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -131,6 +131,7 @@ def get_usage(
         db=db,
         current_user=current_user,
     )
+    print(f"Usage for workspace {workspace_id}: {status['tokens_used']} tokens used out of {status['token_remaining']} token remaining.")
     return {
         "token_limit": status["token_limit"],
         "tokens_used": status["tokens_used"],

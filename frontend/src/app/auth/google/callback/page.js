@@ -33,13 +33,8 @@ export default function GoogleCallbackPage() {
                 setStatus('Completing connection...');
 
                 const response = await fetch(
-<<<<<<< HEAD
-                `${API}/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-                { method: 'GET' }
-=======
                     `${API}/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
                     { method: 'GET' }
->>>>>>> 36cbb02 (feat: refactor chat system with billing, guardrails, and streaming support)
                 );
                 
                 if (!response.ok) {

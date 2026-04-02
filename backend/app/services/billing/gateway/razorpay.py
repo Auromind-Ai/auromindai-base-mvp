@@ -3,6 +3,8 @@ import json
 import os
 from typing import Any
 
+from groq import BadRequestError
+
 from app.models.workspace import Workspace
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
 
@@ -34,21 +36,47 @@ class RazorpayGateway(PaymentGateway):
     def get_public_key(self) -> str | None:
         return self.public_key
 
+    
     def create_customer(
         self,
         workspace: Workspace,
         user_email: str,
         user_name: str | None,
     ) -> str | None:
-        customer = self.client.customer.create(
-            {
+
+
+        try:
+            existing = self.client.customer.all({
+                "email": user_email
+            })
+
+            if existing.get("items"):
+                return existing["items"][0]["id"]
+
+        except Exception:
+            pass  # ignore search failure, fallback to create
+
+
+   
+        try:
+            customer = self.client.customer.create({
                 "name": user_name or workspace.name,
                 "email": user_email,
                 "notes": {"workspace_id": str(workspace.id)},
-            }
-        )
-        return customer["id"]
+            })
+            return customer["id"]
 
+        except BadRequestError as e:
+           
+            if "Customer already exists" in str(e):
+                existing = self.client.customer.all({
+                    "email": user_email
+                })
+
+                if existing.get("items"):
+                    return existing["items"][0]["id"]
+
+        raise
     def create_subscription(
         self,
         plan_config: BillingPlanConfig,

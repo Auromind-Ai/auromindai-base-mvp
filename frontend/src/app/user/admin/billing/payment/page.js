@@ -14,7 +14,7 @@ const DEFAULT_PROVIDER = "razorpay"
 export default function BillingPage() {
   const [workspaceId, setWorkspaceId] = useState(null)
   const [currentPlan, setCurrentPlan] = useState("free")
-  const [settings, setSettings] = useState(null) // 🔥 ADD THIS
+  const [settings, setSettings] = useState(null)
 
   useEffect(() => {
     const id = getWorkspaceIdFromToken() || sessionStorage.getItem("workspace_id")
@@ -29,7 +29,7 @@ export default function BillingPage() {
 
     const loadData = async () => {
       try {
-        // 🔥 BOTH CALLS
+        //  BOTH CALLS
         const [billing, settingsData] = await Promise.all([
           api.getBillingStatus(id),
           api.getPlatformSettings(), 
@@ -95,7 +95,7 @@ export default function BillingPage() {
 
             console.log("VERIFY RESULT:", result)
 
-            // 🔥 STRICT CHECK
+  
             if (!result || (result.status !== "ACTIVE" && result.status !== "already_verified")) {
               throw new Error("Payment not activated")
             }

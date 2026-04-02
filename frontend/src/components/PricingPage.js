@@ -124,7 +124,7 @@ function PricingCard({ plan, currentPlan, onUpgrade }) {
     </article>
   )
 }
-
+const TOKENS_PER_CREDIT = 1000;
 export default function PricingPage({ currentPlan = "free", onUpgrade, settings }) {
   if (!settings) {
     return (
@@ -143,7 +143,7 @@ export default function PricingPage({ currentPlan = "free", onUpgrade, settings 
       key: "free",
       name: settings.free_plan_name || "Free",
       price: settings.free_plan_price === 0 ? "Free" : `₹${settings.free_plan_price}`,
-      usage: `${settings.token_limit_per_plan?.free || 100} credits / month`,
+      usage: `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description:
         settings.free_plan_desc ||
         "A clean starting point for individual builders exploring the platform.",
@@ -158,7 +158,7 @@ export default function PricingPage({ currentPlan = "free", onUpgrade, settings 
       key: "pro",
       name: settings.pro_plan_name || "Pro",
       price: `₹${settings.pro_plan_price || 999}`,
-      usage: `${settings.token_limit_per_plan?.pro || 1000} credits / month`,
+      usage: `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description:
         settings.pro_plan_desc ||
         "For teams running daily AI workflows and needing faster execution.",

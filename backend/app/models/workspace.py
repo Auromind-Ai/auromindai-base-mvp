@@ -23,7 +23,7 @@ class Workspace(Base):
     ForeignKey("users.id", ondelete="SET NULL"),
     nullable=True
 )
-    provider_customer_id = Column(String, unique=True, index=True, nullable=True)
+    provider_customer_id = Column(String, index=True, nullable=True)
 
     custom_token_limit = Column(Integer)
 

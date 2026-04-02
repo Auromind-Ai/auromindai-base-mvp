@@ -386,32 +386,41 @@ class BillingService:
             )
             .first()
         )
-        latest_payment = (
+        
+        payments = (
             db.query(Payment)
             .filter(Payment.workspace_id == workspace.id)
             .order_by(Payment.created_at.desc())
-            .first()
+            .limit(50)
+            .all()
         )
+        latest_payment = payments[0] if payments else None
 
+        # 1. Get the plan key
         current_plan_key = "free"
         if subscription and subscription.plan_id:
             plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
             if plan and plan.name:
                 current_plan_key = plan.name.lower()
 
+        # 2. IMPORTANT: Settings-la irundhu current limit-ah edukuroam
         plan_config = self.plan_service._get_plan_config(db, current_plan_key)
-        balance = self.get_token_balance(db, str(workspace.id))
-        total_limit = plan_config.tokens
-        usage_percent = round((balance.tokens_used / total_limit) * 100, 1) if total_limit else 0
+        
+        # Neenga settings-la 100,000-nu mathuna, adhu inga total_tokens-ku vandhurum
+        total_tokens = plan_config.tokens 
+        
+        # Usage-ah ledger-la irundhu edukuroam
         token_status = self.check_token_limit(db, str(workspace.id))
-        tokens_remaining = max(
-    token_status.token_limit - token_status.tokens_used,
-    0
-)
-        credits_remaining = float(tokens_remaining) / TOKENS_PER_CREDIT
-        credits_used = float(token_status.tokens_used) / TOKENS_PER_CREDIT
-        credits_total_limit = float(token_status.token_limit) / TOKENS_PER_CREDIT
+        used_tokens = token_status.tokens_used
 
+        # 3. Credits Calculation (100,000 / 1000 = 100 Credits)
+        credits_total_limit = float(total_tokens) / TOKENS_PER_CREDIT
+        credits_used = float(used_tokens) / TOKENS_PER_CREDIT
+        credits_remaining = max(credits_total_limit - credits_used, 0)
+        
+        usage_percent = round((used_tokens / total_tokens) * 100, 1) if total_tokens > 0 else 0
+
+        # ... (billing_status logic remains the same) ...
         if latest_payment and latest_payment.status == PaymentStatus.failed:
             billing_status = "FAILED"
         elif subscription and subscription.status == SubscriptionStatus.cancelled:
@@ -426,40 +435,36 @@ class BillingService:
             "current_plan": current_plan_key,
             "plan_label": plan_config.label,
             "billing_status": billing_status,
-            "token_limit": token_status.token_limit,
-            "tokens_used": token_status.tokens_used,
-            "tokens_remaining": max(token_status.token_limit - token_status.tokens_used, 0),
-            "overage_tokens": token_status.overage_tokens,
-            "estimated_overage_cost": token_status.estimated_overage_cost,
+            
+            # Token values
+            "token_limit": total_tokens,
+            "tokens_used": used_tokens,
+            "tokens_remaining": max(total_tokens - used_tokens, 0),
+            
+            # Credit values (Ippo settings-la 100000-nu irundha, inga 100-nu pogum)
             "credits_remaining": credits_remaining,
             "credits_used": credits_used,
-            "total_limit": credits_total_limit,
+            "total_limit": credits_total_limit, 
             "percent_used": usage_percent,
+            
             "subscription": {
                 "id": str(subscription.id) if subscription else None,
-                "provider_subscription_id": (
-                    subscription.provider_subscription_id if subscription else None
-                ),
                 "status": subscription.status.value.upper() if subscription else None,
-                "current_period_start": self._serialize_datetime(
-                    subscription.current_period_start if subscription else None
-                ),
-                "current_period_end": self._serialize_datetime(
-                    subscription.current_period_end if subscription else None
-                ),
+                "current_period_start": self._serialize_datetime(subscription.current_period_start if subscription else None),
+                "current_period_end": self._serialize_datetime(subscription.current_period_end if subscription else None),
                 "provider": subscription.provider if subscription else None,
             },
-            "latest_payment": {
-                "id": str(latest_payment.id) if latest_payment else None,
-                "status": latest_payment.status.value.upper() if latest_payment else None,
-                "amount": latest_payment.amount if latest_payment else None,
-                "payment_id": latest_payment.provider_payment_id if latest_payment else None,
-                "failure_reason": latest_payment.failure_reason if latest_payment else None,
-                "provider": latest_payment.provider if latest_payment else None,
-            },
+            "payments": [
+                {
+                    "id": str(p.id),
+                    "date": self._serialize_datetime(p.created_at),
+                    "amount": p.amount,
+                    "status": p.status.value.upper(),
+                    "payment_id": p.provider_payment_id,
+                } for p in payments
+            ],
             "plans": [self.plan_service._serialize_plan(db, key) for key in ("free", "pro", "enterprise")],
         }
-
     def check_token_limit(self, db: Session, workspace_id: str) -> TokenLimitStatus:
         subscription = self.subscription_service._get_active_subscription(db, workspace_id)
         if subscription is None or subscription.plan_id is None:
@@ -515,13 +520,45 @@ class BillingService:
         user_email: str,
         user_name: str | None,
     ) -> str | None:
+
+        # 1. Already exists → return
         if workspace.provider_customer_id:
             return workspace.provider_customer_id
 
-        customer_id = gateway.create_customer(workspace, user_email, user_name)
-        if customer_id:
+        try:
+            # 2. Try create / fetch from gateway
+            customer_id = gateway.create_customer(
+                workspace,
+                user_email,
+                user_name,
+            )
+
+        except Exception as e:
+            # Optional: log this properly
+            raise ValueError(f"Failed to create or fetch customer: {str(e)}")
+
+        if not customer_id:
+            return None
+
+        # 3. Save safely (handle race condition)
+        try:
             workspace.provider_customer_id = customer_id
             db.flush()
+        except Exception:
+            db.rollback()
+
+            # 4. Re-fetch (someone else might have set it)
+            refreshed = (
+                db.query(Workspace)
+                .filter(Workspace.id == workspace.id)
+                .first()
+            )
+
+            if refreshed and refreshed.provider_customer_id:
+                return refreshed.provider_customer_id
+
+            raise
+
         return customer_id
 
 
