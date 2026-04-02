@@ -225,13 +225,16 @@ async def chat_endpoint(
 
     return StreamingResponse(
         service.handle_stream_chat(
-            db=db,
+
             message=request.message,
             workspace_id=request.workspace_id,
             session_id=request.session_id,
             use_rag=request.use_rag,
             model=request.model,
             user_id=str(current_user.id),
+            document_id=request.document_id,
+            chat_mode=request.chat_mode,
+            source=request.source,
         ),
         media_type="text/event-stream",
     )

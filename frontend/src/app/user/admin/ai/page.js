@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '@/context/SettingsContext';
-import { getWorkspace } from '@/lib/auth';
+import { getWorkspace, authHeader } from '@/lib/auth';
 import ChatSidebar from '@/components/ChatSidebar';
 import api from '@/lib/api';
 
@@ -148,7 +148,7 @@ export default function AuromindAIPage() {
     await fetch(`${API_URL}/feedback`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json",...authHeader()
       },
       body: JSON.stringify({
         query: msg.meta?.query || userMessage,
@@ -402,7 +402,7 @@ export default function AuromindAIPage() {
 
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+           headers: { 'Content-Type': 'application/json', ...authHeader() },
                 body: JSON.stringify({
                     message: userMsg,
                     model: selectedModel,
@@ -415,6 +415,24 @@ export default function AuromindAIPage() {
                 }),
                 signal: abortControllerRef.current.signal
             });
+                    if (!res.ok) {
+            const text = await res.text();
+            console.error("❌ API ERROR:", text);
+
+            setMessages(prev => prev.map((msg, i) =>
+                i === prev.length - 1
+                    ? {
+                        ...msg,
+                        content: `Error: ${text || res.status}`,
+                        isError: true,
+                        isStreaming: false
+                    }
+                    : msg
+            ));
+
+            setIsLoading(false);
+            return;
+        }
 
             // Clear the specific document context after sending
             setAttachedFile(null); // Clear attached file preview
@@ -658,7 +676,7 @@ export default function AuromindAIPage() {
         try {
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeader() },
                 body: JSON.stringify({
                     message: newContent,
                     model: selectedModel,
@@ -666,7 +684,23 @@ export default function AuromindAIPage() {
                 }),
                 signal: abortControllerRef.current.signal
             });
+                        if (!res.ok) {
+                const text = await res.text();
 
+                setMessages(prev => prev.map((msg, i) =>
+                    i === prev.length - 1
+                        ? {
+                            ...msg,
+                            content: `Error: ${text || res.status}`,
+                            isError: true,
+                            isStreaming: false
+                        }
+                        : msg
+                ));
+
+                setIsLoading(false);
+                return;
+            }
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -736,7 +770,7 @@ export default function AuromindAIPage() {
         try {
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                 headers: { 'Content-Type': 'application/json', ...authHeader() },
                 body: JSON.stringify({
                     message: userMsg,
                     model: selectedModel,
@@ -744,7 +778,23 @@ export default function AuromindAIPage() {
                 }),
                 signal: abortControllerRef.current.signal
             });
+                        if (!res.ok) {
+                const text = await res.text();
 
+                setMessages(prev => prev.map((msg, i) =>
+                    i === prev.length - 1
+                        ? {
+                            ...msg,
+                            content: `Error: ${text || res.status}`,
+                            isError: true,
+                            isStreaming: false
+                        }
+                        : msg
+                ));
+
+                setIsLoading(false);
+                return;
+            }
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';

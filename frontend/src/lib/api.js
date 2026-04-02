@@ -126,6 +126,10 @@ class APIClient {
     return this.get('/auth/workspaces');
   }
 
+  // Pricing methods
+async getPricing() {
+  return this.get("/public/pricing")
+}
   // Billing methods
   async getBillingStatus(workspace_id) {
     return this.get(`/billing/status?workspace_id=${workspace_id}`);

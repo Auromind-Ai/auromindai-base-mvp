@@ -232,16 +232,19 @@ class ChatService:
                     logger.error(f"Failed force-release reservation: {release_err}")
             raise ChatProcessingError(f"Chat query failed: {str(e)}")
 
-    #  Issue 1, 2, & 3 Fixes applied here
+    #  Issue 1, 2, & 3 Fixes applied here + PARAMETER FIX
     async def handle_stream_chat(
         self,
-        # 🚨 REMOVED: db: Session. We manage DB context explicitly now.
+        #  REMOVED: db: Session. We manage DB context explicitly now.
         message: str,
         workspace_id: str,
         session_id: Optional[str],
         use_rag: bool,
         model: str,
         user_id: str,
+        document_id: Optional[str] = None,  # ✅ ADDED
+        chat_mode: str = "auto",             # ✅ ADDED
+        source: str = "internal",            # ✅ ADDED
     ) -> AsyncGenerator[str, None]:
         """
         Streaming chat with Safe Short-Lived DB Transactions:
@@ -261,7 +264,6 @@ class ChatService:
         with SessionLocal() as db:
             try:
                 workspace = self._validate_workspace_access(db, workspace_id, user_id)
-
                 if session_id:
                     session = db.query(ChatSession).filter(
                         ChatSession.id == session_id,
@@ -301,7 +303,7 @@ class ChatService:
                     )
                     db.add(user_msg)
 
-                # 🔥 COMMIT NOW. The charge is locked, the user message is safe.
+                #COMMIT NOW. The charge is locked, the user message is safe.
                 db.commit() 
             except Exception as e:
                 db.rollback()
@@ -376,7 +378,7 @@ class ChatService:
         # =========================================================
         finally:
             if reservation_id:
-                # 🔥 Open a FRESH DB session to guarantee cleanup.
+                #  Open a FRESH DB session to guarantee cleanup.
                 # If the stream died unexpectedly, the previous DB session might be poisoned.
                 with SessionLocal() as cleanup_db:
                     try:

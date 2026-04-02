@@ -8,37 +8,51 @@ import { getWorkspaceIdFromToken } from "@/lib/auth"
 
 export default function BillingHistoryPage() {
   const [billing, setBilling] = useState(null)
+  const [pricing, setPricing] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    const id = getWorkspaceIdFromToken() || sessionStorage.getItem("workspace_id")
+useEffect(() => {
+  const id = getWorkspaceIdFromToken() || sessionStorage.getItem("workspace_id")
 
-    if (!id) {
-      setError("Workspace not found. Please sign in again.")
+  if (!id) {
+    setError("Workspace not found. Please sign in again.")
+    setLoading(false)
+    return
+  }
+
+  const loadBillingHistory = async () => {
+    try {
+      setLoading(true)
+      setError("")
+
+      const [billingData, pricingData] = await Promise.all([
+        api.getBillingStatus(id),
+        api.getPricing(),
+      ])
+
+      setBilling(billingData)
+      setPricing(pricingData)
+    } catch (fetchError) {
+      console.error("[BILLING HISTORY] Unable to load billing data:", fetchError)
+      setError(fetchError.message || "Unable to load billing history")
+      setBilling(null)
+    } finally {
       setLoading(false)
-      return
     }
+  }
 
-    const loadBillingHistory = async () => {
-      try {
-        setLoading(true)
-        setError("")
+  // initial load
+  loadBillingHistory()
 
-        const data = await api.getBillingStatus(id)
-        console.log("[BILLING HISTORY] Fetched billing data:", data)
-        setBilling(data)
-      } catch (fetchError) {
-        console.error("[BILLING HISTORY] Unable to load billing data:", fetchError)
-        setError(fetchError.message || "Unable to load billing history")
-        setBilling(null)
-      } finally {
-        setLoading(false)
-      }
-    }
+  // correct interval
+  const interval = setInterval(() => {
+    api.getPricing().then(setPricing).catch(console.error)
+  }, 10000)
 
-    loadBillingHistory()
-  }, [])
+  return () => clearInterval(interval)
+
+}, [])
 
   const usage = useMemo(() => {
     const used = Number(billing?.credits_used ?? 0) 
@@ -82,6 +96,18 @@ export default function BillingHistoryPage() {
 
   const currentPlanLabel = billing?.plan_label || titleCase(billing?.current_plan || "free")
 
+  const currentPlanPrice = useMemo(() => {
+  if (!pricing || !billing) return 0
+
+  const plan = billing?.current_plan || "free"
+
+  if (plan === "free") return pricing.free_plan_price
+  if (plan === "pro") return pricing.pro_plan_price
+  if (plan === "enterprise") return pricing.enterprise_plan_price
+
+  return 0
+}, [pricing, billing])
+
   return (
     <section className="min-h-screen bg-[#09090b] px-4 py-10 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -121,7 +147,13 @@ export default function BillingHistoryPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Plan</p>
-                    <p className="mt-2 text-3xl font-semibold text-white">{currentPlanLabel}</p>
+                    <p className="mt-2 text-3xl font-semibold text-white">
+  {currentPlanLabel}
+</p>
+
+<p className="mt-2 text-lg text-zinc-400">
+  ₹ {currentPlanPrice} / month
+</p>
                   </div>
 
                   <div className="flex items-center gap-3">
