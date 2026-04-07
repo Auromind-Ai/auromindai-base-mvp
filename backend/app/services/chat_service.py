@@ -242,9 +242,9 @@ class ChatService:
         use_rag: bool,
         model: str,
         user_id: str,
-        document_id: Optional[str] = None,  # ✅ ADDED
-        chat_mode: str = "auto",             # ✅ ADDED
-        source: str = "internal",            # ✅ ADDED
+        document_id: Optional[str] = None,  
+        chat_mode: str = "auto",             
+        source: str = "internal",           
     ) -> AsyncGenerator[str, None]:
         """
         Streaming chat with Safe Short-Lived DB Transactions:
