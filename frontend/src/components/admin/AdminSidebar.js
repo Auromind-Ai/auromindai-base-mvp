@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useState, useEffect } from 'react';
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -43,7 +44,9 @@ export default function AdminSidebar() {
     { name: "RAG Brain", href: "/admin/rag", icon: Brain },
     { name: "System Health", href: "/admin/system", icon: Heart },
     { name: "AI Learning", href: "/admin/ai-learning", icon: TrendingUp },
+    { name: "Model Config", href: "/admin/model-config", icon: Key },
     { name: "Settings", href: "/admin/settings", icon: Settings },
+
   ]
 
   return (

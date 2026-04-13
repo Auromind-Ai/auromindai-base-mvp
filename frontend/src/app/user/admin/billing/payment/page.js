@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import Script from "next/script"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import PricingPage from "@/components/PricingPage"
 import api from "@/lib/api"
@@ -11,7 +12,12 @@ const LOG_PREFIX = "[BILLING]"
 const FLOW_LOG_PREFIX = "[BILLING FLOW]"
 const DEFAULT_PROVIDER = "razorpay"
 
-export default function BillingPage() {
+// 1. Separate component for the actual content to use useSearchParams safely
+function BillingContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const source = searchParams.get('source') // URL-la irunthu 'chat' varutha nu paakuthu
+
   const [workspaceId, setWorkspaceId] = useState(null)
   const [currentPlan, setCurrentPlan] = useState("free")
   const [settings, setSettings] = useState(null)
@@ -89,20 +95,25 @@ export default function BillingPage() {
             subscription_id: response.razorpay_subscription_id || checkout.subscription_id,
             signature: response.razorpay_signature,
           }
-          console.log("PAYLOAD GOING TO BACKEND:", payload); // <-- Idha check pannu
+          console.log("PAYLOAD GOING TO BACKEND:", payload); 
           try {
            const result = await api.verifyBillingPayment(payload)
 
             console.log("VERIFY RESULT:", result)
 
-  
             if (!result || (result.status !== "ACTIVE" && result.status !== "already_verified")) {
               throw new Error("Payment not activated")
             }
 
-            const updated = await api.getBillingStatus(workspaceId)
-
-            setCurrentPlan(updated.current_plan)
+            //  THE MAGIC LOGIC: Chat-la irunthu vantha, angae return anuppu!
+            if (source === 'chat') {
+                console.log(LOG_PREFIX, "Payment Successful! Redirecting back to chat page...");
+                router.push('/user/admin/ai')  
+            } else {
+                console.log(LOG_PREFIX, "Payment Successful! Staying on billing page.");
+                const updated = await api.getBillingStatus(workspaceId)
+                setCurrentPlan(updated.current_plan)
+            }
           } catch (error) {
             console.error(LOG_PREFIX, "Payment verification failed:", error)
           }
@@ -116,14 +127,22 @@ export default function BillingPage() {
   }
 
   return (
+    <PricingPage
+      currentPlan={currentPlan}
+      onUpgrade={handleUpgrade}
+      settings={settings} 
+    />
+  )
+}
+
+// 2. Main Page export wrapped in Suspense (Strict Next.js rule)
+export default function BillingPage() {
+  return (
     <>
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
-
-      <PricingPage
-        currentPlan={currentPlan}
-        onUpgrade={handleUpgrade}
-        settings={settings} 
-      />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">Loading Billing...</div>}>
+        <BillingContent />
+      </Suspense>
     </>
   )
 }

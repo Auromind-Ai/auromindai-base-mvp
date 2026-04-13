@@ -51,14 +51,23 @@ class APIClient {
       if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await response.json();
         if (!response.ok) {
-          console.error("FULL ERROR:", data);
-          const message =
-            data?.message ||
-            data?.detail?.message ||
-            data?.detail ||
-            data?.error?.message ||
-            'Request failed';
-          throw new Error(message);
+          console.error("FULL ERROR:", JSON.stringify(data, null, 2));
+          
+          let errorMessage = 'Request failed';
+          
+          if (data?.detail) {
+            // Handle FastAPI's array of validation errors
+            if (Array.isArray(data.detail)) {
+              errorMessage = data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join(', ');
+            } else if (typeof data.detail === 'string') {
+              // Handle standard FastAPI HTTPExceptions
+              errorMessage = data.detail;
+            }
+          } else {
+            errorMessage = data?.message || data?.error?.message || 'Request failed';
+          }
+          
+          throw new Error(errorMessage);
         }
         return data;
       } else {
@@ -156,7 +165,40 @@ async getPricing() {
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
   }
+// ============== Automation Methods ==============
 
+
+
+  async getFlows() {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.get(`/automation/flows?workspace_id=${workspace_id}`);
+  }
+
+  async getFlowById(flow_id) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.get(`/automation/flows/${flow_id}?workspace_id=${workspace_id}`);
+  }
+
+  async saveFlow(flowData) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.post('/automation/flows', {
+      ...flowData,
+      workspace_id: workspace_id // Auto-inject the workspace ID here!
+    });
+  }
+
+  async deleteFlow(flow_id) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.delete(`/automation/flows/${flow_id}?workspace_id=${workspace_id}`);
+  }
+
+  async generateAIFlow(prompt) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.post('/automation/generate-flow', { 
+      prompt: prompt, 
+      workspace_id: workspace_id 
+    });
+  }
   // MCP methods
   async evaluateAction(actionData) {
     return this.post('/mcp/evaluate', actionData);
@@ -234,14 +276,34 @@ async getPricing() {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     });
-
+    
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.detail || 'Upload failed');
     }
     return data;
   }
+  async uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('workspace_id', getWorkspaceIdFromToken());
 
+  const token = getToken();
+
+  const response = await fetch(`${this.baseURL}/upload`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.detail || 'Upload failed');
+  }
+
+  return data;
+}
 
   
     // ================= Admin Workspace Methods =================

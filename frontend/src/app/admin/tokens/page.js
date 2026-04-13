@@ -42,7 +42,6 @@ export default function TokenUsagePage() {
   const fetchPricing = async () => {
   try {
     const data = await api.get("/public/pricing")
-    console.log("Fetched pricing:", data)
     setPricing(data)
   } catch (err) {
     console.error("Failed to fetch pricing", err)

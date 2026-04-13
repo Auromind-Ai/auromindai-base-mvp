@@ -46,7 +46,7 @@ export default function LoginPage() {
                 throw new Error(data.detail || "Login failed");
             }
 
-            // 🔥 Backup admin token if applicable
+            //  Backup admin token if applicable
             const adminToken = localStorage.getItem("admin_backup_token");
             sessionStorage.clear();
             localStorage.clear();

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, DateTime, Enum, Text
+from sqlalchemy import Column, ForeignKey, String, DateTime, Enum, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -38,7 +38,7 @@ class Conversation(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         index=True
     )
-
+    metadata_json = Column(Text, nullable=True)
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
     external_id = Column(String, index=True)  # whatsapp number / IG handle
     contact_name = Column(String)
@@ -48,9 +48,25 @@ class Conversation(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "phone", "channel", 
+                        name="uq_workspace_phone_channel"),
+    )
+
     owner = relationship("User", back_populates="conversations")
     messages = relationship(
         "Message",
+        back_populates="conversation",
+        cascade="all, delete-orphan"
+    )
+    execution_state = relationship(
+        "FlowExecutionState",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    execution_traces = relationship(
+        "FlowExecutionTrace",
         back_populates="conversation",
         cascade="all, delete-orphan"
     )

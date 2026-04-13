@@ -95,7 +95,7 @@ async def get_current_user(
         log_auth(f"❌ User {user_id} not found in DB")
         raise credentials_exception
 
-    log_auth(f"✅ Authenticated: {user.email}")
+    log_auth(f"Authenticated: {user.email}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,

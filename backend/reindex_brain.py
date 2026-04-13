@@ -69,7 +69,7 @@ def reindex_brain():
                 ids=chunk_ids
             )
             
-            print(f"  ✅ Added {len(chunks)} chunks.")
+            print(f"  Added {len(chunks)} chunks.")
             
         db.commit()
         print("\n🏆 Brain re-indexing complete!")

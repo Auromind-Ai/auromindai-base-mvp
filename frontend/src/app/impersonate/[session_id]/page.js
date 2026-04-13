@@ -30,7 +30,7 @@ export default function Page() {
         }
 
         const data = await res.json()
-        console.log("✅ [DEBUG] Session Data:", data)
+        console.log("[DEBUG] Session Data:", data)
         
         if (!data.token || !data.user) {
            throw new Error("Invalid session response from server")

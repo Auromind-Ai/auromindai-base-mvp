@@ -730,7 +730,7 @@ function ToolCard({ tool: t, onClick }) {
       </div>
       <p style={{ color: "#e2e8f0", fontWeight: 600, marginTop: 10, fontSize: 13 }}>{t.tool}</p>
       <div style={S.toolStatRow}>
-        <span style={{ color: "#10b981" }}>✅ {t.positive}</span>
+        <span style={{ color: "#10b981" }}>{t.positive}</span>
         <span style={{ color: "#ef4444" }}>❌ {t.negative}</span>
         <span style={{ color: "#94a3b8" }}>📊 {t.total}</span>
       </div>

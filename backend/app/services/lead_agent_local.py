@@ -51,7 +51,7 @@ def lead_agent_local(user_id, message):
         state["stage"] = "completed"
 
         reply = (
-            "✅ Thanks! We will contact you soon.\n\n"
+            "Thanks! We will contact you soon.\n\n"
             "📌 Your Details:\n"
             f"Name: {data['name']}\n"
             f"Phone: {data['phone']}\n"
