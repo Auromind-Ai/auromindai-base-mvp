@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Boolean, DateTime, Enum, Text, String
+from sqlalchemy import Column, ForeignKey, Boolean, DateTime, Enum, Text, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
@@ -50,11 +50,15 @@ class Message(Base):
 
     source = Column(String(50), nullable=True)
 
-    external_id = Column(String(100), nullable=True)
+    external_id = Column(String(100), nullable=True, index=True)
 
     metadata_json = Column(Text)
 
     conversation = relationship(
         "Conversation",
         back_populates="messages"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("external_id", name="uq_message_external_id"),
     )

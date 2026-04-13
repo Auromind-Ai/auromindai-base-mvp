@@ -35,7 +35,7 @@ from app.services.agentic_rag.cache_loader import load_learning_cache
 from app.routers import (
     auth, mcp, simulation, inbox, learning, brain, followups,
     dashboard, chat, twilio_webhook, integrations, gmail, email,
-    automation, admin, metric, public, billing
+    automation, admin, metric, public, billing,model_configs, upload
 )
 from app.routers.auth import CurrentUser, get_current_user
 from app.routers.feedback import router as feedback_router  # Integrated from V2
@@ -105,7 +105,8 @@ register_exception_handlers(app)
 # ── CORS & Middleware ─────────────────────────────────────────────────────────
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000"
+    "http://localhost:3000," \
+    "http://127.0.0.1:3000"
 ).split(",")
 
 app.add_middleware(
@@ -163,7 +164,8 @@ app.include_router(metric.router, prefix="/metrics", tags=["metrics"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])
 app.include_router(feedback_router)  # Integrated from V2
-
+app.include_router(model_configs.router)
+app.include_router(upload.router, tags=["upload"])
 
 # ── External AI clients & Chat Service Config ─────────────────────────────────
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -217,7 +219,6 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat_endpoint(
     request: ChatRequest,
-    db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Streaming chat endpoint using ChatService."""

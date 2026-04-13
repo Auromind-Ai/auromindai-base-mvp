@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Sparkles,
     Plus,
@@ -16,15 +17,10 @@ import {
     ListTodo,
     Square,
     Copy,
-    Pencil,
     Check,
     X,
     ChevronDown,
-    Settings,
-    Clock,
-    Search,
-    History,
-    Menu
+    History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '@/context/SettingsContext';
@@ -41,51 +37,12 @@ const MODELS = [
   { id: "gemini_flash", name: "💡 Flash (Gemini)", plan: "pro" }
 ];
 
-
-
-// Typewriter Component for AI Responses
-const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
-    const [displayedText, setDisplayedText] = useState('');
-    const [isComplete, setIsComplete] = useState(false);
-    const textRef = useRef(text);
-    const indexRef = useRef(0);
-
-    useEffect(() => {
-        textRef.current = text;
-    }, [text]);
-
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            if (indexRef.current < textRef.current.length) {
-                const char = textRef.current.charAt(indexRef.current);
-                setDisplayedText((prev) => {
-                    const next = prev + char;
-                    onUpdate?.(next);
-                    return next;
-                });
-                indexRef.current++;
-            } else {
-                // If it's an assistant message, we only finish if the parent says isStreaming: false
-                // But the typewriter itself doesn't know that. 
-                // We'll rely on the parent's isStreaming flag to switch off the component.
-            }
-        }, speed);
-
-        return () => clearInterval(intervalId);
-    }, []); // Only start interval once
-
-    return (
-        <span>
-            {displayedText}
-            <span className="inline-block w-1.5 h-4 bg-indigo-400 ml-1 animate-pulse align-middle" />
-        </span>
-    );
-};
-
 export default function AuromindAIPage() {
-    // API Configuration - uses environment variable for backend URL
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const router = useRouter();
 
+    const [userPlan, setUserPlan] = useState("free"); 
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -95,20 +52,22 @@ export default function AuromindAIPage() {
     const [copiedIndex, setCopiedIndex] = useState(null);
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
-    const user = { plan: "free" }; // temporary (replace later)
+    
     const getModelName = () => {
-    const model = MODELS.find(m => m.id === selectedModel);
-    return model ? model.name : "✨ Auto";
+        const model = MODELS.find(m => m.id === selectedModel);
+        return model ? model.name : "✨ Auto";
     };
 
     const handleModelSelect = (model) => {
-    if (model.plan === "pro" && (!user || user.plan !== "pro")) {
-        alert("Upgrade to use this model 🚀");
-        return;
-    }
+        const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
+        if (model.plan === "pro" && !hasPremiumAccess) {
+            setShowUpgradeModal(true); 
+            setIsModelDropdownOpen(false);
+            return;
+        }
 
-    setSelectedModel(model.id);
-    setIsModelDropdownOpen(false);
+        setSelectedModel(model.id);
+        setIsModelDropdownOpen(false);
     };
 
     const messagesEndRef = useRef(null);
@@ -116,7 +75,6 @@ export default function AuromindAIPage() {
     const plusRef = useRef(null);
     const [isInitializing, setIsInitializing] = useState(true);
 
-    // Chat History State
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -124,128 +82,108 @@ export default function AuromindAIPage() {
     const abortControllerRef = useRef(null);
     const lastTypedTextRef = useRef('');
 
-    // File Upload Ref
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
 
-    // Chat Modes & Source
-    const [chatMode, setChatMode] = useState("auto"); // auto, brain_only, web_only
-    const [source, setSource] = useState("internal_web"); // internal, internal_web (Default to recommended)
+    const [chatMode, setChatMode] = useState("auto"); 
+    const [source, setSource] = useState("internal_web"); 
     const [isModeOpen, setIsModeOpen] = useState(false);
     const [isSourceOpen, setIsSourceOpen] = useState(false);
 
-
-    // Get workspace ID for RAG
     const workspace = getWorkspace();
     const workspaceId = workspace?.id;
-    const sendFeedback = async (type, msg, idx) => {
-  try {
-    const userMessage = messages[idx - 1]?.content || "";
 
-    console.log("🔥 FULL MSG:", msg);
-    console.log("🔥 META:", msg.meta);
-
-    await fetch(`${API_URL}/feedback`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",...authHeader()
-      },
-      body: JSON.stringify({
-        query: msg.meta?.query || userMessage,
-        answer: msg.content,
-        feedback: type,
-
-        // ✅ MUST COME FROM meta
-        rewritten_query: msg.meta?.rewritten_query,
-        tool: msg.meta?.tool,
-        model: msg.meta?.model,
-        latency_ms: msg.meta?.latency_ms,
-        confidence_score: msg.meta?.confidence_score,
-        source: msg.meta?.source,
-        session_id: currentSessionId
-      }),
-    });
-
-    console.log("✅ FEEDBACK SENT WITH META");
-
-    setMessages(prev =>
-      prev.map((m, i) =>
-        i === idx ? { ...m, voted: true } : m
-      )
-    );
-
-  } catch (err) {
-    console.error("❌ Feedback error:", err);
-  }
-};
-
+    // Fetch Actual User Plan
     useEffect(() => {
-    const handleClickOutside = (e) => {
-        if (!e.target.closest(".model-dropdown")) {
-        setIsModelDropdownOpen(false);
+        if (workspaceId) {
+            const checkPlan = async () => {
+                try {
+                    const res = await api.getBillingStatus(workspaceId);
+                    setUserPlan(res.current_plan || "free");
+                } catch (error) {
+                    console.error("Failed to check plan:", error);
+                }
+            };
+            checkPlan();
+        }
+    }, [workspaceId]);
+    useEffect(() => {
+        const currentModelObj = MODELS.find(m => m.id === selectedModel);
+        const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
+        
+        if (currentModelObj?.plan === "pro" && !hasPremiumAccess) {
+            setSelectedModel("auto"); 
+        }
+    }, [userPlan, selectedModel, setSelectedModel]);
+    const sendFeedback = async (type, msg, idx) => {
+        try {
+            const userMessage = messages[idx - 1]?.content || "";
+            await fetch(`${API_URL}/feedback`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json", ...authHeader()
+                },
+                body: JSON.stringify({
+                    query: msg.meta?.query || userMessage,
+                    answer: msg.content,
+                    feedback: type,
+                    rewritten_query: msg.meta?.rewritten_query,
+                    tool: msg.meta?.tool,
+                    model: msg.meta?.model,
+                    latency_ms: msg.meta?.latency_ms,
+                    confidence_score: msg.meta?.confidence_score,
+                    source: msg.meta?.source,
+                    session_id: currentSessionId
+                }),
+            });
+            setMessages(prev => prev.map((m, i) => i === idx ? { ...m, voted: true } : m));
+        } catch (err) {
+            console.error("❌ Feedback error:", err);
         }
     };
 
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (!e.target.closest(".model-dropdown")) setIsModelDropdownOpen(false);
+        };
+        document.addEventListener("click", handleClickOutside);
+        return () => document.removeEventListener("click", handleClickOutside);
     }, []);
 
     useEffect(() => {
         setMounted(true);
-
-        // Mark that user is inside AI page
         sessionStorage.setItem("ai_active", "true");
-
-        // Auth check
         if (typeof window !== 'undefined') {
             const token = sessionStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/login';
-            }
+            if (!token) window.location.href = '/login';
         }
-
-        // Cleanup when leaving page
-        return () => {
-            sessionStorage.removeItem("ai_active");
-        };
-
+        return () => sessionStorage.removeItem("ai_active");
     }, []);
 
     useEffect(() => {
         function handleClickOutside(event) {
             if (plusRef.current && !plusRef.current.contains(event.target)) {
-                    setIsPlusOpen(false);
+                setIsPlusOpen(false);
             }
         }
-
         document.addEventListener("mousedown", handleClickOutside);
-
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Load sessions on mount
     useEffect(() => {
-        if (workspaceId && mounted) {
-            loadSessions();
-        }
+        if (workspaceId && mounted) loadSessions();
     }, [workspaceId, mounted]);
 
     const loadSessions = async () => {
         setIsInitializing(true);
-
         try {
             const data = await api.getChatSessions(workspaceId);
             setSessions(data);
-
-            // Auto-select latest session if none selected
             const wasInsideAI = sessionStorage.getItem("ai_active");
-
             if (data.length > 0 && wasInsideAI) {
-                setCurrentSessionId(data[0].id); // Resume only on reload
+                setCurrentSessionId(data[0].id);
             } else {
-                setIsInitializing(false); // Show landing
+                setIsInitializing(false);
             }
         } catch (err) {
             console.error("Failed to load sessions:", err);
@@ -255,51 +193,34 @@ export default function AuromindAIPage() {
     };
 
     useEffect(() => {
-    if (!currentSessionId) {
-        setIsInitializing(false);
-        return;
-    }
-
-    const fetchMessages = async () => {
-        setIsLoading(true);
-        try {
-            const history = await api.getSessionMessages(currentSessionId);
-            setMessages(history.map(m => ({
-                role: m.role,
-                content: m.content,
-                isStreaming: false
-            })));
-        } catch (err) {
-            console.error("Failed to load session messages:", err);
-            setMessages([{ 
-                role: 'assistant', 
-                content: "Failed to load chat history.", 
-                isError: true 
-            }]);
-        } finally {
-            setIsLoading(false);
+        if (!currentSessionId) {
             setIsInitializing(false);
+            return;
+        }
+        const fetchMessages = async () => {
+            setIsLoading(true);
+            try {
+                const history = await api.getSessionMessages(currentSessionId);
+                setMessages(history.map(m => ({ role: m.role, content: m.content, isStreaming: false })));
+            } catch (err) {
+                console.error("Failed to load session messages:", err);
+                setMessages([{ role: 'assistant', content: "Failed to load chat history.", isError: true }]);
+            } finally {
+                setIsLoading(false);
+                setIsInitializing(false);
             }
         };
-
         fetchMessages();
     }, [currentSessionId]);
 
     const handleSelectSession = async (sessionId) => {
-
         setCurrentSessionId(sessionId);
         setIsLoading(true);
-        setMessages([]); // Clear current messages while loading
-
+        setMessages([]);
         try {
             const history = await api.getSessionMessages(sessionId);
-            setMessages(history.map(m => ({
-                role: m.role,
-                content: m.content,
-                isStreaming: false
-            })));
+            setMessages(history.map(m => ({ role: m.role, content: m.content, isStreaming: false })));
         } catch (err) {
-            console.error("Failed to load session messages:", err);
             setMessages([{ role: 'assistant', content: "Failed to load chat history.", isError: true }]);
         } finally {
             setIsLoading(false);
@@ -343,17 +264,13 @@ export default function AuromindAIPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    // Scroll when messages change
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
 
     const handleStop = () => {
-        if (abortControllerRef.current) {
-            abortControllerRef.current.abort();
-        }
+        if (abortControllerRef.current) abortControllerRef.current.abort();
         setIsLoading(false);
-        // Also stop any currently streaming message and truncate its content
         setMessages(prev => prev.map(msg =>
             msg.isStreaming ? { ...msg, content: lastTypedTextRef.current, isStreaming: false } : msg
         ));
@@ -362,24 +279,17 @@ export default function AuromindAIPage() {
 
     const handleExecute = async () => {
         if ((!inputValue.trim() && !attachedFile) || isLoading) return;
-
-        const startTime = Date.now()
-
+        const startTime = Date.now();
         const userMsg = inputValue;
         setInputValue('');
-        setAttachedFile(null); // Clear attached file preview
+        setAttachedFile(null); 
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
         setIsLoading(true);
-
-        // Add an empty assistant message that will be filled by the stream
         setMessages(prev => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
-        const assistantMsgIndex = messages.length + 1; // +1 for the user message we just added
-
-        // Initialize AbortController
+        
         abortControllerRef.current = new AbortController();
 
         try {
-            // Auto-create session if none exists
             let activeSessionId = currentSessionId;
             if (!activeSessionId) {
                 try {
@@ -388,65 +298,51 @@ export default function AuromindAIPage() {
                     setSessions(prev => [newSession, ...prev]);
                     setCurrentSessionId(newSession.id);
                     activeSessionId = newSession.id;
-                } catch (sErr) {
-                    console.error("Session creation failed:", sErr);
-                }
+                } catch (sErr) {}
             } else {
-                // Auto-update title if it's the first message or title is still generic
                 const currentSession = sessions.find(s => s.id === activeSessionId);
-                if (currentSession && (currentSession.title === "New Chat" || messages.length === 2)) { // length is 2 because we just added user + assistant placeholder
+                if (currentSession && (currentSession.title === "New Chat" || messages.length === 2)) { 
                     const newTitle = userMsg.substring(0, 30) + (userMsg.length > 30 ? '...' : '');
                     handleUpdateSession(activeSessionId, newTitle);
                 }
             }
-
+            
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
-           headers: { 'Content-Type': 'application/json', ...authHeader() },
+                headers: { 'Content-Type': 'application/json', ...authHeader() },
                 body: JSON.stringify({
                     message: userMsg,
                     model: selectedModel,
                     workspace_id: workspaceId,
                     use_rag: true,
-                    document_id: lastUploadedId, // Pass the uploaded file ID
+                    document_id: lastUploadedId, 
                     chat_mode: chatMode,
                     source: source,
-                    session_id: activeSessionId // Pass session ID for persistence
+                    session_id: activeSessionId
                 }),
                 signal: abortControllerRef.current.signal
             });
-                    if (!res.ok) {
-            const text = await res.text();
-            console.error("❌ API ERROR:", text);
 
-            setMessages(prev => prev.map((msg, i) =>
-                i === prev.length - 1
-                    ? {
-                        ...msg,
-                        content: `Error: ${text || res.status}`,
-                        isError: true,
-                        isStreaming: false
-                    }
-                    : msg
-            ));
+            if (!res.ok) {
+                const text = await res.text();
+                setMessages(prev => prev.map((msg, i) =>
+                    i === prev.length - 1 ? { ...msg, content: `Error: ${text || res.status}`, isError: true, isStreaming: false } : msg
+                ));
+                setIsLoading(false);
+                return;
+            }
 
-            setIsLoading(false);
-            return;
-        }
-
-            // Clear the specific document context after sending
-            setAttachedFile(null); // Clear attached file preview
-            setLastUploadedId(null); // Clear ID so subsequent messages don't force-context it
+            setAttachedFile(null); 
+            setLastUploadedId(null); 
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
-            setIsLoading(false); // Stop "thinking" animation as text starts arriving
+            setIsLoading(false); 
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 const chunk = decoder.decode(value, { stream: true });
                 const lines = chunk.split('\n');
 
@@ -455,33 +351,17 @@ export default function AuromindAIPage() {
                     try {
                         const data = JSON.parse(line);
                         if (data.content || data.meta) {
-
-                                if (data.content) {
-                                    fullText += data.content;   // ✅ IMPORTANT FIX
-                                }
-
+                                if (data.content) fullText += data.content; 
                                 setMessages(prev => prev.map((msg, i) =>
-                                    i === prev.length - 1
-                                        ? {
-                                            ...msg,
-                                            content: data.content
-                                                ? msg.content + data.content
-                                                : msg.content,
-                                            meta: (
-                                                data.meta &&
-                                                typeof data.meta === "object" &&
-                                                Object.keys(data.meta).length > 0
-                                            )
-                                                ? {
-                                                    ...data.meta,
-                                                    latency_ms: Date.now() - startTime
-                                                }
-                                                : msg.meta
-                                        }
-                                        : msg
+                                    i === prev.length - 1 ? {
+                                        ...msg,
+                                        content: data.content ? msg.content + data.content : msg.content,
+                                        meta: (data.meta && typeof data.meta === "object" && Object.keys(data.meta).length > 0)
+                                            ? { ...data.meta, latency_ms: Date.now() - startTime }
+                                            : msg.meta
+                                    } : msg
                                 ));
-                            }else if (data.error) {
-                            // Show error message in UI
+                        } else if (data.error) {
                             const errorMsg = data.error.includes('429') || data.error.includes('quota')
                                 ? "⚠️ API rate limit exceeded. Please wait a moment and try again."
                                 : `Error: ${data.error}`;
@@ -492,7 +372,6 @@ export default function AuromindAIPage() {
                             return;
                         }
                     } catch (e) {
-                        // If JSON parse fails, might be plain text error
                         if (line.includes('error') || line.includes('Error')) {
                             setMessages(prev => prev.map((msg, i) =>
                                 i === prev.length - 1 ? { ...msg, content: `Error: ${line}`, isError: true, isStreaming: false } : msg
@@ -504,24 +383,19 @@ export default function AuromindAIPage() {
                 }
             }
 
-            // If we finished but have no content, show an error
             if (!fullText.trim()) {
                 setMessages(prev => prev.map((msg, i) =>
                     i === prev.length - 1 ? { ...msg, content: "No response received. Please try again.", isError: true, isStreaming: false } : msg
                 ));
             }
         } catch (err) {
-            if (err.name === 'AbortError') {
-                console.log('Fetch aborted');
-            } else {
-                console.error(err);
+            if (err.name !== 'AbortError') {
                 setMessages(prev => prev.map((msg, i) =>
                     i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg
                 ));
             }
         } finally {
             setIsLoading(false);
-            // Mark the last message as finished streaming if it wasn't aborted
             setMessages(prev => prev.map((msg, i) =>
                 (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg
             ));
@@ -529,18 +403,11 @@ export default function AuromindAIPage() {
         }
     };
 
-    const handleStreamingComplete = (index) => {
-        setMessages(prev => prev.map((msg, i) =>
-            i === index ? { ...msg, isStreaming: false } : msg
-        ));
-    };
-
     const handleCopy = async (text, index) => {
         try {
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(text);
             } else {
-                // Fallback
                 const textArea = document.createElement("textarea");
                 textArea.value = text;
                 document.body.appendChild(textArea);
@@ -556,101 +423,57 @@ export default function AuromindAIPage() {
         }
     };
 
-    // Attached File State
     const [attachedFile, setAttachedFile] = useState(null);
-    const [lastUploadedId, setLastUploadedId] = useState(null); // Track uploaded file ID for context
+    const [lastUploadedId, setLastUploadedId] = useState(null); 
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Strict File Validation
-        // Strict File Validation
         const allowedTypes = [
-            'application/pdf',
-            'image/png', 'image/jpeg', 'image/jpg', 'image/webp',
+            'application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword',
             'text/plain', 'text/markdown'
         ];
 
-        // Check if type is allowed (some systems might not set type correctly for custom extensions, so we trust backend validation as fallback if type is empty but extension is valid)
-        // ideally we should also check extension
-
-        // Simplified check
-        // if (!allowedTypes.includes(file.type)) { 
-        //    ... 
-        // }
-
-        // Let's rely on the backend for strict type checking and `accept` for UI guidance. 
-        // But to keep consistency with existing logic, we expand the list.
-
         const isTypeAllowed = allowedTypes.includes(file.type) ||
-            file.name.endsWith('.csv') ||
-            file.name.endsWith('.md') ||
-            file.name.endsWith('.xlsx') ||
-            file.name.endsWith('.xls');
+            file.name.endsWith('.csv') || file.name.endsWith('.md') ||
+            file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
 
-        if (!isTypeAllowed && file.type) { // Only block if we are sure it's wrong type
-            setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: "I support PDF, Excel, CSV, Docs, and Images.",
-                isError: true
-            }]);
-            e.target.value = ''; // Reset input
+        if (!isTypeAllowed && file.type) { 
+            setMessages(prev => [...prev, { role: 'assistant', content: "I support PDF, Excel, CSV, Docs, and Images.", isError: true }]);
+            e.target.value = ''; 
             return;
         }
 
-        // Reset input
         e.target.value = '';
-
         setIsUploading(true);
         try {
-            // Optimistic UI: Show file as attached immediately (preview)
             setAttachedFile({ name: file.name, type: file.type });
-
-            // Upload to backend using the API library
-            if (!workspaceId) {
-                throw new Error("Workspace ID not found. Please refresh the page.");
-            }
-            const api = await import('@/lib/api').then(mod => mod.default);
-            // Capture response which includes entry_id
-            const uploadResponse = await api.uploadDocument(file, workspaceId);
+            if (!workspaceId) throw new Error("Workspace ID not found. Please refresh the page.");
+            
+            const apiLib = await import('@/lib/api').then(mod => mod.default);
+            const uploadResponse = await apiLib.uploadDocument(file, workspaceId);
 
             if (uploadResponse && uploadResponse.entry_id) {
-                console.log("File uploaded, ID:", uploadResponse.entry_id);
                 setLastUploadedId(uploadResponse.entry_id);
             }
-
-            // Note: We no longer add a "Using file..." message to the chat history here.
-            // The file shows as a preview chip instead.
-
         } catch (err) {
-            console.error("Upload failed:", err);
-            // If upload fails, remove the preview and show error
             setAttachedFile(null);
-
             let errorMessage = err.message;
             if (errorMessage.includes("Could not validate credentials") || errorMessage.includes("401")) {
                 errorMessage = "Authentication failed. Please log in again.";
-                // Optionally redirect to login
-                // window.location.href = '/login'; 
             }
-
-            setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: `Failed to upload file: ${errorMessage}`,
-                isError: true,
-                isStreaming: false
-            }]);
+            setMessages(prev => [...prev, { role: 'assistant', content: `Failed to upload file: ${errorMessage}`, isError: true, isStreaming: false }]);
         } finally {
             setIsUploading(false);
         }
     };
 
-    const handleEdit = (text, index) => {
-        setEditingIndex(index);
-        setEditValue(text);
+    const handleCancelEdit = () => {
+        setEditingIndex(null);
+        setEditValue('');
     };
 
     const handleSaveEdit = async () => {
@@ -659,17 +482,13 @@ export default function AuromindAIPage() {
         const newContent = editValue;
         const index = editingIndex;
 
-        // Truncate messages after this point and update this message
         const updatedMessages = messages.slice(0, index);
         updatedMessages.push({ role: 'user', content: newContent });
-
-        // Add empty assistant message
         updatedMessages.push({ role: 'assistant', content: '', isStreaming: true });
 
         setMessages(updatedMessages);
         setEditingIndex(null);
         setEditValue('');
-
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
 
@@ -684,23 +503,14 @@ export default function AuromindAIPage() {
                 }),
                 signal: abortControllerRef.current.signal
             });
-                        if (!res.ok) {
+            
+            if (!res.ok) {
                 const text = await res.text();
-
-                setMessages(prev => prev.map((msg, i) =>
-                    i === prev.length - 1
-                        ? {
-                            ...msg,
-                            content: `Error: ${text || res.status}`,
-                            isError: true,
-                            isStreaming: false
-                        }
-                        : msg
-                ));
-
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: `Error: ${text || res.status}`, isError: true, isStreaming: false } : msg));
                 setIsLoading(false);
                 return;
             }
+            
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -709,7 +519,6 @@ export default function AuromindAIPage() {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 const chunk = decoder.decode(value, { stream: true });
                 const lines = chunk.split('\n');
 
@@ -719,51 +528,29 @@ export default function AuromindAIPage() {
                         const data = JSON.parse(line);
                         if (data.content) {
                             fullText += data.content;
-                            setMessages(prev => prev.map((msg, i) =>
-                                i === prev.length - 1 ? { ...msg, content: fullText } : msg
-                            ));
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: fullText } : msg));
                             lastTypedTextRef.current = fullText;
                         }
                     } catch (e) { }
                 }
             }
         } catch (err) {
-            if (err.name === 'AbortError') {
-                console.log('Fetch aborted');
-            } else {
-                console.error(err);
-                setMessages(prev => prev.map((msg, i) =>
-                    i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg
-                ));
+            if (err.name !== 'AbortError') {
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } finally {
             setIsLoading(false);
-            setMessages(prev => prev.map((msg, i) =>
-                (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg
-            ));
+            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
         }
     };
 
-    const handleCancelEdit = () => {
-        setEditingIndex(null);
-        setEditValue('');
-    };
-
     const handleRegenerate = async (index) => {
-        // Regeneration only makes sense for AI responses, but we need the preceding user message
         if (index === 0) return;
-        const userMessageIndex = index - 1;
-        const userMsg = messages[userMessageIndex].content;
-
-        // Truncate from the assistant message onwards
+        const userMsg = messages[index - 1].content;
         const updatedMessages = messages.slice(0, index);
-
-        // Add empty assistant message
         updatedMessages.push({ role: 'assistant', content: '', isStreaming: true });
-
         setMessages(updatedMessages);
-
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
 
@@ -771,30 +558,17 @@ export default function AuromindAIPage() {
             const res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                  headers: { 'Content-Type': 'application/json', ...authHeader() },
-                body: JSON.stringify({
-                    message: userMsg,
-                    model: selectedModel,
-                    workspace_id: workspaceId
-                }),
+                body: JSON.stringify({ message: userMsg, model: selectedModel, workspace_id: workspaceId }),
                 signal: abortControllerRef.current.signal
             });
-                        if (!res.ok) {
+            
+            if (!res.ok) {
                 const text = await res.text();
-
-                setMessages(prev => prev.map((msg, i) =>
-                    i === prev.length - 1
-                        ? {
-                            ...msg,
-                            content: `Error: ${text || res.status}`,
-                            isError: true,
-                            isStreaming: false
-                        }
-                        : msg
-                ));
-
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: `Error: ${text || res.status}`, isError: true, isStreaming: false } : msg));
                 setIsLoading(false);
                 return;
             }
+            
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -803,7 +577,6 @@ export default function AuromindAIPage() {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 const chunk = decoder.decode(value, { stream: true });
                 const lines = chunk.split('\n');
 
@@ -813,28 +586,19 @@ export default function AuromindAIPage() {
                         const data = JSON.parse(line);
                         if (data.content) {
                             fullText += data.content;
-                            setMessages(prev => prev.map((msg, i) =>
-                                i === prev.length - 1 ? { ...msg, content: fullText } : msg
-                            ));
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: fullText } : msg));
                             lastTypedTextRef.current = fullText;
                         }
                     } catch (e) { }
                 }
             }
         } catch (err) {
-            if (err.name === 'AbortError') {
-                console.log('Fetch aborted');
-            } else {
-                console.error(err);
-                setMessages(prev => prev.map((msg, i) =>
-                    i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg
-                ));
+            if (err.name !== 'AbortError') {
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } finally {
             setIsLoading(false);
-            setMessages(prev => prev.map((msg, i) =>
-                (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg
-            ));
+            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
         }
     };
@@ -846,9 +610,6 @@ export default function AuromindAIPage() {
         }
     };
 
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-
     const starterCards = [
         { icon: Sparkles, label: "What's new in Auromind AI" },
         { icon: Calendar, label: "Write meeting agenda" },
@@ -858,17 +619,9 @@ export default function AuromindAIPage() {
 
     function formatAssistantMessage(text) {
         if (!text) return text;
-
         if (/\n?\d+\.\s/.test(text)) return text;
-
         const sentences = text.split(/(?<=\.)\s+/);
-
-        if (sentences.length > 2) {
-            return sentences
-                .map((s, i) => `${i + 1}. ${s.trim()}`)
-                .join("\n\n");
-        }
-
+        if (sentences.length > 2) return sentences.map((s, i) => `${i + 1}. ${s.trim()}`).join("\n\n");
         return text;
     }
 
@@ -876,7 +629,6 @@ export default function AuromindAIPage() {
         <div className="flex bg-[#050505] h-screen text-white overflow-hidden font-sans">
             <ChatSidebar
                 sessions={sessions}
-
                 currentSessionId={currentSessionId}
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
@@ -887,7 +639,6 @@ export default function AuromindAIPage() {
             />
 
             <div className={`flex-1 flex flex-col relative overflow-hidden`}>
-                {/* Header / Top Bar */}
                 <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 bg-[#050505] z-40">
                     <div className="flex items-center gap-3">
                         {!isSidebarOpen && (
@@ -905,39 +656,22 @@ export default function AuromindAIPage() {
                             <ChevronDown size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
                         </div>
                     </div>
-
                 </div>
 
                 <div className="flex flex-col flex-1 bg-transparent relative overflow-hidden">
                     <style jsx global>{`
-                        /* Hide scrollbar for Chrome, Safari and Opera */
-                        .no-scrollbar::-webkit-scrollbar {
-                            display: none;
-                        }
-                        /* Hide scrollbar for IE, Edge and Firefox */
-                        .no-scrollbar {
-                            -ms-overflow-style: none;  /* IE and Edge */
-                            scrollbar-width: none;  /* Firefox */
-                        }
-                        .custom-scrollbar::-webkit-scrollbar {
-                            width: 5px;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-track {
-                            background: transparent;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-thumb {
-                            background: #1f2937;
-                            border-radius: 10px;
-                        }
+                        .no-scrollbar::-webkit-scrollbar { display: none; }
+                        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+                        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 10px; }
                     `}</style>
 
                     <main className="flex-1 flex flex-col overflow-hidden">
-  <div className="flex-1 overflow-y-auto custom-scrollbar no-scrollbar">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar no-scrollbar">
                         <AnimatePresence mode="wait">
                             {isInitializing ? (
-                                <div className="flex items-center justify-center min-h-[80vh] text-gray-500">
-                                    Loading...
-                                </div>
+                                <div className="flex items-center justify-center min-h-[80vh] text-gray-500">Loading...</div>
                             ) : messages.length === 0 ? (
                                 <motion.div
                                     key="hero"
@@ -977,10 +711,7 @@ export default function AuromindAIPage() {
                                         </motion.p>
                                     </div>
 
-                                    <motion.div
-                                        layoutId="chat-input-container"
-                                        className="w-full max-w-2xl"
-                                    >
+                                    <motion.div layoutId="chat-input-container" className="w-full max-w-2xl">
                                         <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl group focus-within:border-indigo-500/40 transition-all duration-500 overflow-hidden">
                                             <div className="px-5 pt-4">
                                                 <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 text-[12px] font-medium text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
@@ -1040,7 +771,6 @@ export default function AuromindAIPage() {
                                         </div>
                                     </motion.div>
 
-                                    {/* Starter Cards */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-12 w-full max-w-3xl">
                                         {starterCards.map((card, i) => (
                                             <button
@@ -1081,7 +811,7 @@ export default function AuromindAIPage() {
                                                                     autoFocus
                                                                 />
                                                                 <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
-                                                                    <button onClick={handleCancelEdit} className="text-xs text-gray-500 hover:text-white transition-colors">Cancel</button>
+                                                                    <button onClick={() => { setEditingIndex(null); setEditValue(''); }} className="text-xs text-gray-500 hover:text-white transition-colors">Cancel</button>
                                                                     <button onClick={handleSaveEdit} className="text-xs bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-md text-white font-medium transition-colors">Save & Submit</button>
                                                                 </div>
                                                             </div>
@@ -1115,47 +845,26 @@ export default function AuromindAIPage() {
                                                                 </div>
                                                             ) : (
                                                                 <div className="assistant-message-content whitespace-pre-line">
-                                                                {formatAssistantMessage(msg.content)}
-                                                            </div>
+                                                                    {formatAssistantMessage(msg.content)}
+                                                                </div>
                                                             )}
                                                         </div>
                                                         {!msg.isStreaming && (
-  <div className="flex items-center gap-1 mt-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-
-    {/* Copy */}
-    <button
-      onClick={() => handleCopy(msg.content, idx)}
-      className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-    >
-      {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-    </button>
-
-    {/* Regenerate */}
-    <button
-      onClick={() => handleRegenerate(idx)}
-      className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-    >
-      <RotateCcw size={14} />
-    </button>
-
-    {/* 👍 FEEDBACK */}
-    <button
-      onClick={() => sendFeedback("up", msg, idx)}
-      className="p-1.5 rounded-md hover:bg-green-500/10 text-gray-500 hover:text-green-400 transition-colors"
-    >
-      <ThumbsUp size={14} />
-    </button>
-
-    {/* 👎 FEEDBACK */}
-    <button
-      onClick={() => sendFeedback("down", msg, idx)}
-      className="p-1.5 rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
-    >
-      <ThumbsDown size={14} />
-    </button>
-
-  </div>
-)}
+                                                            <div className="flex items-center gap-1 mt-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                                <button onClick={() => handleCopy(msg.content, idx)} className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors">
+                                                                    {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                                                </button>
+                                                                <button onClick={() => handleRegenerate(idx)} className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors">
+                                                                    <RotateCcw size={14} />
+                                                                </button>
+                                                                <button onClick={() => sendFeedback("up", msg, idx)} className="p-1.5 rounded-md hover:bg-green-500/10 text-gray-500 hover:text-green-400 transition-colors">
+                                                                    <ThumbsUp size={14} />
+                                                                </button>
+                                                                <button onClick={() => sendFeedback("down", msg, idx)} className="p-1.5 rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors">
+                                                                    <ThumbsDown size={14} />
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </motion.div>
@@ -1168,7 +877,6 @@ export default function AuromindAIPage() {
                         </div>
                     </main>
 
-                    {/* Floating Sticky Input (when messages exist) */}
                     {messages.length > 0 && (
                     <div className="absolute bottom-0 w-full z-30">
                         <div className="flex justify-center pb-8 pt-10 bg-gradient-to-t from-[#050505] via-[#050505]/95 to-transparent">
@@ -1180,105 +888,91 @@ export default function AuromindAIPage() {
                                 <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl focus-within:border-indigo-500/40 transition-all duration-300">
                                     <div ref={plusRef} className="relative flex items-center px-4 py-3 gap-2">
 
-  {/* PLUS BUTTON */}
-  <button
-    onClick={() => setIsPlusOpen(!isPlusOpen)}
-    className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
-  >
-    <Plus size={18} />
-  </button>
+                                        <button
+                                            onClick={() => setIsPlusOpen(!isPlusOpen)}
+                                            className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+                                        >
+                                            <Plus size={18} />
+                                        </button>
 
-  {/* MODEL SELECTOR */}
-  <div className="relative model-dropdown">
+                                        <div className="relative model-dropdown">
+                                            <button
+                                                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                                                className="px-2 py-1 rounded-md text-xs bg-white/5 text-gray-300 hover:bg-white/10"
+                                            >
+                                                {getModelName()}
+                                            </button>
 
-    <button
-      onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-      className="px-2 py-1 rounded-md text-xs bg-white/5 text-gray-300 hover:bg-white/10"
-    >
-      {getModelName()}
-    </button>
+                                           {isModelDropdownOpen && (
+                                                    <div className="absolute bottom-10 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-52 p-2 z-50">
+                                                        {MODELS.map((model) => {
+                                                      
+                                                            const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
 
-    {isModelDropdownOpen && (
-      <div className="absolute bottom-10 left-0 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-52 p-2 z-50">
+                                                            return (
+                                                                <button
+                                                                    key={model.id}
+                                                                    onClick={() => handleModelSelect(model)}
+                                                                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
+                                                                >
+                                                                    <span>{model.name}</span>
+                                                                    
+                                                             
+                                                                    {model.plan === "pro" && !hasPremiumAccess && (
+                                                                        <span className="text-yellow-400 text-xs">🔒</span>
+                                                                    )}
+                                                                    
+                                                                    {selectedModel === model.id && (
+                                                                        <span className="text-green-400">✓</span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                        </div>
 
-        {MODELS.map((model) => (
-          <button
-            key={model.id}
-            onClick={() => handleModelSelect(model)}
-            className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
-          >
-            <span>{model.name}</span>
+                                        {isPlusOpen && (
+                                            <div className="absolute bottom-14 left-4 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
+                                                <button
+                                                    onClick={() => { fileInputRef.current?.click(); setIsPlusOpen(false); }}
+                                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
+                                                >
+                                                    <Paperclip size={16} /> Attach File
+                                                </button>
+                                                <button
+                                                    onClick={() => setIsPlusOpen(false)}
+                                                    className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
+                                                >
+                                                    <Globe size={16} /> Search
+                                                </button>
+                                            </div>
+                                        )}
 
-            {model.plan === "pro" && user.plan !== "pro" && (
-              <span className="text-yellow-400 text-xs">🔒</span>
-            )}
+                                        <textarea
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="Reply to Auromind..."
+                                            className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
+                                            rows={1}
+                                        />
 
-            {selectedModel === model.id && (
-              <span className="text-green-400">✓</span>
-            )}
-          </button>
-        ))}
+                                        <button
+                                            onClick={handleExecute}
+                                            disabled={!inputValue.trim() || isLoading}
+                                            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                                                inputValue.trim() ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-gray-700'
+                                            }`}
+                                        >
+                                            {isLoading ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
+                                        </button>
 
-      </div>
-    )}
-
-  </div>
-
-  {/* EXISTING DROPDOWN */}
-  {isPlusOpen && (
-    <div className="absolute bottom-14 left-4 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
-      
-      <button
-        onClick={() => {
-          fileInputRef.current?.click();
-          setIsPlusOpen(false);
-        }}
-        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
-      >
-        <Paperclip size={16} />
-        Attach File
-      </button>
-
-      <button
-        onClick={() => setIsPlusOpen(false)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
-      >
-        <Globe size={16} />
-        Search
-      </button>
-
-    </div>
-  )}
-
-  {/* TEXTAREA */}
-  <textarea
-    value={inputValue}
-    onChange={(e) => setInputValue(e.target.value)}
-    onKeyDown={handleKeyDown}
-    placeholder="Reply to Auromind..."
-    className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
-    rows={1}
-  />
-
-  {/* SEND BUTTON */}
-  <button
-    onClick={handleExecute}
-    disabled={!inputValue.trim() || isLoading}
-    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-      inputValue.trim()
-        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-        : 'bg-white/5 text-gray-700'
-    }`}
-  >
-    {isLoading ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
-  </button>
-
-</div>
-                                    
+                                    </div>
                                 </div>
                             </motion.div>
-                            </div>
                         </div>
+                    </div>
                     )}
                 </div>
             </div>
@@ -1290,6 +984,58 @@ export default function AuromindAIPage() {
                 accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.docx,.doc,.txt,.md"
                 onChange={handleFileUpload}
             />
+
+            {/* 🔥 UPGRADE MODAL 🔥 */}
+            <AnimatePresence>
+                {showUpgradeModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="bg-[#111111] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl relative"
+                        >
+                            <button 
+                                onClick={() => setShowUpgradeModal(false)}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+
+                            <div className="flex flex-col items-center text-center mt-4">
+                                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center mb-4 border border-indigo-500/30">
+                                    <Sparkles size={32} className="text-indigo-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Unlock Pro Models</h3>
+                                <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                                    Get access to Gemini Flash, Claude Opus, and advanced reasoning capabilities. Upgrade your workspace to Pro.
+                                </p>
+
+                                <div className="flex w-full gap-3">
+                                    <button 
+                                        onClick={() => setShowUpgradeModal(false)}
+                                        className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-colors font-medium text-sm"
+                                    >
+                                        Maybe Later
+                                    </button>
+                                    <button 
+                                        onClick={() => router.push('/user/admin/billing/payment?source=chat')} 
+                                        className="flex-1 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-colors font-medium text-sm shadow-lg shadow-indigo-500/25"
+                                    >
+                                        Upgrade Now
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
         </div>
     );
 }

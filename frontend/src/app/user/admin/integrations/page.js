@@ -22,7 +22,7 @@ export default function IntegrationsPage() {
         gmail: { connected: false, email: null, enabled: true }
     });
     const [loading, setLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState(""); // ✅ NEW
+    const [errorMessage, setErrorMessage] = useState(""); // NEW
     const workspace = getWorkspace();
 
     const availableIntegrations = [
@@ -83,7 +83,7 @@ export default function IntegrationsPage() {
 
             if (!response.ok) {
                 const error = await response.json();
-                setErrorMessage(error.detail || "Something went wrong"); // ✅ NO ALERT
+                setErrorMessage(error.detail || "Something went wrong"); // NO ALERT
                 return;
             }
 
@@ -133,7 +133,7 @@ export default function IntegrationsPage() {
                     </p>
                 </div>
 
-                {/* ✅ ERROR MESSAGE UI */}
+                {/* ERROR MESSAGE UI */}
                 {errorMessage && (
                     <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
                         ❌ {errorMessage}
@@ -160,7 +160,7 @@ export default function IntegrationsPage() {
                                     <h3 className="text-white text-[17px]">{item.name}</h3>
                                     <p className="text-[#888] text-[14px]">{item.description}</p>
 
-                                    {/* ✅ DISABLED LABEL */}
+                                    {/* DISABLED LABEL */}
                                     {isDisabled && (
                                         <p className="text-red-400 text-xs mt-1">
                                             Disabled by admin

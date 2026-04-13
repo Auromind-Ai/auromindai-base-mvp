@@ -28,7 +28,7 @@ export default function UsersPage() {
     try {
       const payload = decodeJwt(current);
       if (current && !payload?.impersonated) {
-        localStorage.setItem("admin_backup_token", current); // 🔥 ALWAYS overwrite
+        localStorage.setItem("admin_backup_token", current); //  ALWAYS overwrite
       }
     } catch (err) {
       console.error("Could not set admin backup:", err);

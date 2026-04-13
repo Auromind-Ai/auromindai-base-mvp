@@ -176,7 +176,7 @@ export default function EmailPage() {
   }
 
   /* ---------------------------
-     🔥 MEETING CHECK (IMPORTANT)
+      MEETING CHECK (IMPORTANT)
   ---------------------------- */
 
   const isMeetingAction =

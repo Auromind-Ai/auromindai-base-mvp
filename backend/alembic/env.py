@@ -6,7 +6,7 @@ from alembic import context
 from dotenv import load_dotenv
 
 from app.database import Base
-from app.models import *  # 🔥 IMPORTANT (loads all models)
+from app.models import *  #  IMPORTANT (loads all models)
 
 # Load .env
 load_dotenv()
@@ -21,7 +21,7 @@ config.set_main_option("sqlalchemy.url", DATABASE_URL.replace('%', '%%'))
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# ✅ THIS IS THE MOST IMPORTANT LINE
+# THIS IS THE MOST IMPORTANT LINE
 target_metadata = Base.metadata
 
 
@@ -48,7 +48,7 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
-            target_metadata=target_metadata  # ✅ IMPORTANT
+            target_metadata=target_metadata  # IMPORTANT
         )
 
         with context.begin_transaction():

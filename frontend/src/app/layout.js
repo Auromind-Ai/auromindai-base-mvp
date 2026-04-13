@@ -26,7 +26,7 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable}`}
         suppressHydrationWarning
       >
-        {/* 🔥 Razorpay Script (FIXED) */}
+        {/*  Razorpay Script (FIXED) */}
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="lazyOnload"

@@ -9,10 +9,13 @@ pydantic==2.12.5
 pydantic[email]
 python-dotenv==1.0.0
 python-multipart==0.0.6
+supabase
+boto3
 
 httpx==0.28.1
 requests==2.32.5
 beautifulsoup4==4.14.3
+rapidfuzz==3.8.1
 
 scrapy==2.14.1
 scrapy-playwright
@@ -58,3 +61,4 @@ scrapy-playwright
 anthropic
 tenacity
 numexpr
+rapidfuzz

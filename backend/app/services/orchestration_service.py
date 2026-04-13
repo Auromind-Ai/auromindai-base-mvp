@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from app.services.mcp_service import MCPService
+from app.services.flow_validation_service import FlowValidationService
 from app.models import BrainEntry, AIAction
 from app.services.email_service import EmailService # Added import
 import uuid
@@ -110,15 +111,28 @@ class OrchestrationService:
         Executes a sequence of actions based on a flow graph.
         Follows the edges to traverse the automation logic.
         """
+        validation = FlowValidationService.validate_flow(
+            flow_data.get("nodes", []),
+            flow_data.get("edges", []),
+        )
+        if not validation["is_valid"]:
+            raise ValueError("; ".join(validation["errors"]))
+
         results = []
         nodes = flow_data.get("nodes", [])
-        edges = flow_data.get("edges", [])
-        
-        # Simple linear traversal for MVP
-        # Start with trigger, then follow edges
-        current_node = next((n for n in nodes if n["type"] == "trigger"), None)
-        
-        while current_node:
+        node_map = {node["id"]: node for node in nodes}
+        visited = set()
+        queue = [validation["trigger_id"]]
+
+        while queue:
+            current_node_id = queue.pop(0)
+            if current_node_id in visited:
+                continue
+            visited.add(current_node_id)
+            current_node = node_map.get(current_node_id)
+            if not current_node:
+                continue
+
             if current_node["type"] == "action":
                 res = OrchestrationService._execute_action(
                     db=db,
@@ -127,13 +141,17 @@ class OrchestrationService:
                     metadata=current_node.get("config", {})
                 )
                 results.append({"node_id": current_node["id"], "result": res})
-            
-            # Find next node
-            edge = next((e for e in edges if e["source"] == current_node["id"]), None)
-            if edge:
-                current_node = next((n for n in nodes if n["id"] == edge["target"]), None)
-            else:
-                current_node = None
-                
+
+            next_edges = sorted(
+                validation["outgoing_map"].get(current_node["id"], []),
+                key=lambda edge: (
+                    edge.get("sourceHandle") or "",
+                    edge.get("id") or "",
+                ),
+            )
+            for edge in next_edges:
+                if edge["target"] not in visited:
+                    queue.append(edge["target"])
+
         return results
 

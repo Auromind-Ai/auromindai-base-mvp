@@ -53,7 +53,7 @@ def seed_data():
     db.add(conv3)
 
     db.commit()
-    print("✅ Demo data seeded!")
+    print("Demo data seeded!")
     db.close()
 
 if __name__ == "__main__":

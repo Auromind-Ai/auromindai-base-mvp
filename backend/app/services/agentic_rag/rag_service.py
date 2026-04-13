@@ -30,10 +30,10 @@ from app.utils.confidence import compute_confidence
 
 router = LLMRouter()
 
-
+#  STEP 1: Updated safe_llm_call to accept and pass 'model'
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
-async def safe_llm_call(prompt):
-    result = await router.generate(prompt)
+async def safe_llm_call(prompt, model="auto"):
+    result = await router.generate(prompt, model=model)
     return {
         "content": result["content"],
         "model": result.get("model", "unknown")
@@ -190,7 +190,8 @@ class AgenticRAG:
         }
     
     #LLM analyzes and rewrites
-    async def analyze_and_rewrite(self, query):
+    # Passed model
+    async def analyze_and_rewrite(self, query, model="auto"):
         prompt = f"""
         You are a STRICT Retrieval Query Optimization Agent.
 
@@ -237,7 +238,7 @@ class AgenticRAG:
 
         Rewritten Query:
         """
-        rewritten_query = await safe_llm_call(prompt)
+        rewritten_query = await safe_llm_call(prompt, model=model)
        
         rewritten_query = rewritten_query["content"].strip()
 
@@ -252,7 +253,8 @@ class AgenticRAG:
         return rewritten_query.strip()
     
     #LLM decides which tool to use
-    async def decide_tool(self, query):
+    # Passed model
+    async def decide_tool(self, query, model="auto"):
 
         prompt = f"""
       You are a deterministic AI Tool Router for a production SaaS system.
@@ -356,7 +358,7 @@ class AgenticRAG:
     Selected Tool:
         """
         
-        decision = await safe_llm_call(prompt)
+        decision = await safe_llm_call(prompt, model=model)
         return decision["content"].strip().lower()
 
     def web_search(self, query):
@@ -455,7 +457,8 @@ class AgenticRAG:
         except Exception:
             return "Calculation error"
         
-    async def parse_email_query(self, query):
+    # Passed model
+    async def parse_email_query(self, query, model="auto"):
 
         prompt = f"""
         You are an email query understanding engine.
@@ -492,7 +495,7 @@ class AgenticRAG:
         {query}
         """
 
-        response = await safe_llm_call(prompt)
+        response = await safe_llm_call(prompt, model=model)
 
         try:
 
@@ -567,7 +570,8 @@ class AgenticRAG:
 
         return results
 
-    async def generate_email_summary(self, subject, body):
+    # Passed model
+    async def generate_email_summary(self, subject, body, model="auto"):
 
         prompt = f"""
         You are an AI assistant that summarizes emails.
@@ -585,11 +589,12 @@ class AgenticRAG:
         {body}
         """
 
-        response = await safe_llm_call(prompt)
+        response = await safe_llm_call(prompt, model=model)
 
         return response["content"].strip()
     
-    async def build_email_response(self, db, results):
+    # Passed model
+    async def build_email_response(self, db, results, model="auto"):
         logging.info("Building response for emails:", len(results))
 
         response = ""
@@ -611,7 +616,8 @@ class AgenticRAG:
 
                 summary = await self.generate_email_summary(
                     email.subject,
-                    email.body
+                    email.body,
+                    model=model
                 )
 
                 # store generated summary for future
@@ -633,25 +639,27 @@ class AgenticRAG:
         logging.info("Final response built")
         return response
             
-    async def email_storage_tool(self, db, workspace_id, query):
+    # Passed model
+    async def email_storage_tool(self, db, workspace_id, query, model="auto"):
 
-        filters = await self.parse_email_query(query)
+        filters = await self.parse_email_query(query, model=model)
 
         results = self.query_emails(db, workspace_id, filters)
 
         if not results:
             return "No emails found."
 
-        return await self.build_email_response(db, results)
+        return await self.build_email_response(db, results, model=model)
         
     #Reasoning Engine   
-    async def agent_loop(self, db, workspace_id, query):
+    # Passed model
+    async def agent_loop(self, db, workspace_id, query, model="auto"):
 
         website_names = []  
 
         small_talk = self.get_small_talk_response(query)
         if small_talk:
-            response = await self.add_followup(query, small_talk)
+            response = await self.add_followup(query, small_talk, model=model)
 
             confidence = compute_confidence(tool="direct_answer")
 
@@ -802,7 +810,7 @@ class AgenticRAG:
 
             Extracted information:
             """
-            response = await safe_llm_call(final_prompt)
+            response = await safe_llm_call(final_prompt, model=model)
 
             response = response["content"].replace("```", "").strip()
 
@@ -822,7 +830,7 @@ class AgenticRAG:
 
             formatted = "\n".join(f"{i+1}. {c}" for i, c in enumerate(clauses))
             logging.info(formatted)
-            response = await self.add_followup(query, formatted)
+            response = await self.add_followup(query, formatted, model=model)
             confidence = compute_confidence(tool="web_search")
 
             return self.format_response(
@@ -834,11 +842,11 @@ class AgenticRAG:
             )
                     
         #Rewrite
-        rewritten_query = await self.analyze_and_rewrite(query)
+        rewritten_query = await self.analyze_and_rewrite(query, model=model)
         logging.info(rewritten_query)
         
         #Decide tool
-        tool =  await self.decide_tool(rewritten_query)
+        tool =  await self.decide_tool(rewritten_query, model=model)
         
         #RULE BASED TOOL OVERRIDE
         rules = learning_cache.get("tool_rules", [])
@@ -892,7 +900,7 @@ class AgenticRAG:
         if tool == "vector_db":
 
             
-            result = await self.iterative_retrieval(db, workspace_id, rewritten_query)
+            result = await self.iterative_retrieval(db, workspace_id, rewritten_query, model=model)
 
             context = result.get("context", "")
             retrieved_docs = result.get("docs", [])
@@ -907,7 +915,7 @@ class AgenticRAG:
                 )
             
             #Synthesize
-            synthesized_info = await self.synthesize_information(query, context)
+            synthesized_info = await self.synthesize_information(query, context, model=model)
 
             if not synthesized_info or not synthesized_info.strip():
                 return self.format_response(
@@ -919,7 +927,7 @@ class AgenticRAG:
                 )
 
             #Generate Final Output
-            final_answer = await self.generate_final_output(query, synthesized_info)
+            final_answer = await self.generate_final_output(query, synthesized_info, model=model)
 
             if not final_answer or not final_answer.strip():
                 return self.format_response(
@@ -1013,7 +1021,7 @@ class AgenticRAG:
 
             Answer:
             """
-            llm_response = await safe_llm_call(final_prompt)
+            llm_response = await safe_llm_call(final_prompt, model=model)
             final_answer = llm_response["content"]
             source_text = "\n".join(f"• {site}" for site in website_names)
 
@@ -1027,7 +1035,7 @@ class AgenticRAG:
             if not llm_response or not llm_response["content"].strip():
                 return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
 
-            res = await self.add_followup(query, final_answer)
+            res = await self.add_followup(query, final_answer, model=model)
             
             confidence = compute_confidence(
                 tool="web_search",
@@ -1063,7 +1071,7 @@ class AgenticRAG:
         elif tool == "direct_answer":
 
             response = self.get_small_talk_response(query)
-            response = await self.add_followup(query, response)
+            response = await self.add_followup(query, response, model=model)
 
             if response:
                 confidence = compute_confidence(tool="direct_answer")
@@ -1081,7 +1089,7 @@ class AgenticRAG:
             
         elif tool == "direct_storage":
 
-            email_data = await self.email_storage_tool(db, workspace_id, query)
+            email_data = await self.email_storage_tool(db, workspace_id, query, model=model)
 
             if not email_data:
                 return self.format_response(
@@ -1091,7 +1099,7 @@ class AgenticRAG:
                     tool
                 )
 
-            response = await self.add_followup(query, email_data)
+            response = await self.add_followup(query, email_data, model=model)
             
             confidence = compute_confidence(tool="direct_storage")
 
@@ -1110,7 +1118,7 @@ class AgenticRAG:
             if not reasoning_output or not reasoning_output.strip():
                 return "Unable to generate reasoning-based answer."
 
-            res = await self.add_followup(query, reasoning_output)
+            res = await self.add_followup(query, reasoning_output, model=model)
             confidence = compute_confidence(tool="reasoning")
 
             return self.format_response(
@@ -1125,7 +1133,8 @@ class AgenticRAG:
         
     
     #Context Evaluation
-    async def evaluate_context(self, query, context):
+    # Passed model
+    async def evaluate_context(self, query, context, model="auto"):
         
         if not context.strip():
             return False
@@ -1170,7 +1179,7 @@ class AgenticRAG:
         """
 
 
-        decision = await safe_llm_call(prompt)
+        decision = await safe_llm_call(prompt, model=model)
         decision = decision["content"].strip().upper()
 
         logging.info(decision)
@@ -1178,7 +1187,8 @@ class AgenticRAG:
         return decision.startswith("YES")
 
     #Query Refinement (Self-Correction)
-    async def refine_query(self, query, previous_context):
+    # Passed model
+    async def refine_query(self, query, previous_context, model="auto"):
 
         prompt = f"""
         You are a STRICT Retrieval Recovery Agent.
@@ -1220,12 +1230,13 @@ class AgenticRAG:
         Rewritten Query:
         """
 
-        refined_query = await safe_llm_call(prompt)
+        refined_query = await safe_llm_call(prompt, model=model)
         logging.info(refined_query)
         return refined_query["content"].strip()
     
     #Iterative Retrieval Loop
-    async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2):
+    # Passed model
+    async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2, model="auto"):
 
         current_query = query
         last_context = ""
@@ -1249,7 +1260,7 @@ class AgenticRAG:
 
             last_context = context
 
-            is_sufficient = await self.evaluate_context(query, context)
+            is_sufficient = await self.evaluate_context(query, context, model=model)
 
             if is_sufficient:
                 logging.info(f"Context sufficient at iteration {i+1}")
@@ -1259,7 +1270,7 @@ class AgenticRAG:
                 }
 
             #Refine query
-            current_query = await self.refine_query(current_query, context)
+            current_query = await self.refine_query(current_query, context, model=model)
 
             if not current_query or not current_query.strip():
                 logging.warning("Query refinement failed")
@@ -1272,7 +1283,8 @@ class AgenticRAG:
         }
     
     #Combine multiple retrieved chunks into a structured
-    async def synthesize_information(self, query, context):
+    # Passed model
+    async def synthesize_information(self, query, context, model="auto"):
 
         prompt = f"""
         You are a STRICT legal clause extraction engine.
@@ -1326,7 +1338,7 @@ class AgenticRAG:
 
         Extracted Clauses:
         """
-        synthesized = await safe_llm_call(prompt)
+        synthesized = await safe_llm_call(prompt, model=model)
 
         return synthesized["content"].strip()
 
@@ -1346,7 +1358,8 @@ class AgenticRAG:
 
         return formatted.strip()
 
-    async def generate_final_output(self, query, synthesized_info):
+    # Passed model
+    async def generate_final_output(self, query, synthesized_info, model="auto"):
 
         good_queries = []
 
@@ -1408,7 +1421,7 @@ class AgenticRAG:
         """
 
         try:
-            result = await safe_llm_call(prompt)
+            result = await safe_llm_call(prompt, model=model)
 
             content = result["content"] if isinstance(result, dict) else result
             if not content or not content.strip():
@@ -1431,13 +1444,14 @@ class AgenticRAG:
             logging.info("FINAL ANSWER FORMATTED:")
             logging.info(formatted_answer)
 
-            return await self.add_followup(query, formatted_answer)
+            return await self.add_followup(query, formatted_answer, model=model)
 
         except Exception as e:
                 logging.exception("Error generating final output")
                 return "System error while generating answer."
 
-    async def add_followup(self, query, answer):
+    # Passed model
+    async def add_followup(self, query, answer, model="auto"):
 
         prompt = f"""
         You are a helpful assistant.
@@ -1463,7 +1477,7 @@ class AgenticRAG:
         Follow-up question:
         """
 
-        followup = await safe_llm_call(prompt)
+        followup = await safe_llm_call(prompt, model=model)
 
         return f"{answer}\n\nFollow-up question:\n{followup['content']}"
         

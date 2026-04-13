@@ -104,7 +104,7 @@ class ChatService:
 
     #  Issue 1 & 2 Fix: Made Async, returns dict to preserve meta
     async def _get_rag_answer(
-        self, db: Session, workspace_id: str, query: str
+        self, db: Session, workspace_id: str, query: str,model: str
     ) -> Any:
         try:
             rag = get_rag_service()
@@ -112,6 +112,7 @@ class ChatService:
                 db=db,
                 workspace_id=workspace_id,
                 query=query,
+                model=model
             )
             return answer
         except Exception as e:
@@ -242,9 +243,9 @@ class ChatService:
         use_rag: bool,
         model: str,
         user_id: str,
-        document_id: Optional[str] = None,  # ✅ ADDED
-        chat_mode: str = "auto",             # ✅ ADDED
-        source: str = "internal",            # ✅ ADDED
+        document_id: Optional[str] = None,  
+        chat_mode: str = "auto",           
+        source: str = "internal",            
     ) -> AsyncGenerator[str, None]:
         """
         Streaming chat with Safe Short-Lived DB Transactions:
@@ -322,7 +323,7 @@ class ChatService:
                     # Open a quick, short-lived session just for the RAG lookup
                     with SessionLocal() as rag_db:
                         answer_data = await asyncio.wait_for(
-                            self._get_rag_answer(db=rag_db, workspace_id=workspace_id, query=safe_query),
+                            self._get_rag_answer(db=rag_db, workspace_id=workspace_id, query=safe_query,model=model),
                             timeout=15,
                         )
                         

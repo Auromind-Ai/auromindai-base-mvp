@@ -89,7 +89,7 @@ class WebhookService:
                 )
                 db.add(webhook_event)
                 try:
-                    db.commit() # 🔥 Audit log is now permanently saved
+                    db.commit() #  Audit log is now permanently saved
                 except Exception:
                     db.rollback() # Another thread beat us to it, which is fine
 
