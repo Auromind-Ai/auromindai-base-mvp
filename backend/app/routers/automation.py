@@ -1,3 +1,6 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
 from app.services.email_automation.email_automation_engine import AutomationEngine
 from app.services.agentic_wiring_service import agentic_wiring_service
 from app.routers.auth import get_current_user
@@ -5,6 +8,8 @@ from app.models.automation import AutomationFlow
 import uuid
 from pydantic import BaseModel
 from typing import List, Optional
+
+from app.database import get_db
 
 class FlowPromptRequest(BaseModel):
     prompt: str
