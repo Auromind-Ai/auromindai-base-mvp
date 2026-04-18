@@ -3,21 +3,35 @@
 import { useRef, useEffect } from 'react';
 import Lenis from 'lenis';
 import NavigationSection from '../components/LandingPage/NavigationSection';
-import HeroSection from '../components/LandingPage/HeroSection';
+import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
 import ModernSaaSBackground from '../components/LandingPage/ModernSaaSBackground';
 import InteractiveScrollSection from '../components/LandingPage/InteractiveScrollSection';
 import BeforeAfterSection from '../components/LandingPage/BeforeAfterSection';
 import SeeItInActionSection from '../components/LandingPage/SeeItInActionSection';
 import PlatformTabsSection from '../components/LandingPage/PlatformTabsSection';
-import HowItWorksSection from '../components/LandingPage/HowItWorksSection';
 import ProductDemoSection from '../components/LandingPage/ProductDemoSection';
 import PricingSection from '../components/LandingPage/PricingSection';
-import TestimonialsSection from '../components/LandingPage/TestimonialsSection';
 import IntegrationsSection from '../components/LandingPage/IntegrationsSection';
-import FaqSection from '../components/LandingPage/FaqSection';
+import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
 import CtaSection from '../components/LandingPage/CtaSection';
 import FooterSection from '../components/LandingPage/FooterSection';
 import SocialProofSection from '../components/LandingPage/SocialProofSection';
+import MessageManagementSection from '../components/LandingPageNew/MessageManagementSection/Messagemanagementsection';
+import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks';
+import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
+import UICtaSectionTwo from "../components/ui/CtaSectionTwo";
+import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
+import dynamic from 'next/dynamic';
+
+const ManageChatsSection = dynamic(
+  () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSection'),
+  { ssr: false }
+);
+
+const NeuroHero = dynamic(
+  () => import('../components/NeuroHero.js'),
+  { ssr: false }
+);
 
 export default function LandingPage() {
   const containerRef = useRef(null);
@@ -48,21 +62,30 @@ export default function LandingPage() {
         <NavigationSection />
         <ModernSaaSBackground />
 
-        <HeroSection />
+        <HeroSectionNew />
+
+        <MessageManagementSection />
+
+        <ManageChatsSection />        
 
         <div className="relative z-10 bg-white">
-          <SocialProofSection />
-          <InteractiveScrollSection />
+          
+          {/* <InteractiveScrollSection /> */}
           <BeforeAfterSection />
-          <SeeItInActionSection />
-          <PlatformTabsSection />
-          <HowItWorksSection />
-          <ProductDemoSection />
-          <PricingSection />
+          {/* <SeeItInActionSection /> */}
+          {/* <PlatformTabsSection /> */}
+          <HowItWorks />
+          <PricingSectionNew />
           <TestimonialsSection />
-          <IntegrationsSection />
-          <FaqSection />
-          <CtaSection />
+          <ProductDemoSection />
+          <SocialProofSection />
+
+          {/* <NeuroHero /> */}
+          
+          {/* <IntegrationsSection /> */}
+          <FAQSection />
+          {/* <CtaSection /> */}
+          <UICtaSectionTwo />
           <FooterSection />
         </div>
       </div>
