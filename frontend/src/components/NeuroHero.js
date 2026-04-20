@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import BrainCanvas from "./BrainCanvas";
 import StageIndicator from "./StageIndicator";
+import dynamic from "next/dynamic";
+
+const BrainCanvas = dynamic(() => import("./BrainCanvas"), {
+  ssr: false,
+});
 
 export default function NeuroHero() {
   const [progress, setProgress] = useState(0);

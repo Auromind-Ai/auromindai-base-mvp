@@ -21,6 +21,7 @@ import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks
 import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
 import UICtaSectionTwo from "../components/ui/CtaSectionTwo";
 import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
+import InteractiveBrainSection from "@/components/LandingPageNew/InteractiveBrainSection/InteractiveBrainSection";
 import dynamic from 'next/dynamic';
 
 const ManageChatsSection = dynamic(
@@ -77,13 +78,16 @@ export default function LandingPage() {
           <HowItWorks />
           <PricingSectionNew />
           <TestimonialsSection />
-          <ProductDemoSection />
-          <SocialProofSection />
+          
+          
+          <InteractiveBrainSection />
 
           {/* <NeuroHero /> */}
           
           {/* <IntegrationsSection /> */}
           <FAQSection />
+          <ProductDemoSection />
+          <SocialProofSection />
           {/* <CtaSection /> */}
           <UICtaSectionTwo />
           <FooterSection />
