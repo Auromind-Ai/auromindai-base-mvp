@@ -52,8 +52,18 @@ export default function LandingPage() {
     }
 
     requestAnimationFrame(raf);
-    return () => lenis.destroy();
-  }, []);
+    const onLock = () => lenis.stop();
+  const onUnlock = () => lenis.start();
+
+  window.addEventListener("section-scroll-lock", onLock);
+  window.addEventListener("section-scroll-unlock", onUnlock);
+
+  return () => {
+    lenis.destroy();
+    window.removeEventListener("section-scroll-lock", onLock);
+    window.removeEventListener("section-scroll-unlock", onUnlock);
+  };
+}, []);
 
   return (
     <main ref={containerRef} className="min-h-screen bg-white relative">
@@ -82,7 +92,7 @@ export default function LandingPage() {
           
           <InteractiveBrainSection />
 
-          {/* <NeuroHero /> */}
+          <NeuroHero />
           
           {/* <IntegrationsSection /> */}
           <FAQSection />
