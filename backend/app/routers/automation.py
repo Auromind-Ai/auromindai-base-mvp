@@ -4,18 +4,17 @@ from app.services.agentic_wiring_service import agentic_wiring_service
 from app.services.flow_validation_service import FlowValidationService
 from app.routers.auth import get_current_user
 from app.models.automation import AutomationFlow
-from app.models.workspace import WorkspaceMember
+from app.models.brain import MCPDecision
+from uuid import UUID
 import uuid
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.database import get_db  # change path if needed
-
-router = APIRouter()
+from app.core.security import verify_workspace_access
 
 class FlowPromptRequest(BaseModel):
     prompt: str
-    workspace_id: str
 
 class FlowSaveRequest(BaseModel):
     id: Optional[str] = None
@@ -24,11 +23,10 @@ class FlowSaveRequest(BaseModel):
     nodes: list
     edges: list
     status: str = "Active"
-    workspace_id: str
+
 
 class FlowResponseModel(BaseModel):
-    id: uuid.UUID        
-    workspace_id: uuid.UUID
+    id: UUID          
     name: str
     trigger_type: str
     nodes: list
@@ -37,63 +35,67 @@ class FlowResponseModel(BaseModel):
     class Config:
         from_attributes = True
 
+
+class StatusResponse(BaseModel):
+    status: str
+
+
+class DeleteFlowResponse(BaseModel):
+    status: str
+    flow_id: UUID
+
+
+class ApproveResponse(BaseModel):
+    status: str
+
+
+class GenerateFlowResponse(BaseModel):
+    nodes: list
+    edges: list
+
 router = APIRouter(prefix="/automation", tags=["automation"])
 
 engine = AutomationEngine()
 
 
-def verify_workspace_access(workspace_id: str, current_user, db: Session):
-    """Verify user has access to workspace. Returns user membership."""
-    membership = db.query(WorkspaceMember).filter(
-        WorkspaceMember.workspace_id == workspace_id,
-        WorkspaceMember.user_id == current_user.id,
-    ).first()
-    
-    if not membership:
-        raise HTTPException(
-            status_code=403,
-            detail="You do not have access to this workspace"
-        )
-    
-    return membership
 
-
-@router.post("/approve")
+@router.post("/approve", response_model=ApproveResponse)
 async def approve_action(
-    decision_id: str,
-    workspace_id: str,
+    decision_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """Approve and execute an automation action (with workspace verification)"""
-    # Verify workspace access
-    verify_workspace_access(workspace_id, current_user, db)
+    workspace_id = verify_workspace_access(current_user, db)
+    decision = db.query(MCPDecision).filter(
+        MCPDecision.message_id == str(decision_id),
+        MCPDecision.workspace_id == workspace_id,
+    ).first()
+    if not decision:
+        raise HTTPException(status_code=404, detail="Decision not found")
     
-    engine.approve_and_execute(db, decision_id)
+    engine.approve_and_execute(db, str(decision_id))
     return {"status": "approved"}
 
-@router.post("/generate-flow")
+@router.post("/generate-flow", response_model=GenerateFlowResponse)
 async def generate_flow(
     request: FlowPromptRequest,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """Generates an automation flow graph from a prompt (with workspace verification)"""
-    # Verify workspace access
-    verify_workspace_access(request.workspace_id, current_user, db)
+    verify_workspace_access(current_user, db)
     
     flow = agentic_wiring_service.generate_flow(request.prompt)
     return flow
 
 @router.get("/flows", response_model=List[FlowResponseModel])
 async def get_flows(
-    workspace_id: str = Query(..., description="Workspace ID"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """Lists all automation flows for a workspace (enforced access control)"""
-    # Verify workspace access
-    verify_workspace_access(workspace_id, current_user, db)
+    workspace_id = verify_workspace_access(current_user, db)
     
     # Query flows filtered by workspace_id (security boundary)
     flows = db.query(AutomationFlow).filter(
@@ -109,8 +111,7 @@ async def save_flow(
     current_user=Depends(get_current_user)
 ):
     """Creates or updates a flow (with workspace verification)"""
-    # Verify workspace access
-    verify_workspace_access(request.workspace_id, current_user, db)
+    workspace_id = verify_workspace_access(current_user, db)
     
     # Validate flow structure
     validation = FlowValidationService.validate_flow(request.nodes, request.edges)
@@ -127,7 +128,7 @@ async def save_flow(
         # Update existing flow
         flow = db.query(AutomationFlow).filter(
             AutomationFlow.id == request.id,
-            AutomationFlow.workspace_id == request.workspace_id  # CRITICAL: Verify workspace ownership
+            AutomationFlow.workspace_id == workspace_id  # CRITICAL: Verify workspace ownership
         ).first()
         
         if not flow:
@@ -154,7 +155,7 @@ async def save_flow(
         nodes=request.nodes,
         edges=request.edges,
         status=request.status,
-        workspace_id=request.workspace_id  # Set from request (already verified)
+        workspace_id=workspace_id  # Set from authenticated workspace
     )
     db.add(new_flow)
     db.commit()
@@ -163,14 +164,12 @@ async def save_flow(
 
 @router.get("/flows/{flow_id}", response_model=FlowResponseModel)
 async def get_flow(
-    flow_id: str,
-    workspace_id: str = Query(..., description="Workspace ID"),
+    flow_id:  UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """Get a specific flow (with workspace verification)"""
-    # Verify workspace access
-    verify_workspace_access(workspace_id, current_user, db)
+    workspace_id = verify_workspace_access(current_user, db)
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(
@@ -186,16 +185,14 @@ async def get_flow(
     
     return flow
 
-@router.delete("/flows/{flow_id}")
+@router.delete("/flows/{flow_id}", response_model=DeleteFlowResponse)
 async def delete_flow(
-    flow_id: str,
-    workspace_id: str = Query(..., description="Workspace ID"),
+    flow_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     """Deletes a flow (with workspace verification)"""
-    # Verify workspace access
-    verify_workspace_access(workspace_id, current_user, db)
+    workspace_id = verify_workspace_access(current_user, db)
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(

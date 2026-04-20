@@ -9,9 +9,10 @@ import {
   Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
-  ZoomIn, ZoomOut, Upload, Timer
+  ZoomIn, ZoomOut, Upload, Timer, HelpCircle 
 } from 'lucide-react';
 import api from '@/lib/api';
+import AskQuestionConfig from '@/components/AskQuestionConfig';
 
 const MAX_BUTTONS = 3;
 const DEFAULT_MESSAGE_TYPE = 'text';
@@ -28,6 +29,7 @@ const ACTIONS = [
   { id: 'send_msg', label: 'Send Message', icon: Send },
   { id: 'assign_agent', label: 'Assign Agent', icon: Users },
   { id: 'brain_query', label: 'Brain Query', icon: Sparkles },
+  { id: 'ask_question',  label: 'Ask Question',  icon: HelpCircle },
   { id: 'move_stage', label: 'Move Deal', icon: Split },
   { id: 'notification', label: 'Notify', icon: Bell },
 ];
@@ -60,6 +62,8 @@ const getNodeButtons = (node) => {
   }
   return normalizeButtons(config.buttons || []);
 };
+
+const isButtonMessageNode = (node) => getNodeButtons(node).length > 0;
 
 const getHandleIdForButton = (button, index) => button.value || button.id || `button-${index}`;
 
@@ -144,6 +148,17 @@ const validateFlowGraph = (nodes = [], edges = []) => {
           if (!btn.target) errors.push(`Button "${btn.label || i + 1}" in "${node.label}" is not connected to any node.`);
         });
       }
+    }
+
+    const outgoingEdges = outgoingMap[node.id] || [];
+    if (!outgoingEdges.length) return;
+
+    if (!isButtonMessageNode(node) && outgoingEdges.some((edge) => edge.sourceHandle)) {
+      errors.push(`Node "${node.label || node.id}" uses button branches but is not a button message node.`);
+    }
+
+    if (!isButtonMessageNode(node) && outgoingEdges.length > 1) {
+      errors.push(`Node "${node.label || node.id}" has multiple outgoing connections. Only button message nodes can branch.`);
     }
   });
 
@@ -456,7 +471,25 @@ export default function AutomationCanvas() {
     });
     setKeywordInput('');
   };
+const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
+  const visited = new Set();
+  const queue = [targetId];
 
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current === sourceId) {
+      console.log('Cycle detected: path from', targetId, 'reaches', sourceId); // debug
+      return true;
+    }
+    if (!visited.has(current)) {
+      visited.add(current);
+      currentEdges
+        .filter(e => e.source === current)
+        .forEach(e => queue.push(e.target));
+    }
+  }
+  return false;
+};
   const removeKeywordFromTrigger = (nodeId, keyword) => {
     updateNodeConfig(nodeId, (config) => ({ ...config, keywords: (config.keywords || []).filter(k => k !== keyword) }));
   };
@@ -772,7 +805,7 @@ export default function AutomationCanvas() {
                       value={activeNode.config?.type || 'send_msg'}
                       onChange={(e) => {
                         const newType = e.target.value;
-                        const labelMap = { send_msg: 'Send Message', brain_query: 'AI Reply', assign_agent: 'Assign Agent', move_stage: 'Move Deal', notification: 'Notify' };
+                        const labelMap = { send_msg: 'Send Message', brain_query: 'AI Reply', assign_agent: 'Assign Agent',  ask_question:  'Ask Question',  move_stage: 'Move Deal', notification: 'Notify' };
                         updateNode(activeNodeId, (node) => ({ ...node, label: labelMap[newType] || 'New Step', config: { ...(node.config || {}), type: newType } }));
                       }}
                       className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
@@ -780,9 +813,10 @@ export default function AutomationCanvas() {
                     >
                       <option value="send_msg" style={{ backgroundColor: "#0F1115" }}>Send Message</option>
                       <option value="brain_query" style={{ backgroundColor: "#0F1115" }}>AI Reply (Brain)</option>
-                      <option value="assign_agent" style={{ backgroundColor: "#0F1115" }}>Assign Agent</option>
-                      <option value="move_stage" style={{ backgroundColor: "#0F1115" }}>Move Deal</option>
-                      <option value="notification" style={{ backgroundColor: "#0F1115" }}>Notify</option>
+                  {/* <option value="assign_agent" style={{ backgroundColor: "#0F1115" }}>Assign Agent</option> */}
+                      <option value="ask_question" style={{ backgroundColor: "#0F1115" }}>Ask Question</option>
+                  {/* <option value="move_stage" style={{ backgroundColor: "#0F1115" }}>Move Deal</option> */}
+                   {/* <option value="notification" style={{ backgroundColor: "#0F1115" }}>Notify</option> */}
                     </select>
                   </section>
 
@@ -997,6 +1031,12 @@ export default function AutomationCanvas() {
                       />
                     </section>
                   )}
+                  {activeNode.config?.type === 'ask_question' && (
+                  <AskQuestionConfig
+                    node={activeNode}
+                    updateNodeConfig={updateNodeConfig}
+                  />
+                )}
                 </>
               )}
                     {activeNode.type === 'action' && activeNode.config?.message_type !== 'button_message' && (
@@ -1011,7 +1051,7 @@ export default function AutomationCanvas() {
                 </p>
               </div>
               <button
-                onClick={() => setEdges(prev => prev.filter(e => !(e.source === activeNodeId && !e.sourceHandle)))}
+                onClick={() => setEdges(prev => prev.filter(e => e.source !== activeNodeId))}
                 className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition"
               >
                 Unlink
@@ -1034,7 +1074,12 @@ export default function AutomationCanvas() {
                 className="w-full bg-[#0F1115] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none cursor-pointer"
               >
                 <option value="">-- Link to existing step --</option>
-                {nodes.filter(n => n.id !== activeNodeId && n.type !== 'trigger').map(n => (
+                  {nodes.filter(n => 
+                  n.id !== activeNodeId && 
+                  n.type !== 'trigger' && 
+                   !edges.some(e => e.source === activeNodeId && e.target === n.id) &&
+                  !wouldCreateCycle(activeNodeId, n.id, edges)
+                ).map(n => (
                   <option key={n.id} value={n.id}>{n.label}</option>
                 ))}
               </select>
@@ -1319,11 +1364,12 @@ export default function AutomationCanvas() {
                         </div>
                       )}
                       <div className="mb-4 rounded-3xl bg-[#202c33] px-4 py-3 text-sm leading-6 text-zinc-100 shadow-inner">
-                        {previewNode.config?.text
-                          ? previewNode.config.text.split('\n').map((line, index) => <p key={index} className={index > 0 ? 'mt-2' : ''}>{line}</p>)
-                          : <p className="text-zinc-500 italic">No message text configured.</p>
-                        }
-                      </div>
+                              {(previewNode.config?.question || previewNode.config?.text)
+                                ? (previewNode.config.question || previewNode.config.text)
+                                    .split('\n').map((line, index) => <p key={index} className={index > 0 ? 'mt-2' : ''}>{line}</p>)
+                                : <p className="text-zinc-500 italic">No message text configured.</p>
+                              }
+                            </div>
                       {previewNode.config?.message_type === 'button_message' && getNodeButtons(previewNode).length > 0 && (
                         <div className="space-y-2 rounded-3xl border border-[#2a3942] bg-[#111c22] p-3 max-w-[280px]">
                           {getNodeButtons(previewNode).map((button) => (
@@ -1400,3 +1446,4 @@ export default function AutomationCanvas() {
     </div>
   );
 }
+

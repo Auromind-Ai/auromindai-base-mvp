@@ -6,23 +6,28 @@ from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
+from twilio.request_validator import RequestValidator
 from app.models.twilio import TwilioConfig
+from app.models.outbound_message import OutboundMessage
 from app import database, models, schemas
 from app.models.conversation import Conversation
 from app.models.message import MessageStatus
+from app.models.workspace import WorkspaceMember
+from app.routers.auth import CurrentUser, get_current_user
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.flow_service_v2 import FlowServiceV2
+from app.core.security import verify_workspace_access
 from app.services.lead_agent_local import (
     get_all_conversations,
     get_messages as get_local_messages,
     lead_agent_local,
 )
 from app.services.twilio_service import TwilioService
-from app.workers.flow_execution import execute_incoming_message
+from app.workers.flow_execution import execute_incoming_message, send_next_pending_message
 
 load_dotenv()
 
@@ -245,23 +250,45 @@ def send_instagram_message(psid: str, text: str):
 
 
 @router.get("/conversations")
-def list_conversations(db: Session = Depends(get_db)):
-    return db.query(models.Conversation).all()
+def list_conversations(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
+    return db.query(models.Conversation).filter(
+        models.Conversation.workspace_id == workspace_id
+    ).all()
 
 
 @router.get("/conversations/{conversation_id}")
-def get_messages(conversation_id: str, db: Session = Depends(get_db)):
+def get_messages(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
     return (
         db.query(models.Message)
-        .filter(models.Message.conversation_id == conversation_id)
+        .join(models.Conversation, models.Message.conversation_id == models.Conversation.id)
+        .filter(
+            models.Message.conversation_id == conversation_id,
+            models.Conversation.workspace_id == workspace_id,
+        )
         .order_by(models.Message.timestamp.asc())
         .all()
     )
 
 
 @router.post("/test-trigger")
-async def test_trigger(message: str, db: Session = Depends(get_db)):
-    conversation = db.query(Conversation).first()
+async def test_trigger(
+    message: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
+    conversation = db.query(Conversation).filter(
+        Conversation.workspace_id == workspace_id
+    ).first()
     if not conversation:
         return {"status": "no conversation found"}
 
@@ -275,8 +302,16 @@ async def test_trigger(message: str, db: Session = Depends(get_db)):
 
 
 @router.post("/send-reply")
-def send_reply(data: schemas.SendReply, db: Session = Depends(get_db)):
-    conversation = db.query(models.Conversation).filter(models.Conversation.id == data.conversation_id).first()
+def send_reply(
+    data: schemas.SendReply,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
+    conversation = db.query(models.Conversation).filter(
+        models.Conversation.id == data.conversation_id,
+        models.Conversation.workspace_id == workspace_id,
+    ).first()
     if not conversation:
         return {"status": "not_found"}
 
@@ -299,7 +334,18 @@ def send_reply(data: schemas.SendReply, db: Session = Depends(get_db)):
 
 
 @router.post("/ai-suggest")
-async def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
+async def ai_suggest(
+    data: schemas.AISuggest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
+    conversation = db.query(models.Conversation).filter(
+        models.Conversation.id == data.conversation_id,
+        models.Conversation.workspace_id == workspace_id,
+    ).first()
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
     messages = (
         db.query(models.Message)
         .filter(models.Message.conversation_id == data.conversation_id)
@@ -319,7 +365,7 @@ async def ai_suggest(data: schemas.AISuggest, db: Session = Depends(get_db)):
     rag = get_rag_service()
     reply = await rag.agent_loop(
         db=db,
-        workspace_id=data.workspace_id,
+        workspace_id=workspace_id,
         query=query,
     )
     return {"suggestion": reply}
@@ -333,3 +379,97 @@ def local_conversations():
 @router.get("/local/conversations/{user_id}")
 def local_messages(user_id: str):
     return get_local_messages(user_id)
+
+
+# ---------------------------------------------------------------------------
+# Twilio status callback — drives per-conversation ordered delivery
+# ---------------------------------------------------------------------------
+
+@router.post("/status-callback")
+async def twilio_status_callback(request: Request, db: Session = Depends(get_db)):
+    """Receive Twilio message status updates and advance the outbound queue.
+
+    Twilio posts form-encoded data with at minimum:
+        MessageSid    — the SID returned when the message was created
+        MessageStatus — queued | sending | sent | delivered | undelivered | failed
+    """
+    try:
+        form = await request.form()
+        message_sid = form.get("MessageSid") or form.get("SmsSid")
+        message_status = (form.get("MessageStatus") or form.get("SmsStatus") or "").lower()
+
+        if not message_sid or not message_status:
+            logger.warning("[status-callback] Missing MessageSid or MessageStatus — ignored")
+            return str(MessagingResponse())
+
+        logger.info(
+            "[status-callback] sid=%s status=%s", message_sid, message_status
+        )
+
+        row = (
+            db.query(OutboundMessage)
+            .filter(OutboundMessage.twilio_sid == message_sid)
+            .with_for_update()
+            .first()
+        )
+
+        if not row:
+            # Callback for a message not in our outbox (e.g. manual sends) — ignore.
+            logger.debug("[status-callback] No outbox row for sid=%s", message_sid)
+            return str(MessagingResponse())
+
+        conversation_id = str(row.conversation_id)
+
+        if message_status in ("sent", "delivered"):
+    # Guard: if already advanced by whichever status arrived first, skip
+            if row.status not in ("in_progress", "sent"):
+                logger.info(
+                    "[status-callback] ⚠️ Already processed | conversation=%s seq=%d sid=%s current_status=%s",
+                    conversation_id, row.sequence, message_sid, row.status,
+                )
+                return str(MessagingResponse())
+
+            row.status = "delivered" if message_status == "delivered" else "sent"
+            db.commit()
+
+            logger.info(
+                "[status-callback] %s | conversation=%s seq=%d sid=%s",
+                row.status, conversation_id, row.sequence, message_sid,
+            )
+
+            # Advance queue — send_next_pending_message is idempotent so safe to call twice
+            next_msg = db.query(OutboundMessage).filter(
+                OutboundMessage.conversation_id == conversation_id,
+                OutboundMessage.status == "pending",
+            ).first()
+
+            if next_msg:
+                logger.info(
+                    "[status-callback] Triggering next message | conversation=%s",
+                    conversation_id,
+                )
+                send_next_pending_message.delay(conversation_id)
+            else:
+                logger.info(
+                    "[status-callback] Flow completed | conversation=%s",
+                    conversation_id,
+                )
+
+        elif message_status == "delivered":
+            pass  # now handled above — this branch is unreachable but harmless
+
+        elif message_status in ("failed", "undelivered"):
+            row.status = "failed"
+            db.commit()
+            logger.error(
+                "[status-callback] Failed/undelivered | conversation=%s seq=%d sid=%s status=%s",
+                conversation_id, row.sequence, message_sid, message_status,
+            )
+            send_next_pending_message.delay(conversation_id)
+
+        # All other statuses (queued, sending) — no action needed.
+        return str(MessagingResponse())
+
+    except Exception:
+        logger.exception("[status-callback] Unhandled error")
+        return str(MessagingResponse())

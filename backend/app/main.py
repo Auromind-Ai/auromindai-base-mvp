@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -35,10 +35,11 @@ from app.services.agentic_rag.cache_loader import load_learning_cache
 from app.routers import (
     auth, mcp, simulation, inbox, learning, brain, followups,
     dashboard, chat, twilio_webhook, integrations, gmail, email,
-    automation, admin, metric, public, billing,model_configs, upload
+    automation, admin, metric, public, billing,upload
 )
 from app.routers.auth import CurrentUser, get_current_user
 from app.routers.feedback import router as feedback_router  # Integrated from V2
+from app.core.security import verify_workspace_access
 
 load_dotenv()
 
@@ -119,6 +120,10 @@ app.add_middleware(
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
+# UUID validation middleware — catches malformed UUIDs in path params
+from app.core.uuid_validation import UUIDValidationMiddleware
+app.add_middleware(UUIDValidationMiddleware)
+
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 @app.websocket("/ws/{user_id}")
@@ -149,7 +154,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
 app.include_router(simulation.router, prefix="/simulation", tags=["simulation"])
 app.include_router(inbox.router)
-app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
+#  app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
 app.include_router(brain.router, tags=["brain"])
 app.include_router(followups.router)
 app.include_router(chat.router)
@@ -163,8 +168,7 @@ app.include_router(admin.router, tags=["admin"])
 app.include_router(metric.router, prefix="/metrics", tags=["metrics"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])
-app.include_router(feedback_router)  # Integrated from V2
-app.include_router(model_configs.router)
+app.include_router(feedback_router)  
 app.include_router(upload.router, tags=["upload"])
 
 # ── External AI clients & Chat Service Config ─────────────────────────────────
@@ -189,6 +193,11 @@ class ChatQueryRequest(BaseModel):
     message: str
     workspace_id: str
 
+
+def _verify_workspace(db: Session, current_user: CurrentUser) -> str:
+    """Thin wrapper to match the (db, user) arg order used in main.py endpoints."""
+    return verify_workspace_access(current_user, db)
+
 @app.post("/chat/query")
 async def chat_query(
     request: ChatQueryRequest,
@@ -197,10 +206,11 @@ async def chat_query(
 ):
     """Synchronous chat query endpoint (One-off) - Now Async."""
     service = ChatService(chat_service_config)
+    workspace_id = _verify_workspace(db, current_user)
     return await service.handle_chat_query(
         db=db,
         message=request.message,
-        workspace_id=request.workspace_id,
+        workspace_id=workspace_id,
         user_id=str(current_user.id),
     )
 
@@ -219,16 +229,18 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat_endpoint(
     request: ChatRequest,
+    db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Streaming chat endpoint using ChatService."""
     service = ChatService(chat_service_config)
+    workspace_id = _verify_workspace(db, current_user)
 
     return StreamingResponse(
         service.handle_stream_chat(
 
             message=request.message,
-            workspace_id=request.workspace_id,
+            workspace_id=workspace_id,
             session_id=request.session_id,
             use_rag=request.use_rag,
             model=request.model,

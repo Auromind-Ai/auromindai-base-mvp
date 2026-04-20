@@ -168,7 +168,7 @@ class VectorStoreService:
 
                 try:
                     meta = json.loads(chunk.metadata_json)
-                except:
+                except (json.JSONDecodeError, TypeError, ValueError):
                     meta = {}
 
                 formatted.append({

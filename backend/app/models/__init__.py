@@ -18,3 +18,4 @@ from .feedback import Feedback, LearningData
 from .model_configs import ModelConfig
 from .flow_execution import FlowExecutionState, FlowExecutionTrace
 from .media import MediaFile
+from .outbound_message import OutboundMessage

@@ -2,6 +2,42 @@ from collections import Counter, deque
 from typing import Any, Dict, List, Set
 
 
+def _normalize_hint(value: Any) -> str:
+    return " ".join(str(value or "").lower().replace("_", " ").split())
+
+
+def _is_button_message_node(node: Dict[str, Any]) -> bool:
+    config = node.get("config") or {}
+    return (
+        node.get("type") == "action"
+        and config.get("type") == "send_msg"
+        and config.get("message_type") in {"button_message", "button"}
+    )
+
+
+def _is_fallback_node(node: Dict[str, Any]) -> bool:
+    config = node.get("config") or {}
+    if config.get("is_fallback") is True:
+        return True
+
+    hint = " ".join(
+        _normalize_hint(part)
+        for part in (node.get("label"), config.get("text"), config.get("message"))
+        if part
+    )
+    fallback_markers = (
+        "fallback",
+        "invalid option",
+        "invalid choice",
+        "did not understand",
+        "didn t understand",
+        "unclear input",
+        "not sure",
+        "try again",
+    )
+    return any(marker in hint for marker in fallback_markers)
+
+
 class FlowValidationService:
     @staticmethod
     def validate_flow(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -90,6 +126,41 @@ class FlowValidationService:
             if not node_id:
                 continue
 
+            outgoing_edges = outgoing_map.get(node_id, [])
+            if not outgoing_edges:
+                continue
+
+            if _is_button_message_node(node):
+                duplicate_handles = [
+                    handle
+                    for handle, count in Counter(
+                        edge.get("sourceHandle")
+                        for edge in outgoing_edges
+                        if edge.get("sourceHandle")
+                    ).items()
+                    if count > 1
+                ]
+                for handle in duplicate_handles:
+                    errors.append(
+                        f'Node "{node.get("label") or node_id}" has multiple branches for button handle "{handle}".'
+                    )
+                continue
+
+            if any(edge.get("sourceHandle") for edge in outgoing_edges):
+                errors.append(
+                    f'Node "{node.get("label") or node_id}" uses button branches but is not a button message node.'
+                )
+
+            if len(outgoing_edges) > 1:
+                errors.append(
+                    f'Node "{node.get("label") or node_id}" has multiple outgoing connections. Only button message nodes can branch.'
+                )
+
+        for node in nodes:
+            node_id = node.get("id")
+            if not node_id:
+                continue
+
             is_connected = any(
                 edge.get("source") == node_id or edge.get("target") == node_id
                 for edge in edges
@@ -107,6 +178,7 @@ class FlowValidationService:
             )
             errors.append("Every node must be connected to the trigger path before saving.")
 
+       
         def _detect_cycle(current_id: str, visited: Set[str], stack: Set[str]) -> bool:
             if current_id not in node_ids:
                 return False
@@ -117,9 +189,16 @@ class FlowValidationService:
 
             visited.add(current_id)
             stack.add(current_id)
+
             for edge in outgoing_map.get(current_id, []):
-                if _detect_cycle(edge.get("target"), visited, stack):
+                # Skip button-handle branches — they are intentional fan-outs,
+                # not linear edges that form execution loops.
+                if edge.get("sourceHandle"):
+                    continue
+                target = edge.get("target")
+                if target and _detect_cycle(target, visited, stack):
                     return True
+
             stack.remove(current_id)
             return False
 
