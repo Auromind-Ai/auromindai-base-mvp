@@ -1,57 +1,129 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef } from "react";
-
-function Brain() {
-  const ref = useRef();
-
-  useFrame(() => {
-    if (!ref.current) return;
-    ref.current.rotation.y += 0.01;
-  });
-
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[1, 32, 32]} />
-      <meshStandardMaterial color="#4cc9f0" wireframe />
-    </mesh>
-  );
-}
+import { useEffect, useRef } from "react";
 
 export default function BrainCanvas({ progress }) {
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const rotationRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const SIZE = 340;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+
+    const cx = SIZE / 2;
+    const cy = SIZE / 2;
+    const R = 120;
+    const RINGS = 10;
+    const SEGMENTS = 32;
+
+    function projectPoint(x, y, z) {
+      const fov = 600;
+      const scale = fov / (fov + z);
+      return {
+        x: cx + x * scale,
+        y: cy + y * scale,
+        z,
+        scale,
+      };
+    }
+
+    function drawSphere(angle) {
+      ctx.clearRect(0, 0, SIZE, SIZE);
+
+      const lines = [];
+
+      // Latitude rings
+      for (let i = 0; i <= RINGS; i++) {
+        const phi = (Math.PI * i) / RINGS;
+        const ring = [];
+        for (let j = 0; j <= SEGMENTS; j++) {
+          const theta = (2 * Math.PI * j) / SEGMENTS + angle;
+          const x = R * Math.sin(phi) * Math.cos(theta);
+          const y = R * Math.cos(phi);
+          const z = R * Math.sin(phi) * Math.sin(theta);
+          ring.push(projectPoint(x, y, z));
+        }
+        lines.push(ring);
+      }
+
+      // Longitude lines
+      const longLines = [];
+      for (let j = 0; j < SEGMENTS; j += 3) {
+        const line = [];
+        for (let i = 0; i <= RINGS; i++) {
+          const phi = (Math.PI * i) / RINGS;
+          const theta = (2 * Math.PI * j) / SEGMENTS + angle;
+          const x = R * Math.sin(phi) * Math.cos(theta);
+          const y = R * Math.cos(phi);
+          const z = R * Math.sin(phi) * Math.sin(theta);
+          line.push(projectPoint(x, y, z));
+        }
+        longLines.push(line);
+      }
+
+      const allLines = [...lines, ...longLines];
+
+      allLines.forEach((ring) => {
+        ctx.beginPath();
+        ring.forEach((p, idx) => {
+          const alpha = Math.max(0, (p.z + R) / (2 * R));
+          ctx.strokeStyle = `rgba(76, 201, 240, ${0.15 + alpha * 0.55})`;
+          ctx.lineWidth = 0.8;
+          if (idx === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+      });
+    }
+
+    function animate() {
+      rotationRef.current += 0.008;
+      drawSphere(rotationRef.current);
+      animRef.current = requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    return () => {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+    };
+  }, []);
+
   return (
-    <Canvas
-      camera={{ position: [0, 0, 5] }}
-      className="
-        absolute pointer-events-none transition-opacity duration-300
-
-        top-[48%] right-[40%]
-        h-[340px] w-[340px]
-        translate-x-1/2 -translate-y-1/2
-
-        max-lg:top-[24%]
-        max-lg:left-1/2
-        max-lg:right-auto
-        max-lg:h-[160px]
-        max-lg:w-[160px]
-        max-lg:-translate-x-1/2
-        max-lg:-translate-y-1/2
-
-        max-md:h-[110px]
-        max-md:w-[110px]
-        max-md:top-[22%]
-      "
+    <canvas
+      ref={canvasRef}
       style={{
         opacity: progress,
+        position: "absolute",
+        top: "48%",
+        right: "40%",
+        width: "340px",
+        height: "340px",
+        transform: "translate(50%, -50%)",
+        pointerEvents: "none",
+        transition: "opacity 0.3s",
         WebkitMaskImage: "url('/mask.png')",
         WebkitMaskRepeat: "no-repeat",
         WebkitMaskSize: "contain",
         WebkitMaskPosition: "center",
       }}
-    >
-      <ambientLight intensity={0.5} />
-      <Brain />
-    </Canvas>
+      className="
+        max-lg:!top-[24%]
+        max-lg:!left-1/2
+        max-lg:!right-auto
+        max-lg:!w-[160px]
+        max-lg:!h-[160px]
+        max-lg:!-translate-x-1/2
+        max-lg:!-translate-y-1/2
+        max-md:!w-[110px]
+        max-md:!h-[110px]
+        max-md:!top-[22%]
+      "
+    />
   );
 }

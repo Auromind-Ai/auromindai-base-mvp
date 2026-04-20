@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import StageIndicator from "./StageIndicator";
-import dynamic from "next/dynamic";
-
-const BrainCanvas = dynamic(() => import("./BrainCanvas"), {
-  ssr: false,
-});
+import BrainCanvas from "./BrainCanvas";
 
 export default function NeuroHero() {
   const [progress, setProgress] = useState(0);
@@ -71,7 +67,7 @@ export default function NeuroHero() {
 
         <StageIndicator stage={stage} isVisible={isVisible} />
 
-        <div className="sticky top-0 h-screen">
+        
   
             <div className="sticky top-0 h-screen bg-[#dfeef4] overflow-hidden">
                 
@@ -223,7 +219,7 @@ export default function NeuroHero() {
                     </div>
                 </div>
             </div>
-        </div>
+        
     </div>
   );
 }
