@@ -137,7 +137,7 @@ export default function HowItWorks() {
         >
           {loopSteps.map((item, index) => (
             <div
-              key={item.step}
+              key={`${item.step}-${index}`}
               className="w-[100vw] shrink-0 flex items-center justify-center px-5 md:px-8"
             >
               <AnimatePresence mode="wait">
