@@ -5,7 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from app.services.model_config_service import ModelConfigService
 
-router = APIRouter(prefix="/admin/model-configs", tags=["Model Configs"])
+router = APIRouter(prefix="/model-configs")
 
 class ModelConfigCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)

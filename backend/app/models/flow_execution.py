@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -21,13 +22,16 @@ class FlowExecutionState(Base):
     active_flow_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     current_node_id = Column(String, nullable=True)
     # Immutable conversation metadata (never changes)
-    conversation_metadata = Column(JSONB, default={})
-    # Runtime-only: cleared on flow completion
-    runtime_context = Column(JSONB, default={})
+    conversation_metadata = Column(JSONB, default=dict)
+    runtime_context = Column(MutableDict.as_mutable(JSONB), default=dict)
     # Legacy: keep for migration
     context = Column(JSONB, nullable=False, default=dict)
     pending_button = Column(JSONB, nullable=True)
     button_expires_at = Column(DateTime(timezone=True), nullable=True)
+    pending_question = Column(JSONB, nullable=True)
+    question_expires_at = Column(DateTime(timezone=True), nullable=True)
+    loop_count = Column(Integer, default=0)
+    last_node_id = Column(String, nullable=True)
     # Pagination cursor for conversation history
     last_context_checkpoint_id = Column(UUID, nullable=True)
     version = Column(Integer, nullable=False, default=1)

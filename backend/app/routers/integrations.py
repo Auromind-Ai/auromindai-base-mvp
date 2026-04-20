@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.integration import Integration
+from app.models.workspace import WorkspaceMember
 from app.routers.auth import get_current_user
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -13,6 +14,7 @@ import requests
 
 from app.services.platform_settings_service import get_setting
 
+from app.core.security import verify_workspace_access
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -45,6 +47,7 @@ async def google_oauth_init(
     """
     Initiate Google OAuth flow for Calendar or Gmail.
     """
+    workspace_id = verify_workspace_access(current_user, db)
     if integration_type not in ["calendar", "gmail"]:
         raise HTTPException(status_code=400, detail="Invalid integration type")
     integration_flags = {
@@ -93,14 +96,16 @@ async def google_oauth_init(
 async def google_oauth_callback(
     code: str,
     state: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
     """
     Handle Google OAuth callback and store tokens.
     """
     try:
         # Parse state
-        integration_type, workspace_id = state.split(":")
+        integration_type, _ = state.split(":")
+        workspace_id = verify_workspace_access(current_user, db)
         
         # Exchange code for tokens
         flow = Flow.from_client_config(
@@ -175,6 +180,7 @@ async def get_integration_status(
     """
     Get connection status for all integrations.
     """
+    workspace_id = verify_workspace_access(current_user, db)
     integrations = db.query(Integration).filter(
         Integration.workspace_id == workspace_id
     ).all()
@@ -214,6 +220,7 @@ async def disconnect_integration(
     """
     Disconnect an integration.
     """
+    workspace_id = verify_workspace_access(current_user, db)
     integration = db.query(Integration).filter(
         Integration.workspace_id == workspace_id,
         Integration.integration_type == integration_type

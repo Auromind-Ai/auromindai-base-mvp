@@ -1480,7 +1480,117 @@ class AgenticRAG:
         followup = await safe_llm_call(prompt, model=model)
 
         return f"{answer}\n\nFollow-up question:\n{followup['content']}"
-        
+
+    # ─────────────────────────────────────────────────────────────────────
+    # SEARCH — unified API used by flow_service_v2 (brain_query node)
+    # Supports targeted searching via entry_ids / collection params
+    # ─────────────────────────────────────────────────────────────────────
+
+    def search(
+        self,
+        db: Session,
+        workspace_id: str,
+        query: str,
+        top_k: int = 5,
+        entry_ids: list = None,
+        collection: str = None,
+    ) -> list:
+        """
+        Semantic search with optional targeted filtering.
+
+        Priority:
+          1. If entry_ids provided → restrict to those specific entries
+          2. Else if collection provided → filter by collection tag in metadata
+          3. Else → full workspace search
+        """
+        try:
+            query_embedding = self.embedding_generator.generate_query_embedding(query)
+
+            # Use the vector store's low-level search
+            results = self.vector_store.search(
+                db=db,
+                workspace_id=workspace_id,
+                query_embedding=query_embedding,
+                top_k=top_k * 3 if (entry_ids or collection) else top_k,
+            )
+
+            # ── Post-filter for targeted searching ────────────────────────
+            if entry_ids:
+                id_set = set(entry_ids)
+                results = [
+                    r for r in results
+                    if r.get("metadata", {}).get("parent_id") in id_set
+                ]
+
+            if collection:
+                results = [
+                    r for r in results
+                    if r.get("metadata", {}).get("collection") == collection
+                ]
+
+            # Re-key to the format expected by callers
+            formatted = []
+            for r in results[:top_k]:
+                formatted.append({
+                    "id": r.get("id"),
+                    "document": r.get("text", ""),
+                    "score": r.get("score", 0),
+                    "metadata": r.get("metadata", {}),
+                })
+
+            return formatted
+
+        except Exception:
+            logging.exception("AgenticRAG.search failed")
+            return []
+
+    # ─────────────────────────────────────────────────────────────────────
+    # SEMANTIC SIMILARITY — used by trigger engine for semantic triggers
+    # ─────────────────────────────────────────────────────────────────────
+
+    def find_semantic_similarity(
+        self,
+        query: str,
+        corpus: list,
+    ) -> list:
+        """
+        Compute cosine similarity between *query* and each string in *corpus*.
+
+        Returns a list of dicts sorted by score descending::
+
+            [{"index": 0, "text": "...", "score": 0.87}, ...]
+        """
+        if not corpus:
+            return []
+
+        try:
+            query_embedding = self.embedding_generator.generate_query_embedding(query)
+            corpus_embeddings = self.embedding_generator.generate_embeddings(corpus)
+
+            query_vec = np.array(query_embedding)
+            query_norm = np.linalg.norm(query_vec)
+
+            if query_norm == 0:
+                return []
+
+            scored = []
+            for idx, emb in enumerate(corpus_embeddings):
+                emb_vec = np.array(emb)
+                emb_norm = np.linalg.norm(emb_vec)
+                if emb_norm == 0:
+                    scored.append({"index": idx, "text": corpus[idx], "score": 0.0})
+                    continue
+
+                similarity = float(np.dot(query_vec, emb_vec) / (query_norm * emb_norm))
+                scored.append({"index": idx, "text": corpus[idx], "score": similarity})
+
+            scored.sort(key=lambda x: x["score"], reverse=True)
+            return scored
+
+        except Exception:
+            logging.exception("find_semantic_similarity failed")
+            return []
+
     def ingest_document(
         self,
         db: Session,
@@ -1572,6 +1682,25 @@ class AgenticRAG:
             "chunks_created": len(chunks),
             "total_words": sum(len(c["text"].split()) for c in chunks)
         }
+
+    def delete_entry(self, db: Session, workspace_id: str, entry_id: str) -> bool:
+        """ Deletes a full entry from both the vector store and the BrainEntry table. """
+        try:
+            # First delete the chunks from the vector store
+            self.vector_store.delete_by_parent(db, workspace_id, entry_id)
+
+            # Then delete the actual entry from BrainEntry table
+            db.query(BrainEntry).filter(
+                BrainEntry.id == entry_id,
+                BrainEntry.workspace_id == workspace_id
+            ).delete()
+
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            logging.error(f"Failed to delete entry {entry_id}: {e}")
+            return False
 
 _embedding_generator = None
 

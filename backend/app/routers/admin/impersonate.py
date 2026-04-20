@@ -59,7 +59,7 @@ def create_impersonation_session(
 
 @router.get("/impersonate/session/{session_id}")
 def start_impersonation(
-    session_id: str,
+    session_id:UUID,
     db: Session = Depends(get_db)
 ):
 

@@ -1,14 +1,5 @@
-"""
-Agentic Wiring Service — Fixed version
-Fixes:
-  1. System prompt aligned with flow_service_v2.py field expectations
-  2. _validate_and_enhance_flow auto-builds edges from button.target
-  3. Node IDs always strings
-  4. brain_query config structure correct
-  5. Reachability guaranteed before returning
-"""
-
 import json
+import logging
 import os
 import uuid
 from typing import Any, Dict, List, Optional
@@ -16,6 +7,8 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 import google.generativeai as genai
 from groq import Groq
+
+logger = logging.getLogger(__name__)
 
 
 class AgenticWiringServiceV2:
@@ -70,7 +63,10 @@ class AgenticWiringServiceV2:
             return self._validate_and_enhance_flow(flow_data)
 
         except Exception as e:
-            print(f"Flow generation error: {e}")
+            # FIX: was `print(...)` — exceptions were silently discarded with no
+            # structured log entry, making flow-generation failures invisible in
+            # production log aggregators (Datadog, CloudWatch, etc.).
+            logger.exception("[AgenticWiring] Flow generation failed: %s", e)
             return self._get_fallback_flow(str(e))
 
     # ------------------------------------------------------------------ #
@@ -151,7 +147,19 @@ NODE TYPES
   },
   "position": { "x": 1300, "y": 300 }
 }
-
+5) ASK QUESTION NODE (collect user input, store in a named variable):
+{
+  "id": "8",
+  "type": "action",
+  "label": "Ask Name",
+  "config": {
+    "type": "ask_question",
+    "question": "What is your name? 😊",
+    "variable_name": "user_name",
+    "timeout_minutes": 10
+  },
+  "position": { "x": 1300, "y": 200 }
+}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EDGES — CRITICAL RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -184,81 +192,82 @@ LANGUAGE & STYLE
 - Friendly, conversational tone
 - Keep messages under 160 characters when possible
 - Use \\n for line breaks in text
+"""
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-COMPLETE EXAMPLE — E-COMMERCE FLOW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{
-  "nodes": [
-    {
-      "id": "1", "type": "trigger", "label": "Customer Message",
-      "config": { "event": "msg_recv", "match_type": "word_match", "keywords": ["hi","hello","hey"] },
-      "position": { "x": 100, "y": 200 }
-    },
-    {
-      "id": "2", "type": "action", "label": "Welcome",
-      "config": { "type": "send_msg", "message_type": "text", "text": "👋 Hi! Welcome to our store!", "mode": "manual" },
-      "position": { "x": 500, "y": 200 }
-    },
-    {
-      "id": "3", "type": "action", "label": "Main Menu",
-      "config": {
-        "type": "send_msg", "message_type": "button_message",
-        "text": "How can I help you today?", "mode": "manual",
-        "buttons": [
-          { "id": "btn_p", "label": "Products 🛍️", "value": "products", "target": "4" },
-          { "id": "btn_o", "label": "Orders 📦",   "value": "orders",   "target": "5" },
-          { "id": "btn_s", "label": "Support 💬",  "value": "support",  "target": "6" }
-        ]
-      },
-      "position": { "x": 900, "y": 200 }
-    },
-    {
-      "id": "4", "type": "action", "label": "Products Info",
-      "config": { "type": "send_msg", "message_type": "text", "text": "🛍️ Check our latest products at: shop.example.com", "mode": "manual" },
-      "position": { "x": 1300, "y": 50 }
-    },
-    {
-      "id": "5", "type": "action", "label": "Orders Info",
-      "config": { "type": "send_msg", "message_type": "text", "text": "📦 Share your order ID and we'll check the status!", "mode": "manual" },
-      "position": { "x": 1300, "y": 200 }
-    },
-    {
-      "id": "6", "type": "action", "label": "AI Support",
-      "config": { "type": "brain_query", "prompt": "Answer the customer's support question using only the knowledge base." },
-      "position": { "x": 1300, "y": 350 }
-    }
-  ],
-  "edges": [
-    { "id": "e1-2", "source": "1", "target": "2" },
-    { "id": "e2-3", "source": "2", "target": "3" },
-    { "id": "e3-4", "source": "3", "sourceHandle": "products", "target": "4" },
-    { "id": "e3-5", "source": "3", "sourceHandle": "orders",   "target": "5" },
-    { "id": "e3-6", "source": "3", "sourceHandle": "support",  "target": "6" }
-  ]
-}
+    def _build_user_prompt(self, prompt: str) -> str:
+        return f"""Generate a WhatsApp automation flow for:
 
-Return ONLY valid JSON with "nodes" and "edges". No explanation, no markdown, no extra keys."""
-
-    # ------------------------------------------------------------------ #
-    #  USER PROMPT                                                         #
-    # ------------------------------------------------------------------ #
-
-    def _build_user_prompt(self, user_input: str) -> str:
-        return f"""Create a complete WhatsApp automation flow for:
-
-{user_input}
-
-Requirements:
-1. Start with a trigger node (keywords that match the use case)
-2. Welcome message first
-3. Button menu for choices if multiple paths needed
-4. Use brain_query node where AI / knowledge base answer is needed
-5. Every button MUST have both a target node id AND a corresponding edge with sourceHandle
-6. All nodes must be reachable from the trigger
-7. Use emojis, friendly tone
+{prompt}
 
 Return ONLY the JSON object with "nodes" and "edges" arrays."""
+
+    # ------------------------------------------------------------------ #
+    #  WIRE FALLBACK BUTTONS                                               #
+    # ------------------------------------------------------------------ #
+
+    def _wire_fallback_buttons(
+        self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        node_map = {n["id"]: n for n in nodes if n.get("id")}
+        incoming_map: Dict[str, str] = {}
+        for edge in edges:
+            target = edge.get("target")
+            source = edge.get("source")
+            if target and source and not edge.get("sourceHandle"):
+                incoming_map[target] = source
+
+        main_menu_node_id = next(
+            (
+                n["id"]
+                for n in nodes
+                if "menu" in (n.get("label") or "").lower()
+                or "menu" in (n.get("config", {}).get("text") or "").lower()
+            ),
+            None,
+        )
+
+        fallback_node_ids: set = set()
+
+        for node in nodes:
+            node_id = node.get("id")
+            if not node_id:
+                continue
+            config = node.get("config") or {}
+            if not _is_fallback_node(node):
+                continue
+
+            previous_node_id = incoming_map.get(node_id)
+
+            buttons = []
+            if previous_node_id:
+                buttons.append({
+                    "id": f"{node_id}_retry",
+                    "label": "Retry 🔁",
+                    "value": "retry",
+                    "target": previous_node_id,
+                })
+            if main_menu_node_id:
+                buttons.append({
+                    "id": f"{node_id}_main_menu",
+                    "label": "Main Menu 📋",
+                    "value": "main_menu",
+                    "target": main_menu_node_id,
+                })
+
+            if not buttons:
+                continue
+
+            fallback_node_ids.add(node_id)
+            config["type"] = "send_msg"
+            config["message_type"] = "button_message"
+            config["mode"] = config.get("mode") or "manual"
+            config["buttons"] = buttons
+            node["config"] = config
+
+        if not fallback_node_ids:
+            return edges
+
+        return [edge for edge in edges if edge.get("source") not in fallback_node_ids]
 
     # ------------------------------------------------------------------ #
     #  VALIDATE & AUTO-FIX                                                 #
@@ -314,16 +323,17 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
                 node["position"] = {"x": x_offset, "y": 200}
                 x_offset += 400
 
-        # 4. Ensure button nodes have proper structure + mode field
+        # 4. Convert fallback nodes into button_message branches where possible
+        edges = self._wire_fallback_buttons(nodes, edges)
+
+        # 5. Ensure button nodes have proper structure + mode field
         for node in nodes:
             config = node.get("config") or {}
 
-            # Add mode field to send_msg nodes if missing
             if config.get("type") == "send_msg" and "mode" not in config:
                 config["mode"] = "manual"
                 node["config"] = config
 
-            # Process buttons
             buttons = config.get("buttons") or []
             if not buttons:
                 continue
@@ -335,19 +345,16 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
                     btn["id"] = f"btn_{btn.get('value', i)}"
                 if not btn.get("value"):
                     btn["value"] = btn.get("label", f"option_{i}").lower().replace(" ", "_")
-                # Only keep target if it actually exists
                 if btn.get("target") and btn["target"] not in node_ids:
                     btn["target"] = None
                 fixed_buttons.append(btn)
 
             config["buttons"] = fixed_buttons
-            # Ensure message_type is set
             if config.get("type") == "send_msg":
                 config["message_type"] = "button_message"
             node["config"] = config
 
-        # 5. AUTO-BUILD missing button edges
-        #    For every button with a valid target, ensure an edge with sourceHandle exists
+        # 6. AUTO-BUILD missing button edges
         existing_edge_keys = {
             (e.get("source"), e.get("sourceHandle")): e
             for e in edges
@@ -372,14 +379,12 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
                     edges.append(new_edge)
                     existing_edge_keys[key] = new_edge
 
-        # 6. Fix missing default edge from trigger to first action
-        #    (Only if trigger has no outgoing edge at all)
+        # 7. Fix missing default edge from trigger to first action
         trigger_node = next((n for n in nodes if n.get("type") == "trigger"), None)
         if trigger_node:
             trigger_id = trigger_node["id"]
             trigger_has_edge = any(e.get("source") == trigger_id for e in edges)
             if not trigger_has_edge and len(nodes) > 1:
-                # Connect trigger to the first non-trigger node
                 first_action = next(
                     (n for n in nodes if n.get("type") != "trigger"), None
                 )
@@ -390,7 +395,7 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
                         "target": first_action["id"],
                     })
 
-        # 7. Ensure all edge IDs are unique strings
+        # 8. Ensure all edge IDs are unique strings
         seen_edge_ids = set()
         for i, edge in enumerate(edges):
             eid = edge.get("id") or f"e_auto_{i}"
@@ -437,6 +442,26 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
                 {"id": "e1-2", "source": "1", "target": "2"}
             ],
         }
+
+
+def _is_fallback_node(node: Dict[str, Any]) -> bool:
+    config = node.get("config") or {}
+    if config.get("is_fallback") is True:
+        return True
+    hint = " ".join(
+        _normalize_hint(part)
+        for part in (node.get("label"), config.get("text"), config.get("message"))
+        if part
+    )
+    fallback_markers = (
+        "fallback", "invalid option", "invalid choice", "did not understand",
+        "didn t understand", "unclear input", "not sure", "try again",
+    )
+    return any(marker in hint for marker in fallback_markers)
+
+
+def _normalize_hint(value: Any) -> str:
+    return " ".join(str(value or "").lower().replace("_", " ").split())
 
 
 # Singleton

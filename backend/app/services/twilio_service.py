@@ -118,11 +118,17 @@ class TwilioService:
                 logger.error("twilio_from_number is missing in settings")
                 return None
 
-            message = self.client.messages.create(
-                to=to_number,
-                from_=from_number,
-                body=body,
-            )
+            import os
+            create_kwargs = {
+                "to": to_number,
+                "from_": from_number,
+                "body": body,
+            }
+            status_callback_url = os.getenv("TWILIO_STATUS_CALLBACK_URL")
+            if status_callback_url:
+                create_kwargs["status_callback"] = status_callback_url
+            logger.info(f"TWILIO PARAMS: {create_kwargs}")
+            message = self.client.messages.create(**create_kwargs)
             logger.info("WhatsApp message sent to %s: %s", to_number, message.sid)
             return message.sid
         except Exception as exc:
@@ -165,7 +171,7 @@ class TwilioService:
             params = {
                 "to": to_number,
                 "from_": from_number,
-                "media_url": [media_url],  # ✅ Twilio media parameter
+                "media_url": [media_url],  # Twilio media parameter
             }
             if caption:
                 params["body"] = caption

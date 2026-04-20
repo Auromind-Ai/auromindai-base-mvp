@@ -12,12 +12,15 @@ from app.database import get_db
 from app.routers.auth import get_current_user
 from app.models.conversation import ChatSession, ChatMessage
 from app.models.workspace import WorkspaceMember
-
+from app.core.security import verify_workspace_access
 #  Import your updated ChatService
 from app.services.chat_service import ChatService, ChatServiceConfig
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
+
+
+
 
 # --- Pydantic Models ---
 class ChatSessionCreate(BaseModel):
@@ -48,7 +51,6 @@ class UpdateSessionRequest(BaseModel):
 
 class ChatStreamRequest(BaseModel):
     message: str
-    workspace_id: str
     session_id: Optional[str] = None
     use_rag: bool = True
     model: str = "gpt-4-turbo" # Or whatever default you prefer
@@ -65,6 +67,9 @@ def get_sessions(  #  REMOVED async
     current_user = Depends(get_current_user)
 ):
     """List all chat sessions for a workspace."""
+   
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[GET SESSIONS] user={current_user.id} workspace={workspace_id} skip={skip} limit={limit}")
     sessions = db.query(ChatSession).filter(
         ChatSession.workspace_id == workspace_id,
         ChatSession.user_id == current_user.id
@@ -79,16 +84,13 @@ def create_session(  #  REMOVED async
     current_user = Depends(get_current_user)
 ):
     """Create a new chat session."""
-    membership = db.query(WorkspaceMember).filter(
-        WorkspaceMember.workspace_id == request.workspace_id,
-        WorkspaceMember.user_id == current_user.id,
-    ).first()
-    if not membership:
-        raise HTTPException(status_code=403, detail="Workspace not found or access denied")
+   
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[CREATE SESSION] user={current_user.id} workspace={workspace_id} title={request.title}")
 
     session = ChatSession(
         id=str(uuid.uuid4()),
-        workspace_id=request.workspace_id,
+        workspace_id=workspace_id,
         user_id=current_user.id,
         title=request.title
     )
@@ -106,14 +108,18 @@ def create_session(  #  REMOVED async
 
 @router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
 def get_session_messages(  
-    session_id: str,
+    session_id: UUID,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get all messages for a specific session."""
+   
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[GET MESSAGES] user={current_user.id} workspace={workspace_id} session_id={session_id}")
     session = db.query(ChatSession).filter(
         ChatSession.id == session_id,
-        ChatSession.user_id == current_user.id
+        ChatSession.user_id == current_user.id,
+        ChatSession.workspace_id == workspace_id,
     ).first()
     
     if not session:
@@ -134,14 +140,18 @@ def get_session_messages(
 
 @router.delete("/sessions/{session_id}")
 def delete_session( 
-    session_id: str,
+    session_id:UUID,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Delete a chat session."""
+    
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.warning(f"[DELETE SESSION] user={current_user.id} workspace={workspace_id} session_id={session_id}")
     session = db.query(ChatSession).filter(
         ChatSession.id == session_id,
-        ChatSession.user_id == current_user.id
+        ChatSession.user_id == current_user.id,
+        ChatSession.workspace_id == workspace_id,
     ).first()
     
     if not session:
@@ -153,15 +163,19 @@ def delete_session(
 
 @router.patch("/sessions/{session_id}")
 def update_session_title( 
-    session_id: str,
+    session_id: UUID,
     request: UpdateSessionRequest,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Update session title."""
+    
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[UPDATE SESSION] user={current_user.id} workspace={workspace_id} session_id={session_id} new_title={request.title}")
     session = db.query(ChatSession).filter(
         ChatSession.id == session_id,
-        ChatSession.user_id == current_user.id
+        ChatSession.user_id == current_user.id,
+        ChatSession.workspace_id == workspace_id,
     ).first()
     
     if not session:
@@ -178,6 +192,7 @@ def update_session_title(
 @router.post("/stream")
 async def stream_chat(
     request: ChatStreamRequest,
+    db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """
@@ -186,14 +201,17 @@ async def stream_chat(
     handles its own highly-optimized, short-lived DB connections.
     """
     # Assuming config is loaded via env vars or dependency injection
+   
     config = ChatServiceConfig() 
     chat_service = ChatService(config)
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[STREAM CHAT] user={current_user.id} workspace={workspace_id} session_id={request.session_id} use_rag={request.use_rag}")
 
     # Use StreamingResponse to stream the AsyncGenerator to the client
     return StreamingResponse(
         chat_service.handle_stream_chat(
             message=request.message,
-            workspace_id=request.workspace_id,
+            workspace_id=workspace_id,
             session_id=request.session_id,
             use_rag=request.use_rag,
             model=request.model,

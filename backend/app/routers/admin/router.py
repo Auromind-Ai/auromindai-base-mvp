@@ -16,7 +16,8 @@ from . import (
     ai_learning,
     settings,
     impersonate,
-    rag_analytics
+    rag_analytics,
+    model_configs
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -39,3 +40,4 @@ router.include_router(ai_learning.router)
 router.include_router(settings.router)
 router.include_router(impersonate.router)
 router.include_router(rag_analytics.router)
+router.include_router(model_configs.router)

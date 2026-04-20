@@ -19,7 +19,7 @@ from app.models.conversation import ChatMessage, ChatSession
 from app.services.agentic_rag.guardrails_service import GuardrailsService
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.billing import BillingService
-from app.services.llm_router import LLMRouter 
+from app.services.llm_router import LLMRouter
 from app.database import SessionLocal
 
 class ChatServiceConfig(BaseModel):
@@ -82,7 +82,6 @@ class ChatService:
         except Exception as e:
             raise BillingError(f"Token reservation failed: {str(e)}")
 
-    #  Issue 1 Fix: Made Async and reverted to secure_pipeline
     async def _check_guardrails(self, message: str) -> Dict[str, Any]:
         try:
             result = await self.guardrails_service.secure_pipeline(message)
@@ -102,9 +101,8 @@ class ChatService:
         except Exception as e:
             raise GuardrailError(f"Guardrails validation failed: {str(e)}")
 
-    #  Issue 1 & 2 Fix: Made Async, returns dict to preserve meta
     async def _get_rag_answer(
-        self, db: Session, workspace_id: str, query: str,model: str
+        self, db: Session, workspace_id: str, query: str, model: str = "auto"
     ) -> Any:
         try:
             rag = get_rag_service()
@@ -158,13 +156,14 @@ class ChatService:
         except Exception as e:
             logger.warning(f"Failed rollback before release (ignored): {e}")
         self._release_token_reservation(db, reservation_id, reason)
-    #  Issue 1 Fix: Made Async
+
     async def handle_chat_query(
         self,
         db: Session,
         message: str,
         workspace_id: str,
         user_id: str,
+        model: str = "auto",  # FIX: was missing; _get_rag_answer requires it
     ) -> Dict[str, Any]:
         """
         One-shot chat:
@@ -188,14 +187,16 @@ class ChatService:
                 description="chat.query reservation",
             )
 
+            # FIX: previously called without `model=`, causing TypeError since
+            # _get_rag_answer signature requires it with no default.
             answer_data = await self._get_rag_answer(
                 db=db,
                 workspace_id=workspace_id,
                 query=safe_query,
+                model=model,
             )
 
             if answer_data:
-                # Handle dict or string to preserve meta
                 if isinstance(answer_data, dict):
                     raw_answer = answer_data.get("answer", "")
                     meta = answer_data.get("meta", {})
@@ -233,19 +234,17 @@ class ChatService:
                     logger.error(f"Failed force-release reservation: {release_err}")
             raise ChatProcessingError(f"Chat query failed: {str(e)}")
 
-    #  Issue 1, 2, & 3 Fixes applied here + PARAMETER FIX
     async def handle_stream_chat(
         self,
-        #  REMOVED: db: Session. We manage DB context explicitly now.
         message: str,
         workspace_id: str,
         session_id: Optional[str],
         use_rag: bool,
         model: str,
         user_id: str,
-        document_id: Optional[str] = None,  
-        chat_mode: str = "auto",           
-        source: str = "internal",            
+        document_id: Optional[str] = None,
+        chat_mode: str = "auto",
+        source: str = "internal",
     ) -> AsyncGenerator[str, None]:
         """
         Streaming chat with Safe Short-Lived DB Transactions:
@@ -282,8 +281,9 @@ class ChatService:
                     return
                 safe_query = guard_result["safe_query"]
                 estimated_tokens = BillingService.estimate_reservation_amount(
-                message=message, 
-                use_rag=use_rag)
+                    message=message,
+                    use_rag=use_rag,
+                )
                 # Reserve Tokens
                 reservation = self._reserve_tokens(
                     db=db,
@@ -304,13 +304,13 @@ class ChatService:
                     )
                     db.add(user_msg)
 
-                #COMMIT NOW. The charge is locked, the user message is safe.
-                db.commit() 
+                # COMMIT NOW. The charge is locked, the user message is safe.
+                db.commit()
             except Exception as e:
                 db.rollback()
                 logger.error(f"Pre-stream setup failed: {e}")
                 raise
-        
+
         # --- DB CONNECTION IS NOW RETURNED TO THE POOL ---
 
         # =========================================================
@@ -320,13 +320,17 @@ class ChatService:
             rag_answered = False
             if use_rag:
                 try:
-                    # Open a quick, short-lived session just for the RAG lookup
                     with SessionLocal() as rag_db:
                         answer_data = await asyncio.wait_for(
-                            self._get_rag_answer(db=rag_db, workspace_id=workspace_id, query=safe_query,model=model),
+                            self._get_rag_answer(
+                                db=rag_db,
+                                workspace_id=workspace_id,
+                                query=safe_query,
+                                model=model,
+                            ),
                             timeout=15,
                         )
-                        
+
                     if answer_data:
                         result = answer_data if isinstance(answer_data, dict) else {
                             "answer": answer_data,
@@ -336,7 +340,7 @@ class ChatService:
                         safe_answer = await self.guardrails_service.secure_response(result["answer"])
                         full_response = safe_answer
                         rag_answered = True
-                        
+
                         yield json.dumps({"content": safe_answer, "meta": result.get("meta")}) + "\n"
                         chunks_successfully_sent = True
 
@@ -356,9 +360,9 @@ class ChatService:
                     full_response = content
 
                     yield f"{json.dumps({'content': content})}\n"
-                    
+
                     fallback_meta = {
-                        "query": message, "rewritten_query": safe_query, 
+                        "query": message, "rewritten_query": safe_query,
                         "tool": "reasoning", "model": result.get("model", model), "source": "llm"
                     }
                     yield f"{json.dumps({'meta': fallback_meta})}\n"
@@ -379,8 +383,6 @@ class ChatService:
         # =========================================================
         finally:
             if reservation_id:
-                #  Open a FRESH DB session to guarantee cleanup.
-                # If the stream died unexpectedly, the previous DB session might be poisoned.
                 with SessionLocal() as cleanup_db:
                     try:
                         if chunks_successfully_sent and full_response:
@@ -402,13 +404,17 @@ class ChatService:
                                 ).first()
                                 if session:
                                     session.updated_at = datetime.utcnow()
-                            
+
                             cleanup_db.commit()
                         else:
                             self._force_release_reservation(cleanup_db, reservation_id, final_billing_reason)
                             cleanup_db.commit()
-                            
+
                     except Exception as billing_cleanup_error:
                         cleanup_db.rollback()
-                        # This is now a critical ops alert. If this fails, the DB is unreachable.
-                        logger.critical(f"CRITICAL: Failed to finalize billing/save message for reservation {reservation_id}: {billing_cleanup_error}")
+                        logger.critical(
+                            "CRITICAL: Failed to finalize billing/save message for "
+                            "reservation %s: %s",
+                            reservation_id,
+                            billing_cleanup_error,
+                        )
