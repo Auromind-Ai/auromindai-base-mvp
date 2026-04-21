@@ -29,6 +29,6 @@ export const stages = [
     title: "Human-Like Responses At Scale",
     description:
       "The system responds naturally, personally, and consistently across thousands of conversations.",
-    video: "/animations/stage5.webm",
+    video: "/animations/stage7.webm",
   },
 ];

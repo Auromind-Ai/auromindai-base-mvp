@@ -56,7 +56,7 @@ export function IphoneMockup({ rotateX, rotateY }) {
           {/* Icons — right of notch */}
           <div className={styles.statusIcons}>
             {/* WiFi */}
-            <svg width="14" height="11" viewBox="0 0 15 11" fill="none" style={{ display: 'block' }}>
+            <svg width="14" height="14" viewBox="0 0 15 11" fill="none" style={{ display: 'block' }}>
               <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="white"/>
               <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
               <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
@@ -117,7 +117,7 @@ export function IphoneMockup({ rotateX, rotateY }) {
               {/* CHANGED: only video + phone icons, matching reference */}
               <div className={styles.waActions}>
                 {/* Video call icon */}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                   <path
                     d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.899L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
                     stroke="rgba(255,255,255,0.72)"
