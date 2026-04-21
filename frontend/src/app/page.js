@@ -92,7 +92,7 @@ export default function LandingPage() {
           
           <InteractiveBrainSection />
 
-          <NeuroHero />
+          {/* <NeuroHero /> */}
           
           {/* <IntegrationsSection /> */}
           <FAQSection />

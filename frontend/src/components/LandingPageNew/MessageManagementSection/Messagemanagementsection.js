@@ -42,6 +42,25 @@ export default function MessageManagementSection() {
       onMouseMove={handleMouseMove}
       className={styles.section}
     >
+
+      <motion.div
+  className={styles.headingWrap}
+  initial={{ opacity: 0, y: 24 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+>
+  <h2 className={styles.heading}>
+    Manage all your messages in one place and <br /> 
+    reply faster with intelligent automation
+  </h2>
+
+  {/* <p className={styles.subheading}>
+    Automate Instagram, WhatsApp with AI that feels human. Close more sales
+    while you sleep.
+  </p> */}
+</motion.div>
+
       <div className={styles.cols}>
         {/* Left: Feature list container */}
         <motion.div

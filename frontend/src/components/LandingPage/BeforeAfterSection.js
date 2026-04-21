@@ -3,6 +3,12 @@
 import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
+import { Poppins } from "next/font/google";
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "600"],
+});
 
 const BeforeAfterSection = () => {
   const containerRef = useRef(null);
@@ -45,7 +51,7 @@ const BeforeAfterSection = () => {
               Before Auromind
             </span>
 
-            <h2 className="text-[clamp(2rem,4.5vw,3.75rem)] font-black leading-[0.95] text-white tracking-tighter max-w-xl">
+            <h2 className={`${poppins.className} text-[clamp(2rem,4.5vw,3.75rem)] font-semibold leading-[0.95] text-white tracking-tighter max-w-xl`}>
               All work and no play
             </h2>
           </div>
@@ -53,7 +59,11 @@ const BeforeAfterSection = () => {
             <div className="space-y-6 mb-12">
               {beforeItems.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-4 border-b border-white/10">
-                  <span className="text-[11px] md:text-sm font-black uppercase tracking-widest text-white/80">{item}</span>
+                  <span
+                    className={`${poppins.className} text-[20px] md:text-sm font-regular tracking-normal text-white`}
+                  >
+                    {item}
+                  </span>
                   <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
               ))}
@@ -72,7 +82,9 @@ const BeforeAfterSection = () => {
             <div className="mb-auto relative">
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4 block text-center">After Auromind:</span>
               <div className="relative inline-block w-full text-center">
-                <h2 className="text-[clamp(2.2rem,5vw,4.2rem)] font-black leading-[0.95] text-white tracking-tighter relative z-10">
+                <h2
+                  className={`${poppins.className} text-[clamp(2.2rem,5vw,4.2rem)] font-semibold leading-[0.95] text-white tracking-tighter relative z-10`}
+                >
                   Less grind and <br /> more pay
                 </h2>
                 {/* Yellow Swish SVG */}
@@ -105,13 +117,19 @@ const BeforeAfterSection = () => {
             <div className="space-y-6 mb-12">
               {afterItems.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-4 border-b border-white/10">
-                  <span className="text-[11px] md:text-sm font-black uppercase tracking-widest text-white/80">{item}</span>
+                  <span
+                    className={`${poppins.className} text-[20px] md:text-sm font-regular tracking-normal text-white`}
+                  >
+                    {item}
+                  </span>
                   <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
               ))}
             </div>
 
-            <button className="w-full py-6 bg-white text-[#4F46E5] rounded-full font-black text-xs uppercase tracking-[0.4em] hover:scale-[0.98] transition-transform shadow-xl shadow-black/10">
+            <button
+              className={`${poppins.className} w-full py-6 bg-white text-[#4F46E5] rounded-full font-black text-xs uppercase tracking-[0.4em] hover:scale-[0.98] transition-transform shadow-xl shadow-black/10`}
+            >
               Get Started
             </button>
           </motion.div>

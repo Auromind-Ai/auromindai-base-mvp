@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Poppins } from "next/font/google";
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["500"],
+});
 
 const steps = [
   {
@@ -111,7 +117,9 @@ export default function HowItWorks() {
     <section className="bg-black py-24 md:py-32 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-5xl xl:text-6xl font-bold text-white leading-[1.05] tracking-[-0.04em]">
+          <h2
+            className={`${poppins.className} text-[50px] font-medium text-white leading-[1.1em] tracking-[-0.04em]`}
+          >
             <span className="block">Launch in Three Simple Steps</span>
             <span className="block mt-1">With a Seamless Process</span>
           </h2>

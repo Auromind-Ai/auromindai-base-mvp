@@ -165,9 +165,9 @@ export default function HeroSectionNew() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.65 }}
-          className="mb-7 max-w-[980px] text-[48px] md:text-[64px] xl:text-[74px] font-semibold leading-[1.23] tracking-[-0.055em] text-white"
+          className="mb-7 max-w-[980px] text-[55px] font-semibold leading-[1.1em] tracking-[-2.2px] text-[#FFFFFF]"
         >
-          <AnimatedText text="Make the Most Out of Every" delay={0.85} />
+          <AnimatedText text="Make the Most Out of Every Single" delay={0.85} />
           <br />
           <motion.span
           initial={{ opacity: 0, y: 28, filter: "blur(14px)" }}
@@ -177,10 +177,10 @@ export default function HeroSectionNew() {
             delay: 1.05,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="inline-block bg-gradient-to-r from-[#e4d8ff] via-[#b98cff] to-[#7fb0ff] bg-clip-text text-transparent"
-          style={{ WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}
+          className="inline-block text-[#FFFFFF]"
+          style={{}}
         >
-          Single Conversation.
+           Conversation.
         </motion.span>
         </motion.h1>
 

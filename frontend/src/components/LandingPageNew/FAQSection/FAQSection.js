@@ -59,7 +59,7 @@ export default function FAQSection() {
             FAQs
           </div>
 
-          <h2 className="max-w-[700px] text-[34px] font-semibold leading-[1.15] tracking-[-0.03em] text-white sm:text-[40px] md:text-[52px] md:leading-[1.08] lg:text-[64px] lg:leading-[1.05]">
+          <h2 className="max-w-[900px] font-['Poppins'] text-[50px] font-medium leading-[1.1em] tracking-[-0.04em] text-white text-center">
             We&apos;ve Got the Answers
             <br />
             You&apos;re Looking For
@@ -89,7 +89,7 @@ export default function FAQSection() {
                   boxShadow: '0 0 30px rgba(124,58,237,0.12)',
                 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="overflow-hidden rounded-[14px] border border-white/[0.08] bg-[radial-gradient(circle_at_center,rgba(110,44,255,0.16),transparent_70%),rgba(255,255,255,0.03)] backdrop-blur-[10px]"
+                className="overflow-hidden w-full min-h-[58px] rounded-[14px] border border-white/[0.08] bg-[radial-gradient(circle_at_center,rgba(110,44,255,0.16),transparent_70%),rgba(255,255,255,0.03)] backdrop-blur-[10px]"
               >
                 <button
                   onClick={() => toggleFAQ(index)}

@@ -71,7 +71,7 @@ export default function TestimonialsSection() {
     <section className="relative overflow-hidden bg-black py-24 md:py-32 font-[Poppins]">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center">
-          <h2 className="text-4xl md:text-6xl font-[700] text-white tracking-[-0.05em] leading-[0.95] text-center max-w-4xl mx-auto">
+          <h2 className="font-['Poppins'] text-[50px] font-medium text-white tracking-[-0.04em] leading-[1.1em] text-center max-w-[900px] mx-auto">
             How Businesses Are
             <br />
             Growing with Us
@@ -93,9 +93,9 @@ export default function TestimonialsSection() {
               key={index}
               custom={index}
               variants={cardVariants}
-              className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[#050505] p-6 md:p-7 min-h-[182px] transition-all duration-500 hover:border-white/20 hover:-translate-y-1"
+              className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[#050505] w-[490px] h-[185px] px-[28px] py-[22px] transition-all duration-500 hover:border-white/20 hover:-translate-y-1"
             >
-              <div className="absolute bottom-[-80px] right-[-60px] h-[220px] w-[220px] rounded-full bg-[#7C3AED]/35 blur-[70px]" />
+              <div className="absolute bottom-[-120px] right-[-70px] h-[260px] w-[260px] rounded-full bg-[#6D28D9]/30 blur-[85px]" />
 
               <div className="absolute inset-0 bg-gradient-to-r from-black via-black/95 to-transparent" />
 
@@ -110,7 +110,7 @@ export default function TestimonialsSection() {
                   />
 
                   <div>
-                    <h3 className="text-white text-[22px] font-[700] leading-none tracking-[-0.03em]">
+                    <h3 className="font-['Poppins'] text-[14px] font-semibold leading-[1.4em] tracking-[-0.02em] text-[#FFFFFF]">
                       {testimonial.name}
                     </h3>
                     <p className="mt-1 text-[11px] text-white/45 font-[400]">
@@ -119,11 +119,11 @@ export default function TestimonialsSection() {
                   </div>
                 </div>
 
-                <p className="mt-5 text-[15px] md:text-[16px] leading-[1.45] text-white/80 font-[600] max-w-[92%]">
+                <p className="mt-[24px] mr-[39px] font-['Poppins'] text-[14px] font-medium leading-[1.4em] tracking-[-0.02em] text-[#CCCCCC] w-[430px]">
                   “{testimonial.review}”
                 </p>
 
-                <div className="mt-5 flex items-center gap-1">
+                <div className="mt-[10px] flex items-center gap-1">
                   {[...Array(5)].map((_, starIndex) => (
                     <Star key={starIndex} filled={starIndex < testimonial.rating} />
                   ))}

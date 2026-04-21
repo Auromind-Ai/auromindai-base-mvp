@@ -5,55 +5,46 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const plans = [
   {
-    name: 'Starter',
-    monthlyPrice: '₹299',
-    annualPrice: '₹4999',
-    description:
-      'Perfect for small businesses getting started with AI automation.',
+    name: 'Free',
+    monthlyPrice: '₹399',
+    annualPrice: '₹399',
+    description: 'Try Auromind for free and see the ROI yourself.',
     features: [
-      '1 WhatsApp Number',
-      '1 Instagram Account',
-      '500 Conversations / Month',
-      'Basic AI Automation',
-      'Lead Capture',
-      'Email Support',
+      '100 AI Replies',
+      'Basic Workflows',
+      'Meta API Included',
     ],
-    buttonText: 'Get Started',
+    buttonText: 'Choose this plan',
     featured: false,
   },
   {
     name: 'Professional',
-    monthlyPrice: '₹7,99',
-    annualPrice: '₹7999',
+    monthlyPrice: '₹6,999',
+    annualPrice: '₹6,999',
     description:
-      'Built for growing businesses that need more conversations and smarter automation.',
+      'Advanced features for growing teams and scalable workflows.',
     features: [
-      '3 WhatsApp Numbers',
-      '3 Instagram Accounts',
-      '5,000 Conversations / Month',
-      'Advanced AI Responses',
-      'Lead Qualification',
-      'CRM Integration',
+      'Unlimited AI Replies',
+      'Advanced Workflows',
       'Priority Support',
+      'Full Analytics',
     ],
-    buttonText: 'Start Free Trial',
+    buttonText: 'Choose this plan',
     featured: true,
   },
   {
-    name: 'Enterprise',
+    name: 'Business',
     monthlyPrice: 'Custom',
     annualPrice: 'Custom',
     description:
-      'Custom-built solution for large teams and enterprise-scale workflows.',
+      'Perfect for small businesses starting with AI automation.',
     features: [
-      'Unlimited Numbers',
-      'Unlimited Conversations',
-      'Custom AI Training',
-      'Dedicated Success Manager',
-      'Custom Integrations',
-      '24/7 Premium Support',
+      'Dedicated Manager',
+      'Custom API Access',
+      'On-premise Options',
+      'Global SLA',
     ],
-    buttonText: 'Contact Sales',
+    buttonText: 'Schedule a call',
     featured: false,
   },
 ];
@@ -88,7 +79,7 @@ export default function PricingSectionNew() {
     <section className="relative overflow-hidden bg-black py-24 md:py-32">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-3xl md:text-5xl xl:text-6xl font-semibold text-white tracking-[-0.04em] leading-[1.05] text-center">
+          <h2 className="font-['Poppins'] text-[50px] font-medium text-white tracking-[-0.04em] leading-[1.1em] text-center">
             Simple, Transparent Pricing
             <br />
             For Every Stage of Growth
@@ -145,24 +136,24 @@ export default function PricingSectionNew() {
                 key={plan.name}
                 custom={index}
                 variants={cardVariants}
-                className={`relative overflow-hidden rounded-[32px] border p-6 md:p-9 min-h-[620px] backdrop-blur-xl transition-all duration-500 flex flex-col ${
+                className={`relative overflow-hidden rounded-[32px] border h-[465px] px-[30px] pt-[20px] pb-[20px] backdrop-blur-xl transition-all duration-500 flex flex-col gap-[35px] ${
                   isFeatured
-                    ? 'border-[#7C3AED]/60 bg-[#7C3AED]/10 md:scale-[1.03] shadow-[0_30px_100px_rgba(124,58,237,0.35)]'
-                    : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:-translate-y-2 hover:bg-white/[0.05]'
+                    ? 'border-[#7C3AED]/30 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.22),rgba(12,12,12,1)_68%)] shadow-[0_0_40px_rgba(124,58,237,0.18)]'
+                    : 'border-white/10 bg-[radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),rgba(5,5,5,1)_62%)]'
                 }`}
               >
                 {isFeatured && (
                   <>
                     <div className="absolute -top-20 left-1/2 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-[#7C3AED]/20 blur-[100px]" />
-                    <div className="absolute top-5 right-5 rounded-full bg-[#7C3AED] px-3 py-1 text-xs font-medium text-white">
-                      Most Popular
+                    <div className="absolute top-4 right-4 rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-1 text-[13px] font-medium text-white/90">
+                      Popular
                     </div>
                   </>
                 )}
 
-                <div className="relative z-10 flex h-full flex-col">
+                <div className="relative z-10 flex h-full flex-col justify-between">
                   <div>
-                    <h3 className="text-xl font-semibold text-white">
+                    <h3 className="font-['Poppins'] text-[23px] font-medium text-white/80 tracking-[-0.02em] leading-[1.2em]">
                       {plan.name}
                     </h3>
 
@@ -172,8 +163,8 @@ export default function PricingSectionNew() {
 
                     <div className="mt-8 min-h-[72px]">
                       {isEnterprise ? (
-                        <div className="text-4xl md:text-5xl font-semibold text-white tracking-[-0.04em]">
-                          Let's Talk
+                        <div className="text-[54px] font-semibold tracking-[-0.04em] text-white">
+                          Custom
                         </div>
                       ) : (
                         <div className="flex items-end">
@@ -186,12 +177,12 @@ export default function PricingSectionNew() {
                               transition={{ duration: 0.25 }}
                               className="flex items-end"
                             >
-                              <span className="text-4xl md:text-5xl font-semibold text-white tracking-[-0.04em]">
+                              <span className="text-[54px] leading-none font-semibold tracking-[-0.05em] text-white">
                                 {billing === 'monthly'
                                   ? plan.monthlyPrice
                                   : plan.annualPrice}
                               </span>
-                              <span className="ml-2 text-sm text-white/40 mb-1">
+                              <span className="ml-1 mb-[6px] text-[15px] text-white/60">
                                 {billing === 'monthly' ? '/month' : '/year'}
                               </span>
                             </motion.div>
@@ -225,9 +216,9 @@ export default function PricingSectionNew() {
                     </div>
                   </div>
 
-                  <div className="mt-10 mt-auto">
+                  <div className="mt-[28px]">
                     <button
-                      className={`w-full rounded-2xl py-4 text-sm font-medium transition-all duration-300 ${
+                      className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 ${
                         isFeatured
                           ? 'bg-[#7C3AED] text-white hover:bg-[#8B5CF6] shadow-[0_20px_40px_rgba(124,58,237,0.35)]'
                           : 'border border-white/10 bg-white/10 text-white hover:bg-white hover:text-black'
