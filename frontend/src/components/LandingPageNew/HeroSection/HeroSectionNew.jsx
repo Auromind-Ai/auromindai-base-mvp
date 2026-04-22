@@ -199,11 +199,11 @@ export default function HeroSectionNew() {
           transition={{ duration: 0.7, delay: 1 }}
           className="flex flex-wrap items-center justify-center gap-4"
         >
-          <button className="rounded-[14px] bg-[#814AC8] px-8 py-3.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)]">
+          <button className="rounded-[8px] bg-[#814AC8] px-8 py-3.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)]">
             Get Started Free
           </button>
 
-          <button className="flex items-center gap-2 rounded-[14px] border border-white/10 bg-white/5 px-7 py-3.5 text-sm font-medium text-white/70 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:text-white">
+          <button className="flex items-center gap-2 rounded-[8px] border border-white/10 bg-white/5 px-7 py-3.5 text-sm font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:text-white">
             <svg
               width="16"
               height="16"

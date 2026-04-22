@@ -63,163 +63,174 @@ export default function NeuroHero() {
     }, []);
 
   return (
-    <div id="neuro-section" className="relative h-[400vh]">
+    <div id="neuro-section" className="relative h-[400vh] bg-black">
 
         <StageIndicator stage={stage} isVisible={isVisible} />
 
-        
-  
-            <div className="sticky top-0 h-screen bg-[#dfeef4] overflow-hidden">
-                
-                {/* HUMAN IMAGE */}
+        <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden px-4 md:px-8">
+
+          {/* OUTER CARD — rounded purple gradient container */}
+            <div
+            className="
+                relative overflow-hidden
+                rounded-2xl md:rounded-[32px]
+
+                w-[88vw]
+                max-w-[1280px]
+
+                h-[78vh]
+                max-h-[760px]
+
+                mx-auto
+            "
+            style={{
+                background:
+                "linear-gradient(135deg, #b48ce8 0%, #9b6fe0 20%, #8b5fd0 40%, #7c4fc8 60%, #9333ea 80%, #7e22ce 100%)",
+            }}
+            >
+
+            {/* GIRL IMAGE — left side, large */}
+            <div
+              className="
+                absolute bottom-0 left-[4%] z-10
+
+                h-full w-[55%]
+                max-md:w-full max-md:h-[75%]
+                max-md:bottom-0 max-md:left-0
+            "
+            >
+              <img
+                src="/images/Ai-Girltwo.png"
+                className="
+                  h-full w-full
+                  object-cover object-[60%_top]
+                  max-md:object-[50%_top]
+                "
+                style={{
+                  filter: "brightness(0.55) contrast(1.1)",
+                  maskImage: "linear-gradient(to right, rgba(0,0,0,1) 72%, rgba(0,0,0,0.95) 82%, transparent 100%)",
+                  WebkitMaskImage: "linear-gradient(to right, rgba(0,0,0,1) 72%, rgba(0,0,0,0.95) 82%, transparent 100%)",
+                }}
+              />
+
+              {/* CIRCULAR VIDEO — positioned near girl's brain/head area */}
+              <div
+                className="
+                  absolute z-30
+                  top-[18%] left-[40%]
+                  -translate-x-1/2
+
+                  w-[190px] h-[190px]
+                  md:w-[220px] md:h-[220px]
+                  max-md:w-[140px] max-md:h-[140px]
+                  max-[375px]:w-[110px] max-[375px]:h-[110px]
+                "
+              >
+                {/* Glow ring */}
                 <div
-                    className="
-                        hero-mobile-image
-                        absolute bottom-0 right-0 z-10 h-screen
+                  className="absolute inset-0 rounded-full"
+                  
+                />
 
-                        md:max-lg:w-[1450px]
-                        md:max-lg:translate-x-[300px]
-                        md:max-lg:right-0
-                        md:max-lg:left-auto
-                        md:max-lg:bottom-0
-                        md:max-lg:h-full
-                        md:max-lg:flex
-                        md:max-lg:items-end
-                        md:max-lg:translate-x-0
-
-                        max-md:left-1/2
-                        max-md:right-auto
-                        max-md:bottom-0
-                        max-md:h-[600px]
-                        max-[375px]:h-[370px]
-                        max-md:w-[560px]
-                        max-md:-translate-x-1/2
-                    "
-                    >
-                    <div
-                    className="
-                        relative h-full w-full
-                    "
-                    >
-                        {/* IMAGE */}
-                        <img
-                        src="/images/Ai-Girltwo.png"
-                        className="
-                            girl-image
-                            h-full object-contain
-
-                            max-md:h-[600px]
-
-                            md:max-lg:w-full
-                            md:max-lg:h-[1180px]
-                            md:max-lg:object-contain
-                            md:max-lg:object-[30%_100%]
-
-                            max-lg:w-full
-                            max-lg:h-[500px]                            
-                            max-lg:object-top
-                            max-lg:object-cover
-                        "
-                        />
-
-                        {/* BRAIN CANVAS */}
-                        <div className="absolute inset-0 pointer-events-none z-20">
-                        <BrainCanvas progress={progress} />
-                        </div>
-
-                        {/* VIDEO */}
-                        <div className="absolute top-[26%] right-[30%] -translate-x-1/2 -translate-y-1/2 head-anim pointer-events-none">
-
-                            {stage === 2 && (
-                                <video
-                                src="/animations/stage7.webm"
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                preload="none"
-                                className="w-full h-full object-cover rounded-full video-tone"
-                                />
-                            )}
-
-                            {stage === 3 && (
-                                <video
-                                src="/animations/stage2.webm"
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                preload="none"
-                                className="w-full h-full object-cover rounded-full video-tone"
-                                />
-                            )}
-
-                            {stage === 4 && (
-                                <video
-                                src="/animations/stage5.webm"
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                preload="none"
-                                className="w-full h-full object-cover rounded-full video-tone"
-                                />
-                            )}
-
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-l from-black/25 to-transparent pointer-events-none z-20" />
-
+                {/* Video circle */}
+                <div className="relative w-full h-full rounded-full overflow-hidden">
+                  {/* BrainCanvas sphere (stage 1 - no video) */}
+                  {stage === 1 && (
+                    <div className="w-full h-full">
+                      <BrainCanvas progress={Math.max(progress, 0.05)} />
                     </div>
+                  )}
+
+                  {stage === 2 && (
+                    <video
+                      src="/animations/stage7.webm"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="none"
+                      className="w-full h-full object-cover video-tone"
+                    />
+                  )}
+
+                  {stage === 3 && (
+                    <video
+                      src="/animations/stage2.webm"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="none"
+                      className="w-full h-full object-cover video-tone"
+                    />
+                  )}
+
+                  {stage === 4 && (
+                    <video
+                      src="/animations/stage5.webm"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="none"
+                      className="w-full h-full object-cover video-tone"
+                    />
+                  )}
                 </div>
-         
-                {/* TEXT */}
-                    <div
-  className="
-    z-20 overflow-hidden
+              </div>
 
-    absolute left-24 top-[65%] max-w-xl -translate-y-1/2
-
-    md:max-lg:left-10
-    md:max-lg:top-1/2
-    md:max-lg:max-w-[320px]
-    md:max-lg:-translate-y-1/2
-    md:max-lg:text-left
-
-    max-md:left-1/2
-    max-md:top-[120px]
-    max-md:w-[86%]
-    max-md:max-w-[320px]
-    max-md:-translate-x-1/2
-    max-md:translate-y-0
-    max-md:text-center
-  "
->
-                    <div key={stage} className="animate-textIn">
-                        <h1
-                          className="
-                            text-6xl font-[600] leading-[1.05] tracking-tight text-blue-900
-
-                            max-lg:text-4md
-                            max-md:text-[30px]
-                        "
-                        >
-                        {current.title}
-                        </h1>
-
-                        <p
-                          className="
-                            mt-4 text-blue-800 opacity-80
-
-                            max-lg:text-base
-                            max-lg:leading-7
-                        "
-                        >
-                        {current.desc}
-                        </p>
-                    </div>
-                </div>
             </div>
-        
+
+            {/* RIGHT TEXT — vertically centered */}
+            <div
+              className="
+                absolute z-20
+
+                right-0 top-1/2 -translate-y-1/2
+                w-[48%] pr-10 pl-4
+                max-w-[520px]
+
+                md:max-lg:w-[52%] md:max-lg:pr-8
+
+                max-md:left-0 max-md:right-0
+                max-md:top-[8%]
+                max-md:translate-y-0
+                max-md:w-full
+                max-md:px-6
+                max-md:text-center
+              "
+            >
+              <div key={stage} className="animate-textIn">
+                <h1
+                  className="
+                    font-bold leading-[1.08] tracking-tight text-white
+                    text-5xl
+                    lg:text-[3.6rem]
+                    md:max-lg:text-4xl
+                    max-md:text-[2rem]
+                  "
+                  style={{ textShadow: "0 2px 24px rgba(0,0,0,0.18)" }}
+                >
+                  {current.title}
+                </h1>
+
+                <p
+                  className="
+                    mt-5 leading-relaxed
+                    text-white/75
+                    text-lg
+                    max-md:text-base
+                    max-md:mt-3
+                  "
+                >
+                  {current.desc}
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
     </div>
   );
 }

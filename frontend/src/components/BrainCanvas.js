@@ -99,31 +99,11 @@ export default function BrainCanvas({ progress }) {
       ref={canvasRef}
       style={{
         opacity: progress,
-        position: "absolute",
-        top: "48%",
-        right: "40%",
-        width: "340px",
-        height: "340px",
-        transform: "translate(50%, -50%)",
-        pointerEvents: "none",
+        width: "100%",
+        height: "100%",
+        display: "block",
         transition: "opacity 0.3s",
-        WebkitMaskImage: "url('/mask.png')",
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskSize: "contain",
-        WebkitMaskPosition: "center",
       }}
-      className="
-        max-lg:!top-[24%]
-        max-lg:!left-1/2
-        max-lg:!right-auto
-        max-lg:!w-[160px]
-        max-lg:!h-[160px]
-        max-lg:!-translate-x-1/2
-        max-lg:!-translate-y-1/2
-        max-md:!w-[110px]
-        max-md:!h-[110px]
-        max-md:!top-[22%]
-      "
     />
   );
 }

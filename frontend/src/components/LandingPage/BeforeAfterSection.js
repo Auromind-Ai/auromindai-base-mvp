@@ -60,7 +60,7 @@ const BeforeAfterSection = () => {
               {beforeItems.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-4 border-b border-white/10">
                   <span
-                    className={`${poppins.className} text-[20px] md:text-sm font-regular tracking-normal text-white`}
+                    className={`${poppins.className} text-[16px] sm:text-[18px] md:text-[19px] lg:text-[20px] font-normal tracking-normal leading-[1.4] text-white`}
                   >
                     {item}
                   </span>
@@ -118,7 +118,7 @@ const BeforeAfterSection = () => {
               {afterItems.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-4 border-b border-white/10">
                   <span
-                    className={`${poppins.className} text-[20px] md:text-sm font-regular tracking-normal text-white`}
+                    className={`${poppins.className} text-[16px] sm:text-[18px] md:text-[19px] lg:text-[20px] font-normal tracking-normal leading-[1.4] text-white`}
                   >
                     {item}
                   </span>

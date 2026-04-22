@@ -46,7 +46,7 @@ export default function FAQSection() {
         <div className="absolute left-1/2 top-[35%] h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-violet-700/10 blur-[140px]" />
       </div>
 
-      <div className="relative mx-auto max-w-[760px]">
+      <div className="relative mx-auto max-w-[720px]">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 28 }}
@@ -59,13 +59,13 @@ export default function FAQSection() {
             FAQs
           </div>
 
-          <h2 className="max-w-[900px] font-['Poppins'] text-[50px] font-medium leading-[1.1em] tracking-[-0.04em] text-white text-center">
+          <h2 className="max-w-[760px] font-['Poppins'] text-[34px] font-semibold leading-[1.05] tracking-[-0.04em] text-white text-center md:text-[42px]">
             We&apos;ve Got the Answers
             <br />
             You&apos;re Looking For
           </h2>
 
-          <p className="mt-[18px] text-[16px] font-normal text-white/70 sm:text-[17px] md:text-[18px] lg:text-[20px]">
+          <p className="mt-[14px] text-[15px] font-normal text-white/65 md:text-[16px]">
             Everything you need to know about Auromind
           </p>
         </motion.div>
@@ -76,7 +76,7 @@ export default function FAQSection() {
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.75, delay: 0.15, ease: 'easeOut' }}
           viewport={{ once: true, amount: 0.2 }}
-          className="space-y-[14px] md:space-y-4"
+          className="space-y-[10px]"
         >
           {faqs.map((faq, index) => {
             const isOpen = activeIndex === index;
@@ -89,18 +89,18 @@ export default function FAQSection() {
                   boxShadow: '0 0 30px rgba(124,58,237,0.12)',
                 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="overflow-hidden w-full min-h-[58px] rounded-[14px] border border-white/[0.08] bg-[radial-gradient(circle_at_center,rgba(110,44,255,0.16),transparent_70%),rgba(255,255,255,0.03)] backdrop-blur-[10px]"
+                className="overflow-hidden w-full min-h-[52px] rounded-[10px] border border-white/[0.06] bg-[rgba(10,10,14,0.92)]"
               >
                 <button
                   onClick={() => toggleFAQ(index)}
-                  className="flex w-full items-start justify-between gap-5 px-5 py-5 text-left md:px-6 md:py-6"
+                  className="flex w-full items-center justify-between gap-4 px-5 py-[18px] text-left"
                 >
-                  <span className="pr-2 text-[16px] font-medium leading-[1.45] text-white sm:text-[18px] md:text-[22px] lg:text-[24px]">
+                  <span className="pr-2 text-[15px] font-medium leading-[1.35] text-white md:text-[16px]">
                     {faq.question}
                   </span>
 
                   <ChevronDown
-                    className={`mt-1 h-5 w-5 shrink-0 text-white/90 transition-transform duration-300 ${
+                    className={`h-4 w-4 shrink-0 text-white/75 transition-transform duration-300 ${
                       isOpen ? 'rotate-180' : 'rotate-0'
                     }`}
                   />
