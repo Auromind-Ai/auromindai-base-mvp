@@ -439,3 +439,26 @@ body {
     transform: rotate(360deg);
   }
 }
+
+@keyframes textIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+ 
+.animate-textIn {
+  animation: textIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+ 
+/* Video color grading — subtle cyan-purple tone shift */
+.video-tone {
+  filter: hue-rotate(10deg) saturate(1.2) brightness(1.05);
+}
+ 

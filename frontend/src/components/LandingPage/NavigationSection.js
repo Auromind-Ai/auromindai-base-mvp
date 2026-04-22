@@ -268,7 +268,7 @@ const NavigationSection = () => {
             Sign In
           </Link>
 
-          <button className="rounded-[14px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
+          <button className="rounded-[8px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
             Get Started
           </button>
         </div>

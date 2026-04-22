@@ -25,7 +25,7 @@ import InteractiveBrainSection from "@/components/LandingPageNew/InteractiveBrai
 import dynamic from 'next/dynamic';
 
 const ManageChatsSection = dynamic(
-  () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSection'),
+  () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSectionNew'),
   { ssr: false }
 );
 
@@ -90,9 +90,9 @@ export default function LandingPage() {
           <TestimonialsSection />
           
           
-          <InteractiveBrainSection />
+          {/* <InteractiveBrainSection /> */}
 
-          {/* <NeuroHero /> */}
+          <NeuroHero />
           
           {/* <IntegrationsSection /> */}
           <FAQSection />
