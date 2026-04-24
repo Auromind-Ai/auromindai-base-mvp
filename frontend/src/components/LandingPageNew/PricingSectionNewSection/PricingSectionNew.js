@@ -157,39 +157,45 @@ export default function PricingSectionNew() {
                       {plan.name}
                     </h3>
 
-                    <p className="mt-3 text-sm leading-7 text-white/55">
+                    {/* PRICE BELOW TITLE */}
+                    <div className="mt-4 flex items-end">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={billing}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.25 }}
+                          className="flex items-end"
+                        >
+                          <span className="text-[40px] leading-none font-semibold tracking-[-0.04em] text-white">
+                            {plan.monthlyPrice}
+                          </span>
+                          <span className="ml-1 mb-[4px] text-[14px] text-white/60">
+                            /month
+                          </span>
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+
+                    {/* DESCRIPTION */}
+                    <p className="mt-4 text-sm leading-7 text-white/55">
                       {plan.description}
                     </p>
 
-                    <div className="mt-8 min-h-[72px]">
-                      {isEnterprise ? (
-                        <div className="text-[54px] font-semibold tracking-[-0.04em] text-white">
-                          Custom
-                        </div>
-                      ) : (
-                        <div className="flex items-end">
-                          <AnimatePresence mode="wait">
-                            <motion.div
-                              key={billing}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              transition={{ duration: 0.25 }}
-                              className="flex items-end"
-                            >
-                              <span className="text-[54px] leading-none font-semibold tracking-[-0.05em] text-white">
-                                {billing === 'monthly'
-                                  ? plan.monthlyPrice
-                                  : plan.annualPrice}
-                              </span>
-                              <span className="ml-1 mb-[6px] text-[15px] text-white/60">
-                                {billing === 'monthly' ? '/month' : '/year'}
-                              </span>
-                            </motion.div>
-                          </AnimatePresence>
-                        </div>
-                      )}
-                    </div>
+                    
+
+                    <div className="mt-[28px]">
+                    <button
+                      className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 ${
+                        isFeatured
+                          ? 'bg-[#7C3AED] text-white hover:bg-[#8B5CF6] shadow-[0_20px_40px_rgba(124,58,237,0.35)]'
+                          : 'border border-white/10 bg-white/10 text-white hover:bg-white hover:text-black'
+                      }`}
+                    >
+                      {plan.buttonText}
+                    </button>
+                  </div>
 
                     <div className="mt-10 space-y-4">
                       {plan.features.map((feature) => (
@@ -216,17 +222,7 @@ export default function PricingSectionNew() {
                     </div>
                   </div>
 
-                  <div className="mt-[28px]">
-                    <button
-                      className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 ${
-                        isFeatured
-                          ? 'bg-[#7C3AED] text-white hover:bg-[#8B5CF6] shadow-[0_20px_40px_rgba(124,58,237,0.35)]'
-                          : 'border border-white/10 bg-white/10 text-white hover:bg-white hover:text-black'
-                      }`}
-                    >
-                      {plan.buttonText}
-                    </button>
-                  </div>
+                  
                 </div>
               </motion.div>
             );

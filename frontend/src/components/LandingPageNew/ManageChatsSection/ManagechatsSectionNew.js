@@ -14,6 +14,7 @@ export default function ManageChatsSection() {
   const [viewportWidth, setViewportWidth] = useState(1440);
   const [hoveredCard, setHoveredCard] = useState(null);
 
+
   useEffect(() => {
     const updateWidth = () => setViewportWidth(window.innerWidth);
 
@@ -226,24 +227,24 @@ export default function ManageChatsSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.32 }}
-            className="mt-11 flex flex-col items-center gap-5 lg:flex-row lg:items-start lg:gap-6"
+            className="mt-11 flex flex-row flex-wrap items-center justify-center gap-4 lg:flex-row lg:items-start lg:gap-6"
           >
             <div className="flex flex-col items-center text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full border border-violet-500/30 bg-[#120c1d] shadow-[0_0_30px_rgba(139,92,246,0.38)]">
-  <User className="h-7 w-7 text-violet-300" strokeWidth={2.2} />
-</div>
-              <p className="mt-3 text-[16px] text-white md:text-[17px]">Lead arrives</p>
-            </div>
+                <User className="h-7 w-7 text-violet-300" strokeWidth={2.2} />
+              </div>
+                            <p className="mt-3 text-[16px] text-white md:text-[17px]">Lead arrives</p>
+                          </div>
 
-            <div className="text-2xl text-white/50 lg:pt-6">→</div>
+                          <div className="text-2xl text-white/50 lg:pt-6">→</div>
 
-            <div className="flex flex-col items-center text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-violet-500/30 bg-[#120c1d] shadow-[0_0_30px_rgba(139,92,246,0.38)]">
-  <MessageCircleMore
-    className="h-7 w-7 text-violet-300"
-    strokeWidth={2.2}
-  />
-</div>
+                          <div className="flex flex-col items-center text-center">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-violet-500/30 bg-[#120c1d] shadow-[0_0_30px_rgba(139,92,246,0.38)]">
+                <MessageCircleMore
+                  className="h-7 w-7 text-violet-300"
+                  strokeWidth={2.2}
+                />
+              </div>
               <p className="mt-3 text-[16px] text-white md:text-[17px]">AI replies instantly</p>
             </div>
 
@@ -251,8 +252,8 @@ export default function ManageChatsSection() {
 
             <div className="flex flex-col items-center text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-[#081510] shadow-[0_0_30px_rgba(16,185,129,0.45)]">
-  <Check className="h-7 w-7 text-emerald-400" strokeWidth={2.5} />
-</div> 
+              <Check className="h-7 w-7 text-emerald-400" strokeWidth={2.5} />
+            </div> 
 
               <p className="mt-3 text-[16px] text-white md:text-[17px]">
                 Lead stays. <span className="text-emerald-400">You close.</span>
@@ -263,206 +264,206 @@ export default function ManageChatsSection() {
 
         <div className="relative flex min-h-[620px] items-center justify-center lg:justify-end">
           <div className="relative flex h-full w-full items-center justify-center overflow-visible lg:justify-end">
-  {/* Curved Glow Line */}
-  <div className="pointer-events-none absolute left-[18%] top-[48%] z-[1] h-[270px] w-[270px] rounded-full bg-violet-600/25 blur-[120px]" />
+            {/* Curved Glow Line */}
+            <div className="pointer-events-none absolute left-[18%] top-[48%] z-[1] h-[270px] w-[270px] rounded-full bg-violet-600/25 blur-[120px]" />
 
-<div className="pointer-events-none absolute right-[10%] top-[38%] z-[1] h-[270px] w-[270px] rounded-full bg-emerald-500/20 blur-[120px]" />
+          <div className="pointer-events-none absolute right-[10%] top-[38%] z-[1] h-[270px] w-[270px] rounded-full bg-emerald-500/20 blur-[120px]" />
 
-<svg
-className="pointer-events-none absolute left-1/2 top-1/2 z-[2] h-[360px] w-[860px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
-  viewBox="0 0 980 420"
-  fill="none"
->
-  <defs>
-    <filter id="trailBlur">
-      <feGaussianBlur stdDeviation="10" />
-    </filter>
-  </defs>
+              <svg
+              className="pointer-events-none absolute left-1/2 top-1/2 z-[2] h-[360px] w-[860px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
+                viewBox="0 0 980 420"
+                fill="none"
+              >
+                <defs>
+                  <filter id="trailBlur">
+                    <feGaussianBlur stdDeviation="10" />
+                  </filter>
+                </defs>
 
-  <path
-    d="M40 250 C180 320, 340 310, 500 190"
-    stroke="#c084fc"
-    strokeWidth="4"
-    strokeLinecap="round"
-    opacity="0.75"
-    filter="url(#trailBlur)"
-  />
+                <path
+                  d="M40 250 C180 320, 340 310, 500 190"
+                  stroke="#c084fc"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  opacity="0.75"
+                  filter="url(#trailBlur)"
+                />
 
-  <path
-    d="M520 180 C700 120, 840 150, 910 230"
-    stroke="#34d399"
-    strokeWidth="4"
-    strokeLinecap="round"
-    opacity="0.75"
-    filter="url(#trailBlur)"
-  />
-</svg>
+                <path
+                  d="M520 180 C700 120, 840 150, 910 230"
+                  stroke="#34d399"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  opacity="0.75"
+                  filter="url(#trailBlur)"
+                />
+              </svg>
 
-  {/* Instagram Card */}
-  <motion.div
-    className="absolute left-6 top-16 z-10 h-[300px] w-[230px] sm:left-8 sm:top-[72px] sm:h-[380px] sm:w-[285px] md:left-4 md:top-[76px] md:h-[450px] md:w-[325px] lg:left-12 lg:top-[68px] lg:h-[500px] lg:w-[350px] xl:left-14 xl:top-[64px] xl:h-[520px] xl:w-[360px]"
-  onHoverStart={() => setHoveredCard("instagram")}
-  onHoverEnd={() => setHoveredCard(null)}
-  animate={{
-    scaleX: hoveredCard === "instagram" ? 1.15 : 1,
-    scaleY: hoveredCard === "instagram" ? 1.3 : 1,
-    x: hoveredCard === "instagram" ? -8 : 0,
-    y: hoveredCard === "instagram" ? -10 : 0,
-    rotate: hoveredCard === "instagram" ? "0deg" : "-8deg",
-    filter:
-      hoveredCard === "whatsapp"
-        ? "blur(5px) brightness(0.7)"
-        : "blur(0px) brightness(1)",
-    zIndex: hoveredCard === "instagram" ? 40 : 10,
-  }}
-  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-  style={{
-    transformStyle: "preserve-3d",
-    rotateX: `${cardRotateX * 0.35}deg`,
-    rotateY: `${cardRotateY * 0.35}deg`,
-  }}
-  >
-    <div className="absolute inset-0 rounded-[32px] border border-fuchsia-300/20 bg-gradient-to-br from-fuchsia-500/30 via-violet-500/15 to-indigo-500/10 shadow-[0_0_100px_rgba(192,132,252,0.42)] backdrop-blur-xl" />
+              {/* Instagram Card */}
+              <motion.div
+                className="absolute left-6 top-16 z-10 h-[300px] w-[230px] sm:left-8 sm:top-[72px] sm:h-[380px] sm:w-[285px] md:left-4 md:top-[76px] md:h-[450px] md:w-[325px] lg:left-12 lg:top-[68px] lg:h-[500px] lg:w-[350px] xl:left-14 xl:top-[64px] xl:h-[520px] xl:w-[360px]"
+              onHoverStart={() => setHoveredCard("instagram")}
+              onHoverEnd={() => setHoveredCard(null)}
+              animate={{
+                scaleX: hoveredCard === "instagram" ? 1.15 : 1,
+                scaleY: hoveredCard === "instagram" ? 1.3 : 1,
+                x: hoveredCard === "instagram" ? -8 : 0,
+                y: hoveredCard === "instagram" ? -10 : 0,
+                rotate: hoveredCard === "instagram" ? "0deg" : "-8deg",
+                filter:
+                  hoveredCard === "whatsapp"
+                    ? "blur(5px) brightness(0.7)"
+                    : "blur(0px) brightness(1)",
+                zIndex: hoveredCard === "instagram" ? 40 : 10,
+              }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                transformStyle: "preserve-3d",
+                rotateX: `${cardRotateX * 0.35}deg`,
+                rotateY: `${cardRotateY * 0.35}deg`,
+              }}
+              >
+                <div className="absolute inset-0 rounded-[32px] border border-fuchsia-300/20 bg-gradient-to-br from-fuchsia-500/30 via-violet-500/15 to-indigo-500/10 shadow-[0_0_100px_rgba(192,132,252,0.42)] backdrop-blur-xl" />
 
-    <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/45 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
-      <div className="bg-gradient-to-r from-[#d946ef] via-[#8b5cf6] to-[#4f46e5] px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5 text-white"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="5" />
-              <circle cx="12" cy="12" r="4" />
-              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-            </svg>
+                <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/45 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
+                  <div className="bg-gradient-to-r from-[#d946ef] via-[#8b5cf6] to-[#4f46e5] px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-5 w-5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <rect x="3" y="3" width="18" height="18" rx="5" />
+                          <circle cx="12" cy="12" r="4" />
+                          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+                        </svg>
+                      </div>
+
+                      <span className="font-poppins bg-gradient-to-r from-white via-pink-100 to-violet-100 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent">
+                        Instagram
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 px-3.5 py-4 pb-14">
+                    <div className="rounded-3xl border border-white/5 bg-black/65 backdrop-blur-xl p-4">
+                      <div className="mb-2 flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-pink-300/80" />
+                        <div>
+                          <p className="text-[16px] font-medium text-white">Kate</p>
+                          <p className="text-[12px] leading-5 text-white/70">
+                            Hello! I have a question about the photo you posted earlier.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-auto w-fit max-w-[82%] rounded-2xl bg-gradient-to-r from-violet-600 to-blue-500 px-3.5 py-2.5 text-[13px] text-white">
+                      Sure! What can I help you with?
+                    </div>
+
+                    <div className="rounded-3xl border border-white/5 bg-black/60 backdrop-blur-xl p-4">
+                      <div className="mb-2 flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-pink-300/80" />
+                        <div>
+                          <p className="text-[17px] font-medium text-white">Sara</p>
+                          <p className="text-[13px] text-white/70">
+                            Can you tell me where you took that picture from?
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-auto w-fit max-w-[85%] rounded-2xl bg-gradient-to-r from-violet-600 to-sky-500 px-3.5 py-2.5 text-[13px] text-white">
+                      That was taken from the bridge overlooking the lake.
+                    </div>
+                    <div className="absolute bottom-6 left-6 flex items-center gap-3 text-emerald-300">
+                    <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
+                    <span className="text-[13px] font-medium">Replied instantly</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* WhatsApp Card */}
+              <motion.div
+                  className="relative z-20 ml-[86px] h-[300px] w-[230px] sm:ml-[145px] sm:h-[380px] sm:w-[285px] md:ml-[210px] md:h-[450px] md:w-[325px] lg:ml-[245px] lg:h-[500px] lg:w-[350px] xl:ml-[255px] xl:h-[520px] xl:w-[360px]"
+                    onHoverStart={() => setHoveredCard("whatsapp")}
+                    onHoverEnd={() => setHoveredCard(null)}
+                    animate={{
+                      scaleX: hoveredCard === "whatsapp" ? 1.15 : 1,
+                      scaleY: hoveredCard === "whatsapp" ? 1.3 : 1,
+                      x: hoveredCard === "whatsapp" ? 10 : 0,
+                      y: hoveredCard === "whatsapp" ? -12 : 0,
+                      rotate: hoveredCard === "whatsapp" ? "0deg" : "6deg",
+                      filter:
+                        hoveredCard === "instagram"
+                          ? "blur(5px) brightness(0.7)"
+                          : "blur(0px) brightness(1)",
+                      zIndex: hoveredCard === "whatsapp" ? 50 : 20,
+                    }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    style={{
+                      transformStyle: "preserve-3d",
+                      rotateX: `${cardRotateX * 0.5}deg`,
+                      rotateY: `${cardRotateY * 0.5}deg`,
+                    }}
+                    >
+                      <div className="absolute inset-0 rounded-[32px] border border-emerald-300/20 bg-gradient-to-br from-emerald-400/20 via-green-500/10 to-transparent shadow-[0_0_100px_rgba(16,185,129,0.38)] backdrop-blur-xl" />
+
+                      <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/50 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
+                        <div className="bg-gradient-to-r from-[#25D366] via-[#1ebe5d] to-[#128C7E] px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-5 w-5 text-white"
+                          fill="currentColor"
+                        >
+                          <path d="M12.04 2C6.56 2 2.1 6.33 2.1 11.68c0 1.88.57 3.63 1.55 5.11L2 22l5.4-1.58a10.1 10.1 0 0 0 4.64 1.12c5.48 0 9.94-4.33 9.94-9.68C21.98 6.33 17.52 2 12.04 2Zm5.77 13.63c-.24.66-1.4 1.24-1.92 1.32-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.19-4.98-4.39-.15-.2-1.19-1.56-1.19-2.98 0-1.42.74-2.12 1-2.41.26-.29.57-.36.76-.36h.55c.18 0 .43-.07.67.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.3.47-.15.16-.31.36-.45.48-.15.13-.31.28-.13.55.18.27.79 1.3 1.69 2.11 1.16 1.03 2.14 1.35 2.44 1.5.3.15.48.13.66-.08.17-.21.74-.84.94-1.13.2-.29.39-.24.66-.14.27.1 1.7.79 1.99.93.29.14.48.21.55.33.07.12.07.72-.17 1.38Z" />
+                        </svg>
+                      </div>
+
+                      <span className="font-poppins bg-gradient-to-r from-white via-emerald-100 to-green-100 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent">
+                        WhatsApp
+                      </span>
+                    </div>
+                  </div>
+
+                <div className="space-y-2.5 px-3.5 py-4 pb-14">
+                  {[
+                    "Does that time work for you?",
+                    "Are you coming to the party this Friday?",
+                    "Can you help me with a quick question?",
+                    "Of course! What's your question?",
+                  ].map((text, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 rounded-3xl border border-white/5 bg-black/60 backdrop-blur-xl p-3"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-emerald-200/80" />
+                      <div className="flex-1">
+                        <div className="mb-1 h-3 w-20 rounded-full bg-white/90" />
+                        <p className="text-[12px] leading-4 text-white/75">{text}</p>
+                      </div>
+                      <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="absolute bottom-6 left-6 flex items-center gap-3 text-emerald-300">
+            <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
+            <span className="text-[15px] font-medium">Lead captured 24/7</span>
           </div>
-
-          <span className="font-poppins bg-gradient-to-r from-white via-pink-100 to-violet-100 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent">
-            Instagram
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-2.5 px-3.5 py-4 pb-14">
-        <div className="rounded-3xl border border-white/5 bg-black/65 backdrop-blur-xl p-4">
-          <div className="mb-2 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-pink-300/80" />
-            <div>
-              <p className="text-[16px] font-medium text-white">Kate</p>
-              <p className="text-[12px] leading-5 text-white/70">
-                Hello! I have a question about the photo you posted earlier.
-              </p>
-            </div>
+            </motion.div>
+              <div className="absolute left-[18%] bottom-[18%] h-1 w-1 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.95)]" />
+              <div className="absolute left-[22%] bottom-[24%] h-1.5 w-1.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.9)]" />
+              <div className="absolute right-[8%] top-[46%] h-1 w-1 rounded-full bg-white shadow-[0_0_18px_rgba(255,255,255,0.95)]" />
+              <div className="absolute right-[10%] top-[52%] h-1.5 w-1.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.9)]" />
           </div>
-        </div>
-
-        <div className="ml-auto w-fit max-w-[82%] rounded-2xl bg-gradient-to-r from-violet-600 to-blue-500 px-3.5 py-2.5 text-[13px] text-white">
-          Sure! What can I help you with?
-        </div>
-
-        <div className="rounded-3xl border border-white/5 bg-black/60 backdrop-blur-xl p-4">
-          <div className="mb-2 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-pink-300/80" />
-            <div>
-              <p className="text-[17px] font-medium text-white">Sara</p>
-              <p className="text-[13px] text-white/70">
-                Can you tell me where you took that picture from?
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="ml-auto w-fit max-w-[85%] rounded-2xl bg-gradient-to-r from-violet-600 to-sky-500 px-3.5 py-2.5 text-[13px] text-white">
-          That was taken from the bridge overlooking the lake.
-        </div>
-        <div className="absolute bottom-6 left-6 flex items-center gap-3 text-emerald-300">
-        <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
-        <span className="text-[13px] font-medium">Replied instantly</span>
-        </div>
-      </div>
-    </div>
-  </motion.div>
-
-  {/* WhatsApp Card */}
-  <motion.div
-className="relative z-20 ml-[86px] h-[300px] w-[230px] sm:ml-[145px] sm:h-[380px] sm:w-[285px] md:ml-[210px] md:h-[450px] md:w-[325px] lg:ml-[245px] lg:h-[500px] lg:w-[350px] xl:ml-[255px] xl:h-[520px] xl:w-[360px]"
-  onHoverStart={() => setHoveredCard("whatsapp")}
-  onHoverEnd={() => setHoveredCard(null)}
-  animate={{
-    scaleX: hoveredCard === "whatsapp" ? 1.15 : 1,
-    scaleY: hoveredCard === "whatsapp" ? 1.3 : 1,
-    x: hoveredCard === "whatsapp" ? 10 : 0,
-    y: hoveredCard === "whatsapp" ? -12 : 0,
-    rotate: hoveredCard === "whatsapp" ? "0deg" : "6deg",
-    filter:
-      hoveredCard === "instagram"
-        ? "blur(5px) brightness(0.7)"
-        : "blur(0px) brightness(1)",
-    zIndex: hoveredCard === "whatsapp" ? 50 : 20,
-  }}
-  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-  style={{
-    transformStyle: "preserve-3d",
-    rotateX: `${cardRotateX * 0.5}deg`,
-    rotateY: `${cardRotateY * 0.5}deg`,
-  }}
-  >
-    <div className="absolute inset-0 rounded-[32px] border border-emerald-300/20 bg-gradient-to-br from-emerald-400/20 via-green-500/10 to-transparent shadow-[0_0_100px_rgba(16,185,129,0.38)] backdrop-blur-xl" />
-
-    <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/50 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
-      <div className="bg-gradient-to-r from-[#25D366] via-[#1ebe5d] to-[#128C7E] px-5 py-4">
-  <div className="flex items-center gap-3">
-    <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
-      <svg
-        viewBox="0 0 24 24"
-        className="h-5 w-5 text-white"
-        fill="currentColor"
-      >
-        <path d="M12.04 2C6.56 2 2.1 6.33 2.1 11.68c0 1.88.57 3.63 1.55 5.11L2 22l5.4-1.58a10.1 10.1 0 0 0 4.64 1.12c5.48 0 9.94-4.33 9.94-9.68C21.98 6.33 17.52 2 12.04 2Zm5.77 13.63c-.24.66-1.4 1.24-1.92 1.32-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.19-4.98-4.39-.15-.2-1.19-1.56-1.19-2.98 0-1.42.74-2.12 1-2.41.26-.29.57-.36.76-.36h.55c.18 0 .43-.07.67.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.3.47-.15.16-.31.36-.45.48-.15.13-.31.28-.13.55.18.27.79 1.3 1.69 2.11 1.16 1.03 2.14 1.35 2.44 1.5.3.15.48.13.66-.08.17-.21.74-.84.94-1.13.2-.29.39-.24.66-.14.27.1 1.7.79 1.99.93.29.14.48.21.55.33.07.12.07.72-.17 1.38Z" />
-      </svg>
-    </div>
-
-    <span className="font-poppins bg-gradient-to-r from-white via-emerald-100 to-green-100 bg-clip-text text-[24px] font-semibold tracking-[-0.02em] text-transparent">
-      WhatsApp
-    </span>
-  </div>
-</div>
-
-      <div className="space-y-2.5 px-3.5 py-4 pb-14">
-        {[
-          "Does that time work for you?",
-          "Are you coming to the party this Friday?",
-          "Can you help me with a quick question?",
-          "Of course! What's your question?",
-        ].map((text, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-2 rounded-3xl border border-white/5 bg-black/60 backdrop-blur-xl p-3"
-          >
-            <div className="h-8 w-8 rounded-full bg-emerald-200/80" />
-            <div className="flex-1">
-              <div className="mb-1 h-3 w-20 rounded-full bg-white/90" />
-              <p className="text-[12px] leading-4 text-white/75">{text}</p>
-            </div>
-            <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" />
-          </div>
-        ))}
-      </div>
-    </div>
-    <div className="absolute bottom-6 left-6 flex items-center gap-3 text-emerald-300">
-  <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
-  <span className="text-[15px] font-medium">Lead captured 24/7</span>
-</div>
-  </motion.div>
-    <div className="absolute left-[18%] bottom-[18%] h-1 w-1 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.95)]" />
-    <div className="absolute left-[22%] bottom-[24%] h-1.5 w-1.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.9)]" />
-    <div className="absolute right-[8%] top-[46%] h-1 w-1 rounded-full bg-white shadow-[0_0_18px_rgba(255,255,255,0.95)]" />
-    <div className="absolute right-[10%] top-[52%] h-1.5 w-1.5 rounded-full bg-violet-300 shadow-[0_0_14px_rgba(196,181,253,0.9)]" />
-</div>
         </div>
       </div>
     </section>

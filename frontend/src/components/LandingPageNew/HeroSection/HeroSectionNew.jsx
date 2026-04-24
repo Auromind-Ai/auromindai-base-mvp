@@ -16,7 +16,7 @@ const poppins = Poppins({
 
 function Navbar() {
   return (
-    <nav className="relative z-50 flex items-center justify-between px-6 py-5 md:px-12 xl:px-16">
+    <nav className="relative z-50 flex items-center justify-between px-4 md:px-6 lg:px-8 py-5 md:px-12 xl:px-16">
       <div className="flex items-center gap-3 select-none">
         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 via-blue-500 to-fuchsia-500 shadow-[0_0_18px_rgba(147,51,234,0.75)]" />
         <span className="text-lg font-semibold tracking-tight text-white">
@@ -105,7 +105,7 @@ export default function HeroSectionNew() {
 
       <Navbar />
 
-      <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-6 pb-20 pt-8 text-center">
+      <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
           animate={
@@ -165,7 +165,7 @@ export default function HeroSectionNew() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.65 }}
-          className="mb-7 max-w-[980px] text-[55px] font-semibold leading-[1.1em] tracking-[-2.2px] text-[#FFFFFF]"
+          className="mb-5 md:mb-6 max-w-[980px] text-[45px] md:text-[48px] lg:text-[55px] font-semibold leading-[1.1em] tracking-[-2.2px] text-[#FFFFFF]"
         >
           <AnimatedText text="Make the Most Out of Every Single" delay={0.85} />
           <br />
@@ -188,9 +188,9 @@ export default function HeroSectionNew() {
           initial={{ opacity: 0, y: 20, filter: "blur(10px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.9, delay: 1.45 }}
-          className="mb-10 max-w-[650px] text-[17px] font-medium leading-[1.9] text-white/72 md:text-[19px]"
+          className="mb-10 max-w-[650px] text-[16px] md:text-[17px] lg:text-[19px] font-medium leading-[1.9] text-white/72 "
         >
-          Scalable Al Sales Assistant for Instagram, WhatsApp, and Telegram. Automate every conversation to close more sales while you sleep.
+          Scalable Al Sales Assistant for Instagram and WhatsApp. Automate every conversation to close more sales while you sleep.
         </motion.p>
 
         <motion.div
@@ -199,11 +199,12 @@ export default function HeroSectionNew() {
           transition={{ duration: 0.7, delay: 1 }}
           className="flex flex-wrap items-center justify-center gap-4"
         >
-          <button className="rounded-[8px] bg-[#814AC8] px-8 py-3.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)]">
+          <button className="h-[36px] w-[129px] rounded-[8px] bg-[#814AC8] text-[13px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[150px]">
             Get Started Free
           </button>
 
-          <button className="flex items-center gap-2 rounded-[8px] border border-white/10 bg-white/5 px-7 py-3.5 text-sm font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 hover:text-white">
+          <button className="flex items-center justify-center gap-2 h-[36px] w-[129px] rounded-[8px] border border-white/10 bg-white/5 text-[13px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[150px]">
+
             <svg
               width="16"
               height="16"

@@ -208,6 +208,7 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
 
         gl.clearColor(0, 0, 0, 0);
         container.appendChild(canvas);
+        canvas.style.filter = "blur(12px)";
 
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, vert);
         const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, frag);

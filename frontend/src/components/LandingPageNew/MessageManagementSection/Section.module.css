@@ -158,8 +158,28 @@
   width: 100%;
   height: 480px;
   overflow: hidden;
-  -webkit-mask: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
-  mask: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  position: relative;
+  /* -webkit-mask: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%); */
+}
+
+
+.scrollerMask::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 220px;
+
+  background: linear-gradient(
+    to bottom,
+    rgba(11, 11, 15, 0) 0%,
+    rgba(11, 11, 15, 0.85) 60%,
+    rgba(11, 11, 15, 1) 100%
+  );
+
+  pointer-events: none;
 }
 
 /* CHANGED: smaller gap between rows to match reference list style */
@@ -169,6 +189,7 @@
   gap: 0;
   animation: scrollUp 28s linear infinite;
 }
+
 
 .scrollerMask:hover .scrollerTrack {
   animation-play-state: paused;
@@ -721,4 +742,18 @@
     top: 8px;
     padding: 0 30px;
   }
+
+  .cols {
+    margin-top: 20px;
+    gap: 16px; 
+  }
+
+  .leftCol {
+    margin-top: 0px;
+  }
+
+  .headingWrap {
+    margin-bottom: 8px;
+  }
+
 }

@@ -130,7 +130,7 @@
 
   opacity: 0.95;
   animation: none;
-  filter: brightness(1.25);
+  filter: blur(0.3px);
   will-change: transform;
   transition: opacity 0.15s linear;
 }
