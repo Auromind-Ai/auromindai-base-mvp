@@ -21,7 +21,7 @@ function generateParticles(count = 1100) {
       y,
 
       size: Math.random() < 0.88 ? 1.8 : 2.8,
-      opacity: 0.95,
+      opacity: 0.35 + Math.random() * 0.25,
 
       duration: 18 + Math.random() * 30,
       delay: Math.random() * -40,
@@ -65,8 +65,8 @@ export default function HeroBackground() {
         const p = PARTICLES[i];
 
         // move particle toward center
-        p.x += (50 - p.x) * 0.0009 * p.parallaxDepth * 80;
-        p.y += (50 - p.y) * 0.0009 * p.parallaxDepth * 80;
+        p.x += (50 - p.x) * 0.0006 * p.parallaxDepth * 80;
+        p.y += (50 - p.y) * 0.0006 * p.parallaxDepth * 80;
 
         // mouse parallax
         const offsetX = mx * p.parallaxDepth * -30;
