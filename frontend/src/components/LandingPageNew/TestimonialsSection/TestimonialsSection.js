@@ -71,7 +71,7 @@ export default function TestimonialsSection() {
     <section className="relative overflow-hidden bg-black py-24 md:py-32 font-[Poppins]">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center">
-          <h2 className="font-['Poppins'] text-[50px] font-medium text-white tracking-[-0.04em] leading-[1.1em] text-center max-w-[900px] mx-auto">
+          <h2 className="font-['Poppins'] text-[26px] font-medium text-white tracking-[-0.04em] leading-[1.1em] text-center max-w-[900px] mx-auto sm:text-[50px]">
             How Businesses Are
             <br />
             Growing with Us
@@ -86,14 +86,14 @@ export default function TestimonialsSection() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
-          className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-6"
+          className="mt-10 md:mt-20 grid grid-cols-1 md:grid-cols-2 gap-6"
         >
           {testimonials.map((testimonial, index) => (
             <motion.div
               key={index}
               custom={index}
               variants={cardVariants}
-              className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[#050505] w-[490px] h-[185px] px-[28px] py-[22px] transition-all duration-500 hover:border-white/20 hover:-translate-y-1"
+              className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[#050505] w-[90%] sm:w-[490px] h-[185px] px-[20px] sm:px-[28px] py-[18px] sm:py-[22px] transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto"
             >
               <div className="absolute bottom-[-120px] right-[-70px] h-[260px] w-[260px] rounded-full bg-[#6D28D9]/30 blur-[85px]" />
 

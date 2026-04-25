@@ -11,20 +11,20 @@ export default function NeuroHero() {
 
   const TEXTS = [
     {
-        title: "One Inbox for every Conversation.",
-        desc: "We seek to illuminate complexities seek to illuminate within you. We seek to illuminate complexities seek to illuminate within you. We seek to illuminate complexities seek to illuminate within you.",
+        title: "Unified Inbox for Everything.",
+        desc: "We seek to illuminate complexities seek to illuminate within you.",
     },
     {
-        title: "Build Human-feeling Automations in minutes.",
-        desc: "Deep insights into your Deep insights into your cognitive patterns. Deep insights into your Deep insights into your cognitive patterns. Deep insights into your Deep insights into your cognitive patterns.",
+        title: "Human-like Replies. Instantly.",
+        desc: "Deep insights into your Deep insights into your cognitive patterns.",
     },
     {
         title: "Process Intelligence",
-        desc: "Transform thoughts into Transform thoughts into structured clarity. Deep insights thoughts. Thoughts into structured clarity.",
+        desc: "Transform thoughts into Transform thoughts into structured clarity.",
     },
     {
         title: "Generate Outcomes",
-        desc: "Turn insights into actionable Turn insights into actionable decisions. Turn insights into actionable Turn insights into actionable decisions. Turn insights into actionable Turn insights into actionable decisions...",
+        desc: "Turn insights into actionable Turn insights into actionable decisions.",
     },
     ];
 
@@ -117,7 +117,7 @@ export default function NeuroHero() {
               <div
                 className="
                   absolute z-30
-                  top-[18%] left-[40%]
+                  top-[18%] left-[46%] md:left-[40%]
                   -translate-x-1/2
 
                   w-[190px] h-[190px]
@@ -193,7 +193,7 @@ export default function NeuroHero() {
                 md:max-lg:w-[52%] md:max-lg:pr-8
 
                 max-md:left-0 max-md:right-0
-                max-md:top-[8%]
+                max-md:top-[4%]
                 max-md:translate-y-0
                 max-md:w-full
                 max-md:px-6
@@ -204,9 +204,10 @@ export default function NeuroHero() {
                 <h1
                   className="
                     font-bold leading-[1.08] tracking-tight text-white
-                    text-5xl
-                    lg:text-[3.6rem]
+                    text-[26px]
+                    sm:text-5xl
                     md:max-lg:text-4xl
+                    lg:text-[3.6rem]
                     max-md:text-[2rem]
                   "
                   style={{ textShadow: "0 2px 24px rgba(0,0,0,0.18)" }}

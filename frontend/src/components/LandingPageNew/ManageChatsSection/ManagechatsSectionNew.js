@@ -79,7 +79,7 @@ export default function ManageChatsSection() {
   return (
     <section
     ref={sectionRef}
-    className="relative min-h-[980px] overflow-hidden bg-[#050505] px-5 pt-20 pb-24 sm:px-6 lg:min-h-[920px] lg:pt-28 lg:pb-24"
+    className="relative min-h-[980px] overflow-hidden bg-[#050505] px-5 pt-20 pb-8 sm:px-6 sm:pb-24 lg:min-h-[920px] lg:pt-28 lg:pb-24"
     >
       <div className="absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-purple-600/20 via-transparent to-blue-500/10" />
 
@@ -227,42 +227,42 @@ export default function ManageChatsSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.32 }}
-            className="mt-11 flex flex-row flex-wrap items-center justify-center gap-4 lg:flex-row lg:items-start lg:gap-6"
+            className="mt-6 sm:mt-8 lg:mt-11 flex items-center justify-center gap-2 whitespace-nowrap overflow-x-auto sm:gap-4"
           >
             <div className="flex flex-col items-center text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-violet-500/30 bg-[#120c1d] shadow-[0_0_30px_rgba(139,92,246,0.38)]">
+              <div className="flex h-12 w-12 items-center justify-center md:h-16 md:w-16 rounded-full border border-violet-500/30 bg-[#120c1d] shadow-[0_0_30px_rgba(139,92,246,0.38)]">
                 <User className="h-7 w-7 text-violet-300" strokeWidth={2.2} />
               </div>
-                            <p className="mt-3 text-[16px] text-white md:text-[17px]">Lead arrives</p>
+                            <p className="mt-2 text-[12px] text-white md:text-[14px]">Lead arrives</p>
                           </div>
 
-                          <div className="text-2xl text-white/50 lg:pt-6">→</div>
+                          <div className="text-sm text-white/50 md:text-xl">→</div>
 
                           <div className="flex flex-col items-center text-center">
-                            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-violet-500/30 bg-[#120c1d] shadow-[0_0_30px_rgba(139,92,246,0.38)]">
+                            <div className="flex h-12 w-12 items-center justify-center md:h-16 md:w-16 rounded-full border border-violet-500/30 bg-[#120c1d] shadow-[0_0_30px_rgba(139,92,246,0.38)]">
                 <MessageCircleMore
                   className="h-7 w-7 text-violet-300"
                   strokeWidth={2.2}
                 />
               </div>
-              <p className="mt-3 text-[16px] text-white md:text-[17px]">AI replies instantly</p>
+              <p className="mt-2 text-[12px] text-white md:text-[14px]">AI replies instantly</p>
             </div>
 
-            <div className="text-2xl text-white/50 lg:pt-6">→</div>
+            <div className="text-sm text-white/50 md:text-xl">→</div>
 
             <div className="flex flex-col items-center text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-[#081510] shadow-[0_0_30px_rgba(16,185,129,0.45)]">
+              <div className="flex h-12 w-12 items-center justify-center md:h-16 md:w-16 rounded-full border border-emerald-500/30 bg-[#081510] shadow-[0_0_30px_rgba(16,185,129,0.45)]">
               <Check className="h-7 w-7 text-emerald-400" strokeWidth={2.5} />
             </div> 
 
-              <p className="mt-3 text-[16px] text-white md:text-[17px]">
+              <p className="mt-2 text-[12px] text-white md:text-[14px]">
                 Lead stays. <span className="text-emerald-400">You close.</span>
               </p>
             </div>
           </motion.div>
         </div>
 
-        <div className="relative flex min-h-[620px] items-center justify-center lg:justify-end">
+        <div className="relative flex min-h-[440px] sm:min-h-[520px] lg:min-h-[620px] items-start justify-center lg:justify-end">
           <div className="relative flex h-full w-full items-center justify-center overflow-visible lg:justify-end">
             {/* Curved Glow Line */}
             <div className="pointer-events-none absolute left-[18%] top-[48%] z-[1] h-[270px] w-[270px] rounded-full bg-violet-600/25 blur-[120px]" />

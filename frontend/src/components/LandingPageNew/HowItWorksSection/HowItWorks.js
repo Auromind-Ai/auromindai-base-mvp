@@ -118,7 +118,7 @@ export default function HowItWorks() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="max-w-4xl mx-auto text-center">
           <h2
-            className={`${poppins.className} text-[50px] font-medium text-white leading-[1.1em] tracking-[-0.04em]`}
+            className={`${poppins.className} text-[26px] font-medium text-white leading-[1.1em] tracking-[-0.04em] sm:text-[50px]`}
           >
             <span className="block">Launch in Three Simple Steps</span>
             <span className="block mt-1">With a Seamless Process</span>
