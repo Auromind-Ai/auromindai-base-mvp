@@ -79,9 +79,24 @@ export default function HeroBackground() {
         // when particle reaches center zone → respawn on outer edge
         const dx = p.x - 50;
         const dy = p.y - 50;
-        const dist = Math.sqrt(dx * dx + dy * dy);
 
-        if (dist < 4.5 + Math.random() * 1.5) {
+        const scaleX = 1;     
+        const scaleY = 0.65;
+
+        const dist = Math.sqrt(
+          (dx * dx) / (scaleX * scaleX) +
+          (dy * dy) / (scaleY * scaleY)
+        );
+
+        const KILL_RADIUS = 18; 
+        const fadeStart = KILL_RADIUS + 6;
+
+        if (dist < fadeStart) {
+          const t = (dist - KILL_RADIUS) / (fadeStart - KILL_RADIUS);
+          el.style.opacity = Math.max(t, 0);
+        }
+
+        if (dist < KILL_RADIUS) {
           const side = Math.floor(Math.random() * 4);
 
           if (side === 0) {

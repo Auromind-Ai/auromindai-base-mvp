@@ -79,7 +79,7 @@ export default function PricingSectionNew() {
     <section className="relative overflow-hidden bg-black py-24 md:py-32">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mx-auto max-w-4xl text-center">
-          <h2 className="font-['Poppins'] text-[50px] font-medium text-white tracking-[-0.04em] leading-[1.1em] text-center">
+          <h2 className="font-['Poppins'] text-[26px] font-medium text-white tracking-[-0.04em] leading-[1.1em] text-center sm:text-[50px]">
             Simple, Transparent Pricing
             <br />
             For Every Stage of Growth

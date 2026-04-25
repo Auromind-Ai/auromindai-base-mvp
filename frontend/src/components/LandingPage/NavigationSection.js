@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Zap } from 'lucide-react';
 import { Poppins } from "next/font/google";
+import { Zap, Menu, X } from 'lucide-react';
+import { useState } from 'react';
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -10,9 +11,11 @@ const poppins = Poppins({
 });
 
 const NavigationSection = () => {
+
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <nav
-      className={`${poppins.className} fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-md border-b border-white/10 py-4 px-6`}
+      className={`${poppins.className} fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-md border-b border-white/10 py-3 sm:py-4 px-4 sm:px-6`}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-12">
@@ -29,7 +32,7 @@ const NavigationSection = () => {
           <div className="hidden lg:flex items-center gap-8">
           {/* Product Dropdown */}
           <div className="relative group">
-            <button className="text-[15px] font-medium text-white/90 hover:text-white transition-colors">
+            <button className="text-[13px] sm:text-[15px] font-medium text-white/90 hover:text-white transition-colors">
               Product
             </button>
 
@@ -213,12 +216,7 @@ const NavigationSection = () => {
 
             <div className="absolute left-1/2 top-[calc(100%+18px)] -translate-x-1/2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[340px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
               <div className="space-y-1">
-                {/* <button className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
-                  <p className="text-sm font-medium text-white">Templates</p>
-                  <p className="text-xs text-white/50 mt-1">
-                    Sales scripts & automation flows
-                  </p>
-                </button> */}
+               
 
                 <button className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
                   <p className="text-sm font-medium text-white">Case Studies</p>
@@ -260,7 +258,8 @@ const NavigationSection = () => {
         </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
+          
           <Link
             href="/login"
             className="text-[15px] font-medium text-white/90 transition-colors hover:text-white"
@@ -268,11 +267,39 @@ const NavigationSection = () => {
             Sign In
           </Link>
 
-          <button className="rounded-[8px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
+          <button className="rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
             Get Started
+          </button>
+
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="lg:hidden text-white"
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
       </div>
+      {menuOpen && (
+  <div className="lg:hidden absolute right-4 top-[70px] w-[220px] rounded-2xl border border-white/10 bg-[#0B0B0F] shadow-[0_20px_60px_rgba(0,0,0,0.6)] px-5 py-5 space-y-4 z-[99]">
+    
+    <Link href="#product" className="block text-white text-[16px] font-medium">
+      Product
+    </Link>
+
+    <Link href="#solutions" className="block text-white text-[16px] font-medium">
+      Solutions
+    </Link>
+
+    <Link href="#pricing" className="block text-white text-[16px] font-medium">
+      Pricing
+    </Link>
+
+    <Link href="#resources" className="block text-white text-[16px] font-medium">
+      Resources
+    </Link>
+
+  </div>
+)}
     </nav>
   );
 };

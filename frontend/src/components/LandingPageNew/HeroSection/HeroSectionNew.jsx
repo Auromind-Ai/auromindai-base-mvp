@@ -118,7 +118,7 @@ export default function HeroSectionNew() {
             delay: 0.15,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="mb-7 inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-[rgba(74,34,120,0.45)] px-2 py-2 pr-5 backdrop-blur-2xl shadow-[0_0_40px_rgba(108,69,255,0.18)]"
+          className="mb-4 mt-4 md:mt-0 inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-[rgba(74,34,120,0.45)] px-2 py-2 pr-5 backdrop-blur-2xl shadow-[0_0_40px_rgba(108,69,255,0.18)]"
         >
           <motion.span
             initial={{ opacity: 0, scale: 0.8, rotate: -8 }}
@@ -132,12 +132,12 @@ export default function HeroSectionNew() {
               delay: 0.58,
               ease: [0.16, 1, 0.3, 1],
             }}
-            className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#4f7cff] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_0_22px_rgba(124,58,237,0.55)]"
+            className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#4f7cff] px-3 py-1 text-[9px] md:text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_0_22px_rgba(124,58,237,0.55)]"
           >
             ✦ The Future
           </motion.span>
 
-          <div className="relative overflow-hidden h-[18px]">
+          <div className="relative overflow-hidden h-[16px] md:h-[18px]">
             <motion.span
               initial={{
                 y: 18,
@@ -154,7 +154,7 @@ export default function HeroSectionNew() {
                 delay: 0.52,
                 ease: [0.16, 1, 0.3, 1],
               }}
-              className="block text-[14px] font-medium text-white/70"
+              className="block text-[12px] md:text-[14px] font-medium text-white/70"
             >
               of Sale is here
             </motion.span>

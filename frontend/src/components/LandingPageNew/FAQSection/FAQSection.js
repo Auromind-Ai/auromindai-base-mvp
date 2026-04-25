@@ -59,7 +59,7 @@ export default function FAQSection() {
             FAQs
           </div>
 
-          <h2 className="max-w-[760px] font-['Poppins'] text-[34px] font-semibold leading-[1.05] tracking-[-0.04em] text-white text-center md:text-[42px]">
+          <h2 className="max-w-[760px] font-['Poppins'] text-[26px] font-semibold leading-[1.05] tracking-[-0.04em] text-white text-center sm:text-[34px] md:text-[42px]">
             We&apos;ve Got the Answers
             <br />
             You&apos;re Looking For
