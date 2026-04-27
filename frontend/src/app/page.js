@@ -23,11 +23,14 @@ import UICtaSectionTwo from "../components/ui/CtaSectionTwo";
 import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import InteractiveBrainSection from "@/components/LandingPageNew/InteractiveBrainSection/InteractiveBrainSection";
 import dynamic from 'next/dynamic';
+// import Lanyard from '@/components/LandingPageNew/HowItWorksNewSection/Lanyard';
 
 const ManageChatsSection = dynamic(
   () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSectionNew'),
   { ssr: false }
 );
+
+const Lanyard = dynamic(() => import('../components/LandingPageNew/HowItWorksNewSection/Lanyard'), { ssr: false });
 
 const NeuroHero = dynamic(
   () => import('../components/NeuroHero.js'),
@@ -86,6 +89,9 @@ export default function LandingPage() {
           {/* <SeeItInActionSection /> */}
           {/* <PlatformTabsSection /> */}
           <HowItWorks />
+
+          <Lanyard />
+          
           <PricingSectionNew />
           <TestimonialsSection />
           
