@@ -119,7 +119,7 @@ export default function LoginPage() {
                 {/* logo */}
                 <div className="flex flex-col items-center mb-8">
 
-                    <div 
+                    <div
                         className="group flex items-center gap-3 mb-6 cursor-default select-none transition-transform active:scale-95"
                     >
                         <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">

@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-    Calendar, 
-    Mail, 
-    Search, 
-    ChevronDown, 
-    Plus, 
-    Check, 
+import {
+    Calendar,
+    Mail,
+    Search,
+    ChevronDown,
+    Plus,
+    Check,
     X,
     Filter,
     ArrowUpDown,
@@ -59,7 +59,12 @@ export default function IntegrationsPage() {
 
             const response = await fetch(
                 `${API}/integrations/status?workspace_id=${workspace.id}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'ngrok-skip-browser-warning': 'true'  // ✅ Add this
+                    }
+                }
             );
 
             if (response.ok) {
@@ -121,7 +126,7 @@ export default function IntegrationsPage() {
     return (
         <div className="min-h-screen bg-[#1a1a1a] text-[#E5E5E5] p-6 lg:p-12 font-sans overflow-y-auto">
             <div className="max-w-6xl mx-auto relative">
-                
+
                 {/* Header */}
                 <div className="mb-10 pt-4">
                     <h1 className="text-4xl font-semibold text-white mb-3">Connectors</h1>
@@ -134,13 +139,13 @@ export default function IntegrationsPage() {
                 <div className="flex flex-wrap items-center gap-3 mb-10">
                     <div className="relative flex-1 min-w-[300px]">
                         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#555]" />
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             placeholder="Search"
                             className="w-full bg-[#262626] border border-white/5 rounded-xl py-2.5 pl-11 pr-4 text-[15px] text-white placeholder:text-[#555] outline-none focus:border-white/10 transition-all"
                         />
                     </div>
-                    
+
                     {[
                         { label: 'Sort', icon: ArrowUpDown },
                         { label: 'Type', icon: Grid },
@@ -158,9 +163,9 @@ export default function IntegrationsPage() {
                     {availableIntegrations.map((item) => {
                         const isConnected = integrations[item.id]?.connected;
                         const Icon = item.icon;
-                        
+
                         return (
-                            <div 
+                            <div
                                 key={item.id}
                                 className="group bg-[#262626] border border-white/5 rounded-2xl p-5 flex items-start gap-5 hover:border-white/10 transition-all cursor-default"
                             >
@@ -182,7 +187,7 @@ export default function IntegrationsPage() {
                                 {/* Action Button */}
                                 <div className="pt-1">
                                     {isConnected ? (
-                                        <button 
+                                        <button
                                             onClick={() => handleDisconnect(item.id)}
                                             className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#666] hover:bg-red-500/10 hover:text-red-400 transition-all"
                                             title="Click to disconnect"
@@ -190,7 +195,7 @@ export default function IntegrationsPage() {
                                             <Check size={20} />
                                         </button>
                                     ) : (
-                                        <button 
+                                        <button
                                             onClick={() => handleConnect(item.id)}
                                             disabled={loading}
                                             className="w-10 h-10 rounded-xl bg-[#333] border border-white/5 flex items-center justify-center text-[#D4D4D4] hover:bg-[#3d3d3d] hover:text-white hover:border-white/10 transition-all disabled:opacity-50"

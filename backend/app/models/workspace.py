@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -24,11 +24,28 @@ class Workspace(Base):
 
     plan_type = Column(String(50), default="starter")
 
+    #META WHATSAPP FIELDS
+    meta_access_token = Column(Text, nullable=True)
+    meta_business_id = Column(String(255), nullable=True)
+    meta_waba_id = Column(String(255), nullable=True)
+    meta_phone_number_id = Column(String(255), nullable=True)
+    meta_display_phone = Column(String(50), nullable=True)
+    meta_ig_id = Column(String(255), nullable=True)
+
+    # OPTIONAL (FUTURE SAFE)
+    meta_token_expiry = Column(DateTime(timezone=True), nullable=True)
+
+    twilio_account_sid = Column(Text, nullable=True)
+    twilio_auth_token = Column(Text, nullable=True)
+    twilio_phone_number = Column(String(50), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
+    # RELATIONSHIPS
     ai_actions = relationship("AIAction", back_populates="workspace")
+
+    conversations = relationship("Conversation", back_populates="workspace")
 
 
 class WorkspaceMember(Base):

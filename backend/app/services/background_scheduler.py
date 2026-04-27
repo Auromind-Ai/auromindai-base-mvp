@@ -11,7 +11,7 @@ class EmailSchedulerService:
         self.monitor = EmailMonitor()
 
     def start(self):
-        print("🚀 Email Scheduler Started at:", datetime.now())
+        print("Email Scheduler Started at:", datetime.now())
         self.scheduler.add_job(
             self._run_email_monitor,
             trigger="interval",
@@ -23,11 +23,11 @@ class EmailSchedulerService:
         self.scheduler.start()
 
     def stop(self):
-        print("🛑 Email Scheduler Stopped at:", datetime.now())
+        print("Email Scheduler Stopped at:", datetime.now())
         self.scheduler.shutdown(wait=False)
 
     def _run_email_monitor(self):
-        print("\n⏰ Scheduler Triggered at:", datetime.now())
+        print("\nScheduler Triggered at:", datetime.now())
         db = self.SessionLocal()
         try:
             self.monitor.run_cycle(db)
