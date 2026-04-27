@@ -9,7 +9,9 @@ from sqlalchemy.dialects.postgresql import UUID
 
 class ChannelType(str, enum.Enum):
     WHATSAPP = "WHATSAPP"
+    TWILIO = "TWILIO"
     INSTAGRAM = "INSTAGRAM"
+    EMAIL = "EMAIL"
     WEB = "WEB"
 
 
@@ -28,7 +30,7 @@ class Conversation(Base):
         UUID(as_uuid=True),
         ForeignKey("workspaces.id", ondelete="CASCADE"),
         index=True,
-        nullable=True # Keep nullable=True if it was nullable in base
+        nullable=True
     )
 
     phone = Column(String(20), index=True)
@@ -40,20 +42,24 @@ class Conversation(Base):
     )
 
     channel = Column(Enum(ChannelType), default=ChannelType.WEB)
-    external_id = Column(String, index=True)  # whatsapp number / IG handle
+    external_id = Column(String, index=True)
     contact_name = Column(String)
+    profile_pic = Column(Text)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     owner = relationship("User", back_populates="conversations")
+
     messages = relationship(
         "Message",
         back_populates="conversation",
         cascade="all, delete-orphan"
     )
+
+    workspace = relationship("Workspace", back_populates="conversations")
 
 
 # ===============================
@@ -72,7 +78,7 @@ class ChatSession(Base):
     title = Column(String, default="New Chat")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     messages = relationship(
         "ChatMessage",

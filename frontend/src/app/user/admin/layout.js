@@ -40,6 +40,7 @@ const MAIN_NAV_ITEMS = [
     { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
     { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
+    { label: 'Templates', icon: FileText, href: '/user/admin/templates' }, 
     { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
 ];
 
@@ -84,6 +85,27 @@ function AdminLayoutContent({ children }) {
   }
 
 }, [])
+
+    // app/layout.js or _app.js
+    useEffect(() => {
+        window.fbAsyncInit = function () {
+            FB.init({
+                appId: process.env.NEXT_PUBLIC_FB_APP_ID,
+                cookie: true,
+                xfbml: true,
+                version: 'v19.0'
+            });
+        };
+
+        // Load SDK
+        (function (d, s, id) {
+            if (d.getElementById(id)) return;
+            const js = d.createElement(s);
+            js.id = id;
+            js.src = "https://connect.facebook.net/en_US/sdk.js";
+            d.getElementsByTagName('head')[0].appendChild(js);
+        })(document, 'script', 'facebook-jssdk');
+    }, []);
 
     useEffect(() => {
         const checkAuth = () => {

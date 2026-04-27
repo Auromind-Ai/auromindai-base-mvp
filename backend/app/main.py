@@ -1,3 +1,5 @@
+import os
+
 from dotenv import load_dotenv
 from app.core.middleware import MetricsMiddleware
 from contextlib import asynccontextmanager
@@ -7,7 +9,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db, engine
 from app.core.websockets import manager
 from app.services.background_scheduler import EmailSchedulerService
-from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, twilio_webhook, integrations, gmail, email, automation, admin, metric
+from app.routers import auth, mcp, simulation, inbox, learning, brain, followups, dashboard, chat, integrations, gmail, email, automation, admin, metric
+
 from app.models.conversation import ChatSession, ChatMessage
 import uuid
 from datetime import datetime
@@ -24,7 +27,9 @@ from app.services.agentic_rag.cache_loader import load_learning_cache
 from app.database import SessionLocal
 from app.database import Base, engine
 from app.services.agentic_rag.rag_service import build_rag_system
-
+from app.routers.inbox_chennal import meta_what, twilio_webhook
+from app.routers.inbox_chennal import conversations, instagram
+from app.routers.template import router as template_router
 load_dotenv()
 
 @asynccontextmanager
@@ -74,18 +79,25 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
 
 
 # CORS middleware - Hardened for local development
+# IMPORTANT: In FastAPI, middleware runs in REVERSE order of addition.
+# CORSMiddleware must be added LAST so it runs FIRST (outermost),
+# ensuring CORS headers are set before other middleware can interfere.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "")
+
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
+    allow_origins=list(filter(None, [
         "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+        "https://hkfpvzwm-3000.inc1.devtunnels.ms",
+        FRONTEND_URL,  # picks up from .env automatically
+    ])),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
-app.add_middleware(MetricsMiddleware)
-app.add_middleware(RequestLoggingMiddleware)
 
 @app.get("/")
 async def root():
@@ -102,8 +114,8 @@ async def health_check():
 
 # Import and include routers
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
-app.include_router(simulation.router, prefix="/simulation", tags=["simulation"])
+# app.include_router(mcp.router, prefix="/mcp", tags=["mcp"])
+# app.include_router(simulation.router, prefix="/simulation", tags=["simulation"])
 app.include_router(inbox.router)
 app.include_router(learning.router, prefix="/api/learning", tags=["learning"])
 app.include_router(brain.router, tags=["brain"])  # RAG Knowledge Base
@@ -118,6 +130,10 @@ app.include_router(automation.router)
 app.include_router(admin.router, tags=["admin"])
 app.include_router(metric.router, prefix="/metrics", tags=["metrics"])
 app.include_router(feedback_router)
+app.include_router(meta_what.router, prefix="/api")
+app.include_router(conversations.router)
+app.include_router(instagram.router, prefix="/api")
+app.include_router(template_router)
 
 # Mock RAG agent interaction
 class ChatQueryRequest(BaseModel): # Renamed to avoid conflict with existing ChatRequest

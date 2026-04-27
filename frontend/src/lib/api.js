@@ -18,11 +18,12 @@ class APIClient {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const isPostOrPut = options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH';
-    
+
     const config = {
       ...options,
       headers: {
         ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
+        'ngrok-skip-browser-warning': 'true',
         ...options.headers,
       },
     };
@@ -81,11 +82,11 @@ class APIClient {
     });
   }
   async patch(endpoint, body) {
-  return this.request(endpoint, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
-}
+    return this.request(endpoint, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
   async delete(endpoint) {
     return this.request(endpoint, { method: 'DELETE' });
   }
@@ -154,26 +155,26 @@ class APIClient {
       body: JSON.stringify({ title })
     });
   }
-    // ================= Admin AI Activity =================
+  // ================= Admin AI Activity =================
 
-    async getAIActivity() {
-      return this.get("/admin/ai_actions");
-    }
+  async getAIActivity() {
+    return this.get("/admin/ai_actions");
+  }
 
-    // ================= Admin Token Methods =================
+  // ================= Admin Token Methods =================
 
-    async getAdminTokens() {
-      return this.get("/admin/tokens")
-    }
+  async getAdminTokens() {
+    return this.get("/admin/tokens")
+  }
 
-    async updateTokenLimit(workspace_id, custom_token_limit) {
-      return this.request(`/admin/tokens/${workspace_id}/limit`, {
-        method: "PATCH",
-        body: JSON.stringify({ custom_token_limit })
-      })
-    }
+  async updateTokenLimit(workspace_id, custom_token_limit) {
+    return this.request(`/admin/tokens/${workspace_id}/limit`, {
+      method: "PATCH",
+      body: JSON.stringify({ custom_token_limit })
+    })
+  }
 
-      // ============== Brain / RAG Methods ==============
+  // ============== Brain / RAG Methods ==============
   /**
    * Upload a document to the Brain (PDF, DOCX, TXT)
    */
@@ -198,27 +199,27 @@ class APIClient {
   }
 
 
-  
-    // ================= Admin Workspace Methods =================
 
-    async getAdminWorkspaces() {
-      return this.get('/admin/workspaces');
-    }
+  // ================= Admin Workspace Methods =================
 
-    async editWorkspacePlan(workspace_id, plan_type) {
-      return this.request(`/admin/workspaces/${workspace_id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ plan_type })
-      });
-    }
+  async getAdminWorkspaces() {
+    return this.get('/admin/workspaces');
+  }
 
-    async resetWorkspaceLimits(workspace_id) {
-      return this.post(`/admin/workspaces/${workspace_id}/reset-limits`);
-    }
+  async editWorkspacePlan(workspace_id, plan_type) {
+    return this.request(`/admin/workspaces/${workspace_id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ plan_type })
+    });
+  }
 
-   async toggleWorkspaceStatus(workspace_id) {
-  return this.post(`/admin/workspaces/${workspace_id}/toggle-status`);
-}
+  async resetWorkspaceLimits(workspace_id) {
+    return this.post(`/admin/workspaces/${workspace_id}/reset-limits`);
+  }
+
+  async toggleWorkspaceStatus(workspace_id) {
+    return this.post(`/admin/workspaces/${workspace_id}/toggle-status`);
+  }
 
   /**
    * Sync a URL to the Brain
@@ -244,13 +245,13 @@ class APIClient {
   /**
    * Get all Brain entries for a workspace
    */
-async getBrainEntries() {
+  async getBrainEntries() {
 
-  const workspace_id = getWorkspaceIdFromToken()
+    const workspace_id = getWorkspaceIdFromToken()
 
-  return this.get(`/brain/entries?workspace_id=${workspace_id}`);
+    return this.get(`/brain/entries?workspace_id=${workspace_id}`);
 
-}
+  }
 
   /**
    * Delete a Brain entry

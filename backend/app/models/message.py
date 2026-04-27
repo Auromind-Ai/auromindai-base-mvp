@@ -50,7 +50,11 @@ class Message(Base):
 
     source = Column(String(50), nullable=True)
 
-    external_id = Column(String(100), nullable=True)
+    # ✅ FIX 1: Use Text (NO LIMIT)
+    external_id = Column(Text, index=True, nullable=True)
+
+    # ✅ FIX 2: Use JSON-safe Text
+    metadata_json = Column(Text)
 
     metadata_json = Column(Text)
 
