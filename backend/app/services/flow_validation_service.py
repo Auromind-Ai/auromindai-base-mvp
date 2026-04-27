@@ -207,8 +207,8 @@ class FlowValidationService:
             stack: Set[str] = set()
             for node_id in node_ids:
                 if node_id not in visited and _detect_cycle(node_id, visited, stack):
-                    errors.append(
-                        "Flow contains a cycle. Cyclic flows are not supported and may cause infinite execution loops."
+                    warnings.append(
+                        "Flow contains a cycle. Each node's loop_limit (default 3) will prevent infinite execution."
                     )
                     break
 
