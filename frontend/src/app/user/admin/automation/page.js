@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Plus, Filter, Zap, MessageSquare, Users, Clock,
+  Search, Plus, Filter, Zap, MessageSquare, Users,
   CheckCircle2, Play, Save, MoreHorizontal, Sparkles,
-  ChevronDown, ArrowDown, Shield, Bot, Send, UserPlus,
+  ChevronDown, ArrowDown, Shield, Bot, Send,
   Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
@@ -19,10 +19,7 @@ const DEFAULT_MESSAGE_TYPE = 'text';
 const MAX_KEYWORDS = 10;
 
 const TRIGGERS = [
-  { id: 'new_lead', label: 'New Lead', icon: UserPlus, color: 'text-blue-400' },
   { id: 'msg_recv', label: 'Message Received', icon: MessageSquare, color: 'text-indigo-400' },
-  { id: 'flow_done', label: 'Flow Done', icon: Zap, color: 'text-amber-400' },
-  { id: 'no_reply', label: 'Inactivity', icon: Clock, color: 'text-rose-400' },
 ];
 
 const ACTIONS = [
@@ -82,6 +79,30 @@ const formatDelay = (amount, unit) => {
   return `${amount} ${u} delay`;
 };
 
+// Normalize trigger types: convert unsupported types to msg_recv
+const normalizeTriggerType = (triggerType) => {
+  const SUPPORTED_TRIGGERS = ['msg_recv'];
+  return SUPPORTED_TRIGGERS.includes(triggerType) ? triggerType : 'msg_recv';
+};
+
+// Sanitize flow data to ensure all trigger types are supported
+const sanitizeFlowData = (flow) => {
+  if (!flow) return flow;
+  return {
+    ...flow,
+    trigger_type: normalizeTriggerType(flow.trigger_type),
+    nodes: (flow.nodes || []).map(node => {
+      if (node.type === 'trigger' && node.config?.event) {
+        return {
+          ...node,
+          config: { ...node.config, event: normalizeTriggerType(node.config.event) }
+        };
+      }
+      return node;
+    })
+  };
+};
+
 const validateFlowGraph = (nodes = [], edges = []) => {
   const errors = [];
   const warnings = [];
@@ -110,7 +131,7 @@ const validateFlowGraph = (nodes = [], edges = []) => {
       errors.push(`Connection ${edge.id} cannot target the trigger.`);
     }
   });
-
+  
   if (triggerNodes.length === 1) {
     const [triggerNode] = triggerNodes;
     if (nodes.length > 1 && !(outgoingMap[triggerNode.id] || []).length) {
@@ -156,10 +177,6 @@ const validateFlowGraph = (nodes = [], edges = []) => {
     if (!isButtonMessageNode(node) && outgoingEdges.some((edge) => edge.sourceHandle)) {
       errors.push(`Node "${node.label || node.id}" uses button branches but is not a button message node.`);
     }
-
-    if (!isButtonMessageNode(node) && outgoingEdges.length > 1) {
-      errors.push(`Node "${node.label || node.id}" has multiple outgoing connections. Only button message nodes can branch.`);
-    }
   });
 
   const uniqueDisconnectedNodeIds = [...new Set(disconnectedNodeIds)];
@@ -197,19 +214,56 @@ export default function AutomationCanvas() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
-
-  // WhatsApp preview modal - triggered from "In Execution Preview" badge
   const [previewNode, setPreviewNode] = useState(null);
 
-  // Canvas State
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-
-  // Nodes and Edges
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const edgesRef = useRef(edges);
 
   const canvasRef = useRef(null);
+  const gridRef = useRef(null);
+  const nodeHeightsRef = useRef({});
+  const buttonOffsetsRef = useRef({});
+
+  const [edgeTick, setEdgeTick] = useState(0);
+  useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => setEdgeTick(t => t + 1));
+    return () => cancelAnimationFrame(id);
+  }, [nodes, edges, zoom]);
+
+  const getEdgePoints = useCallback((sourceNode, targetNode, sourceHandle) => {
+    if (!gridRef.current) return null;
+    const gridEl = gridRef.current;
+    const sourceEl = gridEl.querySelector(`[data-node-id="${sourceNode.id}"]`);
+    const targetEl = gridEl.querySelector(`[data-node-id="${targetNode.id}"]`);
+    if (!sourceEl || !targetEl) return null;
+
+    const gridRect = gridEl.getBoundingClientRect();
+    const sourceRect = sourceEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+
+    let sx = (sourceRect.right - gridRect.left) / zoom;
+    let sy = (sourceRect.top + sourceRect.height / 2 - gridRect.top) / zoom;
+
+    if (sourceHandle) {
+      const buttons = getNodeButtons(sourceNode);
+      const buttonIndex = buttons.findIndex((btn, i) => getHandleIdForButton(btn, i) === sourceHandle);
+      if (buttonIndex >= 0) {
+        const btnEl = sourceEl.querySelector(`[data-button-id="${sourceHandle}"]`);
+        if (btnEl) {
+          const btnRect = btnEl.getBoundingClientRect();
+          sy = (btnRect.top + btnRect.height / 2 - gridRect.top) / zoom;
+        }
+      }
+    }
+
+    const tx = (targetRect.left - gridRect.left) / zoom;
+    const ty = (targetRect.top + targetRect.height / 2 - gridRect.top) / zoom;
+
+    return { sx, sy, tx, ty };
+  }, [zoom, edgeTick]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -223,25 +277,102 @@ export default function AutomationCanvas() {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
-
+useEffect(() => { edgesRef.current = edges; }, [edges]);
   const fetchFlows = async () => {
     try {
       const data = await api.getFlows();
       if (Array.isArray(data)) {
-        setAutomations(data);
-        if (data.length > 0 && !selectedItem) handleSelectAutomation(data[0]);
+        const sanitizedFlows = data.map(sanitizeFlowData);
+        setAutomations(sanitizedFlows);
+        if (sanitizedFlows.length > 0 && !selectedItem) handleSelectAutomation(sanitizedFlows[0]);
       }
     } catch (e) { console.error(e); }
   };
 
   const handleSelectAutomation = (item) => {
-    setSelectedItem(item);
-    setNodes(item.nodes || []);
-    setEdges(item.edges || []);
+    const sanitizedItem = sanitizeFlowData(item);
+    setSelectedItem(sanitizedItem);
+    setNodes(sanitizedItem.nodes || []);
+    setEdges(sanitizedItem.edges || []);
     setActiveNodeId(null);
     setCanvasOffset({ x: 0, y: 0 });
     setZoom(1);
   };
+
+  // Keep zoom in a ref so node drag closure always reads latest zoom
+  const zoomRef = useRef(zoom);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  // ─── NODE DRAG (native pointer events — no Framer conflict) ───
+  const handleNodePointerDown = useCallback((e, nodeId) => {
+    if (e.target.closest?.('[data-no-drag]')) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    setActiveNodeId(nodeId);
+
+    const startClientX = e.clientX;
+    const startClientY = e.clientY;
+
+    let startX = 0;
+    let startY = 0;
+    setNodes(prev => {
+      const n = prev.find(n => n.id === nodeId);
+      if (n) { startX = n.position.x; startY = n.position.y; }
+      return prev;
+    });
+
+    const onMove = (moveEvent) => {
+      const dx = (moveEvent.clientX - startClientX) / zoomRef.current;
+      const dy = (moveEvent.clientY - startClientY) / zoomRef.current;
+      setNodes(current => current.map(n =>
+        n.id !== nodeId ? n : { ...n, position: { x: startX + dx, y: startY + dy } }
+      ));
+    };
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, []);
+
+  const handleFitView = useCallback(() => {
+    if (!nodes.length || !canvasRef.current) {
+      setCanvasOffset({ x: 0, y: 0 });
+      setZoom(1);
+      return;
+    }
+    const rect = canvasRef.current.getBoundingClientRect();
+    const NODE_W = 224;
+    const NODE_H = 180;
+
+    const minX = Math.min(...nodes.map(n => n.position.x));
+    const minY = Math.min(...nodes.map(n => n.position.y));
+    const maxX = Math.max(...nodes.map(n => n.position.x)) + NODE_W;
+    const maxY = Math.max(...nodes.map(n => n.position.y)) + NODE_H;
+
+    const flowW = maxX - minX || NODE_W;
+    const flowH = maxY - minY || NODE_H;
+
+    const padding = 140;
+    const newZoom = Math.min(
+      Math.max(Math.min((rect.width - padding * 2) / flowW, (rect.height - padding * 2) / flowH), 0.4),
+      1.2
+    );
+
+    // center the flow in viewport
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    setZoom(newZoom);
+    setCanvasOffset({
+      x: rect.width / (2 * newZoom) - centerX,
+      y: rect.height / (2 * newZoom) - centerY,
+    });
+  }, [nodes]);
 
   const handleFileUpload = async (file) => {
     if (!file) return;
@@ -319,13 +450,6 @@ export default function AutomationCanvas() {
     } catch (e) { console.error(e); }
   };
 
-  const handleNodeDrag = (id, info) => {
-    setNodes(prev => prev.map(node => {
-      if (node.id === id) return { ...node, position: { x: node.position.x + (info.delta.x / zoom), y: node.position.y + (info.delta.y / zoom) } };
-      return node;
-    }));
-  };
-
   const updateNode = (nodeId, updater) => {
     setNodes(prev => prev.map(node => {
       if (node.id !== nodeId) return node;
@@ -382,9 +506,32 @@ export default function AutomationCanvas() {
     }));
   };
 
-  const handleCanvasPan = (e, info) => {
-    setCanvasOffset(prev => ({ x: prev.x + (info.delta.x / zoom), y: prev.y + (info.delta.y / zoom) }));
-  };
+  // Canvas pan — native pointer events (no Framer conflict)
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const panOffsetStartRef = useRef({ x: 0, y: 0 });
+
+  const handleCanvasPointerDown = useCallback((e) => {
+    if (e.target.closest?.('[data-node-id]')) return;
+    isPanningRef.current = true;
+    panStartRef.current = { x: e.clientX, y: e.clientY };
+    panOffsetStartRef.current = { x: canvasOffset.x, y: canvasOffset.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [canvasOffset]);
+
+  const handleCanvasPointerMove = useCallback((e) => {
+    if (!isPanningRef.current) return;
+    const dx = (e.clientX - panStartRef.current.x) / zoom;
+    const dy = (e.clientY - panStartRef.current.y) / zoom;
+    setCanvasOffset({
+      x: panOffsetStartRef.current.x + dx,
+      y: panOffsetStartRef.current.y + dy,
+    });
+  }, [zoom]);
+
+  const handleCanvasPointerUp = useCallback(() => {
+    isPanningRef.current = false;
+  }, []);
 
   const handleDeleteEdge = (edgeId) => {
     const edge = edges.find(e => e.id === edgeId);
@@ -440,25 +587,18 @@ export default function AutomationCanvas() {
     setActiveNodeId(id);
   };
 
-  const handleAddNode = () => {
-    setError('Use the + connector on an existing node to add the next step. Floating nodes are not allowed.');
-  };
-
-  const handleGenerateAI = async () => {
-    if (!aiInput.trim()) return;
-    setIsGenerating(true);
-    setError(null);
-    try {
-      const data = await api.generateAIFlow(aiInput);
-      if (data.nodes && data.nodes.length > 0) {
-        setNodes(data.nodes);
-        setEdges(data.edges || []);
-        setCanvasOffset({ x: 0, y: 0 });
-        setActiveNodeId(null);
-        setTimeout(() => setActiveNodeId(data.nodes[0].id), 100);
-      } else { setError("AI returned invalid format. Try a different prompt."); }
-    } catch (e) { console.error(e); setError(e.message || "Failed to connect to AI engine."); }
-    finally { setIsGenerating(false); }
+  const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
+    const visited = new Set();
+    const queue = [targetId];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (current === sourceId) return true;
+      if (!visited.has(current)) {
+        visited.add(current);
+        currentEdges.filter(e => e.source === current).forEach(e => queue.push(e.target));
+      }
+    }
+    return false;
   };
 
   const addKeywordToTrigger = (nodeId) => {
@@ -471,25 +611,7 @@ export default function AutomationCanvas() {
     });
     setKeywordInput('');
   };
-const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
-  const visited = new Set();
-  const queue = [targetId];
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (current === sourceId) {
-      console.log('Cycle detected: path from', targetId, 'reaches', sourceId); // debug
-      return true;
-    }
-    if (!visited.has(current)) {
-      visited.add(current);
-      currentEdges
-        .filter(e => e.source === current)
-        .forEach(e => queue.push(e.target));
-    }
-  }
-  return false;
-};
   const removeKeywordFromTrigger = (nodeId, keyword) => {
     updateNodeConfig(nodeId, (config) => ({ ...config, keywords: (config.keywords || []).filter(k => k !== keyword) }));
   };
@@ -502,7 +624,6 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
   return (
     <div className={`${zenMode ? 'fixed inset-0 z-[200]' : 'relative w-full h-screen'} bg-[#020408] text-zinc-200 overflow-hidden font-sans select-none border-t border-white/5`}>
 
-      {/* BACKGROUND EFFECTS */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[150px] rounded-full" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-violet-600/10 blur-[150px] rounded-full" />
@@ -582,35 +703,15 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
           )}
         </div>
       </div>
+
       {/* ZOOM CONTROLS */}
-<div className="absolute right-6 bottom-10 z-50 flex flex-col gap-2 bg-[#0A0B0F]/70 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-xl">
+      <div className="absolute right-6 bottom-10 z-50 flex flex-col gap-2 bg-[#0A0B0F]/70 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-xl">
+        <button onClick={() => setZoom(prev => Math.min(prev + 0.1, 2))} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition text-white font-bold">+</button>
+        <button onClick={() => setZoom(prev => Math.max(prev - 0.1, 0.4))} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition text-white font-bold">-</button>
+        <div className="text-center text-[10px] text-zinc-400 font-bold">{Math.round(zoom * 100)}%</div>
+        <button onClick={handleFitView} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition text-white">⬚</button>
+      </div>
 
-  <button 
-    onClick={() => setZoom(prev => Math.min(prev + 0.1, 2))}
-    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition"
-  >
-    +
-  </button>
-
-  <button 
-    onClick={() => setZoom(prev => Math.max(prev - 0.1, 0.4))}
-    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition"
-  >
-    -
-  </button>
-
-  <div className="text-center text-[10px] text-zinc-400 font-bold">
-    {Math.round(zoom * 100)}%
-  </div>
-
-  <button 
-    onClick={() => { setCanvasOffset({ x: 0, y: 0 }); setZoom(1); }}
-    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition"
-  >
-    ⬚
-  </button>
-
-</div>
       {/* REPO SIDEBAR */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -669,8 +770,6 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
-
-              {/* Step Label */}
               <section>
                 <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Step Label</label>
                 <input
@@ -683,7 +782,6 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                 />
               </section>
 
-              {/* TRIGGER NODE CONFIG */}
               {activeNode.type === 'trigger' && (
                 <>
                   <section>
@@ -693,11 +791,9 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                       onChange={(e) => updateNodeConfig(activeNodeId, { event: e.target.value })}
                       className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
                       style={{ backgroundColor: "#0F1115", color: "white" }}
+                      disabled
                     >
                       <option value="msg_recv">Message Received</option>
-                      <option value="new_lead">New Lead</option>
-                      <option value="flow_done">Flow Done</option>
-                      <option value="no_reply">Inactivity</option>
                     </select>
                   </section>
 
@@ -760,10 +856,8 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                 </>
               )}
 
-              {/* ACTION NODE CONFIG */}
               {activeNode.type === 'action' && (
                 <>
-                  {/* ─── DELAY SECTION ─── */}
                   <section>
                     <div className="flex items-center gap-2 mb-3">
                       <Timer size={14} className="text-violet-400" />
@@ -798,25 +892,21 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                       </div>
                     )}
                   </section>
-
-                  <section>
+                   <section>
                     <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Action Type</label>
                     <select
                       value={activeNode.config?.type || 'send_msg'}
                       onChange={(e) => {
                         const newType = e.target.value;
-                        const labelMap = { send_msg: 'Send Message', brain_query: 'AI Reply', assign_agent: 'Assign Agent',  ask_question:  'Ask Question',  move_stage: 'Move Deal', notification: 'Notify' };
+                        const labelMap = { send_msg: 'Send Message', brain_query: 'AI Reply', assign_agent: 'Assign Agent', ask_question: 'Ask Question', move_stage: 'Move Deal', notification: 'Notify' };
                         updateNode(activeNodeId, (node) => ({ ...node, label: labelMap[newType] || 'New Step', config: { ...(node.config || {}), type: newType } }));
                       }}
                       className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
                       style={{ backgroundColor: "#0F1115", color: "white" }}
                     >
-                      <option value="send_msg" style={{ backgroundColor: "#0F1115" }}>Send Message</option>
-                      <option value="brain_query" style={{ backgroundColor: "#0F1115" }}>AI Reply (Brain)</option>
-                  {/* <option value="assign_agent" style={{ backgroundColor: "#0F1115" }}>Assign Agent</option> */}
-                      <option value="ask_question" style={{ backgroundColor: "#0F1115" }}>Ask Question</option>
-                  {/* <option value="move_stage" style={{ backgroundColor: "#0F1115" }}>Move Deal</option> */}
-                   {/* <option value="notification" style={{ backgroundColor: "#0F1115" }}>Notify</option> */}
+                      <option value="send_msg">Send Message</option>
+                      <option value="brain_query">AI Reply (Brain)</option>
+                      <option value="ask_question">Ask Question</option>
                     </select>
                   </section>
 
@@ -837,15 +927,14 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                           className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
                           style={{ backgroundColor: "#0F1115", color: "white" }}
                         >
-                          <option value="text" style={{ backgroundColor: "#0F1115" }}>Text Message</option>
-                          <option value="button_message" style={{ backgroundColor: "#0F1115" }}>Button Message</option>
-                          <option value="image" style={{ backgroundColor: "#0F1115" }}>Image</option>
-                          <option value="video" style={{ backgroundColor: "#0F1115" }}>Video</option>
-                          <option value="document" style={{ backgroundColor: "#0F1115" }}>Document / PDF</option>
+                          <option value="text">Text Message</option>
+                          <option value="button_message">Button Message</option>
+                          <option value="image">Image</option>
+                          <option value="video">Video</option>
+                          <option value="document">Document / PDF</option>
                         </select>
                       </section>
 
-                      {/* Media upload */}
                       {['image', 'video', 'document'].includes(activeNode.config?.message_type) && (
                         <section>
                           <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Media Upload</label>
@@ -971,8 +1060,42 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                               />
                               <div className="rounded-2xl border border-dashed border-indigo-500/20 bg-indigo-500/[0.04] px-4 py-3">
                                 <p className="text-[10px] font-black uppercase tracking-[2px] text-indigo-300">Target Node</p>
-                                <p className="mt-1 text-xs font-bold text-white">{button.target || 'Not connected'}</p>
-                                <p className="mt-1 text-[10px] text-zinc-500">Use the button port on the node to create the next step.</p>
+                                <select
+                                    value={button.target || ''}
+                                     className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none mt-2"
+                                      style={{ backgroundColor: "#0F1115", color: "white" }}
+                                   onChange={(e) => {
+  const newTarget = e.target.value;
+
+  const filteredEdges = edgesRef.current.filter(
+    edge => !(edge.source === activeNodeId && edge.sourceHandle === button.value)
+  );
+
+
+  setEdges(filteredEdges);
+
+  if (newTarget) {
+    setEdges(prev => [...prev, {
+      id: `e-${activeNodeId}-${button.value}-${newTarget}`,
+      source: activeNodeId,
+      sourceHandle: button.value,
+      target: newTarget
+    }]);
+  }
+
+  updateButtonField(activeNodeId, button.id, 'target', newTarget || null);
+}}
+                                  >
+                                    <option value="">Not connected</option>
+
+                                    {nodes
+                                      .filter(n => n.id !== activeNodeId && n.type !== 'trigger')
+                                      .map(n => (
+                                        <option key={n.id} value={n.id}>
+                                          {n.label}
+                                        </option>
+                                      ))}
+                                  </select>
                               </div>
                             </div>
                           ))}
@@ -994,106 +1117,67 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                     </section>
                   )}
 
-                  {activeNode.config?.type === 'assign_agent' && (
-                    <section>
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Assign Strategy</label>
-                      <select
-                        value={activeNode.config?.strategy || 'round_robin'}
-                        onChange={(e) => updateNodeConfig(activeNodeId, { strategy: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
-                      >
-                        <option value="round_robin">Round Robin</option>
-                        <option value="manual">Manual Agent</option>
-                      </select>
-                    </section>
-                  )}
-
-                  {activeNode.config?.type === 'move_stage' && (
-                    <section>
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Deal Stage</label>
-                      <input
-                        value={activeNode.config?.stage || ''}
-                        onChange={(e) => updateNodeConfig(activeNodeId, { stage: e.target.value })}
-                        placeholder="e.g. Interested / Won / Lost"
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
-                      />
-                    </section>
-                  )}
-
-                  {activeNode.config?.type === 'notification' && (
-                    <section>
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Notification Text</label>
-                      <input
-                        value={activeNode.config?.text || ''}
-                        onChange={(e) => updateNodeConfig(activeNodeId, { text: e.target.value })}
-                        placeholder="Notify team..."
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
-                      />
-                    </section>
-                  )}
                   {activeNode.config?.type === 'ask_question' && (
-                  <AskQuestionConfig
-                    node={activeNode}
-                    updateNodeConfig={updateNodeConfig}
-                  />
-                )}
+                    <AskQuestionConfig node={activeNode} updateNodeConfig={updateNodeConfig} />
+                  )}
+
+                  {activeNode.type === 'action' && activeNode.config?.message_type !== 'button_message' && (
+                    <section className="border-t border-white/5 pt-6 mt-2 pb-2">
+                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Next Step Connection</label>
+                      {edges.find(e => e.source === activeNodeId && !e.sourceHandle) ? (
+                        <div className="flex items-center justify-between bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 shadow-inner">
+                          <div>
+                            <p className="text-[9px] text-indigo-400 uppercase tracking-widest font-bold mb-1">Connected To</p>
+                            <p className="text-sm font-bold text-white truncate w-40">
+                              {nodes.find(n => n.id === edges.find(e => e.source === activeNodeId && !e.sourceHandle)?.target)?.label || 'Unknown Node'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setEdges(prev => prev.filter(e => e.source !== activeNodeId))}
+                            className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition"
+                          >
+                            Unlink
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="bg-white/5 border border-dashed border-white/20 rounded-2xl p-4">
+                          <p className="text-[10px] text-zinc-400 mb-3 font-medium">Select an existing step to connect this node to.</p>
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              if (!e.target.value) return;
+                              setEdges(prev => [...prev, {
+                                id: `e-${activeNodeId}-default-${e.target.value}`,
+                                source: activeNodeId,
+                                sourceHandle: null,
+                                target: e.target.value
+                              }]);
+                            }}
+                            className="w-full bg-[#0F1115] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none cursor-pointer"
+                          >
+                            <option value="">-- Link to existing step --</option>
+                           {nodes.filter(n =>
+  n.id !== activeNodeId &&
+  n.type !== 'trigger' &&
+  !edges.some(e => e.source === activeNodeId && e.target === n.id)
+).map(n => (
+  <option key={n.id} value={n.id}>{n.label}</option>
+))}
+                          </select>
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  <section className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-1">
+                    <div className="flex items-center gap-2 text-indigo-400 mb-1">
+                      <Bot size={14} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">AI Managed</span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 font-medium leading-relaxed italic">The Agent is automatically optimizing the parameters for this '{activeNode.label}' gateway. Manual tuning enabled after deploy.</p>
+                  </section>
                 </>
               )}
-                    {activeNode.type === 'action' && activeNode.config?.message_type !== 'button_message' && (
-        <section className="border-t border-white/5 pt-6 mt-2 pb-2">
-          <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Next Step Connection</label>
-          {edges.find(e => e.source === activeNodeId && !e.sourceHandle) ? (
-            <div className="flex items-center justify-between bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 shadow-inner">
-              <div>
-                <p className="text-[9px] text-indigo-400 uppercase tracking-widest font-bold mb-1">Connected To</p>
-                <p className="text-sm font-bold text-white truncate w-40">
-                  {nodes.find(n => n.id === edges.find(e => e.source === activeNodeId && !e.sourceHandle)?.target)?.label || 'Unknown Node'}
-                </p>
-              </div>
-              <button
-                onClick={() => setEdges(prev => prev.filter(e => e.source !== activeNodeId))}
-                className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition"
-              >
-                Unlink
-              </button>
-            </div>
-          ) : (
-            <div className="bg-white/5 border border-dashed border-white/20 rounded-2xl p-4">
-              <p className="text-[10px] text-zinc-400 mb-3 font-medium">Select an existing step to connect this node to.</p>
-              <select
-                value=""
-                onChange={(e) => {
-                  if (!e.target.value) return;
-                  setEdges(prev => [...prev, {
-                    id: `e-${activeNodeId}-default-${e.target.value}`,
-                    source: activeNodeId,
-                    sourceHandle: null,
-                    target: e.target.value
-                  }]);
-                }}
-                className="w-full bg-[#0F1115] border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none cursor-pointer"
-              >
-                <option value="">-- Link to existing step --</option>
-                  {nodes.filter(n => 
-                  n.id !== activeNodeId && 
-                  n.type !== 'trigger' && 
-                   !edges.some(e => e.source === activeNodeId && e.target === n.id) &&
-                  !wouldCreateCycle(activeNodeId, n.id, edges)
-                ).map(n => (
-                  <option key={n.id} value={n.id}>{n.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </section>
-      )}
-                    <section className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-1">
-                <div className="flex items-center gap-2 text-indigo-400 mb-1">
-                  <Bot size={14} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">AI Managed</span>
-                </div>
-                <p className="text-[10px] text-zinc-500 font-medium leading-relaxed italic">The Agent is automatically optimizing the parameters for this '{activeNode.label}' gateway. Manual tuning enabled after deploy.</p>
-              </section>
             </div>
 
             <div className="p-8 bg-white/[0.02] border-t border-white/5">
@@ -1120,19 +1204,22 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
         )}
       </AnimatePresence>
 
-     
       {/* CANVAS */}
-      <motion.section
-        className={`absolute inset-0 z-10 ${isSpacePressed ? 'cursor-grabbing' : 'cursor-default'}`}
+      <section
+        className={`absolute inset-0 z-10 ${isSpacePressed ? 'cursor-grabbing' : 'cursor-grab'}`}
         ref={canvasRef}
         onWheel={handleWheel}
+        onPointerDown={handleCanvasPointerDown}
+        onPointerMove={handleCanvasPointerMove}
+        onPointerUp={handleCanvasPointerUp}
         onClick={() => { setActiveNodeId(null); }}
       >
-        <motion.div drag dragMomentum={false} onDrag={handleCanvasPan} className="absolute w-[20000px] h-[20000px] top-[-10000px] left-[-10000px]" style={{ cursor: isSpacePressed ? 'grabbing' : 'grab' }}>
+        <div className="absolute w-full h-full">
           <div
+            ref={gridRef}
             className="absolute inset-0 pointer-events-none"
             style={{
-              transform: `scale(${zoom}) translate(${canvasOffset.x + 10000 / zoom}px, ${canvasOffset.y + 10000 / zoom}px)`,
+              transform: `scale(${zoom}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
               transformOrigin: '0 0',
               backgroundImage: `
                 radial-gradient(circle at 1px 1px, rgba(99, 102, 241, 0.15) 1.5px, transparent 0),
@@ -1156,32 +1243,18 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                   const source = nodes.find(n => n.id === edge.source);
                   const target = nodes.find(n => n.id === edge.target);
                   if (!source || !target) return null;
-                  const sourceButtons = getNodeButtons(source);
-                  const sx = source.position.x + 224;
-                  const buttonIndex = sourceButtons.findIndex((button, index) => getHandleIdForButton(button, index) === edge.sourceHandle);
-                  let sy = source.position.y + 44;
-                  if (buttonIndex >= 0) {
-                    const isPreviewSrc = flowValidation.reachableNodeIds.has(source.id);
-                    const isDisconnectedSrc = flowValidation.disconnectedNodeIds.has(source.id);
-                    let baseOffset = 113;
-                    if (isDisconnectedSrc) baseOffset += 48;
-                    if (isPreviewSrc && !isDisconnectedSrc) baseOffset += 48;
-                    sy = source.position.y + baseOffset + (buttonIndex * 56) + 24;
-                  }
-                  const tx = target.position.x;
-                  const ty = target.position.y + 44;
-                  const curve = 100;
+                  const pts = getEdgePoints(source, target, edge.sourceHandle);
+                  if (!pts) return null;
+                  const { sx, sy, tx, ty } = pts;
+                  const curve = Math.min(Math.abs(tx - sx) * 0.5, 150);
                   const d = `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
                   const isPreviewEdge = flowValidation.reachableEdgeIds.has(edge.id);
                   return (
                     <g key={edge.id}>
                       <path d={d} fill="none" stroke={isPreviewEdge ? "#818cf8" : "#6366f1"} strokeWidth={isPreviewEdge ? "3.5" : "2.5"} strokeOpacity={isPreviewEdge ? "0.8" : "0.15"} markerEnd="url(#arrow)" />
-                      <motion.circle
-                        animate={{ offsetDistance: ["0%", "100%"] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                        r="4" fill={isPreviewEdge ? "#c7d2fe" : "#818cf8"}
-                        style={{ offsetPath: `path("${d}")`, filter: `drop-shadow(0 0 8px ${isPreviewEdge ? '#818cf8' : '#6366f1'})` }}
-                      />
+                      <circle r="4" fill={isPreviewEdge ? "#c7d2fe" : "#818cf8"}>
+                        <animateMotion dur="3s" repeatCount="indefinite" path={d} />
+                      </circle>
                     </g>
                   );
                 })}
@@ -1201,15 +1274,18 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                 return (
                   <motion.div
                     key={node.id}
-                    drag
-                    dragMomentum={false}
-                    onDrag={(e, info) => handleNodeDrag(node.id, info)}
+                    data-node-id={node.id}
+                    ref={(el) => { if (el) nodeHeightsRef.current[node.id] = el.offsetHeight; }}
+                    onPointerDown={(e) => handleNodePointerDown(e, node.id)}
                     onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}
-                    style={{ x: node.position.x, y: node.position.y }}
+                    style={{
+                      position: 'absolute',
+                      left: node.position.x,
+                      top: node.position.y,
+                    }}
                     animate={{ scale: isActive ? 1.05 : 1, zIndex: isActive ? 100 : 10 }}
-                    className={`absolute w-56 pointer-events-auto bg-[#12141C]/95 backdrop-blur-3xl border rounded-[40px] p-6 shadow-3xl cursor-grab active:cursor-grabbing transition-all duration-300 ${isActive ? 'border-indigo-500 ring-[10px] ring-indigo-500/10 shadow-indigo-500/30' : isDisconnectedNode ? 'border-amber-500/70 ring-[8px] ring-amber-500/10' : isPreviewNode ? 'border-emerald-400/70 ring-[8px] ring-emerald-500/10 shadow-emerald-500/10' : 'border-white/5 hover:border-white/20'}`}
+                    className={`w-56 pointer-events-auto bg-[#12141C]/95 backdrop-blur-3xl border rounded-[40px] p-6 shadow-3xl cursor-grab active:cursor-grabbing transition-colors duration-300 ${isActive ? 'border-indigo-500 ring-[10px] ring-indigo-500/10 shadow-indigo-500/30' : isDisconnectedNode ? 'border-amber-500/70 ring-[8px] ring-amber-500/10' : isPreviewNode ? 'border-emerald-400/70 ring-[8px] ring-emerald-500/10 shadow-emerald-500/10' : 'border-white/5 hover:border-white/20'}`}
                   >
-                    {/* Delay badge above node */}
                     {delayLabel && (
                       <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 whitespace-nowrap">
                         <Timer size={10} className="text-violet-400" />
@@ -1235,9 +1311,9 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                       </div>
                     )}
 
-                    {/* ─── IN EXECUTION PREVIEW BADGE → opens WhatsApp modal ─── */}
                     {isPreviewNode && !isDisconnectedNode && (
                       <button
+                        data-no-drag
                         onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
                         className="w-full mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[2px] text-emerald-200 text-left flex items-center justify-between hover:bg-emerald-500/20 transition"
                       >
@@ -1249,17 +1325,29 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                     {nodeButtons.length > 0 && (
                       <div className="mb-4 space-y-2">
                         {nodeButtons.map((button, index) => (
-                          <div key={button.id} className="relative rounded-2xl border border-white/10 bg-white/5 px-3 py-2 pr-10">
+                          <div
+                            key={button.id}
+                            data-button-id={getHandleIdForButton(button, index)}
+                            ref={(el) => {
+                              if (el) {
+                                if (!buttonOffsetsRef.current[node.id]) buttonOffsetsRef.current[node.id] = {};
+                                buttonOffsetsRef.current[node.id][button.id] = el.offsetTop + el.offsetHeight / 2;
+                              }
+                            }}
+                            className="relative rounded-2xl border border-white/10 bg-white/5 px-3 py-2 pr-10"
+                          >
                             <p className="text-[10px] font-black uppercase tracking-[2px] text-zinc-500">{button.label || `Button ${index + 1}`}</p>
                             <p className="text-[10px] text-zinc-400">{button.value || 'Missing value'}</p>
-                            <motion.div
-                              whileHover={{ scale: 1.3, rotate: 90 }}
-                              onClick={(e) => handlePortClick(e, node.id, getHandleIdForButton(button, index), (index + 1) * 80)}
-                              className="absolute -right-2 w-5 h-5 bg-indigo-500 rounded-full border-[3px] border-[#020408] shadow-[0_0_14px_rgba(99,102,241,0.55)] cursor-crosshair z-20 flex items-center justify-center"
-                              style={{ top: '50%', transform: 'translateY(-50%)' }}
-                            >
-                              <Plus size={9} className="text-white" />
-                            </motion.div>
+                            <div className="absolute -right-2 top-1/2 -translate-y-1/2 z-20">
+                              <motion.div
+                                whileHover={{ scale: 1.3, rotate: 90 }}
+                                data-no-drag
+                                onClick={(e) => handlePortClick(e, node.id, getHandleIdForButton(button, index), (index + 1) * 80)}
+                                className="w-5 h-5 bg-indigo-500 rounded-full border-[3px] border-[#020408] shadow-[0_0_14px_rgba(99,102,241,0.55)] cursor-crosshair flex items-center justify-center"
+                              >
+                                <Plus size={9} className="text-white" />
+                              </motion.div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1270,7 +1358,7 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                         <span className="text-[8px] font-black text-zinc-500 uppercase tracking-[1px]">Operational</span>
                       </div>
-                      <button className="p-2 hover:bg-white/5 rounded-xl transition text-zinc-700 hover:text-white">
+                      <button data-no-drag className="p-2 hover:bg-white/5 rounded-xl transition text-zinc-700 hover:text-white">
                         <MoreHorizontal size={14} />
                       </button>
                     </div>
@@ -1278,6 +1366,7 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                     {nodeButtons.length === 0 && (
                       <motion.div
                         whileHover={{ scale: 1.6, rotate: 90 }}
+                        data-no-drag
                         onClick={(e) => handlePortClick(e, node.id)}
                         className={`absolute -right-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-indigo-500 rounded-full border-[4px] border-[#020408] shadow-[0_0_20px_rgba(99,102,241,0.6)] cursor-crosshair z-20 flex items-center justify-center group/port ${isActive ? 'scale-125' : ''}`}
                       >
@@ -1293,10 +1382,10 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
               })}
             </div>
           </div>
-        </motion.div>
-      </motion.section>
+        </div>
+      </section>
 
-      {/* WHATSAPP PREVIEW MODAL — triggered by "In Execution Preview" badge */}
+      {/* WHATSAPP PREVIEW MODAL */}
       <AnimatePresence>
         {previewNode && (
           <motion.div
@@ -1339,7 +1428,6 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-4 bg-[#0b141a] relative">
-                    {/* Delay badge inside preview */}
                     {(previewNode.config?.delay_amount || 0) > 0 && (
                       <div className="flex items-center justify-center gap-2 mb-4 px-3 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 w-fit mx-auto">
                         <Timer size={12} className="text-violet-400" />
@@ -1364,12 +1452,12 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
                         </div>
                       )}
                       <div className="mb-4 rounded-3xl bg-[#202c33] px-4 py-3 text-sm leading-6 text-zinc-100 shadow-inner">
-                              {(previewNode.config?.question || previewNode.config?.text)
-                                ? (previewNode.config.question || previewNode.config.text)
-                                    .split('\n').map((line, index) => <p key={index} className={index > 0 ? 'mt-2' : ''}>{line}</p>)
-                                : <p className="text-zinc-500 italic">No message text configured.</p>
-                              }
-                            </div>
+                        {(previewNode.config?.question || previewNode.config?.text)
+                          ? (previewNode.config.question || previewNode.config.text)
+                              .split('\n').map((line, index) => <p key={index} className={index > 0 ? 'mt-2' : ''}>{line}</p>)
+                          : <p className="text-zinc-500 italic">No message text configured.</p>
+                        }
+                      </div>
                       {previewNode.config?.message_type === 'button_message' && getNodeButtons(previewNode).length > 0 && (
                         <div className="space-y-2 rounded-3xl border border-[#2a3942] bg-[#111c22] p-3 max-w-[280px]">
                           {getNodeButtons(previewNode).map((button) => (
@@ -1404,7 +1492,22 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
               className="flex-1 bg-transparent border-none outline-none text-lg text-zinc-100 placeholder:text-zinc-700 font-bold tracking-tight"
             />
             <button
-              onClick={handleGenerateAI}
+              onClick={async () => {
+                if (!aiInput.trim()) return;
+                setIsGenerating(true);
+                setError(null);
+                try {
+                  const data = await api.generateAIFlow(aiInput);
+                  if (data.nodes && data.nodes.length > 0) {
+                    setNodes(data.nodes);
+                    setEdges(data.edges || []);
+                    setCanvasOffset({ x: 0, y: 0 });
+                    setActiveNodeId(null);
+                    setTimeout(() => setActiveNodeId(data.nodes[0].id), 100);
+                  } else { setError("AI returned invalid format. Try a different prompt."); }
+                } catch (e) { console.error(e); setError(e.message || "Failed to connect to AI engine."); }
+                finally { setIsGenerating(false); }
+              }}
               disabled={isGenerating || !aiInput}
               className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all rounded-[24px] text-white text-[12px] font-black uppercase tracking-[2px] shadow-2xl shadow-indigo-600/40 disabled:opacity-30"
             >
@@ -1442,8 +1545,17 @@ const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 20px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.2); }
+        select {
+  background-color: #0F1115 !important;
+  color: white !important;
+}
+
+select option {
+  background-color: #0F1115;
+  color: white;
+}
+  
       `}</style>
     </div>
   );
 }
-

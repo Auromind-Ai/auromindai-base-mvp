@@ -1,6 +1,6 @@
 import json
 import logging
-
+import os
 from sqlalchemy.orm import Session
 from twilio.rest import Client
 
@@ -153,8 +153,21 @@ class TwilioService:
         return self.send_whatsapp_message(to_number, formatted_body, raise_on_error=raise_on_error)
 
     
-    def send_whatsapp_media(self, to_number: str, media_url: str, caption: str = "", raise_on_error: bool = False):
-        """Sends a WhatsApp message with image/video/document."""
+    def send_whatsapp_media(
+        self,
+        to_number: str,
+        media_url: str,
+        caption: str = "",
+        message_type: str = "image",
+        raise_on_error: bool = False,
+    ):
+        """Sends a WhatsApp message with image/video/document.
+
+        Args:
+            message_type: One of "image", "video", "document".
+                          Used for logging/tracing — Twilio infers the
+                          actual type from the media Content-Type header.
+        """
         db = self._open_db_and_refresh()
         try:
             if not self.client:
@@ -175,12 +188,25 @@ class TwilioService:
             }
             if caption:
                 params["body"] = caption
+            status_callback_url = os.getenv("TWILIO_STATUS_CALLBACK_URL")
+            if status_callback_url:
+                params["status_callback"] = status_callback_url
 
+            logger.info(
+                "Sending WhatsApp %s to %s | media_url=%s",
+                message_type, to_number, media_url,
+            )
             message = self.client.messages.create(**params)
-            logger.info("WhatsApp media sent to %s: %s", to_number, message.sid)
+            logger.info(
+                "WhatsApp %s sent to %s: %s",
+                message_type, to_number, message.sid,
+            )
             return message.sid
         except Exception as exc:
-            logger.error("Failed to send WhatsApp media to %s: %s", to_number, exc)
+            logger.error(
+                "Failed to send WhatsApp %s to %s: %s",
+                message_type, to_number, exc,
+            )
             if raise_on_error:
                 raise
             return None

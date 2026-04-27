@@ -16,6 +16,7 @@ from app.models.outbound_message import OutboundMessage
 from app import database, models, schemas
 from app.models.conversation import Conversation
 from app.models.message import MessageStatus
+from app.models.flow_execution import FlowExecutionState
 from app.models.workspace import WorkspaceMember
 from app.routers.auth import CurrentUser, get_current_user
 from app.services.agentic_rag.rag_service import get_rag_service
@@ -383,29 +384,40 @@ def local_messages(user_id: str):
 
 # ---------------------------------------------------------------------------
 # Twilio status callback — drives per-conversation ordered delivery
+#
+# This is the ONLY place that transitions messages to "sent"/"delivered"
+# and re-triggers send_next_pending_message for the next one.
+# The send_whatsapp_message_task sets status to "dispatched" only.
 # ---------------------------------------------------------------------------
+
+# Valid prior states for each Twilio callback status.
+# Any other prior state means the callback is stale/duplicate — skip it.
+_VALID_PRIOR_STATES = {
+    "sent":      ("dispatched", "in_progress"),  # in_progress as fallback if callback arrives before our commit
+    "delivered": ("dispatched", "in_progress", "sent"),
+    "read":      ("dispatched", "in_progress", "sent", "delivered"),
+    "failed":    ("dispatched", "in_progress", "sent"),
+    "undelivered": ("dispatched", "in_progress", "sent"),
+}
+
+# Terminal states — once a message reaches any of these, no further
+# transitions are allowed and we should not re-trigger dispatch.
+_TERMINAL_STATES = {"delivered", "failed", "cancelled"}
+
 
 @router.post("/status-callback")
 async def twilio_status_callback(request: Request, db: Session = Depends(get_db)):
-    """Receive Twilio message status updates and advance the outbound queue.
-
-    Twilio posts form-encoded data with at minimum:
-        MessageSid    — the SID returned when the message was created
-        MessageStatus — queued | sending | sent | delivered | undelivered | failed
-    """
     try:
         form = await request.form()
         message_sid = form.get("MessageSid") or form.get("SmsSid")
         message_status = (form.get("MessageStatus") or form.get("SmsStatus") or "").lower()
 
         if not message_sid or not message_status:
-            logger.warning("[status-callback] Missing MessageSid or MessageStatus — ignored")
             return str(MessagingResponse())
 
-        logger.info(
-            "[status-callback] sid=%s status=%s", message_sid, message_status
-        )
+        logger.info("[status-callback] sid=%s status=%s", message_sid, message_status)
 
+        # ── Look up the outbound row under row lock ────────────────────────
         row = (
             db.query(OutboundMessage)
             .filter(OutboundMessage.twilio_sid == message_sid)
@@ -414,60 +426,95 @@ async def twilio_status_callback(request: Request, db: Session = Depends(get_db)
         )
 
         if not row:
-            # Callback for a message not in our outbox (e.g. manual sends) — ignore.
-            logger.debug("[status-callback] No outbox row for sid=%s", message_sid)
+            # Not one of our tracked outbound messages — ignore.
             return str(MessagingResponse())
 
         conversation_id = str(row.conversation_id)
 
-        if message_status in ("sent", "delivered"):
-    # Guard: if already advanced by whichever status arrived first, skip
-            if row.status not in ("in_progress", "sent"):
+        # ── Idempotency: skip if already in a terminal state ───────────────
+        if row.status in _TERMINAL_STATES:
+            logger.info(
+                "[status-callback] ⚠️ Already terminal status=%s, skipping | sid=%s",
+                row.status, message_sid,
+            )
+            return str(MessagingResponse())
+
+        # ── Handle "queued" — Twilio acknowledges receipt, no action needed ─
+        if message_status == "queued":
+            logger.info("[status-callback] queued (no-op) | conversation=%s seq=%d", conversation_id, row.sequence)
+            return str(MessagingResponse())
+
+        # ── Handle "sent" ──────────────────────────────────────────────────
+        if message_status == "sent":
+            valid_priors = _VALID_PRIOR_STATES.get("sent", ())
+            if row.status not in valid_priors:
                 logger.info(
-                    "[status-callback] ⚠️ Already processed | conversation=%s seq=%d sid=%s current_status=%s",
-                    conversation_id, row.sequence, message_sid, row.status,
+                    "[status-callback] ⚠️ Unexpected prior status=%s for 'sent', skipping | sid=%s",
+                    row.status, message_sid,
                 )
                 return str(MessagingResponse())
 
-            row.status = "delivered" if message_status == "delivered" else "sent"
+            row.status = "sent"
             db.commit()
+            logger.info("[status-callback] sent | conversation=%s seq=%d", conversation_id, row.sequence)
 
-            logger.info(
-                "[status-callback] %s | conversation=%s seq=%d sid=%s",
-                row.status, conversation_id, row.sequence, message_sid,
+            # Trigger next message delivery (with tiny delay to debounce)
+            send_next_pending_message.apply_async(
+                args=[conversation_id], countdown=1
             )
 
-            # Advance queue — send_next_pending_message is idempotent so safe to call twice
-            next_msg = db.query(OutboundMessage).filter(
-                OutboundMessage.conversation_id == conversation_id,
-                OutboundMessage.status == "pending",
-            ).first()
-
-            if next_msg:
-                logger.info(
-                    "[status-callback] Triggering next message | conversation=%s",
-                    conversation_id,
-                )
-                send_next_pending_message.delay(conversation_id)
-            else:
-                logger.info(
-                    "[status-callback] Flow completed | conversation=%s",
-                    conversation_id,
-                )
-
+        # ── Handle "delivered" ─────────────────────────────────────────────
         elif message_status == "delivered":
-            pass  # now handled above — this branch is unreachable but harmless
+            valid_priors = _VALID_PRIOR_STATES.get("delivered", ())
+            if row.status not in valid_priors:
+                logger.info(
+                    "[status-callback] ⚠️ Unexpected prior status=%s for 'delivered', skipping | sid=%s",
+                    row.status, message_sid,
+                )
+                return str(MessagingResponse())
 
+            row.status = "delivered"
+            db.commit()
+            logger.info("[status-callback] delivered | conversation=%s seq=%d", conversation_id, row.sequence)
+
+            # Trigger next — covers case where "sent" callback was missed
+            send_next_pending_message.apply_async(
+                args=[conversation_id], countdown=1
+            )
+
+        # ── Handle "read" ──────────────────────────────────────────────────
+        elif message_status == "read":
+            # "read" is informational — update status but no dispatch trigger
+            # (the next message was already triggered by "sent" or "delivered")
+            if row.status not in _VALID_PRIOR_STATES.get("read", ()):
+                return str(MessagingResponse())
+            row.status = "delivered"  # treat "read" as delivered
+            db.commit()
+            logger.info("[status-callback] read (→delivered) | conversation=%s seq=%d", conversation_id, row.sequence)
+
+        # ── Handle "failed" / "undelivered" ────────────────────────────────
         elif message_status in ("failed", "undelivered"):
+            valid_priors = _VALID_PRIOR_STATES.get("failed", ())
+            if row.status not in valid_priors:
+                logger.info(
+                    "[status-callback] ⚠️ Unexpected prior status=%s for '%s', skipping | sid=%s",
+                    row.status, message_status, message_sid,
+                )
+                return str(MessagingResponse())
+
             row.status = "failed"
             db.commit()
-            logger.error(
-                "[status-callback] Failed/undelivered | conversation=%s seq=%d sid=%s status=%s",
-                conversation_id, row.sequence, message_sid, message_status,
+            logger.warning(
+                "[status-callback] %s | conversation=%s seq=%d",
+                message_status, conversation_id, row.sequence,
             )
-            send_next_pending_message.delay(conversation_id)
 
-        # All other statuses (queued, sending) — no action needed.
+            # Don't let one failed message block the entire conversation.
+            # Trigger the next pending message.
+            send_next_pending_message.apply_async(
+                args=[conversation_id], countdown=2
+            )
+
         return str(MessagingResponse())
 
     except Exception:

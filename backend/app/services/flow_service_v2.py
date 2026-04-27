@@ -6,13 +6,15 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
-
+from urllib.parse import urlparse
 
 from jinja2 import Environment, Undefined
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.exc import IntegrityError
+from collections import OrderedDict
+
 from app.models.automation import AutomationFlow
 from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
@@ -21,7 +23,6 @@ from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.execution_tracer import ExecutionTracer
 from app.services.llm_router import LLMRouter
 from app.services.trigger_engine import match_button_target, match_trigger
-from collections import OrderedDict
 
 
 
@@ -128,6 +129,10 @@ class FlowServiceV2:
                 )
                 if handled:
                     self._persist_state(db, state)
+                    from app.workers.flow_execution import send_next_pending_message
+                    send_next_pending_message.apply_async(
+                        args=[str(conversation_id)], countdown=1
+                    )
                     return True
 
             # ── Priority 2: pending question reply ────────────────────────
@@ -141,14 +146,21 @@ class FlowServiceV2:
                 )
                 if handled:
                     self._persist_state(db, state)
+                    from app.workers.flow_execution import send_next_pending_message
+                    send_next_pending_message.apply_async(
+                        args=[str(conversation_id)], countdown=1
+                    )
                     return True
 
-            # ── Priority 3: fresh trigger match ───────────────────────────
+
+            # ── Only if NO pending state → trigger match ─────────────────────
+
             match = self._find_trigger_match(
                 db=db,
                 workspace_id=conversation.workspace_id,
                 inbound_text=inbound_text,
             )
+
             if not match:
                 self.tracer.trace(
                     db,
@@ -159,15 +171,6 @@ class FlowServiceV2:
                 )
                 db.commit()
                 return False
-            logger.info(f"🧹 Clearing old queue for new flow | conversation={conversation.id}")
-
-            db.query(OutboundMessage).filter(
-                OutboundMessage.conversation_id == conversation.id,
-                OutboundMessage.status.in_(["pending", "in_progress"])
-            ).update({"status": "failed"})
-
-            db.commit()
-
             flow, trigger_node, trigger_match = match
             self.tracer.trace(
                 db,
@@ -184,6 +187,28 @@ class FlowServiceV2:
 
             state.active_flow_id = flow.id
             state.current_node_id = trigger_node.get("id")
+            state.runtime_context["node_visit_counts"] = {}
+            state.runtime_context["executed_nodes"] = []
+            
+            # Cancel all old-flow messages that haven't been sent yet.
+            # "pending" AND "in_progress" — if send_whatsapp_message_task
+            # hasn't started, it will find status='cancelled' and skip.
+            (
+            db.query(OutboundMessage)
+            .filter(
+                OutboundMessage.conversation_id == conversation.id,
+                OutboundMessage.status.in_(["pending", "in_progress"]),
+                OutboundMessage.flow_id != flow.id,
+            )
+            .update({"status": "cancelled"}, synchronize_session=False)
+             )
+            # Cancel any pending scheduled resumes from old delayed nodes
+            from app.models.scheduled_resume import ScheduledResume
+            db.query(ScheduledResume).filter(
+                ScheduledResume.conversation_id == conversation.id,
+                ScheduledResume.status == "pending",
+            ).update({"status": "cancelled"}, synchronize_session=False)
+            db.flush()
             next_node_id = self._get_default_target(flow.edges or [], trigger_node.get("id"))
             logger.info(f"🎯 Matched Flow ID: {flow.id} | Next Node ID: {next_node_id}")
 
@@ -202,10 +227,21 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
             self._persist_state(db, state)
+            # Kick off sequential dispatch — countdown=1 ensures all
+            # outbound rows from this execution are committed and visible.
+            from app.workers.flow_execution import send_next_pending_message
+            send_next_pending_message.apply_async(
+                args=[str(conversation_id)], countdown=1
+            )
             return True
 
         except Exception as exc:
             db.rollback()
+            executed = (state.runtime_context or {}).get("executed_nodes", [])
+            logger.exception(
+                "Flow execution failed for conversation %s | executed_nodes=%s",
+                conversation.id, executed,
+            )
             self.tracer.trace(
                 db,
                 conversation_id=conversation.id,
@@ -214,10 +250,9 @@ class FlowServiceV2:
                 event_type="error",
                 status="failed",
                 error_message=str(exc),
-                metadata={"message": inbound_text},
+                metadata={"message": inbound_text, "executed_nodes": executed},
             )
             db.commit()
-            logger.exception("Flow execution failed for conversation %s", conversation.id)
             return False
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
@@ -240,6 +275,8 @@ class FlowServiceV2:
             if not flow:
                 return
 
+            # NOTE: node_visit_counts intentionally persists across delay resumes
+            # to enforce total execution safety over the entire flow run.
             logger.info(f"⏳ Resuming flow {flow.id} from node {node_id} after delay!")
             msg_sequence = [msg_sequence_val]
 
@@ -255,6 +292,12 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
             self._persist_state(db, state)
+            # Kick off sequential dispatch — countdown=1 ensures all
+            # outbound rows from this execution are committed and visible.
+            from app.workers.flow_execution import send_next_pending_message
+            send_next_pending_message.apply_async(
+                args=[str(conversation_id)], countdown=1
+            )
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
@@ -535,6 +578,7 @@ class FlowServiceV2:
         inbound_text: str,
         metadata: Dict[str, Any],
         execution_token: Optional[str] = None,
+        
     ) -> bool:
         pending = dict(state.pending_button or {})
         if not pending:
@@ -546,9 +590,26 @@ class FlowServiceV2:
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at < now:
+                logger.info("⏰ Button expired for conversation %s. Sending fallback.", conversation.id)
                 state.pending_button = None
                 state.button_expires_at = None
-                return False
+                # Send expiry fallback so the user isn't left without feedback
+                from app.workers.flow_execution import send_next_pending_message
+                await self._queue_outbound_message(
+                    db=db,
+                    conversation_id=conversation.id,
+                    to_number=conversation.phone,
+                    body="Your session has expired. Please start again.",
+                    metadata={"source": "button_expired", "node_id": pending.get("node_id")},
+                    msg_sequence=[0],
+                    execution_token=execution_token,
+                    state=state,
+                )
+                self._persist_state(db, state)
+                send_next_pending_message.apply_async(
+                    args=[str(conversation.id)], countdown=1
+                )
+                return True  # handled — don't fall through to trigger matching
 
         flow = db.query(AutomationFlow).filter(
             AutomationFlow.id == state.active_flow_id,
@@ -582,12 +643,45 @@ class FlowServiceV2:
 
         state.pending_button = None
         state.button_expires_at = None
+
+        # ── Resolve target from the EDGE GRAPH (single source of truth) ──
+        # Look for an edge where source == button_node_id and
+        # sourceHandle == button.value  (the handle the frontend wires).
+        button_node_id = pending.get("node_id")
+        button_value = matched_button.get("value") or ""
+        target_node_id = next(
+            (
+                e.get("target")
+                for e in (flow.edges or [])
+                if e.get("source") == button_node_id
+                and e.get("sourceHandle") == button_value
+            ),
+            None,
+        )
+        # Fallback: use config-embedded target if edge lookup fails
+        # (guards against older flows saved before edge-based routing)
+        if not target_node_id:
+            target_node_id = matched_button.get("target")
+            if target_node_id:
+                logger.warning(
+                    "⚠️ Button edge not found for handle '%s' on node '%s'. "
+                    "Falling back to config.target=%s",
+                    button_value, button_node_id, target_node_id,
+                )
+
+        if not target_node_id:
+            logger.warning(
+                "⚠️ No target found for button '%s' on node '%s'. Stopping flow.",
+                button_value, button_node_id,
+            )
+            return True
+
         await self._execute_from_node(
             db=db,
             conversation=conversation,
             flow=flow,
             state=state,
-            node_id=matched_button.get("target"),
+            node_id=target_node_id,
             inbound_text=inbound_text,
             execution_token=execution_token,
         )
@@ -622,10 +716,26 @@ class FlowServiceV2:
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at < now:
-                logger.info(f"⏰ Question expired for conversation {conversation.id}. Clearing.")
+                logger.info("⏰ Question expired for conversation %s. Sending fallback.", conversation.id)
                 state.pending_question = None
                 state.question_expires_at = None
-                return False
+                # Send expiry fallback so the user isn't left without feedback
+                from app.workers.flow_execution import send_next_pending_message
+                await self._queue_outbound_message(
+                    db=db,
+                    conversation_id=conversation.id,
+                    to_number=conversation.phone,
+                    body="Your session has expired. Please start again.",
+                    metadata={"source": "question_expired", "node_id": pending.get("node_id")},
+                    msg_sequence=[0],
+                    execution_token=execution_token,
+                    state=state,
+                )
+                self._persist_state(db, state)
+                send_next_pending_message.apply_async(
+                    args=[str(conversation.id)], countdown=1
+                )
+                return True  # handled — don't fall through to trigger matching
 
         # Load flow (workspace boundary check)
         flow = db.query(AutomationFlow).filter(
@@ -642,7 +752,12 @@ class FlowServiceV2:
         state.runtime_context = state.runtime_context or {}
         state.runtime_context[variable_name] = inbound_text
         state.runtime_context["last_user_message"] = inbound_text
-
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(state, "runtime_context")
+        state.pending_question = None
+        state.question_expires_at = None
+        db.add(state)
+        db.flush() 
         self.tracer.trace(
             db,
             conversation_id=conversation.id,
@@ -697,7 +812,6 @@ class FlowServiceV2:
             msg_sequence = [0]
 
         nodes = {node.get("id"): node for node in (flow.nodes or [])}
-        visited_nodes: set[str] = set()
         current_node_id = node_id
         iterations = 0
 
@@ -716,59 +830,31 @@ class FlowServiceV2:
                 )
                 return
 
-          
-
             state.runtime_context = state.runtime_context or {}
+            state.current_node_id = current_node_id
+            node = nodes.get(current_node_id)
+            if not node:
+                return
 
-            path = state.runtime_context.get("path_history", [])
-
-            # add current node
-            path.append(current_node_id)
-
-            # keep last 6 nodes only (memory safe)
-            if len(path) > 6:
-                path.pop(0)
-
-            state.runtime_context["path_history"] = path
-
-           
-            if len(path) >= 4:
-                last_two = path[-2:]
-                prev_two = path[-4:-2]
-
-                if last_two == prev_two:
-                    loop_count = state.runtime_context.get("loop_count", 0) + 1
-                    state.runtime_context["loop_count"] = loop_count
-                else:
-                    state.runtime_context["loop_count"] = 0
-
-       
-            if state.runtime_context.get("loop_count", 0) > 2:
+            # ── Per-node loop_limit enforcement ───────────────────────
+            visit_counts = state.runtime_context.setdefault("node_visit_counts", {})
+            visit_counts[current_node_id] = visit_counts.get(current_node_id, 0) + 1
+            loop_limit = (node.get("config") or {}).get("loop_limit", 3)
+            if visit_counts[current_node_id] > loop_limit:
+                logger.warning(
+                    "⛔ Node '%s' exceeded loop_limit (%d/%d) — stopping execution",
+                    current_node_id, visit_counts[current_node_id], loop_limit,
+                )
                 self.tracer.trace(
                     db,
                     conversation_id=conversation.id,
                     flow_id=flow.id,
                     node_id=current_node_id,
-                    event_type="loop_break",
+                    event_type="loop_limit_reached",
                     status="stopped",
-                    error_message="Pattern loop detected",
+                    error_message=f"Node visited {visit_counts[current_node_id]} times, limit is {loop_limit}",
                 )
-
-                await self._queue_outbound_message(
-                    db=db,
-                    conversation_id=conversation.id,
-                    to_number=conversation.phone,
-                    body="Hmm looks like we're going in circles 😅 Let me help you better.",
-                    metadata={"source": "loop_guard"},
-                    msg_sequence=msg_sequence,
-                    execution_token=execution_token,
-                )
-
-                return
-
-            state.current_node_id = current_node_id
-            node = nodes.get(current_node_id)
-            if not node:
+                state.current_node_id = None
                 return
 
             # ── Delay handling ────────────────────────────────────────────
@@ -784,18 +870,47 @@ class FlowServiceV2:
                 node_delay_seconds = delay_amount
 
             if node_delay_seconds > 0 and not skip_delay:
-                logger.info(f"⏳ Node '{current_node_id}' delaying {node_delay_seconds}s → Celery")
                 self._persist_state(db, state)
-                from app.workers.flow_execution import resume_flow_node
-                resume_flow_node.apply_async(
-                    kwargs={
-                        "conversation_id": str(conversation.id),
-                        "node_id": current_node_id,
-                        "inbound_text": inbound_text,
-                        "msg_sequence_val": msg_sequence[0],
-                    },
-                    countdown=node_delay_seconds,
-                )
+
+                # ── Short delay (<30 min): Celery countdown (in-memory, fast)
+                # ── Long delay (>=30 min): DB-persisted (survives restarts)
+                _SHORT_DELAY_THRESHOLD = 1800  # 30 minutes in seconds
+
+                if node_delay_seconds < _SHORT_DELAY_THRESHOLD:
+                    logger.info(
+                        f"⏳ Node '{current_node_id}' short delay {node_delay_seconds}s → Celery countdown"
+                    )
+                    from app.workers.flow_execution import resume_flow_node
+                    resume_flow_node.apply_async(
+                        kwargs={
+                            "conversation_id": str(conversation.id),
+                            "node_id": current_node_id,
+                            "inbound_text": inbound_text,
+                            "msg_sequence_val": msg_sequence[0],
+                        },
+                        countdown=node_delay_seconds,
+                    )
+                else:
+                    logger.info(
+                        f"⏳ Node '{current_node_id}' long delay {node_delay_seconds}s → DB scheduled_resumes"
+                    )
+                    from app.models.scheduled_resume import ScheduledResume
+                    run_at = datetime.now(timezone.utc) + timedelta(seconds=node_delay_seconds)
+                    sr = ScheduledResume(
+                        conversation_id=conversation.id,
+                        node_id=current_node_id,
+                        inbound_text=inbound_text,
+                        msg_sequence_val=msg_sequence[0],
+                        flow_id=state.active_flow_id,
+                        run_at=run_at,
+                        status="pending",
+                    )
+                    db.add(sr)
+                    db.commit()
+                    logger.info(
+                        "Scheduled resume persisted | conversation=%s node=%s run_at=%s id=%s",
+                        conversation.id, current_node_id, run_at.isoformat(), sr.id,
+                    )
                 return
 
             started_at = time.perf_counter()
@@ -814,11 +929,11 @@ class FlowServiceV2:
                         db=db,
                         conversation=conversation,
                         flow=flow,
-                        state=state,
                         node=node,
                         inbound_text=inbound_text,
                         msg_sequence=msg_sequence,
                         execution_token=execution_token,
+                        state=state  
                     )
                 except Exception as node_exc:
                     #  Never silently stop — always reply
@@ -826,6 +941,7 @@ class FlowServiceV2:
                         "❌ Node '%s' in flow '%s' raised: %s",
                         current_node_id, flow.id, node_exc,
                     )
+                    executed = state.runtime_context.get("executed_nodes", [])
                     self.tracer.trace(
                         db,
                         conversation_id=conversation.id,
@@ -834,7 +950,7 @@ class FlowServiceV2:
                         event_type="error",
                         status="failed",
                         error_message=str(node_exc),
-                        metadata={"node_label": node.get("label")},
+                        metadata={"node_label": node.get("label"), "executed_nodes": executed},
                     )
  
                     #  Check for an explicit "error" branch edge first
@@ -864,6 +980,7 @@ class FlowServiceV2:
                             metadata={"source": "node_error_fallback", "node_id": current_node_id},
                             msg_sequence=msg_sequence,
                             execution_token=execution_token,
+                             state=state
                         )
                         return
  
@@ -877,6 +994,8 @@ class FlowServiceV2:
                     duration_ms=duration_ms,
                     metadata={"action_type": config.get("type")},
                 )
+                # Track successfully executed nodes for partial-execution visibility
+                state.runtime_context.setdefault("executed_nodes", []).append(current_node_id)
                 if stop_execution:
                     return
 
@@ -953,21 +1072,13 @@ class FlowServiceV2:
                     metadata={"source": "brain_query", "node_id": node.get("id")},
                     msg_sequence=msg_sequence,
                     execution_token=execution_token,
+                        state=state
                 )
             else:
-                # ── FALLBACK: never silently stop ──────────────────────────
-                fallback = config.get("fallback_message") or FLOW_FALLBACK_MESSAGE
+                # User requested: DO NOT send fallback message when no data is found.
+                # Just proceed to the next node silently.
                 logger.warning(
-                    f"⚠️ brain_query returned NOT_FOUND for node {node.get('id')} — sending fallback"
-                )
-                await self._queue_outbound_message(
-                    db=db,
-                    conversation_id=conversation.id,
-                    to_number=conversation.phone,
-                    body=fallback,
-                    metadata={"source": "brain_query_fallback", "node_id": node.get("id")},
-                    msg_sequence=msg_sequence,
-                    execution_token=execution_token,
+                    f"⚠️ brain_query returned NOT_FOUND for node {node.get('id')} — skipping fallback and continuing to next node"
                 )
             return False
 
@@ -1050,6 +1161,7 @@ class FlowServiceV2:
                 metadata={"source": "ask_question", "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
                 execution_token=execution_token,
+                    state=state
             )
             logger.info(f"❓ Ask question sent. Waiting for reply → context['{variable_name}']")
 
@@ -1099,23 +1211,58 @@ class FlowServiceV2:
 
         # ── Media messages ────────────────────────────────────────────────
         if message_type in {"image", "video", "document"}:
-            media_url = config.get("media_url", "")
+            media_url = (config.get("media_url") or "").strip()
             caption = config.get("text", "")
-            if media_url:
+
+            # Validate media_url before queueing
+            media_error = self._validate_media_url(media_url, message_type)
+            if media_error:
+                logger.warning(
+                    "⚠️ Media validation failed for node %s: %s | url=%s type=%s",
+                    node.get("id"), media_error, media_url, message_type,
+                )
+                self.tracer.trace(
+                    db,
+                    conversation_id=conversation.id,
+                    flow_id=flow.id,
+                    node_id=node.get("id"),
+                    event_type="media_validation_failed",
+                    status="skipped",
+                    error_message=media_error,
+                    metadata={"media_url": media_url, "message_type": message_type},
+                )
+                # Send fallback text so the user isn't left hanging
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
                     to_number=conversation.phone,
-                    body=caption or media_url,
+                    body=caption or "Media could not be delivered.",
                     metadata={
-                        "source": "media_message",
+                        "source": "media_fallback",
                         "node_id": node.get("id"),
-                        "media_url": media_url,
-                        "message_type": message_type,
+                        "error": media_error,
                     },
                     msg_sequence=msg_sequence,
                     execution_token=execution_token,
+                    state=state,
                 )
+                return False
+
+            await self._queue_outbound_message(
+                db=db,
+                conversation_id=conversation.id,
+                to_number=conversation.phone,
+                body=caption or '',
+                metadata={
+                    "source": "media_message",
+                    "node_id": node.get("id"),
+                    "media_url": media_url,
+                    "message_type": message_type,
+                },
+                msg_sequence=msg_sequence,
+                execution_token=execution_token,
+                state=state,
+            )
             return False
 
         # ── Button message ────────────────────────────────────────────────
@@ -1137,6 +1284,7 @@ class FlowServiceV2:
                     },
                     msg_sequence=msg_sequence,
                     execution_token=execution_token,
+                        state=state
                 )
             state.pending_button = {"node_id": node.get("id"), "buttons": buttons, "mode": mode}
             state.button_expires_at = datetime.now(timezone.utc) + timedelta(
@@ -1178,6 +1326,10 @@ class FlowServiceV2:
                 outbound_text = ai_response
             elif ai_response != "Not Found" and mode == "hybrid" and not outbound_text:
                 outbound_text = ai_response
+            elif ai_response == "Not Found" and mode == "ai":
+                # Ensure we don't send any configured placeholder/fallback message
+                # and just proceed silently to the next node
+                outbound_text = ""
 
         if outbound_text:
             logger.info("🚀 Queuing outbound message!")
@@ -1189,6 +1341,7 @@ class FlowServiceV2:
                 metadata={"source": mode, "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
                 execution_token=execution_token,
+                    state=state
             )
         return False
 
@@ -1206,6 +1359,7 @@ class FlowServiceV2:
         metadata: Optional[Dict[str, Any]] = None,
         msg_sequence: Optional[List[int]],
         execution_token: Optional[str] = None,
+        state: FlowExecutionState 
     ) -> None:
         """Insert message into the outbound_messages outbox.
 
@@ -1214,11 +1368,9 @@ class FlowServiceV2:
         If there is no in_progress message, the new row is dispatched
         immediately via send_next_pending_message.
         """
-        from app.workers.flow_execution import send_next_pending_message  # avoids circular import
-
         metadata = metadata or {}
         self._refresh_execution_slot(db, conversation_id, execution_token)
-
+       
         # ── Compute monotonic sequence under row-lock ──────────────────────
         existing = (
             db.query(OutboundMessage)
@@ -1236,6 +1388,7 @@ class FlowServiceV2:
             metadata_json=metadata,
             status="pending",
             sequence=next_seq,
+            flow_id=state.active_flow_id
         )
         db.add(msg)
         db.commit()
@@ -1253,17 +1406,9 @@ class FlowServiceV2:
             msg.id,
         )
 
+
         # ── Kick off delivery if nothing is in-progress ────────────────────
-        in_progress = (
-            db.query(OutboundMessage)
-            .filter(
-                OutboundMessage.conversation_id == conversation_id,
-                OutboundMessage.status == "in_progress",
-            )
-            .first()
-        )
-        if not in_progress:
-            send_next_pending_message.delay(str(conversation_id))
+        #  ALWAYS trigger dispatcher
 
     # ─────────────────────────────────────────────────────────────────────────
     # AI RESPONSE
@@ -1401,6 +1546,82 @@ class FlowServiceV2:
     # HELPERS
     # ─────────────────────────────────────────────────────────────────────────
 
+    # Allowed file extensions per media type
+    _MEDIA_EXTENSIONS: Dict[str, set] = {
+        "image": {".jpg", ".jpeg", ".png"},
+        "video": {".mp4"},
+        "document": {".pdf"},
+    }
+
+    # Expected Content-Type prefixes for HEAD validation
+    _MEDIA_CONTENT_TYPES: Dict[str, str] = {
+        "image": "image/",
+        "video": "video/",
+        "document": "application/pdf",
+    }
+
+    def _validate_media_url(
+        self, media_url: str, message_type: str
+    ) -> Optional[str]:
+        """Validate a media URL against the declared message_type.
+
+        Returns an error string if invalid, or None if valid.
+        """
+        if not media_url:
+            return "media_url is empty"
+
+        # Basic URL structure check
+        parsed = urlparse(media_url)
+        if parsed.scheme not in ("http", "https"):
+            return f"media_url has invalid scheme: {parsed.scheme!r}"
+        if not parsed.netloc:
+            return "media_url is missing a hostname"
+
+        # File extension check
+        allowed = self._MEDIA_EXTENSIONS.get(message_type)
+        if allowed:
+            # Strip query params / fragments from the path before checking ext
+            path_lower = parsed.path.lower()
+            if not any(path_lower.endswith(ext) for ext in allowed):
+                return (
+                    f"media_url extension does not match type '{message_type}'. "
+                    f"Expected one of: {', '.join(sorted(allowed))}"
+                )
+
+        return None  # valid
+
+    @staticmethod
+    def _head_check_media_url(
+        media_url: str, message_type: str, timeout: float = 5.0
+    ) -> Optional[str]:
+        """Optional HTTP HEAD check to verify Content-Type.
+
+        Returns an error string if the Content-Type doesn't match, or None.
+        Failures are non-fatal — returns None on network errors so delivery
+        can still be attempted.
+        """
+        import httpx
+
+        expected_prefix = FlowServiceV2._MEDIA_CONTENT_TYPES.get(message_type)
+        if not expected_prefix:
+            return None
+
+        try:
+            resp = httpx.head(media_url, timeout=timeout, follow_redirects=True)
+            content_type = (resp.headers.get("content-type") or "").lower()
+            if not content_type.startswith(expected_prefix):
+                return (
+                    f"Content-Type mismatch: expected '{expected_prefix}*', "
+                    f"got '{content_type}'"
+                )
+        except Exception as exc:
+            logger.warning(
+                "HEAD check failed for %s (non-fatal): %s", media_url, exc
+            )
+
+        return None  # pass or inconclusive
+
+
     def _safe_json(self, value: str) -> Optional[Dict[str, Any]]:
         try:
             start = value.find("{")
@@ -1412,11 +1633,17 @@ class FlowServiceV2:
             return None
 
     def _normalize_buttons(self, buttons: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
+        """Normalize button configs for outbound message metadata.
+
+        ``value`` doubles as the edge ``sourceHandle`` key used by the
+        button-routing logic.  ``target`` from config is kept only as a
+        fallback — the edge graph is the primary routing source.
+        """
         return [
             {
                 "label": b.get("label") or "",
                 "value": b.get("value") or b.get("label") or "",
-                "target": b.get("target"),
+                "target": b.get("target"),  # fallback only; prefer edge lookup
             }
             for b in buttons[:3]
         ]

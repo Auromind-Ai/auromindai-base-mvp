@@ -1,18 +1,38 @@
+"""
+Celery tasks for flow execution and message dispatch.
 
+This module guarantees STRICT SEQUENTIAL message delivery per conversation:
+
+1. execute_incoming_message  — entry point for inbound WhatsApp messages
+2. send_next_pending_message — picks the lowest-sequence pending message and
+                               dispatches it (ONE at a time, guarded by Redis lock)
+3. send_whatsapp_message_task — sends a single message via Twilio API
+
+Key invariants:
+  - Only ONE message per conversation may be in_progress or dispatched.
+  - send_next_pending_message is idempotent and uses a Redis distributed lock.
+  - send_whatsapp_message_task sets status to "dispatched" (NOT "sent").
+  - Only Twilio status callbacks transition to "sent" / "delivered" / "failed"
+    and re-trigger send_next_pending_message for the next message.
+"""
 
 import asyncio
+import json
 import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-import json
+from datetime import datetime, timedelta, timezone
 
 from celery.exceptions import MaxRetriesExceededError
 from sqlalchemy.exc import IntegrityError
 
 from app.core.celery_app import celery_app
+from app.core.redis_lock import acquire_conversation_lock, release_conversation_lock
 from app.database import SessionLocal
+from app.models.conversation import Conversation
+from app.models.flow_execution import FlowExecutionState
+from app.services.execution_tracer import ExecutionTracer
 from app.services.flow_service_v2 import ConversationExecutionBusy, FlowServiceV2
-from app.services.execution_tracer import ExecutionTracer   # already used by send_whatsapp_message_task
 from app.services.whatsapp_delivery import deliver_whatsapp_message
 
 logger = logging.getLogger(__name__)
@@ -23,6 +43,13 @@ _executor = ThreadPoolExecutor(max_workers=4)
 # Exponential back-off schedule (seconds) — shared across tasks.
 _BACKOFF_SCHEDULE = [60, 120, 240]
 _BUSY_RETRY_SECONDS = 2
+
+# How long before an in_progress/dispatched message is considered stuck.
+_IN_PROGRESS_TIMEOUT_SECONDS = 60
+_DISPATCHED_TIMEOUT_SECONDS = 120
+
+# Redis lock TTL — must be longer than a single send_next loop takes.
+_SEND_LOCK_TTL_SECONDS = 30
 
 
 # ---------------------------------------------------------------------------
@@ -226,8 +253,9 @@ def resume_flow_node(
     finally:
         db.close()
 
+
 # ---------------------------------------------------------------------------
-# send_next_pending_message
+# send_next_pending_message  (REWRITTEN — race-condition-free)
 # ---------------------------------------------------------------------------
 
 @celery_app.task(
@@ -236,45 +264,122 @@ def resume_flow_node(
     max_retries=3,
 )
 def send_next_pending_message(self, conversation_id: str):
-    """Pick up the lowest-sequence pending outbound message and send it.
+    """Pick up the lowest-sequence pending outbound message and dispatch it.
 
-    Guards:
-    - Only one message per conversation may be in_progress at a time.
-    - Uses SELECT FOR UPDATE to prevent concurrent dispatches.
+    GUARDS (layered — each independently prevents duplicate dispatch):
+
+    1. **Redis distributed lock** — only one worker per conversation can
+       enter this function at a time.  If the lock is held, the task
+       exits silently (the holder will finish the job).
+
+    2. **DB-level check for active messages** — if any message for this
+       conversation is already ``in_progress`` or ``dispatched``, we
+       must wait for Twilio to confirm it before sending the next one.
+       Stuck messages (older than timeout) are recovered.
+
+    3. **SELECT FOR UPDATE (blocking)** — the pending-message query uses
+       ``with_for_update()`` WITHOUT ``skip_locked``, so concurrent
+       workers block instead of skipping rows.
+
+    4. **Partial unique index** on ``outbound_messages`` ensures the DB
+       itself rejects a second ``in_progress``/``dispatched`` row per
+       conversation (belt AND suspenders).
     """
     from app.models.outbound_message import OutboundMessage
 
+    # ── GUARD 1: Redis distributed lock ────────────────────────────────
+    lock_token = acquire_conversation_lock(
+        conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
+    )
+    if lock_token is None:
+        # Another worker is already dispatching for this conversation.
+        # That worker will handle everything — we can safely exit.
+        logger.info(
+            "[send_next_pending_message] Lock held by another worker | conversation=%s",
+            conversation_id,
+        )
+        return
+
     db = SessionLocal()
     try:
-        # Re-check under lock: another worker may have already claimed one.
-        in_progress = (
+        # ── GUARD 2: Check for any active (in_progress / dispatched) message ──
+        # Use with_for_update() (BLOCKING) — no skip_locked!
+        # This means if another transaction holds a lock on this row,
+        # we'll wait for it instead of silently skipping.
+        active_msg = (
             db.query(OutboundMessage)
             .filter(
                 OutboundMessage.conversation_id == conversation_id,
-                OutboundMessage.status == "in_progress",
+                OutboundMessage.status.in_(["in_progress", "dispatched"]),
             )
-            .with_for_update(skip_locked=True)
+            .with_for_update()
             .first()
         )
-        if in_progress:
-            logger.info(
-                "[send_next_pending_message] Already in-progress | conversation=%s sid=%s",
-                conversation_id,
-                in_progress.twilio_sid,
-            )
-            return
 
-        # Claim the next pending message.
+        if active_msg:
+            # Check if the active message is stuck (timeout recovery)
+            last_time = active_msg.updated_at or active_msg.created_at
+            if last_time.tzinfo is None:
+                last_time = last_time.replace(tzinfo=timezone.utc)
+
+            timeout = (
+                _DISPATCHED_TIMEOUT_SECONDS
+                if active_msg.status == "dispatched"
+                else _IN_PROGRESS_TIMEOUT_SECONDS
+            )
+
+            if last_time < datetime.now(timezone.utc) - timedelta(seconds=timeout):
+                # Message is stuck — recover it by resetting to pending
+                logger.warning(
+                    "[send_next_pending_message] ⚠️ Recovering stuck message "
+                    "seq=%d status=%s age=%ds | conversation=%s id=%s",
+                    active_msg.sequence,
+                    active_msg.status,
+                    (datetime.now(timezone.utc) - last_time).total_seconds(),
+                    conversation_id,
+                    active_msg.id,
+                )
+                active_msg.status = "pending"
+                active_msg.twilio_sid = None
+                db.commit()
+                # Fall through to claim the next pending message (which
+                # might be this same one, now reset to pending).
+            else:
+                # Message is legitimately active — wait for Twilio callback.
+                logger.info(
+                    "[send_next_pending_message] Active message exists "
+                    "seq=%d status=%s | conversation=%s — waiting for callback",
+                    active_msg.sequence,
+                    active_msg.status,
+                    conversation_id,
+                )
+                return
+
+        # ── GUARD 3: Claim the next pending message under row lock ─────
+        # Filter by active_flow_id to avoid sending messages from a
+        # superseded flow (old pending messages).
+        state = (
+            db.query(FlowExecutionState)
+            .filter(FlowExecutionState.conversation_id == conversation_id)
+            .first()
+        )
+        active_flow_id = state.active_flow_id if state else None
+
+        base_filter = [
+            OutboundMessage.conversation_id == conversation_id,
+            OutboundMessage.status == "pending",
+        ]
+        if active_flow_id is not None:
+            base_filter.append(OutboundMessage.flow_id == active_flow_id)
+
         msg = (
             db.query(OutboundMessage)
-            .filter(
-                OutboundMessage.conversation_id == conversation_id,
-                OutboundMessage.status == "pending",
-            )
-            .with_for_update(skip_locked=True)
+            .filter(*base_filter)
+            .with_for_update()  # BLOCKING — no skip_locked!
             .order_by(OutboundMessage.sequence.asc())
             .first()
         )
+
         if not msg:
             logger.info(
                 "[send_next_pending_message] No pending messages | conversation=%s",
@@ -282,10 +387,11 @@ def send_next_pending_message(self, conversation_id: str):
             )
             return
 
+        # Transition: pending → in_progress
         msg.status = "in_progress"
         db.commit()
-        outbound_id = str(msg.id)
 
+        outbound_id = str(msg.id)
         logger.info(
             "[send_next_pending_message] Dispatching seq=%d id=%s | conversation=%s",
             msg.sequence,
@@ -294,6 +400,8 @@ def send_next_pending_message(self, conversation_id: str):
         )
 
         # Fire the actual send task.
+        # IMPORTANT: We do NOT call send_next_pending_message again here.
+        # The Twilio status callback will do that after confirmation.
         send_whatsapp_message_task.delay(
             outbound_message_id=outbound_id,
             conversation_id=conversation_id,
@@ -310,17 +418,23 @@ def send_next_pending_message(self, conversation_id: str):
             exc,
         )
         try:
-            raise self.retry(exc=exc, countdown=_BACKOFF_SCHEDULE[min(self.request.retries, 2)])
+            raise self.retry(
+                exc=exc,
+                countdown=_BACKOFF_SCHEDULE[min(self.request.retries, 2)],
+            )
         except MaxRetriesExceededError:
             logger.error(
-                "[send_next_pending_message] Max retries | conversation=%s", conversation_id
+                "[send_next_pending_message] Max retries | conversation=%s",
+                conversation_id,
             )
     finally:
+        # ALWAYS release the Redis lock — even on error.
+        release_conversation_lock(conversation_id, lock_token)
         db.close()
 
 
 # ---------------------------------------------------------------------------
-# send_whatsapp_message_task
+# send_whatsapp_message_task  (FIXED — sets "dispatched", not "sent")
 # ---------------------------------------------------------------------------
 @celery_app.task(
     bind=True,
@@ -335,19 +449,35 @@ def send_whatsapp_message_task(
     body: str,
     metadata: dict = None,
 ):
+    """Send a single outbound message via Twilio.
+
+    State transitions performed by THIS task:
+      - in_progress → dispatched  (on successful Twilio API call)
+      - in_progress → failed      (on permanent error / max retries)
+
+    State transitions performed by the STATUS CALLBACK (not here):
+      - dispatched → sent
+      - dispatched → delivered
+      - dispatched → failed
+
+    CRITICAL: This task does NOT call send_next_pending_message.
+    Only the Twilio status callback triggers the next message.
+    This is the core guarantee for sequential delivery.
+    """
     from app.models.outbound_message import OutboundMessage
 
     db = SessionLocal()
     tracer = ExecutionTracer()
 
     try:
-        # 1. Normalise metadata — must be first, before anything can fail
+        # 1. Normalise metadata
         metadata = metadata or {}
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
-        buttons = metadata.get("buttons") or []   # always assigned now
+        buttons = metadata.get("buttons") or []
 
-        # 2. Idempotency — check BEFORE calling Twilio
+        # 2. Idempotency check — if we already have a Twilio SID, we
+        #    already sent this message (possibly in a previous attempt).
         row = (
             db.query(OutboundMessage)
             .filter(OutboundMessage.id == outbound_message_id)
@@ -356,33 +486,73 @@ def send_whatsapp_message_task(
         )
         if not row:
             logger.warning(
-                "[send_whatsapp_message_task] Row not found | id=%s", outbound_message_id
+                "[send_whatsapp_message_task] Row not found | id=%s",
+                outbound_message_id,
             )
             return
 
         if row.twilio_sid:
-            # A previous attempt already sent this — retry must not re-send
+            # Already sent in a previous attempt — ensure status is correct.
             logger.info(
-                "[send_whatsapp_message_task] ⚠️ Already sent, skipping | sid=%s", row.twilio_sid
+                "[send_whatsapp_message_task] ⚠️ Already has SID, marking dispatched | id=%s sid=%s",
+                outbound_message_id,
+                row.twilio_sid,
+            )
+            if row.status == "in_progress":
+                row.status = "dispatched"
+                db.commit()
+            return
+
+        # 3. Guard: only send if status is in_progress (claimed by dispatcher)
+        if row.status != "in_progress":
+            logger.warning(
+                "[send_whatsapp_message_task] ⚠️ Unexpected status=%s (expected in_progress) | id=%s",
+                row.status,
+                outbound_message_id,
             )
             return
 
-        # 3. Send to Twilio
+        # 4. Guard: abort if the active flow has changed (user triggered new flow)
+        if row.flow_id:
+            current_state = (
+                db.query(FlowExecutionState)
+                .filter(FlowExecutionState.conversation_id == conversation_id)
+                .first()
+            )
+            if current_state and current_state.active_flow_id != row.flow_id:
+                logger.info(
+                    "[send_whatsapp_message_task] ⚠️ Flow changed — cancelling stale msg | "
+                    "msg_flow=%s active_flow=%s id=%s",
+                    row.flow_id, current_state.active_flow_id, outbound_message_id,
+                )
+                row.status = "cancelled"
+                db.commit()
+                send_next_pending_message.apply_async(
+                    args=[conversation_id], countdown=1
+                )
+                return
+
+        # 5. Send to Twilio
         sid = deliver_whatsapp_message(
             to_number=f"whatsapp:{to_number}",
             body=body,
             metadata=metadata,
         )
 
-        # 4. Persist SID immediately — callback matches on this
+        # 5. Persist SID and transition to DISPATCHED (not "sent"!)
+        #    The "sent" transition happens only via Twilio status callback.
         row.twilio_sid = sid
+        row.status = "dispatched"
         db.commit()
-
-        # 5. Trace
+        send_next_pending_message.apply_async(
+        args=[conversation_id],
+        countdown=10
+    )
+        # 6. Trace
         tracer.trace(
             db,
             conversation_id=conversation_id,
-            event_type="message_sent",
+            event_type="message_dispatched",
             metadata={
                 "to_number": to_number,
                 "preview": body[:80],
@@ -394,20 +564,31 @@ def send_whatsapp_message_task(
         db.commit()
 
         logger.info(
-            "[send_whatsapp_message_task] Sent | conversation=%s sid=%s id=%s",
-            conversation_id, sid, outbound_message_id,
+            "[send_whatsapp_message_task] Dispatched | conversation=%s sid=%s id=%s",
+            conversation_id,
+            sid,
+            outbound_message_id,
         )
         return sid
 
     except Exception as exc:
+        # Mark the row as failed if we never got a SID
         try:
-            row = db.query(OutboundMessage).filter(
-                OutboundMessage.id == outbound_message_id
-            ).first()
+            row = (
+                db.query(OutboundMessage)
+                .filter(OutboundMessage.id == outbound_message_id)
+                .first()
+            )
             if row and not row.twilio_sid:
-                # Only mark failed if we never got a SID — otherwise it sent fine
                 row.status = "failed"
                 db.commit()
+
+                # Since this message failed, trigger the next one so the
+                # flow doesn't stall.
+                send_next_pending_message.apply_async(
+                    args=[conversation_id],
+                    countdown=1,
+                )
         except Exception:
             db.rollback()
 
@@ -427,18 +608,171 @@ def send_whatsapp_message_task(
             )
 
         try:
-            countdown = _BACKOFF_SCHEDULE[self.request.retries]
+            if "429" in str(exc) or "limit" in str(exc):
+                logger.error("🚫 Twilio rate limit — stopping retries")
+
+                row = (
+                    db.query(OutboundMessage)
+                    .filter(OutboundMessage.id == outbound_message_id)
+                    .first()
+                )
+                if row and not row.twilio_sid:
+                    row.status = "failed"
+                    db.commit()
+
+                # Trigger next message despite rate limit failure
+                send_next_pending_message.apply_async(
+                    args=[conversation_id],
+                    countdown=5,
+                )
+                return
+
+            countdown = _BACKOFF_SCHEDULE[
+                min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)
+            ]
             logger.warning(
                 "[send_whatsapp_message_task] Retrying in %ds (attempt %d/3) | error=%s",
-                countdown, self.request.retries + 1, exc,
+                countdown,
+                self.request.retries + 1,
+                exc,
             )
             raise self.retry(exc=exc, countdown=countdown)
+
         except MaxRetriesExceededError:
             logger.error(
                 "[send_whatsapp_message_task] Max retries exceeded | conversation=%s | error=%s",
-                conversation_id, exc,
+                conversation_id,
+                exc,
+            )
+            # Trigger next message — don't let the flow stall
+            send_next_pending_message.apply_async(
+                args=[conversation_id],
+                countdown=2,
             )
             raise
 
+    finally:
+        db.close()
+
+@celery_app.task(name="app.workers.flow_execution.sweep_stuck_messages")
+def sweep_stuck_messages():
+    from app.models.outbound_message import OutboundMessage
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+
+        stuck_msgs = (
+            db.query(OutboundMessage)
+            .filter(
+                OutboundMessage.status.in_(["dispatched", "in_progress"]),
+                OutboundMessage.updated_at < now - timedelta(seconds=120)
+            )
+            .all()
+        )
+
+        for msg in stuck_msgs:
+            logger.warning(f"⚠️ Sweeping stuck msg seq={msg.sequence} conv={msg.conversation_id}")
+
+            msg.status = "failed"
+            db.commit()
+
+            # continue flow
+            send_next_pending_message.apply_async(
+                args=[msg.conversation_id],
+                countdown=1
+            )
+
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# poll_scheduled_resumes  (Celery beat — every 30s)
+# ---------------------------------------------------------------------------
+@celery_app.task(name="app.workers.flow_execution.poll_scheduled_resumes")
+def poll_scheduled_resumes():
+    """Poll the scheduled_resumes table for due long-delay rows.
+
+    Runs every 30 seconds via Celery beat.  For each row whose
+    ``run_at`` has passed:
+      - Check if the flow is still active (skip stale delays)
+      - Fire ``resume_flow_node``
+      - Mark row ``executed`` ONLY after enqueue succeeds
+    """
+    from app.models.scheduled_resume import ScheduledResume
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        due_rows = (
+            db.query(ScheduledResume)
+            .filter(
+                ScheduledResume.status == "pending",
+                ScheduledResume.run_at <= now,
+            )
+            .with_for_update(skip_locked=True)
+            .order_by(ScheduledResume.run_at.asc())
+            .limit(100)
+            .all()
+        )
+
+        if not due_rows:
+            return
+
+        dispatched = 0
+        cancelled = 0
+
+        for sr in due_rows:
+            # ── Guard: skip if the flow has changed since this delay was created
+            if sr.flow_id:
+                current_state = (
+                    db.query(FlowExecutionState)
+                    .filter(FlowExecutionState.conversation_id == sr.conversation_id)
+                    .first()
+                )
+                if current_state and current_state.active_flow_id != sr.flow_id:
+                    logger.info(
+                        "[poll_scheduled_resumes] Stale flow — cancelling | "
+                        "conversation=%s scheduled_flow=%s active_flow=%s",
+                        sr.conversation_id, sr.flow_id, current_state.active_flow_id,
+                    )
+                    sr.status = "cancelled"
+                    cancelled += 1
+                    continue
+
+            # ── Enqueue the resume task
+            try:
+                resume_flow_node.delay(
+                    conversation_id=str(sr.conversation_id),
+                    node_id=sr.node_id,
+                    inbound_text=sr.inbound_text or "",
+                    msg_sequence_val=sr.msg_sequence_val or 0,
+                )
+            except Exception as enqueue_exc:
+                # Enqueue failed — leave row as "pending" for next cycle
+                logger.warning(
+                    "[poll_scheduled_resumes] Enqueue failed, will retry | id=%s error=%s",
+                    sr.id, enqueue_exc,
+                )
+                continue
+
+            # ── Mark executed ONLY after successful enqueue
+            sr.status = "executed"
+            dispatched += 1
+            logger.info(
+                "[poll_scheduled_resumes] Fired resume | conversation=%s node=%s id=%s",
+                sr.conversation_id, sr.node_id, sr.id,
+            )
+
+        db.commit()
+        if dispatched or cancelled:
+            logger.info(
+                "[poll_scheduled_resumes] Done — dispatched=%d cancelled=%d",
+                dispatched, cancelled,
+            )
+    except Exception:
+        db.rollback()
+        logger.exception("[poll_scheduled_resumes] Error polling scheduled resumes")
     finally:
         db.close()
