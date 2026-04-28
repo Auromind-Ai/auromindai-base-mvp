@@ -14,42 +14,6 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-function Navbar() {
-  return (
-    <nav className="relative z-50 flex items-center justify-between px-4 md:px-6 lg:px-8 py-5 md:px-12 xl:px-16">
-      <div className="flex items-center gap-3 select-none">
-        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 via-blue-500 to-fuchsia-500 shadow-[0_0_18px_rgba(147,51,234,0.75)]" />
-        <span className="text-lg font-semibold tracking-tight text-white">
-          Astralis
-        </span>
-      </div>
-
-      <ul className="hidden items-center gap-8 text-sm font-medium text-white/50 lg:flex">
-        {["Product", "Solutions", "Pricing", "Docs", "Blog"].map((item) => (
-          <li key={item}>
-            <a
-              href="#"
-              className="transition-colors duration-300 hover:text-white"
-            >
-              {item}
-            </a>
-          </li>
-        ))}
-      </ul>
-
-      <div className="flex items-center gap-3">
-        <button className="hidden text-sm text-white/60 transition-colors hover:text-white md:block">
-          Sign in
-        </button>
-
-        <button className="rounded-full border border-white/10 bg-white/5 px-5 py-2 text-sm text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10">
-          Get started
-        </button>
-      </div>
-    </nav>
-  );
-}
-
 function AnimatedText({ text, delay = 0 }) {
   return (
     <>
@@ -102,8 +66,6 @@ export default function HeroSectionNew() {
 
       {showContent && (
         <>
-
-      <Navbar />
 
       <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center">
         <motion.div
