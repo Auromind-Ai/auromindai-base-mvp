@@ -30,6 +30,10 @@ const ManageChatsSection = dynamic(
   { ssr: false }
 );
 
+const GirlViewer = dynamic(() => import('@/components/GirlViewer'), {
+  ssr: false,
+});
+
 const Lanyard = dynamic(() => import('../components/LandingPageNew/HowItWorksNewSection/Lanyard'), { ssr: false });
 
 const NeuroHero = dynamic(
@@ -90,7 +94,9 @@ export default function LandingPage() {
           {/* <PlatformTabsSection /> */}
           <HowItWorks />
 
-          <Lanyard />
+          {/* <Lanyard /> */}
+
+          {/* <GirlViewer /> */}
           
           <PricingSectionNew />
           <TestimonialsSection />
