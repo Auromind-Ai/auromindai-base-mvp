@@ -44,7 +44,7 @@ async function main() {
         },
     });
 
-    console.log('✅ Admin user and workspace seeded!');
+    console.log('Admin user and workspace seeded!');
 }
 
 main()

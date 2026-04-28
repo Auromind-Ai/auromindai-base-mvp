@@ -4,21 +4,18 @@ import { useState, useEffect } from "react"
 import { Coins, TrendingUp, Calendar } from "lucide-react"
 import api from "@/lib/api"
 
-const PLAN_LIMITS = {
-  starter: 100000,
-  professional: 500000,
-  enterprise: 2000000
-}
+
 
 export default function TokenUsagePage() {
-
+  const [pricing, setPricing] = useState({})
   const [tokens, setTokens] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   // Remove number input arrows
   useEffect(() => {
-
+      fetchTokens()
+      fetchPricing()
     const style = document.createElement("style")
 
     style.innerHTML = `
@@ -41,6 +38,15 @@ export default function TokenUsagePage() {
 
   }, [])
 
+
+  const fetchPricing = async () => {
+  try {
+    const data = await api.get("/public/pricing")
+    setPricing(data)
+  } catch (err) {
+    console.error("Failed to fetch pricing", err)
+  }
+}
   const fetchTokens = async () => {
 
     try {
@@ -66,10 +72,6 @@ export default function TokenUsagePage() {
 
   }
 
-  useEffect(() => {
-    fetchTokens()
-  }, [])
-
   const updateLimit = async (workspaceId, value) => {
 
     try {
@@ -79,7 +81,7 @@ export default function TokenUsagePage() {
       })
 
       fetchTokens()
-
+      fetchPricing()
     } catch (err) {
 
       console.error("Limit update failed", err)
@@ -211,8 +213,7 @@ export default function TokenUsagePage() {
 
                     {tokens.map((token, index) => {
 
-                      const defaultLimit =
-                        PLAN_LIMITS[token.plan_type] || 100000
+                      const defaultLimit = pricing.token_limit_per_plan?.[token.plan_type] || 100000
 
                       const limit =
                         token.custom_token_limit ?? defaultLimit

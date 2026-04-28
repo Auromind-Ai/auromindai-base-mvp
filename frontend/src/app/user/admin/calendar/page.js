@@ -18,10 +18,10 @@ export default function CalendarPage() {
 
     const checkConnection = async () => {
         try {
-            const token = localStorage.getItem('token`);
+            const token = sessionStorage.getItem('token');
             const response = await fetch(
                 `${API}/integrations/status?workspace_id=${workspace?.id}`,
-                { headers: { `Authorization': `Bearer ${token}` } }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (response.ok) {

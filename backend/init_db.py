@@ -26,7 +26,7 @@ def init_db():
         with engine.connect() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
             conn.commit()
-            print("✅ pgvector extension enabled.")
+            print("pgvector extension enabled.")
     except Exception as e:
         print(f"⚠️  Could not enable pgvector (might require superuser): {e}")
         print("   Continuing with table creation...")
@@ -181,14 +181,14 @@ def init_db():
                     conn.commit()
     
     Base.metadata.create_all(bind=engine)
-    print("✅ Database tables created successfully!")
+    print("Database tables created successfully!")
 
     # Initialize default platform settings
     print("Initializing default platform settings...")
     db = SessionLocal()
     try:
         initialize_default_settings(db)
-        print("✅ Default platform settings initialized!")
+        print("Default platform settings initialized!")
     finally:
         db.close()
 

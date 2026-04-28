@@ -6,7 +6,7 @@ import { Shield, Lock, Loader2, Cpu, ArrowLeft } from 'lucide-react';
 import { setToken, setUser, setWorkspace, isAuthenticated } from '@/lib/auth';
 import Link from 'next/link';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api'; // same-origin proxy
 
 export default function AdminLoginPage() {
     const router = useRouter();

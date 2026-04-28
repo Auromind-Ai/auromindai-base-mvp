@@ -62,7 +62,7 @@ def seed_brain():
             content_type="manual",
             source="seed_script"
         )
-        print(f"✅ Successfully seeded: {result['title']}")
+        print(f"Successfully seeded: {result['title']}")
         print(f"Chunks created: {result['chunks_created']}")
     except Exception as e:
         print(f"❌ Error seeding brain: {e}")

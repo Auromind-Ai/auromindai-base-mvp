@@ -89,8 +89,7 @@ def seed_ztorespot():
             content_type="manual",
             source="user_request"
         )
-
-        print(f"✅ Successfully seeded: {result['title']}")
+        print(f"Successfully seeded: {result['title']}")
         print(f"Chunks created: {result['chunks_created']}")
 
     except Exception as e:

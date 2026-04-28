@@ -499,6 +499,21 @@ class Orchestratorlayer:
                 tool,
                 confidence
             )
+
+        else:
+            # Unrecognised tool — log and fall back to LLM reasoning so the
+            # caller always gets a non-None answer and the UI is never blank.
+            logging.warning(f"agent_loop: unrecognised tool '{tool}' for query: {query!r}")
+            reasoning_output = await run_reasoning(query)
+            if reasoning_output and reasoning_output.strip():
+                res = await self.support.add_followup(query, reasoning_output)
+                return self.mcp.format_response(
+                    res, query, query, "reasoning", compute_confidence(tool="reasoning")
+                )
+            return self.mcp.format_response(
+                "I'm not sure how to answer that. Could you rephrase your question?",
+                query, query, "fallback", 0.1
+            )
         
         #Iterative Retrieval Loop
     async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2):

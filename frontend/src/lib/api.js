@@ -1,12 +1,14 @@
-console.log("API CLIENT VERSION: 1.1.20");
-import { getWorkspaceIdFromToken } from "@/lib/auth"
-const isLocal = typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+console.log("API CLIENT VERSION: 1.1.21");
+import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ||
-  (isLocal ? 'http://localhost:8000' : 'https://auromindai-base-mvp.onrender.com');
+// Always route through the Next.js same-origin proxy (/api/*) when running
+// in the browser. This avoids all CORS issues — the browser only ever talks
+// to the Next.js server (same origin), which forwards to the real backend.
+// For SSR (Node.js), hit the backend directly via the env var.
+const API_BASE_URL = typeof window !== 'undefined'
+  ? '/api'                                        // browser  → same-origin proxy
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'); // SSR
 
-console.log("Hostname:", typeof window !== 'undefined' ? window.location.hostname : 'node');
 console.log("Selected API_BASE_URL:", API_BASE_URL);
 
 class APIClient {
@@ -18,9 +20,9 @@ class APIClient {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const isPostOrPut = options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH';
-
+    const { signal: optSignal, ...restOptions } = options;
     const config = {
-      ...options,
+      ...restOptions,
       headers: {
         ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
         'ngrok-skip-browser-warning': 'true',
@@ -30,26 +32,44 @@ class APIClient {
 
     // Add auth token if available
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-    config.signal = controller.signal;
+    const controller = options.signal ? null : new AbortController();
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
+    if (!config.signal && controller) {
+      config.signal = controller.signal;
+    }
 
     try {
       console.log(`Fetching: ${url}`);
       const response = await fetch(url, config);
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
 
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.detail || 'Request failed');
+          console.error("FULL ERROR:", JSON.stringify(data, null, 2));
+          
+          let errorMessage = 'Request failed';
+          
+          if (data?.detail) {
+            // Handle FastAPI's array of validation errors
+            if (Array.isArray(data.detail)) {
+              errorMessage = data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join(', ');
+            } else if (typeof data.detail === 'string') {
+              // Handle standard FastAPI HTTPExceptions
+              errorMessage = data.detail;
+            }
+          } else {
+            errorMessage = data?.message || data?.error?.message || 'Request failed';
+          }
+          
+          throw new Error(errorMessage);
         }
         return data;
       } else {
@@ -60,23 +80,26 @@ class APIClient {
 
     } catch (error) {
       console.error('API Error:', error, 'URL:', url);
+      if (timeoutId) clearTimeout(timeoutId);
       throw error;
     }
   }
 
-  async get(endpoint) {
-    return this.request(endpoint, { method: 'GET' });
+  async get(endpoint, options = {}) {
+    return this.request(endpoint, { ...options, method: 'GET' });
   }
 
-  async post(endpoint, body) {
+  async post(endpoint, body, options = {}) {
     return this.request(endpoint, {
+      ...options,
       method: 'POST',
       body: JSON.stringify(body),
     });
   }
 
-  async put(endpoint, body) {
+  async put(endpoint, body, options = {}) {
     return this.request(endpoint, {
+      ...options,
       method: 'PUT',
       body: JSON.stringify(body),
     });
@@ -113,6 +136,70 @@ class APIClient {
     return this.get('/auth/workspaces');
   }
 
+  // Pricing methods
+async getPricing() {
+  return this.get("/public/pricing")
+}
+  // Billing methods
+  async getBillingStatus(workspace_id) {
+    return this.get(`/billing/status?workspace_id=${workspace_id}`);
+  }
+
+  async getBillingPlan(workspace_id, options = {}) {
+    return this.get(`/billing/plan?workspace_id=${workspace_id}`, options);
+  }
+
+  async getBillingUsage(workspace_id, options = {}) {
+    return this.get(`/billing/usage?workspace_id=${workspace_id}`, options);
+  }
+
+  async createBillingSubscription(workspace_id, plan, provider = "razorpay", options = {}) {
+    return this.post('/billing/create-subscription', {
+      workspace_id,
+      plan,
+      provider,
+    }, options);
+  }
+  async getPlatformSettings() {
+  return this.get("/admin/settings")
+}
+  async verifyBillingPayment(payload, options = {}) {
+    return this.post('/billing/verify-payment', payload, options);
+  }
+// ============== Automation Methods ==============
+
+
+
+  async getFlows() {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.get(`/automation/flows?workspace_id=${workspace_id}`);
+  }
+
+  async getFlowById(flow_id) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.get(`/automation/flows/${flow_id}?workspace_id=${workspace_id}`);
+  }
+
+  async saveFlow(flowData) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.post('/automation/flows', {
+      ...flowData,
+      workspace_id: workspace_id // Auto-inject the workspace ID here!
+    });
+  }
+
+  async deleteFlow(flow_id) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.delete(`/automation/flows/${flow_id}?workspace_id=${workspace_id}`);
+  }
+
+  async generateAIFlow(prompt) {
+    const workspace_id = getWorkspaceIdFromToken();
+    return this.post('/automation/generate-flow', { 
+      prompt: prompt, 
+      workspace_id: workspace_id 
+    });
+  }
   // MCP methods
   async evaluateAction(actionData) {
     return this.post('/mcp/evaluate', actionData);
@@ -183,21 +270,41 @@ class APIClient {
     formData.append('file', file);
     formData.append('workspace_id', workspace_id);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const token = typeof window !== 'undefined' ? getToken() : null;
 
     const response = await fetch(`${this.baseURL}/brain/ingest/document`, {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     });
-
+    
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.detail || 'Upload failed');
     }
     return data;
   }
+  async uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('workspace_id', getWorkspaceIdFromToken());
 
+  const token = getToken();
+
+  const response = await fetch(`${this.baseURL}/upload`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.detail || 'Upload failed');
+  }
+
+  return data;
+}
 
 
   // ================= Admin Workspace Methods =================

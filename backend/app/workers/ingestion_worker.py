@@ -15,41 +15,38 @@ logger = logging.getLogger(__name__)
 
 async def process_document_background(
     entry_id: str,
-    workspace_id: str,
+    workspace_id: str,  # 
     file_path: str,
     original_filename: str,
     content_type: str,
     file_size: int,
-    metadata: Optional[Dict[str, Any]] = None # New parameter
+    metadata: Optional[Dict[str, Any]] = None 
 ):
-    """
-    Background task to process a document ingestion.
-    1. Updates status to PROCESSING
-    2. Calls RAG service to ingest
-    3. Updates status to COMPLETED or FAILED
-    4. Cleans up temp file
-    """
     db = SessionLocal()
+
     try:
         logger.info(f"Starting background processing for entry {entry_id}")
-        
-        # 1. Update status to PROCESSING
-        entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
-        if entry:
-            entry.status = "processing"
-            db.commit()
-        else:
-            logger.error(f"Entry {entry_id} not found for background processing")
+
+        #  STEP 1: ALWAYS TRUST DB, NOT INPUT
+        entry = db.query(BrainEntry).filter(
+            BrainEntry.id == entry_id
+        ).first()
+
+        if not entry:
+            logger.error(f"SECURITY FAULT: Entry {entry_id} not found")
             return
 
-        # 2. Process File
-        
-        
-        # Read file from temp path
+        #  derive workspace_id from DB (CRITICAL FIX)
+        workspace_id = entry.workspace_id
+
+        # 🔄 Update status
+        entry.status = "processing"
+        db.commit()
+
+        # ================= FILE PROCESS =================
         with open(file_path, "rb") as f:
             content = f.read()
-            
-        # Parse Document
+
         doc_service = get_document_service()
         doc_result = doc_service.process_file(content, original_filename)
         
@@ -64,37 +61,23 @@ async def process_document_background(
 
         logger.info(f"Starting vector ingestion for {entry_id}")
 
-        # Use singleton embedding generator
         embedding_generator = EmbeddingGenerator()
-
-        # Use singleton vector store
         vector_store = get_vector_store()
-
-        # Use Schunker directly
         chunker = Schunker()
 
-        # 1️Build chunks
         chunks = chunker.build_chunks(doc_result["text"])
 
         if not chunks:
             raise ValueError("No chunks generated from document")
 
-        # Attach metadata to each chunk
         for chunk in chunks:
             chunk["metadata"] = ingestion_metadata
-        
-        print("Chunks:", len(chunks))
-        
 
-        # 2️⃣ Generate embeddings
         embeddings = embedding_generator.generate_embeddings(
             [chunk["text"] for chunk in chunks]
         )
 
-        print("Embeddings:", len(embeddings))
-        print("Embeddings shape:", embeddings.shape)
-
-        # 3️⃣ Store in vector DB
+        #  SAFE STORE (workspace_id from DB only)
         vector_store.add_chunks(
             db=db,
             workspace_id=workspace_id,
@@ -102,30 +85,33 @@ async def process_document_background(
             embeddings=embeddings,
             parent_id=entry_id
         )
-        
+
         logger.info(f"Stored {len(chunks)} chunks for entry {entry_id}")
-        # 3. Update status to COMPLETED
-        # (The service might have updated the entry content, but we ensure status here)
-        entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
+
+        # ================= COMPLETE =================
         entry.status = "completed"
         entry.error_message = None
         db.commit()
-        
+
         logger.info(f"Background processing completed for {entry_id}")
 
     except Exception as e:
         logger.error(f"Background processing failed: {e}")
         traceback.print_exc()
-        
-        # Update status to FAILED
-        entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
+
+        #  SAFE FAIL UPDATE
+        entry = db.query(BrainEntry).filter(
+            BrainEntry.id == entry_id
+        ).first()
+
         if entry:
             entry.status = "failed"
             entry.error_message = str(e)[:500]
             db.commit()
-            
+
     finally:
         db.close()
-        # 4. Cleanup temp file
+
+        # 🧹 Cleanup
         if os.path.exists(file_path):
             os.remove(file_path)

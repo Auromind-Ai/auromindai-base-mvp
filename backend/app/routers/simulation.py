@@ -36,3 +36,32 @@
 #         return result
 #     except Exception as e:
 #         raise HTTPException(status_code=400, detail=str(e))
+
+
+# class SimulationRequest(BaseModel):
+#     action_type: str
+#     intent: str
+#     metadata: Optional[Dict[str, Any]] = None
+
+# @router.post("/run")
+# async def run_simulation(
+#     request: SimulationRequest,
+#     db: Session = Depends(get_db),
+#     current_user = Depends(get_current_user)
+# ):
+#     """
+#     Simulate a governed AI action through the full architecture:
+#     Memory Layer -> Decision Layer (MCP) -> Execution Layer
+#     """
+#     try:
+#         workspace_id = verify_workspace_access(current_user, db)
+#         result = OrchestrationService.process_intent(
+#             db=db,
+#             workspace_id=uuid.UUID(workspace_id),
+#             action_type=request.action_type,
+#             intent_raw=request.intent,
+#             metadata=request.metadata
+#         )
+#         return result
+#     except Exception as e:
+#         raise HTTPException(status_code=400, detail=str(e))

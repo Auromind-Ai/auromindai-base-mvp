@@ -7,7 +7,7 @@ import {
     Zap, Sparkles, Send, Clock, User, Star, Calendar,
     ArrowRight, ChevronRight, MoreHorizontal, Info
 } from 'lucide-react';
-import { getWorkspace } from '@/lib/auth';
+import { getWorkspace, getToken } from '@/lib/auth';
 
 const CHANNELS = [
     { id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#25D366' },
@@ -15,12 +15,19 @@ const CHANNELS = [
     { id: 'twilio', label: 'Twilio', icon: Zap, color: '#F22F46' },
 ];
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Same-origin proxy base — browser → /backend/* → Next.js → backend
+// This avoids CORS entirely. The backend routes start with /api/ so the
+// full request looks like: /backend/api/conversations → backend /api/conversations
+const PROXY_BASE = '/backend';
 
-const HEADERS = {
-    'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
-};
+function getHeaders() {
+    const token = typeof window !== 'undefined' ? getToken() : null;
+    return {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+}
 
 // ✅ Get display name based on channel
 function getDisplayName(lead, channelId) {
@@ -38,6 +45,36 @@ function getAvatarText(lead, channelId) {
     }
     const phone = lead.phone || '';
     return phone.slice(-2) || 'U';
+}
+
+/**
+ * ProfilePic — renders an Instagram profile picture with an automatic
+ * fallback to coloured initials when the CDN URL returns 403/fails.
+ *
+ * Instagram CDN URLs (scontent.cdninstagram.com) are session-bound and
+ * expire; they cannot be loaded cross-origin without Instagram cookies.
+ * Rather than showing a broken image, we catch the error and swap to the
+ * initials avatar that was already being shown for non-Instagram channels.
+ */
+function ProfilePic({ src, alt, fallbackText, color, className = '' }) {
+    const [failed, setFailed] = useState(false);
+
+    if (!src || failed) {
+        return (
+            <span style={{ color }} className={className}>
+                {fallbackText}
+            </span>
+        );
+    }
+
+    return (
+        <img
+            src={src}
+            alt={alt}
+            className={`w-full h-full object-cover ${className}`}
+            onError={() => setFailed(true)}
+        />
+    );
 }
 
 export default function InboxPage() {
@@ -72,8 +109,8 @@ export default function InboxPage() {
     async function fetchConversations() {
         try {
             const res = await fetch(
-                `${API}/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}`,
-                { headers: HEADERS }
+                `${PROXY_BASE}/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}`,
+                { headers: getHeaders() }
             );
             const data = await res.json();
             if (Array.isArray(data)) {
@@ -90,7 +127,7 @@ export default function InboxPage() {
 
     async function fetchMessages(id) {
         try {
-            const res = await fetch(`${API}/api/messages/${id}`, { headers: HEADERS });
+            const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
             const data = await res.json();
             setMessages(data);
         } catch (e) {
@@ -101,9 +138,9 @@ export default function InboxPage() {
     async function sendMessage() {
         if (!msg.trim() || !lead) return;
         try {
-            await fetch(`${API}/api/send-reply`, {
+            await fetch(`${PROXY_BASE}/api/send-reply`, {
                 method: 'POST',
-                headers: HEADERS,
+                headers: getHeaders(),
                 body: JSON.stringify({ conversation_id: lead.id, message: msg }),
             });
             setMsg('');
@@ -116,9 +153,9 @@ export default function InboxPage() {
     async function generateSuggestion() {
         if (!lead) return;
         try {
-            const res = await fetch(`${API}/api/ai-suggest`, {
+            const res = await fetch(`${PROXY_BASE}/api/ai-suggest`, {
                 method: 'POST',
-                headers: HEADERS,
+                headers: getHeaders(),
                 body: JSON.stringify({
                     conversation_id: lead.id,
                     workspace_id: lead.workspace_id,
@@ -209,7 +246,12 @@ export default function InboxPage() {
                                                 {/* ✅ Avatar: profile pic for Instagram, initials for others */}
                                                 <div className="w-11 h-11 rounded-full overflow-hidden bg-[#222] flex items-center justify-center text-[14px] font-semibold shrink-0">
                                                     {isInstagram && l.profile_pic ? (
-                                                        <img src={l.profile_pic} className="w-full h-full object-cover" alt={displayName} />
+                                                        <ProfilePic
+                                                            src={l.profile_pic}
+                                                            alt={displayName}
+                                                            fallbackText={avatarText}
+                                                            color={ch.color}
+                                                        />
                                                     ) : (
                                                         <span style={{ color: ch.color }}>{avatarText}</span>
                                                     )}
@@ -259,7 +301,12 @@ export default function InboxPage() {
                                     <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-[14px] font-semibold shrink-0"
                                         style={{ backgroundColor: `${ch.color}18` }}>
                                         {isInstagram && lead.profile_pic ? (
-                                            <img src={lead.profile_pic} className="w-full h-full object-cover" alt={getDisplayName(lead, ch.id)} />
+                                            <ProfilePic
+                                                src={lead.profile_pic}
+                                                alt={getDisplayName(lead, ch.id)}
+                                                fallbackText={getAvatarText(lead, ch.id)}
+                                                color={ch.color}
+                                            />
                                         ) : (
                                             <span style={{ color: ch.color }}>{getAvatarText(lead, ch.id)}</span>
                                         )}
@@ -409,7 +456,12 @@ export default function InboxPage() {
                                     <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-3 flex items-center justify-center text-xl font-bold"
                                         style={{ backgroundColor: `${ch.color}18` }}>
                                         {isInstagram && lead.profile_pic ? (
-                                            <img src={lead.profile_pic} className="w-full h-full object-cover" alt={getDisplayName(lead, ch.id)} />
+                                            <ProfilePic
+                                                src={lead.profile_pic}
+                                                alt={getDisplayName(lead, ch.id)}
+                                                fallbackText={getAvatarText(lead, ch.id)}
+                                                color={ch.color}
+                                            />
                                         ) : (
                                             <span style={{ color: ch.color }}>{getAvatarText(lead, ch.id)}</span>
                                         )}

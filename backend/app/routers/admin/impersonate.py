@@ -41,7 +41,7 @@ def create_impersonation_session(
     try:
         db.add(session)
         db.commit()
-        print("✅ Session saved to DB")
+        print("Session saved to DB")
     except Exception as e:
         print(f"⚠️ FAILED to save session to DB (using in-memory fallback): {e}")
         db.rollback()
@@ -59,7 +59,7 @@ def create_impersonation_session(
 
 @router.get("/impersonate/session/{session_id}")
 def start_impersonation(
-    session_id: str,
+    session_id:UUID,
     db: Session = Depends(get_db)
 ):
 

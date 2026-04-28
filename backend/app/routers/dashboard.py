@@ -8,8 +8,13 @@ from datetime import datetime
 from app.database import get_db
 from app.routers.auth import get_current_user # Assuming user authentication is needed for dashboard data
 from app.models import AIAction, Followup # Example models that might feed data
+from app.models.workspace import WorkspaceMember
+from app.core.security import verify_workspace_access
 
 router = APIRouter(tags=["dashboard"])
+
+
+
 
 # ============== Response Models ==============
 
@@ -53,6 +58,7 @@ async def get_metrics(
     Retrieves key sales metrics for the dashboard.
     (Currently returns hardcoded data for demonstration)
     """
+    verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services
     METRICS = [
         {"label": "Total Revenue", "value": "₹12.4L", "change": "+18.2%", "trend": "up", "subtext": "vs last month"},
@@ -72,6 +78,7 @@ async def get_attention_items(
     Retrieves a list of items requiring immediate attention.
     (Currently returns hardcoded data for demonstration)
     """
+    verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services (e.g., overdue follow-ups, pending documents)
     ATTENTION_ITEMS = [
         {"id": 1, "name": "Rahul Sharma", "status": "Documents Pending", "time": "12 min ago", "priority": "high"},
@@ -91,6 +98,7 @@ async def get_ai_insights(
     Retrieves AI-generated insights for the dashboard.
     (Currently returns hardcoded data for demonstration)
     """
+    verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services (e.g., from AIAction logs or a dedicated insights service)
     AI_INSIGHTS = [
         {"type": "opportunity", "text": "3 leads from LinkedIn show high engagement today."},
@@ -108,6 +116,7 @@ async def get_flow_stats(
     Retrieves statistics for the sales flow pipeline.
     (Currently returns hardcoded data for demonstration)
     """
+    verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services
     FLOW_STATS = [
         {"label": "New", "count": 42},
@@ -127,6 +136,7 @@ async def get_upcoming_schedule(
     Retrieves upcoming schedule items.
     (Currently returns hardcoded data for demonstration)
     """
+    verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services
     SCHEDULE_ITEMS = [
         {"day": "24", "title": "Team Review", "details": "2:00 PM • Zoom"},

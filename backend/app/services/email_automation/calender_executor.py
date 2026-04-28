@@ -11,6 +11,7 @@ from google.oauth2.credentials import Credentials
 import os
 from timezonefinder import TimezoneFinder
 from geopy.geocoders import Nominatim
+from app.services.platform_settings_service import get_setting
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -37,6 +38,11 @@ class CalendarExecutor:
 
     def execute(self, db, workspace_id, action, decision):
 
+        calendar_enabled = get_setting(db, "enable_calendar_integration", True)
+
+        if not calendar_enabled:
+            print("❌ Calendar integration disabled by admin")
+            return
         try:
 
             print("Calendar executor started")

@@ -38,10 +38,9 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
         setIsLoading(true);
 
         try {
-            // Get workspace from localStorage
             let workspaceId = null;
             if (typeof window !== 'undefined') {
-                const workspace = localStorage.getItem('workspace');
+                const workspace = sessionStorage.getItem('workspace');
                 if (workspace) {
                     try {
                         workspaceId = JSON.parse(workspace)?.id;

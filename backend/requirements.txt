@@ -9,10 +9,13 @@ pydantic==2.12.5
 pydantic[email]
 python-dotenv==1.0.0
 python-multipart==0.0.6
+supabase
+boto3
 
 httpx==0.28.1
 requests==2.32.5
 beautifulsoup4==4.14.3
+rapidfuzz==3.8.1
 
 scrapy==2.14.1
 scrapy-playwright
@@ -44,6 +47,7 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 twilio==9.10.2
 groq==1.1.1
+razorpay==1.4.2
 
 feedparser==6.0.12
 tiktoken==0.12.0
@@ -57,3 +61,4 @@ scrapy-playwright
 anthropic
 tenacity
 numexpr
+rapidfuzz
