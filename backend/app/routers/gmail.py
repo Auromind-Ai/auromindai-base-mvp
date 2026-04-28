@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.integration import Integration
+from app.models.workspace import WorkspaceMember
 from app.routers.auth import get_current_user
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -9,8 +10,11 @@ import base64
 from email.mime.text import MIMEText
 from google.auth.transport.requests import Request
 import os
+from app.core.security import verify_workspace_access
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
+
+
 
 def get_gmail_service(workspace_id: str, db: Session):
 
@@ -55,6 +59,7 @@ async def get_messages(
 ):
     """Fetch Gmail messages"""
     try:
+        workspace_id = verify_workspace_access(current_user, db)
         service = get_gmail_service(workspace_id, db)
         
         # Get message list
@@ -102,6 +107,7 @@ async def get_message(
 ):
     """Get full message content"""
     try:
+        workspace_id = verify_workspace_access(current_user, db)
         service = get_gmail_service(workspace_id, db)
         
         message = service.users().messages().get(
@@ -126,6 +132,7 @@ async def send_email(
 ):
     """Send an email via Gmail"""
     try:
+        workspace_id = verify_workspace_access(current_user, db)
         service = get_gmail_service(workspace_id, db)
         
         message = MIMEText(body)

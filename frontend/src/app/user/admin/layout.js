@@ -28,7 +28,7 @@ import {
     Mail
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { getUser, getWorkspace, logout, restoreAdminToken } from '@/lib/auth';
+import { getToken, getUser, getWorkspace, logout, restoreAdminToken } from '@/lib/auth';
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
@@ -42,6 +42,7 @@ const MAIN_NAV_ITEMS = [
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
     { label: 'Templates', icon: FileText, href: '/user/admin/templates' }, 
     { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
+    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
 ];
 
 const SYSTEM_NAV_ITEMS = [
@@ -111,7 +112,7 @@ function AdminLayoutContent({ children }) {
         const checkAuth = () => {
             const currentUser = getUser();
             const currentWorkspace = getWorkspace();
-            const token = localStorage.getItem('token');
+            const token = getToken();
 
             console.log("🛡️ Layout Auth Check:", { 
                 user: currentUser?.email, 

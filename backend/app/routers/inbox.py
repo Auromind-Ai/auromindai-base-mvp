@@ -8,12 +8,16 @@ from ..models import ChannelType
 from app.models.conversation import Conversation
 from app.models.message import Message  
 from app.routers.auth import get_current_user
+from app.models.workspace import WorkspaceMember
+from app.core.security import verify_workspace_access
 
 router = APIRouter(
     prefix="/inbox",
     tags=["inbox"],
     responses={404: {"description": "Not found"}},
 )
+
+
 
 # Dependency
 def get_db():
@@ -24,13 +28,34 @@ def get_db():
         db.close()
 
 @router.get("/conversations", response_model=List[schemas.Conversation])
-def read_conversations(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    conversations = db.query(models.Conversation).offset(skip).limit(limit).all()
+def read_conversations(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
+    conversations = db.query(models.Conversation).filter(
+        models.Conversation.workspace_id == workspace_id
+    ).offset(skip).limit(limit).all()
     return conversations
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[schemas.Message])
-def read_messages(conversation_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    messages = db.query(models.Message).filter(models.Message.conversation_id == conversation_id).offset(skip).limit(limit).all()
+def read_messages(
+    conversation_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
+    messages = db.query(models.Message).join(
+        models.Conversation,
+        models.Message.conversation_id == models.Conversation.id,
+    ).filter(
+        models.Message.conversation_id == conversation_id,
+        models.Conversation.workspace_id == workspace_id,
+    ).offset(skip).limit(limit).all()
     return messages
 
 
@@ -40,16 +65,18 @@ def send_message(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    workspace_id = verify_workspace_access(current_user, db)
 
     conversation = db.query(Conversation).filter(
-        Conversation.id == message.conversation_id
+        Conversation.id == message.conversation_id,
+        Conversation.workspace_id == workspace_id,
     ).first()
     if not conversation:
         conversation = Conversation(
             id=str(message.conversation_id),
             user_id=current_user.id,                 
             contact_name=current_user.full_name or "Unknown",
-            workspace_id=current_user.workspace_id,
+            workspace_id=workspace_id,
             channel=ChannelType.WEB,
             external_id="unknown"
         )

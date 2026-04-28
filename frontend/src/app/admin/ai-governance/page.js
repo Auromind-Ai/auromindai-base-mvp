@@ -11,7 +11,7 @@ export default function AIGovernancePage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/admin/ai-governance')
+      const response = await fetch('/api/admin/ai-governance')
       if (!response.ok) throw new Error('Failed to fetch AI governance data')
       const result = await response.json()
       console.log(result)

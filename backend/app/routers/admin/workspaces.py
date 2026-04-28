@@ -1,42 +1,47 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-
+from app.models.subscription import Subscription
+from app.models.plan import Plan
+from app.core.enums import SubscriptionStatus
 from app.database import get_db
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.user import User
+from datetime import datetime, timezone
+from app.models.usage import Usage
 
 router = APIRouter(tags=["Admin Workspaces"])
 
 
-# ============================================================
-# Get All Workspaces (Optimized)
-# ============================================================
-
 @router.get("/workspaces")
 async def get_workspaces(db: Session = Depends(get_db)):
-
     results = (
         db.query(
             Workspace.id,
             Workspace.name,
-            Workspace.plan_type,
             Workspace.created_at,
             User.full_name,
             User.email,
             User.is_active,
+            Plan.name.label("plan_name"),                         
             func.count(WorkspaceMember.id).label("member_count")
         )
         .join(User, Workspace.created_by == User.id)
         .outerjoin(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
+        .outerjoin(
+            Subscription,
+            (Subscription.workspace_id == Workspace.id) &
+            (Subscription.status == SubscriptionStatus.active)  
+        )
+        .outerjoin(Plan, Plan.id == Subscription.plan_id)
         .group_by(
             Workspace.id,
             Workspace.name,
-            Workspace.plan_type,
             Workspace.created_at,
             User.full_name,
             User.email,
-            User.is_active
+            User.is_active,
+            Plan.name
         )
         .all()
     )
@@ -46,66 +51,116 @@ async def get_workspaces(db: Session = Depends(get_db)):
             "id": str(ws.id),
             "name": ws.name,
             "workspace_name": ws.name,
-
             "owner_name": ws.full_name,
             "owner_email": ws.email,
-
-            "plan_type": ws.plan_type or "starter",
-
+            "plan_type": ws.plan_name.lower() if ws.plan_name else "free",  # 
             "member_count": ws.member_count or 0,
-
             "created_at": ws.created_at.isoformat() if ws.created_at else None,
-
             "is_active": ws.is_active
         }
         for ws in results
     ]
 
 
-# ============================================================
-# Edit Workspace Plan
-# ============================================================
-
-@router.patch("/workspaces/{workspace_id}")
+@router.post("/workspaces/{workspace_id}")
 async def update_workspace_plan(
     workspace_id: str,
     data: dict,
     db: Session = Depends(get_db)
 ):
-
     ws = db.get(Workspace, workspace_id)
-
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    ws.plan_type = data.get("plan_type", ws.plan_type)
+    new_plan_name = data.get("plan_type")
 
+    plan = db.query(Plan).filter(
+        func.lower(Plan.name) == new_plan_name.lower()
+    ).first()
+
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+
+    old_sub = db.query(Subscription).filter(
+        Subscription.workspace_id == workspace_id,
+        Subscription.status == SubscriptionStatus.active
+    ).first()
+
+    if old_sub:
+        old_sub.status = SubscriptionStatus.cancelled
+        old_sub.canceled_at = datetime.utcnow()
+
+    new_sub = Subscription(
+    workspace_id=workspace_id,
+    plan_id=plan.id,
+    status=SubscriptionStatus.active,
+    billing_cycle=plan.billing_cycle,  
+    is_admin_override=True
+)
+
+    db.add(new_sub)
     db.commit()
 
     return {"message": "Workspace plan updated"}
-
-
 # ============================================================
 # Reset Token Limits
 # ============================================================
+
 
 @router.post("/workspaces/{workspace_id}/reset-limits")
 async def reset_workspace_limits(
     workspace_id: str,
     db: Session = Depends(get_db)
 ):
-
     ws = db.get(Workspace, workspace_id)
-
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
-    ws.token_usage = 0
+    active_sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.workspace_id == workspace_id,
+            Subscription.status == SubscriptionStatus.active,
+        )
+        .order_by(Subscription.created_at.desc())
+        .first()
+    )
+
+    if not active_sub:
+        raise HTTPException(status_code=404, detail="Active subscription not found")
+
+    now = datetime.now(timezone.utc)
+
+    latest_usage = (
+        db.query(Usage)
+        .filter(
+            Usage.workspace_id == workspace_id,
+            Usage.subscription_id == active_sub.id,
+        )
+        .order_by(Usage.period_start.desc())
+        .first()
+    )
+
+    if latest_usage and latest_usage.period_end is None:
+        latest_usage.period_end = now
+
+    db.add(
+        Usage(
+            workspace_id=workspace_id,
+            subscription_id=active_sub.id,
+            messages_used=0,
+            tokens_used=0,
+            overage_messages=0,
+            overage_tokens=0,
+            billed=False,
+            period_start=now,
+            period_end=None,
+        )
+    )
+
     db.commit()
-
-    return {"message": "Workspace limits reset"}
-
-
+    return {"message": "Usage reset successfully"}
 # ============================================================
 # Toggle Workspace Status
 # ============================================================

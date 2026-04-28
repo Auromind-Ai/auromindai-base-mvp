@@ -30,7 +30,7 @@ export default function EmailPage() {
   ---------------------------- */
 
   const checkConnection = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     const res = await fetch(
       `${API}/integrations/status?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
@@ -51,7 +51,7 @@ export default function EmailPage() {
   ---------------------------- */
 
   const loadMessages = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     const res = await fetch(
       `${API}/email/inbox?workspace_id=${workspace?.id}`,
@@ -88,7 +88,7 @@ export default function EmailPage() {
   ---------------------------- */
 
   const approveAction = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     await fetch(
       `${API}/automation/approve?decision_id=${aiData.id}`,
@@ -106,7 +106,7 @@ export default function EmailPage() {
   ---------------------------- */
 
   const rejectAction = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     await fetch(
       `${API}/automation/reject?decision_id=${aiData.id}`,
@@ -130,7 +130,7 @@ export default function EmailPage() {
     }
 
     setSendingReply(true);
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     await fetch(
       `${API}/email/send-reply`,
@@ -176,7 +176,7 @@ export default function EmailPage() {
   }
 
   /* ---------------------------
-     🔥 MEETING CHECK (IMPORTANT)
+      MEETING CHECK (IMPORTANT)
   ---------------------------- */
 
   const isMeetingAction =

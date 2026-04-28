@@ -5,7 +5,7 @@ import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Users, CheckCircle, Mail, ExternalLink } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = '/api'; // same-origin proxy
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";
 
 export default function UsersPage() {
@@ -28,7 +28,7 @@ export default function UsersPage() {
     try {
       const payload = decodeJwt(current);
       if (current && !payload?.impersonated) {
-        localStorage.setItem("admin_backup_token", current); // 🔥 ALWAYS overwrite
+        localStorage.setItem("admin_backup_token", current); //  ALWAYS overwrite
       }
     } catch (err) {
       console.error("Could not set admin backup:", err);

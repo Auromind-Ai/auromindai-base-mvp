@@ -71,18 +71,26 @@ class Followup(FollowupBase):
     class Config:
         from_attributes = True
 
+class CreateSubscriptionRequest(BaseModel):
+    workspace_id: str
+    plan: str
+    provider: str = "razorpay"
 
-class PaymentSettings(BaseModel):
-    razorpay_key: str
-    razorpay_secret: Optional[str] = None
-    paypal_client: str
-    paypal_secret: Optional[str] = None
 
-class PaymentSettingsResponse(BaseModel):
-    razorpay_key:   str = ""
-    razorpay_secret: str = ""
-    paypal_client:  str = ""
-    paypal_secret:  str = ""
+class VerifyPaymentRequest(BaseModel):
+    workspace_id: str
+    plan: str
+    provider: str = "razorpay"
+    payment_id: str | None = None
+    subscription_id: str | None = None
+    signature: str | None = None
 
-    class Config:
-        from_attributes = True
+
+class LegacyCreateOrderRequest(BaseModel):
+    workspace_id: str
+    amount: int
+
+
+class LegacyUpgradePlanRequest(BaseModel):
+    workspace_id: str
+    plan: str

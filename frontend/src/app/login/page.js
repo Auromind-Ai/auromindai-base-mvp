@@ -1,12 +1,11 @@
 'use client';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, ArrowRight, Loader2, Cpu, Lock } from 'lucide-react';
 import { setToken, setUser, setWorkspace, isAuthenticated } from '@/lib/auth';
+import api from '@/lib/api';
 
 export default function LoginPage() {
 
@@ -30,24 +29,13 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
 
-        try {
-            const response = await fetch(`${API}/auth/login`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ email: email })
-            });
-
-            const data = await response.json();
+    try {
+            const data = await api.login(email);
             console.log("Login API Response:", data);
 
-            if (!response.ok) {
-                throw new Error(data.detail || "Login failed");
-            }
-
-            // 🔥 Backup admin token if applicable
+            //  Backup admin token if applicable
             const adminToken = localStorage.getItem("admin_backup_token");
+            sessionStorage.clear();
             localStorage.clear();
             if (adminToken) {
                 localStorage.setItem("admin_backup_token", adminToken);
@@ -63,7 +51,7 @@ export default function LoginPage() {
 
             if (data.workspaces && data.workspaces.length > 0) {
                 setWorkspace(data.workspaces[0]);
-                localStorage.setItem("workspace_id", data.workspaces[0].id);
+                sessionStorage.setItem("workspace_id", data.workspaces[0].id);
             }
 
             router.push(redirectPath || '/user/admin/dashboard');

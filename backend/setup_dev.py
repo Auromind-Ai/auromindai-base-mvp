@@ -30,7 +30,7 @@ def main():
         subprocess.check_call(["git", "checkout", "feature/unified-rag-ingestion"])
         # Pull latest changes
         subprocess.check_call(["git", "pull", "origin", "feature/unified-rag-ingestion"])
-        print("   ✅ Code updated from feature/unified-rag-ingestion branch.")
+        print("   Code updated from feature/unified-rag-ingestion branch.")
     except Exception as e:
         print(f"   ⚠️  Could not pull code (you might have local changes or no git). Error: {e}")
         print("   👉 Continuing with setup...")
@@ -41,7 +41,7 @@ def main():
         print(f"📝 Creating .env file at {env_path}...")
         with open(env_path, "w") as f:
             f.write(ENV_CONTENT)
-        print("   ✅ .env created with shared Cloud DB credentials.")
+        print("   .env created with shared Cloud DB credentials.")
     else:
         print("   ℹ️  .env file already exists. Skipping creation.")
 
@@ -51,7 +51,7 @@ def main():
     req_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", req_path])
-        print("   ✅ Dependencies installed.")
+        print("   Dependencies installed.")
     except subprocess.CalledProcessError:
         print("   ❌ Failed to install dependencies.")
 
@@ -61,7 +61,7 @@ def main():
     if os.path.exists(migration_script):
         try:
             subprocess.check_call([sys.executable, migration_script])
-            print("   ✅ Database migrations completed.")
+            print("   Database migrations completed.")
         except subprocess.CalledProcessError:
             print("   ⚠️  Migration failed (table might already exist).")
     else:

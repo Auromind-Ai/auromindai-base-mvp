@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import logging
+
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from app.database import get_db
@@ -7,11 +9,11 @@ from app.services.auth_service import AuthService
 from app.utils.auth import decode_access_token
 import uuid
 from datetime import datetime, timezone
-
+from fastapi import Request
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-
+logger = logging.getLogger(__name__)
 # ---------- Request Models ----------
 
 class EmailLoginRequest(BaseModel):
@@ -50,10 +52,12 @@ class CurrentUser:
 # ---------- Dependency: get current user ----------
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+   
 ):
-
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -95,7 +99,8 @@ async def get_current_user(
         log_auth(f"❌ User {user_id} not found in DB")
         raise credentials_exception
 
-    log_auth(f"✅ Authenticated: {user.email}")
+    log_auth(f"Authenticated: {user.email}")
+    logger.info(f"[AUTH HEADER] {request.headers.get('Authorization')}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,
@@ -128,6 +133,9 @@ async def login_secret(
     db: Session = Depends(get_db)
 ):
     import os
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    
     master_key = os.getenv("OWNER_SECRET_KEY")
     if not master_key or request.key != master_key:
         raise HTTPException(status_code=401, detail="Invalid secret key")

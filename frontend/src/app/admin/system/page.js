@@ -12,7 +12,7 @@ import {
   Cpu
 } from 'lucide-react'
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
+const BASE = '/api'; // same-origin proxy
 
 export default function SystemHealthPage() {
   const [data, setData] = useState(null)
@@ -205,10 +205,7 @@ export default function SystemHealthPage() {
         Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleString() : '—'}
       </div>
 
-      <details className="mt-4 text-xs text-gray-400">
-        <summary>Raw JSON</summary>
-        <pre className="mt-2">{JSON.stringify(data, null, 2)}</pre>
-      </details>
+      
     </div>
   )
 }

@@ -12,7 +12,7 @@ export default function ConversationsPage() {
     const fetchConversations = async () => {
       try {
         setLoading(true)
-        const response = await fetch("http://localhost:8000/admin/conversations")
+        const response = await fetch("/api/admin/conversations")
         if (!response.ok) throw new Error("Failed to fetch conversations")
         const data = await response.json()
           console.log("API Response:", data)
