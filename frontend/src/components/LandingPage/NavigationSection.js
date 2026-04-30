@@ -267,9 +267,21 @@ const NavigationSection = () => {
             Sign In
           </Link>
 
-          <button className="rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
-            Get Started
-          </button>
+          <button className="group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
+  <span className="flex items-center justify-center gap-2">
+    
+    {/* Text slide */}
+    <span className="relative overflow-hidden h-[1.2em] flex items-center">
+      <span className="block translate-y-0 group-hover:-translate-y-full transition-transform duration-300 ease-in-out">
+        Get Started
+      </span>
+      <span className="absolute inset-0 flex items-center translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
+        Get Started
+      </span>
+    </span>
+
+  </span>
+</button>
 
           <button
             onClick={() => setMenuOpen(!menuOpen)}

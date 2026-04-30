@@ -13,20 +13,22 @@ import ProductDemoSection from '../components/LandingPage/ProductDemoSection';
 import PricingSection from '../components/LandingPage/PricingSection';
 import IntegrationsSection from '../components/LandingPage/IntegrationsSection';
 import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
-import CtaSection from '../components/LandingPage/CtaSection';
-import FooterSection from '../components/LandingPage/FooterSection';
+// import CtaSection from '../components/LandingPage/CtaSection';
+// import FooterSection from '../components/LandingPage/FooterSection';
 import SocialProofSection from '../components/LandingPage/SocialProofSection';
 import MessageManagementSection from '../components/LandingPageNew/MessageManagementSection/Messagemanagementsection';
 import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks';
 import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
-import UICtaSectionTwo from "../components/ui/CtaSectionTwo";
+// import UICtaSectionTwo from "../components/ui/CtaSectionTwo";
 import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import InteractiveBrainSection from "@/components/LandingPageNew/InteractiveBrainSection/InteractiveBrainSection";
 import dynamic from 'next/dynamic';
 // import Lanyard from '@/components/LandingPageNew/HowItWorksNewSection/Lanyard';
+import CtaSection from '@/components/LandingPageNew/FinalCTASection/ctasection';
+import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 
 const ManageChatsSection = dynamic(
-  () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSectionNew'),
+  () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSection'),
   { ssr: false }
 );
 
@@ -92,6 +94,9 @@ export default function LandingPage() {
           <BeforeAfterSection />
           {/* <SeeItInActionSection /> */}
           {/* <PlatformTabsSection /> */}
+
+          <NeuroHero />
+
           <HowItWorks />
 
           {/* <Lanyard /> */}
@@ -101,17 +106,14 @@ export default function LandingPage() {
           <PricingSectionNew />
           <TestimonialsSection />
           
-          
           {/* <InteractiveBrainSection /> */}
-
-          <NeuroHero />
           
           {/* <IntegrationsSection /> */}
           <FAQSection />
           <ProductDemoSection />
           <SocialProofSection />
           {/* <CtaSection /> */}
-          <UICtaSectionTwo />
+          <CtaSection />
           <FooterSection />
         </div>
       </div>

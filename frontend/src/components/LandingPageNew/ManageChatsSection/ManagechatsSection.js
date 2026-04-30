@@ -151,9 +151,15 @@ export default function ManageChatsSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.5 }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="font-poppins max-w-[620px] text-3xl font-semibold leading-[1.05] text-white md:text-5xl"
+            className="font-poppins max-w-[620px] text-[45px] font-medium leading-[1.2] tracking-[-0.02em] md:text-[45px]"
+            style={{
+              background: "linear-gradient(135deg, #814AC8 0%, #ABABAB 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              textShadow: "0 0 40px rgba(129,74,200,0.3)",
+            }}
           >
-            Manage chats with AI that replies instantly.
+            Manage chats with  <br/> AI that replies <br/>instantly.
           </motion.h2>
 
           <motion.p
@@ -230,65 +236,65 @@ export default function ManageChatsSection() {
     rotateY: `${cardRotateY * 0.35}deg`,
   }}
   >
-    <div className="absolute inset-0 rounded-[32px] border border-fuchsia-300/20 bg-gradient-to-br from-fuchsia-500/30 via-violet-500/15 to-indigo-500/10 shadow-[0_0_80px_rgba(192,132,252,0.35)] backdrop-blur-xl" />
+    <div className="absolute inset-0 rounded-[32px] border border-white/40 bg-black" />
 
-    <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/45 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
-      <div className="bg-gradient-to-r from-[#d946ef] via-[#8b5cf6] to-[#4f46e5] px-6 py-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
-            <svg
-              viewBox="0 0 24 24"
-              className="h-6 w-6 text-white"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="5" />
-              <circle cx="12" cy="12" r="4" />
-              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-            </svg>
-          </div>
-
-          <span className="font-poppins bg-gradient-to-r from-white via-pink-100 to-violet-100 bg-clip-text text-[28px] font-semibold tracking-[-0.02em] text-transparent">
-            Instagram
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-3 px-4 py-5">
-        <div className="rounded-3xl bg-black/45 p-4">
-          <div className="mb-2 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-pink-300/80" />
-            <div>
-              <p className="text-lg font-medium text-white">Kate</p>
-              <p className="text-[13px] leading-5 text-white/70">
-                Hello! I have a question about the photo you posted earlier.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="ml-auto w-fit max-w-[82%] rounded-2xl bg-gradient-to-r from-violet-600 to-blue-500 px-4 py-3 text-sm text-white">
-          Sure! What can I help you with?
-        </div>
-
-        <div className="rounded-3xl bg-black/35 backdrop-blur-md border border-white/5 p-4">
-          <div className="mb-2 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-pink-300/80" />
-            <div>
-              <p className="text-xl font-medium text-white">Sara</p>
-              <p className="text-sm text-white/70">
-                Can you tell me where you took that picture from?
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="ml-auto w-fit max-w-[85%] rounded-2xl bg-gradient-to-r from-violet-600 to-sky-500 px-4 py-3 text-sm text-white">
-          That was taken from the bridge overlooking the lake.
-        </div>
-      </div>
+    <div className="relative h-full overflow-hidden rounded-[32px] border border-white/10 bg-black">
+  
+  {/* Instagram Header */}
+  <div className="flex flex-col items-center justify-center pt-5 pb-3 px-4">
+    {/* Instagram Logo */}
+    <div className="mb-2 flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-2xl"
+      style={{
+        background: "linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"
+      }}
+    >
+      <svg viewBox="0 0 24 24" className="h-7 w-7 md:h-8 md:w-8 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+      </svg>
     </div>
+    <h3 className="text-lg md:text-xl font-semibold text-white tracking-tight">Instagram</h3>
+  </div>
+
+  {/* Messages */}
+  <div className="flex flex-col gap-2 md:gap-3 px-3 md:px-4 pb-4">
+    {[
+      "Hi 🙂 Which product are you looking for?",
+      "Sure! 👍 This product is available.",
+      "Order now or need details? 😊🧡",
+    ].map((msg, i) => (
+      <div
+        key={i}
+        className="flex items-center gap-2 md:gap-3 rounded-2xl px-3 py-2.5 md:px-4 md:py-3"
+        style={{
+          background: "rgba(30,30,30,0.9)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        {/* Icon */}
+        <div className="flex h-8 w-8 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            background: "linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)"
+          }}
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 md:h-5 md:w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="5" />
+            <circle cx="12" cy="12" r="4" />
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
+
+        {/* Text */}
+        <div className="flex flex-col min-w-0">
+          <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">Auromind</span>
+          <span className="text-[11px] md:text-[13px] text-white/60 leading-snug truncate">{msg}</span>
+        </div>
+      </div>
+    ))}
+  </div>
+
+</div>
   </motion.div>
 
   {/* WhatsApp Card */}
@@ -315,48 +321,53 @@ export default function ManageChatsSection() {
     rotateY: `${cardRotateY * 0.5}deg`,
   }}
   >
-    <div className="absolute inset-0 rounded-[32px] border border-emerald-300/20 bg-gradient-to-br from-emerald-400/20 via-green-500/10 to-transparent shadow-[0_0_60px_rgba(34,197,94,0.22)] backdrop-blur-xl" />
+    <div className="absolute inset-0 rounded-[32px] border border-white/40 bg-black" />
 
     <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/50 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
-      <div className="bg-gradient-to-r from-[#25D366] via-[#1ebe5d] to-[#128C7E] px-6 py-5">
-  <div className="flex items-center gap-3">
-    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
-      <svg
-        viewBox="0 0 24 24"
-        className="h-6 w-6 text-white"
-        fill="currentColor"
-      >
+
+  {/* WhatsApp Header */}
+  <div className="flex flex-col items-center justify-center pt-5 pb-3 px-4">
+    {/* WhatsApp Logo */}
+    <div className="mb-2 flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-full bg-[#25D366]">
+      <svg viewBox="0 0 24 24" className="h-7 w-7 md:h-8 md:w-8 text-white" fill="currentColor">
         <path d="M12.04 2C6.56 2 2.1 6.33 2.1 11.68c0 1.88.57 3.63 1.55 5.11L2 22l5.4-1.58a10.1 10.1 0 0 0 4.64 1.12c5.48 0 9.94-4.33 9.94-9.68C21.98 6.33 17.52 2 12.04 2Zm5.77 13.63c-.24.66-1.4 1.24-1.92 1.32-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.19-4.98-4.39-.15-.2-1.19-1.56-1.19-2.98 0-1.42.74-2.12 1-2.41.26-.29.57-.36.76-.36h.55c.18 0 .43-.07.67.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.3.47-.15.16-.31.36-.45.48-.15.13-.31.28-.13.55.18.27.79 1.3 1.69 2.11 1.16 1.03 2.14 1.35 2.44 1.5.3.15.48.13.66-.08.17-.21.74-.84.94-1.13.2-.29.39-.24.66-.14.27.1 1.7.79 1.99.93.29.14.48.21.55.33.07.12.07.72-.17 1.38Z" />
       </svg>
     </div>
-
-    <span className="font-poppins bg-gradient-to-r from-white via-emerald-100 to-green-100 bg-clip-text text-[28px] font-semibold tracking-[-0.02em] text-transparent">
-      WhatsApp
-    </span>
+    <h3 className="text-lg md:text-xl font-semibold text-white tracking-tight">Whatsapp</h3>
   </div>
-</div>
 
-      <div className="space-y-3 px-4 py-5">
-        {[
-          "Does that time work for you?",
-          "Are you coming to the party this Friday?",
-          "Can you help me with a quick question?",
-          "Of course! What's your question?",
-        ].map((text, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-2 rounded-3xl bg-black/35 backdrop-blur-md border border-white/5 p-3"
-          >
-            <div className="h-10 w-10 rounded-full bg-emerald-200/80" />
-            <div className="flex-1">
-              <div className="mb-1 h-3 w-20 rounded-full bg-white/90" />
-              <p className="text-[13px] leading-4 text-white/75">{text}</p>
-            </div>
-            <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" />
-          </div>
-        ))}
+  {/* Messages */}
+  <div className="flex flex-col gap-2 md:gap-3 px-3 md:px-4 pb-4">
+    {[
+      "Your order has been successfully placed ✅🛍️",
+      "Your order is being processed ⚙️🧡",
+      "Your order is on the way 🚚",
+    ].map((msg, i) => (
+      <div
+        key={i}
+        className="flex items-center gap-2 md:gap-3 rounded-2xl px-3 py-2.5 md:px-4 md:py-3"
+        style={{
+          background: "rgba(30,30,30,0.9)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        {/* Icon */}
+        <div className="flex h-8 w-8 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-full bg-[#25D366]">
+          <svg viewBox="0 0 24 24" className="h-4 w-4 md:h-5 md:w-5 text-white" fill="currentColor">
+            <path d="M12.04 2C6.56 2 2.1 6.33 2.1 11.68c0 1.88.57 3.63 1.55 5.11L2 22l5.4-1.58a10.1 10.1 0 0 0 4.64 1.12c5.48 0 9.94-4.33 9.94-9.68C21.98 6.33 17.52 2 12.04 2Zm5.77 13.63c-.24.66-1.4 1.24-1.92 1.32-.5.08-1.13.11-1.82-.11-.42-.13-.96-.31-1.66-.61-2.92-1.26-4.83-4.19-4.98-4.39-.15-.2-1.19-1.56-1.19-2.98 0-1.42.74-2.12 1-2.41.26-.29.57-.36.76-.36h.55c.18 0 .43-.07.67.5.24.58.82 2 .89 2.14.07.14.12.31.02.5-.1.19-.15.31-.3.47-.15.16-.31.36-.45.48-.15.13-.31.28-.13.55.18.27.79 1.3 1.69 2.11 1.16 1.03 2.14 1.35 2.44 1.5.3.15.48.13.66-.08.17-.21.74-.84.94-1.13.2-.29.39-.24.66-.14.27.1 1.7.79 1.99.93.29.14.48.21.55.33.07.12.07.72-.17 1.38Z" />
+          </svg>
+        </div>
+
+        {/* Text */}
+        <div className="flex flex-col min-w-0">
+          <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">Auromind</span>
+          <span className="text-[11px] md:text-[13px] text-white/60 leading-snug truncate">{msg}</span>
+        </div>
       </div>
-    </div>
+    ))}
+  </div>
+
+</div>
   </motion.div>
 </div>
         </div>

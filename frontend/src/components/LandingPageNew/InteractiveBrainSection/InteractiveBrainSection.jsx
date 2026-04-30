@@ -75,7 +75,7 @@ export default function InteractiveBrainSection() {
               className="relative w-[62vw] h-[78vh] min-h-[620px] max-w-[1180px] rounded-[40px] overflow-hidden flex items-center"
               style={{
                 background:
-                  "linear-gradient(180deg, #d8c3f2 0%, #c8a7f3 38%, #b07af0 72%, #9c4df4 100%)",
+                "linear-gradient(to bottom, #814AC8 0%, #ffffff 100%)",
                 boxShadow: "0 30px 80px rgba(0,0,0,0.45)",
               }}
             >

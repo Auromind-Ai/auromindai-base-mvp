@@ -65,7 +65,7 @@ export default function FAQSection() {
             You&apos;re Looking For
           </h2>
 
-          <p className="mt-[14px] text-[15px] font-normal text-white/65 md:text-[16px]">
+          <p className="mt-[14px] text-[15px] font-normal text-white/75 md:text-[16px]">
             Everything you need to know about Auromind
           </p>
         </motion.div>
@@ -89,7 +89,7 @@ export default function FAQSection() {
                   boxShadow: '0 0 30px rgba(124,58,237,0.12)',
                 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="overflow-hidden w-full min-h-[52px] rounded-[10px] border border-white/[0.06] bg-[rgba(10,10,14,0.92)]"
+                className="overflow-hidden w-full min-h-[52px] rounded-[10px] border border-[rgba(129,74,200,0.15)] bg-[rgba(129,74,200,0.06)]"
               >
                 <button
                   onClick={() => toggleFAQ(index)}

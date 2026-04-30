@@ -161,29 +161,68 @@ export default function HeroSectionNew() {
           transition={{ duration: 0.7, delay: 1 }}
           className="flex flex-wrap items-center justify-center gap-4"
         >
-          <button className="h-[36px] w-[129px] rounded-[8px] bg-[#814AC8] text-[13px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[150px]">
-            Get Started Free
+          {/* Get Started Free Button */}
+          <button
+            className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[13px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px]"
+          >
+            <span className="flex items-center justify-center gap-2 w-full h-full">
+              
+              {/* Text slide animation */}
+              <span className="relative overflow-hidden h-[1.2em] flex items-center">
+                {/* Original text - slides down on hover */}
+                <span className="block translate-y-0 group-hover:-translate-y-full transition-transform duration-300 ease-in-out">
+                  Get Started Free
+                </span>
+                {/* Clone text - slides in from bottom on hover */}
+                <span className="absolute inset-0 flex items-center translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
+                  Get Started Free
+                </span>
+              </span>
+
+              {/* Icon swap animation */}
+              <span className="relative w-[14px] h-[14px] flex items-center justify-center overflow-hidden">
+                {/* Diagonal arrow ↗ - default */}
+                <span className="absolute transition-all duration-300 ease-in-out opacity-100 group-hover:opacity-0 group-hover:-translate-y-2 group-hover:translate-x-2">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2.5 9.5L9.5 2.5M9.5 2.5H4M9.5 2.5V8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </span>
+                {/* Right arrow → - on hover */}
+                <span className="absolute transition-all duration-300 ease-in-out opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6H10M10 6L7 3M10 6L7 9" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </span>
+              </span>
+
+            </span>
           </button>
 
-          <button className="flex items-center justify-center gap-2 h-[36px] w-[129px] rounded-[8px] border border-white/10 bg-white/5 text-[13px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[150px]">
-
+          {/* Book a Demo Button */}
+          <button
+            className="group relative overflow-hidden flex items-center justify-center gap-2 h-[36px] w-[145px] rounded-[8px] border border-white/10 bg-white/5 text-[13px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[165px]"
+          >
+            {/* Play icon - static */}
             <svg
               width="16"
               height="16"
               viewBox="0 0 16 16"
               fill="none"
-              className="opacity-80"
+              className="opacity-80 flex-shrink-0"
             >
-              <circle
-                cx="8"
-                cy="8"
-                r="7"
-                stroke="currentColor"
-                strokeWidth="1.2"
-              />
-              <polygon points="6.5,5 11,8 6.5,11" fill="currentColor" />
+              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.2"/>
+              <polygon points="6.5,5 11,8 6.5,11" fill="currentColor"/>
             </svg>
-            Book a Demo
+
+            {/* Text slide animation */}
+            <span className="relative overflow-hidden h-[1.2em] flex items-center">
+              <span className="block translate-y-0 group-hover:-translate-y-full transition-transform duration-300 ease-in-out">
+                Book a Demo
+              </span>
+              <span className="absolute inset-0 flex items-center translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
+                Book a Demo
+              </span>
+            </span>
           </button>
         </motion.div>
 
@@ -193,20 +232,6 @@ export default function HeroSectionNew() {
           transition={{ duration: 0.7, delay: 1.2 }}
           className="mt-16 flex flex-col items-center gap-5"
         >
-          {/* <p className="text-[11px] uppercase tracking-[0.3em] text-white/30">
-            Trusted by teams at
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-10">
-            {["Vercel", "Stripe", "Linear", "Notion", "Figma"].map((item) => (
-              <span
-                key={item}
-                className="text-xs font-semibold uppercase tracking-[0.22em] text-white/20"
-              >
-                {item}
-              </span>
-            ))}
-          </div> */}
         </motion.div>
 
         <motion.div
