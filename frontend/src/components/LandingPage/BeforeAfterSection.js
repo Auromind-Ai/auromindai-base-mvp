@@ -44,21 +44,22 @@ const BeforeAfterSection = () => {
           {/* Before Card */}
           <motion.div
             style={{ scale: card1Scale, opacity: card1Opacity }}
-            className="absolute left-1/2 top-1/2 w-[316px] h-[390px] -translate-x-1/2 -translate-y-1/2 bg-[#0B0B0D] rounded-[2rem] p-5 md:p-20 flex flex-col z-0 shadow-xl border border-white/10 md:w-auto md:h-auto md:inset-0 md:translate-x-0 md:translate-y-0"
+            className="absolute left-1/2 top-1/2 w-[316px] h-[390px] -translate-x-1/2 -translate-y-1/2 bg-[linear-gradient(150deg,rgba(191,191,191,0.45)_0%,rgba(0,0,0,1)_70%)] rounded-[2rem] p-5 md:p-20 flex flex-col z-0 shadow-xl border border-white/10 md:w-auto md:h-auto md:inset-0 md:translate-x-0 md:translate-y-0"
           >
-                      <div className="mb-auto">
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/50 mb-6 block text-center">
-              Before Auromind
-            </span>
-
+          <div className="mb-8">
+            <div className="flex justify-center mb-8">
+              <span className="inline-block text-[14px] font-medium tracking-wide text-white/80 px-3 py-1 rounded-full bg-white/10 backdrop-blur">
+                Before Auromind
+              </span>
+            </div>
             <h2 className={`${poppins.className} text-[22px] md:text-[clamp(2rem,4.5vw,3.75rem)] font-semibold leading-[0.95] text-white tracking-tighter max-w-xl`}>
-              All work and no play
+              All work and no <br /> play
             </h2>
           </div>
 
             <div className="space-y-2 mb-4">
               {beforeItems.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-4 border-b border-white/10">
+                <div key={i} className="flex items-center justify-between py-5 border-b border-white/40">
                   <span
                     className={`${poppins.className} text-sm sm:text-[18px] md:text-[19px] lg:text-[20px] font-normal tracking-normal leading-[1.4] text-white`}
                   >
@@ -67,19 +68,23 @@ const BeforeAfterSection = () => {
                   <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
               ))}
-            </div>Deep insights into your Deep insights into 
+            </div>
           </motion.div>
 
           {/* After Card */}
           <motion.div
             style={{ y: card2Y, rotate: card2Rotate }}
-            className="absolute left-1/2 top-1/2 w-[316px] h-[420px] -translate-x-1/2 -translate-y-1/2 bg-[#8B52D9] rounded-[2rem] p-5 md:p-20 flex flex-col z-10 md:w-auto md:h-auto md:inset-0 md:translate-x-0 md:translate-y-0 shadow-[0_-50px_100px_rgba(0,0,0,0.12)]"
+            className="absolute left-1/2 top-1/2 w-[316px] h-[420px] -translate-x-1/2 -translate-y-1/2 bg-[linear-gradient(180deg,#4C1D95_0%,#3B136F_60%,#0D0D0D_100%)] rounded-[2rem] p-5 md:p-20 flex flex-col z-10 md:w-auto md:h-auto md:inset-0 md:translate-x-0 md:translate-y-0 shadow-[0_-50px_100px_rgba(0,0,0,0.12)]"
           >
             <div className="mb-auto relative">
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-4 block text-center">After Auromind:</span>
+              <div className="flex justify-center mb-6">
+              <span className="inline-block mx-auto text-[14px] font-medium text-white px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md mb-4">
+                After Auromind
+              </span>
+              </div>
               <div className="relative inline-block w-full text-center">
                 <h2
-                  className={`${poppins.className} text-[22px] md:text-[clamp(2rem,4.5vw,3.75rem)] font-semibold leading-[0.95] text-white tracking-tighter relative z-10`}
+                  className={`${poppins.className} text-[22px] md:text-[clamp(2rem,4.5vw,3.75rem)] font-semibold leading-[0.95] text-white tracking-tighter relative mb-10 z-10`}
                 >
                   Less grind and <br /> more pay
                 </h2>
@@ -112,7 +117,7 @@ const BeforeAfterSection = () => {
 
             <div className="space-y-2 mb-4">
               {afterItems.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-4 border-b border-white/10">
+                <div key={i} className="flex items-center justify-between py-4 border-b border-white/40">
                   <span
                     className={`${poppins.className} text-sm sm:text-[18px] md:text-[19px] lg:text-[20px] font-normal tracking-normal leading-[1.4] text-white`}
                   >
@@ -124,7 +129,11 @@ const BeforeAfterSection = () => {
             </div>
 
             <button
-              className={`${poppins.className} w-full py-3 md:py-6 bg-white text-[#4F46E5] rounded-full font-black text-[10px] md:text-xs uppercase tracking-[0.25em] md:tracking-[0.4em] hover:scale-[0.98] transition-transform shadow-xl shadow-black/10`}
+              className={`${poppins.className} w-[60%] mx-auto py-3 md:py-4 mt-6 md:mt-10
+              bg-white text-black 
+              rounded-full font-semibold 
+              text-[14px]  tracking-[0.1em] 
+              hover:scale-[0.98] transition-all duration-200`}
             >
               Get Started
             </button>

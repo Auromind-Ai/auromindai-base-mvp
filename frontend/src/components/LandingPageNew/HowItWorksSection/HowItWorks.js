@@ -21,7 +21,7 @@ const steps = [
       'Verified Business Trust',
       'Seamless Automation',
     ],
-    image: '/images/StepOne.jpeg',
+    image: '/images/StepOne.png',
   },
   {
     step: 'Step 2',
@@ -34,7 +34,7 @@ const steps = [
       'Control response behavior',
       'Define tone and workflows',
     ],
-    image: '/images/StepTwo.jpeg',
+    image: '/images/StepTwo.png',
   },
   {
     step: 'Step 3',
@@ -47,7 +47,7 @@ const steps = [
       'Lead qualification',
       'Revenue-focused workflows',
     ],
-    image: '/images/StepThree.jpeg',
+    image: '/images/StepThree.png',
   },
 ];
 
@@ -124,7 +124,7 @@ export default function HowItWorks() {
             <span className="block mt-1">With a Seamless Process</span>
           </h2>
 
-          <p className="mt-5 text-sm md:text-base text-white/50 max-w-xl mx-auto">
+          <p className="mt-5 text-sm md:text-base text-white/80 max-w-xl mx-auto">
             Your autonomous sales force is just a few clicks away.
           </p>
         </div>
@@ -160,7 +160,7 @@ export default function HowItWorks() {
                   >
                     <motion.div
                       variants={imageVariants}
-                      className="relative mx-auto w-full max-w-[320px] md:max-w-[360px] xl:max-w-[420px] h-[240px] md:h-[280px] xl:h-[320px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
+                      className="relative mx-auto w-full max-w-[320px] md:max-w-[460px] xl:max-w-[580px] h-[240px] md:h-[340px] xl:h-[420px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
                     >
                       <img
                         src={item.image}
@@ -179,7 +179,7 @@ export default function HowItWorks() {
                         {item.title}
                       </h3>
 
-                      <p className="mt-6 text-white/55 leading-8 text-sm md:text-base max-w-md mx-auto md:mx-0">
+                      <p className="mt-6 text-white/80 leading-8 text-sm md:text-base max-w-md mx-auto md:mx-0">
                         {item.description}
                       </p>
 

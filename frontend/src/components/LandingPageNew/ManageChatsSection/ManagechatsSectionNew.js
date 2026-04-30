@@ -323,9 +323,9 @@ export default function ManageChatsSection() {
                 rotateY: `${cardRotateY * 0.35}deg`,
               }}
               >
-                <div className="absolute inset-0 rounded-[32px] border border-fuchsia-300/20 bg-gradient-to-br from-fuchsia-500/30 via-violet-500/15 to-indigo-500/10 shadow-[0_0_100px_rgba(192,132,252,0.42)] backdrop-blur-xl" />
+                <div className="absolute inset-0 rounded-[32px] border border-white/10 bg-black" />
 
-                <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/45 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
+                <div className="relative h-full overflow-hidden rounded-[32px] border border-white/10 bg-black shadow-[0_25px_80px_rgba(0,0,0,0.45)]">
                   <div className="bg-gradient-to-r from-[#d946ef] via-[#8b5cf6] to-[#4f46e5] px-5 py-4">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md">
@@ -380,7 +380,7 @@ export default function ManageChatsSection() {
                     <div className="ml-auto w-fit max-w-[85%] rounded-2xl bg-gradient-to-r from-violet-600 to-sky-500 px-3.5 py-2.5 text-[13px] text-white">
                       That was taken from the bridge overlooking the lake.
                     </div>
-                    <div className="absolute bottom-6 left-6 flex items-center gap-3 text-emerald-300">
+                    <div className="absolute bottom-6 left-6 flex items-center gap-3 text-white">
                     <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
                     <span className="text-[13px] font-medium">Replied instantly</span>
                     </div>
@@ -412,7 +412,7 @@ export default function ManageChatsSection() {
                       rotateY: `${cardRotateY * 0.5}deg`,
                     }}
                     >
-                      <div className="absolute inset-0 rounded-[32px] border border-emerald-300/20 bg-gradient-to-br from-emerald-400/20 via-green-500/10 to-transparent shadow-[0_0_100px_rgba(16,185,129,0.38)] backdrop-blur-xl" />
+                      <div className="absolute inset-0 rounded-[32px] border border-white/10 bg-black" />
 
                       <div className="relative h-full overflow-hidden rounded-[32px] border border-white/15 bg-black/50 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
                         <div className="bg-gradient-to-r from-[#25D366] via-[#1ebe5d] to-[#128C7E] px-5 py-4">
@@ -454,7 +454,7 @@ export default function ManageChatsSection() {
                   ))}
                 </div>
               </div>
-              <div className="absolute bottom-6 left-6 flex items-center gap-3 text-emerald-300">
+              <div className="absolute bottom-6 left-6 flex items-center gap-3 text-white">
             <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.9)]" />
             <span className="text-[15px] font-medium">Lead captured 24/7</span>
           </div>

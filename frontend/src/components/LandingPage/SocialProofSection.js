@@ -2,18 +2,26 @@
 
 import { motion } from 'framer-motion';
 import { MessageSquare, Users, Clock } from 'lucide-react';
+import { Poppins } from "next/font/google";
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+});
 
 const SocialProofSection = () => {
   return (
-    <section className="py-24 px-6 relative bg-[#F9F9F9] border-y border-black/5 overflow-hidden">
+    <section className="py-24 px-6 relative bg-black border-y border-white/10 overflow-hidden">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
-          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-black/30">Trusted by modern brands</span>
+          <span className={`${poppins.className} text-[10px] font-black uppercase tracking-[0.4em] text-white/40`}>
+            Trusted by modern brands
+          </span>
         </div>
 
         <div className="relative mb-24 overflow-hidden">
-          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#F9F9F9] to-transparent z-10" />
-          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#F9F9F9] to-transparent z-10" />
+          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-black to-transparent z-10" />
+          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-black to-transparent z-10" />
 
           <motion.div
             animate={{ x: [0, -1000] }}
@@ -23,7 +31,7 @@ const SocialProofSection = () => {
             {[...Array(3)].map((_, outerI) => (
               <div key={outerI} className="flex items-center gap-32 opacity-20 grayscale">
                 {['Shopify', 'Meta', 'Wati', 'HubSpot', 'Salesforce', 'Zendesk', 'Slack', 'WhatsApp'].map((brand, i) => (
-                  <span key={`${outerI}-${i}`} className="text-2xl font-black tracking-tighter text-black uppercase">
+                  <span key={`${outerI}-${i}`} className="text-2xl font-black tracking-tighter text-white uppercase">
                     {brand}
                   </span>
                 ))}
@@ -46,10 +54,10 @@ const SocialProofSection = () => {
               transition={{ delay: i * 0.1 }}
               className="flex flex-col items-center text-center py-6"
             >
-              <div className="text-6xl font-black mb-4 text-black tracking-tighter leading-none">
+              <div className="text-6xl font-black mb-4 text-white tracking-tighter leading-none">
                 {stat.val}
               </div>
-              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-black/30">
+              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">
                 {stat.label}
               </div>
             </motion.div>

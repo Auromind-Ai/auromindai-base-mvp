@@ -85,38 +85,51 @@ export default function PricingSectionNew() {
             For Every Stage of Growth
           </h2>
 
-          <p className="mt-5 max-w-2xl mx-auto text-sm md:text-base text-white/50 leading-7 text-center font-normal">
+          <p className="mt-5 max-w-2xl mx-auto text-md md:text-base text-white/50 leading-7 text-center font-normal">
             Choose the perfect plan for your business and scale your AI-powered
             sales system with confidence.
           </p>
 
-          <div className="mt-12 md:mt-14 flex justify-center px-2">
-            <div className="relative inline-flex h-[52px] items-center rounded-full border border-white/10 bg-white/[0.04] p-1">
-              <button
-                onClick={() => setBilling('monthly')}
-                className={`px-6 md:px-8 py-3 rounded-full text-sm md:text-[15px] font-medium transition-all duration-300 ${
-                  billing === 'monthly'
-                    ? 'bg-[#7C3AED] text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)]'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                Monthly
-              </button>
+          <div className="mt-12 md:mt-14 flex justify-center items-center gap-4 px-2">
+  
+            {/* Monthly label */}
+            <span className={`text-sm md:text-[15px] font-medium transition-colors duration-300 ${
+              billing === 'monthly' ? 'text-white' : 'text-white/40'
+            }`}>
+              Monthly
+            </span>
 
-              <button
-                onClick={() => setBilling('annual')}
-                className={`px-6 md:px-8 py-3 rounded-full text-sm md:text-[15px] font-medium transition-all duration-300 flex items-center ${
-                  billing === 'annual'
-                    ? 'bg-[#7C3AED] text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)]'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                Annually
-                <span className="ml-2 rounded-full bg-[#7C3AED]/20 px-2 py-1 text-[11px] text-[#B794F4]">
-                  Save 20%
-                </span>
-              </button>
-            </div>
+            {/* iOS Toggle Switch */}
+            <button
+              onClick={() => setBilling(billing === 'monthly' ? 'annual' : 'monthly')}
+              className="relative w-[52px] h-[28px] rounded-full transition-colors duration-300 focus:outline-none"
+              style={{
+                background: billing === 'annual'
+                  ? 'linear-gradient(135deg, #7C3AED, #9B5DE5)'
+                  : 'rgba(255,255,255,0.15)',
+                boxShadow: billing === 'annual'
+                  ? '0 0 16px rgba(124,58,237,0.5)'
+                  : 'none',
+              }}
+            >
+              {/* Knob */}
+              <motion.div
+                animate={{ x: billing === 'annual' ? 26 : 2 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                className="absolute top-[3px] w-[22px] h-[22px] rounded-full bg-white shadow-md"
+              />
+            </button>
+
+            {/* Annually label */}
+            <span className={`text-sm md:text-[15px] font-medium transition-colors duration-300 ${
+              billing === 'annual' ? 'text-white' : 'text-white/40'
+            }`}>
+              Annually
+              <span className="ml-2 rounded-full bg-[#7C3AED]/20 px-2 py-1 text-[11px] text-[#B794F4]">
+                Save 20%
+              </span>
+            </span>
+
           </div>
         </div>
 
@@ -139,7 +152,7 @@ export default function PricingSectionNew() {
                 className={`relative overflow-hidden rounded-[32px] border h-[465px] px-[30px] pt-[20px] pb-[20px] backdrop-blur-xl transition-all duration-500 flex flex-col gap-[35px] ${
                   isFeatured
                     ? 'border-[#7C3AED]/30 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.22),rgba(12,12,12,1)_68%)] shadow-[0_0_40px_rgba(124,58,237,0.18)]'
-                    : 'border-white/10 bg-[radial-gradient(circle_at_bottom_right,rgba(124,58,237,0.16),rgba(5,5,5,1)_62%)]'
+                    : 'border-white/10 bg-[linear-gradient(to_top,rgba(129,74,200,0.30)_0%,rgba(0,0,0,1)_60%)]'
                 }`}
               >
                 {isFeatured && (
@@ -189,7 +202,7 @@ export default function PricingSectionNew() {
                     <button
                       className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 ${
                         isFeatured
-                          ? 'bg-[#7C3AED] text-white hover:bg-[#8B5CF6] shadow-[0_20px_40px_rgba(124,58,237,0.35)]'
+                          ? 'bg-[#814AC8] text-white hover:bg-[#9B5DE5] shadow-[0_20px_40px_rgba(129,74,200,0.35)]'
                           : 'border border-white/10 bg-white/10 text-white hover:bg-white hover:text-black'
                       }`}
                     >
