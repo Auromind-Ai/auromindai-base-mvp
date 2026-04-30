@@ -1,6 +1,7 @@
 from app.core.logger import logger
 from datetime import datetime
 from app.models import HumanEscalation
+import uuid
 
 
 class EscalationQueue:
@@ -18,12 +19,13 @@ class EscalationQueue:
     def add(self, data):
         try:
             escalation_data = {
+                "id": uuid.uuid4().hex,
                 "user_id": data.get("user_id"),
                 "reason": data.get("reason"),
                 "status": "pending",
             }
 
-            # ✅ DB MODE (CORRECT)
+            # DB MODE (CORRECT)
             if self.db:
                 escalation = HumanEscalation(
                     user_id=escalation_data["user_id"],

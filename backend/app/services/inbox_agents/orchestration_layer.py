@@ -14,6 +14,7 @@ class AgentOrchestration:
 
         self.logger = logger
         self.logger.info("Initializing AgentOrchestration...")
+        self.db = db
         
         #Core Services
         self.llm = LLMClient(api_key=os.getenv("GROQ_API_KEY"))
@@ -22,7 +23,7 @@ class AgentOrchestration:
         self.config_service = ConfigService()
         self.mcp.config_service = self.config_service
         self.unified_agent = UnifiedAgent(self.llm, self.memory)
-        self.escalation_queue = EscalationQueue()
+        self.escalation_queue = EscalationQueue(self.db)
 
         self.channel_adapters = {}
         self.response_sender = None
@@ -48,7 +49,7 @@ class AgentOrchestration:
         user_id = data.get("user_id")
         workspace_id = data.get("workspace_id")
         message = data.get("message", "")
-        db = getattr(self.escalation_queue, 'db', None)
+        db = self.db
 
         # turn_count
         turn_count = self.memory.get_turn_count(user_id) if self.memory else 0

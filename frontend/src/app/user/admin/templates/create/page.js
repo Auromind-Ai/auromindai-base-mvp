@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import api from '@/lib/api';
+import { getWorkspaceIdFromToken } from '@/lib/auth';
 
 export default function CreateTemplatePage() {
   const [form, setForm] = useState({
     category: 'MARKETING',
-    language: 'English',
+    language: 'en_US',
     name: '',
     type: 'TEXT',
     header: '',
@@ -16,26 +17,68 @@ export default function CreateTemplatePage() {
   });
 
   const [aiPrompt, setAiPrompt] = useState('');
+  const [tone, setTone] = useState("normal");
+  const [generatedTemplates, setGeneratedTemplates] = useState([]);
+  const isAuth = form.category === "AUTHENTICATION";
 
-  const handleGenerate = () => {
-    const result = `Hey {{1}}, 🎉
-Your order {{2}} is confirmed!
-Delivery in {{3}} 🚚`;
-    setForm({ ...form, message: result });
-  };
+  const handleGenerate = async () => {
+  if (!aiPrompt || aiPrompt.trim() === "") {
+    alert("Please enter a prompt to generate message");
+    return;
+  }
 
+  try {
+    const res = await api.post("/templates/generate", {
+      prompt: aiPrompt,
+      tone: tone,
+      language: form.language 
+    });
+
+    console.log("AI RESPONSE:", res);
+
+    let templates = [];
+
+    if (res?.message) {
+      try {
+        let cleanMessage = res.message
+          .replace(/```json/g, '')
+          .replace(/```/g, '')
+          .trim();
+
+        const parsed = JSON.parse(cleanMessage);
+        templates = parsed.templates || [];
+      } catch (e) {
+        console.error("Failed to parse AI response:", e);
+      }
+    } else {
+      templates = res?.templates || res?.data?.templates || [];
+    }
+
+    setGeneratedTemplates(templates);
+
+  } catch (err) {
+    console.error(err);
+  }
+};
 const handleSubmit = async () => {
   try {
-    await api.post('/api/templates/create', {
+    await api.post('/templates/create', {
       name: form.name,
       type: form.type,
-      message: form.message
+      message: form.message,
+      header: form.header,
+      footer: form.footer,
+      cta: form.cta,
+      category: form.category,
+      language: form.language,
+      workspace_id: getWorkspaceIdFromToken() // 🔥 ADD THIS
     });
 
     window.location.href = "/user/admin/templates";
 
   } catch (err) {
     console.error(err);
+    alert(err.message || 'Failed to create template');
   }
 };
 
@@ -51,7 +94,7 @@ const handleSubmit = async () => {
         <div className="md:col-span-2 space-y-6">
 
           {/* CATEGORY + LANGUAGE */}
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-gray-400">Template Category</label>
               <select
@@ -72,15 +115,31 @@ const handleSubmit = async () => {
                 value={form.language}
                 onChange={(e) => setForm({ ...form, language: e.target.value })}
               >
-                <option>English</option>
-                <option>Tamil</option>
+                <option value="en_US">English (US)</option>
+                <option value="en_GB">English (UK)</option>
+                <option value="ta">Tamil</option>
               </select>
             </div>
+            <div>
+            <label className="text-sm text-gray-400">Template Type</label>
+            <select
+              className="w-full bg-[#1f1f1f] p-2 rounded mt-1"
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+            >
+              <option value="TEXT">Text</option>
+              <option value="IMAGE">Image</option>
+              <option value="VIDEO">Video</option>
+            </select>
+          </div>
           </div>
 
           {/* AI GENERATOR */}
+          {!isAuth && (
           <div className="bg-[#1f1f1f] p-4 rounded border border-[#2a2a2a]">
             <h3 className="font-semibold mb-2">✨ Generate with AI</h3>
+            <div className="grid grid-cols-3 gap-4 mt-4">
+
 
             <textarea
               placeholder="Write your prompt..."
@@ -91,18 +150,72 @@ const handleSubmit = async () => {
 
             {/* STYLE BUTTONS */}
             <div className="flex gap-2 mb-3">
-              <button className="bg-gray-700 px-3 py-1 rounded text-sm">Normal</button>
-              <button className="bg-gray-700 px-3 py-1 rounded text-sm">🔥 Exciting</button>
-              <button className="bg-gray-700 px-3 py-1 rounded text-sm">😂 Funny</button>
-            </div>
+
+  <button
+    onClick={() => setTone("normal")}
+    className={`px-3 py-1 rounded ${
+      tone === "normal"
+        ? "bg-green-600 text-white"
+        : "bg-gray-700 text-gray-300"
+    }`}
+  >
+    Normal
+  </button>
+
+  <button
+    onClick={() => setTone("exciting")}
+    className={`px-3 py-1 rounded ${
+      tone === "exciting"
+        ? "bg-green-600 text-white"
+        : "bg-gray-700 text-gray-300"
+    }`}
+  >
+    🔥 Exciting
+  </button>
+
+  <button
+    onClick={() => setTone("funny")}
+    className={`px-3 py-1 rounded ${
+      tone === "funny"
+        ? "bg-green-600 text-white"
+        : "bg-gray-700 text-gray-300"
+    }`}
+  >
+    😂 Funny
+  </button>
+
+</div>
 
             <button
-              onClick={handleGenerate}
-              className="bg-green-600 px-4 py-2 rounded w-full"
-            >
-              Generate Message
-            </button>
+  onClick={handleGenerate}
+  disabled={!aiPrompt || aiPrompt.trim() === ""}
+  className={`px-4 py-2 rounded w-full ${
+    !aiPrompt ? "bg-gray-500 cursor-not-allowed" : "bg-green-600"
+  }`}
+>
+  Generate Message
+</button>
+                      {generatedTemplates.map((tpl, i) => (
+            <div key={i} className="bg-[#1f1f1f] p-4 rounded border">
+
+              <p className="text-sm whitespace-pre-line mb-3">
+                {tpl.text}
+              </p>
+
+              <button
+                onClick={() =>
+                  setForm({ ...form, message: tpl.text })
+                }
+                className="bg-green-600 px-3 py-1 rounded w-full"
+              >
+                Use this
+              </button>
+
+            </div>
+          ))}
+        </div>
           </div>
+          )}
 
           {/* TEMPLATE NAME */}
           <div>
@@ -119,15 +232,17 @@ const handleSubmit = async () => {
           </div>
 
           {/* HEADER */}
-          <div>
-            <label className="text-sm text-gray-400">Header (Optional)</label>
-            <input
-              className="w-full bg-[#1f1f1f] p-2 rounded mt-1"
-              placeholder="Header text"
-              value={form.header}
-              onChange={(e) => setForm({ ...form, header: e.target.value })}
-            />
-          </div>
+          {form.type === "TEXT" && (
+            <div>
+              <label className="text-sm text-gray-400">Header (Optional)</label>
+              <input
+                className="w-full bg-[#1f1f1f] p-2 rounded mt-1"
+                placeholder="Header text"
+                value={form.header}
+                onChange={(e) => setForm({ ...form, header: e.target.value })}
+              />
+            </div>
+          )}
 
           {/* BODY */}
           <div>
@@ -155,6 +270,7 @@ const handleSubmit = async () => {
           </div>
 
           {/* CTA */}
+          {!isAuth && (
           <div>
             <label className="text-sm text-gray-400">Call To Action (Optional)</label>
             <input
@@ -164,6 +280,7 @@ const handleSubmit = async () => {
               onChange={(e) => setForm({ ...form, cta: e.target.value })}
             />
           </div>
+          )}
 
           {/* SUBMIT */}
           <button
