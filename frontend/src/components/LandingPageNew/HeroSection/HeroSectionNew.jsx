@@ -67,7 +67,7 @@ export default function HeroSectionNew() {
       {showContent && (
         <>
 
-      <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center">
+      <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center translate-y-16">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
           animate={
@@ -163,7 +163,7 @@ export default function HeroSectionNew() {
         >
           {/* Get Started Free Button */}
           <button
-            className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[13px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px]"
+            className="group relative overflow-hidden h-[36px] w-[145px] rounded-[8px] bg-[#814AC8] text-[14px] font-semibold text-white shadow-[0_0_32px_rgba(109,40,255,0.45)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_45px_rgba(109,40,255,0.65)] md:h-[42px] md:w-[165px]"
           >
             <span className="flex items-center justify-center gap-2 w-full h-full">
               
@@ -200,7 +200,7 @@ export default function HeroSectionNew() {
 
           {/* Book a Demo Button */}
           <button
-            className="group relative overflow-hidden flex items-center justify-center gap-2 h-[36px] w-[145px] rounded-[8px] border border-white/10 bg-white/5 text-[13px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[165px]"
+            className="group relative overflow-hidden flex items-center justify-center gap-2 h-[36px] w-[145px] rounded-[8px] border border-white/10 bg-white/5 text-[14px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10 md:h-[42px] md:w-[165px]"
           >
             {/* Play icon - static */}
             <svg
