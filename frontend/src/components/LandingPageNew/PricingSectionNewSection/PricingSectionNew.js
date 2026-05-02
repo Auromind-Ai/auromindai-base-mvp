@@ -85,7 +85,7 @@ export default function PricingSectionNew() {
             For Every Stage of Growth
           </h2>
 
-          <p className="mt-5 max-w-2xl mx-auto text-md md:text-base text-white/50 leading-7 text-center font-normal">
+          <p className="mt-5 max-w-2xl mx-auto text-md md:text-base lg:text-lg text-white/80 leading-7 text-center font-normal">
             Choose the perfect plan for your business and scale your AI-powered
             sales system with confidence.
           </p>
@@ -192,11 +192,9 @@ export default function PricingSectionNew() {
                     </div>
 
                     {/* DESCRIPTION */}
-                    <p className="mt-4 text-sm leading-7 text-white/55">
+                    <p className="mt-4 text-sm lg:text-base leading-6 text-white/85">
                       {plan.description}
                     </p>
-
-                    
 
                     <div className="mt-[28px]">
                     <button
@@ -210,11 +208,18 @@ export default function PricingSectionNew() {
                     </button>
                   </div>
 
-                    <div className="mt-10 space-y-4">
-                      {plan.features.map((feature) => (
+                    <div className="mt-10">
+  
+                      {/* TITLE ADD HERE */}
+                      <p className="text-white/90 text-sm lg:text-base font-medium mb-4">
+                        What's Included:
+                      </p>
+
+                      <div className="space-y-2">
+                        {plan.features.map((feature) => (
                         <div
                           key={feature}
-                          className="flex items-start gap-3 text-sm text-white/80"
+                          className="flex items-start gap-3 text-sm lg:text-base text-white/80"
                         >
                           <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7C3AED]/20">
                             <svg
@@ -234,8 +239,7 @@ export default function PricingSectionNew() {
                       ))}
                     </div>
                   </div>
-
-                  
+                  </div>
                 </div>
               </motion.div>
             );

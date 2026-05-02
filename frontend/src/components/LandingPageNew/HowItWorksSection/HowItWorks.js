@@ -124,7 +124,7 @@ export default function HowItWorks() {
             <span className="block mt-1">With a Seamless Process</span>
           </h2>
 
-          <p className="mt-5 text-sm md:text-base text-white/80 max-w-xl mx-auto">
+          <p className="mt-5 text-sm md:text-base lg:text-xl text-white/90 max-w-xl mx-auto">
             Your autonomous sales force is just a few clicks away.
           </p>
         </div>
@@ -173,22 +173,22 @@ export default function HowItWorks() {
                       variants={slideVariants}
                       className="text-center md:text-left max-w-xl mx-auto md:mx-0"
                     >
-                      <p className="text-sm text-white/40 mb-3">{item.step}</p>
+                      <p className="text-sm lg:text-base text-white/90 mb-3">{item.step}</p>
 
                       <h3 className="text-3xl md:text-[2.5rem] leading-tight font-semibold text-white">
                         {item.title}
                       </h3>
 
-                      <p className="mt-6 text-white/80 leading-8 text-sm md:text-base max-w-md mx-auto md:mx-0">
+                      <p className="mt-6 text-white/90 leading-7 text-base md:text-base lg:text-xl max-w-md mx-auto md:mx-0">
                         {item.description}
                       </p>
 
                       <div className="mt-8 max-w-sm mx-auto md:mx-0 text-left">
-                        <p className="text-white/80 text-sm font-medium mb-3">
+                        <p className="text-white text-base lg:text-lg font-medium mb-3">
                           Features:
                         </p>
 
-                        <ul className="space-y-2 text-sm text-white/90">
+                        <ul className="space-y-2 text-sm lg:text-base text-white/90">
                           {item.features.map((feature) => (
                             <li key={feature} className="flex items-start gap-2">
                               <span className="text-white/60 mt-[1px]">•</span>

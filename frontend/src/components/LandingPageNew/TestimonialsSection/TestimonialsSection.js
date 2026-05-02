@@ -10,7 +10,7 @@ const testimonials = [
     review:
       'Auromind completely transformed our customer support workflow, helping us handle 3x more inquiries while significantly increasing our conversion rates.',
     rating: 4,
-    image: '/avatars/avatar-1.png',
+    image: '/images/Message_Girl.png',
   },
   {
     name: 'Michael Carter',
@@ -18,7 +18,7 @@ const testimonials = [
     review:
       'Since switching to Auromind, our response time dropped dramatically and our team now closes leads much faster than before.',
     rating: 5,
-    image: '/avatars/avatar-2.png',
+    image: '/images/Message_Girl.png'
   },
   {
     name: 'Emily Rodriguez',
@@ -26,7 +26,7 @@ const testimonials = [
     review:
       'The automation features saved us countless hours every week. We were able to improve customer satisfaction without expanding our team.',
     rating: 5,
-    image: '/avatars/avatar-3.png',
+    image: '/images/Message_Girl.png',
   },
   {
     name: 'David Lee',
@@ -34,7 +34,7 @@ const testimonials = [
     review:
       'Auromind made our support process seamless. Our customers receive faster replies and our internal workflow is now much more efficient.',
     rating: 4,
-    image: '/avatars/avatar-4.png',
+    image: '/images/Message_Girl.png',
   },
 ];
 
@@ -77,7 +77,7 @@ export default function TestimonialsSection() {
             Growing with Us
           </h2>
 
-          <p className="mt-6 text-base md:text-lg text-white/60 font-[400] text-center">
+          <p className="mt-6 text-base md:text-lg text-white/80 font-[400] text-center">
             Client feedback highlighting real results and satisfaction
           </p>
         </div>

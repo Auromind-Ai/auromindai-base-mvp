@@ -59,13 +59,13 @@ export default function FAQSection() {
             FAQs
           </div>
 
-          <h2 className="max-w-[760px] font-['Poppins'] text-[26px] font-semibold leading-[1.05] tracking-[-0.04em] text-white text-center sm:text-[34px] md:text-[42px]">
+          <h2 className="max-w-[760px] font-['Poppins'] text-[26px] sm:text-[34px] md:text-[42px] lg:text-[50px] font-medium leading-[1.1] tracking-[-0.04em] text-white text-center">
             We&apos;ve Got the Answers
             <br />
             You&apos;re Looking For
           </h2>
 
-          <p className="mt-[14px] text-[15px] font-normal text-white/75 md:text-[16px]">
+          <p className="mt-[14px] text-[18px] font-normal text-white/85 md:text-[16px]">
             Everything you need to know about Auromind
           </p>
         </motion.div>
@@ -95,7 +95,7 @@ export default function FAQSection() {
                   onClick={() => toggleFAQ(index)}
                   className="flex w-full items-center justify-between gap-4 px-5 py-[18px] text-left"
                 >
-                  <span className="pr-2 text-[15px] font-medium leading-[1.35] text-white md:text-[16px]">
+                  <span className="pr-2 text-[15px] font-medium leading-[1.35] text-white lg:text-[16px]">
                     {faq.question}
                   </span>
 

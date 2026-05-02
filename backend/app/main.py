@@ -71,6 +71,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://dr4hfltt-3000.inc1.devtunnels.ms"
     ],
     allow_credentials=True,
     allow_methods=["*"],
