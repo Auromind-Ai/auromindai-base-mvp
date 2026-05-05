@@ -59,10 +59,10 @@
   color: #ffffff;
   max-width: 896px;
   font-family: "Poppins", sans-serif;
-  font-size: 40px;
-  font-weight: 500;
-  line-height: 1.3em;
-  letter-spacing: -0.05em;
+  font-size: 50px;     
+  font-weight: 500;     
+  line-height: 1.1em;    
+  letter-spacing: -0.04em;
   text-align: center;
 }
 
@@ -114,7 +114,6 @@
 }
 
 /* ---- Badge row ---- */
-/* CHANGED: matches reference — plain text "Features  Ready for Review" row */
 .badgeRow {
   display: flex;
   align-items: center;
@@ -122,6 +121,8 @@
   margin-bottom: 0;
   padding: 10px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: none;
+  order: 0;  
 }
 
 .badge {
@@ -136,12 +137,12 @@
 }
 
 .badgeSub {
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.95);
   font-size: 12px;
+  line-height: 1;
 }
 
 /* ---- Feature Scroller ---- */
-/* CHANGED: outer container now has a dark bordered box, like reference */
 .scrollerOuter {
   width: 432px;
   max-width: 432px;
@@ -151,6 +152,8 @@
   overflow: hidden;
   transform: scale(0.94);
   transform-origin: top center;
+  display: flex;
+  flex-direction: column;
 }
 
 /* CHANGED: tighter height, simpler mask */
@@ -159,8 +162,7 @@
   height: 480px;
   overflow: hidden;
   position: relative;
-  /* -webkit-mask: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%);
-  mask: linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%); */
+  order: 1;
 }
 
 
@@ -755,5 +757,39 @@
   .headingWrap {
     margin-bottom: 8px;
   }
+}
 
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;        
+}
+
+.subheading {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  line-height: 1.65;
+  text-align: center;
+  max-width: 480px;
+  margin: 28px auto 0;
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    max-width: 90%;
+  }
+}
+
+.badgeWrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
 }

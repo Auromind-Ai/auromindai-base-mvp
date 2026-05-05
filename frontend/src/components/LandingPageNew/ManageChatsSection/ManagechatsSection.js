@@ -144,7 +144,7 @@ export default function ManageChatsSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.5 }}
             transition={{ duration: 0.8, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto mt-4 max-w-md text-sm md:text-base lg:text-lg leading-6 text-white/85 lg:mx-0"
+            className="font-poppins mx-auto mt-4 max-w-md text-sm md:text-base lg:text-lg leading-6 text-white/85 lg:mx-0"
           >
             Manage conversations effortlessly with AI that organizes,
             prioritizes, and replies in real time.
@@ -261,7 +261,7 @@ export default function ManageChatsSection() {
               className="
                 relative w-full max-w-[300px] z-20
                 lg:relative lg:ml-[220px]
-                lg:w-[340px] lg:h-[400px]
+                lg:w-[340px] lg:h-[auto]
               "
 
               onHoverStart={() => !isMobile && setHoveredCard("whatsapp")}

@@ -50,15 +50,19 @@ export default function MessageManagementSection() {
   viewport={{ once: true, amount: 0.3 }}
   transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
 >
+  <div className={styles.badgeWrap}>
+    <span className={styles.badge}>Our Services</span>
+  </div>
+
   <h2 className={styles.heading}>
-    Manage all your messages in one place and <br /> 
-    reply faster with intelligent automation
+    Manage all your messages in one place &amp;{" "}
+    reply faster with automation
   </h2>
 
-  {/* <p className={styles.subheading}>
+  <p className={styles.subheading}>
     Automate Instagram, WhatsApp with AI that feels human. Close more sales
     while you sleep.
-  </p> */}
+  </p>
 </motion.div>
 
       <div className={styles.cols}>

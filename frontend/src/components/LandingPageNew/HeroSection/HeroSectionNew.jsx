@@ -63,10 +63,8 @@ export default function HeroSectionNew() {
       className={`${poppins.className} relative min-h-screen overflow-hidden bg-[#050505]`}
     >
       {mounted && <HeroBackgroundNew />}
-
       {showContent && (
         <>
-
       <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center translate-y-16">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
@@ -99,22 +97,22 @@ export default function HeroSectionNew() {
             ✦ The Future
           </motion.span>
 
-          <div className="relative overflow-hidden h-[16px] md:h-[18px]">
+          <div className="relative overflow-hidden h-[18px] md:h-[20px]">
             <motion.span
               initial={{
-                y: 18,
+                y: "100%",
                 opacity: 0,
-                filter: "blur(10px)",
+                filter: "blur(12px)",
               }}
               animate={{
-                y: 0,
+                y: "0%",
                 opacity: 1,
                 filter: "blur(0px)",
               }}
               transition={{
-                duration: 0.55,
-                delay: 0.52,
-                ease: [0.16, 1, 0.3, 1],
+                duration: 0.7,
+                delay: 0.5,
+                ease: [0.22, 1, 0.36, 1], // smoother cubic-bezier
               }}
               className="block text-[12px] md:text-[14px] font-medium text-white/70"
             >

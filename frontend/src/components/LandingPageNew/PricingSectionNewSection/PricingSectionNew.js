@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const plans = [
   {
     name: 'Free',
+    icon: "🚀",
     monthlyPrice: '₹399',
     annualPrice: '₹399',
     description: 'Try Auromind for free and see the ROI yourself.',
@@ -19,6 +20,7 @@ const plans = [
   },
   {
     name: 'Professional',
+    icon: "⚡",
     monthlyPrice: '₹6,999',
     annualPrice: '₹6,999',
     description:
@@ -34,6 +36,7 @@ const plans = [
   },
   {
     name: 'Business',
+    icon: "👑",
     monthlyPrice: 'Custom',
     annualPrice: 'Custom',
     description:
@@ -166,7 +169,8 @@ export default function PricingSectionNew() {
 
                 <div className="relative z-10 flex h-full flex-col justify-between">
                   <div>
-                    <h3 className="font-['Poppins'] text-[23px] font-medium text-white/80 tracking-[-0.02em] leading-[1.2em]">
+                    <h3 className="font-['Poppins'] text-[23px] font-medium text-white/80 tracking-[-0.02em] leading-[1.2em] flex items-center gap-2">
+                      <span className="text-[22px]">{plan.icon}</span>
                       {plan.name}
                     </h3>
 

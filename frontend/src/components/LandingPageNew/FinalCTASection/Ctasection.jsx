@@ -9,7 +9,7 @@ export default function CTASection() {
           className="absolute inset-0 rounded-3xl blur-2xl opacity-40 pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse at 70% 80%, #814AC8 0%, transparent 65%)",
+              "radial-gradient(ellipse at 70% 80%, #512091 20%, transparent 65%)",
           }}
         />
 
@@ -65,17 +65,17 @@ export default function CTASection() {
 
             {/* Get Started Button */}
             <button
-              className="group relative overflow-hidden h-[44px] w-[180px] rounded-[12px] bg-[#814AC8] text-[14px] font-semibold text-white shadow-[0_0_25px_rgba(129,74,200,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(129,74,200,0.65)]"
+              className="group relative overflow-hidden h-[44px] w-[180px] rounded-[12px] bg-[#814AC8] text-[16px] font-semibold text-white shadow-[0_0_25px_rgba(129,74,200,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(129,74,200,0.65)]"
             >
               <span className="flex items-center justify-center gap-2 w-full h-full">
 
                 {/* Text slide */}
                 <span className="relative overflow-hidden h-[1.2em] flex items-center">
                   <span className="block translate-y-0 group-hover:-translate-y-full transition-transform duration-300 ease-in-out">
-                    Get started free
+                    Get started Free
                   </span>
                   <span className="absolute inset-0 flex items-center translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
-                    Get started free
+                    Get started Free
                   </span>
                 </span>
 
@@ -98,7 +98,7 @@ export default function CTASection() {
 
             {/* Book a Demo */}
             <button
-              className="group relative overflow-hidden flex items-center justify-center gap-2 h-[44px] w-[180px] rounded-[12px] border border-white/10 bg-white/5 text-[14px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10"
+              className="group relative overflow-hidden flex items-center justify-center gap-2 h-[44px] w-[180px] rounded-[12px] border border-white/10 bg-white/5 text-[16px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10"
             >
               {/* Play icon */}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="opacity-80">
@@ -116,7 +116,6 @@ export default function CTASection() {
                 </span>
               </span>
             </button>
-
           </div>
         </div>
       </div>
