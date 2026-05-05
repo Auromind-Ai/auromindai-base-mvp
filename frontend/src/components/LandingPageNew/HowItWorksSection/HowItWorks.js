@@ -51,71 +51,62 @@ const steps = [
   },
 ];
 
-const slideVariants = {
-  hidden: {
-    opacity: 0,
-    y: 20,
-  },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.9,
-      ease: [0.22, 1, 0.36, 1],
-      staggerChildren: 0.08,
-    },
-  },
-};
-
-const imageVariants = {
-  hidden: {
-    opacity: 0,
-    scale: 0.96,
-  },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: {
-      duration: 1,
-      ease: [0.22, 1, 0.36, 1],
-    },
-  },
-};
-
 export default function HowItWorks() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isResetting, setIsResetting] = useState(false);
-
-  const loopSteps = [...steps, steps[0]];
+  const [direction, setDirection] = useState(1);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentStep((prev) => prev + 1);
-    }, 3000);
-
+      setDirection(1);
+      setCurrentStep((prev) => (prev + 1) % steps.length);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (currentStep === steps.length) {
-      const timeout = setTimeout(() => {
-        setIsResetting(true);
-        setCurrentStep(0);
+  const contentVariants = {
+    enter: (dir) => ({
+      opacity: 0,
+      x: dir > 0 ? 40 : -40,
+    }),
+    center: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
+    },
+    exit: (dir) => ({
+      opacity: 0,
+      x: dir > 0 ? -40 : 40,
+      transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
+    }),
+  };
 
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            setIsResetting(false);
-          });
-        });
-      }, 1200);
+  const imageVariants = {
+    enter: (dir) => ({
+      opacity: 0,
+      scale: 0.95,
+      x: dir > 0 ? 60 : -60,
+    }),
+    center: {
+      opacity: 1,
+      scale: 1,
+      x: 0,
+      transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
+    },
+    exit: (dir) => ({
+      opacity: 0,
+      scale: 0.95,
+      x: dir > 0 ? -60 : 60,
+      transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+    }),
+  };
 
-      return () => clearTimeout(timeout);
-    }
-  }, [currentStep]);
+  const item = steps[currentStep];
 
   return (
     <section className="bg-black py-24 md:py-32 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
+
+        {/* Heading */}
         <div className="max-w-4xl mx-auto text-center">
           <h2
             className={`${poppins.className} text-[26px] font-medium text-white leading-[1.1em] tracking-[-0.04em] sm:text-[50px]`}
@@ -123,87 +114,101 @@ export default function HowItWorks() {
             <span className="block">Launch in Three Simple Steps</span>
             <span className="block mt-1">With a Seamless Process</span>
           </h2>
-
           <p className="mt-5 text-sm md:text-base lg:text-xl text-white/90 max-w-xl mx-auto">
             Your autonomous sales force is just a few clicks away.
           </p>
         </div>
-      </div>
 
-      <div className="mt-20 relative w-full overflow-hidden">
-        <motion.div
-          className="flex"
-          animate={{ x: `-${currentStep * 100}vw` }}
-          transition={
-            isResetting
-              ? { duration: 0 }
-              : {
-                  duration: 1.2,
-                  ease: [0.22, 1, 0.36, 1],
-                }
-          }
-        >
-          {loopSteps.map((item, index) => (
-            <div
-              key={`${item.step}-${index}`}
-              className="w-[100vw] shrink-0 flex items-center justify-center px-5 md:px-8"
+        {/* Step indicators */}
+        <div className="mt-14 flex justify-center items-center gap-3">
+          {steps.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => {
+                setDirection(i > currentStep ? 1 : -1);
+                setCurrentStep(i);
+              }}
+              className="flex items-center gap-2 group"
             >
-              <AnimatePresence mode="wait">
-                {currentStep === index && (
-                  <motion.div
-                    key={item.step}
-                    variants={slideVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="hidden"
-                    className="max-w-6xl mx-auto grid md:grid-cols-2 items-center gap-10 md:gap-12 xl:gap-24"
-                  >
-                    <motion.div
-                      variants={imageVariants}
-                      className="relative mx-auto w-full max-w-[320px] md:max-w-[460px] xl:max-w-[580px] h-[240px] md:h-[340px] xl:h-[420px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </motion.div>
-
-                    <motion.div
-                      variants={slideVariants}
-                      className="text-center md:text-left max-w-xl mx-auto md:mx-0"
-                    >
-                      <p className="text-sm lg:text-base text-white/90 mb-3">{item.step}</p>
-
-                      <h3 className="text-3xl md:text-[2.5rem] leading-tight font-semibold text-white">
-                        {item.title}
-                      </h3>
-
-                      <p className="mt-6 text-white/90 leading-7 text-base md:text-base lg:text-xl max-w-md mx-auto md:mx-0">
-                        {item.description}
-                      </p>
-
-                      <div className="mt-8 max-w-sm mx-auto md:mx-0 text-left">
-                        <p className="text-white text-base lg:text-lg font-medium mb-3">
-                          Features:
-                        </p>
-
-                        <ul className="space-y-2 text-sm lg:text-base text-white/90">
-                          {item.features.map((feature) => (
-                            <li key={feature} className="flex items-start gap-2">
-                              <span className="text-white/60 mt-[1px]">•</span>
-                              <span>{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+              <div
+                className={`h-[3px] rounded-full transition-all duration-500 ${
+                  i === currentStep
+                    ? 'w-10 bg-[#814AC8]'
+                    : 'w-5 bg-white/20 group-hover:bg-white/40'
+                }`}
+              />
+              <span
+                className={`text-xs font-medium transition-colors duration-300 ${
+                  i === currentStep ? 'text-white' : 'text-white/35'
+                }`}
+              >
+                {s.step}
+              </span>
+            </button>
           ))}
-        </motion.div>
+        </div>
+
+        {/* Content — fixed min-height to prevent jump */}
+        <div className="mt-16 relative min-h-[480px] md:min-h-[420px] flex items-center">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={currentStep}
+              custom={direction}
+              variants={{ enter: contentVariants.enter, center: contentVariants.center, exit: contentVariants.exit }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="w-full grid md:grid-cols-2 items-center gap-10 md:gap-12 xl:gap-24"
+            >
+              {/* Image */}
+              <motion.div
+                custom={direction}
+                variants={imageVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="relative mx-auto w-full max-w-[320px] md:max-w-[460px] xl:max-w-[540px] h-[240px] md:h-[340px] xl:h-[400px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
+              >
+                <img
+                  src={item.image}
+                  alt={item.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-black/25 to-transparent pointer-events-none rounded-3xl" />
+              </motion.div>
+
+              {/* Text */}
+              <div className="text-center md:text-left max-w-xl mx-auto md:mx-0">
+                <p className="text-sm lg:text-base text-white/60 mb-3 uppercase tracking-widest">
+                  {item.step}
+                </p>
+
+                <h3 className="text-3xl md:text-[2.5rem] leading-tight font-semibold text-white">
+                  {item.title}
+                </h3>
+
+                <p className="mt-5 text-white/85 leading-7 text-base md:text-base lg:text-lg max-w-md mx-auto md:mx-0">
+                  {item.description}
+                </p>
+
+                <div className="mt-8 max-w-sm mx-auto md:mx-0 text-left">
+                  <p className="text-white text-base lg:text-lg font-medium mb-3">
+                    Features:
+                  </p>
+                  <ul className="space-y-2 text-sm lg:text-base text-white/85">
+                    {item.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2">
+                        <span className="text-[#814AC8] mt-[2px]">✓</span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
       </div>
     </section>
   );

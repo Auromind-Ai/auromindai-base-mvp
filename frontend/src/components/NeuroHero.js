@@ -10,23 +10,23 @@ export default function NeuroHero() {
   const [isVisible, setIsVisible] = useState(false);
 
   const TEXTS = [
-    {
-        title: "Unified Inbox for Everything.",
-        desc: "We seek to illuminate complexities seek to illuminate within you.",
-    },
-    {
-        title: "Human-like Replies. Instantly.",
-        desc: "Deep insights into your Deep insights into your cognitive patterns.",
-    },
-    {
-        title: "Process Intelligence",
-        desc: "Transform thoughts into Transform thoughts into structured clarity.",
-    },
-    {
-        title: "Generate Outcomes",
-        desc: "Turn insights into actionable Turn insights into actionable decisions.",
-    },
-    ];
+  {
+    title: "Unified Inbox for Everything.",
+    desc: "Manage Instagram, WhatsApp, and more from a single dashboard — no switching tabs.",
+  },
+  {
+    title: "Human-like Replies. Instantly.",
+    desc: "AI replies that sound like you, sent in seconds using your business knowledge.",
+  },
+  {
+    title: "Process Intelligence",
+    desc: "Automatically assign leads, trigger follow-ups, and route chats to the right team.",
+  },
+  {
+    title: "Generate Outcomes",
+    desc: "Turn conversations into closed deals while you focus on growing your business.",
+  },
+];
 
     const current = TEXTS[stage - 1] || TEXTS[0];
 
@@ -217,10 +217,13 @@ export default function NeuroHero() {
 
                 <p
                   className="
-                    mt-5 leading-relaxed
-                    text-white/75
-                    text-lg
-                    max-md:text-base
+                    mt-5
+                    text-[#E3E3E3]
+                    text-[18px]
+                    leading-[1.2]
+                    tracking-normal
+                    font-normal
+                    max-md:text-[16px]
                     max-md:mt-3
                   "
                 >

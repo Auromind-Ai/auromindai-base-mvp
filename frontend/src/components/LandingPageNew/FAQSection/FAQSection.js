@@ -33,7 +33,7 @@ const faqs = [
 ];
 
 export default function FAQSection() {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const toggleFAQ = (index) => {
     setActiveIndex(index === activeIndex ? -1 : index);
