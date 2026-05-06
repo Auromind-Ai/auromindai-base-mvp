@@ -17,8 +17,8 @@ export default function Footer() {
 `,
 }}
     >
-      <div className="max-w-none px-[84px] pt-[69px] pb-20">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_220px_220px_220px] gap-x-[42px] gap-y-10 items-start justify-between">
+      <div className="max-w-none px-4 sm:px-6 md:px-8 lg:px-[84px] pt-12 lg:pt-[69px] pb-16 lg:pb-20">
+        <div className="grid grid-cols-1 gap-y-10 lg:grid-cols-[1.3fr_220px_220px_220px] gap-x-[42px] items-start justify-between">
 
           {/* Column 1 — Brand */}
           <div className="flex flex-col gap-5">
@@ -75,29 +75,28 @@ export default function Footer() {
               </a>
             </div>
           </div>
-
           
-            <div className="flex gap-10 overflow-x-auto pb-2 lg:contents">
+            <div className="grid grid-cols-3 gap-x-6 gap-y-8 lg:contents">
               {Object.entries(footerLinks).map(([heading, items]) => (
-                <div key={heading} className="flex flex-col min-w-[120px] shrink-0 lg:min-w-0">
-                  <h4
-                    className="text-white font-semibold text-sm mb-[14px]"
-                    style={{ fontFamily: "'Poppins', sans-serif" }}
-                  >
-                    {heading}
-                  </h4>
+                  <div key={heading} className="flex flex-col min-w-[120px] shrink-0 lg:min-w-0">
+                    <h4
+                      className="text-white font-semibold text-[14px] sm:text-[15px] mb-3"
+                      style={{ fontFamily: "'Poppins', sans-serif" }}
+                    >
+                      {heading}
+                    </h4>
 
-                  <ul className="flex flex-col gap-2.5">
-                    {items.map((item) => (
-                      <li key={item}>
-                        <a
-                          href="#"
-                          className="text-sm transition-all duration-150 hover:text-white hover:translate-x-0.5 inline-block"
-                          style={{
-                            color: "#A1A1AA",
-                            fontFamily: "'Poppins', sans-serif",
-                          }}
-                        >
+                    <ul className="flex flex-col gap-2.5">
+                      {items.map((item) => (
+                        <li key={item}>
+                          <a
+                            href="#"
+                            className="text-sm transition-all duration-150 hover:text-white hover:translate-x-0.5 inline-block"
+                            style={{
+                              color: "#A1A1AA",
+                              fontFamily: "'Poppins', sans-serif",
+                            }}
+                          >
                           {item}
                         </a>
                       </li>

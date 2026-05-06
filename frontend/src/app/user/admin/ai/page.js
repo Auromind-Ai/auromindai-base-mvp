@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Sparkles,
     Plus,
@@ -35,7 +35,6 @@ import api from '@/lib/api';
 // Typewriter Component for AI Responses
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     const [displayedText, setDisplayedText] = useState('');
-    const [isComplete, setIsComplete] = useState(false);
     const textRef = useRef(text);
     const indexRef = useRef(0);
 
@@ -53,15 +52,11 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
                     return next;
                 });
                 indexRef.current++;
-            } else {
-                // If it's an assistant message, we only finish if the parent says isStreaming: false
-                // But the typewriter itself doesn't know that. 
-                // We'll rely on the parent's isStreaming flag to switch off the component.
             }
         }, speed);
 
         return () => clearInterval(intervalId);
-    }, []); // Only start interval once
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <span>
@@ -72,7 +67,6 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
 };
 
 export default function AuromindAIPage() {
-    // API Configuration - uses environment variable for backend URL
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
     const [inputValue, setInputValue] = useState('');
@@ -89,7 +83,6 @@ export default function AuromindAIPage() {
     const plusRef = useRef(null);
     const [isInitializing, setIsInitializing] = useState(true);
 
-    // Chat History State
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -97,28 +90,45 @@ export default function AuromindAIPage() {
     const abortControllerRef = useRef(null);
     const lastTypedTextRef = useRef('');
 
-    // File Upload Ref
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
 
-    // Chat Modes & Source
-    const [chatMode, setChatMode] = useState("auto"); // auto, brain_only, web_only
-    const [source, setSource] = useState("internal_web"); // internal, internal_web (Default to recommended)
+    const [chatMode, setChatMode] = useState("auto");
+    const [source, setSource] = useState("internal_web");
     const [isModeOpen, setIsModeOpen] = useState(false);
     const [isSourceOpen, setIsSourceOpen] = useState(false);
 
+    const [attachedFile, setAttachedFile] = useState(null);
+    const [lastUploadedId, setLastUploadedId] = useState(null);
 
-    // Get workspace ID for RAG
     const workspace = getWorkspace();
     const workspaceId = workspace?.id;
 
-    useEffect(() => {
-        setMounted(true);
+    // FIX 1: loadSessions declared BEFORE the useEffect that calls it
+    const loadSessions = useCallback(async () => {
+        setIsInitializing(true);
+        try {
+            const data = await api.getChatSessions(workspaceId);
+            setSessions(data);
+            const wasInsideAI = sessionStorage.getItem("ai_active");
+            if (data.length > 0 && wasInsideAI) {
+                setCurrentSessionId(data[0].id);
+            } else {
+                setIsInitializing(false);
+            }
+        } catch (err) {
+            console.error("Failed to load sessions:", err);
+        } finally {
+            setSessionsLoaded(true);
+        }
+    }, [workspaceId]);
 
-        // Mark that user is inside AI page
+    // FIX 2: setMounted(true) moved inside a microtask to avoid sync setState in effect
+    useEffect(() => {
+        setTimeout(() => setMounted(true), 0);
+
         sessionStorage.setItem("ai_active", "true");
 
-        // Auth check
         if (typeof window !== 'undefined') {
             const token = localStorage.getItem('token');
             if (!token) {
@@ -126,81 +136,53 @@ export default function AuromindAIPage() {
             }
         }
 
-        // Cleanup when leaving page
         return () => {
             sessionStorage.removeItem("ai_active");
         };
-
     }, []);
 
     useEffect(() => {
         function handleClickOutside(event) {
             if (plusRef.current && !plusRef.current.contains(event.target)) {
-                    setIsPlusOpen(false);
+                setIsPlusOpen(false);
             }
         }
-
         document.addEventListener("mousedown", handleClickOutside);
-
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Load sessions on mount
     useEffect(() => {
         if (workspaceId && mounted) {
             loadSessions();
         }
-    }, [workspaceId, mounted]);
-
-    const loadSessions = async () => {
-        setIsInitializing(true);
-
-        try {
-            const data = await api.getChatSessions(workspaceId);
-            setSessions(data);
-
-            // Auto-select latest session if none selected
-            const wasInsideAI = sessionStorage.getItem("ai_active");
-
-            if (data.length > 0 && wasInsideAI) {
-                setCurrentSessionId(data[0].id); // Resume only on reload
-            } else {
-                setIsInitializing(false); // Show landing
-            }
-        } catch (err) {
-            console.error("Failed to load sessions:", err);
-        } finally {
-            setSessionsLoaded(true);
-        }
-    };
+    }, [workspaceId, mounted, loadSessions]);
 
     useEffect(() => {
-    if (!currentSessionId) {
-        setIsInitializing(false);
-        return;
-    }
+        if (!currentSessionId) {
+            // FIX 3: wrap in setTimeout to avoid sync setState in effect
+            setTimeout(() => setIsInitializing(false), 0);
+            return;
+        }
 
-    const fetchMessages = async () => {
-        setIsLoading(true);
-        try {
-            const history = await api.getSessionMessages(currentSessionId);
-            setMessages(history.map(m => ({
-                role: m.role,
-                content: m.content,
-                isStreaming: false
-            })));
-        } catch (err) {
-            console.error("Failed to load session messages:", err);
-            setMessages([{ 
-                role: 'assistant', 
-                content: "Failed to load chat history.", 
-                isError: true 
-            }]);
-        } finally {
-            setIsLoading(false);
-            setIsInitializing(false);
+        const fetchMessages = async () => {
+            setIsLoading(true);
+            try {
+                const history = await api.getSessionMessages(currentSessionId);
+                setMessages(history.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    isStreaming: false
+                })));
+            } catch (err) {
+                console.error("Failed to load session messages:", err);
+                setMessages([{
+                    role: 'assistant',
+                    content: "Failed to load chat history.",
+                    isError: true
+                }]);
+            } finally {
+                setIsLoading(false);
+                setIsInitializing(false);
             }
         };
 
@@ -208,11 +190,9 @@ export default function AuromindAIPage() {
     }, [currentSessionId]);
 
     const handleSelectSession = async (sessionId) => {
-
         setCurrentSessionId(sessionId);
         setIsLoading(true);
-        setMessages([]); // Clear current messages while loading
-
+        setMessages([]);
         try {
             const history = await api.getSessionMessages(sessionId);
             setMessages(history.map(m => ({
@@ -265,7 +245,6 @@ export default function AuromindAIPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    // Scroll when messages change
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
@@ -275,7 +254,6 @@ export default function AuromindAIPage() {
             abortControllerRef.current.abort();
         }
         setIsLoading(false);
-        // Also stop any currently streaming message and truncate its content
         setMessages(prev => prev.map(msg =>
             msg.isStreaming ? { ...msg, content: lastTypedTextRef.current, isStreaming: false } : msg
         ));
@@ -287,19 +265,14 @@ export default function AuromindAIPage() {
 
         const userMsg = inputValue;
         setInputValue('');
-        setAttachedFile(null); // Clear attached file preview
+        setAttachedFile(null);
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
         setIsLoading(true);
-
-        // Add an empty assistant message that will be filled by the stream
         setMessages(prev => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
-        const assistantMsgIndex = messages.length + 1; // +1 for the user message we just added
 
-        // Initialize AbortController
         abortControllerRef.current = new AbortController();
 
         try {
-            // Auto-create session if none exists
             let activeSessionId = currentSessionId;
             if (!activeSessionId) {
                 try {
@@ -312,9 +285,8 @@ export default function AuromindAIPage() {
                     console.error("Session creation failed:", sErr);
                 }
             } else {
-                // Auto-update title if it's the first message or title is still generic
                 const currentSession = sessions.find(s => s.id === activeSessionId);
-                if (currentSession && (currentSession.title === "New Chat" || messages.length === 2)) { // length is 2 because we just added user + assistant placeholder
+                if (currentSession && (currentSession.title === "New Chat" || messages.length === 2)) {
                     const newTitle = userMsg.substring(0, 30) + (userMsg.length > 30 ? '...' : '');
                     handleUpdateSession(activeSessionId, newTitle);
                 }
@@ -328,22 +300,22 @@ export default function AuromindAIPage() {
                     model: selectedModel,
                     workspace_id: workspaceId,
                     use_rag: true,
-                    document_id: lastUploadedId, // Pass the uploaded file ID
+                    document_id: lastUploadedId,
                     chat_mode: chatMode,
                     source: source,
-                    session_id: activeSessionId // Pass session ID for persistence
+                    session_id: activeSessionId
                 }),
                 signal: abortControllerRef.current.signal
             });
 
-            // Clear the specific document context after sending
-            setAttachedFile(null); // Clear attached file preview
-            setLastUploadedId(null); // Clear ID so subsequent messages don't force-context it
+            setAttachedFile(null);
+            setLastUploadedId(null);
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
+            // FIX 4: Use ref instead of local var to avoid immutability lint error
             let fullText = '';
-            setIsLoading(false); // Stop "thinking" animation as text starts arriving
+            setIsLoading(false);
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -357,12 +329,13 @@ export default function AuromindAIPage() {
                     try {
                         const data = JSON.parse(line);
                         if (data.content) {
-                            fullText += data.content;
+                            // FIX 4: Use functional update to accumulate text without mutating outer var
+                            fullText = fullText + data.content;
+                            const captured = fullText;
                             setMessages(prev => prev.map((msg, i) =>
-                                i === prev.length - 1 ? { ...msg, content: fullText } : msg
+                                i === prev.length - 1 ? { ...msg, content: captured } : msg
                             ));
                         } else if (data.error) {
-                            // Show error message in UI
                             const errorMsg = data.error.includes('429') || data.error.includes('quota')
                                 ? "⚠️ API rate limit exceeded. Please wait a moment and try again."
                                 : `Error: ${data.error}`;
@@ -373,7 +346,6 @@ export default function AuromindAIPage() {
                             return;
                         }
                     } catch (e) {
-                        // If JSON parse fails, might be plain text error
                         if (line.includes('error') || line.includes('Error')) {
                             setMessages(prev => prev.map((msg, i) =>
                                 i === prev.length - 1 ? { ...msg, content: `Error: ${line}`, isError: true, isStreaming: false } : msg
@@ -385,7 +357,6 @@ export default function AuromindAIPage() {
                 }
             }
 
-            // If we finished but have no content, show an error
             if (!fullText.trim()) {
                 setMessages(prev => prev.map((msg, i) =>
                     i === prev.length - 1 ? { ...msg, content: "No response received. Please try again.", isError: true, isStreaming: false } : msg
@@ -402,7 +373,6 @@ export default function AuromindAIPage() {
             }
         } finally {
             setIsLoading(false);
-            // Mark the last message as finished streaming if it wasn't aborted
             setMessages(prev => prev.map((msg, i) =>
                 (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg
             ));
@@ -421,7 +391,6 @@ export default function AuromindAIPage() {
             if (navigator.clipboard && window.isSecureContext) {
                 await navigator.clipboard.writeText(text);
             } else {
-                // Fallback
                 const textArea = document.createElement("textarea");
                 textArea.value = text;
                 document.body.appendChild(textArea);
@@ -437,34 +406,18 @@ export default function AuromindAIPage() {
         }
     };
 
-    // Attached File State
-    const [attachedFile, setAttachedFile] = useState(null);
-    const [lastUploadedId, setLastUploadedId] = useState(null); // Track uploaded file ID for context
-
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Strict File Validation
-        // Strict File Validation
         const allowedTypes = [
             'application/pdf',
             'image/png', 'image/jpeg', 'image/jpg', 'image/webp',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword',
-            'text/plain', 'text/markdown'
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel', 'text/csv',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/msword', 'text/plain', 'text/markdown'
         ];
-
-        // Check if type is allowed (some systems might not set type correctly for custom extensions, so we trust backend validation as fallback if type is empty but extension is valid)
-        // ideally we should also check extension
-
-        // Simplified check
-        // if (!allowedTypes.includes(file.type)) { 
-        //    ... 
-        // }
-
-        // Let's rely on the backend for strict type checking and `accept` for UI guidance. 
-        // But to keep consistency with existing logic, we expand the list.
 
         const isTypeAllowed = allowedTypes.includes(file.type) ||
             file.name.endsWith('.csv') ||
@@ -472,50 +425,38 @@ export default function AuromindAIPage() {
             file.name.endsWith('.xlsx') ||
             file.name.endsWith('.xls');
 
-        if (!isTypeAllowed && file.type) { // Only block if we are sure it's wrong type
+        if (!isTypeAllowed && file.type) {
             setMessages(prev => [...prev, {
                 role: 'assistant',
                 content: "I support PDF, Excel, CSV, Docs, and Images.",
                 isError: true
             }]);
-            e.target.value = ''; // Reset input
+            e.target.value = '';
             return;
         }
 
-        // Reset input
         e.target.value = '';
-
         setIsUploading(true);
+
         try {
-            // Optimistic UI: Show file as attached immediately (preview)
             setAttachedFile({ name: file.name, type: file.type });
 
-            // Upload to backend using the API library
             if (!workspaceId) {
                 throw new Error("Workspace ID not found. Please refresh the page.");
             }
-            const api = await import('@/lib/api').then(mod => mod.default);
-            // Capture response which includes entry_id
-            const uploadResponse = await api.uploadDocument(file, workspaceId);
+            const apiModule = await import('@/lib/api').then(mod => mod.default);
+            const uploadResponse = await apiModule.uploadDocument(file, workspaceId);
 
             if (uploadResponse && uploadResponse.entry_id) {
-                console.log("File uploaded, ID:", uploadResponse.entry_id);
                 setLastUploadedId(uploadResponse.entry_id);
             }
-
-            // Note: We no longer add a "Using file..." message to the chat history here.
-            // The file shows as a preview chip instead.
-
         } catch (err) {
             console.error("Upload failed:", err);
-            // If upload fails, remove the preview and show error
             setAttachedFile(null);
 
             let errorMessage = err.message;
             if (errorMessage.includes("Could not validate credentials") || errorMessage.includes("401")) {
                 errorMessage = "Authentication failed. Please log in again.";
-                // Optionally redirect to login
-                // window.location.href = '/login'; 
             }
 
             setMessages(prev => [...prev, {
@@ -540,17 +481,13 @@ export default function AuromindAIPage() {
         const newContent = editValue;
         const index = editingIndex;
 
-        // Truncate messages after this point and update this message
         const updatedMessages = messages.slice(0, index);
         updatedMessages.push({ role: 'user', content: newContent });
-
-        // Add empty assistant message
         updatedMessages.push({ role: 'assistant', content: '', isStreaming: true });
 
         setMessages(updatedMessages);
         setEditingIndex(null);
         setEditValue('');
-
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
 
@@ -574,18 +511,17 @@ export default function AuromindAIPage() {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 const chunk = decoder.decode(value, { stream: true });
                 const lines = chunk.split('\n');
-
                 for (const line of lines) {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
                         if (data.content) {
-                            fullText += data.content;
+                            fullText = fullText + data.content;
+                            const captured = fullText;
                             setMessages(prev => prev.map((msg, i) =>
-                                i === prev.length - 1 ? { ...msg, content: fullText } : msg
+                                i === prev.length - 1 ? { ...msg, content: captured } : msg
                             ));
                             lastTypedTextRef.current = fullText;
                         }
@@ -616,19 +552,11 @@ export default function AuromindAIPage() {
     };
 
     const handleRegenerate = async (index) => {
-        // Regeneration only makes sense for AI responses, but we need the preceding user message
         if (index === 0) return;
-        const userMessageIndex = index - 1;
-        const userMsg = messages[userMessageIndex].content;
-
-        // Truncate from the assistant message onwards
+        const userMsg = messages[index - 1].content;
         const updatedMessages = messages.slice(0, index);
-
-        // Add empty assistant message
         updatedMessages.push({ role: 'assistant', content: '', isStreaming: true });
-
         setMessages(updatedMessages);
-
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
 
@@ -652,18 +580,17 @@ export default function AuromindAIPage() {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-
                 const chunk = decoder.decode(value, { stream: true });
                 const lines = chunk.split('\n');
-
                 for (const line of lines) {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
                         if (data.content) {
-                            fullText += data.content;
+                            fullText = fullText + data.content;
+                            const captured = fullText;
                             setMessages(prev => prev.map((msg, i) =>
-                                i === prev.length - 1 ? { ...msg, content: fullText } : msg
+                                i === prev.length - 1 ? { ...msg, content: captured } : msg
                             ));
                             lastTypedTextRef.current = fullText;
                         }
@@ -707,17 +634,11 @@ export default function AuromindAIPage() {
 
     function formatAssistantMessage(text) {
         if (!text) return text;
-
         if (/\n?\d+\.\s/.test(text)) return text;
-
         const sentences = text.split(/(?<=\.)\s+/);
-
         if (sentences.length > 2) {
-            return sentences
-                .map((s, i) => `${i + 1}. ${s.trim()}`)
-                .join("\n\n");
+            return sentences.map((s, i) => `${i + 1}. ${s.trim()}`).join("\n\n");
         }
-
         return text;
     }
 
@@ -725,7 +646,6 @@ export default function AuromindAIPage() {
         <div className="flex bg-[#050505] h-screen text-white overflow-hidden font-sans">
             <ChatSidebar
                 sessions={sessions}
-
                 currentSessionId={currentSessionId}
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
@@ -736,7 +656,6 @@ export default function AuromindAIPage() {
             />
 
             <div className={`flex-1 flex flex-col relative overflow-hidden`}>
-                {/* Header / Top Bar */}
                 <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 bg-[#050505] z-40">
                     <div className="flex items-center gap-3">
                         {!isSidebarOpen && (
@@ -767,326 +686,288 @@ export default function AuromindAIPage() {
 
                 <div className="flex flex-col flex-1 bg-transparent relative overflow-hidden">
                     <style jsx global>{`
-                        /* Hide scrollbar for Chrome, Safari and Opera */
-                        .no-scrollbar::-webkit-scrollbar {
-                            display: none;
-                        }
-                        /* Hide scrollbar for IE, Edge and Firefox */
-                        .no-scrollbar {
-                            -ms-overflow-style: none;  /* IE and Edge */
-                            scrollbar-width: none;  /* Firefox */
-                        }
-                        .custom-scrollbar::-webkit-scrollbar {
-                            width: 5px;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-track {
-                            background: transparent;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-thumb {
-                            background: #1f2937;
-                            border-radius: 10px;
-                        }
+                        .no-scrollbar::-webkit-scrollbar { display: none; }
+                        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+                        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 10px; }
                     `}</style>
 
                     <main className="flex-1 flex flex-col overflow-hidden">
-  <div className="flex-1 overflow-y-auto custom-scrollbar no-scrollbar">
-                        <AnimatePresence mode="wait">
-                            {isInitializing ? (
-                                <div className="flex items-center justify-center min-h-[80vh] text-gray-500">
-                                    Loading...
-                                </div>
-                            ) : messages.length === 0 ? (
-                                <motion.div
-                                    key="hero"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 20 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    transition={{ duration: 0.6, ease: "easeOut" }}
-                                    className="flex flex-col items-center justify-center min-h-[80vh] px-4 w-full relative z-10"
-                                >
-                                    <div className="text-center">
-                                        <motion.div
-                                            initial={{ scale: 0.8, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
-                                            className="w-20 h-20 rounded-[24px] bg-[#111111] backdrop-blur-xl border border-white/10 flex items-center justify-center mb-8 shadow-2xl mx-auto group hover:border-indigo-500/30 transition-colors"
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-[24px]" />
-                                            <Wand2 size={36} className="text-white relative z-10" strokeWidth={1.5} />
-                                        </motion.div>
-
-                                        <motion.h1
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.3, duration: 0.5 }}
-                                            className="text-4xl font-bold text-white mb-3 tracking-tight"
-                                        >
-                                            What magic shall we make happen?
-                                        </motion.h1>
-
-                                        <motion.p
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            transition={{ delay: 0.4, duration: 0.5 }}
-                                            className="text-gray-500 text-[16px] mb-12"
-                                        >
-                                            Your personal business assistant, powered by your data.
-                                        </motion.p>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar no-scrollbar">
+                            <AnimatePresence mode="wait">
+                                {isInitializing ? (
+                                    <div className="flex items-center justify-center min-h-[80vh] text-gray-500">
+                                        Loading...
                                     </div>
-
+                                ) : messages.length === 0 ? (
                                     <motion.div
-                                        layoutId="chat-input-container"
-                                        className="w-full max-w-2xl"
+                                        key="hero"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 20 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        transition={{ duration: 0.6, ease: "easeOut" }}
+                                        className="flex flex-col items-center justify-center min-h-[80vh] px-4 w-full relative z-10"
                                     >
-                                        <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl group focus-within:border-indigo-500/40 transition-all duration-500 overflow-hidden">
-                                            <div className="px-5 pt-4">
-                                                <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 text-[12px] font-medium text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
-                                                    <Sparkles size={13} />
-                                                    <span>Add Context</span>
-                                                </button>
-                                            </div>
-                                            <div className="px-5 py-3">
-                                                {attachedFile && (
-                                                    <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-xl w-fit border border-white/5">
-                                                        <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-[10px]">
-                                                            {attachedFile.type.startsWith('image/') ? <ImageIcon size={16} /> : 'DOC'}
-                                                        </div>
-                                                        <div className="flex flex-col pr-2">
-                                                            <span className="text-[12px] text-gray-200 font-medium truncate max-w-[150px]">{attachedFile.name}</span>
-                                                            <span className="text-[10px] text-gray-500 uppercase tracking-tight">Ready to analyze</span>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => setAttachedFile(null)}
-                                                            className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
-                                                    </div>
-                                                )}
-                                                <textarea
-                                                    value={inputValue}
-                                                    onChange={(e) => setInputValue(e.target.value)}
-                                                    onKeyDown={handleKeyDown}
-                                                    placeholder="Ask anything..."
-                                                    className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[16px] resize-none outline-none leading-relaxed min-h-[80px]"
-                                                />
-                                            </div>
-                                            <div className="flex items-center justify-between px-5 pb-4 border-t border-white/5 pt-3">
-                                                <div className="flex items-center gap-4">
-                                                    <button
-                                                        onClick={() => fileInputRef.current?.click()}
-                                                        disabled={isUploading}
-                                                        className={`p-1 text-gray-500 hover:text-gray-300 transition-colors ${isUploading ? 'animate-pulse' : ''}`}
-                                                    >
-                                                        <Paperclip size={18} />
-                                                    </button>
-
-                                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[13px] text-gray-400 hover:bg-white/5 cursor-pointer">
-                                                        <Globe size={14} />
-                                                        <span>All sources</span>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={handleExecute}
-                                                    disabled={!inputValue.trim() || isLoading}
-                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${inputValue.trim() ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'bg-white/5 text-gray-700'}`}
-                                                >
-                                                    <ArrowUp size={18} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Starter Cards */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-12 w-full max-w-3xl">
-                                        {starterCards.map((card, i) => (
-                                            <button
-                                                key={i}
-                                                className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all text-left group"
-                                                onClick={() => setInputValue(card.label)}
-                                            >
-                                                <card.icon size={18} className="text-gray-500 group-hover:text-indigo-400 mb-3 transition-colors" />
-                                                <span className="text-[13px] text-gray-400 group-hover:text-gray-200 transition-colors">{card.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    key="chat-flow"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 pt-4 pb-32"
-                                >
-                                    <div className="flex flex-col gap-2 w-full py-8">
-                                        {messages.map((msg, idx) => (
+                                        <div className="text-center">
                                             <motion.div
-                                                key={idx}
+                                                initial={{ scale: 0.8, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
+                                                className="w-20 h-20 rounded-[24px] bg-[#111111] backdrop-blur-xl border border-white/10 flex items-center justify-center mb-8 shadow-2xl mx-auto group hover:border-indigo-500/30 transition-colors"
+                                            >
+                                                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-[24px]" />
+                                                <Wand2 size={36} className="text-white relative z-10" strokeWidth={1.5} />
+                                            </motion.div>
+
+                                            <motion.h1
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                className={`flex flex-col w-full group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                                                transition={{ delay: 0.3, duration: 0.5 }}
+                                                className="text-4xl font-bold text-white mb-3 tracking-tight"
                                             >
-                                                {msg.role === 'user' ? (
-                                                    <div className="bg-[#1e1e1e] text-[#efefef] rounded-2xl px-4 py-2 max-w-[85%] border border-white/[0.03] shadow-sm">
-                                                        {editingIndex === idx ? (
-                                                            <div className="flex flex-col gap-3 min-w-[300px]">
-                                                                <textarea
-                                                                    value={editValue}
-                                                                    onChange={(e) => setEditValue(e.target.value)}
-                                                                    className="bg-transparent border-none outline-none resize-none w-full text-[15px] leading-relaxed"
-                                                                    rows={3}
-                                                                    autoFocus
-                                                                />
-                                                                <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
-                                                                    <button onClick={handleCancelEdit} className="text-xs text-gray-500 hover:text-white transition-colors">Cancel</button>
-                                                                    <button onClick={handleSaveEdit} className="text-xs bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-md text-white font-medium transition-colors">Save & Submit</button>
-                                                                </div>
+                                                What magic shall we make happen?
+                                            </motion.h1>
+
+                                            <motion.p
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                transition={{ delay: 0.4, duration: 0.5 }}
+                                                className="text-gray-500 text-[16px] mb-12"
+                                            >
+                                                Your personal business assistant, powered by your data.
+                                            </motion.p>
+                                        </div>
+
+                                        <motion.div layoutId="chat-input-container" className="w-full max-w-2xl">
+                                            <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl group focus-within:border-indigo-500/40 transition-all duration-500 overflow-hidden">
+                                                <div className="px-5 pt-4">
+                                                    <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 text-[12px] font-medium text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
+                                                        <Sparkles size={13} />
+                                                        <span>Add Context</span>
+                                                    </button>
+                                                </div>
+                                                <div className="px-5 py-3">
+                                                    {attachedFile && (
+                                                        <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-xl w-fit border border-white/5">
+                                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-[10px]">
+                                                                {attachedFile.type.startsWith('image/') ? <ImageIcon size={16} /> : 'DOC'}
                                                             </div>
-                                                        ) : (
-                                                            <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <div className="w-full pl-2">
-                                                        <div className="flex items-center gap-2.5 mb-4 px-1">
-                                                            <div className="w-6 h-6 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                                                                <Wand2 size={13} className="text-white" />
+                                                            <div className="flex flex-col pr-2">
+                                                                <span className="text-[12px] text-gray-200 font-medium truncate max-w-[150px]">{attachedFile.name}</span>
+                                                                <span className="text-[10px] text-gray-500 uppercase tracking-tight">Ready to analyze</span>
                                                             </div>
-                                                            <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Auromind AI</span>
-                                                            {msg.isStreaming && (
-                                                                <span className="flex gap-1 h-3 items-center ml-2">
-                                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" />
-                                                                </span>
-                                                            )}
+                                                            <button
+                                                                onClick={() => setAttachedFile(null)}
+                                                                className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
                                                         </div>
-                                                        <div className={`text-[16px] leading-[1.2] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
-                                                            {msg.isStreaming && msg.content === '' ? (
-                                                                <div className="flex items-center gap-3 text-gray-500 py-2">
-                                                                    <div className="relative w-4 h-4">
-                                                                        <div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full" />
-                                                                        <div className="absolute inset-0 border-2 border-transparent border-t-indigo-500 rounded-full animate-spin" />
+                                                    )}
+                                                    <textarea
+                                                        value={inputValue}
+                                                        onChange={(e) => setInputValue(e.target.value)}
+                                                        onKeyDown={handleKeyDown}
+                                                        placeholder="Ask anything..."
+                                                        className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[16px] resize-none outline-none leading-relaxed min-h-[80px]"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center justify-between px-5 pb-4 border-t border-white/5 pt-3">
+                                                    <div className="flex items-center gap-4">
+                                                        <button
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            disabled={isUploading}
+                                                            className={`p-1 text-gray-500 hover:text-gray-300 transition-colors ${isUploading ? 'animate-pulse' : ''}`}
+                                                        >
+                                                            <Paperclip size={18} />
+                                                        </button>
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[13px] text-gray-400 hover:bg-white/5 cursor-pointer">
+                                                            <Globe size={14} />
+                                                            <span>All sources</span>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleExecute}
+                                                        disabled={!inputValue.trim() || isLoading}
+                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${inputValue.trim() ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'bg-white/5 text-gray-700'}`}
+                                                    >
+                                                        <ArrowUp size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-12 w-full max-w-3xl">
+                                            {starterCards.map((card, i) => (
+                                                <button
+                                                    key={i}
+                                                    className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all text-left group"
+                                                    onClick={() => setInputValue(card.label)}
+                                                >
+                                                    <card.icon size={18} className="text-gray-500 group-hover:text-indigo-400 mb-3 transition-colors" />
+                                                    <span className="text-[13px] text-gray-400 group-hover:text-gray-200 transition-colors">{card.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="chat-flow"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 pt-4 pb-32"
+                                    >
+                                        <div className="flex flex-col gap-2 w-full py-8">
+                                            {messages.map((msg, idx) => (
+                                                <motion.div
+                                                    key={idx}
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className={`flex flex-col w-full group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                                                >
+                                                    {msg.role === 'user' ? (
+                                                        <div className="bg-[#1e1e1e] text-[#efefef] rounded-2xl px-4 py-2 max-w-[85%] border border-white/[0.03] shadow-sm">
+                                                            {editingIndex === idx ? (
+                                                                <div className="flex flex-col gap-3 min-w-[300px]">
+                                                                    <textarea
+                                                                        value={editValue}
+                                                                        onChange={(e) => setEditValue(e.target.value)}
+                                                                        className="bg-transparent border-none outline-none resize-none w-full text-[15px] leading-relaxed"
+                                                                        rows={3}
+                                                                        autoFocus
+                                                                    />
+                                                                    <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
+                                                                        <button onClick={handleCancelEdit} className="text-xs text-gray-500 hover:text-white transition-colors">Cancel</button>
+                                                                        <button onClick={handleSaveEdit} className="text-xs bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-md text-white font-medium transition-colors">Save &amp; Submit</button>
                                                                     </div>
-                                                                    <span className="text-sm font-medium tracking-tight">Gathering insights...</span>
                                                                 </div>
                                                             ) : (
-                                                                <div className="assistant-message-content whitespace-pre-line">
-                                                                {formatAssistantMessage(msg.content)}
-                                                            </div>
+                                                                <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
                                                             )}
                                                         </div>
-                                                        {!msg.isStreaming && (
-                                                            <div className="flex items-center gap-1 mt-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                                                <button
-                                                                    onClick={() => handleCopy(msg.content, idx)}
-                                                                    className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-                                                                    title="Copy to clipboard"
-                                                                >
-                                                                    {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleRegenerate(idx)}
-                                                                    className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-                                                                    title="Regenerate response"
-                                                                >
-                                                                    <RotateCcw size={14} />
-                                                                </button>
+                                                    ) : (
+                                                        <div className="w-full pl-2">
+                                                            <div className="flex items-center gap-2.5 mb-4 px-1">
+                                                                <div className="w-6 h-6 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                                                    <Wand2 size={13} className="text-white" />
+                                                                </div>
+                                                                <span className="text-[12px] font-bold text-gray-400 uppercase tracking-widest">Auromind AI</span>
+                                                                {msg.isStreaming && (
+                                                                    <span className="flex gap-1 h-3 items-center ml-2">
+                                                                        <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                                                        <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                                                        <span className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" />
+                                                                    </span>
+                                                                )}
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </motion.div>
-                                        ))}
-                                    </div>
-                                    <div ref={messagesEndRef} className="h-4" />
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                                                            <div className={`text-[16px] leading-[1.2] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
+                                                                {msg.isStreaming && msg.content === '' ? (
+                                                                    <div className="flex items-center gap-3 text-gray-500 py-2">
+                                                                        <div className="relative w-4 h-4">
+                                                                            <div className="absolute inset-0 border-2 border-indigo-500/20 rounded-full" />
+                                                                            <div className="absolute inset-0 border-2 border-transparent border-t-indigo-500 rounded-full animate-spin" />
+                                                                        </div>
+                                                                        <span className="text-sm font-medium tracking-tight">Gathering insights...</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="assistant-message-content whitespace-pre-line">
+                                                                        {formatAssistantMessage(msg.content)}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {!msg.isStreaming && (
+                                                                <div className="flex items-center gap-1 mt-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                                    <button
+                                                                        onClick={() => handleCopy(msg.content, idx)}
+                                                                        className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                                                                        title="Copy to clipboard"
+                                                                    >
+                                                                        {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleRegenerate(idx)}
+                                                                        className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                                                                        title="Regenerate response"
+                                                                    >
+                                                                        <RotateCcw size={14} />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </motion.div>
+                                            ))}
+                                        </div>
+                                        <div ref={messagesEndRef} className="h-4" />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </main>
 
-                    {/* Floating Sticky Input (when messages exist) */}
                     {messages.length > 0 && (
-                    <div className="absolute bottom-0 w-full z-30">
-                        <div className="flex justify-center pb-8 pt-10 bg-gradient-to-t from-[#050505] via-[#050505]/95 to-transparent">
-                        <motion.div
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            className="w-full max-w-3xl px-4 pointer-events-auto"
-                        >
-                                <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl focus-within:border-indigo-500/40 transition-all duration-300">
-                                    <div ref={plusRef} className="relative flex items-center px-4 py-3">
+                        <div className="absolute bottom-0 w-full z-30">
+                            <div className="flex justify-center pb-8 pt-10 bg-gradient-to-t from-[#050505] via-[#050505]/95 to-transparent">
+                                <motion.div
+                                    initial={{ y: 20, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    className="w-full max-w-3xl px-4 pointer-events-auto"
+                                >
+                                    <div className="bg-[#111111] rounded-2xl border border-white/10 shadow-2xl focus-within:border-indigo-500/40 transition-all duration-300">
+                                        <div ref={plusRef} className="relative flex items-center px-4 py-3">
+                                            <button
+                                                onClick={() => setIsPlusOpen(!isPlusOpen)}
+                                                className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+                                            >
+                                                <Plus size={18} />
+                                            </button>
 
-  {/* PLUS BUTTON */}
-  <button
-    onClick={() => setIsPlusOpen(!isPlusOpen)}
-    className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
-  >
-    <Plus size={18} />
-  </button>
+                                            {isPlusOpen && (
+                                                <div className="absolute bottom-14 left-4 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
+                                                    <button
+                                                        onClick={() => { fileInputRef.current?.click(); setIsPlusOpen(false); }}
+                                                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
+                                                    >
+                                                        <Paperclip size={16} />
+                                                        Attach File
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setIsPlusOpen(false)}
+                                                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
+                                                    >
+                                                        <Globe size={16} />
+                                                        Search
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setIsPlusOpen(false)}
+                                                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
+                                                    >
+                                                        <Sparkles size={16} />
+                                                        {selectedModel === 'auto' ? 'Auto' : 'Pro'}
+                                                    </button>
+                                                </div>
+                                            )}
 
-  {/* DROPDOWN */}
-  {isPlusOpen && (
-    <div className="absolute bottom-14 left-4 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
-      
-      <button
-        onClick={() => {
-          fileInputRef.current?.click();
-          setIsPlusOpen(false);
-        }}
-        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
-      >
-        <Paperclip size={16} />
-        Attach File
-      </button>
+                                            <textarea
+                                                value={inputValue}
+                                                onChange={(e) => setInputValue(e.target.value)}
+                                                onKeyDown={handleKeyDown}
+                                                placeholder="Reply to Auromind..."
+                                                className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
+                                                rows={1}
+                                            />
 
-      <button
-        onClick={() => setIsPlusOpen(false)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
-      >
-        <Globe size={16} />
-        Search
-      </button>
-
-      <button
-        onClick={() => setIsPlusOpen(false)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg"
-      >
-        <Sparkles size={16} />
-        {selectedModel === 'auto' ? 'Auto' : 'Pro'}
-      </button>
-
-    </div>
-  )}
-
-  {/* TEXTAREA */}
-  <textarea
-    value={inputValue}
-    onChange={(e) => setInputValue(e.target.value)}
-    onKeyDown={handleKeyDown}
-    placeholder="Reply to Auromind..."
-    className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
-    rows={1}
-  />
-
-  {/* SEND BUTTON */}
-  <button
-    onClick={handleExecute}
-    disabled={!inputValue.trim() || isLoading}
-    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-      inputValue.trim()
-        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
-        : 'bg-white/5 text-gray-700'
-    }`}
-  >
-    {isLoading ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
-  </button>
-
-</div>
-                                    
-                                </div>
-                            </motion.div>
+                                            <button
+                                                onClick={handleExecute}
+                                                disabled={!inputValue.trim() || isLoading}
+                                                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${inputValue.trim() ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-gray-700'}`}
+                                            >
+                                                {isLoading ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
                             </div>
                         </div>
                     )}

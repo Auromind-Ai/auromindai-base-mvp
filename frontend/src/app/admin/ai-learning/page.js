@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { TrendingUp, RefreshCw } from 'lucide-react'
 
 export default function AILearningPage() {
@@ -8,19 +8,19 @@ export default function AILearningPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('http://localhost:8000/admin/learning-events')
-      if (!response.ok) throw new Error('Failed to fetch learning events')
-      const result = await response.json()
-      setData(result)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+  const fetchData = useCallback(async () => {
+  try {
+    setLoading(true)
+    const response = await fetch('http://localhost:8000/admin/learning-events')
+    if (!response.ok) throw new Error('Failed to fetch learning events')
+    const result = await response.json()
+    setData(result)
+  } catch (err) {
+    setError(err.message)
+  } finally {
+    setLoading(false)
   }
+}, [])
 
   const handlePromoteToRule = async (eventId) => {
     // Placeholder for promote to rule functionality
@@ -28,8 +28,9 @@ export default function AILearningPage() {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [])
+  fetchData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [fetchData])
 
   if (loading) {
     return (
