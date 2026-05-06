@@ -96,7 +96,6 @@ export default function Page() {
       start()
     }
   }, [params])
-  }, [params])
 
   return (
     <div className="flex items-center justify-center h-screen text-white">

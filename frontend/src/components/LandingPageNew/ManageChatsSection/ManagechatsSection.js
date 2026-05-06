@@ -10,6 +10,9 @@ export default function ManageChatsSection() {
   const [hoveredCard, setHoveredCard] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
 
+  // FIX: Store sectionRef dimensions in state so they can be used during render safely
+  const [sectionDims, setSectionDims] = useState({ width: 0, height: 900 });
+
   useEffect(() => {
     const updateWidth = () => {
       setViewportWidth(window.innerWidth);
@@ -19,22 +22,34 @@ export default function ManageChatsSection() {
     const handleMouseMove = (event) => {
       if (!sectionRef.current) return;
       const rect = sectionRef.current.getBoundingClientRect();
+      // FIX: Update sectionDims in the same handler so render always has fresh values
+      setSectionDims({ width: rect.width, height: rect.height });
       setMouse({
         x: event.clientX - rect.left,
         y: event.clientY - rect.top,
       });
     };
 
+    // Also update dims on resize
+    const handleResize = () => {
+      updateWidth();
+      if (sectionRef.current) {
+        const rect = sectionRef.current.getBoundingClientRect();
+        setSectionDims({ width: rect.width, height: rect.height });
+      }
+    };
+
     updateWidth();
-    window.addEventListener("resize", updateWidth);
+    window.addEventListener("resize", handleResize);
     window.addEventListener("mousemove", handleMouseMove);
 
     return () => {
-      window.removeEventListener("resize", updateWidth);
+      window.removeEventListener("resize", handleResize);
       window.removeEventListener("mousemove", handleMouseMove);
     };
   }, []);
 
+  // Math.random inside useMemo is fine — it only runs when viewportWidth changes, not on every render
   const particles = useMemo(() => {
     const count = viewportWidth < 640 ? 30 : viewportWidth < 1024 ? 110 : 160;
     const colors = [
@@ -56,11 +71,12 @@ export default function ManageChatsSection() {
     }));
   }, [viewportWidth]);
 
-  const cardRotateX = !isMobile && sectionRef.current
-    ? ((mouse.y - sectionRef.current.offsetHeight / 2) / sectionRef.current.offsetHeight) * -6
+  // FIX: Use sectionDims state instead of sectionRef.current during render
+  const cardRotateX = !isMobile && sectionDims.height > 0
+    ? ((mouse.y - sectionDims.height / 2) / sectionDims.height) * -6
     : 0;
-  const cardRotateY = !isMobile && sectionRef.current
-    ? ((mouse.x - sectionRef.current.offsetWidth / 2) / sectionRef.current.offsetWidth) * 6
+  const cardRotateY = !isMobile && sectionDims.width > 0
+    ? ((mouse.x - sectionDims.width / 2) / sectionDims.width) * 6
     : 0;
 
   return (
@@ -73,7 +89,8 @@ export default function ManageChatsSection() {
       <div className="absolute inset-0 z-0 overflow-hidden">
         {particles.map((particle) => {
           const particleX = (particle.x / 100) * viewportWidth;
-          const particleY = (particle.y / 100) * (sectionRef.current?.offsetHeight || 900);
+          // FIX: Use sectionDims.height (state) instead of sectionRef.current?.offsetHeight
+          const particleY = (particle.y / 100) * (sectionDims.height || 900);
           const dx = mouse.x - particleX;
           const dy = mouse.y - particleY;
           const distance = Math.sqrt(dx * dx + dy * dy);
@@ -192,7 +209,6 @@ export default function ManageChatsSection() {
                 lg:absolute lg:-left-16 lg:top-12
                 lg:w-[340px] lg:h-auto
               "
-              
               onHoverStart={() => !isMobile && setHoveredCard("instagram")}
               onHoverEnd={() => !isMobile && setHoveredCard(null)}
               animate={!isMobile ? {
@@ -213,8 +229,6 @@ export default function ManageChatsSection() {
                 rotateY: `${cardRotateY * 0.35}deg`,
               } : {}}
             >
-              {/* ✅ Fix — removed h-full from inner divs, now height = content only */}
-              {/* <div className="absolute inset-0 rounded-[32px] border border-white/10 bg-black" /> */}
               <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black">
                 <div className="flex flex-col items-center justify-center pt-5 pb-3 px-4">
                   <div className="mb-2 flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-2xl"
@@ -263,7 +277,6 @@ export default function ManageChatsSection() {
                 lg:relative lg:ml-[220px]
                 lg:w-[340px] lg:h-[auto]
               "
-
               onHoverStart={() => !isMobile && setHoveredCard("whatsapp")}
               onHoverEnd={() => !isMobile && setHoveredCard(null)}
               animate={!isMobile ? {
@@ -284,7 +297,6 @@ export default function ManageChatsSection() {
                 rotateY: `${cardRotateY * 0.5}deg`,
               } : {}}
             >
-          
               <div className="absolute inset-0 rounded-[32px] border border-white/40 bg-black" />
               <div className="relative overflow-hidden rounded-[32px] border border-white/15 bg-black/50 shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-[30px]">
                 <div className="flex flex-col items-center justify-center pt-5 pb-3 px-4">
@@ -316,7 +328,6 @@ export default function ManageChatsSection() {
                     </div>
                   ))}
                 </div>
-                
               </div>
             </motion.div>
           </div>

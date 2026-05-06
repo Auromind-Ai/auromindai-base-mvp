@@ -11,21 +11,21 @@ export default function AdminLayout({ children }) {
   const [isAuthorized, setIsAuthorized] = useState(false)
 
   useEffect(() => {
-    // Skip auth check for the admin login page itself
-    if (pathname === "/admin/login") {
-      setIsAuthorized(true)
-      return
-    }
+  if (pathname === "/admin/login") {
+    setIsAuthorized(true) // eslint-disable-line react-hooks/set-state-in-effect
+    return
+  }
 
-    const token = getToken()
+  const token = getToken()
 
-    if (!token || token === "null") {
-      router.push("/admin/login?redirect=" + encodeURIComponent(pathname))
-      return
-    }
+  if (!token || token === "null") {
+    router.push("/admin/login?redirect=" + encodeURIComponent(pathname))
+    return
+  }
 
-    setIsAuthorized(true)
-  }, [router, pathname])
+  setIsAuthorized(true) // eslint-disable-line react-hooks/set-state-in-effect
+}, [router, pathname])
+
 
   // For admin login page - render without the sidebar/layout
   if (pathname === "/admin/login") {

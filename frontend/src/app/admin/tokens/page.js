@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from 'react'
 import { Coins, TrendingUp, Calendar } from "lucide-react"
 import api from "@/lib/api"
 
@@ -41,34 +41,23 @@ export default function TokenUsagePage() {
 
   }, [])
 
-  const fetchTokens = async () => {
+  const fetchTokens = useCallback(async () => {
+      try {
+        setLoading(true)
+        const data = await api.get("/admin/tokens")
+        setTokens(Array.isArray(data) ? data : data.tokens || [])
+        setError(null)
+      } catch (err) {
+        setError(err.message)
+        setTokens([])
+      } finally {
+        setLoading(false)
+      }
+    }, [])
 
-    try {
-
-      setLoading(true)
-
-      const data = await api.get("/admin/tokens")
-
-      setTokens(Array.isArray(data) ? data : data.tokens || [])
-
-      setError(null)
-
-    } catch (err) {
-
-      setError(err.message)
-      setTokens([])
-
-    } finally {
-
-      setLoading(false)
-
-    }
-
-  }
-
-  useEffect(() => {
-    fetchTokens()
-  }, [])
+    useEffect(() => {
+      fetchTokens()
+    }, [fetchTokens])
 
   const updateLimit = async (workspaceId, value) => {
 

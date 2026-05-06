@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 export default function FileProgress({ entryId, onDone }) {
   const [status, setStatus] = useState("pending");
-  const [errorMessage, setErrorMessage] = useState("`);
+  const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function FileProgress({ entryId, onDone }) {
         );
 
         if (!res.ok) {
-          throw new Error(`Failed to fetch status");
+          throw new Error(`Failed to fetch status`);
         }
 
         const data = await res.json();
