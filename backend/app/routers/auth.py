@@ -112,13 +112,17 @@ async def get_current_user(
 # ---------- Email Login ----------
 
 @router.post("/login")
-async def login(request: EmailLoginRequest, db: Session = Depends(get_db)):
+async def login(request: dict, db: Session = Depends(get_db)):
     try:
+        email = request.get('email')
+        full_name = request.get('full_name')
+        workspace_name = request.get('workspace_name', 'My Workspace')
+        
         result = AuthService.email_login(
             db=db,
-            email=request.email,
-            full_name=request.full_name,
-            workspace_name=request.workspace_name
+            email=email,
+            full_name=full_name,
+            workspace_name=workspace_name
         )
         return result
     except ValueError as e:

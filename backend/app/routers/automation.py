@@ -1,4 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
 from app.services.email_automation.email_automation_engine import AutomationEngine
 from app.services.agentic_wiring_service import agentic_wiring_service
 from app.services.flow_validation_service import FlowValidationService
@@ -12,6 +15,8 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.database import get_db  # change path if needed
 from app.core.security import verify_workspace_access
+
+from app.database import get_db
 
 class FlowPromptRequest(BaseModel):
     prompt: str

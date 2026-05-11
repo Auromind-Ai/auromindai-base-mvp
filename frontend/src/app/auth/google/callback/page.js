@@ -30,11 +30,11 @@ export default function GoogleCallbackPage() {
                     return;
                 }
 
-                setStatus('Completing connection...');
+                setStatus("Completing connection...");
 
                 const response = await fetch(
                     `${API}/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-                    { method: 'GET' }
+                    { method: "GET" }
                 );
                 
                 if (!response.ok) {

@@ -70,13 +70,13 @@ class LLMClient:
             self.logger.error("LLM JSON error", exc_info=True)
             return {}
 
-    #TEXT GENERATION
-    def generate_text(self, prompt):
-        try:
-            return self.generate(prompt)
-        except Exception as e:
-            self.logger.error("LLM text error", exc_info=True)
-            return ""
+    # #TEXT GENERATION
+    # def generate_text(self, prompt):
+    #     try:
+    #         return self.generate(prompt)
+    #     except Exception as e:
+    #         self.logger.error("LLM text error", exc_info=True)
+    #         return ""
 
     #STREAM 
     def generate_stream(self, prompt):
