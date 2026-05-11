@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { getWorkspaceIdFromToken } from '@/lib/auth';
 
 /* ─── Config ─────────────────────────────────────────────────── */
 const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected'];
@@ -189,10 +190,27 @@ function Btn({ children, onClick, ghost, primary, success }) {
 function PreviewDrawer({ tpl, onClose, onSubmit }) {
   const open = !!tpl;
 
-  const fmt = (msg = '') =>
-    msg.replace(/\{\{\d+\}\}/g, () =>
-      `<span style="background:#1e2a1a;color:#4ade80;padding:0 4px;border-radius:3px;font-size:12px;font-family:var(--mono)">John</span>`
-    );
+  const fmt = (msg = '') => {
+  const sampleValues = {
+    1: "John",        // name
+    2: "ORD123",      // order id
+    3: "2 days",      // delivery time
+    4: "₹500"
+  };
+
+  return msg.replace(/\{\{(\d+)\}\}/g, (_, num) => {
+    const value = sampleValues[num] || `Value${num}`;
+
+    return `<span style="
+      background:#1e2a1a;
+      color:#4ade80;
+      padding:0 4px;
+      border-radius:3px;
+      font-size:12px;
+      font-family:var(--mono)
+    ">${value}</span>`;
+  });
+};
 
   return (
     <>
@@ -381,7 +399,9 @@ export default function TemplatesPage() {
   const fetchTemplates = async (refresh = false) => {
     if (refresh) setSpinning(true);
     try {
-      const data = await api.get('/api/templates');
+      const workspace_id = getWorkspaceIdFromToken() || localStorage.getItem("workspace_id");
+      await api.get(`/templates/status/${workspace_id}`);
+      const data = await api.get('/templates');
       setTemplates(data.templates || []);
     } catch (err) {
       console.error(err);
@@ -393,7 +413,7 @@ export default function TemplatesPage() {
 
   const handleSubmit = async tpl => {
     try {
-      await api.post(`/api/templates/submit/${tpl.id}`);
+      await api.post(`/templates/submit/${tpl.id}`);
       fetchTemplates();
     } catch (err) { console.error(err); }
   };

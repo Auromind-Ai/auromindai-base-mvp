@@ -16,14 +16,16 @@ class AgentOrchestration:
     def __init__(self, db=None):
         self.logger = logger
         self.logger.info("Initializing AgentOrchestration...")
-
-        self.llm = LLMClient(api_key=settings.GROQ_API_KEY)
+        self.db = db
+        
+        #Core Services
+        self.llm = LLMClient(api_key=os.getenv("GROQ_API_KEY"))
         self.memory = MemoryService(db) if db else None
         self.mcp = MCPService()
         self.config_service = ConfigService()
         self.mcp.config_service = self.config_service
         self.unified_agent = UnifiedAgent(self.llm, self.memory)
-        self.escalation_queue = EscalationQueue(db=db)
+        self.escalation_queue = EscalationQueue(self.db)
 
         self.channel_adapters = {"twilio": None, "instagram": None, "whatsapp": None}
         self.response_sender = None
@@ -39,8 +41,8 @@ class AgentOrchestration:
 
         user_id      = data.get("user_id")       
         workspace_id = data.get("workspace_id")
-        message      = data.get("message", "")
-        memory_key   = data.get("conversation_id") or user_id
+        message = data.get("message", "")
+        db = self.db
 
         db = getattr(self.escalation_queue, "db", None)
 
