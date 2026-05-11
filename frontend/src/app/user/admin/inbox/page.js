@@ -112,6 +112,14 @@ export default function InboxPage() {
                 `${PROXY_BASE}/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}`,
                 { headers: getHeaders() }
             );
+            
+            // Check response status
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error(`Conversation API error (${res.status}):`, errorText);
+                return;
+            }
+            
             const data = await res.json();
             if (Array.isArray(data)) {
                 setConversations(data);
@@ -128,6 +136,13 @@ export default function InboxPage() {
     async function fetchMessages(id) {
         try {
             const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
+            
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error(`Messages API error (${res.status}):`, errorText);
+                return;
+            }
+            
             const data = await res.json();
             setMessages(data);
         } catch (e) {

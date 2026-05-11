@@ -191,112 +191,112 @@ class MCPService:
                 "sensitive_categories": []
             }
 
-    # RULE ENGINE
-    def evaluate_rules(self, rules, action_data):
-        try:
-            self.logger.info(
-                "Evaluating rules (core engine)",
-                extra={
-                    "workspace_id": str(action_data.get("workspace_id")),
-                    "action_type": action_data.get("action_type")
-                }
-            )
+    # # RULE ENGINE
+    # def evaluate_rules(self, rules, action_data):
+    #     try:
+    #         self.logger.info(
+    #             "Evaluating rules (core engine)",
+    #             extra={
+    #                 "workspace_id": str(action_data.get("workspace_id")),
+    #                 "action_type": action_data.get("action_type")
+    #             }
+    #         )
 
-            results = []
+    #         results = []
 
-            def _append(rule_name, status, outcome, reason, details=None):
-                results.append({
-                    "rule": rule_name,
-                    "status": status,      
-                    "outcome": outcome,    
-                    "reason": reason,
-                    "details": details or {}
-                })
+    #         def _append(rule_name, status, outcome, reason, details=None):
+    #             results.append({
+    #                 "rule": rule_name,
+    #                 "status": status,      
+    #                 "outcome": outcome,    
+    #                 "reason": reason,
+    #                 "details": details or {}
+    #             })
 
-            # 1) Confidence rule
-            try:
-                r = self.check_confidence(rules, action_data.get("confidence"))
-                if isinstance(r, dict):
-                    _append("confidence", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
-                else:
-                    _append("confidence", "PASS", "ALLOW", "No structured result")
-            except Exception as e:
-                _append("confidence", "FAIL", "ESCALATE", f"Error: {e}")
+    #         # 1) Confidence rule
+    #         try:
+    #             r = self.check_confidence(rules, action_data.get("confidence"))
+    #             if isinstance(r, dict):
+    #                 _append("confidence", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
+    #             else:
+    #                 _append("confidence", "PASS", "ALLOW", "No structured result")
+    #         except Exception as e:
+    #             _append("confidence", "FAIL", "ESCALATE", f"Error: {e}")
 
-            # 2) Blocked keywords
-            try:
-                r = self.check_blocked_keywords(rules, action_data.get("intent"))
-                if isinstance(r, dict):
-                    _append("blocked_keywords", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
-                else:
-                    _append("blocked_keywords", "PASS", "ALLOW", "No structured result")
-            except Exception as e:
-                _append("blocked_keywords", "FAIL", "ESCALATE", f"Error: {e}")
+    #         # 2) Blocked keywords
+    #         try:
+    #             r = self.check_blocked_keywords(rules, action_data.get("intent"))
+    #             if isinstance(r, dict):
+    #                 _append("blocked_keywords", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
+    #             else:
+    #                 _append("blocked_keywords", "PASS", "ALLOW", "No structured result")
+    #         except Exception as e:
+    #             _append("blocked_keywords", "FAIL", "ESCALATE", f"Error: {e}")
 
-            # 3) Follow-up limit
-            try:
-                r = self.check_followup_limit(rules, action_data.get("metadata") or {})
-                if isinstance(r, dict):
-                    _append("followup_limit", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
-                else:
-                    _append("followup_limit", "PASS", "ALLOW", "No structured result")
-            except Exception as e:
-                _append("followup_limit", "FAIL", "ESCALATE", f"Error: {e}")
+    #         # 3) Follow-up limit
+    #         try:
+    #             r = self.check_followup_limit(rules, action_data.get("metadata") or {})
+    #             if isinstance(r, dict):
+    #                 _append("followup_limit", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
+    #             else:
+    #                 _append("followup_limit", "PASS", "ALLOW", "No structured result")
+    #         except Exception as e:
+    #             _append("followup_limit", "FAIL", "ESCALATE", f"Error: {e}")
 
-            # 4) Sensitive intent
-            try:
-                r = self.check_sensitive_intent(rules, action_data.get("intent"))
-                if isinstance(r, dict):
-                    _append("sensitive_intent", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
-                else:
-                    _append("sensitive_intent", "PASS", "ALLOW", "No structured result")
-            except Exception as e:
-                _append("sensitive_intent", "FAIL", "ESCALATE", f"Error: {e}")
+    #         # 4) Sensitive intent
+    #         try:
+    #             r = self.check_sensitive_intent(rules, action_data.get("intent"))
+    #             if isinstance(r, dict):
+    #                 _append("sensitive_intent", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
+    #             else:
+    #                 _append("sensitive_intent", "PASS", "ALLOW", "No structured result")
+    #         except Exception as e:
+    #             _append("sensitive_intent", "FAIL", "ESCALATE", f"Error: {e}")
 
-            # 5) High value lead
-            try:
-                r = self.check_high_value_lead(rules, action_data.get("metadata") or {})
-                if isinstance(r, dict):
-                    _append("high_value_lead", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
-                else:
-                    _append("high_value_lead", "PASS", "ALLOW", "No structured result")
-            except Exception as e:
-                _append("high_value_lead", "FAIL", "ESCALATE", f"Error: {e}")
+    #         # 5) High value lead
+    #         try:
+    #             r = self.check_high_value_lead(rules, action_data.get("metadata") or {})
+    #             if isinstance(r, dict):
+    #                 _append("high_value_lead", r.get("status"), r.get("outcome"), r.get("reason"), r.get("details"))
+    #             else:
+    #                 _append("high_value_lead", "PASS", "ALLOW", "No structured result")
+    #         except Exception as e:
+    #             _append("high_value_lead", "FAIL", "ESCALATE", f"Error: {e}")
 
-            # 6) Custom rules
-            try:
-                custom = self.apply_custom_rules(rules, action_data) or []
-                for r in custom:
-                    _append(
-                        r.get("rule", "custom"),
-                        r.get("status", "PASS"),
-                        r.get("outcome", "ALLOW"),
-                        r.get("reason", ""),
-                        r.get("details", {})
-                    )
-            except Exception as e:
-                _append("custom_rules", "FAIL", "ESCALATE", f"Error: {e}")
+    #         # 6) Custom rules
+    #         try:
+    #             custom = self.apply_custom_rules(rules, action_data) or []
+    #             for r in custom:
+    #                 _append(
+    #                     r.get("rule", "custom"),
+    #                     r.get("status", "PASS"),
+    #                     r.get("outcome", "ALLOW"),
+    #                     r.get("reason", ""),
+    #                     r.get("details", {})
+    #                 )
+    #         except Exception as e:
+    #             _append("custom_rules", "FAIL", "ESCALATE", f"Error: {e}")
 
-            self.logger.info(
-                "Rule evaluation complete",
-                extra={"rules_evaluated": len(results)}
-            )
+    #         self.logger.info(
+    #             "Rule evaluation complete",
+    #             extra={"rules_evaluated": len(results)}
+    #         )
 
-            return {
-                "results": results,
-                "count": len(results)
-            }
+    #         return {
+    #             "results": results,
+    #             "count": len(results)
+    #         }
 
-        except Exception as e:
-            self.logger.error(
-                "Error in evaluate_rules",
-                exc_info=True,
-                extra={"action_data": action_data}
-            )
-            return {
-                "results": [],
-                "count": 0
-            }
+    #     except Exception as e:
+    #         self.logger.error(
+    #             "Error in evaluate_rules",
+    #             exc_info=True,
+    #             extra={"action_data": action_data}
+    #         )
+    #         return {
+    #             "results": [],
+    #             "count": 0
+    #         }
 
     # CONFIDENCE RULE
     def check_confidence(self, rules, confidence):
@@ -854,255 +854,255 @@ class MCPService:
             }
 
 
-    # HUMAN OVERRIDE
-    def override_decision(self, action_id, approved):
-        try:
-            self.logger.info(
-                "Processing human override",
-                extra={"action_id": str(action_id), "approved": approved}
-            )
+    # # HUMAN OVERRIDE
+    # def override_decision(self, action_id, approved):
+    #     try:
+    #         self.logger.info(
+    #             "Processing human override",
+    #             extra={"action_id": str(action_id), "approved": approved}
+    #         )
 
-            if not self.action_repo:
-                raise ValueError("Action repository not initialized")
+    #         if not self.action_repo:
+    #             raise ValueError("Action repository not initialized")
 
-            # Fetch existing action
-            action = self.action_repo.get_by_id(action_id)
-            if not action:
-                raise ValueError("Action not found")
+    #         # Fetch existing action
+    #         action = self.action_repo.get_by_id(action_id)
+    #         if not action:
+    #             raise ValueError("Action not found")
 
-            # Only allow override for ESCALATE
-            current_decision = getattr(action, "mcp_decision", None)
+    #         # Only allow override for ESCALATE
+    #         current_decision = getattr(action, "mcp_decision", None)
 
-            # Compute new decision
-            if approved:
-                new_decision = "ALLOW"
-                new_reason = "Human override: approved"
-                new_status = "executed"
-            else:
-                new_decision = "BLOCK"
-                new_reason = "Human override: rejected"
-                new_status = "blocked"
+    #         # Compute new decision
+    #         if approved:
+    #             new_decision = "ALLOW"
+    #             new_reason = "Human override: approved"
+    #             new_status = "executed"
+    #         else:
+    #             new_decision = "BLOCK"
+    #             new_reason = "Human override: rejected"
+    #             new_status = "blocked"
 
-            # Update record
-            update_payload = {
-                "mcp_decision": new_decision,
-                "mcp_reason": new_reason,
-                "human_override": True,
-                "execution_status": new_status
-            }
+    #         # Update record
+    #         update_payload = {
+    #             "mcp_decision": new_decision,
+    #             "mcp_reason": new_reason,
+    #             "human_override": True,
+    #             "execution_status": new_status
+    #         }
 
-            updated = self.action_repo.update(action_id, update_payload)
+    #         updated = self.action_repo.update(action_id, update_payload)
 
-            self.logger.info(
-                "Human override applied",
-                extra={
-                    "action_id": str(action_id),
-                    "from": current_decision,
-                    "to": new_decision
-                }
-            )
+    #         self.logger.info(
+    #             "Human override applied",
+    #             extra={
+    #                 "action_id": str(action_id),
+    #                 "from": current_decision,
+    #                 "to": new_decision
+    #             }
+    #         )
 
-            return {
-                "action_id": str(action_id),
-                "previous_decision": current_decision,
-                "new_decision": new_decision,
-                "reason": new_reason,
-                "status": new_status,
-                "updated": bool(updated)
-            }
+    #         return {
+    #             "action_id": str(action_id),
+    #             "previous_decision": current_decision,
+    #             "new_decision": new_decision,
+    #             "reason": new_reason,
+    #             "status": new_status,
+    #             "updated": bool(updated)
+    #         }
 
-        except Exception as e:
-            self.logger.error(
-                "Error in override_decision",
-                exc_info=True,
-                extra={"action_id": str(action_id) if action_id else None}
-            )
+    #     except Exception as e:
+    #         self.logger.error(
+    #             "Error in override_decision",
+    #             exc_info=True,
+    #             extra={"action_id": str(action_id) if action_id else None}
+    #         )
 
-            return {
-                "action_id": str(action_id) if action_id else None,
-                "status": "failed",
-                "error": str(e)
-            }
+    #         return {
+    #             "action_id": str(action_id) if action_id else None,
+    #             "status": "failed",
+    #             "error": str(e)
+    #         }
 
 
     # RESPONSE FORMATTER
-    def build_response(self, decision, reason, action_id):
-        try:
-            from datetime import datetime, timezone
+    # def build_response(self, decision, reason, action_id):
+    #     try:
+    #         from datetime import datetime, timezone
 
-            timestamp = datetime.now(timezone.utc).isoformat()
+    #         timestamp = datetime.now(timezone.utc).isoformat()
 
-            response = {
-                "action_id": str(action_id) if action_id else None,
-                "decision": decision,
-                "reason": reason,
-                "timestamp": timestamp
-            }
+    #         response = {
+    #             "action_id": str(action_id) if action_id else None,
+    #             "decision": decision,
+    #             "reason": reason,
+    #             "timestamp": timestamp
+    #         }
 
-            self.logger.info(
-                "Response built",
-                extra={
-                    "action_id": response["action_id"],
-                    "decision": decision
-                }
-            )
+    #         self.logger.info(
+    #             "Response built",
+    #             extra={
+    #                 "action_id": response["action_id"],
+    #                 "decision": decision
+    #             }
+    #         )
 
-            return response
+    #         return response
 
-        except Exception as e:
-            self.logger.error(
-                "Error building response",
-                exc_info=True,
-                extra={
-                    "action_id": str(action_id) if action_id else None
-                }
-            )
+    #     except Exception as e:
+    #         self.logger.error(
+    #             "Error building response",
+    #             exc_info=True,
+    #             extra={
+    #                 "action_id": str(action_id) if action_id else None
+    #             }
+    #         )
 
-            return {
-                "action_id": str(action_id) if action_id else None,
-                "decision": "ESCALATE",
-                "reason": "Response build error",
-                "timestamp": None
-            }
+    #         return {
+    #             "action_id": str(action_id) if action_id else None,
+    #             "decision": "ESCALATE",
+    #             "reason": "Response build error",
+    #             "timestamp": None
+    #         }
 
-    # RULE UPDATE
-    def update_rules(self, workspace_id, rules):
-        try:
-            self.logger.info(
-                "Updating MCP rules",
-                extra={"workspace_id": str(workspace_id)}
-            )
+    # # RULE UPDATE
+    # def update_rules(self, workspace_id, rules):
+    #     try:
+    #         self.logger.info(
+    #             "Updating MCP rules",
+    #             extra={"workspace_id": str(workspace_id)}
+    #         )
 
-            if not workspace_id:
-                raise ValueError("workspace_id is required")
+    #         if not workspace_id:
+    #             raise ValueError("workspace_id is required")
 
-            if not isinstance(rules, dict):
-                raise ValueError("rules must be a dictionary")
+    #         if not isinstance(rules, dict):
+    #             raise ValueError("rules must be a dictionary")
 
-            # Basic validation
-            validated_rules = {
-                "confidence_threshold": float(rules.get("confidence_threshold", self.rules.get("confidence_threshold", 0.6))),
-                "followup_limit": int(rules.get("followup_limit", self.rules.get("followup_limit", 3))),
-                "blocked_keywords": rules.get("blocked_keywords", []),
-                "sensitive_categories": rules.get("sensitive_categories", []),
-                "custom_rules": rules.get("custom_rules", {}),
-                "high_value_threshold": float(rules.get("high_value_threshold", self.rules.get("high_value_threshold", 10000)))
-            }
+    #         # Basic validation
+    #         validated_rules = {
+    #             "confidence_threshold": float(rules.get("confidence_threshold", self.rules.get("confidence_threshold", 0.6))),
+    #             "followup_limit": int(rules.get("followup_limit", self.rules.get("followup_limit", 3))),
+    #             "blocked_keywords": rules.get("blocked_keywords", []),
+    #             "sensitive_categories": rules.get("sensitive_categories", []),
+    #             "custom_rules": rules.get("custom_rules", {}),
+    #             "high_value_threshold": float(rules.get("high_value_threshold", self.rules.get("high_value_threshold", 10000)))
+    #         }
 
-            # Persist to DB
-            if self.rule_repo:
-                existing = self.rule_repo.get_by_workspace_id(workspace_id)
+    #         # Persist to DB
+    #         if self.rule_repo:
+    #             existing = self.rule_repo.get_by_workspace_id(workspace_id)
 
-                if existing:
-                    self.rule_repo.update(workspace_id, validated_rules)
-                else:
-                    self.rule_repo.create({
-                        "workspace_id": workspace_id,
-                        "rules": validated_rules
-                    })
+    #             if existing:
+    #                 self.rule_repo.update(workspace_id, validated_rules)
+    #             else:
+    #                 self.rule_repo.create({
+    #                     "workspace_id": workspace_id,
+    #                     "rules": validated_rules
+    #                 })
 
-                self.logger.info(
-                    "Rules stored in database",
-                    extra={"workspace_id": str(workspace_id)}
-                )
-            else:
-                self.logger.warning(
-                    "Rule repo not available, skipping DB persist",
-                    extra={"workspace_id": str(workspace_id)}
-                )
+    #             self.logger.info(
+    #                 "Rules stored in database",
+    #                 extra={"workspace_id": str(workspace_id)}
+    #             )
+    #         else:
+    #             self.logger.warning(
+    #                 "Rule repo not available, skipping DB persist",
+    #                 extra={"workspace_id": str(workspace_id)}
+    #             )
 
-            # Update cache immediately
-            self.rule_cache[str(workspace_id)] = validated_rules
+    #         # Update cache immediately
+    #         self.rule_cache[str(workspace_id)] = validated_rules
 
-            self.logger.info(
-                "Rules updated successfully",
-                extra={"workspace_id": str(workspace_id)}
-            )
+    #         self.logger.info(
+    #             "Rules updated successfully",
+    #             extra={"workspace_id": str(workspace_id)}
+    #         )
 
-            return {
-                "status": "success",
-                "workspace_id": str(workspace_id),
-                "rules": validated_rules
-            }
+    #         return {
+    #             "status": "success",
+    #             "workspace_id": str(workspace_id),
+    #             "rules": validated_rules
+    #         }
 
-        except Exception as e:
-            self.logger.error(
-                "Error updating rules",
-                exc_info=True,
-                extra={"workspace_id": str(workspace_id) if workspace_id else None}
-            )
+    #     except Exception as e:
+    #         self.logger.error(
+    #             "Error updating rules",
+    #             exc_info=True,
+    #             extra={"workspace_id": str(workspace_id) if workspace_id else None}
+    #         )
 
-            return {
-                "status": "failed",
-                "error": str(e)
-            }
+    #         return {
+    #             "status": "failed",
+    #             "error": str(e)
+    #         }
 
     # FETCH RULES
-    def get_rules(self, workspace_id):
-        try:
-            self.logger.info(
-                "Fetching MCP rules",
-                extra={"workspace_id": str(workspace_id)}
-            )
+    # def get_rules(self, workspace_id):
+    #     try:
+    #         self.logger.info(
+    #             "Fetching MCP rules",
+    #             extra={"workspace_id": str(workspace_id)}
+    #         )
 
-            # If workspace_id is None, return defaults immediately
-            if not workspace_id:
-                self.logger.info(
-                    "No workspace_id provided, returning default rules"
-                )
-                config = self.config_service.get_config(None) if self.config_service else {}
+    #         # If workspace_id is None, return defaults immediately
+    #         if not workspace_id:
+    #             self.logger.info(
+    #                 "No workspace_id provided, returning default rules"
+    #             )
+    #             config = self.config_service.get_config(None) if self.config_service else {}
 
-                return {
-                    "workspace_id": None,
-                    "rules": config
-                }
+    #             return {
+    #                 "workspace_id": None,
+    #                 "rules": config
+    #             }
 
-            ws_id = str(workspace_id)
+    #         ws_id = str(workspace_id)
 
-            # Check cache first
-            if ws_id in self.rule_cache:
-                self.logger.info(
-                    "Rules fetched from cache",
-                    extra={"workspace_id": ws_id}
-                )
-                return {
-                    "workspace_id": ws_id,
-                    "rules": self.rule_cache[ws_id]
-                }
+    #         # Check cache first
+    #         if ws_id in self.rule_cache:
+    #             self.logger.info(
+    #                 "Rules fetched from cache",
+    #                 extra={"workspace_id": ws_id}
+    #             )
+    #             return {
+    #                 "workspace_id": ws_id,
+    #                 "rules": self.rule_cache[ws_id]
+    #             }
 
-            # Fetch from DB
-            rules = {}
-            if self.rule_repo:
-                record = self.rule_repo.get_by_workspace_id(workspace_id)
-                if record and getattr(record, "rules", None):
-                    rules = record.rules
+    #         # Fetch from DB
+    #         rules = {}
+    #         if self.rule_repo:
+    #             record = self.rule_repo.get_by_workspace_id(workspace_id)
+    #             if record and getattr(record, "rules", None):
+    #                 rules = record.rules
 
-            # Fallback to defaults if empty
-            if not rules:
-                rules = self.config_service.get_config(workspace_id) if self.config_service else {}
+    #         # Fallback to defaults if empty
+    #         if not rules:
+    #             rules = self.config_service.get_config(workspace_id) if self.config_service else {}
 
-            # Cache it
-            self.rule_cache[ws_id] = rules
+    #         # Cache it
+    #         self.rule_cache[ws_id] = rules
 
-            self.logger.info(
-                "Rules fetched successfully",
-                extra={"workspace_id": ws_id}
-            )
+    #         self.logger.info(
+    #             "Rules fetched successfully",
+    #             extra={"workspace_id": ws_id}
+    #         )
 
-            return {
-                "workspace_id": ws_id,
-                "rules": rules
-            }
+    #         return {
+    #             "workspace_id": ws_id,
+    #             "rules": rules
+    #         }
 
-        except Exception as e:
-            self.logger.error(
-                "Error fetching rules",
-                exc_info=True,
-                extra={"workspace_id": str(workspace_id) if workspace_id else None}
-            )
+    #     except Exception as e:
+    #         self.logger.error(
+    #             "Error fetching rules",
+    #             exc_info=True,
+    #             extra={"workspace_id": str(workspace_id) if workspace_id else None}
+    #         )
 
-            return {
-                "workspace_id": str(workspace_id) if workspace_id else None,
-                "rules": self.config_service.get_config(workspace_id) if self.config_service else {},
-                "status": "fallback"
-            }
+    #         return {
+    #             "workspace_id": str(workspace_id) if workspace_id else None,
+    #             "rules": self.config_service.get_config(workspace_id) if self.config_service else {},
+    #             "status": "fallback"
+    #         }

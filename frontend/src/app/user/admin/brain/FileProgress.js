@@ -21,7 +21,7 @@ export default function FileProgress({ entryId, onDone }) {
         );
 
         if (!res.ok) {
-          throw new Error("Failed to fetch status");
+          throw new Error(`Failed to fetch status`);
         }
 
         const data = await res.json();

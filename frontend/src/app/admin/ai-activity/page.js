@@ -9,23 +9,25 @@ export default function AIActivityPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const response = await api.getAIActivity()
-      const result = response
-      console.log('Fetched AI actions:', result)
-      setData(result)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+  const fetchData = useCallback(async () => {
+  try {
+    setLoading(true)
+    const response = await api.getAIActivity()
+    const result = response
+    console.log('Fetched AI actions:', result)
+    setData(result)
+  } catch (err) {
+    setError(err.message)
+  } finally {
+    setLoading(false)
   }
+}, [])
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+useEffect(() => {
+  ;(async () => {
+    await fetchData()
+  })()
+}, [])
 
   if (loading) {
     return (

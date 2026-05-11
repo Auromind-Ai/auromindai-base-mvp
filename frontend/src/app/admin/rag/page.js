@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Brain, RefreshCw } from 'lucide-react'
 
 export default function RAGBrainPage() {
@@ -8,6 +8,7 @@ export default function RAGBrainPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+<<<<<<< HEAD
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -21,11 +22,26 @@ export default function RAGBrainPage() {
     } finally {
       setLoading(false)
     }
+=======
+ const fetchData = useCallback(async () => {
+  try {
+    setLoading(true)
+    const response = await fetch('http://localhost:8000/admin/rag')
+    if (!response.ok) throw new Error('Failed to fetch RAG data')
+    const result = await response.json()
+    setData(result)
+  } catch (err) {
+    setError(err.message)
+  } finally {
+    setLoading(false)
+>>>>>>> 1ca00fbfbf8dc44c38562f94e00738db2dc9b4a3
   }
+}, [])
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+
+useEffect(() => {
+  fetchData()
+}, [fetchData])
 
   if (loading) {
     return (

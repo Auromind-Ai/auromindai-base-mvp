@@ -7,6 +7,7 @@ from app.database import get_db
 from app.services.inbox_agents.twilio_service import TwilioService
 from app.services.inbox_agents.whatsapp import WhatsAppService
 from app.services.inbox_agents.instagram_service import InstagramService
+import traceback
 
 router = APIRouter(prefix="/api", tags=["Unified Inbox"])
 
@@ -15,27 +16,54 @@ router = APIRouter(prefix="/api", tags=["Unified Inbox"])
 # GET CONVERSATIONS
 @router.get("/conversations")
 def get_conversations(workspace_id: str, channel: str = None, db: Session = Depends(get_db)):
+    try:
+        # Validate workspace_id is provided
+        if not workspace_id:
+            raise HTTPException(400, "workspace_id is required")
 
-    query = db.query(models.Conversation).filter(
-        models.Conversation.workspace_id == workspace_id
-    )
-
-    if channel:
-        query = query.filter(
-            models.Conversation.channel == models.ChannelType[channel.upper()]
+        query = db.query(models.Conversation).filter(
+            models.Conversation.workspace_id == workspace_id
         )
 
-    return query.order_by(models.Conversation.updated_at.desc()).all()
+        if channel:
+            try:
+                # Convert channel string to ChannelType enum
+                channel_type = models.ChannelType[channel.upper()]
+                query = query.filter(
+                    models.Conversation.channel == channel_type
+                )
+            except KeyError:
+                raise HTTPException(400, f"Invalid channel: {channel}")
+
+        conversations = query.order_by(models.Conversation.updated_at.desc()).all()
+        return conversations
+    except HTTPException:
+        raise
+    except Exception as e:
+        
+        traceback.print_exc()
+        raise HTTPException(500, f"Error fetching conversations: {str(e)}")
 
 
 
 # GET MESSAGES
 @router.get("/messages/{conversation_id}")
 def get_messages(conversation_id: str, db: Session = Depends(get_db)):
-
-    return db.query(models.Message).filter(
-        models.Message.conversation_id == conversation_id
-    ).order_by(models.Message.timestamp.asc()).all()
+    try:
+        if not conversation_id:
+            raise HTTPException(400, "conversation_id is required")
+        
+        messages = db.query(models.Message).filter(
+            models.Message.conversation_id == conversation_id
+        ).order_by(models.Message.timestamp.asc()).all()
+        
+        return messages
+    except HTTPException:
+        raise
+    except Exception as e:
+        
+        traceback.print_exc()
+        raise HTTPException(500, f"Error fetching messages: {str(e)}")
 
 
 # SEND MESSAGE (MULTI CHANNEL)
