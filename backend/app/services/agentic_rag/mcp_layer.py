@@ -2,9 +2,10 @@
 
 import logging
 
-from app.services.agentic_rag.llm_wrapper_layer import safe_llm_call
+from app.services.llm_utils import safe_llm_call
 from app.services.agentic_rag.learning_cache import learning_cache
 
+logger = logging.getLogger(__name__)
 
 class MCPLayer:
     
@@ -12,7 +13,7 @@ class MCPLayer:
         pass
 
      #LLM analyzes and rewrites
-    async def analyze_and_rewrite(self, query):
+    async def analyze_and_rewrite(self, query: str, model: str | None = None):
         prompt = f"""
         You are a STRICT Retrieval Query Optimization Agent.
 
@@ -59,7 +60,7 @@ class MCPLayer:
 
         Rewritten Query:
         """
-        rewritten_query = await safe_llm_call(prompt)
+        rewritten_query = await safe_llm_call(prompt, model=model)
        
         rewritten_query = rewritten_query["content"].strip()
 
@@ -74,7 +75,7 @@ class MCPLayer:
         return rewritten_query.strip()
     
     #LLM decides which tool to use
-    async def decide_tool(self, query):
+    async def decide_tool(self, query: str, model: str | None = None):
 
         prompt = f"""
       You are a deterministic AI Tool Router for a production SaaS system.
@@ -154,9 +155,11 @@ class MCPLayer:
     --------------------------------------------------
     FALLBACK RULE
 
-    If the source of truth is unclear:
+    If the source of truth is unclear AND the query is about 
+    real-time or public internet data:
     → select web_search
-
+    Otherwise:
+    → select vector_db
     --------------------------------------------------
 
     OUTPUT FORMAT
@@ -178,11 +181,12 @@ class MCPLayer:
     Selected Tool:
         """
         
-        decision = await safe_llm_call(prompt)
+        decision = await safe_llm_call(prompt, model=model)
+        logger.info(f"[2] LLM DECIDED: {decision['content'].strip().lower()}")
         return decision["content"].strip().lower()
 
     #Context Evaluation
-    async def evaluate_context(self, query, context):
+    async def evaluate_context(self, query: str, context: str, model: str | None = None):
         
         if not context.strip():
             return False
@@ -227,15 +231,15 @@ class MCPLayer:
         """
 
 
-        decision = await safe_llm_call(prompt)
+        decision = await safe_llm_call(prompt, model=model)
         decision = decision["content"].strip().upper()
 
-        logging.info(decision)
+        logger.info(decision)
 
         return decision.startswith("YES")
     
     #Query Refinement (Self-Correction)
-    async def refine_query(self, query, previous_context):
+    async def refine_query(self, query: str, previous_context: str, model: str | None = None):
 
         prompt = f"""
         You are a STRICT Retrieval Recovery Agent.
@@ -277,19 +281,27 @@ class MCPLayer:
         Rewritten Query:
         """
 
-        refined_query = await safe_llm_call(prompt)
-        logging.info(refined_query)
+        refined_query = await safe_llm_call(prompt, model=model)
+        logger.info(refined_query)
         return refined_query["content"].strip()
     
 
-    def format_response(self, answer, query, rewritten_query=None, tool=None, confidence=None):
+    def format_response(
+        self,
+        answer,
+        query,
+        rewritten_query=None,
+        tool=None,
+        confidence=None,
+        model="auto",
+    ):
         return {
             "answer": answer,
             "meta": {
                 "query": query,
                 "rewritten_query": rewritten_query,
                 "tool": tool,
-                "model": "auto",
+                "model": model,
                 "confidence_score": confidence if confidence is not None else 0.5,
                 "source": tool
             }

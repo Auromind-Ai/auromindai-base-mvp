@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, AsyncGenerator, Tuple
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from tenacity import RetryError
 
 from app.core.exceptions import (
     BillingError,
@@ -110,11 +111,15 @@ class ChatService:
                 db=db,
                 workspace_id=workspace_id,
                 query=query,
-                model=model
+                model=model  
             )
             return answer
+        except RetryError as e:
+            cause = e.last_attempt.exception()
+            logger.error(f"RAG retrieval error (inner cause): {cause}", exc_info=cause)
+            raise RAGError(f"Failed to retrieve from knowledge base: {str(cause)}")
         except Exception as e:
-            logger.error(f"RAG retrieval error: {e}")
+            logger.error(f"RAG retrieval error: {e}", exc_info=True)
             raise RAGError(f"Failed to retrieve from knowledge base: {str(e)}")
 
     def _finalize_billing(
@@ -328,7 +333,7 @@ class ChatService:
                                 query=safe_query,
                                 model=model,
                             ),
-                            timeout=15,
+                            timeout=60,
                         )
 
                     if answer_data:

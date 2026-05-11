@@ -1104,17 +1104,51 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                     </>
                   )}
 
-                  {activeNode.config?.type === 'brain_query' && (
-                    <section>
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">AI Prompt</label>
-                      <textarea
-                        value={activeNode.config?.prompt || ''}
-                        onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
-                        placeholder="Optional: customize AI reply..."
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
-                        rows={4}
-                      />
-                    </section>
+                 {activeNode.config?.type === 'brain_query' && (
+                    <>
+                      <section>
+                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Agent Type</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { value: 'lead_agent',    label: 'Lead',    emoji: '🎯' },
+                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼' },
+                            { value: 'support_agent', label: 'Support', emoji: '🛟' },
+                          ].map(({ value, label, emoji }) => {
+                            const isSelected = (activeNode.config?.agent_type || 'lead_agent') === value;
+                            return (
+                              <button
+                                key={value}
+                                data-no-drag
+                                onClick={() => updateNodeConfig(activeNodeId, { agent_type: value })}
+                                className={`flex flex-col items-center gap-1 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all
+                                  ${isSelected
+                                    ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 ring-1 ring-indigo-500/30'
+                                    : 'bg-white/5 border-white/10 text-zinc-500 hover:border-white/20'}`}
+                              >
+                                <span className="text-lg">{emoji}</span>
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-2 text-[10px] text-zinc-600 font-medium">
+                          {activeNode.config?.agent_type === 'sales_agent'   && 'Answers pricing, features, demos using your knowledge base.'}
+                          {activeNode.config?.agent_type === 'support_agent' && 'Handles issues, complaints, policy queries.'}
+                          {(!activeNode.config?.agent_type || activeNode.config?.agent_type === 'lead_agent') && 'Collects name, requirement, budget, contact.'}
+                        </p>
+                      </section>
+
+                      <section>
+                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
+                        <textarea
+                          value={activeNode.config?.prompt || ''}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
+                          placeholder="Override AI behavior for this step..."
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
+                          rows={3}
+                        />
+                      </section>
+                    </>
                   )}
 
                   {activeNode.config?.type === 'ask_question' && (

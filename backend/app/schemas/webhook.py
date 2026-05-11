@@ -1,0 +1,10 @@
+from pydantic import BaseModel
+
+class SendReply(BaseModel):
+    conversation_id: str
+    message: str
+    phone: str | None = None
+
+class AISuggest(BaseModel):
+    conversation_id: str
+    message: str

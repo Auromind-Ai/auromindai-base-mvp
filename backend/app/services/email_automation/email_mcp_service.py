@@ -1,32 +1,20 @@
+
 from app.models.brain import ConversationThread
 from app.models.brain import MCPDecision
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import json
-from app.services.llm_router import LLMRouter
+
 from app.models.integration import Integration
-import time
-import asyncio
+from app.services.llm_utils import safe_llm_call
+
 
 class EmailMCPService:
 
     def __init__(self):
         self.vector_store = VectorStoreService()
         self.embeddings = EmbeddingGenerator() 
-        self.router = LLMRouter()
-    
-    def safe_llm_call(self, prompt=None, system_prompt=None, user_prompt=None, temperature=0.0):
-        
-        # Build final prompt (same logic as GroqLLM)
-        if system_prompt and user_prompt:
-            final_prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
-        elif prompt:
-            final_prompt = prompt
-        else:
-            raise ValueError("Invalid input")
 
-        result = asyncio.run(self.router.generate(final_prompt))
-        return result["content"]
       
     def safe_json_parse(self, text):
         try:
@@ -46,7 +34,7 @@ class EmailMCPService:
             return ""
         return text.replace("@", "[at]").replace("http", "[link]")
 
-    def process_email(self, db, workspace_id, email_data):
+    async def process_email(self, db, workspace_id, email_data):
 
         print("MCP: Processing email started")
 
@@ -55,26 +43,26 @@ class EmailMCPService:
             context = self.retrieve_memory_context(db, workspace_id, email_data)
             print("Memory context fetched")
             
-            category_result = self.classify_category(email_data, context)
+            category_result = await self.classify_category(email_data, context)
             category = category_result.get("category")
             confidence = category_result.get("confidence", 0)
 
             print("Category:", category)
             print("Confidence:", confidence)
 
-            entities = self.extract_entities(email_data, category)
+            entities = await self.extract_entities(email_data, category)
             print("Entities extracted:", entities)
 
-            priority = self.calculate_priority(email_data, category, entities)
+            priority =  self.calculate_priority(email_data, category, entities)
             print("Priority:", priority)
 
-            summary = self.generate_summary(email_data)
+            summary =   await self.generate_summary(email_data)
             print("Summary generated")
 
             suggested_reply = None
 
             # if category in ["business", "job", "support"]:
-            suggested_reply = self.generate_suggested_reply(
+            suggested_reply = await self.generate_suggested_reply(
                 email_data,
                 category,
                 context,
@@ -172,7 +160,7 @@ class EmailMCPService:
             return context
         
     # Classify category
-    def classify_category(self, email_data, context):
+    async def classify_category(self, email_data, context):
 
         print("Classifying email category...")
 
@@ -226,14 +214,13 @@ class EmailMCPService:
             {body}
             """
 
-            response = self.safe_llm_call(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt
-            )
+            prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
+
+            response = await safe_llm_call(prompt)
 
             print("Raw LLM response:", response)
 
-            result = self.safe_json_parse(response)
+            result = self.safe_json_parse(response["content"])
 
             category = result.get("category")
             confidence = float(result.get("confidence", 0))
@@ -255,7 +242,7 @@ class EmailMCPService:
             return {"category": "other", "confidence": 0.0}
     
     #Extract structured entities
-    def extract_entities(self, email_data, category):
+    async def extract_entities(self, email_data, category):
 
         print("Extracting entities...")
 
@@ -328,14 +315,12 @@ class EmailMCPService:
             {body}
             """
 
-            response = self.safe_llm_call(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-            )
+            prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
+            response = await safe_llm_call(prompt)
 
             print("Raw entity response:", response)
 
-            entities = self.safe_json_parse(response)
+            entities = self.safe_json_parse(response["content"])
 
             print("Entities extracted:", entities)
 
@@ -412,7 +397,7 @@ class EmailMCPService:
             return "low"
 
     # Generate summary
-    def generate_summary(self, email_data):
+    async def generate_summary(self, email_data):
 
         print("Generating summary...")
 
@@ -439,12 +424,10 @@ class EmailMCPService:
             {body}
             """
 
-            response = self.safe_llm_call(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-            )
+            prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
+            response = await safe_llm_call(prompt)
 
-            summary = response.strip()
+            summary = response["content"].strip()
 
             # Safety: Limit length hard
             if len(summary) > 600:
@@ -481,7 +464,7 @@ class EmailMCPService:
     
     
     #Generate suggested reply
-    def generate_suggested_reply(self, email_data, category, context, db, workspace_id):
+    async def generate_suggested_reply(self, email_data, category, context, db, workspace_id):
         print("Generating suggested reply...")
 
         try:
@@ -526,13 +509,10 @@ class EmailMCPService:
             {body}
             """
 
-            response = self.safe_llm_call(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                temperature=0.4
-            )
+            prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
 
-            reply = response.strip()
+            response = await safe_llm_call(prompt)
+            reply = response["content"].strip()
 
             user_name = self.get_workspace_user_name(db, workspace_id)
 

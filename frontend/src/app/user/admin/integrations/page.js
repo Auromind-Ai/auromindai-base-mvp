@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { getWorkspace } from '@/lib/auth';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api';
 
 export default function IntegrationsPage() {
     const [integrations, setIntegrations] = useState({
@@ -61,7 +61,7 @@ export default function IntegrationsPage() {
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'ngrok-skip-browser-warning': 'true'  // ✅ Add this
+                        'ngrok-skip-browser-warning': 'true'  //  Add this
                     }
                 }
             );

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from typing import Any, List, Optional
+from app.schemas.email import EmailItem, InboxResponse, SendReplyResponse
 from app.database import get_db
 from app.models.brain import EmailMessage, MCPDecision
 from app.routers.auth import get_current_user
@@ -14,28 +14,6 @@ router = APIRouter(prefix="/email", tags=["email"])
 
 
 # --- Response models ---
-
-class EmailItem(BaseModel):
-    id: str
-    thread_id: Optional[str] = None
-    from_: Optional[str] = None
-    subject: Optional[str] = None
-    date: Optional[Any] = None
-    priority: str = "unknown"
-    category: str = "unknown"
-    confidence: float = 0
-    summary: str = "AI summary loading..."
-    suggested_reply: Optional[str] = None
-    actions: List[Any] = []
-
-    class Config:
-        populate_by_name = True
-
-class InboxResponse(BaseModel):
-    emails: List[dict]  # dict used to preserve "from" key (reserved word)
-
-class SendReplyResponse(BaseModel):
-    status: str
 
 
 

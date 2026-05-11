@@ -4,6 +4,11 @@ services:
     image: redis:7-alpine
     container_name: auromind_redis
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   db:
     image: pgvector/pgvector:pg16
@@ -17,78 +22,82 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auromindai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: auromind_backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    env_file:
+       - ./backend/.env
+    restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 "
     volumes:
-      - ./backend/logs:/app/logs 
+      - ./backend/logs:/app/logs
       - ./backend:/app
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+psycopg2://postgres:Arunjack007%40@db:5432/auromindai
-      REDIS_URL: redis://redis:6379
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TWILIO_STATUS_CALLBACK_URL: https://ginette-intercentral-dulce.ngrok-free.dev/twilio/status-callback
     depends_on:
-      - redis
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  #  --- CELERY WORKER HERE --- 
   celery_worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: auromind_celery_worker
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
     command: celery -A app.core.celery_app worker --loglevel=info
     volumes:
-      - ./backend/logs:/app/logs 
+      - ./backend/logs:/app/logs
       - ./backend:/app
-    environment:
-      DATABASE_URL: postgresql+psycopg2://postgres:Arunjack007%40@db:5432/auromindai
-      REDIS_URL: redis://redis:6379
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TWILIO_STATUS_CALLBACK_URL: https://ginette-intercentral-dulce.ngrok-free.dev/twilio/status-callback
     depends_on:
-      - redis
-      - db
-  # -------------------------------- 
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   celery-beat:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: auromind_celery_beat
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
     command: celery -A app.core.celery_app beat --loglevel=info
     volumes:
+      - ./backend/logs:/app/logs
       - ./backend:/app
-    environment:
-      DATABASE_URL: postgresql+psycopg2://postgres:Arunjack007%40@db:5432/auromindai
-      REDIS_URL: redis://redis:6379
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TWILIO_STATUS_CALLBACK_URL: https://ginette-intercentral-dulce.ngrok-free.dev/twilio/status-callback
     depends_on:
-      - redis
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: auromind_frontend
+    restart: unless-stopped
     command: npm run dev
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
       - backend
 

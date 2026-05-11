@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+from app.schemas.dashboard import MetricResponse, AttentionItemResponse, AIInsightResponse, FlowStatResponse, ScheduleItemResponse
 import uuid
 from datetime import datetime
 
@@ -18,32 +18,7 @@ router = APIRouter(tags=["dashboard"])
 
 # ============== Response Models ==============
 
-class MetricResponse(BaseModel):
-    label: str
-    value: str
-    change: str
-    trend: str # 'up', 'down', 'neutral'
-    subtext: str
-
-class AttentionItemResponse(BaseModel):
-    id: int
-    name: str
-    status: str
-    time: str
-    priority: str # 'high', 'medium', 'low'
-
-class AIInsightResponse(BaseModel):
-    type: str # 'opportunity', 'optimization'
-    text: str
-
-class FlowStatResponse(BaseModel):
-    label: str
-    count: int
-
-class ScheduleItemResponse(BaseModel):
-    day: str
-    title: str
-    details: str
+# ============== Endpoints ==============
 
 
 # ============== Endpoints ==============

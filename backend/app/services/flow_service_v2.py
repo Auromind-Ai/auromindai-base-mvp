@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -15,13 +14,14 @@ from sqlalchemy import exc as sa_exc
 from sqlalchemy.exc import IntegrityError
 from collections import OrderedDict
 
+from app.core.config import settings
 from app.models.automation import AutomationFlow
 from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
 from app.models.outbound_message import OutboundMessage
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.execution_tracer import ExecutionTracer
-from app.services.llm_router import LLMRouter
+from app.services.llm_utils import safe_llm_call
 from app.services.trigger_engine import match_button_target, match_trigger
 
 
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # ── Module-level singletons (avoid re-instantiation per request) ────────────
 _rag_singleton = get_rag_service()
-_llm_singleton = LLMRouter()
+
 class _LRULockCache:
     """Bounded cache of asyncio.Lock objects keyed by conversation ID.
 
@@ -61,10 +61,7 @@ class _LRULockCache:
 
 _conversation_locks = _LRULockCache(max_size=10_000)
 # ── Configurable fallback message ───────────────────────────────────────────
-FLOW_FALLBACK_MESSAGE = os.getenv(
-    "FLOW_FALLBACK_MESSAGE",
-    "Sorry, something went wrong. Please try again.",
-)
+FLOW_FALLBACK_MESSAGE = settings.FLOW_FALLBACK_MESSAGE or "Sorry, something went wrong. Please try again."
 EXECUTION_LEASE_SECONDS = 120
 
 
@@ -75,7 +72,7 @@ class ConversationExecutionBusy(Exception):
 class FlowServiceV2:
     def __init__(self):
         self.rag = _rag_singleton
-        self.llm_router = _llm_singleton
+     
         self.tracer = ExecutionTracer()
         self.max_iterations = 50
         self.template_env = Environment(undefined=SilentUndefined)
@@ -598,7 +595,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body="Your session has expired. Please start again.",
                     metadata={"source": "button_expired", "node_id": pending.get("node_id")},
                     msg_sequence=[0],
@@ -724,7 +721,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body="Your session has expired. Please start again.",
                     metadata={"source": "question_expired", "node_id": pending.get("node_id")},
                     msg_sequence=[0],
@@ -769,7 +766,7 @@ class FlowServiceV2:
                 "answer": inbound_text[:200],
             },
         )
-        logger.info(f"✅ Question answered! Stored '{inbound_text}' → context['{variable_name}']")
+        logger.info(f" Question answered! Stored '{inbound_text}' → context['{variable_name}']")
 
         # Clear pending state
         state.pending_question = None
@@ -975,7 +972,7 @@ class FlowServiceV2:
                         await self._queue_outbound_message(
                             db=db,
                             conversation_id=conversation.id,
-                            to_number=conversation.phone,
+                            to_number=self._get_conversation_destination(conversation),
                             body=FLOW_FALLBACK_MESSAGE,
                             metadata={"source": "node_error_fallback", "node_id": current_node_id},
                             msg_sequence=msg_sequence,
@@ -1067,7 +1064,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body=response,
                     metadata={"source": "brain_query", "node_id": node.get("id")},
                     msg_sequence=msg_sequence,
@@ -1156,7 +1153,7 @@ class FlowServiceV2:
             await self._queue_outbound_message(
                 db=db,
                 conversation_id=conversation.id,
-                to_number=conversation.phone,
+                to_number=self._get_conversation_destination(conversation),
                 body=question_text,
                 metadata={"source": "ask_question", "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
@@ -1235,7 +1232,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body=caption or "Media could not be delivered.",
                     metadata={
                         "source": "media_fallback",
@@ -1251,7 +1248,7 @@ class FlowServiceV2:
             await self._queue_outbound_message(
                 db=db,
                 conversation_id=conversation.id,
-                to_number=conversation.phone,
+                to_number=self._get_conversation_destination(conversation),
                 body=caption or '',
                 metadata={
                     "source": "media_message",
@@ -1275,7 +1272,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body=header_text,
                     metadata={
                         "source": "button_message",
@@ -1336,7 +1333,7 @@ class FlowServiceV2:
             await self._queue_outbound_message(
                 db=db,
                 conversation_id=conversation.id,
-                to_number=conversation.phone,
+                to_number=self._get_conversation_destination(conversation),
                 body=outbound_text,
                 metadata={"source": mode, "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
@@ -1365,12 +1362,11 @@ class FlowServiceV2:
 
         Sequence is computed as MAX(sequence)+1 per conversation under a
         SELECT FOR UPDATE lock so concurrent insertions never collide.
-        If there is no in_progress message, the new row is dispatched
-        immediately via send_next_pending_message.
+        Also saves to Message table so the inbox displays automation messages.
         """
         metadata = metadata or {}
         self._refresh_execution_slot(db, conversation_id, execution_token)
-       
+    
         # ── Compute monotonic sequence under row-lock ──────────────────────
         existing = (
             db.query(OutboundMessage)
@@ -1381,6 +1377,7 @@ class FlowServiceV2:
         )
         next_seq = (existing.sequence + 1) if existing else 1
 
+        # ── OutboundMessage (phone delivery) ──────────────────────────────
         msg = OutboundMessage(
             conversation_id=conversation_id,
             to_number=to_number,
@@ -1394,7 +1391,7 @@ class FlowServiceV2:
         db.commit()
         db.refresh(msg)
 
-        # Keep msg_sequence counter consistent with existing callers
+        # ── Keep msg_sequence counter consistent with existing callers ────
         if msg_sequence is not None:
             async with _conversation_locks[str(conversation_id)]:
                 msg_sequence[0] = next_seq
@@ -1405,8 +1402,6 @@ class FlowServiceV2:
             next_seq,
             msg.id,
         )
-
-
         # ── Kick off delivery if nothing is in-progress ────────────────────
         #  ALWAYS trigger dispatcher
 
@@ -1446,18 +1441,15 @@ class FlowServiceV2:
         # ─────────────────────────────────────────
         #  RAG SEARCH (WITH RETRY)
         # ─────────────────────────────────────────
-        def call_rag():
-            return self.rag.search(
+        async def call_rag_async():
+            return await self.rag.iterative_retrieval(
                 db=db,
                 workspace_id=workspace_id,
                 query=inbound_text,
-                top_k=5,
-                collection=collection,
-                entry_ids=entry_ids
+                max_iterations=1,
+                entry_ids=entry_ids,
+                collection=collection
             )
-
-        async def call_rag_async():
-            return await asyncio.to_thread(call_rag)
 
         try:
             retrieved = await _retry_async(call_rag_async)
@@ -1469,9 +1461,10 @@ class FlowServiceV2:
         #  CONTEXT BUILD
         # ─────────────────────────────────────────
         retrieved_context = ""
-        if isinstance(retrieved, list):
+        docs = retrieved.get("docs", []) if isinstance(retrieved, dict) else []
+        if docs:
             retrieved_context = "\n".join(
-                str(r.get("document", "")) for r in retrieved if r.get("document")
+                str(r.get("text", "")) for r in docs if r.get("text")
             )
 
         if not retrieved_context.strip():
@@ -1511,8 +1504,8 @@ class FlowServiceV2:
         # ─────────────────────────────────────────
         async def call_llm():
             return await asyncio.wait_for(
-                self.llm_router.generate(llm_prompt, model="auto"),
-                timeout=15  # 🔥 prevents hanging workers
+                safe_llm_call(llm_prompt, model="auto"),
+                timeout=15  # prevents hanging workers
             )
 
         try:
@@ -1647,6 +1640,9 @@ class FlowServiceV2:
             }
             for b in buttons[:3]
         ]
+
+    def _get_conversation_destination(self, conversation: Conversation) -> str:
+        return conversation.phone or conversation.external_id or ""
 
     def _render_template(self, text: str, context: dict) -> str:
         if not text:

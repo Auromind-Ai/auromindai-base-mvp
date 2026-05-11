@@ -3,6 +3,8 @@ import logging
 import numpy as np
 
 
+logger = logging.getLogger(__name__)
+
 class EmbeddingGenerator:
 
     _model = None
@@ -10,7 +12,7 @@ class EmbeddingGenerator:
 
     def __init__(self, model_name="BAAI/bge-small-en-v1.5", device="cpu"):
         if EmbeddingGenerator._model is None:
-            logging.info(f"Loading embedding model ONCE: {model_name}")
+            logger.info(f"Loading embedding model ONCE: {model_name}")
 
             EmbeddingGenerator._model = SentenceTransformer(
                 model_name,
@@ -21,7 +23,7 @@ class EmbeddingGenerator:
                 EmbeddingGenerator._model.get_sentence_embedding_dimension()
             )
 
-            logging.info(
+            logger.info(
                 f"Embedding model loaded: {model_name} | "
                 f"Dimension: {EmbeddingGenerator._dimension}"
             )
@@ -50,7 +52,7 @@ class EmbeddingGenerator:
                 f"Expected {self.dimension}, Got {embeddings.shape[1]}"
             )
 
-        logging.info("Chunk embeddings generated successfully")
+        logger.info("Chunk embeddings generated successfully")
 
         return embeddings
     

@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class AIResponseService:
     def __init__(self):
         self.rag_service = get_rag_service()
+        self.orchestrator = self.rag_service
         self._redis: Optional[redis.Redis] = None
 
     def _get_anthropic_client(self, db: Session) -> AsyncAnthropic:

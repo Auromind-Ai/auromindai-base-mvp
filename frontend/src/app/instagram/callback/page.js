@@ -7,7 +7,7 @@ export default function InstagramCallback() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [status, setStatus] = useState("Connecting Instagram...");
-    const hasRun = useRef(false); // ✅ prevent double execution
+    const hasRun = useRef(false); // prevent double execution
 
     useEffect(() => {
         if (!searchParams || hasRun.current) return;
@@ -16,7 +16,7 @@ export default function InstagramCallback() {
         const code = searchParams.get("code");
         const error = searchParams.get("error");
 
-        // ✅ OAuth error handling
+        // OAuth error handling
         if (error) {
             console.error("Instagram OAuth error:", error);
             setStatus(`OAuth failed: ${error}`);
@@ -28,10 +28,10 @@ export default function InstagramCallback() {
             return;
         }
 
-        // ✅ Safe localStorage access
+        //  Safe localStorage access
         let workspace_id = null;
         if (typeof window !== "undefined") {
-            workspace_id = localStorage.getItem("instagram_workspace_id"); // ✅ FIXED KEY
+            workspace_id = localStorage.getItem("instagram_workspace_id"); //  FIXED KEY
         }
 
         if (!workspace_id) {
@@ -42,15 +42,12 @@ export default function InstagramCallback() {
         console.log("CODE:", code);
         console.log("WORKSPACE:", workspace_id);
 
-        const API_BASE =
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
         const connectInstagram = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/instagram/connect`, {
+                const res = await fetch(`/backend/api/instagram/connect`, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",
+                        "Content-Type": "application/json",  ...authHeader(),
                     },
                     body: JSON.stringify({
                         code,
@@ -65,9 +62,9 @@ export default function InstagramCallback() {
                     throw data;
                 }
 
-                setStatus("✅ Connected! Redirecting...");
+                setStatus("Connected! Redirecting...");
 
-                // ✅ cleanup
+                //  cleanup
                 localStorage.removeItem("instagram_workspace_id");
 
                 setTimeout(() => {

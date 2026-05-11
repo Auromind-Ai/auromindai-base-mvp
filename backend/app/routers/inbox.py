@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
-import uuid
-from datetime import datetime
-from .. import models, schemas, database
-from ..models import ChannelType
-from app.models.conversation import Conversation
-from app.models.message import Message  
-from app.routers.auth import get_current_user
-from app.models.workspace import WorkspaceMember
+
+from app.database import get_db
+from app.models.message import MessageStatus
+from app.models.message import SenderType
+from app.routers.auth import CurrentUser, get_current_user
+from app.schemas import Conversation, Message, MessageCreate
 from app.core.security import verify_workspace_access
+from app.services.conversation_service import ConversationService
+from app.services.message_service import MessageService
 
 router = APIRouter(
     prefix="/inbox",
@@ -18,81 +18,65 @@ router = APIRouter(
 )
 
 
-
-# Dependency
-def get_db():
-    db = database.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-@router.get("/conversations", response_model=List[schemas.Conversation])
+@router.get("/conversations", response_model=List[Conversation])
 def read_conversations(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     workspace_id = verify_workspace_access(current_user, db)
-    conversations = db.query(models.Conversation).filter(
-        models.Conversation.workspace_id == workspace_id
-    ).offset(skip).limit(limit).all()
-    return conversations
+    return ConversationService.list_conversations(
+        db,
+        workspace_id=workspace_id,
+        skip=skip,
+        limit=limit,
+    )
 
-@router.get("/conversations/{conversation_id}/messages", response_model=List[schemas.Message])
+
+@router.get("/conversations/{conversation_id}/messages", response_model=List[Message])
 def read_messages(
-    conversation_id: int,
+    conversation_id: str,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     workspace_id = verify_workspace_access(current_user, db)
-    messages = db.query(models.Message).join(
-        models.Conversation,
-        models.Message.conversation_id == models.Conversation.id,
-    ).filter(
-        models.Message.conversation_id == conversation_id,
-        models.Conversation.workspace_id == workspace_id,
-    ).offset(skip).limit(limit).all()
-    return messages
-
-
-@router.post("/messages", response_model=schemas.Message)
-def send_message(
-    message: schemas.MessageCreate,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    workspace_id = verify_workspace_access(current_user, db)
-
-    conversation = db.query(Conversation).filter(
-        Conversation.id == message.conversation_id,
-        Conversation.workspace_id == workspace_id,
-    ).first()
-    if not conversation:
-        conversation = Conversation(
-            id=str(message.conversation_id),
-            user_id=current_user.id,                 
-            contact_name=current_user.full_name or "Unknown",
-            workspace_id=workspace_id,
-            channel=ChannelType.WEB,
-            external_id="unknown"
-        )
-
-        db.add(conversation)
-        db.commit()
-        db.refresh(conversation)
-
-    db_message = Message(
-        conversation_id=conversation.id,
-        content=message.content,
-        sender_type=message.sender_type
+    return MessageService.list_messages(
+        db,
+        workspace_id=workspace_id,
+        conversation_id=conversation_id,
+        skip=skip,
+        limit=limit,
     )
 
-    db.add(db_message)
-    db.commit()
-    db.refresh(db_message)
 
+@router.post("/messages", response_model=Message)
+def send_message(
+    message: MessageCreate,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db)
+    conversation = ConversationService.get_or_create_web_conversation(
+        db,
+        workspace_id=workspace_id,
+        conversation_id=message.conversation_id,
+        user_id=str(current_user.id),
+        contact_name=current_user.full_name or "Unknown",
+    )
+    normalized_sender_type = (
+        message.sender_type
+        if isinstance(message.sender_type, SenderType)
+        else SenderType[str(message.sender_type).upper()]
+    )
+    db_message = MessageService.save_manual_message(
+        db,
+        conversation=conversation,
+        body=message.content,
+        sender_type=normalized_sender_type,
+        status=MessageStatus.RECEIVED if normalized_sender_type == SenderType.USER else MessageStatus.SENT,
+        source="inbox_web",
+    )
     return db_message

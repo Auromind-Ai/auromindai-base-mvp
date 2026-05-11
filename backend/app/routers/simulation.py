@@ -8,12 +8,9 @@
 # import uuid
 
 # router = APIRouter()
+# from app.schemas.simulation import SimulationRequest
 
-# class SimulationRequest(BaseModel):
-#     action_type: str
-#     intent: str
-#     workspace_id: str
-#     metadata: Optional[Dict[str, Any]] = None
+
 
 # @router.post("/run")
 # async def run_simulation(
@@ -38,10 +35,7 @@
 #         raise HTTPException(status_code=400, detail=str(e))
 
 
-# class SimulationRequest(BaseModel):
-#     action_type: str
-#     intent: str
-#     metadata: Optional[Dict[str, Any]] = None
+
 
 # @router.post("/run")
 # async def run_simulation(
