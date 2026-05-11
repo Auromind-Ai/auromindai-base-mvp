@@ -1,12 +1,11 @@
 import json
 import logging
-import os
 import uuid
 from typing import Any, Dict, List, Optional
 
-from dotenv import load_dotenv
 import google.generativeai as genai
 from groq import Groq
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +13,8 @@ logger = logging.getLogger(__name__)
 class AgenticWiringServiceV2:
 
     def __init__(self):
-        load_dotenv()
-        self.google_api_key = os.getenv("GOOGLE_API_KEY")
-        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        self.google_api_key = settings.GOOGLE_API_KEY
+        self.groq_api_key = settings.GROQ_API_KEY
         if self.google_api_key:
             genai.configure(api_key=self.google_api_key)
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
@@ -188,7 +186,7 @@ POSITIONING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LANGUAGE & STYLE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Use emojis in messages (👋 🛍️ 📦 💬 ✅ 🤖)
+- Use emojis in messages (👋 🛍️ 📦 💬  🤖)
 - Friendly, conversational tone
 - Keep messages under 160 characters when possible
 - Use \\n for line breaks in text

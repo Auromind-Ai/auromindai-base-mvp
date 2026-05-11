@@ -1,24 +1,14 @@
-"""
-Redis distributed lock for per-conversation mutual exclusion.
-
-Guarantees that only ONE Celery worker can dispatch messages for a given
-conversation at any point in time, even across multiple worker processes.
-
-Uses:
-  - SET key value NX EX ttl   (atomic acquire)
-  - Lua CAS script            (safe release — only the holder can unlock)
-"""
 
 import logging
-import os
 import uuid
 from typing import Optional
 
 import redis
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_URL = settings.REDIS_URL
 
 # Module-level singleton — thread-safe, reused across Celery workers.
 _redis_client: Optional[redis.Redis] = None

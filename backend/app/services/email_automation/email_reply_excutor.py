@@ -4,7 +4,7 @@ from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 from app.models.integration import Integration, EmailReplyLog
 from uuid import UUID
-import os
+from app.core.config import settings
 from app.services.platform_settings_service import get_setting
 from fastapi import HTTPException
 
@@ -129,8 +129,8 @@ class EmailReplyExecutor:
             token=integration.access_token,
             refresh_token=integration.refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=os.getenv("GOOGLE_CLIENT_ID"),
-            client_secret=os.getenv("GOOGLE_CLIENT_SECRET")
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET
         )
 
         service = build("gmail", "v1", credentials=credentials)

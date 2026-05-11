@@ -281,7 +281,7 @@ export default function AdminDashboard() {
             {/* KPI Row */}
             <div style={S.kpiRow}>
               <KPI label="Total Queries"    value={stats?.total ?? 0}      icon="📨" color="#6366f1" />
-              <KPI label="Success Rate"     value={`${sr}%`}               icon="✅" color={sr >= 70 ? "#10b981" : sr >= 50 ? "#f59e0b" : "#ef4444"} />
+              <KPI label="Success Rate"     value={`${sr}%`}               icon="" color={sr >= 70 ? "#10b981" : sr >= 50 ? "#f59e0b" : "#ef4444"} />
               <KPI label="Positive"         value={stats?.positive ?? 0}   icon="👍" color="#10b981" />
               <KPI label="Negative"         value={stats?.negative ?? 0}   icon="👎" color="#ef4444" />
               <KPI label="Best Tool"        value={data?.best_tool?.[0] ?? "—"}  icon="🏆" color="#f59e0b" />

@@ -70,8 +70,9 @@ async def handle_message_async(message_data: dict):
             # Context for intent classifier
             context = {"history": "..."} # Simplified for now
             
-            # Classify & Respond
-            response_data = await responder.handle_request(body, phone, context, db)
+            # Classify & Respond — pass workspace_id for Twilio credential lookup
+            workspace_id = str(conversation.workspace_id) if conversation.workspace_id else None
+            response_data = await responder.handle_request(body, phone, context, db, workspace_id=workspace_id)
             
             # Verify if response was sent (AfterHoursResponder handles sending via Twilio)
             logger.info(f"Auto-response generated: {response_data}")

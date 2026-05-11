@@ -6,29 +6,35 @@ from app.services.agentic_rag.learning_cache import learning_cache
 from app.utils.website_scraper import Webscrapper
 import re
 import numpy as np
-from app.services.agentic_rag.llm_wrapper_layer import safe_llm_call
+from app.services.llm_utils import safe_llm_call
 from app.utils.text_chunker import Schunker
 from app.services.agentic_rag.reasoning_agent import run_reasoning
+from app.models.brain import BrainEntry
 
-class Orchestratorlayer:
 
-    def __init__(self, mcp, tools, retrieval, helpers, support, embedding_generator):
+logger = logging.getLogger(__name__)
+
+class OrchestratorLayer:
+
+    def __init__(self, mcp, tools, retrieval, helpers, support, embedding_generator,vector_store, ingestion):
         self.mcp = mcp
         self.tools = tools
         self.retrieval = retrieval
         self.helpers = helpers
         self.support = support
         self.embedding_generator = embedding_generator
+        self.vector_store = vector_store
+        self.ingestion = ingestion
 
 
     #Reasoning Engine   
-    async def agent_loop(self, db, workspace_id, query):
+    async def agent_loop(self, db, workspace_id, query,model="auto"):
 
         website_names = []  
 
         small_talk = self.helpers.get_small_talk_response(query)
         if small_talk:
-            response = await self.support.add_followup(query, small_talk)
+            response = await self.support.add_followup(query, small_talk, model=model)
 
             confidence = compute_confidence(tool="direct_answer")
 
@@ -37,13 +43,14 @@ class Orchestratorlayer:
                 query,
                 query,               
                 "direct_answer",     
-                confidence
+                confidence,
+                model=model,
             )
 
         start_url = self.helpers.extract_url(query)
 
         if start_url:
-            logging.info("URL detected:", start_url)
+            logger.info("URL detected:", start_url)
 
             scraper = Webscrapper(start_url)
             single_page = bool(start_url)
@@ -51,7 +58,7 @@ class Orchestratorlayer:
             print(scraped_data)
 
             if not scraped_data or isinstance(scraped_data, str):
-                return self.mcp.format_response("Unable to read the website.", query)
+                return self.mcp.format_response("Unable to read the website.", query, model=model)
             
               
             scraped_data = self.helpers.select_relevant_sections(scraped_data, query)
@@ -181,7 +188,7 @@ class Orchestratorlayer:
 
             Extracted information:
             """
-            response = await safe_llm_call(final_prompt)
+            response = await  safe_llm_call(final_prompt, model=model)
 
             response = response["content"].replace("```", "").strip()
 
@@ -200,8 +207,8 @@ class Orchestratorlayer:
                 clauses.append(line)
 
             formatted = "\n".join(f"{i+1}. {c}" for i, c in enumerate(clauses))
-            logging.info(formatted)
-            response = await self.support.add_followup(query, formatted)
+            logger.info(formatted)
+            response = await self.support.add_followup(query, formatted, model=model)
             confidence = compute_confidence(tool="web_search")
 
             return self.mcp.format_response(
@@ -209,15 +216,16 @@ class Orchestratorlayer:
                 query,
                 query,
                 "web_search",
-                confidence
+                confidence,
+                model=model,
             )
                     
         #Rewrite
-        rewritten_query = await self.mcp.analyze_and_rewrite(query)
-        logging.info(rewritten_query)
+        rewritten_query = await self.mcp.analyze_and_rewrite(query, model=model)
+        logger.info(rewritten_query)
         
         #Decide tool
-        tool =  await self.mcp.decide_tool(rewritten_query)
+        tool =  await self.mcp.decide_tool(rewritten_query, model=model)
         
         #RULE BASED TOOL OVERRIDE
         rules = learning_cache.get("tool_rules", [])
@@ -253,7 +261,18 @@ class Orchestratorlayer:
             if best_score > current_score + 2:
                
                 tool = best_tool
-
+        NEVER_OVERRIDE = {"vector_db", "calculator", "direct_answer", "direct_storage"}
+        if tool_insights and tool not in NEVER_OVERRIDE:
+            eligible = {
+                t: v for t, v in tool_insights.items() 
+                if t not in NEVER_OVERRIDE
+            }
+            if eligible:
+                best_tool = max(eligible, key=lambda t: eligible[t]["positive"])
+                current_score = tool_insights.get(tool, {}).get("positive", 0)
+                best_score = eligible.get(best_tool, {}).get("positive", 0)
+                if best_score > current_score + 2:
+                    tool = best_tool
         # Reinforcement Hook
         engine = ReinforcementEngine(db)
 
@@ -271,7 +290,7 @@ class Orchestratorlayer:
         if tool == "vector_db":
 
             
-            result = await self.iterative_retrieval(db, workspace_id, rewritten_query)
+            result = await self.iterative_retrieval(db, workspace_id, rewritten_query, model=model)
 
             context = result.get("context", "")
             retrieved_docs = result.get("docs", [])
@@ -282,11 +301,12 @@ class Orchestratorlayer:
                     query,
                     rewritten_query,
                     tool,
-                    confidence=0.2  
+                    confidence=0.2,
+                    model=model,
                 )
             
             #Synthesize
-            synthesized_info = await self.support.synthesize_information(query, context)
+            synthesized_info = await self.support.synthesize_information(query, context, model=model)
 
             if not synthesized_info or not synthesized_info.strip():
                 return self.mcp.format_response(
@@ -294,11 +314,12 @@ class Orchestratorlayer:
                     query,
                     rewritten_query,
                     tool,
-                    confidence=0.3
+                    confidence=0.3,
+                    model=model,
                 )
 
             #Generate Final Output
-            final_answer = await self.support.generate_final_output(query, synthesized_info)
+            final_answer = await self.support.generate_final_output(query, synthesized_info, model=model)
 
             if not final_answer or not final_answer.strip():
                 return self.mcp.format_response(
@@ -306,7 +327,8 @@ class Orchestratorlayer:
                     query,
                     rewritten_query,
                     tool,
-                    confidence=0.3
+                    confidence=0.3,
+                    model=model,
                 )
 
             confidence = compute_confidence(
@@ -321,7 +343,8 @@ class Orchestratorlayer:
                 query,
                 rewritten_query,
                 tool,
-                confidence
+                confidence,
+                model=model,
             )
 
         elif tool == "web_search":
@@ -335,7 +358,7 @@ class Orchestratorlayer:
                 domain = urlparse(s).netloc.replace("www.", "")
                 website_names.append(domain)
 
-            logging.info(f"WEB SEARCH CONTEXT: {context[:500]}")
+            logger.info(f"WEB SEARCH CONTEXT: {context[:500]}")
 
             if not context.strip():
                 return self.mcp.format_response(
@@ -343,7 +366,8 @@ class Orchestratorlayer:
                     query,
                     rewritten_query,
                     tool,
-                    confidence=0.3
+                    confidence=0.3,
+                    model=model,
                 )
             good_queries = []
 
@@ -392,7 +416,7 @@ class Orchestratorlayer:
 
             Answer:
             """
-            llm_response = await safe_llm_call(final_prompt)
+            llm_response = await  safe_llm_call(final_prompt, model=model)
             final_answer = llm_response["content"]
             source_text = "\n".join(f"• {site}" for site in website_names)
 
@@ -406,7 +430,7 @@ class Orchestratorlayer:
             if not llm_response or not llm_response["content"].strip():
                 return "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."
 
-            res = await self.support.add_followup(query, final_answer)
+            res = await self.support.add_followup(query, final_answer, model=model)
             
             confidence = compute_confidence(
                 tool="web_search",
@@ -419,7 +443,8 @@ class Orchestratorlayer:
                 query,
                 rewritten_query,
                 tool,
-                confidence
+                confidence,
+                model=model,
             )
 
 
@@ -436,13 +461,14 @@ class Orchestratorlayer:
                 query,
                 rewritten_query,
                 tool,
-                confidence
+                confidence,
+                model=model,
             )
 
         elif tool == "direct_answer":
 
             response = self.helpers.get_small_talk_response(query)
-            response = await self.support.add_followup(query, response)
+            response = await self.support.add_followup(query, response, model=model)
 
             if response:
                 confidence = compute_confidence(tool="direct_answer")
@@ -452,7 +478,8 @@ class Orchestratorlayer:
                     query,
                     rewritten_query,
                     tool,
-                    confidence
+                    confidence,
+                    model=model,
                 )
             
             else:
@@ -460,17 +487,18 @@ class Orchestratorlayer:
             
         elif tool == "direct_storage":
 
-            email_data = await self.tools.email_storage_tool(db, workspace_id, query)
+            email_data = await self.tools.email_storage_tool(db, workspace_id, query, model=model)
 
             if not email_data:
                 return self.mcp.format_response(
                     "No email found.",
                     query,
                     rewritten_query,
-                    tool
+                    tool,
+                    model=model,
                 )
 
-            response = await self.support.add_followup(query, email_data)
+            response = await self.support.add_followup(query, email_data, model=model)
             
             confidence = compute_confidence(tool="direct_storage")
 
@@ -479,17 +507,18 @@ class Orchestratorlayer:
                 query,
                 rewritten_query,
                 tool,
-                confidence
+                confidence,
+                model=model,
             )
         
         elif tool == "reasoning":
 
-            reasoning_output = await run_reasoning(query)
+            reasoning_output = await run_reasoning(query, model=model)
 
             if not reasoning_output or not reasoning_output.strip():
                 return "Unable to generate reasoning-based answer."
 
-            res = await self.support.add_followup(query, reasoning_output)
+            res = await self.support.add_followup(query, reasoning_output, model=model)
             confidence = compute_confidence(tool="reasoning")
 
             return self.mcp.format_response(
@@ -497,26 +526,84 @@ class Orchestratorlayer:
                 query,
                 rewritten_query,
                 tool,
-                confidence
+                confidence,
+                model=model,
             )
 
         else:
             # Unrecognised tool — log and fall back to LLM reasoning so the
             # caller always gets a non-None answer and the UI is never blank.
-            logging.warning(f"agent_loop: unrecognised tool '{tool}' for query: {query!r}")
-            reasoning_output = await run_reasoning(query)
+            logger.warning(f"agent_loop: unrecognised tool '{tool}' for query: {query!r}")
+            reasoning_output = await run_reasoning(query, model=model)
             if reasoning_output and reasoning_output.strip():
-                res = await self.support.add_followup(query, reasoning_output)
+                res = await self.support.add_followup(query, reasoning_output, model=model)
                 return self.mcp.format_response(
-                    res, query, query, "reasoning", compute_confidence(tool="reasoning")
+                    res, query, query, "reasoning", compute_confidence(tool="reasoning"), model=model
                 )
             return self.mcp.format_response(
                 "I'm not sure how to answer that. Could you rephrase your question?",
-                query, query, "fallback", 0.1
+                query, query, "fallback", 0.1, model=model
             )
-        
+    async def delete_entry(
+        self,
+        db,
+        workspace_id,
+        entry_id
+    ):
+
+        try:
+
+            self.vector_store.delete_by_parent(
+                db=db,
+                workspace_id=workspace_id,
+                parent_id=entry_id
+            )
+
+            entry = db.query(BrainEntry).filter(
+                BrainEntry.id == entry_id,
+                BrainEntry.workspace_id == workspace_id
+            ).first()
+
+            if not entry:
+                return False
+
+            db.delete(entry)
+            db.commit()
+
+            return True
+
+        except Exception as e:
+            logging.error(f"Delete entry failed: {e}")
+            db.rollback()
+            return False
+    def ingest_document(
+        self,
+        db,
+        workspace_id,
+        text,
+        title,
+        content_type,
+        source=None,
+        metadata=None,
+        existing_entry_id=None
+    ):
+
+        return self.ingestion.ingest_document(
+            db=db,
+            workspace_id=workspace_id,
+            text=text,
+            title=title,
+            content_type=content_type,
+            source=source,
+            metadata=metadata,
+            existing_entry_id=existing_entry_id
+        )
+    
+
+
+
         #Iterative Retrieval Loop
-    async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2):
+    async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2, model="auto"):
 
         current_query = query
         last_context = ""
@@ -532,7 +619,7 @@ class Orchestratorlayer:
             context = self.retrieval.strict_topic_filter(query, context)
 
             if not context or not context.strip():
-                logging.warning("No context retrieved from vector DB")
+                logger.warning("No context retrieved from vector DB")
                 return {
                     "context": "",
                     "docs": []
@@ -540,23 +627,23 @@ class Orchestratorlayer:
 
             last_context = context
 
-            is_sufficient = await self.mcp.evaluate_context(query, context)
+            is_sufficient = await self.mcp.evaluate_context(query, context, model=model)
 
             if is_sufficient:
-                logging.info(f"Context sufficient at iteration {i+1}")
+                logger.info(f"Context sufficient at iteration {i+1}")
                 return {
                     "context": context,
                     "docs": docs
                 }
 
             #Refine query
-            current_query = await self.mcp.refine_query(current_query, context)
+            current_query = await self.mcp.refine_query(current_query, context, model=model)
 
             if not current_query or not current_query.strip():
-                logging.warning("Query refinement failed")
+                logger.warning("Query refinement failed")
                 break
 
-        logging.warning("Max iterations reached, context insufficient")
+        logger.warning("Max iterations reached, context insufficient")
         return {
             "context": last_context,
             "docs": []

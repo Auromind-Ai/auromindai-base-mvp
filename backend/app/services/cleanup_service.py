@@ -1,14 +1,14 @@
-import os
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.config import settings
 from app.core.logger import logger
 from app.models.token_ledger import TokenLedger
 
 
-RESERVATION_TTL_SECONDS = int(os.getenv("BILLING_RESERVATION_TTL_SECONDS", "1800"))
+RESERVATION_TTL_SECONDS = settings.BILLING_RESERVATION_TTL_SECONDS
 
 
 def cleanup_stale_reservations(db: Session) -> int:
@@ -18,7 +18,7 @@ def cleanup_stale_reservations(db: Session) -> int:
         db.query(TokenLedger)
         .filter(
             TokenLedger.status == "reserved",
-            TokenLedger.expires_at.isnot(None),
+            TokenLedger.expires_at.isnot(None),     
             TokenLedger.expires_at < now,
         )
         .update(

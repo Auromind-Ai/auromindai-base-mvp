@@ -2,12 +2,13 @@ from app.services.agentic_rag.mcp_layer import MCPLayer
 from app.services.agentic_rag.tools_layer import Toolslayer
 from app.services.agentic_rag.retrieval_layer import RetrievalLayer
 from app.services.agentic_rag.helpers_layer import helperslayer
-from app.services.agentic_rag.orchestrator_layer import Orchestratorlayer
+from app.services.agentic_rag.orchestrator_layer import OrchestratorLayer
 from app.services.agentic_rag.orchestrator_layer_support import orchestratorsupport
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.services.agentic_rag.reranker_service import RerankerService
-from app.config.settings import settings
+from app.services.agentic_rag.ingestion_layer import IngestionLayer
+from app.config.set import setter
 
 # Module-level singleton — built once per process, reused across requests
 _rag_service_instance = None
@@ -22,21 +23,24 @@ def build_rag_system():
     tools = Toolslayer()
     helpers = helperslayer()
     support = orchestratorsupport()
+    ingestion = IngestionLayer(vector_store)
 
     retrieval = RetrievalLayer(
         vector_store=vector_store,
         embedding_generator=embedding,
         reranker=reranker,
-        top_k=settings.RAG_TOP_K
+        top_k=setter.RAG_TOP_K
     )
 
-    orchestrator = Orchestratorlayer(
+    orchestrator = OrchestratorLayer(
         mcp=mcp,
         tools=tools,
         retrieval=retrieval,
         helpers=helpers,
         support=support,
-        embedding_generator=embedding
+        embedding_generator=embedding,
+        vector_store=vector_store,
+        ingestion=ingestion
     )
 
     return orchestrator

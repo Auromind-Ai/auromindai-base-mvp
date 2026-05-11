@@ -1,29 +1,34 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { X, Megaphone } from "lucide-react"
 import api from "@/lib/api"
 
-const POLL_INTERVAL = 60_000 // re-check every 60 seconds
+const POLL_INTERVAL = 60_000
 
 export default function AnnouncementBanner() {
   const [announcement, setAnnouncement] = useState({ enabled: false, message: "" })
   const [dismissed, setDismissed] = useState(false)
 
+  const hasFetched = useRef(false)
   const fetchAnnouncement = async () => {
     try {
       const data = await api.get("/public/announcement")
       setAnnouncement(data)
-      // If admin disables remotely, reset dismiss so it shows again when re-enabled
+
       if (!data.enabled) setDismissed(false)
     } catch {
-      // Silently fail — don't break the app if endpoint is down
+      
     }
   }
 
   useEffect(() => {
+    if (hasFetched.current) return
+    hasFetched.current = true
+
     fetchAnnouncement()
     const interval = setInterval(fetchAnnouncement, POLL_INTERVAL)
+
     return () => clearInterval(interval)
   }, [])
 

@@ -2,13 +2,16 @@ import logging
 
 from ddgs import DDGS
 from bs4 import BeautifulSoup
-from app.config.settings import settings
+from app.config.set import setter
 import httpx
 import re
 import numexpr as ne
 from app.models.brain import EmailMessage , MCPDecision
 import json
-from app.services.agentic_rag.llm_wrapper_layer import safe_llm_call
+from app.services.llm_utils import safe_llm_call
+
+
+logger = logging.getLogger(__name__)
 
 class Toolslayer:
     def __init__(self):
@@ -23,7 +26,7 @@ class Toolslayer:
             seen_domains = set()
 
             with DDGS() as ddgs:
-                search_results = ddgs.text(query, max_results=settings.WEB_RESULTS)
+                search_results = ddgs.text(query, max_results=setter.WEB_RESULTS)
 
             for r in search_results:
 
@@ -110,7 +113,7 @@ class Toolslayer:
         except Exception:
             return "Calculation error"
         
-    async def parse_email_query(self, query):
+    async def parse_email_query(self, query, model="auto"):
 
         prompt = f"""
         You are an email query understanding engine.
@@ -147,7 +150,7 @@ class Toolslayer:
         {query}
         """
 
-        response = await safe_llm_call(prompt)
+        response = await safe_llm_call(prompt, model=model)
 
         try:
 
@@ -164,24 +167,24 @@ class Toolslayer:
                 json_str = match.group()
                 filters = json.loads(json_str)
             else:
-                logging.info("No JSON found in response")
+                logger.info("No JSON found in response")
                 return {}
 
-            logging.info(f"Parsed filters: {filters}")
+            logger.info(f"Parsed filters: {filters}")
 
             return filters
 
         except Exception as e:
 
-            logging.info("JSON parse error:", e)
-            logging.info("Cleaned response:", cleaned)
+            logger.info("JSON parse error:", e)
+            logger.info("Cleaned response:", cleaned)
 
             return {}
 
         
     def query_emails(self, db, workspace_id, filters):
 
-        logging.info("Applying filters:", filters)
+        logger.info("Applying filters:", filters)
 
         query = db.query(MCPDecision).join(
             EmailMessage,
@@ -191,7 +194,7 @@ class Toolslayer:
         )
 
         if filters.get("priority"):
-            logging.info("Filtering by priority:", filters["priority"])
+            logger.info("Filtering by priority:", filters["priority"])
             query = query.filter(
                 MCPDecision.priority == filters["priority"]
             )
@@ -202,7 +205,7 @@ class Toolslayer:
             )
 
         if filters.get("category"):
-            logging.info(f"Filtering by category: {filters['category']}")
+            logger.info(f"Filtering by category: {filters['category']}")
             query = query.filter(
                 MCPDecision.category == filters["category"]
             )
@@ -210,7 +213,7 @@ class Toolslayer:
         #Intent handling
         if filters.get("intent") == "latest":
             limit = 1
-            logging.info("Intent detected: latest → returning 1 email")
+            logger.info("Intent detected: latest → returning 1 email")
         else:
             limit = 2
 
@@ -218,11 +221,11 @@ class Toolslayer:
             MCPDecision.created_at.desc()
         ).limit(limit).all()
 
-        logging.info(f"Emails found: {len(results)}")
+        logger.info(f"Emails found: {len(results)}")
 
         return results
 
-    async def generate_email_summary(self, subject, body):
+    async def generate_email_summary(self, subject, body, model="auto"):
 
         prompt = f"""
         You are an AI assistant that summarizes emails.
@@ -240,24 +243,24 @@ class Toolslayer:
         {body}
         """
 
-        response = await safe_llm_call(prompt)
+        response = await safe_llm_call(prompt, model=model)
 
         return response["content"].strip()
     
-    async def build_email_response(self, db, results):
-        logging.info("Building response for emails:", len(results))
+    async def build_email_response(self, db, results, model="auto"):
+        logger.info("Building response for emails:", len(results))
 
         response = ""
 
         for r in results:
-            logging.info("Processing message_id:", r.message_id)
+            logger.info("Processing message_id:", r.message_id)
 
             email = db.query(EmailMessage).filter(
                 EmailMessage.gmail_message_id == r.message_id
             ).first()
 
             if not email:
-                logging.info("Email record not found:", r.message_id)
+                logger.info("Email record not found:", r.message_id)
                 continue
 
             summary = r.summary
@@ -266,7 +269,8 @@ class Toolslayer:
 
                 summary = await self.generate_email_summary(
                     email.subject,
-                    email.body
+                    email.body,
+                    model=model,
                 )
 
                 # store generated summary for future
@@ -285,16 +289,16 @@ class Toolslayer:
 
             -------------
             """
-        logging.info("Final response built")
+        logger.info("Final response built")
         return response
             
-    async def email_storage_tool(self, db, workspace_id, query):
+    async def email_storage_tool(self, db, workspace_id, query, model="auto"):
 
-        filters = await self.parse_email_query(query)
+        filters = await self.parse_email_query(query, model=model)
 
         results = self.query_emails(db, workspace_id, filters)
 
         if not results:
             return "No emails found."
 
-        return await self.build_email_response(db, results)
+        return await self.build_email_response(db, results, model=model)

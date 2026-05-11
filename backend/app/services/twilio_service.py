@@ -1,93 +1,210 @@
+
+
+from __future__ import annotations
+
 import json
 import logging
-import os
+from typing import Optional
+
 from sqlalchemy.orm import Session
 from twilio.rest import Client
 
 from app.database import SessionLocal
-from app.services.platform_settings_service import get_setting
+from app.models.workspace import Workspace
 
 logger = logging.getLogger(__name__)
 
 
 class TwilioService:
-    _instance = None
+    _instance: "TwilioService | None" = None
 
-    def __new__(cls):
+    # ── Singleton plumbing ────────────────────────────────────────────────────
+
+    def __new__(cls) -> "TwilioService":
         if cls._instance is None:
-            cls._instance = super(TwilioService, cls).__new__(cls)
-            cls._instance.client = None
-            cls._instance._current_sid = None
-            cls._instance._current_token = None
-            cls._instance._initialize()
+            inst = super().__new__(cls)
+            inst.client = None
+            inst._current_sid = None
+            inst._current_token = None
+            inst._from_number = None
+            inst._current_workspace_id = None
+            cls._instance = inst
         return cls._instance
 
-    def _initialize(self):
-        """Bootstrap the client on first instantiation."""
-        try:
-            db: Session = SessionLocal()
-            try:
-                self._refresh_client(db)
-            finally:
-                db.close()
-        except Exception as exc:
-            logger.error("Failed to initialize Twilio client: %s", exc)
+    # ── Internal helpers ──────────────────────────────────────────────────────
 
-    def _refresh_client(self, db: Session):
-        """Recreate the client if stored credentials changed."""
-        sid = get_setting(db, "twilio_account_sid")
-        token = get_setting(db, "twilio_auth_token")
-        if not sid or not token:
-            logger.warning("Twilio credentials missing in DB")
+    def _refresh_client(self, db: Session, workspace_id: str) -> None:
+        """Load Twilio credentials from the workspace row."""
+        workspace = db.query(Workspace).filter(
+            Workspace.id == workspace_id
+        ).first()
+
+        if not workspace:
+            logger.error(f"Workspace not found: {workspace_id}")
             self.client = None
-            self._current_sid = None
-            self._current_token = None
             return
 
-        if sid != self._current_sid or token != self._current_token:
+        sid = workspace.twilio_account_sid
+        token = workspace.twilio_auth_token
+        from_number = workspace.twilio_phone_number
+
+        self._from_number = f"whatsapp:{from_number}" if from_number else None
+
+        if not sid or not token:
+            logger.warning(
+                "Twilio credentials missing in workspace %s — client disabled",
+                workspace_id,
+            )
+            self.client = None
+            return
+
+        # Re-create the client only when credentials actually changed
+        if (
+            sid != self._current_sid
+            or token != self._current_token
+            or str(workspace_id) != str(self._current_workspace_id)
+        ):
             self.client = Client(sid, token)
             self._current_sid = sid
             self._current_token = token
-            logger.info("Twilio client refreshed from DB")
+            self._current_workspace_id = str(workspace_id)
+            logger.info(f"Twilio client initialized for workspace {workspace_id}")
 
-    def _open_db_and_refresh(self) -> Session:
-        db: Session = SessionLocal()
-        self._refresh_client(db)
-        return db
-
-    def reload(self):
+    def _ensure_ready(self, workspace_id: str) -> None:
+        """Open a short-lived DB session and refresh credentials for the workspace."""
         db: Session = SessionLocal()
         try:
-            self._refresh_client(db)
+            self._refresh_client(db, workspace_id)
+        except Exception as exc:
+            logger.error("Twilio credential refresh failed for workspace %s: %s", workspace_id, exc)
         finally:
             db.close()
 
+    def _assert_ready(self, raise_on_error: bool) -> bool:
+        """Return True if the client + from_number are available."""
+        if not self.client:
+            msg = "Twilio client is not initialized"
+            if raise_on_error:
+                raise RuntimeError(msg)
+            logger.error(msg)
+            return False
+        if not self._from_number:
+            msg = "twilio_from_number is missing in workspace"
+            if raise_on_error:
+                raise RuntimeError(msg)
+            logger.error(msg)
+            return False
+        return True
+
+    def _status_callback_params(self) -> dict:
+        from app.core.config import settings
+        url = settings.TWILIO_STATUS_CALLBACK_URL
+        return {"status_callback": url} if url else {}
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def send_whatsapp_message(
+        self,
+        workspace_id: str,
+        to_number: str,
+        body: str,
+        raise_on_error: bool = False,
+    ) -> str | None:
+        """Send a free-form WhatsApp message."""
+        logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
+        self._ensure_ready(workspace_id)
+        if not self._assert_ready(raise_on_error):
+            return None
+        try:
+            params = {
+                "to": to_number,
+                "from_": self._from_number,
+                "body": body,
+                **self._status_callback_params(),
+            }
+            logger.info("TWILIO PARAMS: %s", params)
+            message = self.client.messages.create(**params)
+            logger.info("WhatsApp message sent to %s: %s", to_number, message.sid)
+            return message.sid
+        except Exception as exc:
+            logger.error("Failed to send WhatsApp message to %s: %s", to_number, exc)
+            if raise_on_error:
+                raise
+            return None
+
+    def send_whatsapp_buttons(
+        self,
+        workspace_id: str,
+        to_number: str,
+        body: str,
+        buttons: list[dict],
+        raise_on_error: bool = False,
+    ) -> str | None:
+        """Send a WhatsApp message with inline button labels (text fallback)."""
+        button_lines = [
+            f"{i}. {btn.get('label') or f'Option {i}'}"
+            for i, btn in enumerate(buttons[:3], start=1)
+        ]
+        formatted_body = (body.strip() if body else "")
+        if button_lines:
+            formatted_body += "\n\n" + "\n".join(button_lines)
+        return self.send_whatsapp_message(
+            workspace_id, to_number, formatted_body, raise_on_error=raise_on_error,
+        )
+
+    def send_whatsapp_media(
+        self,
+        workspace_id: str,
+        to_number: str,
+        media_url: str,
+        caption: str = "",
+        message_type: str = "image",
+        raise_on_error: bool = False,
+    ) -> str | None:
+        """Send a WhatsApp message with an image/video/document attachment."""
+        logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
+        self._ensure_ready(workspace_id)
+        if not self._assert_ready(raise_on_error):
+            return None
+        try:
+            params: dict = {
+                "to": to_number,
+                "from_": self._from_number,
+                "media_url": [media_url],
+                **self._status_callback_params(),
+            }
+            if caption:
+                params["body"] = caption
+            logger.info(
+                "Sending WhatsApp %s to %s | media_url=%s",
+                message_type, to_number, media_url,
+            )
+            message = self.client.messages.create(**params)
+            logger.info("WhatsApp %s sent to %s: %s", message_type, to_number, message.sid)
+            return message.sid
+        except Exception as exc:
+            logger.error("Failed to send WhatsApp %s to %s: %s", message_type, to_number, exc)
+            if raise_on_error:
+                raise
+            return None
+
     def send_whatsapp_template(
         self,
+        workspace_id: str,
         to_number: str,
         content_sid: str,
         content_variables: dict,
         raise_on_error: bool = False,
-    ):
-        """Sends a WhatsApp message using a Twilio Content Template."""
-        db = self._open_db_and_refresh()
+    ) -> str | None:
+        """Send a WhatsApp message using a Twilio Content Template."""
+        logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
+        self._ensure_ready(workspace_id)
+        if not self._assert_ready(raise_on_error):
+            return None
         try:
-            if not self.client:
-                if raise_on_error:
-                    raise RuntimeError("Twilio client is not initialized")
-                logger.error("Twilio client is not initialized")
-                return None
-
-            from_number = get_setting(db, "twilio_from_number")
-            if not from_number:
-                if raise_on_error:
-                    raise RuntimeError("twilio_from_number is missing in settings")
-                logger.error("twilio_from_number is missing in settings")
-                return None
-
             message = self.client.messages.create(
                 to=to_number,
-                from_=from_number,
+                from_=self._from_number,
                 content_sid=content_sid,
                 content_variables=json.dumps(content_variables),
             )
@@ -98,117 +215,3 @@ class TwilioService:
             if raise_on_error:
                 raise
             return None
-        finally:
-            db.close()
-
-    def send_whatsapp_message(self, to_number: str, body: str, raise_on_error: bool = False):
-        """Sends a free-form WhatsApp message."""
-        db = self._open_db_and_refresh()
-        try:
-            if not self.client:
-                if raise_on_error:
-                    raise RuntimeError("Twilio client is not initialized")
-                logger.error("Twilio client is not initialized")
-                return None
-
-            from_number = get_setting(db, "twilio_from_number")
-            if not from_number:
-                if raise_on_error:
-                    raise RuntimeError("twilio_from_number is missing in settings")
-                logger.error("twilio_from_number is missing in settings")
-                return None
-
-            import os
-            create_kwargs = {
-                "to": to_number,
-                "from_": from_number,
-                "body": body,
-            }
-            status_callback_url = os.getenv("TWILIO_STATUS_CALLBACK_URL")
-            if status_callback_url:
-                create_kwargs["status_callback"] = status_callback_url
-            logger.info(f"TWILIO PARAMS: {create_kwargs}")
-            message = self.client.messages.create(**create_kwargs)
-            logger.info("WhatsApp message sent to %s: %s", to_number, message.sid)
-            return message.sid
-        except Exception as exc:
-            logger.error("Failed to send WhatsApp message to %s: %s", to_number, exc)
-            if raise_on_error:
-                raise
-            return None
-        finally:
-            db.close()
-
-   # twilio_service.py
-    def send_whatsapp_buttons(self, to_number: str, body: str, buttons: list[dict], raise_on_error: bool = False):
-        button_lines = []
-        for index, button in enumerate(buttons[:3], start=1):
-            label = button.get("label") or f"Option {index}"
-            button_lines.append(f"{index}. {label}")
-
-        formatted_body = body.strip() if body else ""
-        if button_lines:
-            formatted_body = f"{formatted_body}\n\n" + "\n".join(button_lines)
-
-        return self.send_whatsapp_message(to_number, formatted_body, raise_on_error=raise_on_error)
-
-    
-    def send_whatsapp_media(
-        self,
-        to_number: str,
-        media_url: str,
-        caption: str = "",
-        message_type: str = "image",
-        raise_on_error: bool = False,
-    ):
-        """Sends a WhatsApp message with image/video/document.
-
-        Args:
-            message_type: One of "image", "video", "document".
-                          Used for logging/tracing — Twilio infers the
-                          actual type from the media Content-Type header.
-        """
-        db = self._open_db_and_refresh()
-        try:
-            if not self.client:
-                if raise_on_error:
-                    raise RuntimeError("Twilio client is not initialized")
-                return None
-
-            from_number = get_setting(db, "twilio_from_number")
-            if not from_number:
-                if raise_on_error:
-                    raise RuntimeError("twilio_from_number missing")
-                return None
-
-            params = {
-                "to": to_number,
-                "from_": from_number,
-                "media_url": [media_url],  # Twilio media parameter
-            }
-            if caption:
-                params["body"] = caption
-            status_callback_url = os.getenv("TWILIO_STATUS_CALLBACK_URL")
-            if status_callback_url:
-                params["status_callback"] = status_callback_url
-
-            logger.info(
-                "Sending WhatsApp %s to %s | media_url=%s",
-                message_type, to_number, media_url,
-            )
-            message = self.client.messages.create(**params)
-            logger.info(
-                "WhatsApp %s sent to %s: %s",
-                message_type, to_number, message.sid,
-            )
-            return message.sid
-        except Exception as exc:
-            logger.error(
-                "Failed to send WhatsApp %s to %s: %s",
-                message_type, to_number, exc,
-            )
-            if raise_on_error:
-                raise
-            return None
-        finally:
-            db.close()

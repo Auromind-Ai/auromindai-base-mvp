@@ -2,14 +2,14 @@ import uuid
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
-from pydantic import BaseModel
+from app.schemas.upload import UploadResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.media import MediaFile
 from app.models.workspace import WorkspaceMember
 from app.routers.auth import get_current_user, CurrentUser
-from app.services.storage import get_storage
+from app.services.storage.service import get_storage
 from app.core.security import verify_workspace_access
 
 router = APIRouter()
@@ -79,11 +79,7 @@ def get_file_type(mime_type: str) -> Optional[str]:
     return None
 
 
-class UploadResponse(BaseModel):
-    id: str
-    url: str
-    file_type: str
-    filename: str
+
 
 
 @router.post("/upload", response_model=UploadResponse)
