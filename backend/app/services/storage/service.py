@@ -1,5 +1,5 @@
 import asyncio
-import os
+from app.core.config import settings
 from abc import ABC, abstractmethod
 from typing import Optional
 from urllib.parse import quote
@@ -35,9 +35,9 @@ class SupabaseStorageProvider(StorageProvider):
     def __init__(self):
         if create_client is None:
             raise ImportError("pip install supabase")
-        self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
-        self.bucket_name = os.getenv("SUPABASE_BUCKET", "uploads")
+        self.supabase_url = settings.SUPABASE_URL
+        self.supabase_key = settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY
+        self.bucket_name = settings.SUPABASE_BUCKET
         if not self.supabase_url or not self.supabase_key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
         self.client = create_client(self.supabase_url, self.supabase_key)
@@ -75,11 +75,11 @@ class S3StorageProvider(StorageProvider):
     def __init__(self):
         if boto3 is None:
             raise ImportError("pip install boto3")
-        self.bucket_name = os.getenv("AWS_S3_BUCKET")
-        self.region = os.getenv("AWS_REGION")
-        self.access_key = os.getenv("AWS_ACCESS_KEY_ID")
-        self.secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-        self.endpoint_url = os.getenv("AWS_S3_ENDPOINT_URL")
+        self.bucket_name = settings.AWS_S3_BUCKET
+        self.region = settings.AWS_REGION
+        self.access_key = settings.AWS_ACCESS_KEY_ID
+        self.secret_key = settings.AWS_SECRET_ACCESS_KEY
+        self.endpoint_url = settings.AWS_S3_ENDPOINT_URL
         if not self.bucket_name or not self.access_key or not self.secret_key:
             raise ValueError("AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY must be set")
         self.client = boto3.client(
@@ -111,7 +111,7 @@ class S3StorageProvider(StorageProvider):
             return False
 
     def get_public_url(self, file_path: str) -> str:
-        custom_base = os.getenv("AWS_S3_PUBLIC_BASE_URL")
+        custom_base = settings.AWS_S3_PUBLIC_BASE_URL
         if custom_base:
             return f"{custom_base.rstrip('/')}/{quote(file_path, safe='/')}"
         if self.region:
@@ -124,7 +124,7 @@ class StorageService:
         self.provider = provider or self._build_provider()
 
     def _build_provider(self) -> StorageProvider:
-        name = os.getenv("STORAGE_PROVIDER", "SUPABASE").upper()
+        name = settings.STORAGE_PROVIDER.upper()
         if name == "SUPABASE":
             return SupabaseStorageProvider()
         if name == "S3":

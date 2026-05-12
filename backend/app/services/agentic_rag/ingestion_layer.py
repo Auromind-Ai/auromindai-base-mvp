@@ -8,6 +8,7 @@ import json
 from app.models.brain import BrainEntry
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 
+logger = logging.getLogger(__name__)
 
 class IngestionLayer:
 
@@ -48,7 +49,7 @@ class IngestionLayer:
         if not chunks:
             raise ValueError("No chunks could be created from document")
         
-        logging.info(f"Created {len(chunks)} chunks for document: {title}")
+        logger.info(f"Created {len(chunks)} chunks for document: {title}")
         
         # Generate embeddings for all chunks
         chunk_texts = [c["text"] for c in chunks]
@@ -95,7 +96,7 @@ class IngestionLayer:
         
         db.commit()
         
-        logging.info(f"Ingested document '{title}' with {len(chunks)} chunks")
+        logger.info(f"Ingested document '{title}' with {len(chunks)} chunks")
         
         return {
             "status": "success",

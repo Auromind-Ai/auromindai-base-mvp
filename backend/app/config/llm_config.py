@@ -1,15 +1,12 @@
-import os
 from groq import Groq
-from dotenv import load_dotenv
-
-load_dotenv()
+from app.core.config import settings
 
 
 class GroqLLM:
 
     def __init__(self, model_name="llama-3.1-8b-instant"):
         self.client = Groq(
-            api_key=os.getenv("GROQ_API_KEY")
+            api_key=settings.GROQ_API_KEY
         )
         self.model = model_name
 

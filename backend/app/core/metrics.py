@@ -1,5 +1,4 @@
 import asyncio
-import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -9,6 +8,7 @@ from fastapi import FastAPI
 from prometheus_client import Counter, Gauge, Summary
 
 from app.core.logger import logger
+from app.core.config import settings
 
 # Prometheus metrics
 REQUEST_COUNT = Counter(
@@ -45,7 +45,7 @@ SYSTEM_METRICS_UPDATE_FAILURES = Counter(
 )
 
 # Redis config
-REDIS_URL = os.getenv("REDIS_URL")
+REDIS_URL = settings.REDIS_URL
 redis_client = None
 
 if REDIS_URL:
@@ -81,24 +81,16 @@ class SystemMetricsState:
 
 
 def get_metrics_update_interval() -> float:
-    raw_value = os.getenv("SYSTEM_METRICS_UPDATE_INTERVAL", "5")
-    try:
-        interval = float(raw_value)
-    except ValueError:
-        logger.warning(
-            "Invalid SYSTEM_METRICS_UPDATE_INTERVAL=%r. Falling back to 5 seconds.",
-            raw_value,
-        )
-        return 5.0
-
+    interval = settings.SYSTEM_METRICS_UPDATE_INTERVAL
+    
     if interval <= 0:
         logger.warning(
             "Non-positive SYSTEM_METRICS_UPDATE_INTERVAL=%r. Falling back to 5 seconds.",
-            raw_value,
+            interval,
         )
         return 5.0
 
-    return interval
+    return float(interval)
 
 
 def _collect_system_metrics() -> SystemMetricsSnapshot:

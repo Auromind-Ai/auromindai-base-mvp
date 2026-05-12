@@ -1,6 +1,6 @@
 'use client';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api';
 
 import { useState, useEffect } from "react";
 import { Inbox, RefreshCw, ExternalLink } from "lucide-react";
@@ -36,7 +36,14 @@ export default function EmailPage() {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (err) {
+        console.error("Status JSON parse failed:", text);
+        return;
+    }
     const isConnected = data.gmail?.connected || false;
 
     setConnected(isConnected);
@@ -58,7 +65,14 @@ export default function EmailPage() {
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (err) {
+        console.error("Inbox JSON parse failed:", text);
+        return;
+    }
     setMessages(data.emails || []);
   };
 

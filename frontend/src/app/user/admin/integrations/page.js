@@ -14,8 +14,7 @@ import {
     Grid
 } from 'lucide-react';
 import { getWorkspace } from '@/lib/auth';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import api from '@/lib/api';
 
 export default function IntegrationsPage() {
     const [integrations, setIntegrations] = useState({
@@ -53,23 +52,8 @@ export default function IntegrationsPage() {
 
     const loadIntegrationStatus = async () => {
         try {
-            const token = sessionStorage.getItem('token');
-            if (!token) return;
-
-            const response = await fetch(
-                `${API}/integrations/status?workspace_id=${workspace.id}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'ngrok-skip-browser-warning': 'true'  // ✅ Add this
-                    }
-                }
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                setIntegrations(data);
-            }
+            const data = await api.get(`/integrations/status?workspace_id=${workspace.id}`);
+            setIntegrations(data);
         } catch (error) {
             console.error('Failed to load status:', error);
         }
@@ -80,20 +64,7 @@ export default function IntegrationsPage() {
         setErrorMessage(""); // reset
 
         try {
-            const token = sessionStorage.getItem('token');
-
-            const response = await fetch(
-                `${API}/integrations/google/auth/${integrationId}?workspace_id=${workspace.id}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-            );
-
-            if (!response.ok) {
-                const error = await response.json();
-                setErrorMessage(error.detail || "Something went wrong"); // NO ALERT
-                return;
-            }
-
-            const data = await response.json();
+            const data = await api.get(`/integrations/google/auth/${integrationId}?workspace_id=${workspace.id}`);
 
             if (data.authorization_url) {
                 window.location.href = data.authorization_url;
@@ -112,14 +83,7 @@ export default function IntegrationsPage() {
     const handleDisconnect = async (integrationId) => {
         if (confirm(`Disconnect ${integrationId}?`)) {
             try {
-                const token = sessionStorage.getItem('token');
-                await fetch(
-                    `${API}/integrations/disconnect/google_${integrationId}?workspace_id=${workspace.id}`,
-                    {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    }
-                );
+                await api.delete(`/integrations/disconnect/google_${integrationId}?workspace_id=${workspace.id}`);
                 loadIntegrationStatus();
             } catch (error) {
                 console.error('Disconnect failed:', error);

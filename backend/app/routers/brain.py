@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, status
-from app.routers.auth import CurrentUser, get_current_user
+from app.routers.auth import get_current_user
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl, UUID4
 from typing import Optional, List
@@ -14,124 +14,15 @@ import uuid
 from uuid import UUID
 import os
 import shutil
-from fastapi import Request
-from app.services.agentic_rag.ingestion_layer import IngestionLayer
-from app.services.agentic_rag.vector_store_service import VectorStoreService
+from app.services.agentic_rag.rag_service import get_rag_service
 from app.utils.website_scraper import Webscrapper
 from app.core.security import verify_workspace_access
+from app.schemas.brain import *
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/brain", tags=["brain"])
 
-
-
-
-# ============== Request/Response Models ==============
-# UUID4 enforces strict validation and prevents 500 errors from malformed strings
-
-class IngestTextRequest(BaseModel):
-    title: str
-    content: str
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-
-class IngestURLRequest(BaseModel):
-    url: str
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-
-class SearchRequest(BaseModel):
-    query: str
-    top_k: int = 5
-    # Targeted searching: restrict results to specific entries or a collection tag
-    entry_ids: Optional[List[str]] = None
-    collection: Optional[str] = None
-
-class QueryRequest(BaseModel):
-    question: str
-    top_k: int = 5
-    include_sources: bool = True
-    # Targeted searching: restrict RAG context to specific entries or a collection tag
-    entry_ids: Optional[List[str]] = None
-    collection: Optional[str] = None
-
-class BrainEntryResponse(BaseModel):
-    id: UUID4
-    title: str
-    content_type: str
-    status: str
-    created_at: str
-    word_count: int = 0
-
-# --- Typed response models (previously returned as plain dicts) ---
-
-class SearchResultItem(BaseModel):
-    id: str
-    content: str
-    title: str
-    score: float
-
-class SearchResponse(BaseModel):
-    query: str
-    results: List[SearchResultItem]
-    total: int
-    collection: Optional[str] = None
-    entry_ids: Optional[List[str]] = None
-
-class SourceItem(BaseModel):
-    id: str
-    title: str
-    score: float
-
-class QueryResponse(BaseModel):
-    answer: str
-    sources: Optional[List[SourceItem]] = None
-
-class BrainStatsResponse(BaseModel):
-    knowledge_entries: int
-    chunk_count: Optional[int] = None
-
-class IngestionStatusResponse(BaseModel):
-    id: UUID
-    status: str
-    error_message: Optional[str] = None
-    created_at: Optional[datetime] = None 
-    title: Optional[str] = None
-
-class ListEntriesResponse(BaseModel):
-    entries: List[dict]
-    total: int
-    indexed_chunks: int
-    status: str
-
-class CrawlWebsiteRequest(BaseModel):
-    url: str
-    max_pages: int = 50
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-
-
-class IngestResponse(BaseModel):
-    status: str
-    entry_id: str
-    title: str
-    message: Optional[str] = None
-    original_filename: Optional[str] = None
-    content_type: Optional[str] = None
-    chunks_created: int = 0
-    total_words: Optional[int] = None
-
-
-class CrawlResponse(BaseModel):
-    status: str
-    website: str
-    pages_crawled: int
-    chunks_created: int
-    message: str
 
 
 # ============== Endpoints ==============
@@ -229,23 +120,16 @@ async def ingest_url(
 
     try:
         logger.info(f"[INGEST URL] user={current_user.id} workspace={workspace_id} url={request.url}")
-
         scraper = get_url_scraper()
         scrape_result = await scraper.scrape_url(request.url)
 
-        # metadata
         ingestion_metadata = {}
-        if request.region:
-            ingestion_metadata["region"] = request.region
-        if request.language:
-            ingestion_metadata["language"] = request.language
-        if request.cultural_context:
-            ingestion_metadata["cultural_context"] = request.cultural_context
+        if request.region: ingestion_metadata["region"] = request.region
+        if request.language: ingestion_metadata["language"] = request.language
+        if request.cultural_context: ingestion_metadata["cultural_context"] = request.cultural_context
 
-        vector_store = VectorStoreService()
-        ingestion = IngestionLayer(vector_store=vector_store)
-
-        result = ingestion.ingest_document(
+        rag = get_rag_service()
+        result = rag.ingest_document(
             db=db,
             workspace_id=workspace_id,
             text=scrape_result["text"],
@@ -254,7 +138,6 @@ async def ingest_url(
             source=request.url,
             metadata=ingestion_metadata
         )
-
         return result
 
     except ValueError as e:
@@ -308,10 +191,8 @@ async def ingest_text(
         if request.language: ingestion_metadata["language"] = request.language
         if request.cultural_context: ingestion_metadata["cultural_context"] = request.cultural_context
 
-        vector_store = VectorStoreService()
-        ingestion = IngestionLayer(vector_store=vector_store)
-
-        result = ingestion.ingest_document(
+        rag = get_rag_service()
+        result = rag.ingest_document(
             db=db,
             workspace_id=workspace_id,
             text=request.content,
@@ -354,8 +235,7 @@ async def crawl_website(
                 detail="No pages could be crawled from this website"
             )
 
-        vector_store = VectorStoreService()
-        ingestion = IngestionLayer(vector_store=vector_store)
+        rag = get_rag_service()
         total_chunks = 0
 
         base_metadata = {}
@@ -377,8 +257,8 @@ async def crawl_website(
                 }
 
                 final_metadata = {**base_metadata, **page_metadata}
-            
-                result = ingestion.ingest_document(
+
+                result = rag.ingest_document(
                     db=db,
                     workspace_id=workspace_id,
                     text=content,
@@ -411,8 +291,6 @@ async def crawl_website(
 
 @router.get("/entries", response_model=ListEntriesResponse)
 async def list_entries(
-    workspace_id: str,
-    request: Request,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -431,11 +309,8 @@ async def list_entries(
             BrainEntry.created_at.desc()
         ).offset(skip).limit(limit).all()
 
-        # Get vector store stats
-        orchestrator = request.app.state.orchestrator
-        vector_store = orchestrator.retrieval.vector_store
-
-        stats = vector_store.get_collection_stats(
+        rag = get_rag_service()
+        stats = rag.vector_store.get_collection_stats(
             db=db,
             workspace_id=workspace_id
         )
@@ -482,24 +357,31 @@ async def list_entries(
 
 @router.delete("/entries/{entry_id:uuid}")
 async def delete_entry(
-    entry_id: str,
-    workspace_id: str,
-    request: Request,
-    db: Session = Depends(get_db)
+    entry_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """ Securely delete a knowledge entry and all its chunks. """
     # FIXED: was uuid.UUID(str(True)) → ValueError crash.
-    workspace_id = verify_workspace_access(CurrentUser, db)
+    workspace_id = verify_workspace_access(current_user, db)
 
     try:
-        orchestrator = request.app.state.orchestrator
+        logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
+        entry = db.query(BrainEntry).filter(
+            BrainEntry.id == str(entry_id),
+            BrainEntry.workspace_id == workspace_id
+        ).first()
 
-        success = orchestrator.retrieval.vector_store.delete_entry(
-            db=db,
-            workspace_id=workspace_id,
-            entry_id=entry_id
-        )
-        
+        if not entry:
+            raise HTTPException(status_code=404, detail="Entry not found in this workspace")
+
+        rag = get_rag_service()
+        success = await rag.delete_entry(
+                    db,
+                    workspace_id,
+                    str(entry_id)
+                )
+
         if success:
             return {"status": "success", "message": "Entry deleted"}
         else:
@@ -524,12 +406,18 @@ async def search_knowledge(
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
-        orchestrator = request.app.state.orchestrator
-
-        results = orchestrator.retrieval.semantic_search(
+        logger.info(
+            f"[SEARCH] user={current_user.id} workspace={workspace_id} "
+            f"query={request.query} collection={request.collection} entry_ids={request.entry_ids}"
+        )
+        rag = get_rag_service()
+        results = rag.retrieval.semantic_search(
             db=db,
-            workspace_id=request.workspace_id,
-            query=request.query
+            workspace_id=workspace_id,
+            query=request.query,
+            top_k=request.top_k,
+            entry_ids=request.entry_ids,
+            collection=request.collection,
         )
 
         return {
@@ -537,7 +425,7 @@ async def search_knowledge(
             "results": [
                 {
                     "id": r["id"],
-                    "content": r["document"],
+                    "content": r.get("text", ""),
                     "title": r["metadata"].get("title", "Unknown"),
                     "score": round(r["score"], 3)
                 }
@@ -567,14 +455,22 @@ async def query_knowledge(
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
-        orchestrator = request.app.state.orchestrator
-
-        result = await orchestrator.agent_loop(
-            db=db,
-            workspace_id=request.workspace_id,
-            query=request.question
+        logger.info(
+            f"[QUERY] user={current_user.id} workspace={workspace_id} "
+            f"question={request.question} collection={request.collection} entry_ids={request.entry_ids}"
         )
-        return result
+        rag = get_rag_service()
+        response = await rag.agent_loop(
+            db=db,
+            workspace_id=workspace_id,
+            query=request.question,
+            entry_ids=request.entry_ids,
+            collection=request.collection,
+        )
+        return {
+            "answer": response.get("answer", ""),
+            "sources": []
+        }
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -585,18 +481,16 @@ async def query_knowledge(
 
 @router.get("/stats", response_model=BrainStatsResponse)
 async def get_brain_stats(
-    workspace_id: str,
-    request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """ Get statistics for the knowledge base. """
-    workspace_id = verify_workspace_access(CurrentUser, db)
+    workspace_id = verify_workspace_access(current_user, db)
 
     try:
-        orchestrator = request.app.state.orchestrator
-        vector_store = orchestrator.retrieval.vector_store
-
-        stats = vector_store.get_collection_stats(
+        logger.info(f"[STATS] user={current_user.id} workspace={workspace_id}")
+        rag = get_rag_service()
+        stats = rag.vector_store.get_collection_stats(
             db=db,
             workspace_id=workspace_id
         )

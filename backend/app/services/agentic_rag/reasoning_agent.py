@@ -1,17 +1,8 @@
-from tenacity import retry, stop_after_attempt, wait_exponential
-from app.services.llm_router import LLMRouter
+from app.services.llm_utils import safe_llm_call
 from app.services.agentic_rag.learning_cache import learning_cache
 
-router = LLMRouter()
 
-
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
-async def safe_llm_call(prompt):
-    result = await router.generate(prompt)
-    return result["content"]
-
-
-async def run_reasoning(query: str) -> str:
+async def run_reasoning(query: str, model: str = "auto") -> str:
 
     good_queries = []
 
@@ -65,5 +56,5 @@ async def run_reasoning(query: str) -> str:
     Final Answer:
     """
 
-    response = await safe_llm_call(prompt)
-    return response.strip()
+    result = await safe_llm_call(prompt, model=model)
+    return result["content"].strip()

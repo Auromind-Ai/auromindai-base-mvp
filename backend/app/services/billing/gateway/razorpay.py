@@ -1,8 +1,8 @@
 import hashlib
 import json
-import os
 from typing import Any
 
+from app.core.config import settings
 from groq import BadRequestError
 
 from app.models.workspace import Workspace
@@ -21,15 +21,15 @@ class RazorpayGateway(PaymentGateway):
     def from_env(cls) -> "RazorpayGateway":
         import razorpay
 
-        key = os.getenv("RAZORPAY_KEY")
-        secret = os.getenv("RAZORPAY_SECRET")
+        key = settings.RAZORPAY_KEY
+        secret = settings.RAZORPAY_SECRET
         if not key or not secret:
             raise ValueError("Razorpay is not configured")
 
         client = razorpay.Client(auth=(key, secret))
         return cls(
             client=client,
-            webhook_secret=os.getenv("RAZORPAY_WEBHOOK_SECRET"),
+            webhook_secret=settings.RAZORPAY_WEBHOOK_SECRET,
             public_key=key,
         )
 

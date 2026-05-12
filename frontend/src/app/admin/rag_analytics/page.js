@@ -7,7 +7,7 @@ import {
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, AreaChart, Area
 } from "recharts";
 
-// ─── CONFIG ───────────────────────────────────────────────────────────────────
+// ─── CONFIG ─
 const API = '/api'; // same-origin proxy
 
 const TOOL_COLORS = {
@@ -36,7 +36,7 @@ const CHART_THEME = {
   tooltip: { bg: "#0f172a", border: "#1e2a3a", text: "#e2e8f0" },
 };
 
-// ─── CUSTOM TOOLTIP ───────────────────────────────────────────────────────────
+// ─── CUSTOM TOOLTIP ───────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -54,7 +54,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+// ─── MAIN COMPONENT ───────────────
 export default function AdminDashboard() {
   const [data,         setData]         = useState(null);
   const [stats,        setStats]        = useState(null);
@@ -66,7 +66,7 @@ export default function AdminDashboard() {
   const [activeTab,    setActiveTab]    = useState("overview");
   const [refreshing,   setRefreshing]   = useState(false);
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // ── Fetch 
   const fetchAllData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
-  // ── Derived data ───────────────────────────────────────────────────────────
+  // ── Derived data ───────────────
 
   // Tool performance — merge tool_usage + tool_performance from analytics
   const toolPerformance = (() => {
@@ -222,7 +222,7 @@ export default function AdminDashboard() {
     .sort((a, b) => b.queries - a.queries)
     .slice(0, 10);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render────
   if (loading) return <LoadingScreen />;
   if (error)   return <ErrorScreen msg={error} onRetry={fetchAllData} />;
 
@@ -281,7 +281,7 @@ export default function AdminDashboard() {
             {/* KPI Row */}
             <div style={S.kpiRow}>
               <KPI label="Total Queries"    value={stats?.total ?? 0}      icon="📨" color="#6366f1" />
-              <KPI label="Success Rate"     value={`${sr}%`}               icon="✅" color={sr >= 70 ? "#10b981" : sr >= 50 ? "#f59e0b" : "#ef4444"} />
+              <KPI label="Success Rate"     value={`${sr}%`}               icon="" color={sr >= 70 ? "#10b981" : sr >= 50 ? "#f59e0b" : "#ef4444"} />
               <KPI label="Positive"         value={stats?.positive ?? 0}   icon="👍" color="#10b981" />
               <KPI label="Negative"         value={stats?.negative ?? 0}   icon="👎" color="#ef4444" />
               <KPI label="Best Tool"        value={data?.best_tool?.[0] ?? "—"}  icon="🏆" color="#f59e0b" />
@@ -656,7 +656,7 @@ export default function AdminDashboard() {
   );
 }
 
-// ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
+// ─── SUB-COMPONENTS ───────────────
 
 function LoadingScreen() {
   return (
@@ -772,7 +772,7 @@ function EmptyState({ msg }) {
   );
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
+// ─── STYLES ─
 const S = {
   root: {
     minHeight: "100vh",

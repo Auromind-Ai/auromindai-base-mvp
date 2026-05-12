@@ -3,40 +3,18 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
 
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
 from app.database import get_db
 from app.services.auth_service import AuthService
 from app.utils.auth import decode_access_token
 import uuid
 from datetime import datetime, timezone
 from fastapi import Request
+
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 logger = logging.getLogger(__name__)
-# ---------- Request Models ----------
-
-class EmailLoginRequest(BaseModel):
-    email: EmailStr
-    full_name: str | None = None
-    workspace_name: str | None = "My Workspace"
-
-
-class UserResponse(BaseModel):
-    id: str
-    email: str
-    full_name: str | None
-
-class WorkspaceResponse(BaseModel):
-    id: str
-    name: str
-    role: str
-
-class SecretLoginRequest(BaseModel):
-    key: str
-
-
-# ---------- Current User Wrapper ----------
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None):
@@ -136,11 +114,9 @@ async def login_secret(
     request: SecretLoginRequest,
     db: Session = Depends(get_db)
 ):
-    import os
-    from dotenv import load_dotenv
-    load_dotenv(override=True)
+    from app.core.config import settings
     
-    master_key = os.getenv("OWNER_SECRET_KEY")
+    master_key = settings.OWNER_SECRET_KEY
     if not master_key or request.key != master_key:
         raise HTTPException(status_code=401, detail="Invalid secret key")
     

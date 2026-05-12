@@ -7,9 +7,17 @@ from app.models.model_configs import ModelConfig
 ALLOWED_ENV_KEYS = [
     "GROQ_API_KEY",
     "ANTHROPIC_API_KEY",
-    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
     "OPENAI_API_KEY"
 ]
+
+
+def _normalize_api_key_env(api_key_env: str | None) -> str | None:
+    if api_key_env == "GEMINI_API_KEY":
+        return "GOOGLE_API_KEY"
+    return api_key_env
+
+
 class ModelConfigService:
     """Service for managing model configurations"""
     
@@ -44,7 +52,7 @@ class ModelConfigService:
                     raise ValueError(f"Missing required field: {field}")
 
             #  VALIDATE api_key_env
-            api_key_env = config_data.get("api_key_env")
+            api_key_env = _normalize_api_key_env(config_data.get("api_key_env"))
 
             if api_key_env and api_key_env not in ALLOWED_ENV_KEYS:
                 raise ValueError("Invalid api_key_env")
@@ -88,9 +96,10 @@ class ModelConfigService:
         try:
             #  VALIDATE api_key_env
             if "api_key_env" in config_data:
-                env_key = config_data["api_key_env"]
+                env_key = _normalize_api_key_env(config_data["api_key_env"])
                 if env_key and env_key not in ALLOWED_ENV_KEYS:
                     raise ValueError("Invalid api_key_env")
+                config_data["api_key_env"] = env_key
 
             # Update fields
             updatable_fields = [
@@ -185,7 +194,7 @@ class ModelConfigService:
                 'temperature': 0.7,
                 'max_tokens': 600,
                 'description': 'Fast and efficient Google model',
-                'api_key_env': 'GEMINI_API_KEY'
+                'api_key_env': 'GOOGLE_API_KEY'
             }
         ]
         

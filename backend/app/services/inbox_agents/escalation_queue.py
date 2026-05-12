@@ -15,7 +15,7 @@ class EscalationQueue:
 
         self.logger.info("EscalationQueue initialized")
 
-    # ADD ESCALATION
+    #  ADD ESCALATION
     def add(self, data):
         try:
             escalation_data = {
@@ -30,7 +30,10 @@ class EscalationQueue:
                 escalation = HumanEscalation(
                     user_id=escalation_data["user_id"],
                     reason=escalation_data["reason"],
-                    status="pending"
+                    status="pending",
+                    workspace_id=data.get("workspace_id"),
+                    channel=data.get("channel"),
+                    message=data.get("message"),
                 )
 
                 self.db.add(escalation)

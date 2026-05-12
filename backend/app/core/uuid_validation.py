@@ -31,7 +31,7 @@ def _looks_like_uuid(value: str) -> bool:
 class UUIDValidationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
-        # ── Check query params containing "id" ──────────────────────────
+        # ── Check query params containing "id" ────
         for param_name, param_value in request.query_params.items():
             if not _ID_PARAM_RE.search(param_name):
                 continue
@@ -48,7 +48,7 @@ class UUIDValidationMiddleware(BaseHTTPMiddleware):
                     },
                 )
 
-        # ── Check path segments that look like UUIDs ─────────────────────
+        # ── Check path segments that look like UUIDs────
         for segment in request.url.path.strip("/").split("/"):
             if _looks_like_uuid(segment) and not _UUID_RE.match(segment):
                 logger.warning("Malformed UUID in path segment: %s", segment)

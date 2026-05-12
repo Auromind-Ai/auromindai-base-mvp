@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -15,13 +14,14 @@ from sqlalchemy import exc as sa_exc
 from sqlalchemy.exc import IntegrityError
 from collections import OrderedDict
 
+from app.core.config import settings
 from app.models.automation import AutomationFlow
 from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
 from app.models.outbound_message import OutboundMessage
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.execution_tracer import ExecutionTracer
-from app.services.llm_router import LLMRouter
+from app.services.llm_utils import safe_llm_call
 from app.services.trigger_engine import match_button_target, match_trigger
 
 
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # ── Module-level singletons (avoid re-instantiation per request) ────────────
 _rag_singleton = get_rag_service()
-_llm_singleton = LLMRouter()
+
 class _LRULockCache:
     """Bounded cache of asyncio.Lock objects keyed by conversation ID.
 
@@ -60,11 +60,8 @@ class _LRULockCache:
 
 
 _conversation_locks = _LRULockCache(max_size=10_000)
-# ── Configurable fallback message ───────────────────────────────────────────
-FLOW_FALLBACK_MESSAGE = os.getenv(
-    "FLOW_FALLBACK_MESSAGE",
-    "Sorry, something went wrong. Please try again.",
-)
+# ── Configurable fallback message────
+FLOW_FALLBACK_MESSAGE = settings.FLOW_FALLBACK_MESSAGE or "Sorry, something went wrong. Please try again."
 EXECUTION_LEASE_SECONDS = 120
 
 
@@ -75,7 +72,7 @@ class ConversationExecutionBusy(Exception):
 class FlowServiceV2:
     def __init__(self):
         self.rag = _rag_singleton
-        self.llm_router = _llm_singleton
+     
         self.tracer = ExecutionTracer()
         self.max_iterations = 50
         self.template_env = Environment(undefined=SilentUndefined)
@@ -90,9 +87,9 @@ class FlowServiceV2:
         provider_prices = pricing.get(model, pricing["groq"])
         return (tokens_in * provider_prices["input"]) + (tokens_out * provider_prices["output"])
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # PUBLIC ENTRY POINT
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def execute_incoming_message(
         self,
@@ -117,7 +114,7 @@ class FlowServiceV2:
         
 
         try:
-            # ── Priority 1: pending button reply ──────────────────────────
+            # ── Priority 1: pending button reply ────
             if state.pending_button:
                 handled = await self._handle_pending_button(
                     db=db,
@@ -135,7 +132,7 @@ class FlowServiceV2:
                     )
                     return True
 
-            # ── Priority 2: pending question reply ────────────────────────
+            # ── Priority 2: pending question reply ──
             if state.pending_question:
                 handled = await self._handle_pending_question(
                     db=db,
@@ -153,7 +150,7 @@ class FlowServiceV2:
                     return True
 
 
-            # ── Only if NO pending state → trigger match ─────────────────────
+            # ── Only if NO pending state → trigger match────
 
             match = self._find_trigger_match(
                 db=db,
@@ -257,9 +254,9 @@ class FlowServiceV2:
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # RESUME EXECUTION (Triggered by Celery after delay)
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def resume_node_execution(
         self, db: Session, conversation_id: str, node_id: str, inbound_text: str, msg_sequence_val: int
@@ -301,9 +298,9 @@ class FlowServiceV2:
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # STATE
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     def _get_or_create_state(self, db: Session, conversation_id: Any) -> FlowExecutionState:
         state = (
@@ -482,9 +479,9 @@ class FlowServiceV2:
         parsed = datetime.fromisoformat(value)
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # TRIGGER MATCHING
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     def _find_trigger_match(self, db, workspace_id, inbound_text: str):
         logger.info(f"🔍 Searching flows for Workspace ID: {workspace_id}")
@@ -565,9 +562,9 @@ class FlowServiceV2:
  
         return None
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # BUTTON HANDLING
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def _handle_pending_button(
         self,
@@ -598,7 +595,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body="Your session has expired. Please start again.",
                     metadata={"source": "button_expired", "node_id": pending.get("node_id")},
                     msg_sequence=[0],
@@ -687,9 +684,9 @@ class FlowServiceV2:
         )
         return True
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # ASK QUESTION HANDLING  ← NEW
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def _handle_pending_question(
         self,
@@ -724,7 +721,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body="Your session has expired. Please start again.",
                     metadata={"source": "question_expired", "node_id": pending.get("node_id")},
                     msg_sequence=[0],
@@ -769,7 +766,7 @@ class FlowServiceV2:
                 "answer": inbound_text[:200],
             },
         )
-        logger.info(f"✅ Question answered! Stored '{inbound_text}' → context['{variable_name}']")
+        logger.info(f" Question answered! Stored '{inbound_text}' → context['{variable_name}']")
 
         # Clear pending state
         state.pending_question = None
@@ -790,9 +787,9 @@ class FlowServiceV2:
 
         return True
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # CORE EXECUTION LOOP
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def _execute_from_node(
         self,
@@ -836,7 +833,7 @@ class FlowServiceV2:
             if not node:
                 return
 
-            # ── Per-node loop_limit enforcement ───────────────────────
+            # ── Per-node loop_limit enforcement ─
             visit_counts = state.runtime_context.setdefault("node_visit_counts", {})
             visit_counts[current_node_id] = visit_counts.get(current_node_id, 0) + 1
             loop_limit = (node.get("config") or {}).get("loop_limit", 3)
@@ -857,7 +854,7 @@ class FlowServiceV2:
                 state.current_node_id = None
                 return
 
-            # ── Delay handling ────────────────────────────────────────────
+            # ── Delay handling 
             config = node.get("config") or {}
             delay_amount = int(config.get("delay_amount") or 0)
             delay_unit = config.get("delay_unit", "minutes")
@@ -975,7 +972,7 @@ class FlowServiceV2:
                         await self._queue_outbound_message(
                             db=db,
                             conversation_id=conversation.id,
-                            to_number=conversation.phone,
+                            to_number=self._get_conversation_destination(conversation),
                             body=FLOW_FALLBACK_MESSAGE,
                             metadata={"source": "node_error_fallback", "node_id": current_node_id},
                             msg_sequence=msg_sequence,
@@ -1004,9 +1001,9 @@ class FlowServiceV2:
 
         state.current_node_id = None
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # ACTION DISPATCH
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def _handle_action_node(
         self,
@@ -1024,7 +1021,7 @@ class FlowServiceV2:
         action_type = config.get("type")
         state.runtime_context = state.runtime_context or {}
 
-        # ── Send Message ──────────────────────────────────────────────────
+        # ── Send Message ──────
         if action_type == "send_msg":
             return await self._handle_send_message_node(
                 db=db, conversation=conversation, flow=flow,
@@ -1032,7 +1029,7 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
 
-        # ── AI Brain Query ────────────────────────────────────────────────
+        # ── AI Brain Query ────
         if action_type == "brain_query":
             response, usage = await self._generate_guardrailed_ai_response(
                 db=db,
@@ -1067,7 +1064,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body=response,
                     metadata={"source": "brain_query", "node_id": node.get("id")},
                     msg_sequence=msg_sequence,
@@ -1082,7 +1079,7 @@ class FlowServiceV2:
                 )
             return False
 
-        # ── Ask Question (NEW) ────────────────────────────────────────────
+        # ── Ask Question (NEW) 
         if action_type == "ask_question":
             return await self._handle_ask_question_node(
                 db=db, conversation=conversation, flow=flow,
@@ -1090,7 +1087,7 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
 
-        # ── Assign Agent ──────────────────────────────────────────────────
+        # ── Assign Agent ──────
         if action_type == "assign_agent":
             strategy = config.get("strategy", "round_robin")
             state.runtime_context["assigned_agent_strategy"] = strategy
@@ -1099,7 +1096,7 @@ class FlowServiceV2:
             logger.info(f"🧑 Assign agent triggered: strategy={strategy}")
             return False
 
-        # ── Move Deal Stage ───────────────────────────────────────────────
+        # ── Move Deal Stage ───
         if action_type == "move_stage":
             stage = config.get("stage")
             state.runtime_context["deal_stage"] = stage
@@ -1120,9 +1117,9 @@ class FlowServiceV2:
         logger.warning(f"⚠️ Unknown action type: '{action_type}' on node {node.get('id')}")
         return False
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # ASK QUESTION NODE HANDLER  ← NEW
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def _handle_ask_question_node(
         self,
@@ -1156,7 +1153,7 @@ class FlowServiceV2:
             await self._queue_outbound_message(
                 db=db,
                 conversation_id=conversation.id,
-                to_number=conversation.phone,
+                to_number=self._get_conversation_destination(conversation),
                 body=question_text,
                 metadata={"source": "ask_question", "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
@@ -1188,9 +1185,9 @@ class FlowServiceV2:
 
         return True  # Stop execution — wait for human reply
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # MESSAGE HANDLERS
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def _handle_send_message_node(
         self,
@@ -1209,7 +1206,7 @@ class FlowServiceV2:
         message_type = config.get("message_type", "text")
         mode = config.get("mode", "manual")
 
-        # ── Media messages ────────────────────────────────────────────────
+        # ── Media messages ────
         if message_type in {"image", "video", "document"}:
             media_url = (config.get("media_url") or "").strip()
             caption = config.get("text", "")
@@ -1235,7 +1232,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body=caption or "Media could not be delivered.",
                     metadata={
                         "source": "media_fallback",
@@ -1251,7 +1248,7 @@ class FlowServiceV2:
             await self._queue_outbound_message(
                 db=db,
                 conversation_id=conversation.id,
-                to_number=conversation.phone,
+                to_number=self._get_conversation_destination(conversation),
                 body=caption or '',
                 metadata={
                     "source": "media_message",
@@ -1265,7 +1262,7 @@ class FlowServiceV2:
             )
             return False
 
-        # ── Button message ────────────────────────────────────────────────
+        # ── Button message ────
         if message_type in {"button_message", "button"}:
             buttons = self._normalize_buttons(config.get("buttons", []))
             header_text = self._render_template(
@@ -1275,7 +1272,7 @@ class FlowServiceV2:
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
-                    to_number=conversation.phone,
+                    to_number=self._get_conversation_destination(conversation),
                     body=header_text,
                     metadata={
                         "source": "button_message",
@@ -1292,7 +1289,7 @@ class FlowServiceV2:
             )
             return True  # Stop execution — wait for button reply
 
-        # ── Plain text ────────────────────────────────────────────────────
+        # ── Plain text ────────
         outbound_text = self._render_template(
             config.get("message") or config.get("text") or "", context
         )
@@ -1336,7 +1333,7 @@ class FlowServiceV2:
             await self._queue_outbound_message(
                 db=db,
                 conversation_id=conversation.id,
-                to_number=conversation.phone,
+                to_number=self._get_conversation_destination(conversation),
                 body=outbound_text,
                 metadata={"source": mode, "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
@@ -1345,9 +1342,9 @@ class FlowServiceV2:
             )
         return False
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # OUTBOX: queue & dispatch
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     async def _queue_outbound_message(
         self,
@@ -1365,13 +1362,12 @@ class FlowServiceV2:
 
         Sequence is computed as MAX(sequence)+1 per conversation under a
         SELECT FOR UPDATE lock so concurrent insertions never collide.
-        If there is no in_progress message, the new row is dispatched
-        immediately via send_next_pending_message.
+        Also saves to Message table so the inbox displays automation messages.
         """
         metadata = metadata or {}
         self._refresh_execution_slot(db, conversation_id, execution_token)
-       
-        # ── Compute monotonic sequence under row-lock ──────────────────────
+    
+        # ── Compute monotonic sequence under row-lock 
         existing = (
             db.query(OutboundMessage)
             .filter(OutboundMessage.conversation_id == conversation_id)
@@ -1381,6 +1377,7 @@ class FlowServiceV2:
         )
         next_seq = (existing.sequence + 1) if existing else 1
 
+        # ── OutboundMessage (phone delivery) ────────
         msg = OutboundMessage(
             conversation_id=conversation_id,
             to_number=to_number,
@@ -1394,7 +1391,7 @@ class FlowServiceV2:
         db.commit()
         db.refresh(msg)
 
-        # Keep msg_sequence counter consistent with existing callers
+        # ── Keep msg_sequence counter consistent with existing callers ────
         if msg_sequence is not None:
             async with _conversation_locks[str(conversation_id)]:
                 msg_sequence[0] = next_seq
@@ -1405,14 +1402,12 @@ class FlowServiceV2:
             next_seq,
             msg.id,
         )
-
-
-        # ── Kick off delivery if nothing is in-progress ────────────────────
+        # ── Kick off delivery if nothing is in-progress───
         #  ALWAYS trigger dispatcher
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # AI RESPONSE
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     
     async def _generate_guardrailed_ai_response(
         self,
@@ -1428,9 +1423,9 @@ class FlowServiceV2:
 
         NOT_FOUND = "Not Found"
 
-        # ─────────────────────────────────────────
+        #──
         #  RETRY HELPER
-        # ─────────────────────────────────────────
+        #──
         async def _retry_async(fn, retries=3, delay=0.5):
             last_exception = None
             for attempt in range(retries):
@@ -1443,21 +1438,18 @@ class FlowServiceV2:
             logger.error("[RETRY FAILED] All attempts failed")
             raise last_exception
 
-        # ─────────────────────────────────────────
+        #──
         #  RAG SEARCH (WITH RETRY)
-        # ─────────────────────────────────────────
-        def call_rag():
-            return self.rag.search(
+        #──
+        async def call_rag_async():
+            return await self.rag.iterative_retrieval(
                 db=db,
                 workspace_id=workspace_id,
                 query=inbound_text,
-                top_k=5,
-                collection=collection,
-                entry_ids=entry_ids
+                max_iterations=1,
+                entry_ids=entry_ids,
+                collection=collection
             )
-
-        async def call_rag_async():
-            return await asyncio.to_thread(call_rag)
 
         try:
             retrieved = await _retry_async(call_rag_async)
@@ -1465,22 +1457,23 @@ class FlowServiceV2:
             logger.exception("[RAG ERROR] Failed after retries")
             return NOT_FOUND, {}
 
-        # ─────────────────────────────────────────
+        #──
         #  CONTEXT BUILD
-        # ─────────────────────────────────────────
+        #──
         retrieved_context = ""
-        if isinstance(retrieved, list):
+        docs = retrieved.get("docs", []) if isinstance(retrieved, dict) else []
+        if docs:
             retrieved_context = "\n".join(
-                str(r.get("document", "")) for r in retrieved if r.get("document")
+                str(r.get("text", "")) for r in docs if r.get("text")
             )
 
         if not retrieved_context.strip():
             logger.info("[RAG EMPTY] No relevant context found")
             return NOT_FOUND, {}
 
-        # ─────────────────────────────────────────
+        #──
         #  PROMPT BUILD
-        # ─────────────────────────────────────────
+        #──
         llm_prompt = f"""You are a constrained WhatsApp automation answer engine.
 
     Rules:
@@ -1506,13 +1499,13 @@ class FlowServiceV2:
     {retrieved_context}
     """
 
-        # ─────────────────────────────────────────
+        #──
         # LLM CALL (RETRY + TIMEOUT)
-        # ─────────────────────────────────────────
+        #──
         async def call_llm():
             return await asyncio.wait_for(
-                self.llm_router.generate(llm_prompt, model="auto"),
-                timeout=15  # 🔥 prevents hanging workers
+                safe_llm_call(llm_prompt, model="auto"),
+                timeout=15  # prevents hanging workers
             )
 
         try:
@@ -1521,9 +1514,9 @@ class FlowServiceV2:
             logger.exception("[LLM ERROR] Failed after retries")
             return NOT_FOUND, {}
 
-        # ─────────────────────────────────────────
+        #──
         #  PARSE RESPONSE
-        # ─────────────────────────────────────────
+        #──
         content = (result or {}).get("content", "").strip()
         parsed = self._safe_json(content)
 
@@ -1542,9 +1535,9 @@ class FlowServiceV2:
             return NOT_FOUND, result or {}
 
         return answer, result or {}
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
     # HELPERS
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────
 
     # Allowed file extensions per media type
     _MEDIA_EXTENSIONS: Dict[str, set] = {
@@ -1647,6 +1640,9 @@ class FlowServiceV2:
             }
             for b in buttons[:3]
         ]
+
+    def _get_conversation_destination(self, conversation: Conversation) -> str:
+        return conversation.phone or conversation.external_id or ""
 
     def _render_template(self, text: str, context: dict) -> str:
         if not text:

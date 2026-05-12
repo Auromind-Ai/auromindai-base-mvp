@@ -1,7 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-
+from fastapi import APIRouter, Depends, HTTPException
 from app.services.email_automation.email_automation_engine import AutomationEngine
 from app.services.agentic_wiring_service import agentic_wiring_service
 from app.services.flow_validation_service import FlowValidationService
@@ -10,59 +7,15 @@ from app.models.automation import AutomationFlow
 from app.models.brain import MCPDecision
 from uuid import UUID
 import uuid
-from pydantic import BaseModel
-from typing import Optional, List
+from typing import List
 from sqlalchemy.orm import Session
-from app.database import get_db  # change path if needed
-from app.core.security import verify_workspace_access
-
 from app.database import get_db
-
-class FlowPromptRequest(BaseModel):
-    prompt: str
-
-class FlowSaveRequest(BaseModel):
-    id: Optional[str] = None
-    name: str
-    trigger_type: str
-    nodes: list
-    edges: list
-    status: str = "Active"
-
-
-class FlowResponseModel(BaseModel):
-    id: UUID          
-    name: str
-    trigger_type: str
-    nodes: list
-    edges: list
-    status: str
-    class Config:
-        from_attributes = True
-
-
-class StatusResponse(BaseModel):
-    status: str
-
-
-class DeleteFlowResponse(BaseModel):
-    status: str
-    flow_id: UUID
-
-
-class ApproveResponse(BaseModel):
-    status: str
-
-
-class GenerateFlowResponse(BaseModel):
-    nodes: list
-    edges: list
+from app.core.security import verify_workspace_access
+from app.schemas.automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, StatusResponse, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 
 engine = AutomationEngine()
-
-
 
 @router.post("/approve", response_model=ApproveResponse)
 async def approve_action(

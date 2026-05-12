@@ -1,19 +1,20 @@
 #shedular always run background 5 minutes once call EmailMonitor
 import logging
-from sqlalchemy.orm import Session
-from app.services.email_automation.emails_crawler_service import EmailsCrawlerService
-from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
-from app.models.integration import Integration
-from app.services.email_automation.email_mcp_service import EmailMCPService
-from app.services.email_automation.email_automation_engine import AutomationEngine
-import os
-from sqlalchemy import text
-from google.auth.transport.requests import Request
 import uuid
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+from app.core.config import settings
+from app.models.integration import Integration
+from app.services.email_automation.email_automation_engine import AutomationEngine
+from app.services.email_automation.email_mcp_service import EmailMCPService
+from app.services.email_automation.emails_crawler_service import EmailsCrawlerService
+
+GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
 
 logger = logging.getLogger(__name__)
 

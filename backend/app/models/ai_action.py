@@ -128,7 +128,7 @@ class SupportTicket(Base):
 
 
 # FOLLOWUPS
-class Followup(Base):
+class ChatFollowup(Base):
     __tablename__ = "followups_chat"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -2,7 +2,7 @@
    heroBackgroundNew.module.css — Futuristic Space Hero Background
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Keyframes ────────────────────────────────────────────────── */
+/* ── Keyframes ────── */
 
 @keyframes rotateGradient {
   0% {
@@ -100,7 +100,7 @@
   50%       { opacity: 0.92; transform: translate(-50%, -50%) scale(1.03); }
 }
 
-/* ── Root ─────────────────────────────────────────────────────── */
+/* ── Root ─────────── */
 
 .bgRoot {
   position: absolute;
@@ -110,7 +110,7 @@
   background: #050505;
 }
 
-/* ── Stars ────────────────────────────────────────────────────── */
+/* ── Stars ────────── */
 
 .starField {
   position: absolute;
@@ -156,7 +156,7 @@
   }
 }
 
-/* ── Vignette ─────────────────────────────────────────────────── */
+/* ── Vignette ─────── */
 
 .vignette {
   position: absolute;
@@ -170,21 +170,21 @@
   z-index: 1;
 }
 
-/* ── Outer halo ───────────────────────────────────────────────── */
+/* ── Outer halo ───── */
 
 .outerHalo {
   width: 560px;
   height: 560px;
 }
 
-/* ── Secondary offset glow ────────────────────────────────────── */
+/* ── Secondary offset glow ──────────────── */
 
 .secondaryGlow {
   width: 360px;
   height: 360px;
 }
 
-/* ── Nova WebGL Orb Wrapper ───────────────────────────────────── */
+/* ── Nova WebGL Orb Wrapper ─────────────── */
 
 .novaWrapper {
   position: absolute;

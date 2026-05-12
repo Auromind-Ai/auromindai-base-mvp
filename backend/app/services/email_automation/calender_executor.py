@@ -1,41 +1,29 @@
 from datetime import datetime
 import pytz
-from app.services.llm_router import LLMRouter
+
 import asyncio
 from datetime import timedelta
-from app.models.integration import CalendarEvent
-from googleapiclient.discovery import build
-from app.models.integration import Integration
 from dateutil import parser
-from google.oauth2.credentials import Credentials
-import os
-from timezonefinder import TimezoneFinder
 from geopy.geocoders import Nominatim
-from app.services.platform_settings_service import get_setting
+from google.oauth2.credentials import Credentials
+from timezonefinder import TimezoneFinder
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+from app.core.config import settings
+from app.models.integration import CalendarEvent
+from app.models.integration import Integration
+from app.services.llm_utils import safe_llm_call
+from app.services.platform_settings_service import get_setting
+from googleapiclient.discovery import build
+
+GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
 
 geolocator = Nominatim(user_agent="calendar_ai")
 tf = TimezoneFinder()
 
 class CalendarExecutor:
 
-    def __init__(self):
-        self.router = LLMRouter()
-
-    def safe_llm_call(self, prompt=None, system_prompt=None, user_prompt=None):
-
-        if system_prompt and user_prompt:
-            final_prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
-        elif prompt:
-            final_prompt = prompt
-        else:
-            raise ValueError("Invalid input")
-
-        result = asyncio.run(self.router.generate(final_prompt))
-        return result["content"]
-
+   
     def execute(self, db, workspace_id, action, decision):
 
         calendar_enabled = get_setting(db, "enable_calendar_integration", True)
@@ -226,7 +214,7 @@ class CalendarExecutor:
 
         return meeting
     
-    def smart_meeting_title(self, summary):
+    async def smart_meeting_title(self, summary):
 
         if not summary:
             return "Meeting"
@@ -235,12 +223,11 @@ class CalendarExecutor:
         Generate a short meeting title (max 6 words).
         """
 
-        response = self.safe_llm_call(
-            system_prompt=system_prompt,
-            user_prompt=summary
-        )
+        prompt = f"{system_prompt}\n\nUser:\n{summary}"
 
-        return response.strip()
+        response = await safe_llm_call(prompt)
+
+        return response["content"].strip()
 
     def detect_participants(self, action):
 

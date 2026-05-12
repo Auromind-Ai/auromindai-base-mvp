@@ -1,20 +1,3 @@
-"""
-Celery tasks for flow execution and message dispatch.
-
-This module guarantees STRICT SEQUENTIAL message delivery per conversation:
-
-1. execute_incoming_message  — entry point for inbound WhatsApp messages
-2. send_next_pending_message — picks the lowest-sequence pending message and
-                               dispatches it (ONE at a time, guarded by Redis lock)
-3. send_whatsapp_message_task — sends a single message via Twilio API
-
-Key invariants:
-  - Only ONE message per conversation may be in_progress or dispatched.
-  - send_next_pending_message is idempotent and uses a Redis distributed lock.
-  - send_whatsapp_message_task sets status to "dispatched" (NOT "sent").
-  - Only Twilio status callbacks transition to "sent" / "delivered" / "failed"
-    and re-trigger send_next_pending_message for the next message.
-"""
 
 import asyncio
 import json
@@ -33,7 +16,7 @@ from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
 from app.services.execution_tracer import ExecutionTracer
 from app.services.flow_service_v2 import ConversationExecutionBusy, FlowServiceV2
-from app.services.whatsapp_delivery import deliver_whatsapp_message
+from app.services.whatsapp_delivery import deliver_outbound_message
 
 logger = logging.getLogger(__name__)
 
@@ -264,30 +247,10 @@ def resume_flow_node(
     max_retries=3,
 )
 def send_next_pending_message(self, conversation_id: str):
-    """Pick up the lowest-sequence pending outbound message and dispatch it.
-
-    GUARDS (layered — each independently prevents duplicate dispatch):
-
-    1. **Redis distributed lock** — only one worker per conversation can
-       enter this function at a time.  If the lock is held, the task
-       exits silently (the holder will finish the job).
-
-    2. **DB-level check for active messages** — if any message for this
-       conversation is already ``in_progress`` or ``dispatched``, we
-       must wait for Twilio to confirm it before sending the next one.
-       Stuck messages (older than timeout) are recovered.
-
-    3. **SELECT FOR UPDATE (blocking)** — the pending-message query uses
-       ``with_for_update()`` WITHOUT ``skip_locked``, so concurrent
-       workers block instead of skipping rows.
-
-    4. **Partial unique index** on ``outbound_messages`` ensures the DB
-       itself rejects a second ``in_progress``/``dispatched`` row per
-       conversation (belt AND suspenders).
-    """
+  
     from app.models.outbound_message import OutboundMessage
 
-    # ── GUARD 1: Redis distributed lock ────────────────────────────────
+    # ── GUARD 1: Redis distributed lock ──────────
     lock_token = acquire_conversation_lock(
         conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
     )
@@ -449,21 +412,7 @@ def send_whatsapp_message_task(
     body: str,
     metadata: dict = None,
 ):
-    """Send a single outbound message via Twilio.
 
-    State transitions performed by THIS task:
-      - in_progress → dispatched  (on successful Twilio API call)
-      - in_progress → failed      (on permanent error / max retries)
-
-    State transitions performed by the STATUS CALLBACK (not here):
-      - dispatched → sent
-      - dispatched → delivered
-      - dispatched → failed
-
-    CRITICAL: This task does NOT call send_next_pending_message.
-    Only the Twilio status callback triggers the next message.
-    This is the core guarantee for sequential delivery.
-    """
     from app.models.outbound_message import OutboundMessage
 
     db = SessionLocal()
@@ -533,7 +482,9 @@ def send_whatsapp_message_task(
                 return
 
         # 5. Send to Twilio
-        sid = deliver_whatsapp_message(
+        sid = deliver_outbound_message(
+            db=db,
+            conversation_id=conversation_id,
             to_number=f"whatsapp:{to_number}",
             body=body,
             metadata=metadata,
@@ -543,6 +494,42 @@ def send_whatsapp_message_task(
         #    The "sent" transition happens only via Twilio status callback.
         row.twilio_sid = sid
         row.status = "dispatched"
+
+        try:
+            from app.models.message import Message, SenderType, MessageStatus
+            import uuid as _uuid
+
+            meta_source = metadata.get("source", "")
+            buttons = metadata.get("buttons", [])
+
+            if meta_source == "button_message" and buttons:
+                button_labels = " | ".join(f"[{b.get('label', '')}]" for b in buttons)
+                inbox_content = f"{body}\n{button_labels}" if body else button_labels
+            elif meta_source in {"media_message", "media_fallback"}:
+                message_type = metadata.get("message_type", "media")
+                media_url = metadata.get("media_url", "")
+                inbox_content = body or f"[{message_type.upper()}] {media_url}"
+            else:
+                inbox_content = body
+
+            if inbox_content:
+                inbox_msg = Message(
+                    id=_uuid.uuid4(),
+                    conversation_id=conversation_id,
+                    content=inbox_content,
+                    sender_type=SenderType.AI,
+                    status=MessageStatus.SENT,
+                    source="automation_flow",
+                    metadata_json="{}",
+                )
+                db.add(inbox_msg)
+                logger.info(
+                    "Inbox saved after Twilio dispatch | conversation=%s source=%s",
+                    conversation_id, meta_source,
+                )
+        except Exception as inbox_exc:
+            logger.warning("Inbox save failed (non-fatal): %s", inbox_exc)
+
         db.commit()
         send_next_pending_message.apply_async(
         args=[conversation_id],
@@ -581,6 +568,40 @@ def send_whatsapp_message_task(
             )
             if row and not row.twilio_sid:
                 row.status = "failed"
+
+                # Update inbox message also as FAILED
+                try:
+                    from app.models.message import Message, MessageStatus
+                    import uuid
+                    import json
+
+                    metadata = row.metadata_json or {}
+
+                    if isinstance(metadata, str):
+                        metadata = json.loads(metadata)
+
+                    inbox_message_id = metadata.get("inbox_message_id")
+
+                    if inbox_message_id:
+                        inbox_msg = db.query(Message).filter(
+                            Message.id == uuid.UUID(str(inbox_message_id))
+                        ).first()
+
+                        if inbox_msg:
+                            inbox_msg.status = MessageStatus.FAILED
+
+                            logger.warning(
+                                "[send_whatsapp_message_task] Inbox msg → FAILED | inbox_id=%s seq=%d",
+                                inbox_message_id,
+                                row.sequence,
+                            )
+
+                except Exception as inbox_exc:
+                    logger.warning(
+                        "Inbox FAILED update error: %s",
+                        inbox_exc
+                    )
+
                 db.commit()
 
                 # Since this message failed, trigger the next one so the

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
 import { getUser, restoreAdminToken, setToken, getAdminBackup } from '@/lib/auth';
 import {
@@ -14,9 +14,24 @@ import {
   AlertCircle,
   MoreHorizontal,
   CheckCircle2,
-  ShieldAlert  
+  ShieldAlert,
+  ArrowRight,
+  Zap,
+  Radio,
+  UserPlus,
+  Link2,
+  Mail,
+  Flame,
+  Bot,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Poppins } from 'next/font/google'
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-poppins',
+})
 
 const SecretLoginBanner = () => {
     const router = useRouter();
@@ -30,7 +45,7 @@ const SecretLoginBanner = () => {
         window.location.href = '/admin';
     };
 
-    return (
+    return ( 
         <div className="fixed top-0 left-0 right-0 z-[100] bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-sm font-medium shadow-lg animate-in slide-in-from-top duration-300">
             <div className="flex items-center gap-2">
                 <Sparkles size={16} className="animate-pulse" />
@@ -81,68 +96,915 @@ const METRICS = [
   },
 ];
 
-const ATTENTION_ITEMS = [
-  { id: 1, name: 'Rahul Sharma', status: 'Documents Pending', time: '12 min ago', priority: 'high' },
-  { id: 2, name: 'Priya Patel', status: 'Demo Not Scheduled', time: '45 min ago', priority: 'medium' },
-  { id: 3, name: 'Amit Kumar', status: 'Follow-up Overdue', time: '2h ago', priority: 'high' },
-  { id: 4, name: 'Sneha Gupta', status: 'Contract Review', time: '4h ago', priority: 'low' },
+// ─── Magic Bento helpers ───────────────────────────────────────────────
+function parseRgb(hex) {
+  const s = (hex || '#8400ff').trim();
+  if (s[0] === '#') {
+    const h = s.slice(1);
+    if (h.length === 6 || h.length === 8)
+      return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
+  }
+  return { r: 132, g: 0, b: 255 };
+}
+
+function makeParticles(count) {
+  return Array.from({ length: Math.min(count, 20) }, () => ({
+    x: Math.random()*100, y: Math.random()*100,
+    dx: (Math.random()-0.5)*100, dy: (Math.random()-0.5)*100,
+    size: 2+Math.random()*2.5,
+    dur: 2+Math.random()*2, delay: Math.random()*0.8,
+  }));
+}
+
+function BentoMetricCard({ metric, i, rgb }) {
+  const ref = useRef(null);
+  const particles = useMemo(() => makeParticles(12), []);
+
+  const setVars = useCallback((rx, ry, gx, gy, gi) => {
+    const el = ref.current; if (!el) return;
+    el.style.setProperty('--rx', `${rx}deg`);
+    el.style.setProperty('--ry', `${ry}deg`);
+    el.style.setProperty('--gx', `${gx}%`);
+    el.style.setProperty('--gy', `${gy}%`);
+    el.style.setProperty('--gi', `${gi}`);
+  }, []);
+
+  const onMove = useCallback((e) => {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const nx = (x - r.width/2) / (r.width/2);
+    const ny = (y - r.height/2) / (r.height/2);
+    setVars(ny*-6, nx*6, (x/r.width)*100, (y/r.height)*100, 1);
+  }, [setVars]);
+
+  const onLeave = useCallback(() => setVars(0,0,50,50,0), [setVars]);
+
+  const onClick = useCallback((e) => {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const maxD = Math.max(Math.hypot(x,y), Math.hypot(r.width-x,y), Math.hypot(x,r.height-y), Math.hypot(r.width-x,r.height-y));
+    const rip = document.createElement('span');
+    Object.assign(rip.style, { position:'absolute', borderRadius:'999px', pointerEvents:'none',
+      left:`${x-maxD}px`, top:`${y-maxD}px`, width:`${maxD*2}px`, height:`${maxD*2}px`, zIndex:10 });
+    rip.style.setProperty('--rr', rgb.r); rip.style.setProperty('--rg', rgb.g); rip.style.setProperty('--rb', rgb.b);
+    rip.className = 'bento-ripple';
+    el.appendChild(rip);
+    rip.addEventListener('animationend', ()=>rip.remove(), {once:true});
+  }, [rgb]);
+
+  return (
+    <motion.div
+      ref={ref}
+      key={metric.label}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: i * 0.1 }}
+      onPointerMove={onMove}
+      onPointerLeave={onLeave}
+      onClick={onClick}
+      className="relative group rounded-2xl p-5 border border-white/10 bg-[#070012] hover:border-white/10 transition-all cursor-default overflow-hidden bento-card"
+      style={{
+        '--r': rgb.r, '--g': rgb.g, '--b': rgb.b,
+        '--gx': '50%', '--gy': '50%', '--gi': 0,
+        '--rx': '0deg', '--ry': '0deg',
+        transform: 'rotateX(var(--rx)) rotateY(var(--ry))',
+        transformStyle: 'preserve-3d',
+        transition: 'transform 180ms ease, box-shadow 220ms ease',
+      }}
+    >
+      <div className="bento-glow-ring" aria-hidden="true" />
+      <div className="bento-particles absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200" aria-hidden="true">
+        {particles.map((p, idx) => (
+          <span key={idx} className="bento-particle absolute rounded-full" style={{
+            left:`${p.x}%`, top:`${p.y}%`,
+            width:`${p.size}px`, height:`${p.size}px`,
+            '--dx': `${p.dx}px`, '--dy': `${p.dy}px`,
+            '--dur': `${p.dur}s`, '--del': `${p.delay}s`,
+            background: `rgba(${rgb.r},${rgb.g},${rgb.b},1)`,
+            boxShadow: `0 0 8px rgba(${rgb.r},${rgb.g},${rgb.b},0.6)`,
+          }} />
+        ))}
+      </div>
+      <div className="relative z-10 h-full flex flex-col justify-between">
+        <div>
+          <h3 className="text-[15px] font-medium text-white/85 tracking-[-0.01em]">
+            {metric.label === 'Total Revenue' ? 'Total Revenue'
+              : metric.label === 'Active Leads' ? 'Active Leads'
+              : metric.label === 'Conversion Rate' ? 'Conversion Rate'
+              : 'Response Time'}
+          </h3>
+        </div>
+        <div className="mt-7">
+          <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight">
+            {metric.label === 'Total Revenue' ? '₹24,580'
+              : metric.label === 'Active Leads' ? '1,248'
+              : metric.label === 'Conversion Rate' ? '20%'
+              : '1h 24m'}
+          </div>
+          <p className="mt-3 text-[14px] text-white/80 font-medium">
+            {metric.label === 'Total Revenue' ? 'vs last month'
+              : metric.label === 'Active Leads' ? 'vs last week'
+              : metric.label === 'Conversion Rate' ? 'vs target'
+              : 'Improving'}
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function BentoMetricsGrid({ metrics }) {
+  const rgb = useMemo(() => parseRgb('#8400ff'), []);
+  return (
+    <>
+      <style>{`
+        .bento-card::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 5px;
+          background: radial-gradient(
+            260px circle at var(--gx) var(--gy),
+            rgba(var(--r), var(--g), var(--b), calc(var(--gi) * 0.7)) 0%,
+            rgba(var(--r), var(--g), var(--b), calc(var(--gi) * 0.25)) 30%,
+            transparent 60%
+          );
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          pointer-events: none;
+          z-index: 1;
+          transition: opacity 200ms ease;
+        }
+        .bento-particle {
+          animation:
+            bfloat var(--dur) ease-in-out var(--del) infinite alternate,
+            btwinkle 1.3s ease-in-out calc(var(--del)*0.5) infinite alternate;
+        }
+        @keyframes bfloat {
+          from { transform: translate3d(0,0,0); opacity: 1; }
+          to   { transform: translate3d(var(--dx), var(--dy), 0); opacity: 0.3; }
+        }
+        @keyframes btwinkle {
+          from { filter: blur(0px); }
+          to   { filter: blur(0.5px); }
+        }
+        .bento-ripple {
+          background: radial-gradient(circle,
+            rgba(var(--rr),var(--rg),var(--rb),0.3) 0%,
+            rgba(var(--rr),var(--rg),var(--rb),0.12) 30%,
+            transparent 70%
+          );
+          transform: scale(0);
+          animation: bripple 650ms ease-out forwards;
+        }
+        @keyframes bripple {
+          0%   { transform: scale(0); opacity: 1; }
+          100% { transform: scale(1); opacity: 0; }
+        }
+
+        /* ─── CHART STYLES ─── */
+        .chart-line-2026 { fill: none; stroke: #39ff7e; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+        .chart-line-2025 { fill: none; stroke: #b794f4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Chart tooltip animation */
+        @keyframes tooltipIn {
+          from { opacity: 0; transform: translateY(4px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .chart-tooltip-group {
+          animation: tooltipIn 160ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Active dot pulse */
+        @keyframes dotPulse {
+          0%   { r: 5; opacity: 1; }
+          50%  { r: 7; opacity: 0.6; }
+          100% { r: 5; opacity: 1; }
+        }
+        .chart-active-dot-pulse {
+          animation: dotPulse 1.4s ease-in-out infinite;
+        }
+
+        /* ─── QUICK ACTIONS ─── */
+        /* New premium glassmorphism card styles */
+        .quick-action-card {
+          transition: transform 220ms cubic-bezier(0.34,1.2,0.64,1), border-color 200ms ease, box-shadow 220ms ease, background 200ms ease;
+          position: relative;
+        }
+        .quick-action-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          opacity: 0;
+          transition: opacity 220ms ease;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .quick-action-card:hover {
+          transform: translateY(-4px);
+        }
+        .quick-action-card:hover .qa-arrow-btn {
+          transform: rotate(0deg) scale(1.1);
+        }
+
+        /* Card-specific glow overrides on hover */
+        .qa-card-workflow:hover {
+          border-color: rgba(139,92,246,0.4);
+          box-shadow: 0 4px 24px rgba(139,92,246,0.18), 0 0 0 1px rgba(139,92,246,0.12) inset;
+          background: linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(99,102,241,0.06) 100%) !important;
+        }
+        .qa-card-broadcast:hover {
+          border-color: rgba(56,189,248,0.4);
+          box-shadow: 0 4px 24px rgba(56,189,248,0.18), 0 0 0 1px rgba(56,189,248,0.10) inset;
+          background: linear-gradient(135deg, rgba(56,189,248,0.10) 0%, rgba(6,182,212,0.06) 100%) !important;
+        }
+        .qa-card-lead:hover {
+          border-color: rgba(52,211,153,0.4);
+          box-shadow: 0 4px 24px rgba(52,211,153,0.18), 0 0 0 1px rgba(52,211,153,0.10) inset;
+          background: linear-gradient(135deg, rgba(52,211,153,0.10) 0%, rgba(20,184,166,0.06) 100%) !important;
+        }
+        .qa-card-connect:hover {
+          border-color: rgba(251,146,60,0.4);
+          box-shadow: 0 4px 24px rgba(251,146,60,0.18), 0 0 0 1px rgba(251,146,60,0.10) inset;
+          background: linear-gradient(135deg, rgba(251,146,60,0.10) 0%, rgba(245,158,11,0.06) 100%) !important;
+        }
+
+        .qa-arrow-btn {
+          transition: transform 200ms cubic-bezier(0.34,1.4,0.64,1), background 180ms ease, border-color 180ms ease;
+        }
+        .qa-card-workflow:hover .qa-arrow-btn {
+          background: rgba(139,92,246,0.25);
+          border-color: rgba(139,92,246,0.5);
+        }
+        .qa-card-broadcast:hover .qa-arrow-btn {
+          background: rgba(56,189,248,0.25);
+          border-color: rgba(56,189,248,0.5);
+        }
+        .qa-card-lead:hover .qa-arrow-btn {
+          background: rgba(52,211,153,0.25);
+          border-color: rgba(52,211,153,0.5);
+        }
+        .qa-card-connect:hover .qa-arrow-btn {
+          background: rgba(251,146,60,0.25);
+          border-color: rgba(251,146,60,0.5);
+        }
+
+        /* AI Insight item hover */
+        .ai-insight-item {
+          transition: background 180ms ease, border-color 180ms ease;
+        }
+        .ai-insight-item:hover {
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(139,92,246,0.25);
+        }
+
+        /* Recent Activity compact desktop */
+        @media (min-width: 1024px) {
+          .recent-activity-list .activity-item {
+            padding-top: 10px;
+            padding-bottom: 10px;
+          }
+        }
+      `}</style>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {metrics.map((metric, i) => (
+          <BentoMetricCard key={metric.label} metric={metric} i={i} rgb={rgb} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Monthly Revenue Line Chart
+function MonthlyRevenueChart() {
+  const [tooltip, setTooltip] = useState(null);
+  const [activeIdx, setActiveIdx] = useState(null);
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+  const data2026 = [40000, 58000, 50000, 72000, 92000];
+  const data2025 = [30000, 42000, 46000, 61000, 70000];
+
+  const W = 520, H = 200;
+const padL = 58, padR = 30, padT = 20, padB = 36;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  const minVal = 20000, maxVal = 100000;
+  const yLabels = [20000, 40000, 60000, 80000, 100000];
+
+  const xOf = (i) => padL + (i / (months.length - 1)) * chartW;
+  const yOf = (v) => padT + chartH - ((v - minVal) / (maxVal - minVal)) * chartH;
+
+  const catmullRomPath = (data) => {
+    const pts = data.map((v, i) => [xOf(i), yOf(v)]);
+    if (pts.length < 2) return '';
+    const tension = 0.18;
+    let d = `M${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const segDy = p2[1] - p1[1];
+      let cp1x = p1[0] + (p2[0] - p0[0]) * tension;
+      let cp1y = p1[1] + (p2[1] - p0[1]) * tension;
+      let cp2x = p2[0] - (p3[0] - p1[0]) * tension;
+      let cp2y = p2[1] - (p3[1] - p1[1]) * tension;
+      if (segDy >= 0) {
+        cp1y = Math.min(cp1y, p2[1]);
+        cp1y = Math.max(cp1y, p1[1]);
+        cp2y = Math.min(cp2y, p2[1]);
+        cp2y = Math.max(cp2y, p1[1]);
+      } else {
+        cp1y = Math.max(cp1y, p2[1]);
+        cp1y = Math.min(cp1y, p1[1]);
+        cp2y = Math.max(cp2y, p2[1]);
+        cp2y = Math.min(cp2y, p1[1]);
+      }
+      d += ` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+    }
+    return d;
+  };
+
+  const toArea = (data, colorStop) =>
+    `${catmullRomPath(data)} L${xOf(data.length - 1).toFixed(1)},${(padT + chartH).toFixed(1)} L${padL},${(padT + chartH).toFixed(1)} Z`;
+
+  const handleMouseEnter = (i) => {
+    setActiveIdx(i);
+    setTooltip({ x: xOf(i), y: padT, month: months[i], val2026: data2026[i], val2025: data2025[i], idx: i });
+  };
+  const handleMouseLeave = () => {
+    setActiveIdx(null);
+    setTooltip(null);
+  };
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full h-auto"
+      style={{ minHeight: 150 }}
+      onMouseLeave={handleMouseLeave}
+    >
+      <defs>
+        <linearGradient id="grad2026" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#39ff7e" stopOpacity="0.55" />
+          <stop offset="60%" stopColor="#39ff7e" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#39ff7e" stopOpacity="0.02" />
+        </linearGradient>
+        <linearGradient id="grad2025" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#b794f4" stopOpacity="0.40" />
+          <stop offset="60%" stopColor="#b794f4" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#b794f4" stopOpacity="0.02" />
+        </linearGradient>
+        <filter id="glowGreen" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="glowPurple" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="glowActive" x="-150%" y="-150%" width="400%" height="400%">
+          <feGaussianBlur stdDeviation="7" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="tooltipBlur" x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur stdDeviation="8" result="blur" />
+          <feColorMatrix type="matrix"
+            values="1 0 0 0 0.05
+                    0 1 0 0 0.05
+                    0 0 1 0 0.08
+                    0 0 0 18 -7"
+            result="glass"
+          />
+          <feBlend in="SourceGraphic" in2="glass" mode="normal" />
+        </filter>
+      </defs>
+
+      {yLabels.map((v) => (
+        <line
+          key={v}
+          x1={padL} y1={yOf(v).toFixed(1)}
+          x2={padL + chartW} y2={yOf(v).toFixed(1)}
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="1"
+          strokeDasharray="4 6"
+        />
+      ))}
+
+      {yLabels.map((v) => (
+        <text
+          key={v}
+          x={padL - 8} y={yOf(v) + 4}
+          textAnchor="end"
+          fontSize="9.5"
+          fill="rgba(255,255,255,0.30)"
+          fontFamily="inherit"
+        >
+          ₹{v.toLocaleString('en-IN')}
+        </text>
+      ))}
+
+      {months.map((m, i) => (
+        <text
+          key={m}
+          x={xOf(i)} y={padT + chartH + 22}
+          textAnchor="middle"
+          fontSize="10"
+          fill={activeIdx === i ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.35)'}
+          fontFamily="inherit"
+          style={{ transition: 'fill 150ms ease' }}
+        >
+          {m}
+        </text>
+      ))}
+
+      <path d={toArea(data2025)} fill="url(#grad2025)" />
+      <path d={toArea(data2026)} fill="url(#grad2026)" />
+
+      <path
+        d={catmullRomPath(data2025)}
+        fill="none"
+        stroke="#b794f4"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        filter="url(#glowPurple)"
+        opacity="0.90"
+      />
+      <path
+        d={catmullRomPath(data2026)}
+        fill="none"
+        stroke="#39ff7e"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        filter="url(#glowGreen)"
+      />
+
+      {data2025.map((v, i) =>
+        activeIdx !== i ? (
+          <g key={i} filter="url(#glowPurple)">
+            <circle cx={xOf(i)} cy={yOf(v)} r="3" fill="#b794f4" stroke="#0d0d14" strokeWidth="1.5" />
+          </g>
+        ) : null
+      )}
+
+      {data2026.map((v, i) =>
+        activeIdx !== i ? (
+          <g key={i} filter="url(#glowGreen)">
+            <circle cx={xOf(i)} cy={yOf(v)} r="3" fill="#39ff7e" stroke="#0d0d14" strokeWidth="1.5" />
+          </g>
+        ) : null
+      )}
+
+      {activeIdx !== null && (
+        <>
+          <circle
+            cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])}
+            r="12" fill="rgba(183,148,244,0.12)" stroke="none"
+          />
+          <circle
+            cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])}
+            r="12" fill="rgba(57,255,126,0.12)" stroke="none"
+          />
+          <g filter="url(#glowActive)">
+            <circle
+              cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])}
+              r="5" fill="#b794f4" stroke="#0d0d14" strokeWidth="2"
+            />
+          </g>
+          <g filter="url(#glowActive)">
+            <circle
+              cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])}
+              r="5" fill="#39ff7e" stroke="#0d0d14" strokeWidth="2"
+            />
+          </g>
+          <circle
+            cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])}
+            r="11" fill="none" stroke="#39ff7e" strokeWidth="1.5" opacity="0.35"
+          />
+          <circle
+            cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])}
+            r="11" fill="none" stroke="#b794f4" strokeWidth="1.5" opacity="0.30"
+          />
+        </>
+      )}
+
+      {data2026.map((v, i) => (
+        <circle
+          key={`hit2026-${i}`}
+          cx={xOf(i)} cy={yOf(v)}
+          r="18"
+          fill="transparent"
+          style={{ cursor: 'crosshair' }}
+          onMouseEnter={() => {
+            setActiveIdx(i);
+            setTooltip({ x: xOf(i), y: yOf(v), val: data2026[i], color: '#39ff7e', label: '2026' });
+          }}
+        />
+      ))}
+      {data2025.map((v, i) => (
+        <circle
+          key={`hit2025-${i}`}
+          cx={xOf(i)} cy={yOf(v)}
+          r="18"
+          fill="transparent"
+          style={{ cursor: 'crosshair' }}
+          onMouseEnter={() => {
+            setActiveIdx(i);
+            setTooltip({ x: xOf(i), y: yOf(v), val: data2025[i], color: '#b794f4', label: '2025' });
+          }}
+        />
+      ))}
+
+      {tooltip && (() => {
+        const tw = 128, th = 52;
+        const tx = Math.min(Math.max(tooltip.x - tw / 2, 4), W - tw - 4);
+        const ty = tooltip.y - th - 10 < padT
+          ? tooltip.y + 10
+          : tooltip.y - th - 10;
+
+        return (
+          <g className="chart-tooltip-group" style={{ pointerEvents: 'none' }}>
+            <line
+              x1={tooltip.x} y1={padT}
+              x2={tooltip.x} y2={padT + chartH}
+              stroke="rgba(255,255,255,0.08)"
+              strokeWidth="1"
+              strokeDasharray="3 4"
+            />
+            <rect
+              x={tx - 2} y={ty - 2}
+              width={tw + 4} height={th + 4}
+              rx={11}
+              fill="rgba(255,255,255,0.03)"
+              filter="url(#tooltipBlur)"
+            />
+            <rect
+              x={tx} y={ty}
+              width={tw} height={th}
+              rx={9}
+              fill="rgba(12,12,20,0.82)"
+            />
+            <rect
+              x={tx + 1} y={ty + 1}
+              width={tw - 2} height={th / 2}
+              rx={8}
+              fill="rgba(255,255,255,0.04)"
+            />
+            <rect
+              x={tx} y={ty}
+              width={tw} height={th}
+              rx={9}
+              fill="none"
+              stroke="rgba(255,255,255,0.12)"
+              strokeWidth="0.8"
+            />
+            <text
+              x={tx + 12} y={ty + 18}
+              fontSize="11"
+              fontWeight="700"
+              fill="rgb(255, 255, 255)"
+              fontFamily="inherit"
+            >
+              {months[activeIdx]}
+            </text>
+            <line
+              x1={tx + 12} y1={ty + 24}
+              x2={tx + tw - 12} y2={ty + 24}
+              stroke="rgba(255,255,255,0.07)"
+              strokeWidth="0.8"
+            />
+            <circle cx={tx + 18} cy={ty + 38} r="3.5" fill={tooltip.color} />
+            <text
+              x={tx + 26} y={ty + 42}
+              fontSize="11"
+              fontWeight="600"
+              fill="rgba(255,255,255,0.88)"
+              fontFamily="inherit"
+            >
+              {tooltip.label}: ₹{(tooltip.val / 1000).toFixed(0)}k
+            </text>
+          </g>
+        );
+      })()}
+    </svg>
+  );
+}
+
+// Recent Activity Card 
+const ACTIVITIES = [
+  { label: 'New lead from Website', time: '2m ago' },
+  { label: 'Email campaign opened', time: '15m ago' },
+  { label: 'Automation "Welcome Flow" ran', time: '1h ago' },
+  { label: 'Lead converted', time: '3h ago' },
+  { label: 'Customer replied to proposal', time: '4h ago' },
+  { label: 'Meeting scheduled with client', time: '4h ago' },
 ];
 
-const AI_INSIGHTS = [
-  { text: '3 leads from LinkedIn show high engagement today.' },
-  { text: 'WhatsApp messages sent between 2–4 PM convert 15% better.' },
+function RecentActivityCard() {
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [popupPos, setPopupPos] = useState({ top: 0 });
+  const itemRefs = useRef([]);
+
+  const handleMouseEnter = (i) => {
+  const el = itemRefs.current[i];
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const sectionRect = el.closest('section').getBoundingClientRect();
+  setPopupPos({
+    top: rect.top + rect.height / 2,
+    right: window.innerWidth - sectionRect.right + sectionRect.width + 12,
+    left: sectionRect.right + 12,
+  });
+  setHoveredIdx(i);
+};
+
+  const handleMouseLeave = () => {
+    setHoveredIdx(null);
+  };
+
+  const activity = hoveredIdx !== null ? ACTIVITIES[hoveredIdx] : null;
+
+  return (
+    <section
+      className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative"
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10 flex-shrink-0">
+        <h2 className="text-base font-semibold text-white/90">Recent Activity</h2>
+        <button className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
+          View all
+        </button>
+      </div>
+
+      <div className="px-6 pb-3 pt-1 flex flex-col justify-between flex-1 recent-activity-list">
+        {ACTIVITIES.map((a, i) => (
+          <div
+            key={i}
+            ref={(el) => (itemRefs.current[i] = el)}
+            onMouseEnter={() => handleMouseEnter(i)}
+            className="activity-item flex items-center gap-3 py-[10px] border-b border-white/[0.04] last:border-0 cursor-default group"
+          >
+            <span
+              className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0"
+            />
+            <span
+              className="flex-1 text-sm text-white/70"
+            >
+              {a.label}
+            </span>
+            <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
+          </div>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {hoveredIdx !== null && activity && (
+          <motion.div
+            key={hoveredIdx}
+            initial={{ opacity: 0, x: 12, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 8, scale: 0.95 }}
+            transition={{ duration: 0.18, ease: [0.34, 1.2, 0.64, 1] }}
+            className="fixed w-52 z-[9999] pointer-events-none"
+            style={{
+              top: popupPos.top - 36,
+              left: popupPos.left,
+            }}
+          >
+            <div className="absolute left-[-6px] top-[30px] w-3 h-3 rotate-45 rounded-sm bg-[#1a1a2e] border-l border-b border-white/10" />
+            <div className="rounded-xl border border-white/10 bg-[#1a1a2e]/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(139,92,246,0.08)] px-4 py-3">
+              <div className="w-8 h-[2px] rounded-full bg-gradient-to-r from-purple-400 to-indigo-400 mb-3" />
+              <p className="text-[13px] font-medium text-white/90 leading-snug mb-2">
+                {activity.label}
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-[0_0_6px_#a78bfa]" />
+                <span className="text-[11px] text-zinc-400">{activity.time}</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+// ─── Quick Actions Card ────────────────────────────────────────────────
+const QUICK_ACTIONS = [
+  {
+    title: 'New workflow',
+    desc: 'Create automation and streamline your process',
+    iconGradient: 'from-violet-500 via-purple-600 to-indigo-600',
+    iconShadow: '0 4px 16px rgba(139,92,246,0.5)',
+    cardClass: 'qa-card-workflow',
+    borderColor: 'rgba(139,92,246,0.15)',
+    bgBase: 'rgba(139,92,246,0.06)',
+    icon: Zap,
+  },
+  {
+    title: 'Broadcast',
+    desc: 'Send announcements to your audience',
+    iconGradient: 'from-sky-400 via-blue-500 to-cyan-500',
+    iconShadow: '0 4px 16px rgba(56,189,248,0.5)',
+    cardClass: 'qa-card-broadcast',
+    borderColor: 'rgba(56,189,248,0.15)',
+    bgBase: 'rgba(56,189,248,0.05)',
+    icon: Radio,
+  },
+  {
+    title: 'Add Lead',
+    desc: 'Add a new lead to your pipeline',
+    iconGradient: 'from-emerald-400 via-green-500 to-teal-600',
+    iconShadow: '0 4px 16px rgba(52,211,153,0.5)',
+    cardClass: 'qa-card-lead',
+    borderColor: 'rgba(52,211,153,0.15)',
+    bgBase: 'rgba(52,211,153,0.05)',
+    icon: UserPlus,
+  },
+  {
+    title: 'Connect Channel',
+    desc: 'Connect channel with other tools and apps',
+    iconGradient: 'from-orange-400 via-orange-500 to-amber-500',
+    iconShadow: '0 4px 16px rgba(251,146,60,0.5)',
+    cardClass: 'qa-card-connect',
+    borderColor: 'rgba(251,146,60,0.15)',
+    bgBase: 'rgba(251,146,60,0.05)',
+    icon: Link2,
+  },
 ];
 
+function QuickActionsCard() {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
+      <div className="px-6 pt-6 pb-2">
+        <h2 className="text-base font-semibold text-white/90">Quick Actions</h2>
+        <p className="text-xs text-white/70 mt-1">Perform important task in one click</p>
+      </div>
+      <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {QUICK_ACTIONS.map((action, i) => {
+          const Icon = action.icon;
+          return (
+            <div
+              key={i}
+              className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-5 cursor-pointer overflow-hidden`}
+              style={{
+                borderColor: action.borderColor,
+                background: action.bgBase,
+              }}
+            >
+              <div
+                className={`w-11 h-11 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center mb-4 flex-shrink-0`}
+                style={{ boxShadow: action.iconShadow }}
+              >
+                <Icon size={20} className="text-white" />
+              </div>
+              <div className="relative z-10 flex flex-col flex-1">
+                <h3 className="text-sm font-semibold text-white/90 mb-1">{action.title}</h3>
+                <p className="text-xs text-zinc-500 leading-relaxed flex-1">{action.desc}</p>
+                <div className="flex justify-end mt-4">
+                  <button
+                    className="qa-arrow-btn w-8 h-8 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center"
+                  >
+                    <ArrowUpRight size={14} className="text-white/60" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ─── AI Insights Card ─────────────────────────────────────────────────
+const AI_INSIGHT_ITEMS = [
+  {
+    icon: Mail,
+    title: 'Improve Email open rate',
+    subtitle: 'Your email open rate is 12% lower than last week.',
+    iconBg: 'bg-indigo-500/10',
+    iconColor: 'text-indigo-400',
+  },
+  {
+    icon: Flame,
+    title: 'Hot leads Detected',
+    subtitle: '24 leads are showing high engagement.',
+    iconBg: 'bg-orange-500/10',
+    iconColor: 'text-orange-400',
+  },
+  {
+    icon: Bot,
+    title: 'Automation Opportunity',
+    subtitle: 'You can automate follow-ups for inactive leads.',
+    iconBg: 'bg-emerald-500/10',
+    iconColor: 'text-emerald-400',
+  },
+];
+
+function AIInsightsCard() {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
+      <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10">
+        <h2 className="text-base font-semibold text-white/90">AI Insights</h2>
+        <button className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
+          View all
+        </button>
+      </div>
+      <div className="flex-1 px-5 py-4 space-y-3">
+        {AI_INSIGHT_ITEMS.map((item, i) => {
+          const Icon = item.icon;
+          return (
+            <div
+              key={i}
+              className="ai-insight-item flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015] cursor-pointer group"
+            >
+              <div className={`w-10 h-10 rounded-xl ${item.iconBg} flex items-center justify-center flex-shrink-0`}>
+                <Icon size={18} className={item.iconColor} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white/85 leading-tight">{item.title}</p>
+                <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{item.subtitle}</p>
+              </div>
+              <ArrowRight size={15} className="text-zinc-600 group-hover:text-purple-400 transition-colors flex-shrink-0" />
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ─── Main Dashboard ────────────────────────────────────────────────────
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
 
-
-useEffect(() => {
-
-  console.log("📊 DASHBOARD LOADED")
-
-  const token = sessionStorage.getItem("token")
-
-  console.log("Stored token:", token)
-
-  if (!token) {
-    console.log("⚠️ No token found")
+  useEffect(() => {
+    console.log("📊 DASHBOARD LOADED")
+    const token = localStorage.getItem("token")
+    console.log("Stored token:", token)
+    if (!token) {
+      console.log("⚠️ No token found")
+      setMounted(true)
+      return
+    }
+    const payload = decodeJwt(token)
+    console.log("TOKEN WORKSPACE:", payload.workspace_id)
+    console.log("LOCALSTORAGE WORKSPACE:", localStorage.getItem("workspace"))
+    console.log("LOCALSTORAGE WORKSPACE_ID:", localStorage.getItem("workspace_id"))
+    console.log("Decoded token payload:", payload)
+    console.log("Workspace ID from token:", payload?.workspace_id)
+    console.log("Impersonated:", payload?.impersonated)
+    if (payload?.impersonated) {
+      console.log("🟡 ADMIN IMPERSONATION MODE")
+      setIsImpersonated(true)
+    }
     setMounted(true)
-    return
-  }
+  }, [])
 
-  const payload = decodeJwt(token)
+  if (!mounted) return null;
 
-  console.log("TOKEN WORKSPACE:", payload.workspace_id)
-
-  console.log("SESSIONSTORAGE WORKSPACE:", sessionStorage.getItem("workspace"))
-  console.log("SESSIONSTORAGE WORKSPACE_ID:", sessionStorage.getItem("workspace_id"))
-
-  console.log("Decoded token payload:", payload)
-
-  console.log("Workspace ID from token:", payload?.workspace_id)
-
-  console.log("Impersonated:", payload?.impersonated)
-
-  if (payload?.impersonated) {
-    console.log("🟡 ADMIN IMPERSONATION MODE")
-    setIsImpersonated(true)
-  }
-
-  setMounted(true)
-
-}, [])
-if (!mounted) return null;
   return (
-    <div className="min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar">
+    <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
       <SecretLoginBanner />
+      {isImpersonated && (
+        <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl mb-6 px-6 py-2.5 text-amber-400 text-sm font-semibold">
+          <ShieldAlert size={15} />
+          Admin Viewing Mode — you are viewing this dashboard as the user.
+          <button
+            onClick={exitImpersonation}
+            className="ml-4 px-3 py-1 rounded bg-amber-600/10 text-amber-300 text-xs hover:bg-amber-600/20 transition-colors"
+          >
+            Exit impersonation
+          </button>
+        </div>
+      )}
       <div className="max-w-[1600px] mx-auto space-y-8">
-        {/* HEADER */}
+
+        {/* HEADER — unchanged */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
-            <p className="text-sm text-zinc-500">Good morning! Here are your key actions for today.</p>
+            <p className="text-m text-white/90 lg:mt-2">Good morning! Here are your key actions for today.</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
@@ -158,152 +1020,45 @@ if (!mounted) return null;
           </div>
         </header>
 
-        {/* METRICS GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {METRICS.map((metric, i) => (
-            <motion.div
-              key={metric.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="relative group rounded-2xl p-5 border border-white/5 bg-[#0f0f15]/50 hover:border-white/10 transition-all cursor-default overflow-hidden"
-            >
-              <div className={`absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r ${metric.gradient} opacity-50`} />
-              <div className="flex justify-between items-start mb-4">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">{metric.label}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  metric.trend === 'up' ? 'text-emerald-400 bg-emerald-400/10' : 
-                  metric.trend === 'down' ? 'text-rose-400 bg-rose-400/10' : 
-                  'text-zinc-400 bg-white/5'
-                }`}>
-                  {metric.change}
-                </span>
+        {/* METRICS GRID — unchanged */}
+        <BentoMetricsGrid metrics={METRICS} />
+
+        {/* ROW 1: Monthly Revenue + Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 overflow-visible">
+          {/* Monthly Revenue — 2/3 */}
+          <section className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden">
+            <div className="px-6 pt-6 pb-2">
+              <h2 className="text-base font-semibold text-white/90">Monthly Revenue</h2>
+              <p className="text-xs text-white/70 mt-1">This year vs last year (USD)</p>
+            </div>
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-5 px-6 pt-3 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
+                <span className="text-xs text-white/60">2026</span>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{metric.value}</span>
-                <span className="text-[10px] text-zinc-600 font-medium">{metric.subtext}</span>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
+                <span className="text-xs text-white/60">2025</span>
               </div>
-            </motion.div>
-          ))}
+            </div>
+            <div className="px-4 pb-5">
+              <MonthlyRevenueChart />
+            </div>
+          </section>
+
+          {/* Recent Activity — 1/3 */}
+          <RecentActivityCard />
         </div>
 
-        {/* MAIN GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-          
-          {/* LEFT COLUMN: ACTION CENTER & AI INSIGHTS */}
-          <div className="xl:col-span-2 space-y-8">
-            
-            {/* UNIFIED ACTION CENTER */}
-            <section className="relative rounded-2xl overflow-hidden border border-white/5 bg-[#0f0f15]/50 backdrop-blur-xl">
-              <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white/90">Unified Action Center</h2>
-                <button className="text-xs text-zinc-500 hover:text-indigo-400 transition-colors">Settings</button>
-              </div>
-              <div className="p-4 space-y-3">
-                {[
-                  { id: 1, title: 'Respond to Client Inquiry (Emma R.)', type: 'Email', priority: 'High', color: 'text-emerald-400 bg-emerald-400/10' },
-                  { id: 2, title: 'Review Q4 Sales Forecast', type: 'AI Analysis', priority: 'Due Today', color: 'text-zinc-400 bg-white/5' },
-                  { id: 3, title: "Draft follow-up email for 'Apex Dynamics'", type: 'AI Generated', priority: 'Action needed', color: 'text-zinc-400 bg-white/5' },
-                ].map((item) => (
-                  <div key={item.id} className="group flex items-center gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all cursor-pointer">
-                    <div className="w-5 h-5 rounded border border-white/20 flex items-center justify-center group-hover:border-indigo-500/50 transition-colors">
-                      {item.id === 1 && <CheckCircle2 size={12} className="text-indigo-500" />}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-white/80">{item.title}</h4>
-                      <p className="text-xs text-zinc-500 mt-0.5">{item.type}</p>
-                    </div>
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium ${item.color}`}>
-                      {item.priority}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* AI INSIGHTS */}
-            <section className="relative rounded-2xl p-8 overflow-hidden border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 blur-[100px] -mr-32 -mt-32" />
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 blur-[100px] -ml-32 -mb-32" />
-              
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 text-indigo-400 mb-6 font-semibold tracking-wide uppercase text-[10px]">
-                  <Sparkles size={14} />
-                  AI Insights
-                </div>
-                
-                <h3 className="text-xl font-medium text-white/90 mb-8 max-w-md leading-relaxed">
-                  Good morning, {getUser()?.name || 'User'}!<br />
-                  Here are your key actions for today.
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
-                    <p className="text-xs font-semibold text-indigo-400 mb-2 uppercase tracking-widest">AI Recommendation</p>
-                    <p className="text-sm text-zinc-300 leading-relaxed group-hover:text-white transition-colors line-clamp-3">
-                      Personalize follow-up email for Apex Dynamics based on recent interaction (High Conversion probability).
-                    </p>
-                    <div className="mt-4 flex items-center gap-2">
-                       <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full font-medium">High Conversion probability</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
-                      <p className="text-xs font-semibold text-zinc-400 mb-1">Lead Score Update</p>
-                      <p className="text-sm text-white/80">5 New High-intent Leads identified via LinkedIn</p>
-                    </div>
-                    <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
-                      <p className="text-xs font-semibold text-zinc-400 mb-1">Content Summary</p>
-                      <p className="text-sm text-white/80">Customer feedback highlights positive reception to new feature.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
+        {/* ROW 2: Quick Actions + AI Insights */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+          <div className="lg:col-span-2 h-full">
+            <QuickActionsCard />
           </div>
-
-          {/* RIGHT COLUMN: PERFORMANCE OVERVIEW */}
-          <div className="space-y-8">
-            {[
-              { label: 'Performance Overview', sub: 'Growth Metrics (This Week)', change: '+14.5%' },
-              { label: 'Engagement Analytics', sub: 'Interaction Trends (This Week)', change: '+8.2%' },
-            ].map((chart, i) => (
-              <section key={i} className="rounded-2xl border border-white/5 bg-[#0f0f15]/50 overflow-hidden">
-                <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-white/90">{chart.label}</h2>
-                    <p className="text-[10px] text-zinc-500 mt-1">{chart.sub}</p>
-                  </div>
-                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">{chart.change}</span>
-                </div>
-                <div className="p-6">
-                  <div className="flex items-end gap-2 h-[120px] mb-4">
-                    {[40, 60, 45, 90, 55, 75, 85].map((v, idx) => (
-                      <div key={idx} className="flex-1 relative group">
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: `${v}%` }}
-                          transition={{ delay: idx * 0.1 }}
-                          className={`w-full rounded-t-sm transition-all ${idx === (i === 0 ? 3 : 5) ? 'bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 hover:bg-white/10'}`}
-                        />
-                        {idx === (i === 0 ? 3 : 5) && (
-                           <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full mb-1 text-[8px] font-bold text-indigo-400 px-1 py-0.5 bg-indigo-500/20 rounded">
-                             +14.5%
-                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-[8px] text-zinc-600 font-medium uppercase tracking-widest px-1">
-                    <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
-                  </div>
-                </div>
-              </section>
-            ))}
-          </div>
-
+          <AIInsightsCard />
         </div>
+
       </div>
     </div>
   );
@@ -324,12 +1079,12 @@ function decodeJwt(token) {
     return null
   }
 }
+
 const exitImpersonation = () => {
-    const ok = restoreAdminToken();
-    if (!ok) {
-      alert("No admin backup token found. Please log in again as admin.");
-      return;
-    }
-    // reload so UI uses admin token again
-    window.location.reload();
-  };
+  const ok = restoreAdminToken();
+  if (!ok) {
+    alert("No admin backup token found. Please log in again as admin.");
+    return;
+  }
+  window.location.reload();
+};

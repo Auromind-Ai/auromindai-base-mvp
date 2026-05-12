@@ -3,7 +3,10 @@ import re
 
 from app.utils.evaluation import token_match_percentage
 from app.services.agentic_rag.learning_cache import learning_cache
-from app.services.agentic_rag.llm_wrapper_layer import safe_llm_call
+from app.services.llm_utils import safe_llm_call
+
+
+logger = logging.getLogger(__name__)
 
 class orchestratorsupport:
     
@@ -11,7 +14,7 @@ class orchestratorsupport:
         pass
 
     #Combine multiple retrieved chunks into a structured
-    async def synthesize_information(self, query, context):
+    async def synthesize_information(self, query, context, model="auto"):
 
         prompt = f"""
         You are a STRICT legal clause extraction engine.
@@ -65,11 +68,11 @@ class orchestratorsupport:
 
         Extracted Clauses:
         """
-        synthesized = await safe_llm_call(prompt)
+        synthesized = await  safe_llm_call(prompt, model=model)
 
         return synthesized["content"].strip()
     
-    async def generate_final_output(self, query, synthesized_info):
+    async def generate_final_output(self, query, synthesized_info, model="auto"):
 
         good_queries = []
 
@@ -131,7 +134,7 @@ class orchestratorsupport:
         """
 
         try:
-            result = await safe_llm_call(prompt)
+            result = await  safe_llm_call(prompt, model=model)
 
             content = result["content"] if isinstance(result, dict) else result
             if not content or not content.strip():
@@ -139,7 +142,7 @@ class orchestratorsupport:
                 logging.warning("Empty LLM response")
                 return "Information not available in provided documents."
 
-            logging.info("LLM response generated successfully")
+            logger.info("LLM response generated successfully")
             
             cleaned_answer = self.hallucination_guard(content.strip(), synthesized_info)
             formatted_answer = self.format_for_chatgpt_style(cleaned_answer)
@@ -147,21 +150,21 @@ class orchestratorsupport:
 
             accuracy = token_match_percentage(cleaned_answer, synthesized_info)
 
-            logging.info("Answer Accuracy: %s %%", accuracy)
-            logging.info(f"Verified Info Length: {len(synthesized_info.splitlines())}")
-            logging.info("FINAL ANSWER RAW:")
-            logging.info(repr(cleaned_answer))
-            logging.info("FINAL ANSWER FORMATTED:")
-            logging.info(formatted_answer)
+            logger.info("Answer Accuracy: %s %%", accuracy)
+            logger.info(f"Verified Info Length: {len(synthesized_info.splitlines())}")
+            logger.info("FINAL ANSWER RAW:")
+            logger.info(repr(cleaned_answer))
+            logger.info("FINAL ANSWER FORMATTED:")
+            logger.info(formatted_answer)
 
-            return await self.add_followup(query, formatted_answer)
+            return await self.add_followup(query, formatted_answer, model=model)
 
         except Exception as e:
                 logging.exception("Error generating final output")
                 return "System error while generating answer."
         
 
-    async def add_followup(self, query, answer):
+    async def add_followup(self, query, answer, model="auto"):
 
         prompt = f"""
         You are a helpful assistant.
@@ -187,7 +190,7 @@ class orchestratorsupport:
         Follow-up question:
         """
 
-        followup = await safe_llm_call(prompt)
+        followup = await  safe_llm_call(prompt, model=model)
 
         return f"{answer}\n\nFollow-up question:\n{followup['content']}"
     

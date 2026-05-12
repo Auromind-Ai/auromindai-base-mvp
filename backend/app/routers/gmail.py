@@ -9,8 +9,8 @@ from googleapiclient.discovery import build
 import base64
 from email.mime.text import MIMEText
 from google.auth.transport.requests import Request
-import os
 from app.core.security import verify_workspace_access
+from app.core.config import settings
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -30,8 +30,8 @@ def get_gmail_service(workspace_id: str, db: Session):
         token=integration.access_token,
         refresh_token=integration.refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.getenv("GOOGLE_CLIENT_ID"),
-        client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+        client_id=settings.GOOGLE_CLIENT_ID,
+        client_secret=settings.GOOGLE_CLIENT_SECRET,
     )
 
     try:
