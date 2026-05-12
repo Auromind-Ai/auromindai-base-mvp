@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.services.ai_response_service import AIResponseService
-from app.services.inbox_agents.twilio_service import TwilioService
+from app.services.twilio_service import TwilioService
 from app.services.email_service import EmailService
 from app.services.platform_settings_service import get_setting
 
@@ -115,7 +115,7 @@ class AfterHoursResponder:
         self.twilio_service = TwilioService()
         self.email_service = EmailService()
 
-    async def handle_request(self, message: str, from_number: str, lead_context: Dict[str, Any], db: Session):
+    async def handle_request(self, message: str, from_number: str, lead_context: Dict[str, Any], db: Session, workspace_id: str = None):
         """
         Main handler for after-hours messages.
         """
@@ -135,7 +135,10 @@ class AfterHoursResponder:
             response_text = self._get_template_response(category, lead_context)
 
         # 3. Send WhatsApp Response
-        self.twilio_service.send_whatsapp_message(from_number, response_text)
+        if workspace_id:
+            self.twilio_service.send_whatsapp_message(workspace_id, from_number, response_text)
+        else:
+            logger.error("AfterHoursResponder: workspace_id missing — cannot send WhatsApp message")
         
         return {
             "status": "auto_responded",

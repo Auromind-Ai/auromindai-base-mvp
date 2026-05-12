@@ -1,0 +1,174 @@
+from sqlalchemy.orm import Session
+from app.models.integration import Integration
+from app.services.platform_settings_service import get_setting
+from app.core.config import settings
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from datetime import datetime
+from app.services.email_automation.email_monitor_service import EmailMonitor
+import json
+
+GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
+REDIRECT_URI = settings.OAUTH_REDIRECT_URI
+
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "openid"
+]
+
+SCOPES = {
+    "calendar": GOOGLE_SCOPES,
+    "gmail": GOOGLE_SCOPES
+}
+
+class IntegrationService:
+    @staticmethod
+    def get_google_oauth_url(db: Session, workspace_id: str, integration_type: str):
+        if integration_type not in ["calendar", "gmail"]:
+            raise ValueError("Invalid integration type")
+
+        integration_flags = {
+            "gmail": get_setting(db, "enable_gmail_integration", True),
+            "calendar": get_setting(db, "enable_calendar_integration", True)
+        }
+
+        if not integration_flags.get(integration_type, True):
+            raise PermissionError(f"{integration_type.capitalize()} integration disabled by admin")
+
+        if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+            raise RuntimeError("Google OAuth not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env")
+        
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [REDIRECT_URI]
+                }
+            },
+            scopes=SCOPES[integration_type],
+            autogenerate_code_verifier=False
+        )
+        
+        flow.redirect_uri = REDIRECT_URI
+        
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent',
+            state=f"{integration_type}:{workspace_id}"
+        )
+        
+        return authorization_url
+
+    @staticmethod
+    def handle_google_oauth_callback(db: Session, code: str, state: str):
+        integration_type, workspace_id = state.split(":")
+        
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [REDIRECT_URI]
+                }
+            },
+            scopes=SCOPES[integration_type]
+        )
+        flow.redirect_uri = REDIRECT_URI
+        flow.fetch_token(code=code)
+        
+        credentials = flow.credentials
+        
+        if integration_type == "calendar":
+            service = build('calendar', 'v3', credentials=credentials)
+            profile = service.calendarList().get(calendarId='primary').execute()
+            email = profile.get('id')
+        else:
+            service = build('gmail', 'v1', credentials=credentials)
+            profile = service.users().getProfile(userId='me').execute()
+            email = profile.get('emailAddress')
+        
+        existing = db.query(Integration).filter(
+            Integration.workspace_id == workspace_id,
+            Integration.integration_type == f"google_{integration_type}"
+        ).first()
+        
+        if existing:
+            existing.access_token = credentials.token
+            existing.refresh_token = credentials.refresh_token
+            existing.token_expiry = credentials.expiry
+            existing.connected_email = email
+            existing.is_active = True
+            existing.updated_at = datetime.utcnow()
+        else:
+            integration = Integration(
+                workspace_id=workspace_id,
+                integration_type=f"google_{integration_type}",
+                access_token=credentials.token,
+                refresh_token=credentials.refresh_token,
+                token_expiry=credentials.expiry,
+                connected_email=email,
+                is_active=True
+            )
+            db.add(integration)
+        
+        db.commit()
+        
+        if integration_type == "gmail":
+            monitor = EmailMonitor()
+            monitor.run_cycle(db)
+        
+        return integration_type
+
+    @staticmethod
+    def get_integration_status(db: Session, workspace_id: str):
+        integrations = db.query(Integration).filter(
+            Integration.workspace_id == workspace_id
+        ).all()
+        
+        status = {
+            "calendar": {"connected": False, "email": None},
+            "gmail": {"connected": False, "email": None},
+            "zoho": {"connected": False, "account": None}
+        }
+        
+        for integration in integrations:
+            if integration.integration_type == "google_calendar":
+                status["calendar"] = {
+                    "connected": integration.is_active,
+                    "email": integration.connected_email
+                }
+            elif integration.integration_type == "google_gmail":
+                status["gmail"] = {
+                    "connected": integration.is_active,
+                    "email": integration.connected_email
+                }
+            elif integration.integration_type == "zoho_crm":
+                status["zoho"] = {
+                    "connected": integration.is_active,
+                    "account": integration.connected_account_id
+                }
+        
+        return status
+
+    @staticmethod
+    def disconnect_integration(db: Session, workspace_id: str, integration_type: str):
+        integration = db.query(Integration).filter(
+            Integration.workspace_id == workspace_id,
+            Integration.integration_type == integration_type
+        ).first()
+        
+        if integration:
+            db.delete(integration)
+            db.commit()
+            return True
+        return False

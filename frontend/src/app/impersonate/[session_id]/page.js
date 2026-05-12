@@ -4,8 +4,6 @@ import { useEffect } from "react"
 import { useParams } from "next/navigation"
 import { setToken, setUser, setWorkspace, backupAdminToken } from "@/lib/auth"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-
 export default function Page() {
 
   const params = useParams()
@@ -20,7 +18,7 @@ export default function Page() {
           throw new Error("No session ID found")
         }
 
-        const url = `${API_BASE}/admin/impersonate/session/${sessionId}`
+        const url = `/api/admin/impersonate/session/${sessionId}`
         console.log("Calling API:", url)
 
         const res = await fetch(url, { cache: "no-store" })
@@ -46,7 +44,7 @@ export default function Page() {
         // 2. Fetch Workspaces
         console.log("🔍 [DEBUG] Fetching workspaces...")
         try {
-          const wsRes = await fetch(`${API_BASE}/auth/workspaces`, {
+          const wsRes = await fetch(`/api/auth/workspaces`, {
             headers: { 'Authorization': `Bearer ${data.token}` }
           })
           

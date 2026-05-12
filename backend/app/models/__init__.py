@@ -17,7 +17,7 @@ from .ai_action import (
     Lead,
     SalesPipeline,
     SupportTicket,
-    Followup,
+    ChatFollowup,
     MCPRule,
     HumanEscalation
 )

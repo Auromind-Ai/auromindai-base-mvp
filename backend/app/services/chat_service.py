@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, AsyncGenerator, Tuple
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from tenacity import RetryError
 
 from app.core.exceptions import (
     BillingError,
@@ -29,14 +30,7 @@ class ChatServiceConfig(BaseModel):
 
 
 class ChatService:
-    """
-    Merged chat service:
-    - Workspace access validation
-    - Credit reservation / finalize / release
-    - Guardrails input/output protection
-    - RAG first, then LLM fallback
-    - Safe streaming with cleanup in finally
-    """
+    
 
     def __init__(self, config: ChatServiceConfig):
         self.config = config
@@ -110,11 +104,15 @@ class ChatService:
                 db=db,
                 workspace_id=workspace_id,
                 query=query,
-                model=model
+                model=model  
             )
             return answer
+        except RetryError as e:
+            cause = e.last_attempt.exception()
+            logger.error(f"RAG retrieval error (inner cause): {cause}", exc_info=cause)
+            raise RAGError(f"Failed to retrieve from knowledge base: {str(cause)}")
         except Exception as e:
-            logger.error(f"RAG retrieval error: {e}")
+            logger.error(f"RAG retrieval error: {e}", exc_info=True)
             raise RAGError(f"Failed to retrieve from knowledge base: {str(e)}")
 
     def _finalize_billing(
@@ -246,12 +244,7 @@ class ChatService:
         chat_mode: str = "auto",
         source: str = "internal",
     ) -> AsyncGenerator[str, None]:
-        """
-        Streaming chat with Safe Short-Lived DB Transactions:
-        1. Pre-stream (Reserve & Save User Msg) -> COMMIT & CLOSE DB
-        2. Stream (RAG & LLM) -> NO DB CONNECTION HELD
-        3. Post-stream (Finalize & Save AI Msg) -> NEW DB SESSION, COMMIT & CLOSE
-        """
+        
         reservation_id = None
         final_billing_reason = "no_response_generated"
         full_response = ""
@@ -328,15 +321,16 @@ class ChatService:
                                 query=safe_query,
                                 model=model,
                             ),
-                            timeout=15,
+                            timeout=60,
                         )
 
                     if answer_data:
+                        
                         result = answer_data if isinstance(answer_data, dict) else {
                             "answer": answer_data,
                             "meta": {"query": message, "rewritten_query": safe_query, "source": "fallback"}
                         }
-
+                        print(result)
                         safe_answer = await self.guardrails_service.secure_response(result["answer"])
                         full_response = safe_answer
                         rag_answered = True

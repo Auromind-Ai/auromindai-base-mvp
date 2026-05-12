@@ -15,9 +15,6 @@ const CHANNELS = [
     { id: 'twilio', label: 'Twilio', icon: Zap, color: '#F22F46' },
 ];
 
-// Same-origin proxy base — browser → /backend/* → Next.js → backend
-// This avoids CORS entirely. The backend routes start with /api/ so the
-// full request looks like: /backend/api/conversations → backend /api/conversations
 const PROXY_BASE = '/backend';
 
 function getHeaders() {
@@ -29,7 +26,7 @@ function getHeaders() {
     };
 }
 
-// ✅ Get display name based on channel
+//  Get display name based on channel
 function getDisplayName(lead, channelId) {
     if (channelId === 'instagram') {
         return lead.contact_name || lead.username || 'Instagram User';
@@ -37,7 +34,7 @@ function getDisplayName(lead, channelId) {
     return lead.phone || lead.contact_name || 'Unknown';
 }
 
-// ✅ Get avatar initials based on channel
+//  Get avatar initials based on channel
 function getAvatarText(lead, channelId) {
     if (channelId === 'instagram') {
         const name = lead.contact_name || lead.username || 'U';
@@ -88,7 +85,8 @@ export default function InboxPage() {
     const [showInfo, setShowInfo] = useState(false);
     const [showSidebar, setShowSidebar] = useState(true);
     const ref = useRef(null);
-
+    const [previewMedia, setPreviewMedia] = useState(null);
+    const messagesContainerRef = useRef(null);
     useEffect(() => {
         setLead(null);
         setMessages([]);
@@ -98,13 +96,22 @@ export default function InboxPage() {
 
     useEffect(() => {
         if (!lead) return;
-        const interval = setInterval(() => fetchMessages(lead.id), 2000);
+        const interval = setInterval(() => fetchMessages(lead.id), 5000);
         return () => clearInterval(interval);
     }, [lead]);
 
     useEffect(() => {
+    const container = messagesContainerRef.current;
+
+    if (!container) return;
+
+    const isNearBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+
+    if (isNearBottom) {
         ref.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }
+}, [messages]);
 
     async function fetchConversations() {
         try {
@@ -112,15 +119,14 @@ export default function InboxPage() {
                 `${PROXY_BASE}/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}`,
                 { headers: getHeaders() }
             );
-            
-            // Check response status
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error(`Conversation API error (${res.status}):`, errorText);
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error("Failed to parse conversations JSON. Raw response:", text);
                 return;
             }
-            
-            const data = await res.json();
             if (Array.isArray(data)) {
                 setConversations(data);
                 if (data.length > 0) {
@@ -136,15 +142,31 @@ export default function InboxPage() {
     async function fetchMessages(id) {
         try {
             const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
-            
-            if (!res.ok) {
-                const errorText = await res.text();
-                console.error(`Messages API error (${res.status}):`, errorText);
-                return;
-            }
-            
-            const data = await res.json();
-            setMessages(data);
+                    console.log('Status:', res.status, 'URL:', res.url); 
+               const text = await res.text();
+               let data;
+               try {
+                   data = JSON.parse(text);
+               } catch (err) {
+                   console.error("Failed to parse messages JSON. Raw response:", text);
+                   return;
+               }
+               console.log('Messages API response:', id, data?.length, data);
+               console.log('Messages API response:', data); // debug
+           setMessages(
+    data.filter((m) => {
+        const status = m.status?.toLowerCase();
+        const senderType = m.sender_type?.toLowerCase();
+        return (
+            status === 'sent' ||
+            status === 'delivered' ||
+            status === 'received' ||   
+            senderType === 'user' ||
+            senderType === 'agent' ||  
+            senderType === 'ai'       
+        );
+    })
+);
         } catch (e) {
             console.error('Message fetch error:', e);
         }
@@ -177,7 +199,14 @@ export default function InboxPage() {
                     message: messages[messages.length - 1]?.content || '',
                 }),
             });
-            const data = await res.json();
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error("Failed to parse AI suggestion JSON. Raw response:", text);
+                return;
+            }
             setAiSuggestion(data.suggestion);
         } catch (e) {
             console.error(e);
@@ -258,7 +287,7 @@ export default function InboxPage() {
                                             style={{ borderLeft: sel ? `3px solid ${ch.color}` : '3px solid transparent' }}
                                         >
                                             <div className="flex items-start gap-3">
-                                                {/* ✅ Avatar: profile pic for Instagram, initials for others */}
+                                                {/*  Avatar: profile pic for Instagram, initials for others */}
                                                 <div className="w-11 h-11 rounded-full overflow-hidden bg-[#222] flex items-center justify-center text-[14px] font-semibold shrink-0">
                                                     {isInstagram && l.profile_pic ? (
                                                         <ProfilePic
@@ -273,11 +302,11 @@ export default function InboxPage() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center justify-between mb-1">
-                                                        {/* ✅ Display name: username for Instagram, phone for WhatsApp/Twilio */}
+                                                        {/*  Display name: username for Instagram, phone for WhatsApp/Twilio */}
                                                         <span className="text-[13px] font-medium text-white truncate">{displayName}</span>
                                                         <span className="text-[11px] text-[#555] shrink-0 ml-2">Active</span>
                                                     </div>
-                                                    {/* ✅ Subtitle: show phone for Instagram too if available */}
+                                                    {/*  Subtitle: show phone for Instagram too if available */}
                                                     <p className="text-[12px] text-[#666] truncate leading-relaxed">
                                                         {isInstagram && l.phone ? l.phone : `Lead from ${ch.label}`}
                                                     </p>
@@ -312,7 +341,7 @@ export default function InboxPage() {
                                         </button>
                                     )}
 
-                                    {/* ✅ Header avatar: profile pic for Instagram, initials for others */}
+                                    {/*  Header avatar: profile pic for Instagram, initials for others */}
                                     <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-[14px] font-semibold shrink-0"
                                         style={{ backgroundColor: `${ch.color}18` }}>
                                         {isInstagram && lead.profile_pic ? (
@@ -328,14 +357,14 @@ export default function InboxPage() {
                                     </div>
 
                                     <div>
-                                        {/* ✅ Header title: username for Instagram, phone for others */}
+                                        {/*  Header title: username for Instagram, phone for others */}
                                         <h3 className="text-[14px] font-semibold text-white">
                                             {getDisplayName(lead, ch.id)}
                                         </h3>
                                         <p className="text-[12px] flex items-center gap-1.5" style={{ color: ch.color }}>
                                             <I size={12} strokeWidth={2} />
                                             {ch.label}
-                                            {/* ✅ Show phone as subtitle for Instagram */}
+                                            {/*  Show phone as subtitle for Instagram */}
                                             {isInstagram && lead.phone && (
                                                 <span className="text-[#666] ml-1">{lead.phone}</span>
                                             )}
@@ -359,7 +388,10 @@ export default function InboxPage() {
                             </div>
 
                             {/* Messages */}
-                            <div className="flex-1 overflow-y-auto p-6 relative">
+                           <div
+    ref={messagesContainerRef}
+    className="flex-1 overflow-y-auto p-6 relative"
+>
                                 <div
                                     className="absolute inset-0 opacity-[0.04] pointer-events-none"
                                     style={{
@@ -369,9 +401,9 @@ export default function InboxPage() {
                                 />
                                 <div className="max-w-3xl mx-auto space-y-3 relative z-10">
                                     {messages.map((m) => {
-                                        const isUser = m.sender_type === 'USER';
-                                        const isAI = m.sender_type === 'AI';
-                                        const isSuggested = m.status === 'SUGGESTED';
+                                       const isUser = m.sender_type?.toLowerCase() === 'user';
+                                        const isAI = m.sender_type?.toLowerCase() === 'ai';
+                                        const isSuggested = m.status?.toLowerCase() === 'suggested';
 
                                         return (
                                             <div key={m.id} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>
@@ -391,16 +423,118 @@ export default function InboxPage() {
                                                         className={`max-w-[75%] px-4 py-3 ${isUser ? 'rounded-[20px_20px_20px_6px]' : 'rounded-[20px_20px_6px_20px]'}`}
                                                         style={{ backgroundColor: isUser ? '#1c1c1c' : ch.color }}
                                                     >
-                                                        <p className="text-[13px] text-white leading-relaxed">{m.content}</p>
-                                                        <p className="text-[10px] text-white/50 mt-2">
-                                                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </p>
+                                                        {!isUser && m.content?.startsWith('[IMAGE]') ? (
+                                                            <>
+                                                                <img
+                                                                    src={m.content.replace('[IMAGE]', '').trim()}
+                                                                    alt="image"
+                                                                    className="max-w-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition"
+                                                                    onClick={() =>
+                                                                        setPreviewMedia({
+                                                                            type: 'image',
+                                                                            url: m.content.replace('[IMAGE]', '').trim()
+                                                                        })
+                                                                    }
+                                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                                />
+                                                                <p className="text-[10px] text-white/50 mt-2">
+                                                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </p>
+                                                            </>
+                                                        ) : !isUser && m.content?.startsWith('[VIDEO]') ? (
+                                                            <>
+                                                                <video
+                                                                    src={m.content.replace('[VIDEO]', '').trim()}
+                                                                    controls
+                                                                    className="max-w-[220px] rounded-xl cursor-pointer"
+                                                                    onClick={() =>
+                                                                        setPreviewMedia({
+                                                                            type: 'video',
+                                                                            url: m.content.replace('[VIDEO]', '').trim()
+                                                                        })
+                                                                    }
+                                                                />
+                                                                <p className="text-[10px] text-white/50 mt-2">
+                                                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </p>
+                                                            </>
+                                                        ) : !isUser && m.content?.startsWith('[DOCUMENT]') ? (
+                                                            <>
+                                                                <a
+                                                                    href={m.content.replace('[DOCUMENT]', '').trim()}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-2 text-white underline text-[13px]"
+                                                                >
+                                                                    <Paperclip size={14} />
+                                                                    View Document
+                                                                </a>
+                                                                <p className="text-[10px] text-white/50 mt-2">
+                                                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </p>
+                                                            </>
+                                                        ) : !isUser && m.content?.includes('\n') && m.content?.includes('[') ? (
+                                                            <>
+                                                                {m.content.split('\n')[0] && (
+                                                                    <p className="text-[13px] text-white leading-relaxed mb-3">
+                                                                        {m.content.split('\n')[0]}
+                                                                    </p>
+                                                                )}
+                                                                <div className="flex flex-col gap-2">
+                                                                    {m.content.split('\n').slice(1).join('').split('|').map((btn, i) => {
+                                                                        const label = btn.replace(/\[|\]/g, '').trim();
+                                                                        if (!label) return null;
+                                                                        return (
+                                                                            <button
+                                                                                key={i}
+                                                                                className="w-full text-center py-2 px-4 rounded-xl text-[13px] font-medium"
+                                                                                style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}
+                                                                            >
+                                                                                {label}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <p className="text-[10px] text-white/50 mt-2">
+                                                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </p>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <p className="text-[13px] text-white leading-relaxed">{m.content}</p>
+                                                                <p className="text-[10px] text-white/50 mt-2">
+                                                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </p>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
                                         );
                                     })}
                                     <div ref={ref} />
+                                    {previewMedia && (
+                                        <div
+                                            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                                            onClick={() => setPreviewMedia(null)}
+                                        >
+                                            {previewMedia.type === 'image' ? (
+                                                <img
+                                                    src={previewMedia.url}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="max-h-[90vh] max-w-[90vw] rounded-2xl"
+                                                />
+                                            ) : (
+                                                <video
+                                                    src={previewMedia.url}
+                                                    controls
+                                                    autoPlay
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="max-h-[90vh] max-w-[90vw] rounded-2xl"
+                                                />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -467,7 +601,7 @@ export default function InboxPage() {
                             <div className="w-[300px] h-full overflow-y-auto p-5">
                                 <p className="text-[10px] font-bold text-[#555] uppercase tracking-widest mb-5">Lead Details</p>
                                 <div className="text-center mb-6">
-                                    {/* ✅ Info panel avatar */}
+                                    {/*  Info panel avatar */}
                                     <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-3 flex items-center justify-center text-xl font-bold"
                                         style={{ backgroundColor: `${ch.color}18` }}>
                                         {isInstagram && lead.profile_pic ? (
@@ -481,9 +615,9 @@ export default function InboxPage() {
                                             <span style={{ color: ch.color }}>{getAvatarText(lead, ch.id)}</span>
                                         )}
                                     </div>
-                                    {/* ✅ Info panel name */}
+                                    {/*  Info panel name */}
                                     <h4 className="text-[15px] font-semibold text-white">{getDisplayName(lead, ch.id)}</h4>
-                                    {/* ✅ Show phone separately if Instagram */}
+                                    {/*  Show phone separately if Instagram */}
                                     {isInstagram && lead.phone && (
                                         <p className="text-[12px] text-[#666] mt-1">{lead.phone}</p>
                                     )}
@@ -503,7 +637,7 @@ export default function InboxPage() {
                                             {lead.status}
                                         </span>
                                     </div>
-                                    {/* ✅ Show identifier row */}
+                                    {/*  Show identifier row */}
                                     <div className="flex justify-between items-center">
                                         <span className="text-[12px] text-[#666]">
                                             {isInstagram ? 'Username' : 'Phone'}
@@ -531,7 +665,7 @@ export default function InboxPage() {
                                         Convert to Deal
                                     </button>
                                 </div>
-            </div>
+                            </div>
                         </motion.div>
                     )}
                 </AnimatePresence>

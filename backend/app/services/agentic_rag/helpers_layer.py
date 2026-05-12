@@ -1,6 +1,7 @@
 import re
 import os
 import json
+from difflib import SequenceMatcher
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, "small_talk.json")
@@ -12,16 +13,60 @@ class helperslayer:
     
     def __init__(self):
         pass
+
+    def clean_text(self, text: str):
+
+        text = text.lower().strip()
+
+        # remove punctuation
+        text = re.sub(r"[^\w\s]", "", text)
+
+        # remove extra spaces
+        text = re.sub(r"\s+", " ", text)
+
+        return text
+
+    def similarity(self, a, b):
+
+        return SequenceMatcher(None, a, b).ratio()
+
     
     def get_small_talk_response(self, query: str):
-        q = query.lower().strip()
 
-        # Remove punctuation
-        q = re.sub(r'[^\w\s]', '', q)
+        q = self.clean_text(query)
 
-        # Exact match only
         if q in SMALL_TALK:
             return SMALL_TALK[q]
+
+        best_match = None
+        best_score = 0
+
+        for key, value in SMALL_TALK.items():
+
+            cleaned_key = self.clean_text(key)
+
+            # full sentence similarity
+            score = self.similarity(q, cleaned_key)
+
+            # partial containment boost
+            if cleaned_key in q or q in cleaned_key:
+                score += 0.3
+
+            # word overlap boost
+            q_words = set(q.split())
+            k_words = set(cleaned_key.split())
+
+            overlap = len(q_words.intersection(k_words))
+
+            score += overlap * 0.1
+
+            if score > best_score:
+                best_score = score
+                best_match = value
+
+
+        if best_score >= 0.55:
+            return best_match
 
         return None
     

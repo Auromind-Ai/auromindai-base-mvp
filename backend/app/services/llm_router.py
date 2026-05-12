@@ -1,4 +1,4 @@
-import os
+from app.core.config import settings
 import asyncio
 from app.core.logger import logger
 from anthropic import AsyncAnthropic
@@ -8,6 +8,13 @@ from app.database import SessionLocal
 from app.services.model_config_service import  ModelConfigService
 import time
 
+MODEL_MAP = {
+    "auto": "auto",
+    "groq": "groq",
+    "sonnet": "sonnet",
+    "opus": "opus",
+    "gemini_flash": "gemini",
+        }
 
 class LLMRouter:
 
@@ -16,7 +23,8 @@ class LLMRouter:
         self._config_cache = {}
         self._cache_time = 0
         self._cache_ttl = 10   
-        
+
+    
     def _get_config(self, model_name: str):
         current_time = time.time()  
 
@@ -46,63 +54,66 @@ class LLMRouter:
         finally:
             db.close()
 
+  
     async def generate(self, prompt: str, model: str = "auto"):
 
         start_time = time.time()
 
-        # AUTO MODE
-        print(f"Generating with model: {model}")
-        if model == "auto":
+        model = MODEL_MAP.get(model, "auto")
+        print(f"Requested model: {model}")
+
+        if model != "auto":
             try:
-                logger.info("AUTO  SONNET")
+                config = self._get_config(model)
+                provider = config["provider"]
 
-                config = self._get_config("sonnet")
-                result = await self._claude_call(prompt, config)
+                if provider == "claude":
+                    if not settings.ANTHROPIC_API_KEY:
+                        raise Exception("Claude key missing")
+                    return await self._claude_call(prompt, config)
+
+                elif provider == "gemini":
+                    if not settings.GOOGLE_API_KEY:
+                        raise Exception("Gemini key missing")
+                    return await self._gemini_call(prompt, config)
+
+
+                elif provider == "groq":
+                    if not settings.GROQ_API_KEY:
+                        raise Exception("Groq key missing")
+                    return await self._groq_call(prompt, config)
+
             except Exception as e:
-                logger.warning(f"Sonnet failed -> Groq fallback: {e}")
+                logger.warning(f"{model} not available → fallback AUTO: {e}")
 
-                config = self._get_config("groq")
-                result = await self._groq_call(prompt, config)
+        try:
+            if settings.ANTHROPIC_API_KEY:
+                logger.info("AUTO → Claude Sonnet")
+                config = self._get_config("sonnet")
+                return await self._claude_call(prompt, config)
 
-        else:
-            config = self._get_config(model)
+        except Exception as e:
+            logger.warning(f"Claude failed: {e}")
 
-            if not config:
-                raise Exception(f"Invalid model: {model}")
+        try:
+            if settings.GOOGLE_API_KEY:
+                logger.info("AUTO → Gemini")
+                config = self._get_config("gemini")
+                return await self._gemini_call(prompt, config)
 
-            provider = config["provider"]
-            print(f"Using provider: {provider} for model: {model}")
-            if provider == "claude":
-                result = await self._claude_call(prompt, config)
-                print(result)
+        except Exception as e:
+            logger.warning(f"Gemini failed: {e}")
 
-            elif provider == "groq":
-                result = await self._groq_call(prompt, config)
-
-            elif provider == "gemini":
-                result = await self._gemini_call(prompt, config)
-
-            else:
-                raise Exception("Unsupported provider")
-
-        #LOG FINAL METRICS
-        latency = round(time.time() - start_time, 2)
-
-        logger.info(
-            f"[LLM] model={result.get('model')} | "
-            f"provider={result.get('provider')} | "
-            f"in={result.get('input_tokens')} | "
-            f"out={result.get('output_tokens')} | "
-            f"total={result.get('total_tokens')} | "
-            f"time={latency}s"
-        )
-
-        return result
-
-    
+        logger.info("AUTO -> Groq fallback")
+        config = self._get_config("groq")
+        return await self._groq_call(prompt, config)
+            
     async def _gemini_call(self, prompt, config):
         try:
-            api_key = os.getenv(config.get("api_key_env", "GOOGLE_API_KEY"))
+            api_key_env = config.get("api_key_env", "GOOGLE_API_KEY")
+            if api_key_env == "GEMINI_API_KEY":
+                api_key_env = "GOOGLE_API_KEY"
+            api_key = getattr(settings, api_key_env)
             genai.configure(api_key=api_key)
 
             model = genai.GenerativeModel(config["model"])
@@ -135,7 +146,7 @@ class LLMRouter:
 
     async def _claude_call(self, prompt, config):
         try:
-            api_key = os.getenv(config.get("api_key_env", "ANTHROPIC_API_KEY"))
+            api_key = getattr(settings, config.get("api_key_env", "ANTHROPIC_API_KEY"))
             client = AsyncAnthropic(api_key=api_key)
 
             response = await client.messages.create(
@@ -165,7 +176,9 @@ class LLMRouter:
         
     async def _groq_call(self, prompt, config):
         try:
-            api_key = os.getenv(config.get("api_key_env", "GROQ_API_KEY"))
+            api_key = getattr(settings, config.get("api_key_env", "GROQ_API_KEY"), None)
+            if not api_key or not api_key.strip():
+              raise Exception("GROQ_API_KEY is not set or empty")
             client = Groq(api_key=api_key)
 
             response = await asyncio.to_thread(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect } from 'react';
 import Lenis from 'lenis';
 import NavigationSection from '../components/LandingPage/NavigationSection';
 import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
@@ -38,7 +38,6 @@ const NeuroHero = dynamic(
 
 export default function LandingPage() {
   const containerRef = useRef(null);
-  const [settings, setSettings] = useState(null);
 
   useEffect(() => {
     const lenis = new Lenis({

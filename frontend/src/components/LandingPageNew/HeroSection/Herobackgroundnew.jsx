@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import styles from "./heroBackgroundNew.module.css";
 import Nova from "./Nova";
 
-// ─── Particle Generator ──────────────────────────────────────────────────────
+// ─── Particle Generator ──────────
 
 function generateParticles(count = 1100) {
   return Array.from({ length: count }, (_, i) => {
@@ -36,7 +36,7 @@ function generateParticles(count = 1100) {
 
 const PARTICLES = generateParticles(220);
 
-// ─── HeroBackground ──────────────────────────────────────────────────────────
+// ─── HeroBackground ──────────────
 
 export default function HeroBackground() {
   const containerRef = useRef(null);

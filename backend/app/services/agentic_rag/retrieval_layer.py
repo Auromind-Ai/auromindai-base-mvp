@@ -1,6 +1,6 @@
 import logging
 
-from app.config.settings import settings
+from app.config.set import setter
 
 class RetrievalLayer:
     
@@ -11,15 +11,32 @@ class RetrievalLayer:
         self.top_k = top_k
 
     #Semantic Search (Vector Similarity Search)
-    def semantic_search(self, db, workspace_id, query):
+    def semantic_search(self, db, workspace_id, query, entry_ids=None, collection=None, top_k=None):
+        k = top_k or self.top_k
         try:
             query_embedding = self.embedding_generator.generate_query_embedding(query)
             results = self.vector_store.search(
                 db=db,
                 workspace_id= workspace_id,
                 query_embedding=query_embedding,
-                top_k=self.top_k
+                top_k=k * 3 if (entry_ids or collection) else k
             )
+            
+            # ── Post-filter for targeted searching ──
+            if entry_ids:
+                id_set = set(entry_ids)
+                results = [
+                    r for r in results
+                    if r.get("metadata", {}).get("parent_id") in id_set
+                ]
+
+            if collection:
+                results = [
+                    r for r in results
+                    if r.get("metadata", {}).get("collection") == collection
+                ]
+
+            results = results[:k]
             
             if not results:
                 logging.warning("No documents found in vector search")
@@ -47,9 +64,9 @@ class RetrievalLayer:
     
 
     #Retrieve Context
-    def retrieve_context(self, db, workspace_id, query):
-        retrieved_docs = self.semantic_search(db, workspace_id, query)
-        THRESHOLD = settings.VECTOR_THRESHOLD
+    def retrieve_context(self, db, workspace_id, query, entry_ids=None, collection=None):
+        retrieved_docs = self.semantic_search(db, workspace_id, query, entry_ids, collection)
+        THRESHOLD = setter.VECTOR_THRESHOLD
         strong_docs = [doc for doc in retrieved_docs if doc["score"] >= THRESHOLD]
 
         reranked_docs = self.rerank(query, strong_docs)

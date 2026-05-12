@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 import json
-import os
+from app.core.config import settings
 import uuid
 import tiktoken
 from abc import ABC, abstractmethod
@@ -23,9 +23,9 @@ from app.models.webhook_event import WebhookEvent
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.platform_settings_service import get_setting
 
-RESERVATION_TTL_MINUTES = int(os.getenv("BILLING_RESERVATION_TTL_MINUTES", "30"))
-RESERVATION_MAX_PER_WORKSPACE = int(os.getenv("BILLING_MAX_CONCURRENT_RESERVATIONS", "10"))
-TOKENS_PER_CREDIT = int(os.getenv("TOKENS_PER_CREDIT", "1000"))
+RESERVATION_TTL_MINUTES = settings.BILLING_RESERVATION_TTL_MINUTES if hasattr(settings, 'BILLING_RESERVATION_TTL_MINUTES') else 30
+RESERVATION_MAX_PER_WORKSPACE = settings.BILLING_MAX_CONCURRENT_RESERVATIONS if hasattr(settings, 'BILLING_MAX_CONCURRENT_RESERVATIONS') else 10
+TOKENS_PER_CREDIT = settings.TOKENS_PER_CREDIT if hasattr(settings, 'TOKENS_PER_CREDIT') else 1000
 
 
 @dataclass

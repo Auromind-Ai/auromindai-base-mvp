@@ -8,17 +8,8 @@
 # import uuid
 
 # router = APIRouter()
+# from app.schemas.mcp import EvaluateActionRequest, OverrideDecisionRequest
 
-# class EvaluateActionRequest(BaseModel):
-#     action_type: str
-#     intent: str
-#     context: Dict[str, Any]
-#     confidence: float = 0.0
-#     workspace_id: str
-
-# class OverrideDecisionRequest(BaseModel):
-#     action_id: str
-#     approved: bool
 
 # @router.post("/evaluate")
 # async def evaluate_action(
