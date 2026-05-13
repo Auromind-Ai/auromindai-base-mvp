@@ -364,7 +364,7 @@ class GuardrailsService:
         return cleaned
 
 
-    # FULL PIPELINE
+
     async def secure_pipeline(self, query: str, user_role: str = "user") -> dict:
         """Execute full input-side guardrails pipeline before RAG."""
 

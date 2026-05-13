@@ -6,15 +6,15 @@ from typing import Optional
 
 class Settings(BaseSettings):
 
-    # ============================================================
+    
     # DATABASE CONFIGURATION
-    # ============================================================
+    
     DATABASE_URL: str
     """PostgreSQL connection URL"""
 
-    # ============================================================
+    
     # SECURITY & AUTHENTICATION
-    # ============================================================
+    
     SECRET_KEY: str
     """JWT secret key for token signing"""
 
@@ -27,24 +27,24 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: Optional[str] = None
     """Fernet encryption key for sensitive data (auto-generated if not set)"""
 
-    # ============================================================
+    
     # LLM & AI PROVIDERS
-    # ============================================================
+    
     GOOGLE_API_KEY: str = ""
     """Google Generative AI API key"""
 
     GROQ_API_KEY: str = ""
     """Groq API key for LLM"""
 
-    # ============================================================
+    
     # MESSAGE QUEUE & CACHING
-    # ============================================================
+    
     REDIS_URL: str = "redis://localhost:6379/0"
     """Redis connection URL for caching and task queue"""
 
-    # ============================================================
+    
     # TWILIO & META INTEGRATION
-    # ============================================================
+    
     TWILIO_ACCOUNT_SID: Optional[str] = None
     """Twilio account SID"""
 
@@ -81,9 +81,9 @@ class Settings(BaseSettings):
     IG_REDIRECT_URI: Optional[str] = None
     """Instagram OAuth redirect URI"""
 
-    # ============================================================
+    
     # GOOGLE & OAUTH INTEGRATIONS
-    # ============================================================
+    
     GOOGLE_CLIENT_ID: Optional[str] = None
     """Google OAuth client ID"""
 
@@ -93,15 +93,15 @@ class Settings(BaseSettings):
     OAUTH_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
     """OAuth redirect URI"""
 
-    # ============================================================
+    
     # ADMIN & SECURITY
-    # ============================================================
+    
     OWNER_SECRET_KEY: Optional[str] = None
     """Secret key for owner/admin operations"""
 
-    # ============================================================
+    
     # STORAGE & FILE MANAGEMENT
-    # ============================================================
+    
     STORAGE_PROVIDER: str = "SUPABASE"
     """Storage provider: SUPABASE or AWS_S3"""
 
@@ -135,44 +135,44 @@ class Settings(BaseSettings):
     AWS_S3_PUBLIC_BASE_URL: Optional[str] = None
     """Custom public base URL for S3 files"""
 
-    # ============================================================
+    
     # FRONTEND & PUBLIC URLS
-    # ============================================================
+    
 
     FRONTEND_URL: Optional[str] = None
     """Frontend public URL"""
 
-    # ============================================================
+    
     # OPENAI (LLM)
-    # ============================================================
+    
 
     OPENAI_API_KEY: Optional[str] = None
     """OpenAI API key"""
 
-    # ============================================================
+    
     # TWILIO EXTRA
-    # ============================================================
+    
 
     TWILIO_FROM_NUMBER: Optional[str] = None
     """Twilio WhatsApp/SMS sender number"""
-    # ============================================================
+    
     # LLM MODEL PROVIDERS
-    # ============================================================
+    
     ANTHROPIC_API_KEY: Optional[str] = None
     """Anthropic API key for Claude models"""
 
-    # ============================================================
+    
     # WORKFLOW & MESSAGING
-    # ============================================================
+    
     FLOW_FALLBACK_MESSAGE: str = "I'm having trouble processing your request. Please try again later."
     """Default fallback message for flow failures"""
 
     TWILIO_STATUS_CALLBACK_URL: Optional[str] = None
     """Webhook URL for Twilio message status callbacks"""
 
-    # ============================================================
+    
     # APPLICATION SETTINGS
-    # ============================================================
+    
     ALLOWED_ORIGINS: str = "http://localhost:3000"
     """Comma-separated list of allowed CORS origins"""
 
@@ -185,9 +185,9 @@ class Settings(BaseSettings):
     SYSTEM_METRICS_UPDATE_INTERVAL: int = 5
     """System metrics collection interval in seconds"""
 
-    # ============================================================
+    
     # BILLING
-    # ============================================================
+    
 
     BILLING_RESERVATION_TTL_SECONDS: int = 1800
     """Billing reservation TTL in seconds"""
@@ -204,9 +204,9 @@ class Settings(BaseSettings):
     PAYU_SALT: str | None = None
     PAYU_WEBHOOK_SECRET: str | None = None
 
-    # ============================================================
+    
     # LOGGING
-    # ============================================================
+    
     LOG_LEVEL: str = "INFO"
     """Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"""
 

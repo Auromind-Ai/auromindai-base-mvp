@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-
+import { authHeader } from "@/lib/auth";
 export default function InstagramCallback() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -31,7 +31,7 @@ export default function InstagramCallback() {
         //  Safe localStorage access
         let workspace_id = null;
         if (typeof window !== "undefined") {
-            workspace_id = localStorage.getItem("instagram_workspace_id"); //  FIXED KEY
+            workspace_id = localStorage.getItem("instagram_workspace_id"); 
         }
 
         if (!workspace_id) {
@@ -68,7 +68,7 @@ export default function InstagramCallback() {
                 localStorage.removeItem("instagram_workspace_id");
 
                 setTimeout(() => {
-                    router.push("/channels");
+                    router.push("/user/admin/channels");
                 }, 1500);
             } catch (err) {
                 console.error("❌ Instagram connect failed:", err);

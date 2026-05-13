@@ -263,9 +263,9 @@ class ChatService:
         chunks_successfully_sent = False
         safe_query = message
 
-        # =========================================================
+        
         # PHASE 1: PRE-STREAM TRANSACTION (Fast & Durable)
-        # =========================================================
+        
         with SessionLocal() as db:
             try:
                 workspace = self._validate_workspace_access(db, workspace_id, user_id)
@@ -318,9 +318,9 @@ class ChatService:
 
         # --- DB CONNECTION IS NOW RETURNED TO THE POOL ---
 
-        # =========================================================
+        
         # PHASE 2: STREAMING (Slow Network Bound - NO DB HELD)
-        # =========================================================
+        
         try:
             rag_answered = False
             if use_rag:
@@ -341,6 +341,7 @@ class ChatService:
                             "answer": answer_data,
                             "meta": {"query": message, "rewritten_query": safe_query, "source": "fallback"}
                         }
+                        print("RAG RESULT:", result)
 
                         safe_answer = await self.guardrails_service.secure_response(result["answer"])
                         full_response = safe_answer
@@ -367,9 +368,13 @@ class ChatService:
                     yield f"{json.dumps({'content': content})}\n"
 
                     fallback_meta = {
-                        "query": message, "rewritten_query": safe_query,
-                        "tool": "reasoning", "model": result.get("model", model), "source": "llm"
-                    }
+                            "query": message,
+                            "rewritten_query": safe_query,
+                            "tool": "reasoning",
+                            "model": result.get("model", model),
+                            "confidence_score": None,  
+                            "source": "llm"
+                        }
                     yield f"{json.dumps({'meta': fallback_meta})}\n"
                     chunks_successfully_sent = True
 
@@ -380,12 +385,12 @@ class ChatService:
 
         except Exception as e:
             final_billing_reason = f"runtime_error:{type(e).__name__}"
-            logger.error(f"Stream chat error: {e}")
-            raise ChatProcessingError(f"Chat stream failed: {str(e)}")
+            logger.error(f"Stream chat error: {e}", exc_info=True)
+            yield json.dumps({"error": str(e), "type": type(e).__name__}) + "\n"
 
-        # =========================================================
+        
         # PHASE 3: POST-STREAM CLEANUP (Fresh Transaction)
-        # =========================================================
+        
         finally:
             if reservation_id:
                 with SessionLocal() as cleanup_db:

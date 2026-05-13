@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import logging
 
@@ -91,6 +90,10 @@ class ChannelConnectionService:
             raise HTTPException(status_code=400, detail="Missing OAuth code")
         if not workspace_id:
             raise HTTPException(status_code=400, detail="Missing workspace_id")
+        logger.error("=== INSTAGRAM DEBUG ===")
+        logger.error("IG_APP_ID: %s", settings.IG_APP_ID)
+        logger.error("IG_REDIRECT_URI: %s", settings.IG_REDIRECT_URI)
+        logger.error("CODE (first 20): %s", code[:20])
 
         token_res = requests.get(
             "https://graph.facebook.com/v19.0/oauth/access_token",
@@ -102,6 +105,8 @@ class ChannelConnectionService:
             },
             timeout=10,
         ).json()
+
+        logger.error("TOKEN RESPONSE: %s", token_res)
         access_token = token_res.get("access_token")
         if not access_token:
             raise HTTPException(status_code=400, detail=f"Token exchange failed: {token_res}")

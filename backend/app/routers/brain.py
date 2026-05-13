@@ -400,9 +400,6 @@ async def search_knowledge(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ Perform semantic search across the knowledge base.
-    Use `entry_ids` to restrict results to specific entries, or `collection`
-    to target a named collection tag (targeted brain searching). """
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
@@ -449,9 +446,7 @@ async def query_knowledge(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ Ask a question and get an AI-generated answer using RAG.
-    Use `entry_ids` or `collection` to restrict the RAG context to a specific
-    subset of your knowledge base (targeted brain searching). """
+
     workspace_id = verify_workspace_access(current_user, db)
 
     try:

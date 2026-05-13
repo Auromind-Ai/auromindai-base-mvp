@@ -64,9 +64,9 @@ class WebhookService:
                     # If Redis fails, fall back to DB-based locking below
                     lock_token = None
 
-            # =========================================================
+            
             # PHASE 1: DURABLE AUDIT LOG (Commit immediately)
-            # =========================================================
+            
             webhook_event = (
                 db.query(WebhookEvent)
                 .filter(
@@ -93,9 +93,9 @@ class WebhookService:
                 except Exception:
                     db.rollback() # Another thread beat us to it, which is fine
 
-            # =========================================================
+            
             # PHASE 2: PROCESSING WITH ROW LOCK
-            # =========================================================
+            
             # Re-fetch with FOR UPDATE to safely lock the row for processing
             webhook_event = (
                 db.query(WebhookEvent)

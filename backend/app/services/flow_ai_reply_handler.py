@@ -80,7 +80,7 @@ async def execute_ai_reply(
             **{k: v for k, v in flow_context.items() if k not in ("from", "body")},
         }
 
-        # ── Run orchestration ─────────────────────────────────────────────────
+        # ── Run orchestration───────
         orchestrator = _get_orchestrator(db)
         result = await orchestrator.process_message(payload=payload, channel=channel)
 

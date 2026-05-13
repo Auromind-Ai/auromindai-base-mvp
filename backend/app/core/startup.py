@@ -26,7 +26,7 @@ def init_learning_cache():
 
 
 def init_schedulers(app):
-    # ⚠️ Multi-worker safe check
+    #  Multi-worker safe check
     if not settings.SCHEDULER_ENABLED:
         logger.warning("Schedulers disabled (multi-worker mode)")
         return

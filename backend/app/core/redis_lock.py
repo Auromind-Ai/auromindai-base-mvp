@@ -36,22 +36,7 @@ def acquire_conversation_lock(
     conversation_id: str,
     ttl_seconds: int = 30,
 ) -> Optional[str]:
-    """Try to acquire a per-conversation send lock.
-
-    Returns a unique token (string) on success, or None if the lock is
-    already held by another worker.  The lock auto-expires after
-    ``ttl_seconds`` to prevent deadlocks from crashed workers.
-
-    Usage::
-
-        token = acquire_conversation_lock(conv_id)
-        if token is None:
-            return  # another worker is handling this conversation
-        try:
-            ... do work ...
-        finally:
-            release_conversation_lock(conv_id, token)
-    """
+    
     r = _get_redis()
     token = str(uuid.uuid4())
     key = f"conversation_send_lock:{conversation_id}"

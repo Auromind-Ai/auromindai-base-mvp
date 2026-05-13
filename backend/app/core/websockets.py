@@ -5,9 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ConnectionManager:
-    """
-    Manages WebSocket connections for real-time UI updates.
-    """
+   
     def __init__(self):
         # Map user_id -> List[WebSocket] (allow multiple tabs)
         self.active_connections: Dict[str, List[WebSocket]] = {}

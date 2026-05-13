@@ -1,4 +1,3 @@
-// src/lib/auth.js
 
 const isBrowser = typeof window !== "undefined";
 

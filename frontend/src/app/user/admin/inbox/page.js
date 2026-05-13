@@ -15,9 +15,6 @@ const CHANNELS = [
     { id: 'twilio', label: 'Twilio', icon: Zap, color: '#F22F46' },
 ];
 
-// Same-origin proxy base — browser → /backend/* → Next.js → backend
-// This avoids CORS entirely. The backend routes start with /api/ so the
-// full request looks like: /backend/api/conversations → backend /api/conversations
 const PROXY_BASE = '/backend';
 
 function getHeaders() {
@@ -99,7 +96,7 @@ export default function InboxPage() {
 
     useEffect(() => {
         if (!lead) return;
-        const interval = setInterval(() => fetchMessages(lead.id), 2000);
+        const interval = setInterval(() => fetchMessages(lead.id), 5000);
         return () => clearInterval(interval);
     }, [lead]);
 
@@ -138,15 +135,24 @@ export default function InboxPage() {
     async function fetchMessages(id) {
         try {
             const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
+                    console.log('Status:', res.status, 'URL:', res.url); 
             const data = await res.json();
+              console.log('Messages API response:', id, data?.length, data);
+               console.log('Messages API response:', data); // debug
            setMessages(
-        data.filter(
-            (m) =>
-                m.status === 'SENT' ||
-                m.status === 'DELIVERED' ||
-                m.sender_type === 'USER'
-        )
-    );
+    data.filter((m) => {
+        const status = m.status?.toLowerCase();
+        const senderType = m.sender_type?.toLowerCase();
+        return (
+            status === 'sent' ||
+            status === 'delivered' ||
+            status === 'received' ||   
+            senderType === 'user' ||
+            senderType === 'agent' ||  
+            senderType === 'ai'       
+        );
+    })
+);
         } catch (e) {
             console.error('Message fetch error:', e);
         }
@@ -374,9 +380,9 @@ export default function InboxPage() {
                                 />
                                 <div className="max-w-3xl mx-auto space-y-3 relative z-10">
                                     {messages.map((m) => {
-                                        const isUser = m.sender_type === 'USER';
-                                        const isAI = m.sender_type === 'AI';
-                                        const isSuggested = m.status === 'SUGGESTED';
+                                       const isUser = m.sender_type?.toLowerCase() === 'user';
+                                        const isAI = m.sender_type?.toLowerCase() === 'ai';
+                                        const isSuggested = m.status?.toLowerCase() === 'suggested';
 
                                         return (
                                             <div key={m.id} className={`flex ${isUser ? 'justify-start' : 'justify-end'}`}>

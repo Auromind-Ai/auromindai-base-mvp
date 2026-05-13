@@ -16,16 +16,14 @@ class AgentOrchestration:
     def __init__(self, db=None):
         self.logger = logger
         self.logger.info("Initializing AgentOrchestration...")
-        self.db = db
-        
-        #Core Services
-        self.llm = LLMClient(api_key=os.getenv("GROQ_API_KEY"))
+
+        self.llm = LLMClient(api_key=settings.GROQ_API_KEY)
         self.memory = MemoryService(db) if db else None
         self.mcp = MCPService()
         self.config_service = ConfigService()
         self.mcp.config_service = self.config_service
         self.unified_agent = UnifiedAgent(self.llm, self.memory)
-        self.escalation_queue = EscalationQueue(self.db)
+        self.escalation_queue = EscalationQueue(db=db)
 
         self.channel_adapters = {"twilio": None, "instagram": None, "whatsapp": None}
         self.response_sender = None
@@ -34,15 +32,15 @@ class AgentOrchestration:
         self.logger.info("AgentOrchestration initialized successfully")
 
 
-    # ── MAIN ENTRY POINT ──────────────────────────────────────────────────────
+    # ── MAIN ENTRY POINT 
 
     async def process_message(self, payload, channel):
         data = self.normalize_message(payload, channel)
 
         user_id      = data.get("user_id")       
         workspace_id = data.get("workspace_id")
-        message = data.get("message", "")
-        db = self.db
+        message      = data.get("message", "")
+        memory_key   = data.get("conversation_id") or user_id
 
         db = getattr(self.escalation_queue, "db", None)
 
@@ -87,7 +85,7 @@ class AgentOrchestration:
             "user_id": user_id, "turn_count": turn_count, "memory_key": memory_key
         })
 
-        # ── Policy check ──────────────────────────────────────────────────────
+        # ── Policy check 
         policy = ConversationPolicy(self.memory, self.config_service)
         current_stage = state.get("current_stage", "lead")
 
@@ -112,7 +110,7 @@ class AgentOrchestration:
 
         force_close = policy_result.get("action") == "CLOSE"
 
-        # ── Unified Agent ─────────────────────────────────────────────────────
+        # ── Unified Agent 
         result = await self.unified_agent.handle(
             message=message,
             context={
@@ -145,7 +143,7 @@ class AgentOrchestration:
 
         confidence = result.get("confidence_score", 0.5)
 
-        # ── Update memory ─────────────────────────────────────────────────────
+        # ── Update memory
         if self.memory:
             if result.get("collect"):
                 cleaned = {k: v for k, v in result["collect"].items() if v}
@@ -193,7 +191,7 @@ class AgentOrchestration:
         return response
 
 
-    # ── AGENT TYPE ────────────────────────────────────────────────────────────
+    # ── AGENT TYPE
 
     def _determine_agent_type(self, message, turn_count, lead_data, state, is_followup_trigger=False):
         if is_followup_trigger:
@@ -234,7 +232,7 @@ class AgentOrchestration:
         return "sales_agent"
 
 
-    # ── NORMALIZE MESSAGE ─────────────────────────────────────────────────────
+    # ── NORMALIZE MESSAGE
 
     def normalize_message(self, payload, channel):
         try:
@@ -245,7 +243,7 @@ class AgentOrchestration:
             conversation_id = payload.get("conversation_id")
 
             if channel.lower() in ["whatsapp", "twilio"]:
-                # ✅ Bug #9 fix — "from" is phone number set by webhook/task caller
+                #  Bug #9 fix — "from" is phone number set by webhook/task caller
                 user_id   = payload.get("from") or payload.get("WaId") or payload.get("phone")
                 message   = payload.get("body") or payload.get("message")
                 timestamp = payload.get("timestamp")
@@ -292,7 +290,7 @@ class AgentOrchestration:
             }
 
 
-    # ── SEND RESPONSE ─────────────────────────────────────────────────────────
+    # ── SEND RESPONSE
 
     def send_response(self, channel, user_id, response):
         try:

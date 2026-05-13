@@ -24,11 +24,6 @@ async def get_all_configs(
     active_only: bool = False,
     db: Session = Depends(get_db)
 ):
-    """
-    Get all model configurations
-    Query params:
-    - active_only: if True, return only active configurations
-    """
     try:
         service = ModelConfigService(db)
         configs = service.get_all_configs(active_only=active_only)

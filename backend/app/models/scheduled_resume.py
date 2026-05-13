@@ -8,14 +8,6 @@ from app.database import Base
 
 
 class ScheduledResume(Base):
-    """DB-backed delay for flow nodes with long waits (>30 min).
-
-    Short delays (<30 min) still use Celery countdown (fast, in-memory).
-    Long delays are persisted here so they survive Redis/Celery restarts.
-
-    A Celery beat task polls this table every 30 seconds and fires
-    ``resume_flow_node`` for any rows whose ``run_at`` has passed.
-    """
 
     __tablename__ = "scheduled_resumes"
 
