@@ -1,14 +1,3 @@
-"""
-app/services/conversation_service.py
-
-Fixes applied
-─────────────
-1. get_or_create_conversation: replaced bare rollback() after IntegrityError
-   with db.begin_nested() (savepoint).  This prevents a mid-transaction
-   rollback from discarding unrelated pending changes in the same unit of work.
-"""
-
-from __future__ import annotations
 
 from datetime import datetime
 from typing import Any

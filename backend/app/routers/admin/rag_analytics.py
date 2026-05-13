@@ -36,13 +36,13 @@ def get_dashboard(
     ]
 
     return {
-        # ── Core stats ──────────────────────────────────────
+        # ── Core stats
         "total":        data.get("total",        0),
         "positive":     data.get("positive",     0),
         "negative":     data.get("negative",     0),
         "success_rate": data.get("success_rate", 0),
 
-        # ── Charts ──────────────────────────────────────────
+        # ── Charts
         "trends":    data.get("trends")    or [],
         "tool_usage": data.get("tool_usage") or [],
 
@@ -53,7 +53,7 @@ def get_dashboard(
         "sessions": data.get("sessions") or [],
         "users":    data.get("users")    or [],
 
-        # ── Models ──────────────────────────────────────────
+        # ── Models
         "models": data.get("models") or [],
 
         # ── Feedback logs ───────────────────────────────────

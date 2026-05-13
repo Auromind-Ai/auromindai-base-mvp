@@ -6,9 +6,9 @@ import uuid
 from sqlalchemy.sql import func
 
 
-# ==============================
+
 # OAuth Integrations
-# ==============================
+
 
 class Integration(Base):
     __tablename__ = "integrations"
@@ -38,9 +38,9 @@ class Integration(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
-# ==============================
+
 # Calendar Events
-# ==============================
+
 
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"
@@ -74,9 +74,9 @@ class CalendarEvent(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-# ==============================
+
 # Email Reply Logs
-# ==============================
+
 
 class EmailReplyLog(Base):
     __tablename__ = "email_reply_logs"

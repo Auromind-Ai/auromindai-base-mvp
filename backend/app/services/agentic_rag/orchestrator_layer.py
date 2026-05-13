@@ -471,6 +471,7 @@ class OrchestratorLayer:
             response = await self.support.add_followup(query, response, model=model)
 
             if response:
+                print("Direct answer response:", response)
                 confidence = compute_confidence(tool="direct_answer")
 
                 return self.mcp.format_response(

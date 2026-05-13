@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import json
 import logging
@@ -45,18 +44,20 @@ class MessageService:
         skip: int = 0,
         limit: int = 100,
     ):
-        return (
+        messages = (
             db.query(Message)
             .join(models.Conversation, Message.conversation_id == models.Conversation.id)
             .filter(
                 Message.conversation_id == conversation_id,
                 models.Conversation.workspace_id == workspace_id,
             )
-            .order_by(Message.timestamp.asc())
-            .offset(skip)
+            .order_by(Message.timestamp.desc())
+            .offset(skip)        
             .limit(limit)
             .all()
         )
+        return list(reversed(messages))
+    
 
     @staticmethod
     def create_message(

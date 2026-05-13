@@ -25,8 +25,6 @@ from app.services.llm_utils import safe_llm_call
 from app.services.trigger_engine import match_button_target, match_trigger
 
 
-
-
 class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
         return ""
@@ -34,8 +32,9 @@ class SilentUndefined(Undefined):
 
 logger = logging.getLogger(__name__)
 
-# ── Module-level singletons (avoid re-instantiation per request) ────────────
+# Module-level singletons (avoid re-instantiation per request)──────────
 _rag_singleton = get_rag_service()
+
 
 class _LRULockCache:
     """Bounded cache of asyncio.Lock objects keyed by conversation ID.
@@ -60,8 +59,10 @@ class _LRULockCache:
 
 
 _conversation_locks = _LRULockCache(max_size=10_000)
-# ── Configurable fallback message ───────────────────────────────────────────
-FLOW_FALLBACK_MESSAGE = settings.FLOW_FALLBACK_MESSAGE or "Sorry, something went wrong. Please try again."
+# Configurable fallback message─
+FLOW_FALLBACK_MESSAGE = (
+    settings.FLOW_FALLBACK_MESSAGE or "Sorry, something went wrong. Please try again."
+)
 EXECUTION_LEASE_SECONDS = 120
 
 
@@ -72,7 +73,7 @@ class ConversationExecutionBusy(Exception):
 class FlowServiceV2:
     def __init__(self):
         self.rag = _rag_singleton
-     
+
         self.tracer = ExecutionTracer()
         self.max_iterations = 50
         self.template_env = Environment(undefined=SilentUndefined)
@@ -81,15 +82,17 @@ class FlowServiceV2:
     def _calculate_cost(self, tokens_in: int, tokens_out: int, model: str) -> float:
         pricing = {
             "claude": {"input": 0.003 / 1000, "output": 0.015 / 1000},
-            "gpt":    {"input": 0.0005 / 1000, "output": 0.0015 / 1000},
-            "groq":   {"input": 0.000025 / 1000, "output": 0.00010 / 1000},
+            "gpt": {"input": 0.0005 / 1000, "output": 0.0015 / 1000},
+            "groq": {"input": 0.000025 / 1000, "output": 0.00010 / 1000},
         }
         provider_prices = pricing.get(model, pricing["groq"])
-        return (tokens_in * provider_prices["input"]) + (tokens_out * provider_prices["output"])
+        return (tokens_in * provider_prices["input"]) + (
+            tokens_out * provider_prices["output"]
+        )
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # PUBLIC ENTRY POINT
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def execute_incoming_message(
         self,
@@ -102,19 +105,22 @@ class FlowServiceV2:
         logger.info(f"🚨 FLOW STARTED! Message: '{inbound_text}'")
         metadata = metadata or {}
 
-        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        conversation = (
+            db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        )
         if not conversation:
-            logger.warning("Conversation %s not found for flow execution", conversation_id)
+            logger.warning(
+                "Conversation %s not found for flow execution", conversation_id
+            )
             return False
 
         execution_token = str(uuid.uuid4())
         state = self._claim_execution_slot(db, conversation.id, execution_token)
         state.runtime_context = state.runtime_context or {}
         state.runtime_context["last_user_message"] = inbound_text
-        
 
         try:
-            # ── Priority 1: pending button reply ──────────────────────────
+            # Priority 1: pending button reply────────────────────────
             if state.pending_button:
                 handled = await self._handle_pending_button(
                     db=db,
@@ -127,12 +133,13 @@ class FlowServiceV2:
                 if handled:
                     self._persist_state(db, state)
                     from app.workers.flow_execution import send_next_pending_message
+
                     send_next_pending_message.apply_async(
                         args=[str(conversation_id)], countdown=1
                     )
                     return True
 
-            # ── Priority 2: pending question reply ────────────────────────
+            # Priority 2: pending question reply──────────────────────
             if state.pending_question:
                 handled = await self._handle_pending_question(
                     db=db,
@@ -144,13 +151,13 @@ class FlowServiceV2:
                 if handled:
                     self._persist_state(db, state)
                     from app.workers.flow_execution import send_next_pending_message
+
                     send_next_pending_message.apply_async(
                         args=[str(conversation_id)], countdown=1
                     )
                     return True
 
-
-            # ── Only if NO pending state → trigger match ─────────────────────
+            # Only if NO pending state → trigger match───────────────────
 
             match = self._find_trigger_match(
                 db=db,
@@ -186,27 +193,30 @@ class FlowServiceV2:
             state.current_node_id = trigger_node.get("id")
             state.runtime_context["node_visit_counts"] = {}
             state.runtime_context["executed_nodes"] = []
-            
+
             # Cancel all old-flow messages that haven't been sent yet.
             # "pending" AND "in_progress" — if send_whatsapp_message_task
             # hasn't started, it will find status='cancelled' and skip.
             (
-            db.query(OutboundMessage)
-            .filter(
-                OutboundMessage.conversation_id == conversation.id,
-                OutboundMessage.status.in_(["pending", "in_progress"]),
-                OutboundMessage.flow_id != flow.id,
+                db.query(OutboundMessage)
+                .filter(
+                    OutboundMessage.conversation_id == conversation.id,
+                    OutboundMessage.status.in_(["pending", "in_progress"]),
+                    OutboundMessage.flow_id != flow.id,
+                )
+                .update({"status": "cancelled"}, synchronize_session=False)
             )
-            .update({"status": "cancelled"}, synchronize_session=False)
-             )
             # Cancel any pending scheduled resumes from old delayed nodes
             from app.models.scheduled_resume import ScheduledResume
+
             db.query(ScheduledResume).filter(
                 ScheduledResume.conversation_id == conversation.id,
                 ScheduledResume.status == "pending",
             ).update({"status": "cancelled"}, synchronize_session=False)
             db.flush()
-            next_node_id = self._get_default_target(flow.edges or [], trigger_node.get("id"))
+            next_node_id = self._get_default_target(
+                flow.edges or [], trigger_node.get("id")
+            )
             logger.info(f"🎯 Matched Flow ID: {flow.id} | Next Node ID: {next_node_id}")
 
             if not next_node_id:
@@ -227,6 +237,7 @@ class FlowServiceV2:
             # Kick off sequential dispatch — countdown=1 ensures all
             # outbound rows from this execution are committed and visible.
             from app.workers.flow_execution import send_next_pending_message
+
             send_next_pending_message.apply_async(
                 args=[str(conversation_id)], countdown=1
             )
@@ -237,7 +248,8 @@ class FlowServiceV2:
             executed = (state.runtime_context or {}).get("executed_nodes", [])
             logger.exception(
                 "Flow execution failed for conversation %s | executed_nodes=%s",
-                conversation.id, executed,
+                conversation.id,
+                executed,
             )
             self.tracer.trace(
                 db,
@@ -254,21 +266,32 @@ class FlowServiceV2:
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # RESUME EXECUTION (Triggered by Celery after delay)
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def resume_node_execution(
-        self, db: Session, conversation_id: str, node_id: str, inbound_text: str, msg_sequence_val: int
+        self,
+        db: Session,
+        conversation_id: str,
+        node_id: str,
+        inbound_text: str,
+        msg_sequence_val: int,
     ) -> None:
-        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        conversation = (
+            db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        )
         if not conversation:
             return
 
         execution_token = str(uuid.uuid4())
         state = self._claim_execution_slot(db, conversation.id, execution_token)
         try:
-            flow = db.query(AutomationFlow).filter(AutomationFlow.id == state.active_flow_id).first()
+            flow = (
+                db.query(AutomationFlow)
+                .filter(AutomationFlow.id == state.active_flow_id)
+                .first()
+            )
             if not flow:
                 return
 
@@ -292,17 +315,20 @@ class FlowServiceV2:
             # Kick off sequential dispatch — countdown=1 ensures all
             # outbound rows from this execution are committed and visible.
             from app.workers.flow_execution import send_next_pending_message
+
             send_next_pending_message.apply_async(
                 args=[str(conversation_id)], countdown=1
             )
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # STATE
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
-    def _get_or_create_state(self, db: Session, conversation_id: Any) -> FlowExecutionState:
+    def _get_or_create_state(
+        self, db: Session, conversation_id: Any
+    ) -> FlowExecutionState:
         state = (
             db.query(FlowExecutionState)
             .filter(FlowExecutionState.conversation_id == conversation_id)
@@ -315,7 +341,10 @@ class FlowServiceV2:
 
         try:
             state = FlowExecutionState(
-                conversation_id=conversation_id, context={}, runtime_context={}, version=1
+                conversation_id=conversation_id,
+                context={},
+                runtime_context={},
+                version=1,
             )
             db.add(state)
             db.flush()
@@ -354,7 +383,9 @@ class FlowServiceV2:
             .first()
         )
         if not state:
-            raise RuntimeError(f"Execution state not found for conversation {conversation_id}")
+            raise RuntimeError(
+                f"Execution state not found for conversation {conversation_id}"
+            )
 
         control = self._get_execution_control(state)
         now = datetime.now(timezone.utc)
@@ -375,7 +406,9 @@ class FlowServiceV2:
             {
                 "is_active": True,
                 "token": execution_token,
-                "lease_expires_at": (now + timedelta(seconds=lease_seconds)).isoformat(),
+                "lease_expires_at": (
+                    now + timedelta(seconds=lease_seconds)
+                ).isoformat(),
             },
         )
         state.version = (state.version or 0) + 1
@@ -401,7 +434,9 @@ class FlowServiceV2:
             .first()
         )
         if not state:
-            raise RuntimeError(f"Execution state not found for conversation {conversation_id}")
+            raise RuntimeError(
+                f"Execution state not found for conversation {conversation_id}"
+            )
 
         control = self._get_execution_control(state)
         if control.get("token") != execution_token:
@@ -479,9 +514,9 @@ class FlowServiceV2:
         parsed = datetime.fromisoformat(value)
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # TRIGGER MATCHING
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     def _find_trigger_match(self, db, workspace_id, inbound_text: str):
         logger.info(f"🔍 Searching flows for Workspace ID: {workspace_id}")
@@ -495,9 +530,9 @@ class FlowServiceV2:
             .order_by(AutomationFlow.created_at.asc())
             .all()
         )
- 
+
         best_match = None
- 
+
         # STEP 1: Keyword / fuzzy match (fast path)
         for flow in flows:
             trigger_node = next(
@@ -509,11 +544,11 @@ class FlowServiceV2:
             if match.matched:
                 if not best_match or match.confidence > best_match[2].confidence:
                     best_match = (flow, trigger_node, match)
- 
+
         if best_match:
             return best_match
- 
-        # STEP 2: Semantic fallback via PgVector — guarded 
+
+        # STEP 2: Semantic fallback via PgVector — guarded
         logger.info("🧠 No keyword match. Trying semantic trigger fallback…")
         try:
             trigger_corpus = []
@@ -524,25 +559,30 @@ class FlowServiceV2:
                 if not trigger_node:
                     continue
                 for kw in (trigger_node.get("config") or {}).get("keywords", []):
-                    trigger_corpus.append({"flow": flow, "node": trigger_node, "phrase": kw})
- 
+                    trigger_corpus.append(
+                        {"flow": flow, "node": trigger_node, "phrase": kw}
+                    )
+
             if not trigger_corpus:
                 return None
- 
+
             #  Guard: only call if the method actually exists on this RAG backend
             if not hasattr(self.rag, "find_semantic_similarity"):
-                logger.debug("RAG backend does not support find_semantic_similarity — skipping")
+                logger.debug(
+                    "RAG backend does not support find_semantic_similarity — skipping"
+                )
                 return None
- 
+
             semantic_results = self.rag.find_semantic_similarity(
                 query=inbound_text,
                 corpus=[item["phrase"] for item in trigger_corpus],
             )
- 
+
             if semantic_results and semantic_results[0]["score"] > 0.7:
                 idx = semantic_results[0]["index"]
                 matched_item = trigger_corpus[idx]
                 from app.services.trigger_engine import TriggerMatchResult
+
                 semantic_match = TriggerMatchResult(
                     matched=True,
                     confidence=semantic_results[0]["score"],
@@ -554,17 +594,17 @@ class FlowServiceV2:
                     f"(score={semantic_results[0]['score']:.2f})"
                 )
                 return (matched_item["flow"], matched_item["node"], semantic_match)
- 
+
         except Exception as sem_exc:
             # Semantic search failure must never prevent a keyword-matched flow from running.
             # Log and return None — the caller will treat it as a trigger miss.
             logger.warning(f"⚠️ Semantic trigger fallback failed: {sem_exc}")
- 
+
         return None
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # BUTTON HANDLING
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def _handle_pending_button(
         self,
@@ -575,7 +615,6 @@ class FlowServiceV2:
         inbound_text: str,
         metadata: Dict[str, Any],
         execution_token: Optional[str] = None,
-        
     ) -> bool:
         pending = dict(state.pending_button or {})
         if not pending:
@@ -587,17 +626,24 @@ class FlowServiceV2:
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at < now:
-                logger.info("⏰ Button expired for conversation %s. Sending fallback.", conversation.id)
+                logger.info(
+                    "⏰ Button expired for conversation %s. Sending fallback.",
+                    conversation.id,
+                )
                 state.pending_button = None
                 state.button_expires_at = None
                 # Send expiry fallback so the user isn't left without feedback
                 from app.workers.flow_execution import send_next_pending_message
+
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
                     to_number=self._get_conversation_destination(conversation),
                     body="Your session has expired. Please start again.",
-                    metadata={"source": "button_expired", "node_id": pending.get("node_id")},
+                    metadata={
+                        "source": "button_expired",
+                        "node_id": pending.get("node_id"),
+                    },
                     msg_sequence=[0],
                     execution_token=execution_token,
                     state=state,
@@ -608,10 +654,14 @@ class FlowServiceV2:
                 )
                 return True  # handled — don't fall through to trigger matching
 
-        flow = db.query(AutomationFlow).filter(
-            AutomationFlow.id == state.active_flow_id,
-            AutomationFlow.workspace_id == conversation.workspace_id,
-        ).first()
+        flow = (
+            db.query(AutomationFlow)
+            .filter(
+                AutomationFlow.id == state.active_flow_id,
+                AutomationFlow.workspace_id == conversation.workspace_id,
+            )
+            .first()
+        )
         if not flow:
             state.pending_button = None
             state.button_expires_at = None
@@ -641,7 +691,7 @@ class FlowServiceV2:
         state.pending_button = None
         state.button_expires_at = None
 
-        # ── Resolve target from the EDGE GRAPH (single source of truth) ──
+        # Resolve target from the EDGE GRAPH (single source of truth)
         # Look for an edge where source == button_node_id and
         # sourceHandle == button.value  (the handle the frontend wires).
         button_node_id = pending.get("node_id")
@@ -663,13 +713,16 @@ class FlowServiceV2:
                 logger.warning(
                     "⚠️ Button edge not found for handle '%s' on node '%s'. "
                     "Falling back to config.target=%s",
-                    button_value, button_node_id, target_node_id,
+                    button_value,
+                    button_node_id,
+                    target_node_id,
                 )
 
         if not target_node_id:
             logger.warning(
                 "⚠️ No target found for button '%s' on node '%s'. Stopping flow.",
-                button_value, button_node_id,
+                button_value,
+                button_node_id,
             )
             return True
 
@@ -684,9 +737,9 @@ class FlowServiceV2:
         )
         return True
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # ASK QUESTION HANDLING  ← NEW
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def _handle_pending_question(
         self,
@@ -713,17 +766,24 @@ class FlowServiceV2:
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at < now:
-                logger.info("⏰ Question expired for conversation %s. Sending fallback.", conversation.id)
+                logger.info(
+                    "⏰ Question expired for conversation %s. Sending fallback.",
+                    conversation.id,
+                )
                 state.pending_question = None
                 state.question_expires_at = None
                 # Send expiry fallback so the user isn't left without feedback
                 from app.workers.flow_execution import send_next_pending_message
+
                 await self._queue_outbound_message(
                     db=db,
                     conversation_id=conversation.id,
                     to_number=self._get_conversation_destination(conversation),
                     body="Your session has expired. Please start again.",
-                    metadata={"source": "question_expired", "node_id": pending.get("node_id")},
+                    metadata={
+                        "source": "question_expired",
+                        "node_id": pending.get("node_id"),
+                    },
                     msg_sequence=[0],
                     execution_token=execution_token,
                     state=state,
@@ -735,10 +795,14 @@ class FlowServiceV2:
                 return True  # handled — don't fall through to trigger matching
 
         # Load flow (workspace boundary check)
-        flow = db.query(AutomationFlow).filter(
-            AutomationFlow.id == state.active_flow_id,
-            AutomationFlow.workspace_id == conversation.workspace_id,
-        ).first()
+        flow = (
+            db.query(AutomationFlow)
+            .filter(
+                AutomationFlow.id == state.active_flow_id,
+                AutomationFlow.workspace_id == conversation.workspace_id,
+            )
+            .first()
+        )
         if not flow:
             state.pending_question = None
             state.question_expires_at = None
@@ -750,11 +814,12 @@ class FlowServiceV2:
         state.runtime_context[variable_name] = inbound_text
         state.runtime_context["last_user_message"] = inbound_text
         from sqlalchemy.orm.attributes import flag_modified
+
         flag_modified(state, "runtime_context")
         state.pending_question = None
         state.question_expires_at = None
         db.add(state)
-        db.flush() 
+        db.flush()
         self.tracer.trace(
             db,
             conversation_id=conversation.id,
@@ -766,7 +831,9 @@ class FlowServiceV2:
                 "answer": inbound_text[:200],
             },
         )
-        logger.info(f" Question answered! Stored '{inbound_text}' → context['{variable_name}']")
+        logger.info(
+            f" Question answered! Stored '{inbound_text}' → context['{variable_name}']"
+        )
 
         # Clear pending state
         state.pending_question = None
@@ -787,9 +854,9 @@ class FlowServiceV2:
 
         return True
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # CORE EXECUTION LOOP
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def _execute_from_node(
         self,
@@ -833,14 +900,16 @@ class FlowServiceV2:
             if not node:
                 return
 
-            # ── Per-node loop_limit enforcement ───────────────────────
+            # Per-node loop_limit enforcement─────────────────────
             visit_counts = state.runtime_context.setdefault("node_visit_counts", {})
             visit_counts[current_node_id] = visit_counts.get(current_node_id, 0) + 1
             loop_limit = (node.get("config") or {}).get("loop_limit", 3)
             if visit_counts[current_node_id] > loop_limit:
                 logger.warning(
                     "⛔ Node '%s' exceeded loop_limit (%d/%d) — stopping execution",
-                    current_node_id, visit_counts[current_node_id], loop_limit,
+                    current_node_id,
+                    visit_counts[current_node_id],
+                    loop_limit,
                 )
                 self.tracer.trace(
                     db,
@@ -854,7 +923,7 @@ class FlowServiceV2:
                 state.current_node_id = None
                 return
 
-            # ── Delay handling ────────────────────────────────────────────
+            # Delay handling──
             config = node.get("config") or {}
             delay_amount = int(config.get("delay_amount") or 0)
             delay_unit = config.get("delay_unit", "minutes")
@@ -869,8 +938,8 @@ class FlowServiceV2:
             if node_delay_seconds > 0 and not skip_delay:
                 self._persist_state(db, state)
 
-                # ── Short delay (<30 min): Celery countdown (in-memory, fast)
-                # ── Long delay (>=30 min): DB-persisted (survives restarts)
+                # Short delay (<30 min): Celery countdown (in-memory, fast)
+                # Long delay (>=30 min): DB-persisted (survives restarts)
                 _SHORT_DELAY_THRESHOLD = 1800  # 30 minutes in seconds
 
                 if node_delay_seconds < _SHORT_DELAY_THRESHOLD:
@@ -878,6 +947,7 @@ class FlowServiceV2:
                         f"⏳ Node '{current_node_id}' short delay {node_delay_seconds}s → Celery countdown"
                     )
                     from app.workers.flow_execution import resume_flow_node
+
                     resume_flow_node.apply_async(
                         kwargs={
                             "conversation_id": str(conversation.id),
@@ -892,7 +962,10 @@ class FlowServiceV2:
                         f"⏳ Node '{current_node_id}' long delay {node_delay_seconds}s → DB scheduled_resumes"
                     )
                     from app.models.scheduled_resume import ScheduledResume
-                    run_at = datetime.now(timezone.utc) + timedelta(seconds=node_delay_seconds)
+
+                    run_at = datetime.now(timezone.utc) + timedelta(
+                        seconds=node_delay_seconds
+                    )
                     sr = ScheduledResume(
                         conversation_id=conversation.id,
                         node_id=current_node_id,
@@ -906,7 +979,10 @@ class FlowServiceV2:
                     db.commit()
                     logger.info(
                         "Scheduled resume persisted | conversation=%s node=%s run_at=%s id=%s",
-                        conversation.id, current_node_id, run_at.isoformat(), sr.id,
+                        conversation.id,
+                        current_node_id,
+                        run_at.isoformat(),
+                        sr.id,
                     )
                 return
 
@@ -930,13 +1006,15 @@ class FlowServiceV2:
                         inbound_text=inbound_text,
                         msg_sequence=msg_sequence,
                         execution_token=execution_token,
-                        state=state  
+                        state=state,
                     )
                 except Exception as node_exc:
                     #  Never silently stop — always reply
                     logger.exception(
                         "❌ Node '%s' in flow '%s' raised: %s",
-                        current_node_id, flow.id, node_exc,
+                        current_node_id,
+                        flow.id,
+                        node_exc,
                     )
                     executed = state.runtime_context.get("executed_nodes", [])
                     self.tracer.trace(
@@ -947,9 +1025,12 @@ class FlowServiceV2:
                         event_type="error",
                         status="failed",
                         error_message=str(node_exc),
-                        metadata={"node_label": node.get("label"), "executed_nodes": executed},
+                        metadata={
+                            "node_label": node.get("label"),
+                            "executed_nodes": executed,
+                        },
                     )
- 
+
                     #  Check for an explicit "error" branch edge first
                     error_target = next(
                         (
@@ -960,7 +1041,7 @@ class FlowServiceV2:
                         ),
                         None,
                     )
- 
+
                     if error_target:
                         # Route to designer-defined error node
                         logger.info(f"🔀 Routing to error node: {error_target}")
@@ -974,13 +1055,16 @@ class FlowServiceV2:
                             conversation_id=conversation.id,
                             to_number=self._get_conversation_destination(conversation),
                             body=FLOW_FALLBACK_MESSAGE,
-                            metadata={"source": "node_error_fallback", "node_id": current_node_id},
+                            metadata={
+                                "source": "node_error_fallback",
+                                "node_id": current_node_id,
+                            },
                             msg_sequence=msg_sequence,
                             execution_token=execution_token,
-                             state=state
+                            state=state,
                         )
                         return
- 
+
                 duration_ms = int((time.perf_counter() - started_at) * 1000)
                 self.tracer.trace(
                     db,
@@ -992,18 +1076,22 @@ class FlowServiceV2:
                     metadata={"action_type": config.get("type")},
                 )
                 # Track successfully executed nodes for partial-execution visibility
-                state.runtime_context.setdefault("executed_nodes", []).append(current_node_id)
+                state.runtime_context.setdefault("executed_nodes", []).append(
+                    current_node_id
+                )
                 if stop_execution:
                     return
 
             skip_delay = False
-            current_node_id = self._get_default_target(flow.edges or [], current_node_id)
+            current_node_id = self._get_default_target(
+                flow.edges or [], current_node_id
+            )
 
         state.current_node_id = None
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # ACTION DISPATCH
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def _handle_action_node(
         self,
@@ -1021,15 +1109,20 @@ class FlowServiceV2:
         action_type = config.get("type")
         state.runtime_context = state.runtime_context or {}
 
-        # ── Send Message ──────────────────────────────────────────────────
+        # Send Message
         if action_type == "send_msg":
             return await self._handle_send_message_node(
-                db=db, conversation=conversation, flow=flow,
-                state=state, node=node, inbound_text=inbound_text, msg_sequence=msg_sequence,
+                db=db,
+                conversation=conversation,
+                flow=flow,
+                state=state,
+                node=node,
+                inbound_text=inbound_text,
+                msg_sequence=msg_sequence,
                 execution_token=execution_token,
             )
 
-        # ── AI Brain Query ────────────────────────────────────────────────
+        # AI Brain Query──────
         if action_type == "brain_query":
             response, usage = await self._generate_guardrailed_ai_response(
                 db=db,
@@ -1037,8 +1130,8 @@ class FlowServiceV2:
                 prompt=config.get("prompt") or "",
                 inbound_text=inbound_text,
                 context=state.runtime_context or {},
-                collection=config.get("collection"), 
-                entry_ids=config.get("entry_ids")
+                collection=config.get("collection"),
+                entry_ids=config.get("entry_ids"),
             )
             cost = self._calculate_cost(
                 usage.get("input_tokens", 0),
@@ -1058,7 +1151,7 @@ class FlowServiceV2:
                 cost=cost,
                 metadata={"answer": response},
             )
-            
+
             if response != "Not Found":
                 state.runtime_context["last_ai_response"] = response
                 await self._queue_outbound_message(
@@ -1069,7 +1162,7 @@ class FlowServiceV2:
                     metadata={"source": "brain_query", "node_id": node.get("id")},
                     msg_sequence=msg_sequence,
                     execution_token=execution_token,
-                        state=state
+                    state=state,
                 )
             else:
                 # User requested: DO NOT send fallback message when no data is found.
@@ -1079,15 +1172,20 @@ class FlowServiceV2:
                 )
             return False
 
-        # ── Ask Question (NEW) ────────────────────────────────────────────
+        # Ask Question (NEW)──
         if action_type == "ask_question":
             return await self._handle_ask_question_node(
-                db=db, conversation=conversation, flow=flow,
-                state=state, node=node, inbound_text=inbound_text, msg_sequence=msg_sequence,
+                db=db,
+                conversation=conversation,
+                flow=flow,
+                state=state,
+                node=node,
+                inbound_text=inbound_text,
+                msg_sequence=msg_sequence,
                 execution_token=execution_token,
             )
 
-        # ── Assign Agent ──────────────────────────────────────────────────
+        # Assign Agent
         if action_type == "assign_agent":
             strategy = config.get("strategy", "round_robin")
             state.runtime_context["assigned_agent_strategy"] = strategy
@@ -1096,7 +1194,7 @@ class FlowServiceV2:
             logger.info(f"🧑 Assign agent triggered: strategy={strategy}")
             return False
 
-        # ── Move Deal Stage ───────────────────────────────────────────────
+        # Move Deal Stage─────
         if action_type == "move_stage":
             stage = config.get("stage")
             state.runtime_context["deal_stage"] = stage
@@ -1105,7 +1203,7 @@ class FlowServiceV2:
             logger.info(f"📊 Move stage triggered: stage={stage}")
             return False
 
-        # ── Notification (FIXED: was checking 'send_notification') ────────
+        # Notification (FIXED: was checking 'send_notification')──────
         if action_type in ("notification", "send_notification"):
             text = config.get("text") or config.get("message") or ""
             state.runtime_context["last_notification"] = text
@@ -1114,12 +1212,14 @@ class FlowServiceV2:
             logger.info(f"🔔 Notification triggered: {text[:80]}")
             return False
 
-        logger.warning(f"⚠️ Unknown action type: '{action_type}' on node {node.get('id')}")
+        logger.warning(
+            f"⚠️ Unknown action type: '{action_type}' on node {node.get('id')}"
+        )
         return False
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # ASK QUESTION NODE HANDLER  ← NEW
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def _handle_ask_question_node(
         self,
@@ -1158,9 +1258,11 @@ class FlowServiceV2:
                 metadata={"source": "ask_question", "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
                 execution_token=execution_token,
-                    state=state
+                state=state,
             )
-            logger.info(f"❓ Ask question sent. Waiting for reply → context['{variable_name}']")
+            logger.info(
+                f"❓ Ask question sent. Waiting for reply → context['{variable_name}']"
+            )
 
         # Set pending state — execution will resume in _handle_pending_question
         state.pending_question = {
@@ -1168,7 +1270,9 @@ class FlowServiceV2:
             "variable_name": variable_name,
             "next_node_id": next_node_id,
         }
-        state.question_expires_at = datetime.now(timezone.utc) + timedelta(minutes=timeout_minutes)
+        state.question_expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=timeout_minutes
+        )
 
         self.tracer.trace(
             db,
@@ -1185,9 +1289,9 @@ class FlowServiceV2:
 
         return True  # Stop execution — wait for human reply
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # MESSAGE HANDLERS
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def _handle_send_message_node(
         self,
@@ -1206,7 +1310,7 @@ class FlowServiceV2:
         message_type = config.get("message_type", "text")
         mode = config.get("mode", "manual")
 
-        # ── Media messages ────────────────────────────────────────────────
+        # Media messages──────
         if message_type in {"image", "video", "document"}:
             media_url = (config.get("media_url") or "").strip()
             caption = config.get("text", "")
@@ -1216,7 +1320,10 @@ class FlowServiceV2:
             if media_error:
                 logger.warning(
                     "⚠️ Media validation failed for node %s: %s | url=%s type=%s",
-                    node.get("id"), media_error, media_url, message_type,
+                    node.get("id"),
+                    media_error,
+                    media_url,
+                    message_type,
                 )
                 self.tracer.trace(
                     db,
@@ -1249,7 +1356,7 @@ class FlowServiceV2:
                 db=db,
                 conversation_id=conversation.id,
                 to_number=self._get_conversation_destination(conversation),
-                body=caption or '',
+                body=caption or "",
                 metadata={
                     "source": "media_message",
                     "node_id": node.get("id"),
@@ -1262,7 +1369,7 @@ class FlowServiceV2:
             )
             return False
 
-        # ── Button message ────────────────────────────────────────────────
+        # Button message──────
         if message_type in {"button_message", "button"}:
             buttons = self._normalize_buttons(config.get("buttons", []))
             header_text = self._render_template(
@@ -1281,15 +1388,19 @@ class FlowServiceV2:
                     },
                     msg_sequence=msg_sequence,
                     execution_token=execution_token,
-                        state=state
+                    state=state,
                 )
-            state.pending_button = {"node_id": node.get("id"), "buttons": buttons, "mode": mode}
+            state.pending_button = {
+                "node_id": node.get("id"),
+                "buttons": buttons,
+                "mode": mode,
+            }
             state.button_expires_at = datetime.now(timezone.utc) + timedelta(
                 minutes=int(config.get("button_timeout_minutes", 60))
             )
             return True  # Stop execution — wait for button reply
 
-        # ── Plain text ────────────────────────────────────────────────────
+        # Plain text
         outbound_text = self._render_template(
             config.get("message") or config.get("text") or "", context
         )
@@ -1304,7 +1415,6 @@ class FlowServiceV2:
                 prompt=config.get("prompt") or "",
                 inbound_text=inbound_text,
                 context=context,
-                
             )
             self.tracer.trace(
                 db,
@@ -1338,13 +1448,13 @@ class FlowServiceV2:
                 metadata={"source": mode, "node_id": node.get("id")},
                 msg_sequence=msg_sequence,
                 execution_token=execution_token,
-                    state=state
+                state=state,
             )
         return False
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # OUTBOX: queue & dispatch
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     async def _queue_outbound_message(
         self,
@@ -1356,7 +1466,7 @@ class FlowServiceV2:
         metadata: Optional[Dict[str, Any]] = None,
         msg_sequence: Optional[List[int]],
         execution_token: Optional[str] = None,
-        state: FlowExecutionState 
+        state: FlowExecutionState,
     ) -> None:
         """Insert message into the outbound_messages outbox.
 
@@ -1366,8 +1476,8 @@ class FlowServiceV2:
         """
         metadata = metadata or {}
         self._refresh_execution_slot(db, conversation_id, execution_token)
-    
-        # ── Compute monotonic sequence under row-lock ──────────────────────
+
+        # Compute monotonic sequence under row-lock────────────────────
         existing = (
             db.query(OutboundMessage)
             .filter(OutboundMessage.conversation_id == conversation_id)
@@ -1377,7 +1487,7 @@ class FlowServiceV2:
         )
         next_seq = (existing.sequence + 1) if existing else 1
 
-        # ── OutboundMessage (phone delivery) ──────────────────────────────
+        # OutboundMessage (phone delivery)────────────────────────────
         msg = OutboundMessage(
             conversation_id=conversation_id,
             to_number=to_number,
@@ -1385,13 +1495,13 @@ class FlowServiceV2:
             metadata_json=metadata,
             status="pending",
             sequence=next_seq,
-            flow_id=state.active_flow_id
+            flow_id=state.active_flow_id,
         )
         db.add(msg)
         db.commit()
         db.refresh(msg)
 
-        # ── Keep msg_sequence counter consistent with existing callers ────
+        # Keep msg_sequence counter consistent with existing callers──
         if msg_sequence is not None:
             async with _conversation_locks[str(conversation_id)]:
                 msg_sequence[0] = next_seq
@@ -1402,13 +1512,13 @@ class FlowServiceV2:
             next_seq,
             msg.id,
         )
-        # ── Kick off delivery if nothing is in-progress ────────────────────
+        # Kick off delivery if nothing is in-progress──────────────────
         #  ALWAYS trigger dispatcher
 
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
     # AI RESPONSE
-    # ─────────────────────────────────────────────────────────────────────────
-    
+    # ───────────────────────
+
     async def _generate_guardrailed_ai_response(
         self,
         db: Session,
@@ -1423,9 +1533,9 @@ class FlowServiceV2:
 
         NOT_FOUND = "Not Found"
 
-        # ─────────────────────────────────────────
+        # ───
         #  RETRY HELPER
-        # ─────────────────────────────────────────
+        # ───
         async def _retry_async(fn, retries=3, delay=0.5):
             last_exception = None
             for attempt in range(retries):
@@ -1438,17 +1548,16 @@ class FlowServiceV2:
             logger.error("[RETRY FAILED] All attempts failed")
             raise last_exception
 
-        # ─────────────────────────────────────────
+        # ───
         #  RAG SEARCH (WITH RETRY)
-        # ─────────────────────────────────────────
+        # ───
         async def call_rag_async():
             return await self.rag.iterative_retrieval(
                 db=db,
                 workspace_id=workspace_id,
                 query=inbound_text,
                 max_iterations=1,
-                entry_ids=entry_ids,
-                collection=collection
+                collection=collection,
             )
 
         try:
@@ -1457,9 +1566,9 @@ class FlowServiceV2:
             logger.exception("[RAG ERROR] Failed after retries")
             return NOT_FOUND, {}
 
-        # ─────────────────────────────────────────
+        # ───
         #  CONTEXT BUILD
-        # ─────────────────────────────────────────
+        # ───
         retrieved_context = ""
         docs = retrieved.get("docs", []) if isinstance(retrieved, dict) else []
         if docs:
@@ -1471,9 +1580,9 @@ class FlowServiceV2:
             logger.info("[RAG EMPTY] No relevant context found")
             return NOT_FOUND, {}
 
-        # ─────────────────────────────────────────
+        # ───
         #  PROMPT BUILD
-        # ─────────────────────────────────────────
+        # ───
         llm_prompt = f"""You are a constrained WhatsApp automation answer engine.
 
     Rules:
@@ -1499,13 +1608,13 @@ class FlowServiceV2:
     {retrieved_context}
     """
 
-        # ─────────────────────────────────────────
+        # ───
         # LLM CALL (RETRY + TIMEOUT)
-        # ─────────────────────────────────────────
+        # ───
         async def call_llm():
             return await asyncio.wait_for(
                 safe_llm_call(llm_prompt, model="auto"),
-                timeout=15  # prevents hanging workers
+                timeout=15,  # prevents hanging workers
             )
 
         try:
@@ -1514,9 +1623,9 @@ class FlowServiceV2:
             logger.exception("[LLM ERROR] Failed after retries")
             return NOT_FOUND, {}
 
-        # ─────────────────────────────────────────
+        # ───
         #  PARSE RESPONSE
-        # ─────────────────────────────────────────
+        # ───
         content = (result or {}).get("content", "").strip()
         parsed = self._safe_json(content)
 
@@ -1535,9 +1644,10 @@ class FlowServiceV2:
             return NOT_FOUND, result or {}
 
         return answer, result or {}
-    # ─────────────────────────────────────────────────────────────────────────
+
+    # ───────────────────────
     # HELPERS
-    # ─────────────────────────────────────────────────────────────────────────
+    # ───────────────────────
 
     # Allowed file extensions per media type
     _MEDIA_EXTENSIONS: Dict[str, set] = {
@@ -1553,9 +1663,7 @@ class FlowServiceV2:
         "document": "application/pdf",
     }
 
-    def _validate_media_url(
-        self, media_url: str, message_type: str
-    ) -> Optional[str]:
+    def _validate_media_url(self, media_url: str, message_type: str) -> Optional[str]:
         """Validate a media URL against the declared message_type.
 
         Returns an error string if invalid, or None if valid.
@@ -1608,12 +1716,9 @@ class FlowServiceV2:
                     f"got '{content_type}'"
                 )
         except Exception as exc:
-            logger.warning(
-                "HEAD check failed for %s (non-fatal): %s", media_url, exc
-            )
+            logger.warning("HEAD check failed for %s (non-fatal): %s", media_url, exc)
 
         return None  # pass or inconclusive
-
 
     def _safe_json(self, value: str) -> Optional[Dict[str, Any]]:
         try:
@@ -1621,7 +1726,7 @@ class FlowServiceV2:
             end = value.rfind("}")
             if start == -1 or end == -1:
                 return None
-            return json.loads(value[start: end + 1])
+            return json.loads(value[start : end + 1])
         except json.JSONDecodeError:
             return None
 
@@ -1647,25 +1752,24 @@ class FlowServiceV2:
     def _render_template(self, text: str, context: dict) -> str:
         if not text:
             return ""
- 
-        
-        enriched = {k: str(v)[:500] for k, v in context.items() if not k.startswith("_")}
- 
-       
+
+        enriched = {
+            k: str(v)[:500] for k, v in context.items() if not k.startswith("_")
+        }
+
         if "last_ai_response" in enriched and "last_brain_answer" not in enriched:
             enriched["last_brain_answer"] = enriched["last_ai_response"]
         if "last_brain_answer" in enriched and "last_ai_response" not in enriched:
             enriched["last_ai_response"] = enriched["last_brain_answer"]
- 
-        
+
         if "last_user_message" in enriched and "customer_intent" not in enriched:
             enriched["customer_intent"] = enriched["last_user_message"]
- 
+
         try:
             return self.template_env.from_string(text).render(**enriched)
         except Exception as e:
             logger.warning(f"Template render error: {e}")
-            return text  
+            return text
 
     def _get_default_target(
         self, edges: list[Dict[str, Any]], source_id: Optional[str]
@@ -1673,7 +1777,11 @@ class FlowServiceV2:
         if not source_id:
             return None
         edge = next(
-            (e for e in edges if e.get("source") == source_id and not e.get("sourceHandle")),
+            (
+                e
+                for e in edges
+                if e.get("source") == source_id and not e.get("sourceHandle")
+            ),
             None,
         )
         return edge.get("target") if edge else None

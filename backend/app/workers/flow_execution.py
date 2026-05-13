@@ -34,11 +34,6 @@ _DISPATCHED_TIMEOUT_SECONDS = 120
 # Redis lock TTL — must be longer than a single send_next loop takes.
 _SEND_LOCK_TTL_SECONDS = 30
 
-
-# ---------------------------------------------------------------------------
-# execute_incoming_message
-# ---------------------------------------------------------------------------
-
 @celery_app.task(
     bind=True,
     name="app.workers.flow_execution.execute_incoming_message",
@@ -50,13 +45,7 @@ def execute_incoming_message(
     message: str,
     metadata: dict = None,
 ):
-    """
-    Entry-point for every inbound WhatsApp message.
-
-    Previously had *no* retry, *no* tracing on failure — a DB hiccup or
-    LLM timeout would silently discard the message.  Now mirrors the
-    pattern from send_whatsapp_message_task.
-    """
+    
     db = SessionLocal()
     tracer = ExecutionTracer()
 
@@ -131,17 +120,13 @@ def execute_incoming_message(
                 conversation_id,
                 exc,
             )
-            # Failure is already persisted above — do not re-raise so the
-            # Celery task is marked FAILURE (not RETRY) and the dead-letter
-            # queue (if configured) can pick it up.
 
     finally:
         db.close()
 
 
-# ---------------------------------------------------------------------------
 # resume_flow_node
-# ---------------------------------------------------------------------------
+
 @celery_app.task(
     bind=True,
     name="app.workers.flow_execution.resume_flow_node",
@@ -237,9 +222,8 @@ def resume_flow_node(
         db.close()
 
 
-# ---------------------------------------------------------------------------
 # send_next_pending_message  (REWRITTEN — race-condition-free)
-# ---------------------------------------------------------------------------
+
 
 @celery_app.task(
     bind=True,
@@ -255,8 +239,7 @@ def send_next_pending_message(self, conversation_id: str):
         conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
     )
     if lock_token is None:
-        # Another worker is already dispatching for this conversation.
-        # That worker will handle everything — we can safely exit.
+
         logger.info(
             "[send_next_pending_message] Lock held by another worker | conversation=%s",
             conversation_id,
@@ -265,10 +248,7 @@ def send_next_pending_message(self, conversation_id: str):
 
     db = SessionLocal()
     try:
-        # ── GUARD 2: Check for any active (in_progress / dispatched) message ──
-        # Use with_for_update() (BLOCKING) — no skip_locked!
-        # This means if another transaction holds a lock on this row,
-        # we'll wait for it instead of silently skipping.
+       
         active_msg = (
             db.query(OutboundMessage)
             .filter(
@@ -318,9 +298,7 @@ def send_next_pending_message(self, conversation_id: str):
                 )
                 return
 
-        # ── GUARD 3: Claim the next pending message under row lock ─────
-        # Filter by active_flow_id to avoid sending messages from a
-        # superseded flow (old pending messages).
+     
         state = (
             db.query(FlowExecutionState)
             .filter(FlowExecutionState.conversation_id == conversation_id)
@@ -338,7 +316,7 @@ def send_next_pending_message(self, conversation_id: str):
         msg = (
             db.query(OutboundMessage)
             .filter(*base_filter)
-            .with_for_update()  # BLOCKING — no skip_locked!
+            .with_for_update() 
             .order_by(OutboundMessage.sequence.asc())
             .first()
         )
@@ -350,7 +328,7 @@ def send_next_pending_message(self, conversation_id: str):
             )
             return
 
-        # Transition: pending → in_progress
+
         msg.status = "in_progress"
         db.commit()
 
@@ -362,9 +340,6 @@ def send_next_pending_message(self, conversation_id: str):
             conversation_id,
         )
 
-        # Fire the actual send task.
-        # IMPORTANT: We do NOT call send_next_pending_message again here.
-        # The Twilio status callback will do that after confirmation.
         send_whatsapp_message_task.delay(
             outbound_message_id=outbound_id,
             conversation_id=conversation_id,
@@ -396,9 +371,9 @@ def send_next_pending_message(self, conversation_id: str):
         db.close()
 
 
-# ---------------------------------------------------------------------------
+
 # send_whatsapp_message_task  (FIXED — sets "dispatched", not "sent")
-# ---------------------------------------------------------------------------
+
 @celery_app.task(
     bind=True,
     name="app.workers.flow_execution.send_whatsapp_message_task",
@@ -426,7 +401,6 @@ def send_whatsapp_message_task(
         buttons = metadata.get("buttons") or []
 
         # 2. Idempotency check — if we already have a Twilio SID, we
-        #    already sent this message (possibly in a previous attempt).
         row = (
             db.query(OutboundMessage)
             .filter(OutboundMessage.id == outbound_message_id)
@@ -490,8 +464,7 @@ def send_whatsapp_message_task(
             metadata=metadata,
         )
 
-        # 5. Persist SID and transition to DISPATCHED (not "sent"!)
-        #    The "sent" transition happens only via Twilio status callback.
+        # 5. Persist SID and transition to DISPATCHED
         row.twilio_sid = sid
         row.status = "dispatched"
 
@@ -707,10 +680,8 @@ def sweep_stuck_messages():
     finally:
         db.close()
 
-
-# ---------------------------------------------------------------------------
 # poll_scheduled_resumes  (Celery beat — every 30s)
-# ---------------------------------------------------------------------------
+
 @celery_app.task(name="app.workers.flow_execution.poll_scheduled_resumes")
 def poll_scheduled_resumes():
     """Poll the scheduled_resumes table for due long-delay rows.
@@ -778,7 +749,7 @@ def poll_scheduled_resumes():
                 )
                 continue
 
-            # ── Mark executed ONLY after successful enqueue
+            # Mark executed ONLY after successful enqueue
             sr.status = "executed"
             dispatched += 1
             logger.info(

@@ -8,12 +8,6 @@ def verify_workspace_access(
     db: Session, 
     target_workspace_id: uuid.UUID | str = None
 ) -> str:
-    """
-    Standardized Workspace Verification.
-    - If target_workspace_id is passed, it verifies that specific ID.
-    - If NOT passed, it verifies the current_user's default workspace_id.
-    Returns the verified workspace_id as a string.
-    """
     # 1. Decide which ID to check
     check_id = str(target_workspace_id) if target_workspace_id else str(current_user.workspace_id)
 

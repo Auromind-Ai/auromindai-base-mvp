@@ -199,26 +199,7 @@ export default function ChannelsPage() {
 
 }, [workspace]);
 
-    const connectInstagramToBackend = async (code) => {
-        try {
-            const res = await fetch(`/backend/api/instagram/connect`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, workspace_id: workspace?.id })
-            });
-            const data = await res.json();
-            if (data.status === 'connected') {
-                setStatuses(prev => ({ ...prev, instagram: true }));
-                setConnectedInfo(prev => ({ ...prev, instagram: data.username }));
-            }
-        } catch (err) {
-            console.error('Instagram connect error:', err);
-        } finally {
-            setConnecting(null);
-        }
-    };
-
-    // ─── Gmail OAuth ─────────────────────────────────────────────────────────
+    // ─── Gmail OAuth───────
     const startGmailOAuth = () => {
         const redirectUri = `/api/gmail/callback`;
         window.location.href =
@@ -230,7 +211,7 @@ export default function ChannelsPage() {
             `&access_type=offline`;
     };
 
-    // ─── Twilio Modal ────────────────────────────────────────────────────────
+    // ─── Twilio Modal──────
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
         if (!sid.trim() || !token.trim() || !phone.trim()) return;
@@ -254,7 +235,7 @@ export default function ChannelsPage() {
         }
     };
 
-    // ─── Main connect dispatcher ─────────────────────────────────────────────
+    // ─── Main connect dispatcher───
     const handleConnect = (id) => {
         if (statuses[id]) return; // already connected
         if (id === 'whatsapp')  startWhatsAppSignup();

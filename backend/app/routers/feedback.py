@@ -30,7 +30,7 @@ def submit_feedback(
         logger.exception("Workspace access check failed: %s", e)
         raise HTTPException(status_code=403, detail="Workspace access denied")
 
-    # ── 2. Validate & evaluate input ────────────────────────────────────────
+    # ── 2. Validate & evaluate input──
     engine = ReinforcementEngine(db)
 
     try:
@@ -42,7 +42,7 @@ def submit_feedback(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # ── 3. Persist feedback ─────────────────────────────────────────────────
+    # ── 3. Persist feedback───────
     try:
         fb = Feedback(
             query=data.get("query"),

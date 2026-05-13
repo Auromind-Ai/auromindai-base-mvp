@@ -1,12 +1,8 @@
 console.log("API CLIENT VERSION: 1.1.21");
 import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
 
-// Always route through the Next.js same-origin proxy (/api/*) when running
-// in the browser. This avoids all CORS issues — the browser only ever talks
-// to the Next.js server (same origin), which forwards to the real backend.
-// For SSR (Node.js), hit the backend directly via the env var.
 const API_BASE_URL = typeof window !== 'undefined'
-  ? '/api'                                        // browser  → same-origin proxy
+  ? '/api'                                   
   : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'); // SSR
 
 console.log("Selected API_BASE_URL:", API_BASE_URL);

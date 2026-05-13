@@ -29,10 +29,7 @@ async def get_metrics(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """
-    Retrieves key sales metrics for the dashboard.
-    (Currently returns hardcoded data for demonstration)
-    """
+   
     verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services
     METRICS = [
@@ -49,10 +46,7 @@ async def get_attention_items(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """
-    Retrieves a list of items requiring immediate attention.
-    (Currently returns hardcoded data for demonstration)
-    """
+   
     verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services (e.g., overdue follow-ups, pending documents)
     ATTENTION_ITEMS = [

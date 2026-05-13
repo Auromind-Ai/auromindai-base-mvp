@@ -58,9 +58,9 @@ async def get_tokens(db: Session = Depends(get_db)):
     return results
 
 
-# ============================================================
+
 # Update Token Limit
-# ============================================================
+
 
 @router.patch("/tokens/{workspace_id}/limit")
 async def update_token_limit(

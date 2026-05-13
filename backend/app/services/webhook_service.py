@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import logging
 from typing import Any
@@ -41,7 +40,7 @@ class WebhookService:
             or form_data.get("InteractiveButtonReplyTitle")
         )
  
-        # ── Guard: required fields ────────────────────────────────────────────
+        # ── Guard: required fields──
         if not from_number or not body or not to_number:
             return str(MessagingResponse())
  
@@ -57,7 +56,7 @@ class WebhookService:
  
         workspace_id = str(workspace.id)
  
-        # ── Forward to unified pipeline ───────────────────────────────────────
+        # ── Forward to unified pipeline─
         await WebhookService.process_incoming_message(
             db,
             workspace_id=workspace_id,

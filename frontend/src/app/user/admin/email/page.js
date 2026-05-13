@@ -184,9 +184,9 @@ export default function EmailPage() {
     Array.isArray(aiData?.actions) &&
     aiData.actions.length > 0;
 
-  /* ===========================================================
+  /* =====
      UI
-  ============================================================ */
+  ====== */
 
   return (
 
