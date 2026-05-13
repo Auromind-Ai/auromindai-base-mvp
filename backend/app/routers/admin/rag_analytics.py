@@ -49,20 +49,20 @@ def get_dashboard(
         # ── Tool performance (NEW — was missing) ────────────
         "tool_performance": tool_performance_list,
 
-        # ── Users / Sessions ────────────────────────────────
+        # ── Users / Sessions ──────────
         "sessions": data.get("sessions") or [],
         "users":    data.get("users")    or [],
 
         # ── Models
         "models": data.get("models") or [],
 
-        # ── Feedback logs ───────────────────────────────────
+        # ── Feedback logs ─────────────
         "feedback_logs": data.get("feedback_logs") or [],
 
-        # ── Failed queries ──────────────────────────────────
+        # ── Failed queries ────────────
         "top_failed_queries": data.get("top_failed_queries") or [],
 
-        # ── Best / Worst tool ───────────────────────────────
+        # ── Best / Worst tool ─────────
         "best_tool":  data.get("best_tool")  or ["N/A", {"accuracy": 0}],
         "worst_tool": data.get("worst_tool") or ["N/A", {"accuracy": 0}],
 

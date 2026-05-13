@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from 'react'
 import { Coins, TrendingUp, Calendar } from "lucide-react"
 import api from "@/lib/api"
 

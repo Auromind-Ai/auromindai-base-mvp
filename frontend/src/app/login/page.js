@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, ArrowRight, Loader2, Cpu, Lock } from 'lucide-react';
-import { setToken, setUser, setWorkspace, isAuthenticated } from '@/lib/auth';
+import { setToken, setUser, setWorkspace, isAuthenticated, getUser } from '@/lib/auth';
 import api from '@/lib/api';
 
 export default function LoginPage() {
@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     // Auto-redirect if already logged in
     useEffect(() => {
-        if (isAuthenticated()) {
+        if (isAuthenticated() && getUser()) {
             router.push(redirectPath || '/user/admin/dashboard');
         }
     }, [router, redirectPath]);

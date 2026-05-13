@@ -40,11 +40,11 @@ class WebhookService:
             or form_data.get("InteractiveButtonReplyTitle")
         )
  
-        # ── Guard: required fields──
+        # ── Guard: required fields 
         if not from_number or not body or not to_number:
             return str(MessagingResponse())
  
-        # ── Workspace lookup (To number → Workspace row) ──────────────────────
+        # ── Workspace lookup (To number → Workspace row) 
         workspace = ConversationService.get_workspace_for_twilio_number(db, to_number)
         if not workspace:
             # Log and return empty TwiML — don't crash
@@ -56,7 +56,7 @@ class WebhookService:
  
         workspace_id = str(workspace.id)
  
-        # ── Forward to unified pipeline─
+        # ── Forward to unified pipeline
         await WebhookService.process_incoming_message(
             db,
             workspace_id=workspace_id,

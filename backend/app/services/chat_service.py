@@ -30,14 +30,7 @@ class ChatServiceConfig(BaseModel):
 
 
 class ChatService:
-    """
-    Merged chat service:
-    - Workspace access validation
-    - Credit reservation / finalize / release
-    - Guardrails input/output protection
-    - RAG first, then LLM fallback
-    - Safe streaming with cleanup in finally
-    """
+    
 
     def __init__(self, config: ChatServiceConfig):
         self.config = config
@@ -251,12 +244,7 @@ class ChatService:
         chat_mode: str = "auto",
         source: str = "internal",
     ) -> AsyncGenerator[str, None]:
-        """
-        Streaming chat with Safe Short-Lived DB Transactions:
-        1. Pre-stream (Reserve & Save User Msg) -> COMMIT & CLOSE DB
-        2. Stream (RAG & LLM) -> NO DB CONNECTION HELD
-        3. Post-stream (Finalize & Save AI Msg) -> NEW DB SESSION, COMMIT & CLOSE
-        """
+        
         reservation_id = None
         final_billing_reason = "no_response_generated"
         full_response = ""
@@ -337,6 +325,7 @@ class ChatService:
                         )
 
                     if answer_data:
+                        
                         result = answer_data if isinstance(answer_data, dict) else {
                             "answer": answer_data,
                             "meta": {"query": message, "rewritten_query": safe_query, "source": "fallback"}

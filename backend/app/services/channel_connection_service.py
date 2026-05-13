@@ -161,6 +161,7 @@ class ChannelConnectionService:
         workspace = db.query(models.Workspace).filter(models.Workspace.id == workspace_id).first()
         if not workspace:
             raise HTTPException(404, "Workspace not found")
+        
 
         workspace.meta_access_token = page_access_token
         workspace.meta_business_id = page_id

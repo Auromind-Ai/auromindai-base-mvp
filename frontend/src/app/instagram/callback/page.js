@@ -2,7 +2,8 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { authHeader } from "@/lib/auth";
+import { getToken,authHeader } from "@/lib/auth";
+
 export default function InstagramCallback() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -44,10 +45,13 @@ export default function InstagramCallback() {
 
         const connectInstagram = async () => {
             try {
+                const token = getToken();
                 const res = await fetch(`/backend/api/instagram/connect`, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",  ...authHeader(),
+                        "Content-Type": "application/json",
+                        "ngrok-skip-browser-warning": "true",
+                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
                     },
                     body: JSON.stringify({
                         code,
@@ -55,7 +59,15 @@ export default function InstagramCallback() {
                     }),
                 });
 
-                const data = await res.json();
+                const text = await res.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (err) {
+                    console.error("Failed to parse JSON. Raw response:", text);
+                    if (!res.ok) throw new Error(`API Error ${res.status}: ${text}`);
+                    return;
+                }
                 console.log("FULL RESPONSE:", data);
 
                 if (!res.ok) {
@@ -73,8 +85,7 @@ export default function InstagramCallback() {
             } catch (err) {
                 console.error("❌ Instagram connect failed:", err);
                 setStatus(
-                    `Connection failed: ${
-                        err?.detail || JSON.stringify(err)
+                    `Connection failed: ${err?.detail || JSON.stringify(err)
                     }`
                 );
             }

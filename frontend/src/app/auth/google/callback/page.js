@@ -1,9 +1,8 @@
 'use client';
 
-const API = '/api';
-
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import api from '@/lib/api';
 
 export default function GoogleCallbackPage() {
     const router = useRouter();
@@ -30,19 +29,11 @@ export default function GoogleCallbackPage() {
                     return;
                 }
 
-                setStatus('Completing connection...');
+                setStatus("Completing connection...");
 
-                const response = await fetch(
-                    `${API}/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
-                    { method: 'GET' }
+                const data = await api.get(
+                    `/integrations/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`
                 );
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Failed to complete connection');
-                }
-
-                const data = await response.json();
 
                 setStatus('Success! Redirecting...');
                 setTimeout(() => {

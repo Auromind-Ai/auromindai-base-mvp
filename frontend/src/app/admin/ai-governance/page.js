@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Shield, RefreshCw } from 'lucide-react'
 
 export default function AIGovernancePage() {
@@ -8,20 +8,19 @@ export default function AIGovernancePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/admin/ai-governance')
-      if (!response.ok) throw new Error('Failed to fetch AI governance data')
-      const result = await response.json()
-      console.log(result)
-      setData(result)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+  const fetchData = useCallback(async () => {
+  try {
+    setLoading(true)
+    const response = await fetch('http://localhost:8000/admin/ai-governance')
+    if (!response.ok) throw new Error('Failed to fetch AI governance data')
+    const result = await response.json()
+    setData(result)
+  } catch (err) {
+    setError(err.message)
+  } finally {
+    setLoading(false)
   }
+}, [])
 
   const handleOverride = async (actionId) => {
     // Placeholder for override functionality
@@ -29,8 +28,9 @@ export default function AIGovernancePage() {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [])
+  fetchData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [fetchData])
 
   if (loading) {
     return (

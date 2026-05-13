@@ -684,7 +684,6 @@ export default function TemplatesPage() {
           )}
         </div>
       </div>
-
       <PreviewDrawer tpl={selected} onClose={() => setSelected(null)} onSubmit={handleSubmit} />
     </>
   );

@@ -58,45 +58,45 @@ class EscalationQueue:
             self.logger.error("Error adding escalation", exc_info=True)
             return None
 
-    # 🔥 GET PENDING
-    def get_pending(self):
-        try:
-            if self.db:
-                return self.db.query(HumanEscalation).filter(
-                    HumanEscalation.status == "pending"
-                ).all()
+    # # GET PENDING
+    # def get_pending(self):
+    #     try:
+    #         if self.db:
+    #             return self.db.query(HumanEscalation).filter(
+    #                 HumanEscalation.status == "pending"
+    #             ).all()
 
-            return [e for e in self.queue if e["status"] == "pending"]
+    #         return [e for e in self.queue if e["status"] == "pending"]
 
-        except Exception as e:
-            self.logger.error("Error fetching escalations", exc_info=True)
-            return []
+    #     except Exception as e:
+    #         self.logger.error("Error fetching escalations", exc_info=True)
+    #         return []
 
-    # 🔥 MARK RESOLVED
-    def mark_resolved(self, escalation_id):
-        try:
-            if self.db:
-                escalation = self.db.query(HumanEscalation).filter(
-                    HumanEscalation.id == escalation_id
-                ).first()
+    # # MARK RESOLVED
+    # def mark_resolved(self, escalation_id):
+    #     try:
+    #         if self.db:
+    #             escalation = self.db.query(HumanEscalation).filter(
+    #                 HumanEscalation.id == escalation_id
+    #             ).first()
 
-                if escalation:
-                    escalation.status = "resolved"
-                    self.db.commit()
-                    return True
+    #             if escalation:
+    #                 escalation.status = "resolved"
+    #                 self.db.commit()
+    #                 return True
 
-                return False
+    #             return False
 
-            # fallback
-            for item in self.queue:
-                if item.get("id") == escalation_id:
-                    item["status"] = "resolved"
+    #         # fallback
+    #         for item in self.queue:
+    #             if item.get("id") == escalation_id:
+    #                 item["status"] = "resolved"
 
-            return True
+    #         return True
 
-        except Exception as e:
-            if self.db:
-                self.db.rollback()
+    #     except Exception as e:
+    #         if self.db:
+    #             self.db.rollback()
 
-            self.logger.error("Error resolving escalation", exc_info=True)
-            return False
+    #         self.logger.error("Error resolving escalation", exc_info=True)
+    #         return False

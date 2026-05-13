@@ -60,7 +60,7 @@ export default function ChannelsPage() {
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({}); // stores ig username, wa number etc
 
-    // ─── Listen for WhatsApp embedded signup messages ───────────────────────
+    // ─── Listen for WhatsApp embedded signup messages ─
     useEffect(() => {
         const handleMessage = (e) => {
             if (e.origin !== "https://www.facebook.com") return;
@@ -85,7 +85,7 @@ export default function ChannelsPage() {
         return () => window.removeEventListener('message', handleMessage);
     }, [workspace?.id]);
 
-    // ─── WhatsApp: Embedded Signup Popup ────────────────────────────────────
+    // ─── WhatsApp: Embedded Signup Popup ──────────────
     const startWhatsAppSignup = useCallback(() => {
         setConnecting('whatsapp');
 
@@ -119,7 +119,14 @@ export default function ChannelsPage() {
             body: JSON.stringify({ ...payload, workspace_id: workspace?.id })
         });
 
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (err) {
+            console.error('WhatsApp connect failed parsing JSON:', text);
+            return;
+        }
 
         if (data.status === 'connected') {
             setStatuses(prev => ({ ...prev, whatsapp: true }));
@@ -136,7 +143,7 @@ export default function ChannelsPage() {
     }
 };
 
-    // ─── Instagram: Facebook Login Popup ────────────────────────────────────
+    // ─── Instagram: Facebook Login Popup ──────────────
 //    const startInstagramLogin = useCallback(() => {
 //     setConnecting('instagram');
 
@@ -199,7 +206,33 @@ export default function ChannelsPage() {
 
 }, [workspace]);
 
-    // ─── Gmail OAuth───────
+    const connectInstagramToBackend = async (code) => {
+        try {
+            const res = await fetch(`/backend/api/instagram/connect`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, workspace_id: workspace?.id })
+            });
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error('Instagram connect failed parsing JSON:', text);
+                return;
+            }
+            if (data.status === 'connected') {
+                setStatuses(prev => ({ ...prev, instagram: true }));
+                setConnectedInfo(prev => ({ ...prev, instagram: data.username }));
+            }
+        } catch (err) {
+            console.error('Instagram connect error:', err);
+        } finally {
+            setConnecting(null);
+        }
+    };
+
+    // ─── Gmail OAuth ─────────────
     const startGmailOAuth = () => {
         const redirectUri = `/api/gmail/callback`;
         window.location.href =
@@ -222,7 +255,14 @@ export default function ChannelsPage() {
                 headers: { 'Content-Type': 'application/json', ...authHeader() },
                 body: JSON.stringify({ sid, token, phone, workspace_id: workspace?.id })
             });
-            const data = await res.json();
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error('Twilio connect failed parsing JSON:', text);
+                return;
+            }
             if (data.status === 'connected') {
                 setStatuses(prev => ({ ...prev, twilio: true }));
                 setConnectedInfo(prev => ({ ...prev, twilio: phone }));
