@@ -34,36 +34,66 @@ export const removeToken = () => {
 
 export const setUser = (user) => {
   if (!isBrowser || !user) return;
-  sessionStorage.setItem("user", JSON.stringify(user));
+  const serialized = JSON.stringify(user);
+  sessionStorage.setItem("user", serialized);
+  localStorage.setItem("user", serialized);
 };
 
 export const getUser = () => {
   if (!isBrowser) return null;
 
-  try {
-    const user = sessionStorage.getItem("user");
-    return user ? JSON.parse(user) : null;
-  } catch {
-    return null; 
+  const getStoredUser = (storage) => {
+    try {
+      const raw = storage.getItem("user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      storage.removeItem("user");
+      return null;
+    }
+  };
+
+  let user = getStoredUser(sessionStorage);
+  if (user) return user;
+
+  user = getStoredUser(localStorage);
+  if (user) {
+    sessionStorage.setItem("user", JSON.stringify(user));
   }
+
+  return user;
 };
 
 /* ---------------- WORKSPACE ---------------- */
 
 export const setWorkspace = (workspace) => {
   if (!isBrowser || !workspace) return;
-  sessionStorage.setItem("workspace", JSON.stringify(workspace));
+  const serialized = JSON.stringify(workspace);
+  sessionStorage.setItem("workspace", serialized);
+  localStorage.setItem("workspace", serialized);
 };
 
 export const getWorkspace = () => {
   if (!isBrowser) return null;
 
-  try {
-    const workspace = sessionStorage.getItem("workspace");
-    return workspace ? JSON.parse(workspace) : null;
-  } catch {
-    return null;
+  const getStoredWorkspace = (storage) => {
+    try {
+      const raw = storage.getItem("workspace");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      storage.removeItem("workspace");
+      return null;
+    }
+  };
+
+  let workspace = getStoredWorkspace(sessionStorage);
+  if (workspace) return workspace;
+
+  workspace = getStoredWorkspace(localStorage);
+  if (workspace) {
+    sessionStorage.setItem("workspace", JSON.stringify(workspace));
   }
+
+  return workspace;
 };
 
 /* ---------------- AUTH ---------------- */

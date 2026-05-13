@@ -47,12 +47,6 @@ def build_rag_system():
 
 
 def get_rag_service():
-    """Return a lazily-initialised singleton RAG orchestrator.
-
-    Using a singleton avoids rebuilding embedding/vector-store clients on
-    every request, which is expensive. Call this instead of build_rag_system()
-    from any service layer.
-    """
     global _rag_service_instance
     if _rag_service_instance is None:
         _rag_service_instance = build_rag_system()

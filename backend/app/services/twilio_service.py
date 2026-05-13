@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 class TwilioService:
     _instance: "TwilioService | None" = None
 
-    # ── Singleton plumbing
+    # ── Singleton plumbing ────────
+
     def __new__(cls) -> "TwilioService":
         if cls._instance is None:
             inst = super().__new__(cls)
@@ -27,7 +28,7 @@ class TwilioService:
             cls._instance = inst
         return cls._instance
 
-    # ── Internal helpers────
+    # ── Internal helpers ──────────
 
     def _refresh_client(self, db: Session, workspace_id: str) -> None:
         """Load Twilio credentials from the workspace row."""
@@ -97,7 +98,7 @@ class TwilioService:
         url = settings.TWILIO_STATUS_CALLBACK_URL
         return {"status_callback": url} if url else {}
 
-    # ── Public API──────────
+    # ── Public API ────────────────
 
     def send_whatsapp_message(
         self,

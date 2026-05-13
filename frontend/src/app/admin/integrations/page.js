@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plug, RefreshCw } from 'lucide-react'
 
 export default function IntegrationsPage() {
@@ -8,24 +8,24 @@ export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/admin/integrations')
-      if (!response.ok) throw new Error('Failed to fetch integrations')
-      const result = await response.json()
-      console.log('Fetched Integrations:', result)
-      setData(result)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+  const fetchData = useCallback(async () => {
+  try {
+    setLoading(true)
+    const response = await fetch('http://localhost:8000/admin/integrations')
+    if (!response.ok) throw new Error('Failed to fetch integrations')
+    const result = await response.json()
+    setData(result)
+  } catch (err) {
+    setError(err.message)
+  } finally {
+    setLoading(false)
   }
+}, [])
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+useEffect(() => {
+  fetchData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [fetchData])
 
   if (loading) {
     return (

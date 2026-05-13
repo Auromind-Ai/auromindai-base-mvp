@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getToken } from '@/lib/auth';
 import {
     Sparkles,
     Search,
@@ -48,9 +49,13 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 }
             }
 
-            const res = await fetch('/api/chat', {
+            const token = getToken();
+            const res = await fetch('/api/chat/stream', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
                 body: JSON.stringify({
                     message: userMessage.content,
                     model: 'gemini',

@@ -22,7 +22,7 @@ class RetrievalLayer:
                 top_k=k * 3 if (entry_ids or collection) else k
             )
             
-            # ── Post-filter for targeted searching ────────────────────────
+            # ── Post-filter for targeted searching ──
             if entry_ids:
                 id_set = set(entry_ids)
                 results = [

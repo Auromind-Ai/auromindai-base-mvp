@@ -59,10 +59,8 @@ class _LRULockCache:
 
 
 _conversation_locks = _LRULockCache(max_size=10_000)
-# Configurable fallback message─
-FLOW_FALLBACK_MESSAGE = (
-    settings.FLOW_FALLBACK_MESSAGE or "Sorry, something went wrong. Please try again."
-)
+# ── Configurable fallback message────
+FLOW_FALLBACK_MESSAGE = settings.FLOW_FALLBACK_MESSAGE or "Sorry, something went wrong. Please try again."
 EXECUTION_LEASE_SECONDS = 120
 
 
@@ -90,9 +88,9 @@ class FlowServiceV2:
             tokens_out * provider_prices["output"]
         )
 
-    # ───────────────────────
+
     # PUBLIC ENTRY POINT
-    # ───────────────────────
+
 
     async def execute_incoming_message(
         self,
@@ -120,7 +118,7 @@ class FlowServiceV2:
         state.runtime_context["last_user_message"] = inbound_text
 
         try:
-            # Priority 1: pending button reply────────────────────────
+            # ── Priority 1: pending button reply ────
             if state.pending_button:
                 handled = await self._handle_pending_button(
                     db=db,
@@ -139,7 +137,7 @@ class FlowServiceV2:
                     )
                     return True
 
-            # Priority 2: pending question reply──────────────────────
+            # ── Priority 2: pending question reply ──
             if state.pending_question:
                 handled = await self._handle_pending_question(
                     db=db,
@@ -157,7 +155,8 @@ class FlowServiceV2:
                     )
                     return True
 
-            # Only if NO pending state → trigger match───────────────────
+
+            # ── Only if NO pending state → trigger match────
 
             match = self._find_trigger_match(
                 db=db,
@@ -194,9 +193,7 @@ class FlowServiceV2:
             state.runtime_context["node_visit_counts"] = {}
             state.runtime_context["executed_nodes"] = []
 
-            # Cancel all old-flow messages that haven't been sent yet.
-            # "pending" AND "in_progress" — if send_whatsapp_message_task
-            # hasn't started, it will find status='cancelled' and skip.
+        
             (
                 db.query(OutboundMessage)
                 .filter(
@@ -266,9 +263,9 @@ class FlowServiceV2:
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
-    # ───────────────────────
+
     # RESUME EXECUTION (Triggered by Celery after delay)
-    # ───────────────────────
+
 
     async def resume_node_execution(
         self,
@@ -322,9 +319,9 @@ class FlowServiceV2:
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
-    # ───────────────────────
+
     # STATE
-    # ───────────────────────
+
 
     def _get_or_create_state(
         self, db: Session, conversation_id: Any
@@ -514,9 +511,9 @@ class FlowServiceV2:
         parsed = datetime.fromisoformat(value)
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
-    # ───────────────────────
+
     # TRIGGER MATCHING
-    # ───────────────────────
+
 
     def _find_trigger_match(self, db, workspace_id, inbound_text: str):
         logger.info(f"🔍 Searching flows for Workspace ID: {workspace_id}")
@@ -602,9 +599,9 @@ class FlowServiceV2:
 
         return None
 
-    # ───────────────────────
+
     # BUTTON HANDLING
-    # ───────────────────────
+
 
     async def _handle_pending_button(
         self,
@@ -737,9 +734,9 @@ class FlowServiceV2:
         )
         return True
 
-    # ───────────────────────
+
     # ASK QUESTION HANDLING  ← NEW
-    # ───────────────────────
+
 
     async def _handle_pending_question(
         self,
@@ -854,9 +851,9 @@ class FlowServiceV2:
 
         return True
 
-    # ───────────────────────
+
     # CORE EXECUTION LOOP
-    # ───────────────────────
+
 
     async def _execute_from_node(
         self,
@@ -900,7 +897,7 @@ class FlowServiceV2:
             if not node:
                 return
 
-            # Per-node loop_limit enforcement─────────────────────
+            # ── Per-node loop_limit enforcement ─
             visit_counts = state.runtime_context.setdefault("node_visit_counts", {})
             visit_counts[current_node_id] = visit_counts.get(current_node_id, 0) + 1
             loop_limit = (node.get("config") or {}).get("loop_limit", 3)
@@ -923,7 +920,7 @@ class FlowServiceV2:
                 state.current_node_id = None
                 return
 
-            # Delay handling──
+            # ── Delay handling 
             config = node.get("config") or {}
             delay_amount = int(config.get("delay_amount") or 0)
             delay_unit = config.get("delay_unit", "minutes")
@@ -1089,9 +1086,9 @@ class FlowServiceV2:
 
         state.current_node_id = None
 
-    # ───────────────────────
+
     # ACTION DISPATCH
-    # ───────────────────────
+
 
     async def _handle_action_node(
         self,
@@ -1109,7 +1106,7 @@ class FlowServiceV2:
         action_type = config.get("type")
         state.runtime_context = state.runtime_context or {}
 
-        # Send Message
+        # ── Send Message ──────
         if action_type == "send_msg":
             return await self._handle_send_message_node(
                 db=db,
@@ -1122,7 +1119,7 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
 
-        # AI Brain Query──────
+        # ── AI Brain Query ────
         if action_type == "brain_query":
             response, usage = await self._generate_guardrailed_ai_response(
                 db=db,
@@ -1172,7 +1169,7 @@ class FlowServiceV2:
                 )
             return False
 
-        # Ask Question (NEW)──
+        # ── Ask Question (NEW) 
         if action_type == "ask_question":
             return await self._handle_ask_question_node(
                 db=db,
@@ -1185,7 +1182,7 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
 
-        # Assign Agent
+        # ── Assign Agent ──────
         if action_type == "assign_agent":
             strategy = config.get("strategy", "round_robin")
             state.runtime_context["assigned_agent_strategy"] = strategy
@@ -1194,7 +1191,7 @@ class FlowServiceV2:
             logger.info(f"🧑 Assign agent triggered: strategy={strategy}")
             return False
 
-        # Move Deal Stage─────
+        # ── Move Deal Stage ───
         if action_type == "move_stage":
             stage = config.get("stage")
             state.runtime_context["deal_stage"] = stage
@@ -1217,9 +1214,9 @@ class FlowServiceV2:
         )
         return False
 
-    # ───────────────────────
+
     # ASK QUESTION NODE HANDLER  ← NEW
-    # ───────────────────────
+
 
     async def _handle_ask_question_node(
         self,
@@ -1289,9 +1286,9 @@ class FlowServiceV2:
 
         return True  # Stop execution — wait for human reply
 
-    # ───────────────────────
+
     # MESSAGE HANDLERS
-    # ───────────────────────
+
 
     async def _handle_send_message_node(
         self,
@@ -1310,7 +1307,7 @@ class FlowServiceV2:
         message_type = config.get("message_type", "text")
         mode = config.get("mode", "manual")
 
-        # Media messages──────
+        # ── Media messages ────
         if message_type in {"image", "video", "document"}:
             media_url = (config.get("media_url") or "").strip()
             caption = config.get("text", "")
@@ -1369,7 +1366,7 @@ class FlowServiceV2:
             )
             return False
 
-        # Button message──────
+        # ── Button message ────
         if message_type in {"button_message", "button"}:
             buttons = self._normalize_buttons(config.get("buttons", []))
             header_text = self._render_template(
@@ -1400,7 +1397,7 @@ class FlowServiceV2:
             )
             return True  # Stop execution — wait for button reply
 
-        # Plain text
+        # ── Plain text ────────
         outbound_text = self._render_template(
             config.get("message") or config.get("text") or "", context
         )
@@ -1452,9 +1449,9 @@ class FlowServiceV2:
             )
         return False
 
-    # ───────────────────────
+
     # OUTBOX: queue & dispatch
-    # ───────────────────────
+
 
     async def _queue_outbound_message(
         self,
@@ -1476,8 +1473,8 @@ class FlowServiceV2:
         """
         metadata = metadata or {}
         self._refresh_execution_slot(db, conversation_id, execution_token)
-
-        # Compute monotonic sequence under row-lock────────────────────
+    
+        # ── Compute monotonic sequence under row-lock 
         existing = (
             db.query(OutboundMessage)
             .filter(OutboundMessage.conversation_id == conversation_id)
@@ -1487,7 +1484,7 @@ class FlowServiceV2:
         )
         next_seq = (existing.sequence + 1) if existing else 1
 
-        # OutboundMessage (phone delivery)────────────────────────────
+        # ── OutboundMessage (phone delivery) ────────
         msg = OutboundMessage(
             conversation_id=conversation_id,
             to_number=to_number,
@@ -1512,13 +1509,11 @@ class FlowServiceV2:
             next_seq,
             msg.id,
         )
-        # Kick off delivery if nothing is in-progress──────────────────
-        #  ALWAYS trigger dispatcher
 
-    # ───────────────────────
+
     # AI RESPONSE
-    # ───────────────────────
 
+    
     async def _generate_guardrailed_ai_response(
         self,
         db: Session,
@@ -1533,9 +1528,9 @@ class FlowServiceV2:
 
         NOT_FOUND = "Not Found"
 
-        # ───
+        #──
         #  RETRY HELPER
-        # ───
+        #──
         async def _retry_async(fn, retries=3, delay=0.5):
             last_exception = None
             for attempt in range(retries):
@@ -1548,9 +1543,9 @@ class FlowServiceV2:
             logger.error("[RETRY FAILED] All attempts failed")
             raise last_exception
 
-        # ───
+        #──
         #  RAG SEARCH (WITH RETRY)
-        # ───
+        #──
         async def call_rag_async():
             return await self.rag.iterative_retrieval(
                 db=db,
@@ -1566,9 +1561,9 @@ class FlowServiceV2:
             logger.exception("[RAG ERROR] Failed after retries")
             return NOT_FOUND, {}
 
-        # ───
+        #──
         #  CONTEXT BUILD
-        # ───
+        #──
         retrieved_context = ""
         docs = retrieved.get("docs", []) if isinstance(retrieved, dict) else []
         if docs:
@@ -1580,9 +1575,9 @@ class FlowServiceV2:
             logger.info("[RAG EMPTY] No relevant context found")
             return NOT_FOUND, {}
 
-        # ───
+        #──
         #  PROMPT BUILD
-        # ───
+        #──
         llm_prompt = f"""You are a constrained WhatsApp automation answer engine.
 
     Rules:
@@ -1608,9 +1603,9 @@ class FlowServiceV2:
     {retrieved_context}
     """
 
-        # ───
+        #──
         # LLM CALL (RETRY + TIMEOUT)
-        # ───
+        #──
         async def call_llm():
             return await asyncio.wait_for(
                 safe_llm_call(llm_prompt, model="auto"),
@@ -1623,9 +1618,9 @@ class FlowServiceV2:
             logger.exception("[LLM ERROR] Failed after retries")
             return NOT_FOUND, {}
 
-        # ───
+        #──
         #  PARSE RESPONSE
-        # ───
+        #──
         content = (result or {}).get("content", "").strip()
         parsed = self._safe_json(content)
 
@@ -1645,9 +1640,8 @@ class FlowServiceV2:
 
         return answer, result or {}
 
-    # ───────────────────────
     # HELPERS
-    # ───────────────────────
+
 
     # Allowed file extensions per media type
     _MEDIA_EXTENSIONS: Dict[str, set] = {

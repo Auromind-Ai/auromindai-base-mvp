@@ -172,7 +172,7 @@ class ConversationService:
             db.flush()
             return conversation
 
-        # ── Race-safe insert using a savepoint ────────────────────────────────
+        # ── Race-safe insert using a savepoint ──────────
         # begin_nested() creates a SAVEPOINT so that an IntegrityError from a
         # concurrent INSERT only rolls back to the savepoint, not the entire
         # transaction.  This prevents discarding unrelated pending changes.

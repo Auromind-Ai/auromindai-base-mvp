@@ -234,7 +234,7 @@ def send_next_pending_message(self, conversation_id: str):
   
     from app.models.outbound_message import OutboundMessage
 
-    # ── GUARD 1: Redis distributed lock ────────────────────────────────
+    # ── GUARD 1: Redis distributed lock ──────────
     lock_token = acquire_conversation_lock(
         conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
     )

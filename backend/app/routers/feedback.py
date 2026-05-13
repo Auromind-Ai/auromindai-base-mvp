@@ -21,7 +21,7 @@ def submit_feedback(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    # ── 1. Workspace access check (tenant enforcement) ──────────────────────
+    # ── 1. Workspace access check (tenant enforcement) 
     try:
         verify_workspace_access(current_user, db)
     except HTTPException:
@@ -42,7 +42,7 @@ def submit_feedback(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # ── 3. Persist feedback───────
+    # ── 3. Persist feedback ─────
     try:
         fb = Feedback(
             query=data.get("query"),
@@ -75,7 +75,7 @@ def submit_feedback(
         logger.warning("Failed to fetch feedback count: %s", e)
         total_feedback = 0
 
-    # ── 5. Learning cycle (every 10 feedbacks) ──────────────────────────────
+    # ── 5. Learning cycle (every 10 feedbacks) ────────
     learning_triggered = False
 
     if total_feedback > 0 and total_feedback % 10 == 0:

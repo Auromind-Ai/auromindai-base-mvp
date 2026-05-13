@@ -104,7 +104,7 @@ class LLMRouter:
         except Exception as e:
             logger.warning(f"Gemini failed: {e}")
 
-        logger.info("AUTO → Groq fallback")
+        logger.info("AUTO -> Groq fallback")
         config = self._get_config("groq")
         return await self._groq_call(prompt, config)
             

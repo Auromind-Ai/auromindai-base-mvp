@@ -1,9 +1,8 @@
 console.log("API CLIENT VERSION: 1.1.21");
 import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
 
-const API_BASE_URL = typeof window !== 'undefined'
-  ? '/api'                                   
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'); // SSR
+// Always use the backend URL directly. CORS is configured to allow it.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 console.log("Selected API_BASE_URL:", API_BASE_URL);
 

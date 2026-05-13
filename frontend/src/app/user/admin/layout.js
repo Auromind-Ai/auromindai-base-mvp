@@ -28,7 +28,7 @@ import {
     Mail
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { getToken, getUser, getWorkspace, logout, restoreAdminToken } from '@/lib/auth';
+import { getToken, getUser, getWorkspace, logout, restoreAdminToken, removeToken } from '@/lib/auth';
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
@@ -122,7 +122,12 @@ function AdminLayoutContent({ children }) {
             });
 
             if (!currentUser) {
-                console.warn("🚫 No current user found, redirecting to login");
+                if (token) {
+                    console.warn("🚫 Found token without a valid user; clearing stale auth state and redirecting to login");
+                    removeToken();
+                } else {
+                    console.warn("🚫 No current user found, redirecting to login");
+                }
                 router.push('/login');
                 return;
             }

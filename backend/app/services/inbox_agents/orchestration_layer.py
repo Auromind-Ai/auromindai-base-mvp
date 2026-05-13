@@ -6,10 +6,9 @@ from app.services.inbox_agents.unified_agent import UnifiedAgent
 from app.services.inbox_agents.mcpservice import MCPService
 from app.services.inbox_agents.llm_client import LLMClient
 from app.services.inbox_agents.memory_service import MemoryService
-from app.services.inbox_agents.conversation_policy import ConversationPolicy
 from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.twilio_service import TwilioService
-
+import os
 
 class AgentOrchestration:
 
@@ -39,8 +38,9 @@ class AgentOrchestration:
 
         user_id      = data.get("user_id")       
         workspace_id = data.get("workspace_id")
-        message      = data.get("message", "")
-        memory_key   = data.get("conversation_id") or user_id
+        message = data.get("message", "")
+        db = self.db
+        memory_key = data.get("conversation_id") or user_id
 
         db = getattr(self.escalation_queue, "db", None)
 
@@ -85,32 +85,37 @@ class AgentOrchestration:
             "user_id": user_id, "turn_count": turn_count, "memory_key": memory_key
         })
 
-        # ── Policy check 
-        policy = ConversationPolicy(self.memory, self.config_service)
-        current_stage = state.get("current_stage", "lead")
+        # Pre-agent policy check
+        # policy = ConversationPolicy(self.memory, self.config_service)
+        # current_stage = state.get("current_stage", "lead")
 
+        # policy_result = policy.evaluate(
+        #     user_id=user_id,
+        #     stage=current_stage,
+        #     lead_data=lead_data
+        # ) or {}
+
+        # if policy_result and policy_result.get("action") == "ESCALATE":
+        #     if current_stage != "sales":
+        #         self.escalation_queue.add({
+        #             "user_id": user_id,
+        #             "message": message,
+        #             "channel": channel,
+        #             "reason": policy_result.get("reason"),
+        #             "workspace_id": workspace_id
+        #         })
+
+        #         response = {"text": "I'll connect you with our team for better assistance."}
+        #         self.send_response(channel, user_id, response)
+        #         return response
         
-        policy_result = policy.evaluate(
-            user_id=memory_key,
-            stage=current_stage,
-            lead_data=lead_data
-        ) or {"action": "ALLOW"}
+        # if policy_result.get("action") == "CLOSE":
+            
+        #     force_close = True
+        # else:
+        #     force_close = False
 
-        if policy_result.get("action") == "ESCALATE" and current_stage != "sales":
-            self.escalation_queue.add({
-                "user_id":      memory_key,
-                "message":      message,
-                "channel":      channel,
-                "reason":       policy_result.get("reason"),
-                "workspace_id": workspace_id,
-            })
-            response = {"text": "I'll connect you with our team for better assistance."}
-            self.send_response(channel, user_id, response)
-            return response
-
-        force_close = policy_result.get("action") == "CLOSE"
-
-        # ── Unified Agent 
+        # ── Unified Agent ─────────
         result = await self.unified_agent.handle(
             message=message,
             context={
@@ -123,10 +128,10 @@ class AgentOrchestration:
             }
         ) or {}
 
-        if force_close:
-            result["response"] = "Thanks for the details! Our team will contact you shortly."
-            result["close"]    = True
-            result["action"]   = "lead_complete"
+        # if force_close:
+        #     result["response"] = "Thanks for the details! Our team will contact you shortly."
+        #     result["close"] = True
+        #     result["action"] = "lead_complete"
 
         stage  = result.get("stage",  "lead")
         action = result.get("action", "unknown")
@@ -143,7 +148,7 @@ class AgentOrchestration:
 
         confidence = result.get("confidence_score", 0.5)
 
-        # ── Update memory
+        # ── Update memory ─────────
         if self.memory:
             if result.get("collect"):
                 cleaned = {k: v for k, v in result["collect"].items() if v}
@@ -154,15 +159,19 @@ class AgentOrchestration:
                 "last_action":   action,
             })
 
-        # ── MCP validation ────────────────────────────────────────────────────
+        # ── MCP validation ────────
 
         mcp_result = self.mcp.evaluate_action(
             workspace_id=workspace_id,
             action_type=action,
-            intent=message,          # ← was: stage (wrong)
+            intent=message,
             context=data,
             confidence=confidence,
-            metadata={"user_id": memory_key, "channel": channel}
+            metadata={
+                "user_id": user_id,
+                "channel": channel,
+                "followup_count": state.get("followup_count", 0)
+            }
         )
 
         decision = mcp_result.get("decision")
@@ -191,7 +200,7 @@ class AgentOrchestration:
         return response
 
 
-    # ── AGENT TYPE
+    # ── AGENT TYPE ────────────────
 
     def _determine_agent_type(self, message, turn_count, lead_data, state, is_followup_trigger=False):
         if is_followup_trigger:
@@ -232,7 +241,7 @@ class AgentOrchestration:
         return "sales_agent"
 
 
-    # ── NORMALIZE MESSAGE
+    # ── NORMALIZE MESSAGE ─────────
 
     def normalize_message(self, payload, channel):
         try:
@@ -290,7 +299,7 @@ class AgentOrchestration:
             }
 
 
-    # ── SEND RESPONSE
+    # ── SEND RESPONSE ─────────────
 
     def send_response(self, channel, user_id, response):
         try:

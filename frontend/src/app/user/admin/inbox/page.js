@@ -119,7 +119,14 @@ export default function InboxPage() {
                 `${PROXY_BASE}/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}`,
                 { headers: getHeaders() }
             );
-            const data = await res.json();
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error("Failed to parse conversations JSON. Raw response:", text);
+                return;
+            }
             if (Array.isArray(data)) {
                 setConversations(data);
                 if (data.length > 0) {
@@ -136,8 +143,15 @@ export default function InboxPage() {
         try {
             const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
                     console.log('Status:', res.status, 'URL:', res.url); 
-            const data = await res.json();
-              console.log('Messages API response:', id, data?.length, data);
+               const text = await res.text();
+               let data;
+               try {
+                   data = JSON.parse(text);
+               } catch (err) {
+                   console.error("Failed to parse messages JSON. Raw response:", text);
+                   return;
+               }
+               console.log('Messages API response:', id, data?.length, data);
                console.log('Messages API response:', data); // debug
            setMessages(
     data.filter((m) => {
@@ -185,7 +199,14 @@ export default function InboxPage() {
                     message: messages[messages.length - 1]?.content || '',
                 }),
             });
-            const data = await res.json();
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error("Failed to parse AI suggestion JSON. Raw response:", text);
+                return;
+            }
             setAiSuggestion(data.suggestion);
         } catch (e) {
             console.error(e);
