@@ -27,6 +27,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
   backend:
     build:
       context: ./backend
@@ -37,7 +38,7 @@ services:
     restart: unless-stopped
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --timeout-keep-alive 75"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75"
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app
@@ -57,7 +58,8 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=4 --max-tasks-per-child=100
+
+    command: celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2  -Q default
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app
@@ -75,7 +77,7 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    command: celery -A app.core.celery_app beat --loglevel=info
+    command: celery -A app.core.celery_app beat --loglevel=info --scheduler celery.beat:PersistentScheduler -s /tmp/celerybeat-schedule
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app

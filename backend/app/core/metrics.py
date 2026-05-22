@@ -1,9 +1,10 @@
 import asyncio
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
+
 import psutil
-import redis
+import redis.asyncio as aioredis
 from fastapi import FastAPI
 from prometheus_client import Counter, Gauge, Summary
 
@@ -44,12 +45,34 @@ SYSTEM_METRICS_UPDATE_FAILURES = Counter(
     "Total system metrics collection failures"
 )
 
-# Redis config
-REDIS_URL = settings.REDIS_URL
-redis_client = None
 
-if REDIS_URL:
-    redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+_async_redis: Optional[aioredis.Redis] = None
+
+
+async def init_metrics_redis() -> None:
+    """Create the async Redis client.  Call once inside app lifespan startup."""
+    global _async_redis
+    if settings.REDIS_URL:
+        _async_redis = aioredis.from_url(
+            settings.REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True,
+            socket_timeout=2.0,
+            socket_connect_timeout=2.0,
+        )
+        logger.info("Metrics async Redis client initialised")
+
+
+async def close_metrics_redis() -> None:
+    """Close the async Redis client.  Call once inside app lifespan shutdown."""
+    global _async_redis
+    if _async_redis is not None:
+        try:
+            await _async_redis.aclose()
+        except Exception:
+            pass
+        _async_redis = None
+        logger.info("Metrics async Redis client closed")
 
 
 @dataclass
@@ -178,57 +201,69 @@ async def get_system_metrics_snapshot(app: FastAPI) -> dict[str, Any]:
     return await state.get_snapshot()
 
 
-def middleware_record(method, path, status, latency):
 
-    REQUEST_COUNT.labels(
-        method=method,
-        path=path,
-        status=str(status)
-    ).inc()
+def middleware_record(method: str, path: str, status: int, latency: float) -> None:
+    """Record request metrics.  Safe to call from any async context."""
 
-    REQUEST_LATENCY.labels(
-        method=method,
-        path=path
-    ).observe(latency)
+  
+    status_str = str(status)
+    REQUEST_COUNT.labels(method=method, path=path, status=status_str).inc()
+    REQUEST_LATENCY.labels(method=method, path=path).observe(latency)
+    if status >= 500:
+        ERROR_COUNT.labels(path=path, status=status_str).inc()
 
-    if int(status) >= 500:
-        ERROR_COUNT.labels(
-            path=path,
-            status=str(status)
-        ).inc()
-
-    if redis_client:
+    if _async_redis is not None:
         try:
-            redis_client.incr("metrics:requests")
-            redis_client.incrbyfloat("metrics:total_latency", latency)  # ← move inside try
-            if int(status) >= 500:
-                redis_client.incr("metrics:errors")
-        except Exception:
-            pass  # Redis down aanalum app affect aagadhu
+            loop = asyncio.get_running_loop()
+            loop.create_task(
+                _redis_record(latency, is_error=(status >= 500)),
+                name="metrics-redis-write",
+            )
+        except RuntimeError:
+
+            pass
 
 
-def get_metrics():
+async def _redis_record(latency: float, *, is_error: bool) -> None:
+    """Fire-and-forget coroutine: write request metrics to Redis."""
+    if _async_redis is None:
+        return
+    try:
+        async with _async_redis.pipeline(transaction=False) as pipe:
+            pipe.incr("metrics:requests")
+            pipe.incrbyfloat("metrics:total_latency", latency)
+            if is_error:
+                pipe.incr("metrics:errors")
+            await pipe.execute()
+    except Exception:
+        # Redis failures must never surface to callers.
+        pass
 
-    if not redis_client:
+
+async def get_metrics() -> dict[str, Any]:
+
+    if _async_redis is None:
+        return {"total_api_calls": 0, "avg_response_time": 0, "error_rate": 0}
+
+    try:
+        async with _async_redis.pipeline(transaction=False) as pipe:
+            pipe.get("metrics:requests")
+            pipe.get("metrics:total_latency")
+            pipe.get("metrics:errors")
+            results = await pipe.execute()
+
+        total = int(results[0] or 0)
+        total_latency = float(results[1] or 0)
+        errors = int(results[2] or 0)
+
+        avg_response = (total_latency / total) if total > 0 else 0
+        error_rate = ((errors / total) * 100) if total > 0 else 0
+
         return {
-            "total_api_calls": 0,
-            "avg_response_time": 0,
-            "error_rate": 0
+            "total_api_calls": total,
+            "avg_response_time": round(avg_response * 1000, 2),
+            "error_rate": round(error_rate, 2),
         }
-
-    total = int(redis_client.get("metrics:requests") or 0)
-    total_latency = float(redis_client.get("metrics:total_latency") or 0)
-    errors = int(redis_client.get("metrics:errors") or 0)
-
-    avg_response = 0
-    error_rate = 0
-
-    if total > 0:
-        avg_response = total_latency / total
-        error_rate = (errors / total) * 100
-
-    return {
-        "total_api_calls": total,
-        "avg_response_time": round(avg_response * 1000, 2),
-        "error_rate": round(error_rate, 2)
-    }
+    except Exception:
+        logger.warning("get_metrics: Redis read failed, returning zeros")
+        return {"total_api_calls": 0, "avg_response_time": 0, "error_rate": 0}

@@ -170,6 +170,19 @@ class Settings(BaseSettings):
     TWILIO_STATUS_CALLBACK_URL: Optional[str] = None
     """Webhook URL for Twilio message status callbacks"""
 
+    # ---------------------------------------------------------------------------
+    # AI MODEL CONFIGURATION
+    # ---------------------------------------------------------------------------
+
+    RERANKER_MODEL_NAME: str = "BAAI/bge-reranker-large"
+    """HuggingFace model name for the CrossEncoder reranker."""
+
+    EMBEDDING_MODEL_NAME: str = "BAAI/bge-small-en-v1.5"
+    """HuggingFace model name for the SentenceTransformer embedder."""
+
+    EMBEDDING_DEVICE: str = "cpu"
+    """Device for embedding inference: 'cpu' or 'cuda'. Use 'cuda' if GPU is available."""
+
     
     # APPLICATION SETTINGS
     

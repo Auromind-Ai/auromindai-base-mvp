@@ -11,7 +11,12 @@ from app.core.metrics import setup_system_metrics, start_system_metrics_updater,
 from app.core.request_logger import RequestLoggingMiddleware
 from app.core.exception_handlers import register_exception_handlers
 from app.core.uuid_validation import UUIDValidationMiddleware
-from app.core.startup import init_rag, init_learning_cache, init_schedulers, shutdown_schedulers, init_llm_router
+from app.core.startup import (
+    init_rag, init_learning_cache, init_schedulers,
+    shutdown_schedulers, init_llm_router,
+    init_pubsub, shutdown_pubsub,
+    init_metrics, shutdown_metrics,
+)
 
 # Routers
 from app.routers import (
@@ -22,9 +27,10 @@ from app.routers import (
 from app.routers.feedback import router as feedback_router
 from app.routers.template import router as template_router
 from app.routers.inbox_chennal import meta_what, conversations, instagram, twilio_webhook
+from app.routers.realtime import router as realtime_router
 
 
-# ── Lifespan 
+#  Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Starting...")
@@ -32,15 +38,19 @@ async def lifespan(app: FastAPI):
     init_learning_cache()
     init_schedulers(app)
     await init_llm_router(app)
+    await init_pubsub(app)
+    await init_metrics(app)              # async Redis for metrics
     setup_system_metrics(app)
     await start_system_metrics_updater(app)
     yield
     await stop_system_metrics_updater(app)
+    await shutdown_pubsub(app)
+    await shutdown_metrics(app)          # close metrics Redis client
     shutdown_schedulers(app)
     logger.info("Auromind Production System Stopped")
 
 
-# ── App ─────
+#  App ─
 app = FastAPI(
     title="Auromind API",
     description="AI-Powered Business Assistant Platform (Production)",
@@ -50,7 +60,7 @@ app = FastAPI(
 
 register_exception_handlers(app)
 
-# ── Middleware───
+#  Middleware─
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")],
@@ -63,7 +73,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(UUIDValidationMiddleware)
 
 
-# ── Health ──
+#  Health 
 @app.get("/")
 async def root():
     return {"message": "Auromind API", "version": "2.0.0", "status": "running"}
@@ -73,7 +83,7 @@ async def health_check():
     return {"status": "healthy"}
 
 
-# ── Routers ─
+#  Routers ─
 
 # Auth
 app.include_router(auth.router,         prefix="/auth",      tags=["auth"])
@@ -113,3 +123,6 @@ app.include_router(public.router)
 # Billing & Upload
 app.include_router(billing.router,                           tags=["billing"])
 app.include_router(upload.router,                            tags=["upload"])
+
+# Realtime WebSocket
+app.include_router(realtime_router)                         

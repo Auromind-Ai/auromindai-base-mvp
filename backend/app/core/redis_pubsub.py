@@ -1,0 +1,251 @@
+
+import asyncio
+import json
+import logging
+from typing import TYPE_CHECKING, Optional
+
+import redis.asyncio as aioredis
+
+from app.core.config import settings
+
+if TYPE_CHECKING:
+    from app.core.websockets import ConnectionManager
+
+logger = logging.getLogger(__name__)
+
+#  Channel helpers
+
+CHANNEL_PREFIX = "auromind"
+
+
+def user_channel(user_id: str) -> str:
+    return f"{CHANNEL_PREFIX}:user:{user_id}"
+
+
+def workspace_channel(workspace_id: str) -> str:
+    return f"{CHANNEL_PREFIX}:workspace:{workspace_id}"
+
+
+def conversation_channel(conversation_id: str) -> str:
+    return f"{CHANNEL_PREFIX}:conv:{conversation_id}"
+
+
+#  Service
+
+class RedisPubSubService:
+   
+
+    def __init__(self, manager: "ConnectionManager") -> None:
+        self._manager = manager
+        self._redis: Optional[aioredis.Redis] = None
+        self._pubsub: Optional[aioredis.client.PubSub] = None
+        self._task: Optional[asyncio.Task] = None
+        self._stop_event = asyncio.Event()
+        self._subscribed_channels: set[str] = set()
+
+    #  Lifecycle
+
+    async def start(self) -> None:
+        """Spawn the background listener task.
+
+        No Redis I/O happens here — the connection is established lazily
+        inside ``_listen_loop`` so that a Redis outage at startup never
+        blocks or crashes the FastAPI lifespan.
+        """
+        self._task = asyncio.create_task(
+            self._listen_loop(), name="redis-pubsub-listener"
+        )
+        logger.info(
+            "RedisPubSubService background loop started (will connect to Redis lazily)"
+        )
+
+    async def stop(self) -> None:
+        self._stop_event.set()
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        if self._pubsub:
+            try:
+                await self._pubsub.unsubscribe()
+                await self._pubsub.aclose()
+            except Exception:
+                pass
+        if self._redis:
+            try:
+                await self._redis.aclose()
+            except Exception:
+                pass
+        logger.info("RedisPubSubService stopped")
+
+    #  Channel management ─
+
+    async def subscribe(self, channel: str) -> None:
+        if channel in self._subscribed_channels:
+            return
+        self._subscribed_channels.add(channel)
+        if self._pubsub:
+            await self._pubsub.subscribe(channel)
+            logger.debug("PubSub subscribed | channel=%s", channel)
+
+    async def unsubscribe(self, channel: str) -> None:
+        self._subscribed_channels.discard(channel)
+        if self._pubsub:
+            await self._pubsub.unsubscribe(channel)
+            logger.debug("PubSub unsubscribed | channel=%s", channel)
+
+    #  Internal listener
+
+    async def _listen_loop(self) -> None:
+        """Background task: connect → subscribe → listen → reconnect.
+
+        Lifecycle
+        ---------
+        1. If not yet connected, attempt to create a Redis client and
+           subscribe to all tracked tenant channels within 5 seconds.
+        2. Stream messages until the stop event is set or an error fires.
+        3. On any error, tear down the client and sleep with exponential
+           back-off (1 s → 2 s → … → 30 s) before retrying from step 1.
+        """
+        logger.info("Redis Pub/Sub listen loop started")
+        reconnect_delay = 1.0
+
+        while not self._stop_event.is_set():
+            # ── Step 1: connect & subscribe if not already up ──────────────
+            if self._redis is None:
+                try:
+                    self._redis = aioredis.from_url(
+                        settings.REDIS_URL,
+                        encoding="utf-8",
+                        decode_responses=True,
+                    )
+                    self._pubsub = self._redis.pubsub(
+                        ignore_subscribe_messages=True
+                    )
+
+                    # Hard timeout so a slow/hung Redis never blocks the
+                    # loop indefinitely.
+                    if self._subscribed_channels:
+                        await asyncio.wait_for(
+                            self._pubsub.subscribe(*self._subscribed_channels),
+                            timeout=5.0,
+                        )
+
+                    reconnect_delay = 1.0  # reset back-off on success
+                    logger.info(
+                        "PubSub connected to Redis | channels=%d",
+                        len(self._subscribed_channels),
+                    )
+
+                except (asyncio.TimeoutError, Exception) as exc:
+                    logger.warning(
+                        "PubSub connect/subscribe failed (retry in %.0fs): %s",
+                        reconnect_delay,
+                        exc,
+                    )
+                    # Tear down so the next iteration starts fresh.
+                    await self._teardown_client()
+                    await asyncio.sleep(reconnect_delay)
+                    reconnect_delay = min(reconnect_delay * 2, 30.0)
+                    continue
+
+            # ── Step 2: stream messages ────────────────────────────────────
+            try:
+                async for message in self._pubsub.listen():
+                    if self._stop_event.is_set():
+                        break
+                    if message is None:
+                        continue
+                    channel: str = message.get("channel", "")
+                    raw_data: str = message.get("data", "")
+                    await self._dispatch(channel, raw_data)
+
+                # listen() exhausted without error → treat as disconnect.
+                reconnect_delay = 1.0
+
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                logger.error(
+                    "PubSub listen error (retry in %.0fs): %s",
+                    reconnect_delay,
+                    exc,
+                )
+                await self._teardown_client()
+                await asyncio.sleep(reconnect_delay)
+                reconnect_delay = min(reconnect_delay * 2, 30.0)
+
+        logger.info("Redis Pub/Sub listen loop exited")
+
+    async def _teardown_client(self) -> None:
+        """Close and nullify the Redis client so the next iteration reconnects."""
+        if self._pubsub:
+            try:
+                await self._pubsub.aclose()
+            except Exception:
+                pass
+            self._pubsub = None
+        if self._redis:
+            try:
+                await self._redis.aclose()
+            except Exception:
+                pass
+            self._redis = None
+
+    async def _resubscribe_all(self) -> None:
+        """Re-subscribe to all tracked channels after a reconnect.
+
+        Only called when the client is already connected (i.e. ``_pubsub``
+        is not None).  The connect-time re-subscription is handled inside
+        ``_listen_loop`` as part of the Step 1 block.
+        """
+        if self._pubsub and self._subscribed_channels:
+            channels = list(self._subscribed_channels)
+            await asyncio.wait_for(
+                self._pubsub.subscribe(*channels),
+                timeout=5.0,
+            )
+            logger.info(
+                "PubSub resubscribed to %d channels after reconnect",
+                len(channels),
+            )
+
+    async def _dispatch(self, channel: str, raw_data: str) -> None:
+    
+        try:
+            payload = json.loads(raw_data)
+        except (json.JSONDecodeError, TypeError) as exc:
+            logger.warning(
+                "PubSub bad JSON | channel=%s | %s", channel, exc
+            )
+            return
+
+        if channel.startswith(f"{CHANNEL_PREFIX}:user:"):
+            user_id = channel.removeprefix(f"{CHANNEL_PREFIX}:user:")
+            await self._manager.send_to_user(user_id, payload)
+
+        elif channel.startswith(f"{CHANNEL_PREFIX}:workspace:"):
+            workspace_id = channel.removeprefix(f"{CHANNEL_PREFIX}:workspace:")
+            await self._manager.send_to_workspace(workspace_id, payload)
+
+        elif channel.startswith(f"{CHANNEL_PREFIX}:conv:"):
+            conversation_id = channel.removeprefix(f"{CHANNEL_PREFIX}:conv:")
+            user_id = payload.get("user_id")
+            workspace_id = payload.get("workspace_id")
+            delivered = await self._manager.send_to_conversation(
+                conversation_id,
+                payload,
+                workspace_id=workspace_id,
+                user_id=user_id,
+            )
+            if delivered == 0:
+                logger.debug(
+                    "PubSub conv event had no websocket subscribers | channel=%s",
+                    channel,
+                )
+        else:
+            logger.debug("PubSub unrouted channel: %s", channel)
+
+pubsub_service: Optional[RedisPubSubService] = None
