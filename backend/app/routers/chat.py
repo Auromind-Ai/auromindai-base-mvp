@@ -13,17 +13,17 @@ from app.models.conversation import ChatSession, ChatMessage
 from app.core.security import verify_workspace_access
 from app.core.chat_provider import get_chat_service
 from app.core.exceptions import BillingError
-from app.services.chat_service import ChatService
-from app.services.session_service import SessionService
+from app.services.ai.chat_service import ChatService
+from app.services.inbox.session_service import SessionService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
-# ── Pydantic Models─────────
+#  Pydantic Models─
 
 
-# ── Session Endpoints───────
+#  Session Endpoints─
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])
 def get_sessions(
@@ -93,7 +93,7 @@ def update_session_title(
     return {"message": "Session updated", "title": session.title}
 
 
-# ── Chat Endpoints──────────
+#  Chat Endpoints
 
 @router.post("/query")
 async def chat_query(
@@ -126,8 +126,24 @@ async def stream_chat(
     workspace_id = verify_workspace_access(current_user, db)
     logger.info(f"[STREAM CHAT] user={current_user.id} workspace={workspace_id} session={request.session_id}")
     try:
+        preflight = await service.validate_and_reserve_stream_tokens(
+            db=db,
+            message=request.message,
+            workspace_id=str(workspace_id),
+            session_id=request.session_id,
+            use_rag=request.use_rag,
+            user_id=str(current_user.id),
+        )
+    except BillingError as e:
+        raise HTTPException(status_code=402, detail=str(e))
+    except Exception as e:
+        logger.error(f"[STREAM CHAT] preflight error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
         return StreamingResponse(
             service.handle_stream_chat(
+                preflight=preflight,
                 message=request.message,
                 workspace_id=str(workspace_id),
                 session_id=request.session_id,
@@ -140,8 +156,6 @@ async def stream_chat(
             ),
             media_type="application/x-ndjson",
         )
-    except BillingError as e:
-        raise HTTPException(status_code=402, detail=str(e))
     except Exception as e:
         logger.error(f"[STREAM CHAT] error: {e}")
-        raise HTTPException(500, str(e))
+        raise HTTPException(status_code=500, detail=str(e))

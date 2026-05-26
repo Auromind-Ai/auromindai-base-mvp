@@ -48,6 +48,28 @@ def check_token_limit(db: Session, workspace_id: str) -> dict[str, Any]:
         "estimated_overage_cost": status.estimated_overage_cost,
     }
 
+def enforce_execution_policy(db: Session, workspace_id: str) -> bool:
+    limit_status = BillingService().check_token_limit(db, workspace_id)
+    
+    if limit_status.within_limit:
+        return True
+        
+    subscription = SubscriptionService()._get_active_subscription(db, workspace_id)
+    if not subscription:
+        return False
+        
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        return False
+        
+    overage_enabled = getattr(workspace, "overage_enabled", False)
+    has_payment_method = bool(workspace.provider_customer_id)
+    
+    if overage_enabled and has_payment_method:
+        return True
+        
+    return False
+
 
 class BillingService:
 
@@ -472,27 +494,37 @@ class BillingService:
                 token_limit=0,
                 tokens_used=0,
                 overage_tokens=0,
-                within_limit=True,
+                within_limit=False, # FIXED: Free users with no subscription are strictly blocked
                 excess_tokens=0,
                 price_per_extra_token=0,
                 estimated_overage_cost=0,
             )
 
         plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
-        token_limit = int(plan.token_limit or 0) if plan else 0
+        token_limit = plan.token_limit if plan else 0
         price_per_extra_token = int(plan.price_per_extra_token or 0) if plan else 0
+        
         usage = self.usage_service._get_period_usage_readonly(
             db=db,
             workspace_id=workspace_id,
             subscription=subscription,
         )
         tokens_used = int(usage.tokens_used or 0) if usage else 0
-        overage_tokens = max(tokens_used - token_limit, 0) if token_limit > 0 else 0
+        
+        if token_limit is None:
+            # Unlimited
+            overage_tokens = 0
+            within_limit = True
+        else:
+            token_limit = int(token_limit)
+            overage_tokens = max(tokens_used - token_limit, 0)
+            within_limit = tokens_used < token_limit
+            
         return TokenLimitStatus(
-            token_limit=token_limit,
+            token_limit=token_limit if token_limit is not None else 0, # type compatibility
             tokens_used=tokens_used,
             overage_tokens=overage_tokens,
-            within_limit=overage_tokens == 0,
+            within_limit=within_limit,
             excess_tokens=overage_tokens,
             price_per_extra_token=price_per_extra_token,
             estimated_overage_cost=overage_tokens * price_per_extra_token,

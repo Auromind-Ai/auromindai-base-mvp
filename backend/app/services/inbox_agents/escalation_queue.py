@@ -18,9 +18,12 @@ class EscalationQueue:
     #  ADD ESCALATION
     def add(self, data):
         try:
+            conversation_id = data.get("conversation_id")
             escalation_data = {
                 "id": uuid.uuid4().hex,
                 "user_id": data.get("user_id"),
+                "conversation_id": conversation_id,
+                "workspace_id": data.get("workspace_id"),
                 "reason": data.get("reason"),
                 "status": "pending",
             }
@@ -28,10 +31,11 @@ class EscalationQueue:
             # DB MODE (CORRECT)
             if self.db:
                 escalation = HumanEscalation(
-                    user_id=escalation_data["user_id"],
+                    user_id=self._maybe_uuid(escalation_data["user_id"]),
+                    conversation_id=conversation_id,
                     reason=escalation_data["reason"],
                     status="pending",
-                    workspace_id=data.get("workspace_id"),
+                    workspace_id=escalation_data["workspace_id"],
                     channel=data.get("channel"),
                     message=data.get("message"),
                 )
@@ -46,7 +50,11 @@ class EscalationQueue:
 
             self.logger.info(
                 "Escalation added",
-                extra={"user_id": escalation_data["user_id"]}
+                extra={
+                    "user_id": escalation_data["user_id"],
+                    "conversation_id": conversation_id,
+                    "workspace_id": escalation_data["workspace_id"],
+                }
             )
 
             return escalation
@@ -56,6 +64,15 @@ class EscalationQueue:
                 self.db.rollback()
 
             self.logger.error("Error adding escalation", exc_info=True)
+            return None
+
+    @staticmethod
+    def _maybe_uuid(value):
+        if value is None:
+            return None
+        try:
+            return uuid.UUID(str(value))
+        except (TypeError, ValueError):
             return None
 
     # # GET PENDING

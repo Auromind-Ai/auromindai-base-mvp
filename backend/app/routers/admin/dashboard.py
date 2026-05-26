@@ -15,7 +15,7 @@ router = APIRouter()
 @router.get("/dashboard")
 async def get_dashboard(db: Session = Depends(get_db)):
 
-    metrics = get_metrics()
+    metrics = await get_metrics()
 
     total_users = db.query(func.count(User.id)).scalar()
     active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()

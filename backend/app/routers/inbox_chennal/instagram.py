@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.security import verify_workspace_access
 from app.database import get_db
-from app.services.channel_connection_service import ChannelConnectionService
-from app.services.webhook_service import WebhookService
+from app.routers.auth import CurrentUser, get_current_user
+from app.services.inbox.channel_connection_service import ChannelConnectionService
+from app.services.inbox.webhook_service import WebhookService
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,12 @@ router = APIRouter(prefix="/instagram", tags=["instagram"])
 
 
 @router.post("/connect")
-def connect_instagram(data: dict, db: Session = Depends(get_db)):
+def connect_instagram(
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    verify_workspace_access(current_user, db, data.get("workspace_id"))
     return ChannelConnectionService.connect_instagram(db, data)
 
 

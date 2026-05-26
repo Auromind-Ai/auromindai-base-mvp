@@ -303,7 +303,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
-  // ─── NODE DRAG (native pointer events — no Framer conflict) ───
+  // ─ NODE DRAG (native pointer events — no Framer conflict) ─
   const handleNodePointerDown = useCallback((e, nodeId) => {
     if (e.target.closest?.('[data-no-drag]')) return;
     e.stopPropagation();

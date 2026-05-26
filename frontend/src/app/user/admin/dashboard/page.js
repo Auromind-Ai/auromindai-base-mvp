@@ -25,7 +25,9 @@ import {
   Bot,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Poppins } from 'next/font/google'
+import { Poppins } from 'next/font/google';
+import { useDashboard } from '@/lib/useDashboard';
+import AddLeadModal from '@/components/leads/AddLeadModal';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -49,7 +51,7 @@ const SecretLoginBanner = () => {
         <div className="fixed top-0 left-0 right-0 z-[100] bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-sm font-medium shadow-lg animate-in slide-in-from-top duration-300">
             <div className="flex items-center gap-2">
                 <Sparkles size={16} className="animate-pulse" />
-                <span>Secret Login Mode: Viewing {user?.name || user?.email}'s dashboard</span>
+                <span>Secret Login Mode: Viewing {user?.name || user?.email}&apos;s dashboard</span>
             </div>
             <button 
                 onClick={handleExit}
@@ -61,42 +63,9 @@ const SecretLoginBanner = () => {
     );
 };
 
-const METRICS = [
-  {
-    label: 'Total Revenue',
-    value: '₹12.4L',
-    change: '+18.2%',
-    trend: 'up',
-    subtext: 'vs last month',
-    gradient: 'from-blue-500 via-cyan-400 to-emerald-400'
-  },
-  {
-    label: 'Active Leads',
-    value: '124',
-    change: '+12%',
-    trend: 'up',
-    subtext: 'vs last week',
-    gradient: 'from-yellow-400 via-amber-400 to-orange-500'
-  },
-  {
-    label: 'Conversion Rate',
-    value: '18%',
-    change: '-2.1%',
-    trend: 'down',
-    subtext: 'vs target',
-    gradient: 'from-purple-500 via-fuchsia-500 to-indigo-500'
-  },
-  {
-    label: 'Avg. Response Time',
-    value: '12m',
-    change: '8m',
-    trend: 'neutral',
-    subtext: 'improving',
-    gradient: 'from-orange-600 via-red-500 to-rose-600'
-  },
-];
 
-// ─── Magic Bento helpers ───────────────────────────────────────────────
+
+// ─ Magic Bento helpers ─
 function parseRgb(hex) {
   const s = (hex || '#8400ff').trim();
   if (s[0] === '#') {
@@ -190,24 +159,20 @@ function BentoMetricCard({ metric, i, rgb }) {
       <div className="relative z-10 h-full flex flex-col justify-between">
         <div>
           <h3 className="text-[15px] font-medium text-white/85 tracking-[-0.01em]">
-            {metric.label === 'Total Revenue' ? 'Total Revenue'
-              : metric.label === 'Active Leads' ? 'Active Leads'
-              : metric.label === 'Conversion Rate' ? 'Conversion Rate'
-              : 'Response Time'}
+            {metric.label}
           </h3>
         </div>
         <div className="mt-7">
-          <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight">
-            {metric.label === 'Total Revenue' ? '₹24,580'
-              : metric.label === 'Active Leads' ? '1,248'
-              : metric.label === 'Conversion Rate' ? '20%'
-              : '1h 24m'}
+          <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight flex items-baseline gap-2">
+            {metric.value}
+            {metric.change && metric.change !== '—' && (
+              <span className={`text-sm ${metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-zinc-400'}`}>
+                {metric.change}
+              </span>
+            )}
           </div>
           <p className="mt-3 text-[14px] text-white/80 font-medium">
-            {metric.label === 'Total Revenue' ? 'vs last month'
-              : metric.label === 'Active Leads' ? 'vs last week'
-              : metric.label === 'Conversion Rate' ? 'vs target'
-              : 'Improving'}
+            {metric.subtext}
           </p>
         </div>
       </div>
@@ -267,7 +232,7 @@ function BentoMetricsGrid({ metrics }) {
           100% { transform: scale(1); opacity: 0; }
         }
 
-        /* ─── CHART STYLES ─── */
+        /* ─ CHART STYLES ─ */
         .chart-line-2026 { fill: none; stroke: #39ff7e; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
         .chart-line-2025 { fill: none; stroke: #b794f4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -290,7 +255,7 @@ function BentoMetricsGrid({ metrics }) {
           animation: dotPulse 1.4s ease-in-out infinite;
         }
 
-        /* ─── QUICK ACTIONS ─── */
+        /* ─ QUICK ACTIONS ─ */
         /* New premium glassmorphism card styles */
         .quick-action-card {
           transition: transform 220ms cubic-bezier(0.34,1.2,0.64,1), border-color 200ms ease, box-shadow 220ms ease, background 200ms ease;
@@ -382,21 +347,25 @@ function BentoMetricsGrid({ metrics }) {
 }
 
 // Monthly Revenue Line Chart
-function MonthlyRevenueChart() {
+function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], currentData = [], priorData = [], currentYear, priorYear }) {
   const [tooltip, setTooltip] = useState(null);
   const [activeIdx, setActiveIdx] = useState(null);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
-  const data2026 = [40000, 58000, 50000, 72000, 92000];
-  const data2025 = [30000, 42000, 46000, 61000, 70000];
+  const data2026 = currentData.length ? currentData : [0, 0, 0, 0, 0];
+  const data2025 = priorData.length ? priorData : [0, 0, 0, 0, 0];
 
   const W = 520, H = 200;
 const padL = 58, padR = 30, padT = 20, padB = 36;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
-  const minVal = 20000, maxVal = 100000;
-  const yLabels = [20000, 40000, 60000, 80000, 100000];
+  const allVals = [...data2026, ...data2025];
+  const maxVal = allVals.length ? Math.max(...allVals, 1000) : 100000;
+  const minVal = allVals.length ? Math.min(...allVals, 0) : 20000;
+  
+  // Calculate dynamic yLabels based on maxVal
+  const step = (maxVal - minVal) / 4;
+  const yLabels = [minVal, minVal + step, minVal + step * 2, minVal + step * 3, maxVal];
 
   const xOf = (i) => padL + (i / (months.length - 1)) * chartW;
   const yOf = (v) => padT + chartH - ((v - minVal) / (maxVal - minVal)) * chartH;
@@ -615,7 +584,7 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
           style={{ cursor: 'crosshair' }}
           onMouseEnter={() => {
             setActiveIdx(i);
-            setTooltip({ x: xOf(i), y: yOf(v), val: data2026[i], color: '#39ff7e', label: '2026' });
+            setTooltip({ x: xOf(i), y: yOf(v), val: data2026[i], color: '#39ff7e', label: currentYear });
           }}
         />
       ))}
@@ -628,7 +597,7 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
           style={{ cursor: 'crosshair' }}
           onMouseEnter={() => {
             setActiveIdx(i);
-            setTooltip({ x: xOf(i), y: yOf(v), val: data2025[i], color: '#b794f4', label: '2025' });
+            setTooltip({ x: xOf(i), y: yOf(v), val: data2025[i], color: '#b794f4', label: priorYear });
           }}
         />
       ))}
@@ -708,17 +677,7 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
   );
 }
 
-// Recent Activity Card 
-const ACTIVITIES = [
-  { label: 'New lead from Website', time: '2m ago' },
-  { label: 'Email campaign opened', time: '15m ago' },
-  { label: 'Automation "Welcome Flow" ran', time: '1h ago' },
-  { label: 'Lead converted', time: '3h ago' },
-  { label: 'Customer replied to proposal', time: '4h ago' },
-  { label: 'Meeting scheduled with client', time: '4h ago' },
-];
-
-function RecentActivityCard() {
+function RecentActivityCard({ activities = [] }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [popupPos, setPopupPos] = useState({ top: 0 });
   const itemRefs = useRef([]);
@@ -740,7 +699,7 @@ function RecentActivityCard() {
     setHoveredIdx(null);
   };
 
-  const activity = hoveredIdx !== null ? ACTIVITIES[hoveredIdx] : null;
+  const activity = hoveredIdx !== null ? activities[hoveredIdx] : null;
 
   return (
     <section
@@ -755,7 +714,7 @@ function RecentActivityCard() {
       </div>
 
       <div className="px-6 pb-3 pt-1 flex flex-col justify-between flex-1 recent-activity-list">
-        {ACTIVITIES.map((a, i) => (
+        {activities.map((a, i) => (
           <div
             key={i}
             ref={(el) => (itemRefs.current[i] = el)}
@@ -807,7 +766,7 @@ function RecentActivityCard() {
   );
 }
 
-// ─── Quick Actions Card ────────────────────────────────────────────────
+// ─ Quick Actions Card 
 const QUICK_ACTIONS = [
   {
     title: 'New workflow',
@@ -851,7 +810,28 @@ const QUICK_ACTIONS = [
   },
 ];
 
-function QuickActionsCard() {
+function QuickActionsCard({ onAddLeadClick }) {
+  const router = useRouter();
+
+  const handleAction = (title) => {
+    switch (title) {
+      case 'New workflow':
+        router.push('/user/admin/automation');
+        break;
+      case 'Broadcast':
+        router.push('/user/admin/templates');
+        break;
+      case 'Add Lead':
+        if (onAddLeadClick) onAddLeadClick();
+        break;
+      case 'Connect Channel':
+        router.push('/user/admin/channels');
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <section className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
       <div className="px-6 pt-6 pb-2">
@@ -864,6 +844,7 @@ function QuickActionsCard() {
           return (
             <div
               key={i}
+              onClick={() => handleAction(action.title)}
               className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-5 cursor-pointer overflow-hidden`}
               style={{
                 borderColor: action.borderColor,
@@ -895,32 +876,12 @@ function QuickActionsCard() {
   );
 }
 
-// ─── AI Insights Card ─────────────────────────────────────────────────
-const AI_INSIGHT_ITEMS = [
-  {
-    icon: Mail,
-    title: 'Improve Email open rate',
-    subtitle: 'Your email open rate is 12% lower than last week.',
-    iconBg: 'bg-indigo-500/10',
-    iconColor: 'text-indigo-400',
-  },
-  {
-    icon: Flame,
-    title: 'Hot leads Detected',
-    subtitle: '24 leads are showing high engagement.',
-    iconBg: 'bg-orange-500/10',
-    iconColor: 'text-orange-400',
-  },
-  {
-    icon: Bot,
-    title: 'Automation Opportunity',
-    subtitle: 'You can automate follow-ups for inactive leads.',
-    iconBg: 'bg-emerald-500/10',
-    iconColor: 'text-emerald-400',
-  },
-];
-
-function AIInsightsCard() {
+function AIInsightsCard({ insights = [] }) {
+  const iconMap = {
+    flame: Flame,
+    mail: Mail,
+    bot: Bot
+  };
   return (
     <section className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10">
@@ -930,15 +891,15 @@ function AIInsightsCard() {
         </button>
       </div>
       <div className="flex-1 px-5 py-4 space-y-3">
-        {AI_INSIGHT_ITEMS.map((item, i) => {
-          const Icon = item.icon;
+        {insights.map((item, i) => {
+          const Icon = iconMap[item.icon_type] || Sparkles;
           return (
             <div
               key={i}
               className="ai-insight-item flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015] cursor-pointer group"
             >
-              <div className={`w-10 h-10 rounded-xl ${item.iconBg} flex items-center justify-center flex-shrink-0`}>
-                <Icon size={18} className={item.iconColor} />
+              <div className={`w-10 h-10 rounded-xl ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
+                <Icon size={18} className={item.icon_color} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white/85 leading-tight">{item.title}</p>
@@ -953,10 +914,13 @@ function AIInsightsCard() {
   );
 }
 
-// ─── Main Dashboard ────────────────────────────────────────────────────
+// ─ Main Dashboard
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
+  const [showAddLead, setShowAddLead] = useState(false);
+
+  const { metrics, revenue, activities, insights, loading, error, refetch } = useDashboard({ refreshInterval: 60000 });
 
   useEffect(() => {
     console.log("📊 DASHBOARD LOADED")
@@ -981,11 +945,39 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleLeadAdded = () => {
+      refetch();
+    };
+    window.addEventListener('lead-added', handleLeadAdded);
+    return () => window.removeEventListener('lead-added', handleLeadAdded);
+  }, [refetch]);
+
   if (!mounted) return null;
+
+  const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
+  const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
   return (
     <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
       <SecretLoginBanner />
+      
+      {error && (
+        <div className="max-w-[1600px] mx-auto mb-6 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={18} className="flex-shrink-0" />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
+          <button 
+            onClick={() => refetch()} 
+            className="text-xs bg-red-500/20 hover:bg-red-500/30 px-3 py-1.5 rounded-lg transition-colors font-semibold"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {isImpersonated && (
         <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl mb-6 px-6 py-2.5 text-amber-400 text-sm font-semibold">
           <ShieldAlert size={15} />
@@ -1020,11 +1012,13 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* METRICS GRID — unchanged */}
-        <BentoMetricsGrid metrics={METRICS} />
+        {/* METRICS GRID */}
+        <div className={cardStateClass}>
+          <BentoMetricsGrid metrics={metrics} />
+        </div>
 
         {/* ROW 1: Monthly Revenue + Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 overflow-visible">
+        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 overflow-visible ${cardStateClass}`}>
           {/* Monthly Revenue — 2/3 */}
           <section className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden">
             <div className="px-6 pt-6 pb-2">
@@ -1035,31 +1029,45 @@ export default function DashboardPage() {
             <div className="flex items-center justify-center gap-5 px-6 pt-3 pb-2">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
-                <span className="text-xs text-white/60">2026</span>
+                <span className="text-xs text-white/60">{revenue.current_year || new Date().getFullYear()}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
-                <span className="text-xs text-white/60">2025</span>
+                <span className="text-xs text-white/60">{revenue.prior_year || new Date().getFullYear() - 1}</span>
               </div>
             </div>
             <div className="px-4 pb-5">
-              <MonthlyRevenueChart />
+              <MonthlyRevenueChart 
+                months={revenue.months} 
+                currentData={revenue.current_data} 
+                priorData={revenue.prior_data}
+                currentYear={revenue.current_year}
+                priorYear={revenue.prior_year}
+              />
             </div>
           </section>
 
           {/* Recent Activity — 1/3 */}
-          <RecentActivityCard />
+          <div className="h-full">
+            <RecentActivityCard activities={activities} />
+          </div>
         </div>
 
         {/* ROW 2: Quick Actions + AI Insights */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 ${cardStateClass}`}>
           <div className="lg:col-span-2 h-full">
-            <QuickActionsCard />
+            <QuickActionsCard onAddLeadClick={() => setShowAddLead(true)} />
           </div>
-          <AIInsightsCard />
+          <AIInsightsCard insights={insights} />
         </div>
 
       </div>
+
+      <AddLeadModal
+        isOpen={showAddLead}
+        onClose={() => setShowAddLead(false)}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

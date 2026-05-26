@@ -34,6 +34,7 @@ from app.models.usage import *
 from app.models.user import *
 from app.models.webhook_event import *
 from app.models.workspace import *
+from app.models.lead_scoring import *
 
 config = context.config
 

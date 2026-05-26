@@ -1,12 +1,5 @@
-// particleGenerator.js
-// Builds dots on a 3D unit sphere using spherical coordinates.
-// Each dot stores its immutable 3D position (bx, by, bz) on the unit sphere,
-// plus mutable spring-animated screen position (sx, sy) and velocity (vx, vy).
-//
-// Dot count per latitude ring scales with ring circumference so that dots
-// appear evenly spaced across the surface — max at the equator, ~1 at poles.
 
-// ── Tuneable shape constants ──
+//  Tuneable shape constants 
 export const LAT_RINGS  = 20;    // number of latitude bands (0=north pole, 20=south)
 export const MAX_DOTS   = 36;    // dot count at the equator ring
 export const WARP_EXP   = 1.9;   // exponent shaping tail pull-in curve
@@ -53,7 +46,7 @@ export function buildParticles() {
   return particles;
 }
 
-// ── Apply tail warp to a rotated 3D point ──────────
+//  Apply tail warp to a rotated 3D point 
 // Called every frame after Y-axis rotation.
 // Returns { wx, wy, wz, warpAmt } — warped world coords + raw warp scalar.
 export function applyTailWarp(rx, ry, rz) {

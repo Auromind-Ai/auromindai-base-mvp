@@ -7,8 +7,7 @@ from app.services.inbox_agents.mcpservice import MCPService
 from app.services.inbox_agents.llm_client import LLMClient
 from app.services.inbox_agents.memory_service import MemoryService
 from app.services.inbox_agents.escalation_queue import EscalationQueue
-from app.services.twilio_service import TwilioService
-import os
+from app.services.inbox.twilio_service import TwilioService
 
 class AgentOrchestration:
 
@@ -31,32 +30,48 @@ class AgentOrchestration:
         self.logger.info("AgentOrchestration initialized successfully")
 
 
-    # ── MAIN ENTRY POINT 
+    #  MAIN ENTRY POINT 
 
     async def process_message(self, payload, channel):
         data = self.normalize_message(payload, channel)
 
         user_id      = data.get("user_id")       
         workspace_id = data.get("workspace_id")
+        conversation_id = data.get("conversation_id")
         message = data.get("message", "")
-        db = self.db
-        memory_key = data.get("conversation_id") or user_id
-
         db = getattr(self.escalation_queue, "db", None)
+        if not workspace_id or not conversation_id:
+            raise ValueError("workspace_id and conversation_id are required for inbox orchestration")
 
         self.runtime_context["workspace_id"]    = workspace_id
         self.runtime_context["user_id"]         = user_id
         self.runtime_context["channel"]         = channel
-        self.runtime_context["memory_key"]      = memory_key
+        self.runtime_context["conversation_id"] = conversation_id
 
         # turn / repeat counts
-        turn_count   = self.memory.get_turn_count(memory_key) if self.memory else 0
+        turn_count   = (
+            self.memory.get_turn_count(
+                workspace_id=workspace_id,
+                conversation_id=conversation_id,
+            )
+            if self.memory else 0
+        )
         repeat_count = 0
         if self.memory and message:
-            repeat_count = self.memory.detect_and_track_repeat(memory_key, message)
+            repeat_count = self.memory.detect_and_track_repeat(
+                workspace_id=workspace_id,
+                conversation_id=conversation_id,
+                message=message,
+            )
 
         # lead data
-        lead = self.memory.get_lead_data(memory_key) if self.memory else None
+        lead = (
+            self.memory.get_lead_data(
+                workspace_id=workspace_id,
+                conversation_id=conversation_id,
+            )
+            if self.memory else None
+        )
         lead_data = {
             "name":        getattr(lead, "name",        "") or "",
             "requirement": getattr(lead, "requirement", "") or "",
@@ -65,11 +80,20 @@ class AgentOrchestration:
             "contact":     getattr(lead, "contact",     "") or "",
         } if lead else {}
 
-        state = self.memory.get_conversation_state(memory_key) or {}
+        state = (
+            self.memory.get_conversation_state(
+                workspace_id=workspace_id,
+                conversation_id=conversation_id,
+            ) or {}
+        )
 
         if all([lead_data.get("name"), lead_data.get("requirement"), lead_data.get("contact")]):
             if self.memory:
-                self.memory.update_conversation_state(memory_key, {"current_stage": "sales"})
+                self.memory.update_conversation_state(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                    data={"current_stage": "sales"},
+                )
             state["current_stage"] = "sales"
 
 
@@ -82,7 +106,7 @@ class AgentOrchestration:
         )
 
         self.logger.info(f"Agent type: {agent_type}", extra={
-            "user_id": user_id, "turn_count": turn_count, "memory_key": memory_key
+            "user_id": user_id, "turn_count": turn_count, "conversation_id": conversation_id
         })
 
         # Pre-agent policy check
@@ -115,11 +139,12 @@ class AgentOrchestration:
         # else:
         #     force_close = False
 
-        # ── Unified Agent ─────────
+        #  Unified Agent ─
         result = await self.unified_agent.handle(
             message=message,
             context={
-                "user_id":      memory_key,
+                "user_id":      user_id,
+                "conversation_id": conversation_id,
                 "workspace_id": workspace_id,
                 "db":           db,
                 "agent_type":   agent_type,
@@ -139,27 +164,40 @@ class AgentOrchestration:
         if action == "lead_complete":
             stage = "sales"
             if self.memory:
-                self.memory.update_conversation_state(memory_key, {
-                    "current_stage": "sales",
-                    "followup_count": 0,
-                    "repeat_count":   0,
-                    "last_agent":     "sales_agent",
-                })
+                self.memory.update_conversation_state(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                    data={
+                        "current_stage": "sales",
+                        "followup_count": 0,
+                        "repeat_count":   0,
+                        "last_agent":     "sales_agent",
+                    },
+                )
 
         confidence = result.get("confidence_score", 0.5)
 
-        # ── Update memory ─────────
+        #  Update memory ─
         if self.memory:
             if result.get("collect"):
                 cleaned = {k: v for k, v in result["collect"].items() if v}
                 if cleaned:
-                    self.memory.update_lead_data(memory_key, cleaned)
-            self.memory.update_conversation_state(memory_key, {
-                "current_stage": stage,
-                "last_action":   action,
-            })
+                    self.memory.update_lead_data(
+                        workspace_id=workspace_id,
+                        conversation_id=conversation_id,
+                        data=cleaned,
+                    )
+            self.memory.update_conversation_state(
+                workspace_id=workspace_id,
+                conversation_id=conversation_id,
+                data={
+                    "current_stage": stage,
+                    "last_intent":   message,
+                    "last_agent":    agent_type,
+                },
+            )
 
-        # ── MCP validation ────────
+        #  MCP validation 
 
         mcp_result = self.mcp.evaluate_action(
             workspace_id=workspace_id,
@@ -175,12 +213,18 @@ class AgentOrchestration:
         )
 
         decision = mcp_result.get("decision")
-        state    = self.memory.get_conversation_state(memory_key) or {}
+        state = (
+            self.memory.get_conversation_state(
+                workspace_id=workspace_id,
+                conversation_id=conversation_id,
+            ) or {}
+        )
 
         if (result.get("escalate") or decision == "ESCALATE") \
                 and state.get("current_stage") != "sales":
             self.escalation_queue.add({
-                "user_id":      memory_key,
+                "user_id":      user_id,
+                "conversation_id": conversation_id,
                 "message":      message,
                 "channel":      channel,
                 "reason":       mcp_result.get("reason", "Escalated by AI"),
@@ -200,7 +244,7 @@ class AgentOrchestration:
         return response
 
 
-    # ── AGENT TYPE ────────────────
+    #  AGENT TYPE 
 
     def _determine_agent_type(self, message, turn_count, lead_data, state, is_followup_trigger=False):
         if is_followup_trigger:
@@ -241,7 +285,7 @@ class AgentOrchestration:
         return "sales_agent"
 
 
-    # ── NORMALIZE MESSAGE ─────────
+    #  NORMALIZE MESSAGE ─
 
     def normalize_message(self, payload, channel):
         try:
@@ -299,7 +343,7 @@ class AgentOrchestration:
             }
 
 
-    # ── SEND RESPONSE ─────────────
+    #  SEND RESPONSE ─
 
     def send_response(self, channel, user_id, response):
         try:
@@ -309,9 +353,11 @@ class AgentOrchestration:
 
             if not text:
                 return
+            if channel in {"twilio", "whatsapp"} and not user_id:
+                raise ValueError("Outbound channel requires a destination user identifier")
 
             workspace_id = self.runtime_context.get("workspace_id")
-            conversation_id = self.runtime_context.get("memory_key")
+            conversation_id = self.runtime_context.get("conversation_id")
             db = getattr(self.escalation_queue, "db", None)
 
           
@@ -338,8 +384,7 @@ class AgentOrchestration:
            
             if db and conversation_id:
                 try:
-                    from app.services.message_service import MessageService
-                    from app.services.conversation_service import ConversationService
+                    from app.services.inbox.message_service import MessageService
                     from app.models.message import SenderType, MessageStatus
                     from app.models.conversation import Conversation
 
@@ -347,20 +392,10 @@ class AgentOrchestration:
                     conversation = (
                         db.query(Conversation)
                         .filter(
-                            Conversation.id == conversation_id  # UUID match
+                            Conversation.id == conversation_id,
+                            Conversation.workspace_id == workspace_id,
                         ).first()
                     )
-
-                   
-                    if not conversation:
-                        workspace_id = self.runtime_context.get("workspace_id")
-                        conversation = (
-                            db.query(Conversation)
-                            .filter(
-                                Conversation.phone == conversation_id,
-                                Conversation.workspace_id == workspace_id
-                            ).first()
-                        )
 
                     if conversation:
                         MessageService.save_manual_message(
@@ -373,7 +408,11 @@ class AgentOrchestration:
                         )
                         self.logger.info(f"Automation message saved to inbox: {conversation.id}")
                     else:
-                        self.logger.warning(f"Conversation not found for id/phone: {conversation_id}")
+                        self.logger.warning(
+                            "Conversation not found for automation message | workspace=%s conversation=%s",
+                            workspace_id,
+                            conversation_id,
+                        )
 
                 except Exception as e:
                     self.logger.error(f"Failed to save automation message to DB: {e}")

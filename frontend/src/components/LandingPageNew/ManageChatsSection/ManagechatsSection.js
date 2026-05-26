@@ -202,7 +202,7 @@ export default function ManageChatsSection() {
             lg:relative lg:flex lg:flex-row lg:items-center lg:justify-end lg:max-w-none lg:w-auto lg:gap-0
           ">
 
-            {/* ── Instagram Card ── */}
+            {/*  Instagram Card  */}
             <motion.div
               className="
                 relative w-full max-w-[300px] z-10
@@ -270,7 +270,7 @@ export default function ManageChatsSection() {
               </div>
             </motion.div>
 
-            {/* ── WhatsApp Card ── */}
+            {/*  WhatsApp Card  */}
             <motion.div
               className="
                 relative w-full max-w-[300px] z-20

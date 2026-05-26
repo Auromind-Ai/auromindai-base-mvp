@@ -16,6 +16,7 @@ class UnifiedAgent:
         try:
             user_id = context.get("user_id")
             workspace_id = context.get("workspace_id")
+            conversation_id = context.get("conversation_id")
             db = context.get("db")
 
             # Dynamic context from orchestration layer
@@ -25,17 +26,32 @@ class UnifiedAgent:
 
             self.logger.info("UnifiedAgent processing request", extra={
                 "user_id": user_id,
+                "conversation_id": conversation_id,
                 "agent_type": agent_type,
                 "turn_count": turn_count,
                 "repeat_count": repeat_count
             })
 
             # Fetch State
-            state = self.memory.get_conversation_state(user_id) if self.memory else {}
+            state = (
+                self.memory.get_conversation_state(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                )
+                if self.memory and workspace_id and conversation_id
+                else {}
+            )
             current_stage = state.get("current_stage", "lead") if state else "lead"
 
             # Fetch Lead Data
-            lead = self.memory.get_lead_data(user_id) if self.memory else None
+            lead = (
+                self.memory.get_lead_data(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                )
+                if self.memory and workspace_id and conversation_id
+                else None
+            )
             lead_data = {
                 "name": getattr(lead, "name", "") or "",
                 "requirement": getattr(lead, "requirement", "") or "",
@@ -51,7 +67,14 @@ class UnifiedAgent:
             }
 
             # Conversation history 
-            history = self.memory.get_conversation_history(user_id) if self.memory else []
+            history = (
+                self.memory.get_conversation_history(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                )
+                if self.memory and workspace_id and conversation_id
+                else []
+            )
             history_text = "\n".join([
                 f"{getattr(msg, 'sender_type', 'Unknown')}: {getattr(msg, 'content', '')}"
                 for msg in history[-5:]

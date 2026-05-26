@@ -21,7 +21,12 @@ class PlanService:
         features = get_setting(db, f"{key}_plan_features", []) or []
 
         token_limits = get_setting(db, "token_limit_per_plan", {})
-        tokens = token_limits.get(key) or token_limits.get("free", 100)
+        tokens_val = token_limits.get(key)
+        if tokens_val is not None:
+            tokens = tokens_val
+        else:
+            free_val = token_limits.get("free")
+            tokens = free_val if free_val is not None else 100
 
         provider_plan_ids = {
             "razorpay": getattr(settings, f"RAZORPAY_{key.upper()}_PLAN_ID", None) if key != "free" else None,

@@ -48,7 +48,7 @@ export function IphoneMockup({ rotateX, rotateY }) {
           },
         }}
       >
-        {/* ── Status Bar ── outside the phone div so it overlays the notch correctly */}
+        {/*  Status Bar  outside the phone div so it overlays the notch correctly */}
         <div className={styles.statusBar}>
           {/* Time — left of notch */}
           <div className={styles.statusTime}>9:05</div>

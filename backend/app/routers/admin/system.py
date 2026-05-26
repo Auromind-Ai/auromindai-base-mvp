@@ -11,7 +11,7 @@ async def get_system_health(request: Request) -> Dict[str, Any]:
 
     try:
         system_metrics = await get_system_metrics_snapshot(request.app)
-        metrics_data = get_metrics()
+        metrics_data = await get_metrics()
 
         return {
             "api_calls": metrics_data["total_api_calls"],

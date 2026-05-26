@@ -1,0 +1,37 @@
+signal_weights:
+  callback_request  : 25
+  has_pricing       : 20
+  pricing_intent    : 20
+  payment_intent    : 20
+  budget_acceptance : 20
+  has_urgency       : 20
+  shared_contact    : 15
+  has_number        : 15
+  pincode_shared    : 15
+  delivery_interest : 15
+  is_specific       : 10
+  has_question      : 5
+  is_vague          : -10
+  negative_intent   : -20
+
+caps:
+  intent_max    : 60
+  intent_min    : -20
+  behavioral_max: 60
+  total_max     : 100
+  total_min     : 0
+
+tiers:
+  hot  : 75
+  warm : 40
+
+status_thresholds:
+  active : 60
+  new    : 1
+
+worker:
+  signal_cooldown_seconds    : 1800
+  idempotency_ttl_seconds    : 86400
+  min_message_length         : 2
+
+cache_ttl_seconds: 60

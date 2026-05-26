@@ -23,7 +23,10 @@ celery_app.conf.update(
     enable_utc=True,
 
     # Task discovery
-    imports=["app.workers.flow_execution"],
+    imports=[
+    "app.workers.flow_execution",
+    "app.workers.scoring_worker",
+],
 
     # Reliability
     task_acks_late=True,

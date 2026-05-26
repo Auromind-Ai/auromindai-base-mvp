@@ -1,8 +1,54 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import api from '@/lib/api';
+
+const TOKENS_PER_CREDIT = 1000;
 
 const PricingSection = () => {
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    api.getPricing().then(setSettings).catch(console.error);
+  }, []);
+
+  const plans = [
+    {
+      plan: settings?.free_plan_name || 'Free',
+      price: settings?.free_plan_price === 0 ? '₹0' : `₹${settings?.free_plan_price || 0}`,
+      desc: settings?.free_plan_desc || 'Try Auromind for free and see the ROI yourself.',
+      features: settings?.free_plan_features || [
+        `${Math.round((settings?.token_limit_per_plan?.free || 100000) / TOKENS_PER_CREDIT)} AI Replies`,
+        'Basic Workflows',
+        'Meta API Included'
+      ]
+    },
+    {
+      plan: settings?.pro_plan_name || 'Pro',
+      price: `₹${settings?.pro_plan_price || 2490}`,
+      desc: settings?.pro_plan_desc || 'Everything you need to automate and scale.',
+      features: settings?.pro_plan_features || [
+        `${Math.round((settings?.token_limit_per_plan?.pro || 1000000) / TOKENS_PER_CREDIT)} AI Replies`,
+        'Advanced Workflows',
+        'Priority Support',
+        'Full Analytics'
+      ],
+      popular: true
+    },
+    {
+      plan: settings?.enterprise_plan_name || 'Business',
+      price: settings?.enterprise_plan_price === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 'Custom'}`,
+      desc: settings?.enterprise_plan_desc || 'Enterprise-grade scale for large teams.',
+      features: settings?.enterprise_plan_features || [
+        'Dedicated Manager',
+        'Custom API Access',
+        'On-premise Options',
+        'Global SLA'
+      ]
+    }
+  ];
+
   return (
     <section id="pricing" className="py-32 px-6 bg-[#F9F9F9] border-t border-black/5">
       <div className="max-w-7xl mx-auto">
@@ -13,11 +59,7 @@ const PricingSection = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-          {[
-            { plan: 'Free', price: '₹0', desc: 'Try Auromind for free and see the ROI yourself.', features: ['100 AI Replies', 'Basic Workflows', 'Meta API Included'] },
-            { plan: 'Pro', price: '₹2,490', desc: 'Everything you need to automate and scale.', features: ['Unlimited AI Replies', 'Advanced Workflows', 'Priority Support', 'Full Analytics'], popular: true },
-            { plan: 'Business', price: 'Custom', desc: 'Enterprise-grade scale for large teams.', features: ['Dedicated Manager', 'Custom API Access', 'On-premise Options', 'Global SLA'] }
-          ].map((tier, i) => (
+          {plans.map((tier, i) => (
             <div
               key={i}
               className={`p-12 rounded-[2.5rem] bg-white border border-black/5 flex flex-col relative transition-all hover:shadow-2xl ${tier.popular ? 'ring-2 ring-black border-transparent' : ''}`}

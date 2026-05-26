@@ -1,20 +1,47 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
+import asyncio
+import secrets as secrets_module
+import time
+from collections import deque
 
 from sqlalchemy.orm import Session
-from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
+from app.schemas.auth import (
+    EmailLoginRequest,
+    UserResponse,
+    WorkspaceResponse,
+    SecretLoginRequest,
+    AdminLoginRequest,
+)
 from app.database import get_db
 from app.services.auth_service import AuthService
-from app.utils.auth import decode_access_token
+from app.utils.auth import create_access_token, decode_access_token
 import uuid
 from datetime import datetime, timezone
-from fastapi import Request
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 logger = logging.getLogger(__name__)
+
+_ADMIN_LOGIN_ATTEMPTS: dict[str, deque[float]] = {}
+_ADMIN_LOGIN_WINDOW_SECONDS = 60
+_ADMIN_LOGIN_MAX_ATTEMPTS = 3
+
+async def admin_login_rate_limit(request: Request):
+    client_host = request.client.host if request.client else "unknown"
+    now = time.time()
+    attempts = _ADMIN_LOGIN_ATTEMPTS.setdefault(client_host, deque())
+    while attempts and now - attempts[0] > _ADMIN_LOGIN_WINDOW_SECONDS:
+        attempts.popleft()
+    if len(attempts) >= _ADMIN_LOGIN_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts, please try again later.",
+        )
+    attempts.append(now)
+    return True
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None):
@@ -49,7 +76,7 @@ async def get_current_user(
         except:
             pass
 
-    log_auth(f"🔒 Authenticating token: {token[:10]}...")
+    log_auth("🔒 Authenticating token...")
     
     try:
         payload = decode_access_token(token)
@@ -78,7 +105,6 @@ async def get_current_user(
         raise credentials_exception
 
     log_auth(f"Authenticated: {user.email}")
-    logger.info(f"[AUTH HEADER] {request.headers.get('Authorization')}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,
@@ -127,6 +153,49 @@ async def login_secret(
         raise HTTPException(status_code=404, detail="No users found in platform")
     
     return AuthService.login(db, admin.email)
+
+@router.post("/admin/login")
+async def admin_login(
+    request: Request,
+    body: AdminLoginRequest,
+    db: Session = Depends(get_db),
+    _rate_limit: bool = Depends(admin_login_rate_limit),
+):
+    from app.core.config import settings
+    from app.models import User
+
+    is_valid = secrets_module.compare_digest(
+        body.secret_key,
+        settings.OWNER_SECRET_KEY
+    )
+    if not is_valid:
+        await asyncio.sleep(1)
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if hasattr(User, "is_superadmin"):
+        owner = db.query(User).filter(User.is_superadmin == True).first()
+    else:
+        owner = db.query(User).order_by(User.created_at.asc()).first()
+
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+
+    admin_data = AuthService.login(db, owner.email)
+    access_token = create_access_token({
+        "sub": str(owner.id),
+        "role": "superadmin",
+        "workspace_id": admin_data.get("workspaces", [])[0].get("id") if admin_data.get("workspaces") else None,
+    })
+
+    response = {
+        "message": "Access granted",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": admin_data.get("user"),
+        "workspaces": admin_data.get("workspaces"),
+    }
+
+    return response
 
 
 # ---------- Current user ----------

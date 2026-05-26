@@ -26,6 +26,7 @@ def get_followups(
         Conversation,
         FollowupModel.conversation_id == Conversation.id,
     ).filter(
+        FollowupModel.workspace_id == workspace_id,
         Conversation.workspace_id == workspace_id
     ).all()
 
@@ -45,7 +46,10 @@ def create_followup(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found"
         )
-    new_followup = FollowupModel(**followup.model_dump())
+    new_followup = FollowupModel(
+        **followup.model_dump(),
+        workspace_id=workspace_id,
+    )
     db.add(new_followup)
     db.commit()
     db.refresh(new_followup)
@@ -64,6 +68,7 @@ def update_followup(
         FollowupModel.conversation_id == Conversation.id,
     ).filter(
         FollowupModel.id == id,
+        FollowupModel.workspace_id == workspace_id,
         Conversation.workspace_id == workspace_id,
     ).first()
     if not followup:
@@ -93,6 +98,7 @@ def delete_followup(
         FollowupModel.conversation_id == Conversation.id,
     ).filter(
         FollowupModel.id == id,
+        FollowupModel.workspace_id == workspace_id,
         Conversation.workspace_id == workspace_id,
     ).first()
 

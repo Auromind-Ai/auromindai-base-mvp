@@ -5,8 +5,8 @@ from app import schemas
 from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
-from app.services.conversation_service import ConversationService
-from app.services.message_service import MessageService
+from app.services.inbox.conversation_service import ConversationService
+from app.services.inbox.message_service import MessageService
 
 router = APIRouter(prefix="/api", tags=["Unified Inbox"])
 

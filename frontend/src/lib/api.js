@@ -49,9 +49,9 @@ class APIClient {
         const data = await response.json();
         if (!response.ok) {
           console.error("FULL ERROR:", JSON.stringify(data, null, 2));
-          
+
           let errorMessage = 'Request failed';
-          
+
           if (data?.detail) {
             // Handle FastAPI's array of validation errors
             if (Array.isArray(data.detail)) {
@@ -63,7 +63,7 @@ class APIClient {
           } else {
             errorMessage = data?.message || data?.error?.message || 'Request failed';
           }
-          
+
           throw new Error(errorMessage);
         }
         return data;
@@ -132,9 +132,9 @@ class APIClient {
   }
 
   // Pricing methods
-async getPricing() {
-  return this.get("/public/pricing")
-}
+  async getPricing() {
+    return this.get("/public/pricing")
+  }
   // Billing methods
   async getBillingStatus(workspace_id) {
     return this.get(`/billing/status?workspace_id=${workspace_id}`);
@@ -156,12 +156,12 @@ async getPricing() {
     }, options);
   }
   async getPlatformSettings() {
-  return this.get("/admin/settings")
-}
+    return this.get("/admin/settings")
+  }
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
   }
-// ============== Automation Methods ==============
+  // ============== Automation Methods ==============
 
 
 
@@ -190,9 +190,9 @@ async getPricing() {
 
   async generateAIFlow(prompt) {
     const workspace_id = getWorkspaceIdFromToken();
-    return this.post('/automation/generate-flow', { 
-      prompt: prompt, 
-      workspace_id: workspace_id 
+    return this.post('/automation/generate-flow', {
+      prompt: prompt,
+      workspace_id: workspace_id
     });
   }
   // MCP methods
@@ -237,13 +237,13 @@ async getPricing() {
       body: JSON.stringify({ title })
     });
   }
-  // ================= Admin AI Activity =================
+  //  Admin AI Activity 
 
   async getAIActivity() {
     return this.get("/admin/ai_actions");
   }
 
-  // ================= Admin Token Methods =================
+  //  Admin Token Methods 
 
   async getAdminTokens() {
     return this.get("/admin/tokens")
@@ -272,7 +272,7 @@ async getPricing() {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     });
-    
+
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.detail || 'Upload failed');
@@ -280,29 +280,29 @@ async getPricing() {
     return data;
   }
   async uploadFile(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('workspace_id', getWorkspaceIdFromToken());
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('workspace_id', getWorkspaceIdFromToken());
 
-  const token = getToken();
+    const token = getToken();
 
-  const response = await fetch(`${this.baseURL}/upload`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
+    const response = await fetch(`${this.baseURL}/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(data.detail || 'Upload failed');
+    if (!response.ok) {
+      throw new Error(data.detail || 'Upload failed');
+    }
+
+    return data;
   }
 
-  return data;
-}
 
-
-  // ================= Admin Workspace Methods =================
+  //  Admin Workspace Methods 
 
   async getAdminWorkspaces() {
     return this.get('/admin/workspaces');
@@ -381,6 +381,49 @@ async getPricing() {
    */
   async getBrainStats(workspace_id) {
     return this.get(`/brain/stats?workspace_id=${workspace_id}`);
+  }
+
+  // ============== Dashboard Analytics Methods ==============
+
+  /**
+   * Full dashboard bundle — metrics + revenue + activities + insights
+   * Single round-trip, cached 60s on backend.
+   */
+  async getDashboardOverview(workspace_id) {
+    const wid = workspace_id || getWorkspaceIdFromToken();
+    return this.get(`/dashboard/overview?workspace_id=${wid}`);
+  }
+
+  /**
+   * 4 KPI metric cards (revenue, leads, conversion, response time)
+   */
+  async getDashboardMetrics(workspace_id) {
+    const wid = workspace_id || getWorkspaceIdFromToken();
+    return this.get(`/dashboard/metrics?workspace_id=${wid}`);
+  }
+
+  /**
+   * Monthly revenue chart — current year vs prior year
+   */
+  async getDashboardRevenue(workspace_id) {
+    const wid = workspace_id || getWorkspaceIdFromToken();
+    return this.get(`/dashboard/revenue?workspace_id=${wid}`);
+  }
+
+  /**
+   * Recent 10 activity events across messages/leads/followups/ai_actions
+   */
+  async getDashboardActivities(workspace_id) {
+    const wid = workspace_id || getWorkspaceIdFromToken();
+    return this.get(`/dashboard/activities?workspace_id=${wid}`);
+  }
+
+  /**
+   * AI-computed insights from real DB aggregations
+   */
+  async getDashboardInsights(workspace_id) {
+    const wid = workspace_id || getWorkspaceIdFromToken();
+    return this.get(`/dashboard/insights?workspace_id=${wid}`);
   }
 }
 

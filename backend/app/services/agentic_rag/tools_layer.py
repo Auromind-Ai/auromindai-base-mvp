@@ -8,7 +8,7 @@ import re
 import numexpr as ne
 from app.models.brain import EmailMessage , MCPDecision
 import json
-from app.services.llm_utils import safe_llm_call
+from app.services.ai.llm_utils import safe_llm_call
 
 
 logger = logging.getLogger(__name__)

@@ -7,8 +7,8 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app import models
-from app.services.ai_response_service import AIResponseService
-from app.services.twilio_service import TwilioService
+from app.services.ai.ai_response_service import AIResponseService
+from app.services.inbox.twilio_service import TwilioService
 from app.services.email_service import EmailService
 from app.services.platform_settings_service import get_setting
 

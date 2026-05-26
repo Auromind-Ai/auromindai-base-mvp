@@ -1,56 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const plans = [
-  {
-    name: 'Free',
-    icon: "🚀",
-    monthlyPrice: '₹399',
-    annualPrice: '₹399',
-    description: 'Try Auromind for free and see the ROI yourself.',
-    features: [
-      '100 AI Replies',
-      'Basic Workflows',
-      'Meta API Included',
-    ],
-    buttonText: 'Choose this plan',
-    featured: false,
-  },
-  {
-    name: 'Professional',
-    icon: "⚡",
-    monthlyPrice: '₹6,999',
-    annualPrice: '₹6,999',
-    description:
-      'Advanced features for growing teams and scalable workflows.',
-    features: [
-      'Unlimited AI Replies',
-      'Advanced Workflows',
-      'Priority Support',
-      'Full Analytics',
-    ],
-    buttonText: 'Choose this plan',
-    featured: true,
-  },
-  {
-    name: 'Business',
-    icon: "👑",
-    monthlyPrice: 'Custom',
-    annualPrice: 'Custom',
-    description:
-      'Perfect for small businesses starting with AI automation.',
-    features: [
-      'Dedicated Manager',
-      'Custom API Access',
-      'On-premise Options',
-      'Global SLA',
-    ],
-    buttonText: 'Schedule a call',
-    featured: false,
-  },
-];
+import api from '@/lib/api';
+
+const TOKENS_PER_CREDIT = 1000;
 
 const containerVariants = {
   hidden: {},
@@ -77,6 +32,58 @@ const cardVariants = {
 
 export default function PricingSectionNew() {
   const [billing, setBilling] = useState('monthly');
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    api.getPricing().then(setSettings).catch(console.error);
+  }, []);
+
+  const plans = [
+    {
+      name: settings?.free_plan_name || 'Free',
+      icon: "🚀",
+      monthlyPrice: settings?.free_plan_price === 0 ? 'Free' : `₹${settings?.free_plan_price || 399}`,
+      annualPrice: settings?.free_plan_price === 0 ? 'Free' : `₹${settings?.free_plan_price || 399}`,
+      description: settings?.free_plan_desc || 'Try Auromind for free and see the ROI yourself.',
+      features: settings?.free_plan_features || [
+        `${Math.round((settings?.token_limit_per_plan?.free || 100000) / TOKENS_PER_CREDIT)} AI Replies`,
+        'Basic Workflows',
+        'Meta API Included',
+      ],
+      buttonText: 'Choose this plan',
+      featured: false,
+    },
+    {
+      name: settings?.pro_plan_name || 'Professional',
+      icon: "⚡",
+      monthlyPrice: `₹${settings?.pro_plan_price || 6999}`,
+      annualPrice: `₹${settings?.pro_plan_price || 6999}`,
+      description: settings?.pro_plan_desc || 'Advanced features for growing teams and scalable workflows.',
+      features: settings?.pro_plan_features || [
+        `${Math.round((settings?.token_limit_per_plan?.pro || 1000000) / TOKENS_PER_CREDIT)} AI Replies`,
+        'Advanced Workflows',
+        'Priority Support',
+        'Full Analytics',
+      ],
+      buttonText: 'Choose this plan',
+      featured: true,
+    },
+    {
+      name: settings?.enterprise_plan_name || 'Business',
+      icon: "👑",
+      monthlyPrice: settings?.enterprise_plan_price === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 'Custom'}`,
+      annualPrice: settings?.enterprise_plan_price === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 'Custom'}`,
+      description: settings?.enterprise_plan_desc || 'Perfect for small businesses starting with AI automation.',
+      features: settings?.enterprise_plan_features || [
+        'Dedicated Manager',
+        'Custom API Access',
+        'On-premise Options',
+        'Global SLA',
+      ],
+      buttonText: 'Schedule a call',
+      featured: false,
+    },
+  ];
 
   return (
     <section className="relative overflow-hidden bg-black py-24 md:py-32">

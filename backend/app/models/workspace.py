@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -28,6 +28,7 @@ class Workspace(Base):
     custom_token_limit = Column(Integer)
 
     plan_type = Column(String(50), default="starter")
+    overage_enabled = Column(Boolean, default=False, nullable=False)
 
     #META WHATSAPP FIELDS
     meta_access_token = Column(Text, nullable=True)
