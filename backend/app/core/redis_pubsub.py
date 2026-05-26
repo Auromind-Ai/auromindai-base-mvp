@@ -46,12 +46,7 @@ class RedisPubSubService:
     #  Lifecycle
 
     async def start(self) -> None:
-        """Spawn the background listener task.
-
-        No Redis I/O happens here — the connection is established lazily
-        inside ``_listen_loop`` so that a Redis outage at startup never
-        blocks or crashes the FastAPI lifespan.
-        """
+      
         self._task = asyncio.create_task(
             self._listen_loop(), name="redis-pubsub-listener"
         )
@@ -99,16 +94,7 @@ class RedisPubSubService:
     #  Internal listener
 
     async def _listen_loop(self) -> None:
-        """Background task: connect → subscribe → listen → reconnect.
-
-        Lifecycle
-        ---------
-        1. If not yet connected, attempt to create a Redis client and
-           subscribe to all tracked tenant channels within 5 seconds.
-        2. Stream messages until the stop event is set or an error fires.
-        3. On any error, tear down the client and sleep with exponential
-           back-off (1 s → 2 s → … → 30 s) before retrying from step 1.
-        """
+      
         logger.info("Redis Pub/Sub listen loop started")
         reconnect_delay = 1.0
 
@@ -152,6 +138,10 @@ class RedisPubSubService:
                     continue
 
             # ── Step 2: stream messages ────────────────────────────────────
+            if not self._subscribed_channels:
+                await asyncio.sleep(0.5)
+                continue
+
             try:
                 async for message in self._pubsub.listen():
                     if self._stop_event.is_set():
@@ -195,12 +185,7 @@ class RedisPubSubService:
             self._redis = None
 
     async def _resubscribe_all(self) -> None:
-        """Re-subscribe to all tracked channels after a reconnect.
-
-        Only called when the client is already connected (i.e. ``_pubsub``
-        is not None).  The connect-time re-subscription is handled inside
-        ``_listen_loop`` as part of the Step 1 block.
-        """
+     
         if self._pubsub and self._subscribed_channels:
             channels = list(self._subscribed_channels)
             await asyncio.wait_for(

@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     
     # ADMIN & SECURITY
     
-    OWNER_SECRET_KEY: Optional[str] = None
+    OWNER_SECRET_KEY: str
     """Secret key for owner/admin operations"""
 
     
@@ -170,9 +170,9 @@ class Settings(BaseSettings):
     TWILIO_STATUS_CALLBACK_URL: Optional[str] = None
     """Webhook URL for Twilio message status callbacks"""
 
-    # ---------------------------------------------------------------------------
+    
     # AI MODEL CONFIGURATION
-    # ---------------------------------------------------------------------------
+    
 
     RERANKER_MODEL_NAME: str = "BAAI/bge-reranker-large"
     """HuggingFace model name for the CrossEncoder reranker."""
@@ -232,15 +232,6 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """
-    Get cached settings singleton.
-    
-    Uses LRU cache to ensure settings are loaded only once.
-    All application code should call this function or import 'settings'.
-    
-    Returns:
-        Settings: Singleton settings instance
-    """
     return Settings()
 
 

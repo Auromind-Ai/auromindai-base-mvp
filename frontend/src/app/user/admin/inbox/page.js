@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Phone, Instagram, Globe, Mail, Paperclip,
@@ -8,6 +8,7 @@ import {
     ArrowRight, ChevronRight, MoreHorizontal, Info
 } from 'lucide-react';
 import { getWorkspace, getToken } from '@/lib/auth';
+import { useRealtime } from '@/context/RealtimeContext';
 
 const CHANNELS = [
     { id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#25D366' },
@@ -76,6 +77,11 @@ function ProfilePic({ src, alt, fallbackText, color, className = '' }) {
 
 export default function InboxPage() {
     const workspace = getWorkspace();
+    const {
+        subscribe,
+        subscribeConversation,
+        unsubscribeConversation,
+    } = useRealtime();
     const [ch, setCh] = useState(CHANNELS[0]);
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
@@ -87,33 +93,53 @@ export default function InboxPage() {
     const ref = useRef(null);
     const [previewMedia, setPreviewMedia] = useState(null);
     const messagesContainerRef = useRef(null);
-    useEffect(() => {
-        setLead(null);
-        setMessages([]);
-        setConversations([]);
-        fetchConversations();
-    }, [ch]);
+    const leadRef = useRef(null);
 
     useEffect(() => {
-        if (!lead) return;
-        const interval = setInterval(() => fetchMessages(lead.id), 5000);
-        return () => clearInterval(interval);
+        leadRef.current = lead;
     }, [lead]);
 
-    useEffect(() => {
-    const container = messagesContainerRef.current;
+    const fetchMessages = useCallback(async (id) => {
+        if (!id) return;
 
-    if (!container) return;
+        try {
+            const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                console.error("Failed to parse messages JSON. Raw response:", text);
+                return;
+            }
 
-    const isNearBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+            if (!Array.isArray(data)) {
+                console.warn("Messages API returned a non-array payload:", data);
+                return;
+            }
 
-    if (isNearBottom) {
-        ref.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-}, [messages]);
+            setMessages(
+                data.filter((m) => {
+                    const status = m.status?.toLowerCase();
+                    const senderType = m.sender_type?.toLowerCase();
+                    return (
+                        status === 'sent' ||
+                        status === 'delivered' ||
+                        status === 'received' ||
+                        senderType === 'user' ||
+                        senderType === 'agent' ||
+                        senderType === 'ai'
+                    );
+                })
+            );
+        } catch (e) {
+            console.error('Message fetch error:', e);
+        }
+    }, []);
 
-    async function fetchConversations() {
+    const fetchConversations = useCallback(async ({ selectFirst = false } = {}) => {
+        if (!workspace?.id) return;
+
         try {
             const res = await fetch(
                 `${PROXY_BASE}/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}`,
@@ -127,50 +153,102 @@ export default function InboxPage() {
                 console.error("Failed to parse conversations JSON. Raw response:", text);
                 return;
             }
-            if (Array.isArray(data)) {
-                setConversations(data);
-                if (data.length > 0) {
-                    setLead(data[0]);
-                    fetchMessages(data[0].id);
-                }
+
+            if (!Array.isArray(data)) {
+                console.warn("Conversations API returned a non-array payload:", data);
+                return;
             }
+
+            setConversations(data);
+
+            if (data.length === 0) {
+                setLead(null);
+                setMessages([]);
+                return;
+            }
+
+            const currentLeadId = leadRef.current?.id;
+            const nextLead = selectFirst
+                ? data[0]
+                : data.find((item) => item.id === currentLeadId) || data[0];
+
+            setLead(nextLead);
+            fetchMessages(nextLead.id);
         } catch (e) {
             console.error('Conversation fetch error:', e);
         }
-    }
+    }, [workspace?.id, ch.id, fetchMessages]);
 
-    async function fetchMessages(id) {
-        try {
-            const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
-                    console.log('Status:', res.status, 'URL:', res.url); 
-               const text = await res.text();
-               let data;
-               try {
-                   data = JSON.parse(text);
-               } catch (err) {
-                   console.error("Failed to parse messages JSON. Raw response:", text);
-                   return;
-               }
-               console.log('Messages API response:', id, data?.length, data);
-               console.log('Messages API response:', data); // debug
-           setMessages(
-    data.filter((m) => {
-        const status = m.status?.toLowerCase();
-        const senderType = m.sender_type?.toLowerCase();
-        return (
-            status === 'sent' ||
-            status === 'delivered' ||
-            status === 'received' ||   
-            senderType === 'user' ||
-            senderType === 'agent' ||  
-            senderType === 'ai'       
-        );
-    })
-);
-        } catch (e) {
-            console.error('Message fetch error:', e);
-        }
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setLead(null);
+            leadRef.current = null;
+            setMessages([]);
+            setConversations([]);
+            fetchConversations({ selectFirst: true });
+        }, 0);
+
+        return () => clearTimeout(timer);
+    }, [ch.id, fetchConversations]);
+
+    useEffect(() => {
+        const activeLeadId = lead?.id;
+        if (!activeLeadId) return;
+
+        const interval = setInterval(() => fetchMessages(activeLeadId), 30000);
+        return () => clearInterval(interval);
+    }, [lead?.id, fetchMessages]);
+
+    useEffect(() => {
+        if (!lead?.id) return;
+
+        subscribeConversation(lead.id);
+        return () => unsubscribeConversation(lead.id);
+    }, [lead?.id, subscribeConversation, unsubscribeConversation]);
+
+    useEffect(() => {
+        return subscribe((event) => {
+            const eventWorkspaceId = event.workspace_id || event.payload?.workspace_id;
+            if (eventWorkspaceId && workspace?.id && eventWorkspaceId !== workspace.id) {
+                return;
+            }
+
+            const eventConversationId =
+                event.conversation_id || event.payload?.conversation_id;
+
+            switch (event.event_type) {
+                case "new_message":
+                case "conversation_updated":
+                    fetchConversations();
+                    if (eventConversationId && leadRef.current?.id === eventConversationId) {
+                        fetchMessages(eventConversationId);
+                    }
+                    break;
+                case "message_status_updated":
+                case "ai_response_ready":
+                case "ai_thinking":
+                    if (eventConversationId && leadRef.current?.id === eventConversationId) {
+                        fetchMessages(eventConversationId);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+    }, [fetchConversations, fetchMessages, subscribe, workspace?.id]);
+
+    useEffect(() => {
+    const container = messagesContainerRef.current;
+
+    if (!container) return;
+
+    const isNearBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+
+    if (isNearBottom) {
+        ref.current?.scrollIntoView({ behavior: 'smooth' });
     }
+}, [messages]);
 
     async function sendMessage() {
         if (!msg.trim() || !lead) return;

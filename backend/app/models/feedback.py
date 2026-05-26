@@ -1,4 +1,6 @@
-from sqlalchemy import JSON, Column, String, Text, DateTime, func, Float
+import uuid
+
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
@@ -7,6 +9,12 @@ class Feedback(Base):
     __tablename__ = "rag_feedback"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     query = Column(Text, nullable=False)
     rewritten_query = Column(Text, nullable=True)
     selected_tool = Column(String, nullable=True)
@@ -23,6 +31,13 @@ class Feedback(Base):
 class LearningData(Base):
     __tablename__ = "learning_data"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     data = Column(JSON)
+    profile_version = Column(String, nullable=False, default="v1")
     created_at = Column(DateTime, default=func.now())

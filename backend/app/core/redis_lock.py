@@ -47,7 +47,9 @@ def acquire_conversation_lock(
     try:
         r = _get_redis()
         token = str(uuid.uuid4())
-        key = f"conversation_send_lock:{conversation_id}"
+        key = (
+    f"conversation:{conversation_id}:send_lock"
+)
         ttl_seconds = max(1, int(ttl_seconds))
 
         acquired = r.set(key, token, nx=True, ex=ttl_seconds)
@@ -73,10 +75,12 @@ def acquire_conversation_lock(
     return None
 
 
-def release_conversation_lock(conversation_id: str, token: str) -> bool:
+def release_conversation_lock( conversation_id: str,token: str) -> bool:
     try:
         r = _get_redis()
-        key = f"conversation_send_lock:{conversation_id}"
+        key = (
+    f"conversation:{conversation_id}:send_lock"
+)
 
         result = r.eval(_RELEASE_SCRIPT, 1, key, token)
         released = result == 1

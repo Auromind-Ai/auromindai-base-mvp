@@ -6,11 +6,15 @@ from sqlalchemy import func
 
 class ReinforcementEngine:
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, workspace_id):
         self.db = db
+        self.workspace_id = workspace_id
+
+    def _feedback_query(self):
+        return self.db.query(Feedback).filter(Feedback.workspace_id == self.workspace_id)
 
     def get_feedback_count(self):
-        return self.db.query(Feedback).count()
+        return self._feedback_query().count()
 
     def store_feedback(
         self,
@@ -27,6 +31,7 @@ class ReinforcementEngine:
     ):
 
         fb = Feedback(
+            workspace_id=self.workspace_id,
             query=query,
             rewritten_query=rewritten_query,
             selected_tool=tool,
@@ -76,7 +81,7 @@ class ReinforcementEngine:
 
     def get_positive_samples(self, limit=100):
         return (
-            self.db.query(Feedback)
+            self._feedback_query()
             .filter(Feedback.feedback == "up")
             .order_by(Feedback.created_at.desc())
             .limit(limit)
@@ -86,7 +91,7 @@ class ReinforcementEngine:
 
     def get_negative_samples(self, limit=100):
         return (
-            self.db.query(Feedback)
+            self._feedback_query()
             .filter(Feedback.feedback == "down")
             .order_by(Feedback.created_at.desc())
             .limit(limit)
@@ -178,7 +183,7 @@ class ReinforcementEngine:
 
 
     def learn_tool_selection_rules(self):
-        data = self.db.query(Feedback).all()
+        data = self._feedback_query().all()
         tool_patterns = {}
 
         for row in data:
@@ -246,7 +251,7 @@ class ReinforcementEngine:
 
     def analyze_rewrite_effectiveness(self):
         
-        data = self.db.query(Feedback).all()
+        data = self._feedback_query().all()
 
         total = 0
         improved = 0
@@ -300,7 +305,7 @@ class ReinforcementEngine:
 
     def learn_rewrite_rules(self):
 
-        data = self.db.query(Feedback).all()
+        data = self._feedback_query().all()
 
         filler_words = {
             "what", "is", "the", "a", "an", "please", "can", "you",
@@ -622,7 +627,7 @@ class ReinforcementEngine:
 
     def update_weights_from_feedback(self):
        
-        data = self.db.query(Feedback).all()
+        data = self._feedback_query().all()
 
         tool_weights = {}
         query_weights = {}

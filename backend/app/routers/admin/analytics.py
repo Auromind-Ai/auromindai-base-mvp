@@ -59,7 +59,7 @@ async def get_analytics(db: Session = Depends(get_db)) -> Dict[str, Any]:
         # Count active workspaces
         active_workspaces = db.query(func.count(Workspace.id)).scalar() or 0
         # Get API call count from middleware
-        metrics = get_metrics()
+        metrics = await get_metrics()
         return {
             "api_calls_today": metrics["total_api_calls"],
             "total_api_calls": metrics["total_api_calls"],

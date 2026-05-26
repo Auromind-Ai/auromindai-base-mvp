@@ -6,14 +6,19 @@ from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import json
 
 from app.models.integration import Integration
-from app.services.llm_utils import safe_llm_call
+from app.services.ai.llm_utils import safe_llm_call
 
 
 class EmailMCPService:
 
+    @property
+    def embeddings(self):
+        from app.services.agentic_rag.embedding_service import get_embedding_generator
+        return get_embedding_generator()
+
     def __init__(self):
         self.vector_store = VectorStoreService()
-        self.embeddings = EmbeddingGenerator() 
+        pass
 
       
     def safe_json_parse(self, text):

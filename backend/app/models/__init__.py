@@ -32,3 +32,4 @@ from .flow_execution import FlowExecutionState, FlowExecutionTrace
 from .media import MediaFile
 from .outbound_message import OutboundMessage
 from .scheduled_resume import ScheduledResume
+from .lead_scoring import LeadScoreHistory, TemplateLog

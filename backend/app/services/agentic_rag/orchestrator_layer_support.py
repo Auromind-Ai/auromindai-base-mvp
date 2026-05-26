@@ -2,8 +2,8 @@ import logging
 import re
 
 from app.utils.evaluation import token_match_percentage
-from app.services.agentic_rag.learning_cache import learning_cache
-from app.services.llm_utils import safe_llm_call
+from app.services.agentic_rag.learning_cache import get_learning_profile
+from app.services.ai.llm_utils import safe_llm_call
 
 
 logger = logging.getLogger(__name__)
@@ -76,8 +76,9 @@ class orchestratorsupport:
 
         good_queries = []
 
-        if learning_cache:
-            good_queries = learning_cache.get("memory", {}).get("good_queries", [])[:3]
+        learning_profile = get_learning_profile()
+        if learning_profile:
+            good_queries = learning_profile.get("memory", {}).get("good_queries", [])[:3]
 
         extra_context = ""
 

@@ -88,18 +88,25 @@ async def update_workspace_plan(
     ).first()
 
     if old_sub:
-        old_sub.status = SubscriptionStatus.cancelled
-        old_sub.canceled_at = datetime.utcnow()
+        old_sub.plan_id = plan.id
+        old_sub.billing_cycle = plan.billing_cycle
+        old_sub.is_admin_override = True
+    else:
+        new_sub = Subscription(
+            workspace_id=workspace_id,
+            plan_id=plan.id,
+            status=SubscriptionStatus.active,
+            billing_cycle=plan.billing_cycle,  
+            is_admin_override=True
+        )
+        db.add(new_sub)
 
-    new_sub = Subscription(
-    workspace_id=workspace_id,
-    plan_id=plan.id,
-    status=SubscriptionStatus.active,
-    billing_cycle=plan.billing_cycle,  
-    is_admin_override=True
-)
+    # Sync workspace level fields
+    ws.plan_type = new_plan_name
+    
+    if new_plan_name.lower() == "free":
+        ws.overage_enabled = False
 
-    db.add(new_sub)
     db.commit()
 
     return {"message": "Workspace plan updated"}

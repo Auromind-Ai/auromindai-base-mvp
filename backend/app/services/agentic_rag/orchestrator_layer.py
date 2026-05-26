@@ -2,11 +2,11 @@ import logging
 from urllib.parse import urlparse
 from app.utils.confidence import compute_confidence
 from app.services.agentic_rag.reinforcement import ReinforcementEngine
-from app.services.agentic_rag.learning_cache import learning_cache
+from app.services.agentic_rag.learning_cache import get_learning_profile
 from app.utils.website_scraper import Webscrapper
 import re
 import numpy as np
-from app.services.llm_utils import safe_llm_call
+from app.services.ai.llm_utils import safe_llm_call
 from app.utils.text_chunker import Schunker
 from app.services.agentic_rag.reasoning_agent import run_reasoning
 from app.models.brain import BrainEntry
@@ -226,9 +226,10 @@ class OrchestratorLayer:
         
         #Decide tool
         tool =  await self.mcp.decide_tool(rewritten_query, model=model)
+        learning_profile = get_learning_profile(workspace_id=str(workspace_id))
         
         #RULE BASED TOOL OVERRIDE
-        rules = learning_cache.get("tool_rules", [])
+        rules = learning_profile.get("tool_rules", [])
 
         for rule in rules:
             if rule.get("success_rate", 0) < 60:
@@ -247,7 +248,7 @@ class OrchestratorLayer:
 
 
         #llm learning
-        memory = learning_cache.get("memory", {}) if learning_cache else {}
+        memory = learning_profile.get("memory", {}) if learning_profile else {}
         good_queries = memory.get("good_queries", [])[:3]
         tool_insights = memory.get("tool_insights", {})
 
@@ -274,7 +275,7 @@ class OrchestratorLayer:
                 if best_score > current_score + 2:
                     tool = best_tool
         # Reinforcement Hook
-        engine = ReinforcementEngine(db)
+        engine = ReinforcementEngine(db, workspace_id=workspace_id)
 
         adjusted = engine.adjust_pipeline(
             query=query,
@@ -371,8 +372,8 @@ class OrchestratorLayer:
                 )
             good_queries = []
 
-            if learning_cache:
-                good_queries = learning_cache.get("memory", {}).get("good_queries", [])[:3]
+            if learning_profile:
+                good_queries = learning_profile.get("memory", {}).get("good_queries", [])[:3]
 
             extra_context = ""
 
@@ -380,7 +381,7 @@ class OrchestratorLayer:
                 examples = "\n".join([f"- {q}" for q in good_queries])
                 extra_context = f"\n\nGood examples:\n{examples}"
 
-            improvements = learning_cache.get("prompt_improvements", {})
+            improvements = learning_profile.get("prompt_improvements", {})
 
             extra_rules = "\n".join(
                 improvements.get("answer_generation_prompt", [])
@@ -604,7 +605,7 @@ class OrchestratorLayer:
 
 
         #Iterative Retrieval Loop
-    async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2, model="auto"):
+    async def iterative_retrieval(self, db, workspace_id, query, max_iterations=2, model="auto", collection=None, entry_ids=None):
 
         current_query = query
         last_context = ""

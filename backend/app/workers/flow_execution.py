@@ -3,7 +3,6 @@ import asyncio
 import json
 import logging
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 from celery.exceptions import MaxRetriesExceededError
@@ -14,14 +13,16 @@ from app.core.redis_lock import acquire_conversation_lock, release_conversation_
 from app.database import SessionLocal
 from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
-from app.services.execution_tracer import ExecutionTracer
-from app.services.flow_service_v2 import ConversationExecutionBusy, FlowServiceV2
-from app.services.whatsapp_delivery import deliver_outbound_message
+from app.services.automations.execution_tracer import ExecutionTracer
+from app.services.automations.flow_service_v2 import ConversationExecutionBusy, FlowServiceV2
+from app.services.inbox.whatsapp_delivery import deliver_outbound_message
+from app.services.analytics.realtime_service import (
+    EventType,
+    publish_to_workspace,
+    publish_to_workspace_conversation,
+)
 
 logger = logging.getLogger(__name__)
-
-# One shared thread-pool for running async code from sync Celery tasks.
-_executor = ThreadPoolExecutor(max_workers=4)
 
 # Exponential back-off schedule (seconds) — shared across tasks.
 _BACKOFF_SCHEDULE = [60, 120, 240]
@@ -50,17 +51,24 @@ def execute_incoming_message(
     tracer = ExecutionTracer()
 
     try:
+        conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if conv:
+            from app.services.billing.billing_service import enforce_execution_policy
+            if not enforce_execution_policy(db, str(conv.workspace_id)):
+                logger.warning(f"Quota exceeded for workspace {conv.workspace_id}. Aborting execution.")
+                tracer.trace(db, conversation_id=conversation_id, event_type="billing_blocked", metadata={"error": "Insufficient quota"})
+                db.commit()
+                return {"status": "error", "message": "Insufficient quota"}
+
         service = FlowServiceV2()
-        future = _executor.submit(
-            asyncio.run,
+        result = asyncio.run(
             service.execute_incoming_message(
                 db,
                 conversation_id=conversation_id,
                 inbound_text=message,
                 metadata=metadata or {},
-            ),
+            )
         )
-        result = future.result()
 
         tracer.trace(
             db,
@@ -69,6 +77,26 @@ def execute_incoming_message(
             metadata={"handled": result},
         )
         db.commit()
+
+        #  REALTIME: notify the workspace that a new message was processed 
+        try:
+            conv = db.query(Conversation).filter(
+                Conversation.id == conversation_id
+            ).first()
+            if conv:
+                publish_to_workspace(
+                    workspace_id=str(conv.workspace_id),
+                    event_type=EventType.NEW_MESSAGE,
+                    payload={
+                        "conversation_id": conversation_id,
+                        "message_preview": message[:120],
+                        "result": result,
+                    },
+                    conversation_id=conversation_id,
+                )
+        except Exception as rt_exc:
+            logger.warning("[execute_incoming_message] Realtime publish failed (non-fatal): %s", rt_exc)
+        #
 
         logger.info(
             "[execute_incoming_message] OK | conversation=%s handled=%s",
@@ -148,17 +176,15 @@ def resume_flow_node(
 
     try:
         service = FlowServiceV2()
-        future = _executor.submit(
-            asyncio.run,
+        result = asyncio.run(
             service.resume_node_execution(
                 db,
                 conversation_id=conversation_id,
                 node_id=node_id,
                 inbound_text=inbound_text or "",
                 msg_sequence_val=msg_sequence_val,
-            ),
+            )
         )
-        result = future.result()
 
         tracer.trace(
             db,
@@ -234,7 +260,7 @@ def send_next_pending_message(self, conversation_id: str):
   
     from app.models.outbound_message import OutboundMessage
 
-    # ── GUARD 1: Redis distributed lock ──────────
+    #  GUARD 1: Redis distributed lock 
     lock_token = acquire_conversation_lock(
         conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
     )
@@ -248,7 +274,14 @@ def send_next_pending_message(self, conversation_id: str):
 
     db = SessionLocal()
     try:
-       
+        conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if conv:
+            from app.services.billing.billing_service import enforce_execution_policy
+            if not enforce_execution_policy(db, str(conv.workspace_id)):
+                logger.warning(f"Quota exceeded for workspace {conv.workspace_id}. Aborting outbound message.")
+                release_conversation_lock(conversation_id, lock_token)
+                return
+
         active_msg = (
             db.query(OutboundMessage)
             .filter(
@@ -508,6 +541,28 @@ def send_whatsapp_message_task(
         args=[conversation_id],
         countdown=10
     )
+
+        #  REALTIME: notify the workspace that an outbound message was sent 
+        try:
+            conv = db.query(Conversation).filter(
+                Conversation.id == conversation_id
+            ).first()
+            if conv:
+                publish_to_workspace_conversation(
+                    conversation_id=conversation_id,
+                    workspace_id=str(conv.workspace_id),
+                    event_type=EventType.MESSAGE_STATUS_UPDATED,
+                    payload={
+                        "outbound_message_id": outbound_message_id,
+                        "status": "dispatched",
+                        "twilio_sid": sid,
+                        "conversation_id": conversation_id,
+                    },
+                )
+        except Exception as rt_exc:
+            logger.warning("[send_whatsapp_message_task] Realtime publish failed (non-fatal): %s", rt_exc)
+        #
+
         # 6. Trace
         tracer.trace(
             db,
@@ -684,14 +739,7 @@ def sweep_stuck_messages():
 
 @celery_app.task(name="app.workers.flow_execution.poll_scheduled_resumes")
 def poll_scheduled_resumes():
-    """Poll the scheduled_resumes table for due long-delay rows.
-
-    Runs every 30 seconds via Celery beat.  For each row whose
-    ``run_at`` has passed:
-      - Check if the flow is still active (skip stale delays)
-      - Fire ``resume_flow_node``
-      - Mark row ``executed`` ONLY after enqueue succeeds
-    """
+   
     from app.models.scheduled_resume import ScheduledResume
 
     db = SessionLocal()
@@ -716,7 +764,7 @@ def poll_scheduled_resumes():
         cancelled = 0
 
         for sr in due_rows:
-            # ── Guard: skip if the flow has changed since this delay was created
+            #  Guard: skip if the flow has changed since this delay was created
             if sr.flow_id:
                 current_state = (
                     db.query(FlowExecutionState)
@@ -733,7 +781,7 @@ def poll_scheduled_resumes():
                     cancelled += 1
                     continue
 
-            # ── Enqueue the resume task
+            #  Enqueue the resume task
             try:
                 resume_flow_node.delay(
                     conversation_id=str(sr.conversation_id),

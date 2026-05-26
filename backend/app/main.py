@@ -11,8 +11,7 @@ from app.core.metrics import setup_system_metrics, start_system_metrics_updater,
 from app.core.request_logger import RequestLoggingMiddleware
 from app.core.exception_handlers import register_exception_handlers
 from app.core.uuid_validation import UUIDValidationMiddleware
-from app.core.startup import (
-    init_rag, init_learning_cache, init_schedulers,
+from app.core.startup import ( init_schedulers,
     shutdown_schedulers, init_llm_router,
     init_pubsub, shutdown_pubsub,
     init_metrics, shutdown_metrics,
@@ -26,6 +25,7 @@ from app.routers import (
 )
 from app.routers.feedback import router as feedback_router
 from app.routers.template import router as template_router
+from app.routers.lead_scoring import router as lead_scoring_router
 from app.routers.inbox_chennal import meta_what, conversations, instagram, twilio_webhook
 from app.routers.realtime import router as realtime_router
 
@@ -34,8 +34,6 @@ from app.routers.realtime import router as realtime_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Starting...")
-    init_rag(app)
-    init_learning_cache()
     init_schedulers(app)
     await init_llm_router(app)
     await init_pubsub(app)
@@ -114,6 +112,7 @@ app.include_router(email.router)
 app.include_router(automation.router)
 app.include_router(template_router)
 app.include_router(feedback_router)
+app.include_router(lead_scoring_router,                   tags=["lead-scoring"])
 
 # Admin / Ops
 app.include_router(admin.router,                             tags=["admin"])

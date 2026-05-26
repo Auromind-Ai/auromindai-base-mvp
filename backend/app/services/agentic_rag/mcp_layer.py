@@ -2,8 +2,8 @@
 
 import logging
 
-from app.services.llm_utils import safe_llm_call
-from app.services.agentic_rag.learning_cache import learning_cache
+from app.services.ai.llm_utils import safe_llm_call
+from app.services.agentic_rag.learning_cache import get_learning_profile
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class MCPLayer:
         rewritten_query = rewritten_query["content"].strip()
 
         #APPLY REWRITE RULES
-        rules = learning_cache.get("rewrite_rules", {})
+        rules = get_learning_profile().get("rewrite_rules", {})
 
         remove_words = rules.get("remove_words", [])
 

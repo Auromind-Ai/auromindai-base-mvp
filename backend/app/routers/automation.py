@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.services.email_automation.email_automation_engine import AutomationEngine
-from app.services.agentic_wiring_service import agentic_wiring_service
-from app.services.flow_validation_service import FlowValidationService
+from app.services.automations.agentic_wiring_service import agentic_wiring_service
+from app.services.automations.flow_validation_service import FlowValidationService
 from app.routers.auth import get_current_user
 from app.models.automation import AutomationFlow
 from app.models.brain import MCPDecision

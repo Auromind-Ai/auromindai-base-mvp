@@ -10,9 +10,9 @@ from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.models.workspace import Workspace
 from app.routers.auth import CurrentUser, get_current_user
-from app.services.conversation_service import ConversationService
-from app.services.message_service import MessageService
-from app.services.webhook_service import WebhookService
+from app.services.inbox.conversation_service import ConversationService
+from app.services.inbox.message_service import MessageService
+from app.services.inbox.webhook_service import WebhookService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ router = APIRouter(
 )
 
 
-# ── Connect ─
+#  Connect ─
 
 class TwilioConnectRequest(BaseModel):
     sid: str
@@ -38,6 +38,7 @@ def connect_twilio(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    verify_workspace_access(current_user, db, payload.workspace_id)
     workspace = db.query(Workspace).filter(Workspace.id == payload.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -48,7 +49,7 @@ def connect_twilio(
     return {"status": "connected", "message": "Twilio connected successfully"}
 
 
-# ── Webhooks 
+#  Webhooks 
 
 @router.post("/webhook")
 async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
@@ -70,7 +71,7 @@ async def twilio_status_callback(request: Request, db: Session = Depends(get_db)
         return {"status": "error"}
 
 
-# ── Conversations
+#  Conversations
 
 @router.get("/conversations")
 def list_conversations(
@@ -99,7 +100,7 @@ def get_messages(
     )
 
 
-# ── Actions ─
+#  Actions ─
 
 @router.post("/send-reply")
 def send_reply(

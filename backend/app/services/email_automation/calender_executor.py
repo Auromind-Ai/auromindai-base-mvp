@@ -11,7 +11,7 @@ from timezonefinder import TimezoneFinder
 from app.core.config import settings
 from app.models.integration import CalendarEvent
 from app.models.integration import Integration
-from app.services.llm_utils import safe_llm_call
+from app.services.ai.llm_utils import safe_llm_call
 from app.services.platform_settings_service import get_setting
 from googleapiclient.discovery import build
 

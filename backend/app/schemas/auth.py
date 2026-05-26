@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 class EmailLoginRequest(BaseModel):
     email: EmailStr
@@ -17,3 +17,6 @@ class WorkspaceResponse(BaseModel):
 
 class SecretLoginRequest(BaseModel):
     key: str
+
+class AdminLoginRequest(BaseModel):
+    secret_key: str = Field(..., min_length=8)

@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
 
-/* ─── Config─ */
+/* ─ Config─ */
 const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected'];
 
 const STATUS = {
@@ -20,7 +20,7 @@ const STATUS = {
   rejected: { label: 'Rejected', dot: '#ef4444', text: '#f87171', bg: '#1f0d0d', ring: '#291414' },
 };
 
-/* ─── Reusable atoms─ */
+/* ─ Reusable atoms─ */
 const StatusPill = ({ status }) => {
   const s = STATUS[status] || STATUS.draft;
   return (
@@ -48,7 +48,7 @@ const TypeTag = ({ type }) => (
   </span>
 );
 
-/* ─── Skeleton─────── */
+/* ─ Skeleton─ */
 const SkeletonCard = () => (
   <div style={{
     background: '#111113', border: '1px solid #1f1f23',
@@ -74,7 +74,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-/* ─── Template Card── */
+/* ─ Template Card */
 function TemplateCard({ tpl, onPreview, onSubmit, viewMode, idx }) {
   const [hov, setHov] = useState(false);
   const isList = viewMode === 'list';
@@ -161,7 +161,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, viewMode, idx }) {
   );
 }
 
-/* ─── Button helpers─ */
+/* ─ Button helpers─ */
 function Btn({ children, onClick, ghost, primary, success }) {
   const [h, setH] = useState(false);
   const base = {
@@ -186,7 +186,7 @@ function Btn({ children, onClick, ghost, primary, success }) {
   );
 }
 
-/* ─── Preview Drawer─ */
+/* ─ Preview Drawer─ */
 function PreviewDrawer({ tpl, onClose, onSubmit }) {
   const open = !!tpl;
 
@@ -346,7 +346,7 @@ function PreviewDrawer({ tpl, onClose, onSubmit }) {
   );
 }
 
-/* ─── Icon button──── */
+/* ─ Icon button */
 function IconBtn({ children, onClick }) {
   const [h, setH] = useState(false);
   return (
@@ -368,7 +368,7 @@ function IconBtn({ children, onClick }) {
   );
 }
 
-/* ─── Main Page────── */
+/* ─ Main Page */
 export default function TemplatesPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState([]);
@@ -454,7 +454,7 @@ export default function TemplatesPage() {
         fontFamily: 'var(--sans)',
       }}>
 
-        {/* ── Sticky top bar ── */}
+        {/*  Sticky top bar  */}
         <div style={{
           borderBottom: '1px solid #1a1a1d',
           background: 'rgba(9,9,11,0.9)',
@@ -489,7 +489,7 @@ export default function TemplatesPage() {
           </div>
         </div>
 
-        {/* ── Main content ── */}
+        {/*  Main content  */}
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 32px' }}>
 
           {/* heading + stats */}

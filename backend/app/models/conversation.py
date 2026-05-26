@@ -30,7 +30,7 @@ class Conversation(Base):
         UUID(as_uuid=True),
         ForeignKey("workspaces.id", ondelete="CASCADE"),
         index=True,
-        nullable=True
+        nullable=False
     )
 
     phone = Column(String(20), index=True)

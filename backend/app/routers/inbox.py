@@ -8,8 +8,8 @@ from app.models.message import SenderType
 from app.routers.auth import CurrentUser, get_current_user
 from app.schemas import Conversation, Message, MessageCreate
 from app.core.security import verify_workspace_access
-from app.services.conversation_service import ConversationService
-from app.services.message_service import MessageService
+from app.services.inbox.conversation_service import ConversationService
+from app.services.inbox.message_service import MessageService
 
 router = APIRouter(
     prefix="/inbox",

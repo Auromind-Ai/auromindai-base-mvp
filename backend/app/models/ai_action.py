@@ -1,4 +1,16 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Boolean, JSON
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -47,10 +59,28 @@ class AIAction(Base):
 # CONVERSATION STATE
 class ConversationState(Base):
     __tablename__ = "conversation_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "conversation_id",
+            name="uq_conversation_states_workspace_conversation",
+        ),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     current_stage = Column(String(50))  
     # lead / sales / followup / support
@@ -71,17 +101,31 @@ class ConversationState(Base):
 # LEADS
 class Lead(Base):
     __tablename__ = "leads"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "conversation_id", name="uq_leads_scope"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     name = Column(String(255))
+    phone = Column(String(50), index=True, nullable=True)
+    source = Column(String(100), nullable=True)  # whatsapp / instagram / sms / web
     requirement = Column(Text)
     budget = Column(String(100))
     timeline = Column(String(100))
-    contact = Column(String(255))
-    
     # Advanced CRM properties
     business_type = Column(String(255))
     product_type = Column(String(255))
@@ -89,17 +133,95 @@ class Lead(Base):
 
     qualification = Column(String(50))  # hot / warm / cold
 
+    # --- Lead Scoring fields (agnostic) ---
+    status = Column(
+        String(50), default="new", index=True
+    )  # new | active | converted | lost
+
+    current_node = Column(Integer, default=0)
+    total_nodes = Column(Integer, default=0)
+    score = Column(Integer, default=0, index=True)
+    behavioral_score = Column(Integer, default=0)
+    semantic_intent_score = Column(Integer, default=0)
+    lead_tier = Column(String(50), default="cold")
+
+    intent_signals = Column(
+        JSON,
+        nullable=True
+)
+    budget_min = Column(Numeric(12, 2), nullable=True)
+    budget_max = Column(Numeric(12, 2), nullable=True)
+    budget_raw = Column(String(255), nullable=True)
+
+    template_attempts = Column(Integer, default=0)
+
+    last_activity_at = Column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    assigned_to = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )  # null = AI, user_id = human
+
+    conversion_amount = Column(Numeric(12, 2), nullable=True)
+    converted_at = Column(DateTime(timezone=True), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class LeadEvent(Base):
+    __tablename__ = "lead_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+
+    workspace_id = Column(UUID(as_uuid=True), index=True)
+
+    lead_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("leads.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    conversation_id = Column(UUID(as_uuid=True), index=True)
+
+    event_type = Column(String(100), index=True)
+
+    source = Column(String(50))
+
+    event_metadata = Column(JSON)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        index=True,
+    )
 
 # SALES PIPELINE
 class SalesPipeline(Base):
     __tablename__ = "sales_pipeline"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "conversation_id",
+            name="uq_sales_pipeline_scope",
+        ),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     stage = Column(String(50))  
     # awareness / consideration / decision
@@ -117,7 +239,19 @@ class SupportTicket(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     issue_type = Column(String(100))
     status = Column(String(50))  # open / resolved
@@ -133,7 +267,19 @@ class ChatFollowup(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     followup_count = Column(Integer)
     last_followup_at = Column(DateTime(timezone=True))
@@ -148,7 +294,7 @@ class MCPRule(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    workspace_id = Column(UUID(as_uuid=True))
+    workspace_id = Column(UUID(as_uuid=True), index=True)
 
     rules = Column(JSON)
 
@@ -161,8 +307,21 @@ class HumanEscalation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    user_id = Column(UUID(as_uuid=True))
-    conversation_id = Column(UUID(as_uuid=True))
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    channel = Column(String(50))
+    message = Column(Text)
 
     reason = Column(Text)
     status = Column(String(50))  # pending / resolved

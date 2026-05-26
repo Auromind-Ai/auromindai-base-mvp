@@ -1,6 +1,6 @@
-/* ====================================================
+/* =
    section.module.css — MessageManagementSection
-   ==================================================== */
+   = */
 
 /* ---- Section ---- */
 .section {
@@ -224,9 +224,9 @@
 /* Keep hover animation — only change background target */
 /* (Framer Motion whileHover stays in JSX — only override bg here) */
 
-/* ====================================================
+/* =
    iPhone Mockup
-   ==================================================== */
+   = */
 .phoneWrapper {
   position: relative;
   display: flex;
@@ -391,9 +391,9 @@
   flex-direction: column;
 }
 
-/* ====================================================
+/* =
    WhatsApp UI
-   ==================================================== */
+   = */
 /* CHANGED: darker header, matches reference exactly */
 .waHeader {
   background: #1b1b1d;
@@ -470,9 +470,9 @@
   flex-shrink: 0;
 }
 
-/* ====================================================
+/* =
    Chat body — WhatsApp dark wallpaper
-   ==================================================== */
+   = */
 /* CHANGED: dark WhatsApp wallpaper with subtle doodle pattern */
 .waBody {
   flex: 1;
@@ -651,9 +651,9 @@
   box-shadow: 0 4px 12px rgba(129, 74, 200, 0.35);
 }
 
-/* ====================================================
+/* =
    Feature Card internals
-   ==================================================== */
+   = */
 /* CHANGED: icon + title on same row, description underneath — matches reference rows */
 .cardHeader {
   display: flex;
@@ -691,9 +691,9 @@
   line-height: 1.5;
 }
 
-/* ====================================================
+/* =
    Responsive
-   ==================================================== */
+   = */
 @media (max-width: 1024px) {
   .phone {
     width: 270px;

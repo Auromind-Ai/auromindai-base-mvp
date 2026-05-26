@@ -32,6 +32,7 @@ import { getToken, getUser, getWorkspace, logout, restoreAdminToken, removeToken
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
+import { RealtimeProvider } from '@/context/RealtimeContext';
 
 const MAIN_NAV_ITEMS = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
@@ -213,6 +214,7 @@ function AdminLayoutContent({ children }) {
     );
 
     return (
+        <RealtimeProvider user={user} workspace={workspace}>
         <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
             {/* Desktop Sidebar */}
             <aside
@@ -386,5 +388,6 @@ function AdminLayoutContent({ children }) {
             {/* Global AI Chat - Hidden on Auromind AI page */}
             {pathname !== '/user/admin/ai' && <GlobalAIChat />}
         </div>
+        </RealtimeProvider>
     );
 }

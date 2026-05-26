@@ -148,7 +148,7 @@ export default function PricingPage({ currentPlan = "free", onUpgrade, settings 
         settings.free_plan_desc ||
         "A clean starting point for individual builders exploring the platform.",
       features: settings.free_plan_features || [
-        "100 monthly AI credits",
+        `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
         "Core workspace access",
         "Basic automations",
         "Community support",
@@ -164,7 +164,7 @@ export default function PricingPage({ currentPlan = "free", onUpgrade, settings 
         "For teams running daily AI workflows and needing faster execution.",
       featured: true,
       features: settings.pro_plan_features || [
-        "1,000 monthly AI credits",
+        `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
         "Priority model access",
         "Advanced workflow automations",
         "Team collaboration tools",

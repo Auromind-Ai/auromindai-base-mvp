@@ -10,9 +10,6 @@ router = APIRouter()
 
 @router.get("/settings")
 async def get_platform_settings(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """
-    Get all platform settings.
-    """
     try:
         return get_all_settings(db)
     except Exception as e:
@@ -23,12 +20,19 @@ async def get_platform_settings(db: Session = Depends(get_db)) -> Dict[str, Any]
 async def update_platform_settings(
     updates: Dict[str, Any],
     db: Session = Depends(get_db)
- 
 ) -> Dict[str, Any]:
-    """
-    Update platform settings.
-    """
     try:
-        return update_settings(db, updates)
+        # Log plans before
+        from app.models.plan import Plan
+        result = update_settings(db, updates)
+        # Synchronize plans table
+        from app.services.billing.plan_service import PlanService
+        plan_service = PlanService()
+        for plan_key in ["free", "pro", "enterprise"]:
+            config = plan_service._get_plan_config(db, plan_key)
+            plan_service._get_or_create_plan(db, config)
+        db.commit()
+
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating settings: {str(e)}")

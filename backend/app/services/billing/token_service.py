@@ -62,9 +62,9 @@ class TokenService:
                     return existing
                 raise ValueError("Reference key has already been finalized")
 
-            balance = self._get_token_balance_locked(db, workspace_id)
-            if balance.balance < amount:
-                raise ValueError("Insufficient tokens. Please upgrade your plan.")
+            from app.services.billing.billing_service import enforce_execution_policy
+            if not enforce_execution_policy(db, workspace_id):
+                raise ValueError("Insufficient quota. Please upgrade your plan or enable overages.")
 
             active_subscription = self._get_active_subscription(db, workspace_id)
             reservation = TokenLedger(
@@ -265,10 +265,15 @@ class TokenService:
         if plan is None:
             return None
 
-        token_limit = int(plan.token_limit or 0)
+        token_limit = plan.token_limit
         price_per_extra_token = int(plan.price_per_extra_token or 0)
         current_tokens_used = int(usage.tokens_used or 0)
-        total_overage_tokens = max(current_tokens_used - token_limit, 0) if token_limit > 0 else 0
+        if token_limit is None:
+            total_overage_tokens = 0
+        else:
+            token_limit = int(token_limit)
+            total_overage_tokens = max(current_tokens_used - token_limit, 0)
+        
         previously_billed_overage = int(usage.overage_tokens or 0)
         incremental_overage_tokens = max(total_overage_tokens - previously_billed_overage, 0)
 
