@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { Poppins } from 'next/font/google';
 import Link from 'next/link';
 import {
     Sparkles,
@@ -28,7 +29,7 @@ import {
     Mail
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { getToken, getUser, getWorkspace, logout, restoreAdminToken, removeToken } from '@/lib/auth';
+import { getUser, getWorkspace, logout, restoreAdminToken } from '@/lib/auth';
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
@@ -42,13 +43,17 @@ const MAIN_NAV_ITEMS = [
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
     { label: 'Templates', icon: FileText, href: '/user/admin/templates' }, 
     { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
-    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
 ];
 
 const SYSTEM_NAV_ITEMS = [
     // Settings logic is handled via handleClick in renderNavItem
     { label: 'Settings', icon: Settings, href: '#' },
 ];
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
 
 export default function AdminLayout({ children }) {
     return (
@@ -112,7 +117,7 @@ function AdminLayoutContent({ children }) {
         const checkAuth = () => {
             const currentUser = getUser();
             const currentWorkspace = getWorkspace();
-            const token = getToken();
+            const token = localStorage.getItem('token');
 
             console.log("🛡️ Layout Auth Check:", { 
                 user: currentUser?.email, 
@@ -216,74 +221,60 @@ function AdminLayoutContent({ children }) {
         <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
             {/* Desktop Sidebar */}
             <aside
-                className="hidden md:flex w-[260px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10"
+                className={`${poppins.className} hidden md:flex w-[320px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
             >
-                {/* ... sidebar content ... */}
-                <div className="h-14 flex items-center px-4 hover:bg-[var(--notion-hover)] cursor-pointer m-1 rounded-[4px] transition-colors">
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                        <div className="w-5 h-5 rounded-[4px] bg-indigo-500 flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
-                            {workspace?.name?.charAt(0) || 'A'}
-                        </div>
-                        <span className="font-medium text-sm truncate text-[#D4D4D4]">{workspace?.name || 'Auromind'}</span>
-                        <ChevronDown size={14} className="text-[#9b9b9b] flex-shrink-0 ml-auto" />
+                {/* Profile Section */}
+                <div className="flex items-center gap-3 px-5 pt-6 pb-5">
+                    <div className="w-11 h-11 rounded-full flex-shrink-0 overflow-hidden bg-orange-500 flex items-center justify-center text-sm text-white font-bold border-2 border-white/10">
+                        {user.email?.charAt(0).toUpperCase()}
                     </div>
+                    <span className="font-semibold text-[17px] text-white truncate">{user.name || 'User'}</span>
                 </div>
 
-                <div className="px-3 mb-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] border border-[var(--notion-border)] bg-[#202020] shadow-sm text-sm text-[#9b9b9b] hover:bg-[var(--notion-hover)] cursor-pointer h-9 transition-colors">
+                {/* Search */}
+                <div className="px-4 mb-4">
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#202020] border border-[var(--notion-border)] text-sm text-[#9b9b9b] cursor-pointer hover:bg-[var(--notion-hover)] transition-colors">
                         <Search size={14} />
-                        <span className="flex-1">Search</span>
-                        <kbd className="text-[10px] border border-[#2f2f2f] rounded px-1.5 py-0.5 bg-[#252525] text-[#787878]">⌘K</kbd>
+                        <span>Search</span>
                     </div>
                 </div>
 
-                <div className="flex-1 px-2 overflow-y-auto custom-scrollbar">
-                    <div className="space-y-6 py-2">
-                        <div className="space-y-0.5">
-                            {MAIN_NAV_ITEMS.map(item => renderNavItem(item))}
-                        </div>
-                        <div className="space-y-0.5">
-                            <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mt-4 mb-1">
-                                System
-                            </div>
-                            {SYSTEM_NAV_ITEMS.map(item => renderNavItem(item))}
-                        </div>
+                {/* Nav Items */}
+                <div className="flex-1 px-3 overflow-y-auto custom-scrollbar">
+                    <div className="space-y-0.5">
+                        {MAIN_NAV_ITEMS.map(item => renderNavItem(item))}
+                    </div>
+                    <div className="mt-6 space-y-0.5">
+                        <div className="px-3 py-1 text-xs font-medium text-[#555] mb-1">System</div>
+                        {SYSTEM_NAV_ITEMS.map(item => renderNavItem(item))}
                     </div>
                 </div>
 
-                <div className="p-2 border-t border-[var(--notion-border)] mt-auto space-y-2">
-                    {/* Back to Admin Button */}
+                {/* Bottom: Back to Admin (if impersonating) + Log out */}
+                <div className="p-4 border-t border-[var(--notion-border)] space-y-2">
                     {typeof window !== 'undefined' && localStorage.getItem('admin_backup_token') && (
                         <button
-                            onClick={() => {
-                                restoreAdminToken();
-                                window.location.href = '/admin';
-                            }}
-                            className="w-full flex items-center gap-3 px-2 py-1.5 rounded-[4px] bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-sm transition-colors border border-indigo-500/20"
+                            onClick={() => { restoreAdminToken(); window.location.href = '/admin'; }}
+                            className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-sm transition-colors border border-indigo-500/20"
                         >
                             <Shield size={14} />
                             <span>Back to Admin</span>
                         </button>
                     )}
-
-                    <div className="flex items-center gap-3 px-2 py-1.5 rounded-[4px] hover:bg-[var(--notion-hover)] cursor-pointer group transition-colors">
-                        <div className="w-5 h-5 rounded-[4px] bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold">
-                            {user.email?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm text-[#D4D4D4] truncate">{user.name || 'User'}</p>
-                        </div>
-                        <button onClick={handleLogout} className="text-[#9b9b9b] opacity-0 group-hover:opacity-100 hover:text-[#D4D4D4] transition-opacity">
-                            <LogOut size={14} />
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2.5 px-2 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full"
+                    >
+                        <LogOut size={14} />
+                        Log out
+                    </button>
                 </div>
             </aside>
 
             {/* Mobile Drawer (Sheet) */}
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-                <SheetContent side="left" className="p-0 w-[280px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
-                    <div className="flex flex-col h-full bg-[#0f0f12]">
+                <SheetContent side="left" className="p-0 w-[300px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
+                    <div className={`${poppins.className} flex flex-col h-full bg-[#0f0f12]`}>
                         {/* Workspace Brand */}
                         <div className="h-14 flex items-center px-4 border-b border-white/5">
                             <div className="flex items-center gap-2.5 overflow-hidden">
@@ -371,9 +362,6 @@ function AdminLayoutContent({ children }) {
                     {children}
                 </div>
             </main>
-
-            {/* Settings Modal */}
-            {/* ... */}
 
             {/* Settings Modal */}
             <SettingsModal

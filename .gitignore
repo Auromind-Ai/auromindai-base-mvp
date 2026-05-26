@@ -17,3 +17,7 @@ frontend/.env.production
 *.log
 
 /generated/prisma
+
+# HuggingFace
+hf_cache/
+.cache/

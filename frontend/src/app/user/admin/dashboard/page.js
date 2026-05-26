@@ -96,7 +96,7 @@ const METRICS = [
   },
 ];
 
-// ─── Magic Bento helpers ───────────────────────────────────────────────
+// ─ Magic Bento helpers ─
 function parseRgb(hex) {
   const s = (hex || '#8400ff').trim();
   if (s[0] === '#') {
@@ -267,7 +267,7 @@ function BentoMetricsGrid({ metrics }) {
           100% { transform: scale(1); opacity: 0; }
         }
 
-        /* ─── CHART STYLES ─── */
+        /* ─ CHART STYLES ─ */
         .chart-line-2026 { fill: none; stroke: #39ff7e; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
         .chart-line-2025 { fill: none; stroke: #b794f4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -290,7 +290,7 @@ function BentoMetricsGrid({ metrics }) {
           animation: dotPulse 1.4s ease-in-out infinite;
         }
 
-        /* ─── QUICK ACTIONS ─── */
+        /* ─ QUICK ACTIONS ─ */
         /* New premium glassmorphism card styles */
         .quick-action-card {
           transition: transform 220ms cubic-bezier(0.34,1.2,0.64,1), border-color 200ms ease, box-shadow 220ms ease, background 200ms ease;
@@ -807,7 +807,7 @@ function RecentActivityCard() {
   );
 }
 
-// ─── Quick Actions Card ────────────────────────────────────────────────
+// ─ Quick Actions Card 
 const QUICK_ACTIONS = [
   {
     title: 'New workflow',
@@ -895,7 +895,7 @@ function QuickActionsCard() {
   );
 }
 
-// ─── AI Insights Card ─────────────────────────────────────────────────
+// ─ AI Insights Card ─
 const AI_INSIGHT_ITEMS = [
   {
     icon: Mail,
@@ -953,7 +953,7 @@ function AIInsightsCard() {
   );
 }
 
-// ─── Main Dashboard ────────────────────────────────────────────────────
+// ─ Main Dashboard 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);

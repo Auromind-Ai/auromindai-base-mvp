@@ -24,7 +24,7 @@ from app.routers.template import router as template_router
 from app.routers.inbox_chennal import meta_what, conversations, instagram, twilio_webhook
 
 
-# ── Lifespan 
+#  Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Starting...")
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Stopped")
 
 
-# ── App ─────
+#  App ─
 app = FastAPI(
     title="Auromind API",
     description="AI-Powered Business Assistant Platform (Production)",
@@ -50,7 +50,7 @@ app = FastAPI(
 
 register_exception_handlers(app)
 
-# ── Middleware───
+#  Middleware─
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")],
@@ -63,7 +63,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(UUIDValidationMiddleware)
 
 
-# ── Health ──
+#  Health 
 @app.get("/")
 async def root():
     return {"message": "Auromind API", "version": "2.0.0", "status": "running"}
@@ -73,7 +73,7 @@ async def health_check():
     return {"status": "healthy"}
 
 
-# ── Routers ─
+#  Routers ─
 
 # Auth
 app.include_router(auth.router,         prefix="/auth",      tags=["auth"])

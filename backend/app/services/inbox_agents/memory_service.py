@@ -1,4 +1,5 @@
 import hashlib
+import uuid as _uuid
 
 from app.core.logger import logger
 from datetime import datetime, timezone
@@ -16,6 +17,17 @@ from app.models import (
 )
 
 
+def _is_valid_uuid(value) -> bool:
+    """Return True if *value* can be interpreted as a UUID."""
+    if value is None:
+        return False
+    try:
+        _uuid.UUID(str(value))
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
 class MemoryService:
 
     def __init__(self, db: Session):
@@ -25,6 +37,9 @@ class MemoryService:
 
     # CONVERSATION STATE
     def get_conversation_state(self, user_id):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"get_conversation_state: invalid UUID user_id={user_id!r}, skipping")
+            return None
         state = self.db.query(ConversationState).filter_by(user_id=user_id).first()
         if not state:
             return None
@@ -44,6 +59,9 @@ class MemoryService:
         }
     
     def get_conversation_history(self, user_id):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"get_conversation_history: invalid UUID user_id={user_id!r}, skipping")
+            return []
         return self.db.query(Message).join(Conversation, Message.conversation_id == Conversation.id).filter(
             Conversation.user_id == user_id
         ).order_by(Message.timestamp.asc()).all()
@@ -51,6 +69,9 @@ class MemoryService:
 
 
     def update_conversation_state(self, user_id, data):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"update_conversation_state: invalid UUID user_id={user_id!r}, skipping")
+            return
         try:
             # Query the object directly
             state = self.db.query(ConversationState).filter_by(user_id=user_id).first()
@@ -73,9 +94,15 @@ class MemoryService:
 
     # LEAD DATA
     def get_lead_data(self, user_id):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"get_lead_data: invalid UUID user_id={user_id!r}, skipping")
+            return None
         return self.db.query(Lead).filter_by(user_id=user_id).first()
 
     def update_lead_data(self, user_id, data):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"update_lead_data: invalid UUID user_id={user_id!r}, skipping")
+            return
         try:
             lead = self.get_lead_data(user_id)
 
@@ -83,8 +110,25 @@ class MemoryService:
                 lead = Lead(user_id=user_id)
                 self.db.add(lead)
 
+            new_custom = dict(lead.custom_fields or {})
             for key, value in data.items():
-                setattr(lead, key, value)
+                if hasattr(lead, key) and key != "custom_fields":
+                    if key == "meeting_date":
+                        if isinstance(value, str) and value.strip():
+                            try:
+                                from dateutil import parser
+                                setattr(lead, key, parser.parse(value))
+                            except Exception:
+                                self.logger.warning(f"Failed to parse meeting_date: {value}")
+                        # If value is boolean (like True) or invalid type, do not set it to the DateTime column
+                    else:
+                        setattr(lead, key, value)
+                else:
+                    new_custom[key] = value
+            lead.custom_fields = new_custom
+
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(lead, "custom_fields")
 
             self.db.commit()
 
@@ -95,9 +139,15 @@ class MemoryService:
 
     # SALES DATA
     def get_sales_data(self, user_id):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"get_sales_data: invalid UUID user_id={user_id!r}, skipping")
+            return None
         return self.db.query(SalesPipeline).filter_by(user_id=user_id).first()
 
     def update_sales_data(self, user_id, data):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"update_sales_data: invalid UUID user_id={user_id!r}, skipping")
+            return
         try:
             sales = self.get_sales_data(user_id)
 
@@ -119,6 +169,9 @@ class MemoryService:
 
     # SUPPORT DATA
     def create_support_ticket(self, user_id, data):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"create_support_ticket: invalid UUID user_id={user_id!r}, skipping")
+            return None
         try:
             ticket = SupportTicket(
                 user_id=user_id,
@@ -140,9 +193,15 @@ class MemoryService:
   
     # FOLLOW-UP DATA
     def get_followup_data(self, user_id):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"get_followup_data: invalid UUID user_id={user_id!r}, skipping")
+            return None
         return self.db.query(Followup).filter_by(user_id=user_id).first()
 
     def update_followup_data(self, user_id, data):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"update_followup_data: invalid UUID user_id={user_id!r}, skipping")
+            return
         try:
             follow = self.get_followup_data(user_id)
 
@@ -162,6 +221,9 @@ class MemoryService:
             self.logger.error("Error updating followup", exc_info=True)
 
     def increment_followup(self, user_id):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"increment_followup: invalid UUID user_id={user_id!r}, skipping")
+            return
         try:
             follow = self.get_followup_data(user_id)
 
@@ -237,17 +299,23 @@ class MemoryService:
 
     # TURN COUNT
     def get_turn_count(self, user_id):
-        
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"get_turn_count: invalid UUID user_id={user_id!r}, skipping")
+            return 0
         try:
             history = self.get_conversation_history(user_id)
             return len(history) if history else 0
         except Exception:
+            self.db.rollback()
             self.logger.error("Error getting turn count", exc_info=True)
             return 0
 
 
     # REPEAT DETECTION
     def detect_and_track_repeat(self, user_id, message):
+        if not _is_valid_uuid(user_id):
+            self.logger.warning(f"detect_and_track_repeat: invalid UUID user_id={user_id!r}, skipping")
+            return 0
 
         try:
             msg_hash = hashlib.md5(
