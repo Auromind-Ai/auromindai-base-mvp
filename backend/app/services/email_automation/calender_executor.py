@@ -89,6 +89,7 @@ class CalendarExecutor:
             self.notify_send(event)
 
             print("Calendar executor completed successfully")
+            return created_event
 
         except Exception as e:
 
@@ -339,6 +340,14 @@ class CalendarExecutor:
             "end": {
                  "dateTime": end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
             },
+            "conferenceData": {
+                "createRequest": {
+                    "requestId": str(event.id),
+                    "conferenceSolutionKey": {
+                        "type": "hangoutsMeet"
+                    }
+                }
+            },
             "reminders": {
                 "useDefault": False,
                 "overrides": [
@@ -346,16 +355,29 @@ class CalendarExecutor:
                     {"method": "popup", "minutes": 5}
                 ]
             }
+            
         }
 
         created_event = service.events().insert(
             calendarId="primary",
-            body=event_body
+            body=event_body,
+            conferenceDataVersion=1
         ).execute()
 
         print("Google Calendar event created:", created_event["id"])
 
-        return created_event
+        meet_link = (
+            created_event
+            .get("conferenceData", {})
+            .get("entryPoints", [{}])[0]
+            .get("uri")
+        )
+
+        return {
+            "event": created_event,
+            "meet_link": meet_link
+        }
+
     
     def create_remainder(self, event):
 

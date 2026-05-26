@@ -24,12 +24,12 @@ const TRIGGERS = [
 
 const ACTIONS = [
   { id: 'send_msg', label: 'Send Message', icon: Send },
-  { id: 'assign_agent', label: 'Assign Agent', icon: Users },
   { id: 'brain_query', label: 'Brain Query', icon: Sparkles },
   { id: 'ask_question',  label: 'Ask Question',  icon: HelpCircle },
   { id: 'move_stage', label: 'Move Deal', icon: Split },
   { id: 'notification', label: 'Notify', icon: Bell },
 ];
+
 
 const getIcon = (type) => {
   const all = [...TRIGGERS, ...ACTIONS, { id: 'condition', icon: Filter }, { id: 'trigger', icon: Zap }];
@@ -303,7 +303,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
-  // ─── NODE DRAG (native pointer events — no Framer conflict) ───
+  // ─ NODE DRAG (native pointer events — no Framer conflict) ─
   const handleNodePointerDown = useCallback((e, nodeId) => {
     if (e.target.closest?.('[data-no-drag]')) return;
     e.stopPropagation();
@@ -1137,6 +1137,83 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           {(!activeNode.config?.agent_type || activeNode.config?.agent_type === 'lead_agent') && 'Collects name, requirement, budget, contact.'}
                         </p>
                       </section>
+                      <section>
+                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">
+                        Business Type
+                      </label>
+
+                      <select
+                        value={activeNode.config?.business_type || 'saas'}
+                        onChange={(e) =>
+                          updateNodeConfig(activeNodeId, {
+                            business_type: e.target.value
+                          })
+                        }
+                        className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white"
+                      >
+                        <option value="saas">SaaS</option>
+                        <option value="agency">Agency</option>
+                        <option value="ecommerce">E-Commerce</option>
+                        <option value="hospital">Hospital</option>
+                        <option value="education">Education</option>
+                        <option value="real_estate">Real Estate</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </section>
+
+                    <section>
+                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">
+                        Lead Fields
+                      </label>
+
+                      <textarea
+                        key={activeNodeId}
+                        defaultValue={(activeNode.config?.lead_fields || []).join(', ')}
+                        onBlur={(e) =>
+                          updateNodeConfig(activeNodeId, {
+                            lead_fields: e.target.value
+                              .split(/[,\s]+/)
+                              .map(v => v.trim())
+                              .filter(v => v.length > 0)
+                          })
+                        }
+                        placeholder="name, email, phone, budget"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
+                        rows={3}
+                      />
+                    </section>
+
+                    <section className="space-y-3">
+
+                      <label className="flex items-center gap-3 text-sm text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={activeNode.config?.calendar_enabled || false}
+                          onChange={(e) =>
+                            updateNodeConfig(activeNodeId, {
+                              calendar_enabled: e.target.checked
+                            })
+                          }
+                        />
+
+                        Enable Demo Booking
+                      </label>
+
+                      <label className="flex items-center gap-3 text-sm text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={activeNode.config?.payment_enabled || false}
+                          onChange={(e) =>
+                            updateNodeConfig(activeNodeId, {
+                              payment_enabled: e.target.checked
+                            })
+                          }
+                        />
+
+                        Enable Payments
+                      </label>
+
+                    </section>
 
                       <section>
                         <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Custom Prompt <span className="text-zinc-700">(optional)</span></label>

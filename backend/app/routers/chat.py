@@ -20,10 +20,10 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
-# ── Pydantic Models ───────────────
+#  Pydantic Models ─
 
 
-# ── Session Endpoints ─────────────
+#  Session Endpoints ─
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])
 def get_sessions(
@@ -93,7 +93,7 @@ def update_session_title(
     return {"message": "Session updated", "title": session.title}
 
 
-# ── Chat Endpoints ────────────────
+#  Chat Endpoints 
 
 @router.post("/query")
 async def chat_query(

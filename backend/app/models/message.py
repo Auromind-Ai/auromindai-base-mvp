@@ -19,6 +19,8 @@ class MessageStatus(str, enum.Enum):
     RECEIVED = "RECEIVED"
     SUGGESTED = "SUGGESTED"
     SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    FAILED = "FAILED"
 
 
 class Message(Base):
@@ -55,7 +57,6 @@ class Message(Base):
 
     metadata_json = Column(Text)
 
-    metadata_json = Column(Text)
 
     conversation = relationship(
         "Conversation",

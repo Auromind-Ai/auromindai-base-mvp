@@ -439,7 +439,7 @@ export default function SettingsPage() {
              {activeTab === "pricing" && (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
  
-                {/* ── Prices ── */}
+                {/*  Prices  */}
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
@@ -472,7 +472,7 @@ export default function SettingsPage() {
                   </div>
                 </section>
  
-                {/* ── Token Quotas ── */}
+                {/*  Token Quotas  */}
                 <section>
                   <div className="flex items-center gap-3 mb-6 pt-4">
                     <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
@@ -498,7 +498,7 @@ export default function SettingsPage() {
                   </div>
                 </section>
  
-                {/* ── Plan Content (Name · Description · Features) ── */}
+                {/*  Plan Content (Name · Description · Features)  */}
                 <section>
                   <div className="flex items-center gap-3 mb-6 pt-4 border-t border-white/5">
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">

@@ -15,7 +15,8 @@ from app.database import SessionLocal
 from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
 from app.services.execution_tracer import ExecutionTracer
-from app.services.flow_service_v2 import ConversationExecutionBusy, FlowServiceV2
+from app.services.flow_service_v2 import ConversationExecutionBusy
+from app.services.flow_service_v2 import FlowServiceV2
 from app.services.whatsapp_delivery import deliver_outbound_message
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ _BUSY_RETRY_SECONDS = 2
 
 # How long before an in_progress/dispatched message is considered stuck.
 _IN_PROGRESS_TIMEOUT_SECONDS = 60
-_DISPATCHED_TIMEOUT_SECONDS = 120
+_DISPATCHED_TIMEOUT_SECONDS = 5
 
 # Redis lock TTL — must be longer than a single send_next loop takes.
 _SEND_LOCK_TTL_SECONDS = 30
@@ -39,28 +40,162 @@ _SEND_LOCK_TTL_SECONDS = 30
 # execute_incoming_message
 # ---------------------------------------------------------------------------
 
-@celery_app.task(
-    bind=True,
-    name="app.workers.flow_execution.execute_incoming_message",
-    max_retries=30,
-)
-def execute_incoming_message(
-    self,
-    conversation_id: str,
-    message: str,
-    metadata: dict = None,
-):
-    """
-    Entry-point for every inbound WhatsApp message.
+# @celery_app.task(
+#     bind=True,
+#     name="app.workers.flow_execution.execute_incoming_message",
+#     max_retries=30,
+# )
+# def execute_incoming_message(
+#     self,
+#     conversation_id: str,
+#     message: str,
+#     metadata: dict = None,
+# ):
+#     """
+#     Entry-point for every inbound WhatsApp message.
 
-    Previously had *no* retry, *no* tracing on failure — a DB hiccup or
-    LLM timeout would silently discard the message.  Now mirrors the
-    pattern from send_whatsapp_message_task.
-    """
+#     Previously had *no* retry, *no* tracing on failure — a DB hiccup or
+#     LLM timeout would silently discard the message.  Now mirrors the
+#     pattern from send_whatsapp_message_task.
+#     """
+#     db = SessionLocal()
+#     tracer = ExecutionTracer()
+
+#     try:
+#         service = FlowServiceV2()
+#         future = _executor.submit(
+#             asyncio.run,
+#             service.execute_incoming_message(
+#                 db,
+#                 conversation_id=conversation_id,
+#                 inbound_text=message,
+#                 metadata=metadata or {},
+#             ),
+#         )
+#         result = future.result()
+
+#         conversation_exists = db.query(Conversation.id).filter(
+#             Conversation.id == conversation_id
+#         ).first()
+#         if conversation_exists:
+#             tracer.trace(
+#                 db,
+#                 conversation_id=conversation_id,
+#                 event_type="message_processed",
+#                 metadata={"handled": result},
+#             )
+#         db.commit()
+
+#         logger.info(
+#             "[execute_incoming_message] OK | conversation=%s handled=%s",
+#             conversation_id,
+#             result,
+#         )
+#         return result
+
+#     except ConversationExecutionBusy as exc:
+#         logger.info(
+#             "[execute_incoming_message] Conversation busy, retrying in %ds | conversation=%s",
+#             _BUSY_RETRY_SECONDS,
+#             conversation_id,
+#         )
+#         raise self.retry(exc=exc, countdown=_BUSY_RETRY_SECONDS)
+
+#     except Exception as exc:
+#         # 1. Persist the failure before retrying / giving up.
+#         try:
+#             conversation_exists = db.query(Conversation.id).filter(
+#                 Conversation.id == conversation_id
+#             ).first()
+#             if conversation_exists:
+#                 tracer.trace(
+#                     db,
+#                     conversation_id=conversation_id,
+#                     event_type="error",
+#                     status="failed",
+#                     error_message=str(exc),
+#                     metadata={"attempt": self.request.retries + 1},
+#                 )
+#                 db.commit()
+#             else:
+#                 db.commit()
+#         except Exception as trace_exc:
+#             logger.exception(
+#                 "[execute_incoming_message] Tracer write failed: %s", trace_exc
+#             )
+
+#         # 2. Retry with exponential back-off.
+#         try:
+#             countdown = _BACKOFF_SCHEDULE[min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)]
+#             logger.warning(
+#                 "[execute_incoming_message] Retrying in %ds (attempt %d/3) | conversation=%s | error=%s",
+#                 countdown,
+#                 self.request.retries + 1,
+#                 conversation_id,
+#                 exc,
+#             )
+#             raise self.retry(exc=exc, countdown=countdown)
+
+#         except MaxRetriesExceededError:
+#             logger.error(
+#                 "[execute_incoming_message] Max retries exceeded | conversation=%s | error=%s",
+#                 conversation_id,
+#                 exc,
+#             )
+#             # Failure is already persisted above — do not re-raise so the
+#             # Celery task is marked FAILURE (not RETRY) and the dead-letter
+#             # queue (if configured) can pick it up.
+
+#     finally:
+#         db.close()
+# ── Shared retry/trace wrapper ──────────────────────────────────────────────
+def _run_flow_task(task_self, conversation_id, tracer, db, fn, extra_meta=None):
+    """Shared try/retry/trace wrapper for flow Celery tasks."""
+    try:
+        return fn()
+    except ConversationExecutionBusy as exc:
+        logger.info(
+            "[flow_task] Conversation busy, retrying | conversation=%s",
+            conversation_id,
+        )
+        raise task_self.retry(exc=exc, countdown=_BUSY_RETRY_SECONDS)
+    except Exception as exc:
+        try:
+            exists = db.query(Conversation.id).filter(
+                Conversation.id == conversation_id
+            ).first()
+            if exists:
+                tracer.trace(
+                    db, conversation_id=conversation_id,
+                    event_type="error", status="failed",
+                    error_message=str(exc),
+                    metadata={"attempt": task_self.request.retries + 1, **(extra_meta or {})},
+                )
+                db.commit()
+            else:
+                db.commit()
+        except Exception as trace_exc:
+            logger.exception("[flow_task] Tracer write failed: %s", trace_exc)
+
+        try:
+            countdown = _BACKOFF_SCHEDULE[min(task_self.request.retries, len(_BACKOFF_SCHEDULE) - 1)]
+            logger.warning(
+                "[flow_task] Retrying in %ds (attempt %d) | conversation=%s | error=%s",
+                countdown, task_self.request.retries + 1, conversation_id, exc,
+            )
+            raise task_self.retry(exc=exc, countdown=countdown)
+        except MaxRetriesExceededError:
+            logger.error(
+                "[flow_task] Max retries exceeded | conversation=%s | error=%s",
+                conversation_id, exc,
+            )
+# ────────────────────────────────────────────────────────────────────────────
+@celery_app.task(bind=True, name="app.workers.flow_execution.execute_incoming_message", max_retries=30)
+def execute_incoming_message(self, conversation_id, message, metadata=None):
     db = SessionLocal()
     tracer = ExecutionTracer()
 
-    try:
+    def _run():
         service = FlowServiceV2()
         future = _executor.submit(
             asyncio.run,
@@ -72,96 +207,26 @@ def execute_incoming_message(
             ),
         )
         result = future.result()
-
-        tracer.trace(
-            db,
-            conversation_id=conversation_id,
-            event_type="message_processed",
-            metadata={"handled": result},
-        )
+        exists = db.query(Conversation.id).filter(Conversation.id == conversation_id).first()
+        if exists:
+            tracer.trace(db, conversation_id=conversation_id,
+                         event_type="message_processed", metadata={"handled": result})
         db.commit()
-
-        logger.info(
-            "[execute_incoming_message] OK | conversation=%s handled=%s",
-            conversation_id,
-            result,
-        )
+        logger.info("[execute_incoming_message] OK | conversation=%s handled=%s", conversation_id, result)
         return result
 
-    except ConversationExecutionBusy as exc:
-        logger.info(
-            "[execute_incoming_message] Conversation busy, retrying in %ds | conversation=%s",
-            _BUSY_RETRY_SECONDS,
-            conversation_id,
-        )
-        raise self.retry(exc=exc, countdown=_BUSY_RETRY_SECONDS)
-
-    except Exception as exc:
-        # 1. Persist the failure before retrying / giving up.
-        try:
-            tracer.trace(
-                db,
-                conversation_id=conversation_id,
-                event_type="error",
-                status="failed",
-                error_message=str(exc),
-                metadata={"attempt": self.request.retries + 1},
-            )
-            db.commit()
-        except Exception as trace_exc:
-            logger.exception(
-                "[execute_incoming_message] Tracer write failed: %s", trace_exc
-            )
-
-        # 2. Retry with exponential back-off.
-        try:
-            countdown = _BACKOFF_SCHEDULE[min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)]
-            logger.warning(
-                "[execute_incoming_message] Retrying in %ds (attempt %d/3) | conversation=%s | error=%s",
-                countdown,
-                self.request.retries + 1,
-                conversation_id,
-                exc,
-            )
-            raise self.retry(exc=exc, countdown=countdown)
-
-        except MaxRetriesExceededError:
-            logger.error(
-                "[execute_incoming_message] Max retries exceeded | conversation=%s | error=%s",
-                conversation_id,
-                exc,
-            )
-            # Failure is already persisted above — do not re-raise so the
-            # Celery task is marked FAILURE (not RETRY) and the dead-letter
-            # queue (if configured) can pick it up.
-
+    try:
+        return _run_flow_task(self, conversation_id, tracer, db, _run)  # self passed explicitly
     finally:
         db.close()
 
 
-# ---------------------------------------------------------------------------
-# resume_flow_node
-# ---------------------------------------------------------------------------
-@celery_app.task(
-    bind=True,
-    name="app.workers.flow_execution.resume_flow_node",
-    max_retries=30,
-)
-def resume_flow_node(
-    self,
-    conversation_id: str,
-    node_id: str,
-    inbound_text: str = "",
-    msg_sequence_val: int = 0,
-    metadata: dict = None,
-):
-    """
-    Resumes a paused flow node after a delay.
-    """
+@celery_app.task(bind=True, name="app.workers.flow_execution.resume_flow_node", max_retries=30)
+def resume_flow_node(self, conversation_id, node_id, inbound_text="", msg_sequence_val=0, metadata=None):
     db = SessionLocal()
     tracer = ExecutionTracer()
 
-    try:
+    def _run():
         service = FlowServiceV2()
         future = _executor.submit(
             asyncio.run,
@@ -174,65 +239,155 @@ def resume_flow_node(
             ),
         )
         result = future.result()
-
-        tracer.trace(
-            db,
-            conversation_id=conversation_id,
-            event_type="node_resumed",
-            metadata={"node_id": node_id, "result": result},
-        )
+        exists = db.query(Conversation.id).filter(Conversation.id == conversation_id).first()
+        if exists:
+            tracer.trace(db, conversation_id=conversation_id,
+                         event_type="node_resumed", metadata={"node_id": node_id, "result": result})
         db.commit()
-
-        logger.info(
-            "[resume_flow_node] OK | conversation=%s node=%s",
-            conversation_id,
-            node_id,
-        )
+        logger.info("[resume_flow_node] OK | conversation=%s node=%s", conversation_id, node_id)
         return result
 
-    except ConversationExecutionBusy as exc:
-        logger.info(
-            "[resume_flow_node] Conversation busy, retrying in %ds | conversation=%s node=%s",
-            _BUSY_RETRY_SECONDS,
-            conversation_id,
-            node_id,
-        )
-        raise self.retry(exc=exc, countdown=_BUSY_RETRY_SECONDS)
+    try:
+        return _run_flow_task(self, conversation_id, tracer, db, _run, extra_meta={"node_id": node_id})
+    finally:
+        db.close()
 
-    except Exception as exc:
-        try:
-            tracer.trace(
+
+# ---------------------------------------------------------------------------
+# resume_flow_node
+# ---------------------------------------------------------------------------
+# @celery_app.task(
+#     bind=True,
+#     name="app.workers.flow_execution.resume_flow_node",
+#     max_retries=30,
+# )
+# def resume_flow_node(
+#     self,
+#     conversation_id: str,
+#     node_id: str,
+#     inbound_text: str = "",
+#     msg_sequence_val: int = 0,
+#     metadata: dict = None,
+# ):
+#     """
+#     Resumes a paused flow node after a delay.
+#     """
+#     db = SessionLocal()
+#     tracer = ExecutionTracer()
+
+#     try:
+#         service = FlowServiceV2()
+#         future = _executor.submit(
+#             asyncio.run,
+#             service.resume_node_execution(
+#                 db,
+#                 conversation_id=conversation_id,
+#                 node_id=node_id,
+#                 inbound_text=inbound_text or "",
+#                 msg_sequence_val=msg_sequence_val,
+#             ),
+#         )
+#         result = future.result()
+
+#         conversation_exists = db.query(Conversation.id).filter(
+#             Conversation.id == conversation_id
+#         ).first()
+#         if conversation_exists:
+#             tracer.trace(
+#                 db,
+#                 conversation_id=conversation_id,
+#                 event_type="node_resumed",
+#                 metadata={"node_id": node_id, "result": result},
+#             )
+#         db.commit()
+
+#         logger.info(
+#             "[resume_flow_node] OK | conversation=%s node=%s",
+#             conversation_id,
+#             node_id,
+#         )
+#         return result
+
+#     except ConversationExecutionBusy as exc:
+#         logger.info(
+#             "[resume_flow_node] Conversation busy, retrying in %ds | conversation=%s node=%s",
+#             _BUSY_RETRY_SECONDS,
+#             conversation_id,
+#             node_id,
+#         )
+#         raise self.retry(exc=exc, countdown=_BUSY_RETRY_SECONDS)
+
+#     except Exception as exc:
+#         try:
+#             conversation_exists = db.query(Conversation.id).filter(
+#                 Conversation.id == conversation_id
+#             ).first()
+#             if conversation_exists:
+#                 tracer.trace(
+#                     db,
+#                     conversation_id=conversation_id,
+#                     event_type="error",
+#                     status="failed",
+#                     error_message=str(exc),
+#                     metadata={"node_id": node_id, "attempt": self.request.retries + 1},
+#                 )
+#                 db.commit()
+#             else:
+#                 db.commit()
+#         except Exception as trace_exc:
+#             logger.exception("[resume_flow_node] Tracer write failed: %s", trace_exc)
+
+#         try:
+#             countdown = _BACKOFF_SCHEDULE[min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)]
+#             logger.warning(
+#                 "[resume_flow_node] Retrying in %ds (attempt %d/3) | conversation=%s node=%s | error=%s",
+#                 countdown,
+#                 self.request.retries + 1,
+#                 conversation_id,
+#                 node_id,
+#                 exc,
+#             )
+#             raise self.retry(exc=exc, countdown=countdown)
+
+#         except MaxRetriesExceededError:
+#             logger.error(
+#                 "[resume_flow_node] Max retries exceeded | conversation=%s node=%s | error=%s",
+#                 conversation_id,
+#                 node_id,
+#                 exc,
+#             )
+
+#     finally:
+#         db.close()
+
+@celery_app.task(bind=True, name="app.workers.flow_execution.resume_flow_node", max_retries=30)
+def resume_flow_node(self, conversation_id, node_id, inbound_text="", msg_sequence_val=0, metadata=None):
+    db = SessionLocal()
+    tracer = ExecutionTracer()
+
+    def _run():
+        service = FlowServiceV2()
+        future = _executor.submit(
+            asyncio.run,
+            service.resume_node_execution(
                 db,
                 conversation_id=conversation_id,
-                event_type="error",
-                status="failed",
-                error_message=str(exc),
-                metadata={"node_id": node_id, "attempt": self.request.retries + 1},
-            )
-            db.commit()
-        except Exception as trace_exc:
-            logger.exception("[resume_flow_node] Tracer write failed: %s", trace_exc)
+                node_id=node_id,
+                inbound_text=inbound_text or "",
+                msg_sequence_val=msg_sequence_val,
+            ),
+        )
+        result = future.result()
+        exists = db.query(Conversation.id).filter(Conversation.id == conversation_id).first()
+        if exists:
+            tracer.trace(db, conversation_id=conversation_id,
+                         event_type="node_resumed", metadata={"node_id": node_id, "result": result})
+        db.commit()
+        logger.info("[resume_flow_node] OK | conversation=%s node=%s", conversation_id, node_id)
+        return result
 
-        try:
-            countdown = _BACKOFF_SCHEDULE[min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)]
-            logger.warning(
-                "[resume_flow_node] Retrying in %ds (attempt %d/3) | conversation=%s node=%s | error=%s",
-                countdown,
-                self.request.retries + 1,
-                conversation_id,
-                node_id,
-                exc,
-            )
-            raise self.retry(exc=exc, countdown=countdown)
-
-        except MaxRetriesExceededError:
-            logger.error(
-                "[resume_flow_node] Max retries exceeded | conversation=%s node=%s | error=%s",
-                conversation_id,
-                node_id,
-                exc,
-            )
-
+    try:
+        return _run_flow_task(self, conversation_id, tracer, db, _run, extra_meta={"node_id": node_id})
     finally:
         db.close()
 
@@ -250,7 +405,7 @@ def send_next_pending_message(self, conversation_id: str):
   
     from app.models.outbound_message import OutboundMessage
 
-    # ── GUARD 1: Redis distributed lock ──────────
+    #  GUARD 1: Redis distributed lock 
     lock_token = acquire_conversation_lock(
         conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
     )
@@ -264,8 +419,19 @@ def send_next_pending_message(self, conversation_id: str):
         return
 
     db = SessionLocal()
+    # BLOCK OLD AUTOMATION MESSAGES
+    state = (
+        db.query(FlowExecutionState)
+        .filter(
+            FlowExecutionState.conversation_id == conversation_id
+        )
+        .first()
+    )
+
+    
+    
     try:
-        # ── GUARD 2: Check for any active (in_progress / dispatched) message ──
+        #  GUARD 2: Check for any active (in_progress / dispatched) message 
         # Use with_for_update() (BLOCKING) — no skip_locked!
         # This means if another transaction holds a lock on this row,
         # we'll wait for it instead of silently skipping.
@@ -292,7 +458,7 @@ def send_next_pending_message(self, conversation_id: str):
             )
 
             if last_time < datetime.now(timezone.utc) - timedelta(seconds=timeout):
-                # Message is stuck — recover it by resetting to pending
+                # Message is stuck — recover it
                 logger.warning(
                     "[send_next_pending_message] ⚠️ Recovering stuck message "
                     "seq=%d status=%s age=%ds | conversation=%s id=%s",
@@ -302,11 +468,32 @@ def send_next_pending_message(self, conversation_id: str):
                     conversation_id,
                     active_msg.id,
                 )
-                active_msg.status = "pending"
-                active_msg.twilio_sid = None
+                if active_msg.status == "dispatched":
+                    # Transition to 'sent' (terminal / released status)
+                    active_msg.status = "sent"
+                    
+                    # Update corresponding inbox message also as SENT
+                    try:
+                        from app.models.message import Message, MessageStatus
+                        metadata = active_msg.metadata_json or {}
+                        if isinstance(metadata, str):
+                            metadata = json.loads(metadata)
+                        inbox_message_id = metadata.get("inbox_message_id")
+                        if inbox_message_id:
+                            inbox_msg = db.query(Message).filter(
+                                Message.id == uuid.UUID(str(inbox_message_id))
+                            ).first()
+                            if inbox_msg:
+                                inbox_msg.status = MessageStatus.SENT
+                    except Exception as inbox_exc:
+                        logger.warning("[send_next_pending_message] Stuck inbox status update failed: %s", inbox_exc)
+                else:
+                    # 'in_progress' timed out — reset to 'pending'
+                    active_msg.status = "pending"
+                    active_msg.twilio_sid = None
+
                 db.commit()
-                # Fall through to claim the next pending message (which
-                # might be this same one, now reset to pending).
+                # Fall through to claim the next pending message
             else:
                 # Message is legitimately active — wait for Twilio callback.
                 logger.info(
@@ -318,7 +505,7 @@ def send_next_pending_message(self, conversation_id: str):
                 )
                 return
 
-        # ── GUARD 3: Claim the next pending message under row lock ─────
+        #  GUARD 3: Claim the next pending message under row lock ─
         # Filter by active_flow_id to avoid sending messages from a
         # superseded flow (old pending messages).
         state = (
@@ -332,6 +519,15 @@ def send_next_pending_message(self, conversation_id: str):
             OutboundMessage.conversation_id == conversation_id,
             OutboundMessage.status == "pending",
         ]
+        if (
+            state
+            and state.runtime_context
+            and state.runtime_context.get("active_ai_session")
+        ):
+            base_filter.append(
+                OutboundMessage.message_type != "automation"
+            )
+
         if active_flow_id is not None:
             base_filter.append(OutboundMessage.flow_id == active_flow_id)
 
@@ -481,6 +677,13 @@ def send_whatsapp_message_task(
                 )
                 return
 
+        # Release the SELECT FOR UPDATE lock before making the blocking external network call
+        db.commit()
+
+        # Inject outbound_message_id into metadata so the delivery channel can access it
+        metadata = metadata or {}
+        metadata["outbound_message_id"] = outbound_message_id
+
         # 5. Send to Twilio
         sid = deliver_outbound_message(
             db=db,
@@ -490,17 +693,31 @@ def send_whatsapp_message_task(
             metadata=metadata,
         )
 
-        # 5. Persist SID and transition to DISPATCHED (not "sent"!)
-        #    The "sent" transition happens only via Twilio status callback.
+        # 6. Re-acquire the lock briefly to update the status and SID
+        row = (
+            db.query(OutboundMessage)
+            .filter(OutboundMessage.id == outbound_message_id)
+            .with_for_update()
+            .first()
+        )
+        if not row:
+            logger.warning(
+                "[send_whatsapp_message_task] Row not found during post-send update | id=%s",
+                outbound_message_id,
+            )
+            return
+
         row.twilio_sid = sid
         row.status = "dispatched"
+        db.commit()
 
+        # 6.5. Safely execute inbox logging and tracking outside the row lock
         try:
-            from app.models.message import Message, SenderType, MessageStatus
-            import uuid as _uuid
+            from app.services.message_service import MessageService
+            from app.models.conversation import Conversation
 
             meta_source = metadata.get("source", "")
-            buttons = metadata.get("buttons", [])
+            buttons = metadata.get("buttons") or []
 
             if meta_source == "button_message" and buttons:
                 button_labels = " | ".join(f"[{b.get('label', '')}]" for b in buttons)
@@ -513,42 +730,49 @@ def send_whatsapp_message_task(
                 inbox_content = body
 
             if inbox_content:
-                inbox_msg = Message(
-                    id=_uuid.uuid4(),
-                    conversation_id=conversation_id,
-                    content=inbox_content,
-                    sender_type=SenderType.AI,
-                    status=MessageStatus.SENT,
-                    source="automation_flow",
-                    metadata_json="{}",
-                )
-                db.add(inbox_msg)
-                logger.info(
-                    "Inbox saved after Twilio dispatch | conversation=%s source=%s",
-                    conversation_id, meta_source,
-                )
+                # ONLY create new message if it doesn't already exist in metadata (inbox_message_id)
+                inbox_message_id = metadata.get("inbox_message_id")
+                if not inbox_message_id:
+                    conversation = db.query(Conversation).filter(
+                        Conversation.id == conversation_id
+                    ).first()
+                    if conversation:
+                        MessageService.save_ai_message(
+                            db, conversation, inbox_content, source="automation_flow"
+                        )
+                        logger.info("Inbox saved | conversation=%s source=%s", conversation_id, meta_source)
         except Exception as inbox_exc:
             logger.warning("Inbox save failed (non-fatal): %s", inbox_exc)
 
-        db.commit()
         send_next_pending_message.apply_async(
-        args=[conversation_id],
-        countdown=10
-    )
-        # 6. Trace
-        tracer.trace(
-            db,
-            conversation_id=conversation_id,
-            event_type="message_dispatched",
-            metadata={
-                "to_number": to_number,
-                "preview": body[:80],
-                "buttons_count": len(buttons),
-                "twilio_sid": sid,
-                "outbound_message_id": outbound_message_id,
-            },
+            args=[conversation_id],
+            countdown=10
         )
-        db.commit()
+        
+        try:
+            conversation_exists = db.query(
+                Conversation.id
+            ).filter(
+                Conversation.id == conversation_id
+            ).first()
+
+            if conversation_exists:
+                # 7. Trace
+                tracer.trace(
+                    db,
+                    conversation_id=conversation_id,
+                    event_type="message_dispatched",
+                    metadata={
+                        "to_number": to_number,
+                        "preview": body[:80],
+                        "buttons_count": len(buttons),
+                        "twilio_sid": sid,
+                        "outbound_message_id": outbound_message_id,
+                    },
+                )
+                db.commit()
+        except Exception as trace_exc:
+            logger.warning("Tracer failed: %s", trace_exc)
 
         logger.info(
             "[send_whatsapp_message_task] Dispatched | conversation=%s sid=%s id=%s",
@@ -561,9 +785,11 @@ def send_whatsapp_message_task(
     except Exception as exc:
         # Mark the row as failed if we never got a SID
         try:
+            db.rollback()
             row = (
                 db.query(OutboundMessage)
                 .filter(OutboundMessage.id == outbound_message_id)
+                .with_for_update()
                 .first()
             )
             if row and not row.twilio_sid:
@@ -614,15 +840,21 @@ def send_whatsapp_message_task(
             db.rollback()
 
         try:
-            tracer.trace(
-                db,
-                conversation_id=conversation_id,
-                event_type="error",
-                status="failed",
-                error_message=str(exc),
-                metadata={"attempt": self.request.retries + 1},
-            )
-            db.commit()
+            conversation_exists = db.query(Conversation.id).filter(
+                Conversation.id == conversation_id
+            ).first()
+            if conversation_exists:
+                tracer.trace(
+                    db,
+                    conversation_id=conversation_id,
+                    event_type="error",
+                    status="failed",
+                    error_message=str(exc),
+                    metadata={"attempt": self.request.retries + 1},
+                )
+                db.commit()
+            else:
+                db.commit()
         except Exception as trace_exc:
             logger.exception(
                 "[send_whatsapp_message_task] Tracer write failed: %s", trace_exc
@@ -713,14 +945,7 @@ def sweep_stuck_messages():
 # ---------------------------------------------------------------------------
 @celery_app.task(name="app.workers.flow_execution.poll_scheduled_resumes")
 def poll_scheduled_resumes():
-    """Poll the scheduled_resumes table for due long-delay rows.
-
-    Runs every 30 seconds via Celery beat.  For each row whose
-    ``run_at`` has passed:
-      - Check if the flow is still active (skip stale delays)
-      - Fire ``resume_flow_node``
-      - Mark row ``executed`` ONLY after enqueue succeeds
-    """
+   
     from app.models.scheduled_resume import ScheduledResume
 
     db = SessionLocal()
@@ -745,7 +970,7 @@ def poll_scheduled_resumes():
         cancelled = 0
 
         for sr in due_rows:
-            # ── Guard: skip if the flow has changed since this delay was created
+            #  Guard: skip if the flow has changed since this delay was created
             if sr.flow_id:
                 current_state = (
                     db.query(FlowExecutionState)
@@ -762,7 +987,7 @@ def poll_scheduled_resumes():
                     cancelled += 1
                     continue
 
-            # ── Enqueue the resume task
+            #  Enqueue the resume task
             try:
                 resume_flow_node.delay(
                     conversation_id=str(sr.conversation_id),
@@ -778,7 +1003,7 @@ def poll_scheduled_resumes():
                 )
                 continue
 
-            # ── Mark executed ONLY after successful enqueue
+            #  Mark executed ONLY after successful enqueue
             sr.status = "executed"
             dispatched += 1
             logger.info(
@@ -797,3 +1022,5 @@ def poll_scheduled_resumes():
         logger.exception("[poll_scheduled_resumes] Error polling scheduled resumes")
     finally:
         db.close()
+
+

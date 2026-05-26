@@ -60,7 +60,7 @@ export default function ChannelsPage() {
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({}); // stores ig username, wa number etc
 
-    // ─── Listen for WhatsApp embedded signup messages ─
+    // ─ Listen for WhatsApp embedded signup messages ─
     useEffect(() => {
         const handleMessage = (e) => {
             if (e.origin !== "https://www.facebook.com") return;
@@ -85,7 +85,7 @@ export default function ChannelsPage() {
         return () => window.removeEventListener('message', handleMessage);
     }, [workspace?.id]);
 
-    // ─── WhatsApp: Embedded Signup Popup ──────────────
+    // ─ WhatsApp: Embedded Signup Popup 
     const startWhatsAppSignup = useCallback(() => {
         setConnecting('whatsapp');
 
@@ -143,7 +143,7 @@ export default function ChannelsPage() {
     }
 };
 
-    // ─── Instagram: Facebook Login Popup ──────────────
+    // ─ Instagram: Facebook Login Popup 
 //    const startInstagramLogin = useCallback(() => {
 //     setConnecting('instagram');
 
@@ -232,7 +232,7 @@ export default function ChannelsPage() {
         }
     };
 
-    // ─── Gmail OAuth ─────────────
+    // ─ Gmail OAuth ─
     const startGmailOAuth = () => {
         const redirectUri = `/api/gmail/callback`;
         window.location.href =
@@ -244,7 +244,7 @@ export default function ChannelsPage() {
             `&access_type=offline`;
     };
 
-    // ─── Twilio Modal ────────────
+    // ─ Twilio Modal 
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
         if (!sid.trim() || !token.trim() || !phone.trim()) return;
@@ -275,7 +275,7 @@ export default function ChannelsPage() {
         }
     };
 
-    // ─── Main connect dispatcher ─
+    // ─ Main connect dispatcher ─
     const handleConnect = (id) => {
         if (statuses[id]) return; // already connected
         if (id === 'whatsapp')  startWhatsAppSignup();

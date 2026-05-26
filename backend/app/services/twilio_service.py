@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class TwilioService:
     _instance: "TwilioService | None" = None
 
-    # ── Singleton plumbing ────────
+    #  Singleton plumbing 
 
     def __new__(cls) -> "TwilioService":
         if cls._instance is None:
@@ -31,7 +31,7 @@ class TwilioService:
             cls._instance = inst
         return cls._instance
 
-    # ── Internal helpers ──────────
+    #  Internal helpers 
 
     def _refresh_client(self, db: Session, workspace_id: str) -> None:
         """Load Twilio credentials from the workspace row."""
@@ -96,12 +96,23 @@ class TwilioService:
             return False
         return True
 
-    def _status_callback_params(self) -> dict:
+    def _status_callback_params(self, metadata: dict = None) -> dict:
         from app.core.config import settings
         url = settings.TWILIO_STATUS_CALLBACK_URL
-        return {"status_callback": url} if url else {}
+        if not url:
+            return {}
+        
+        metadata = metadata or {}
+        outbound_message_id = metadata.get("outbound_message_id")
+        if outbound_message_id:
+            if "?" in url:
+                url = f"{url}&outbound_message_id={outbound_message_id}"
+            else:
+                url = f"{url}?outbound_message_id={outbound_message_id}"
+        
+        return {"status_callback": url}
 
-    # ── Public API ────────────────
+    #  Public API 
 
     def send_whatsapp_message(
         self,
@@ -109,6 +120,7 @@ class TwilioService:
         to_number: str,
         body: str,
         raise_on_error: bool = False,
+        metadata: dict = None,
     ) -> str | None:
         """Send a free-form WhatsApp message."""
         logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
@@ -120,7 +132,7 @@ class TwilioService:
                 "to": to_number,
                 "from_": self._from_number,
                 "body": body,
-                **self._status_callback_params(),
+                **self._status_callback_params(metadata),
             }
             logger.info("TWILIO PARAMS: %s", params)
             message = self.client.messages.create(**params)
@@ -139,6 +151,7 @@ class TwilioService:
         body: str,
         buttons: list[dict],
         raise_on_error: bool = False,
+        metadata: dict = None,
     ) -> str | None:
         """Send a WhatsApp message with inline button labels (text fallback)."""
         button_lines = [
@@ -149,7 +162,7 @@ class TwilioService:
         if button_lines:
             formatted_body += "\n\n" + "\n".join(button_lines)
         return self.send_whatsapp_message(
-            workspace_id, to_number, formatted_body, raise_on_error=raise_on_error,
+            workspace_id, to_number, formatted_body, raise_on_error=raise_on_error, metadata=metadata,
         )
 
     def send_whatsapp_media(
@@ -160,6 +173,7 @@ class TwilioService:
         caption: str = "",
         message_type: str = "image",
         raise_on_error: bool = False,
+        metadata: dict = None,
     ) -> str | None:
         """Send a WhatsApp message with an image/video/document attachment."""
         logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
@@ -171,7 +185,7 @@ class TwilioService:
                 "to": to_number,
                 "from_": self._from_number,
                 "media_url": [media_url],
-                **self._status_callback_params(),
+                **self._status_callback_params(metadata),
             }
             if caption:
                 params["body"] = caption

@@ -72,24 +72,49 @@ class ConversationState(Base):
 class Lead(Base):
     __tablename__ = "leads"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id")
+    )
 
-    name = Column(String(255))
-    requirement = Column(Text)
-    budget = Column(String(100))
-    timeline = Column(String(100))
-    contact = Column(String(255))
-    
-    # Advanced CRM properties
+    # Dynamic Business Fields
+    custom_fields = Column(JSON, default={})
+
+    # Business
     business_type = Column(String(255))
     product_type = Column(String(255))
+
+    # Goal
     goal = Column(Text)
 
-    qualification = Column(String(50))  # hot / warm / cold
+    # Qualification
+    qualification = Column(String(50))
+    lead_score = Column(Float, default=0)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Demo Booking
+    demo_requested = Column(Boolean, default=False)
+
+    meeting_date = Column(DateTime(timezone=True))
+    meeting_link = Column(Text)
+
+    # Payment
+    payment_status = Column(String(50))
+    payment_link = Column(Text)
+
+    # AI
+    last_agent = Column(String(100))
+    ai_summary = Column(Text)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
 
 
 
@@ -108,6 +133,17 @@ class SalesPipeline(Base):
     objections = Column(JSON)
 
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    deal_value = Column(Float)
+
+    expected_close_date = Column(
+        DateTime(timezone=True)
+    )
+
+    payment_completed = Column(
+        Boolean,
+        default=False
+    )
 
 
 
@@ -168,3 +204,47 @@ class HumanEscalation(Base):
     status = Column(String(50))  # pending / resolved
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    workspace_id = Column(UUID(as_uuid=True))
+
+    channel = Column(String(50))
+
+    message = Column(Text)
+
+    assigned_to = Column(UUID(as_uuid=True))
+
+    priority = Column(String(50), default="normal")
+
+    resolved_at = Column(DateTime(timezone=True))
+
+    resolution_notes = Column(Text)
+
+class WorkspaceAIConfig(Base):
+    __tablename__ = "workspace_ai_configs"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        unique=True
+    )
+
+    business_type = Column(String(100))
+
+    lead_fields = Column(JSON, default=[])
+
+    rag_enabled = Column(Boolean, default=True)
+
+    calendar_enabled = Column(Boolean, default=False)
+
+    payment_enabled = Column(Boolean, default=False)
+
+    support_enabled = Column(Boolean, default=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )

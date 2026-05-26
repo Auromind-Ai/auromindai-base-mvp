@@ -36,37 +36,37 @@ def get_dashboard(
     ]
 
     return {
-        # ── Core stats ────────────────
+        #  Core stats 
         "total":        data.get("total",        0),
         "positive":     data.get("positive",     0),
         "negative":     data.get("negative",     0),
         "success_rate": data.get("success_rate", 0),
 
-        # ── Charts───
+        #  Charts─
         "trends":    data.get("trends")    or [],
         "tool_usage": data.get("tool_usage") or [],
 
-        # ── Tool performance (NEW — was missing) ────────────
+        #  Tool performance (NEW — was missing) 
         "tool_performance": tool_performance_list,
 
-        # ── Users / Sessions ──────────
+        #  Users / Sessions 
         "sessions": data.get("sessions") or [],
         "users":    data.get("users")    or [],
 
-        # ── Models───
+        #  Models─
         "models": data.get("models") or [],
 
-        # ── Feedback logs ─────────────
+        #  Feedback logs ─
         "feedback_logs": data.get("feedback_logs") or [],
 
-        # ── Failed queries ────────────
+        #  Failed queries 
         "top_failed_queries": data.get("top_failed_queries") or [],
 
-        # ── Best / Worst tool ─────────
+        #  Best / Worst tool ─
         "best_tool":  data.get("best_tool")  or ["N/A", {"accuracy": 0}],
         "worst_tool": data.get("worst_tool") or ["N/A", {"accuracy": 0}],
 
-        # ── Rewrite effectiveness (NEW — was missing) ───────
+        #  Rewrite effectiveness (NEW — was missing) ─
         "rewrite_effectiveness": data.get("rewrite_effectiveness") or {},
     }
 

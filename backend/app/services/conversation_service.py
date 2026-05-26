@@ -1,24 +1,11 @@
-"""
-app/services/conversation_service.py
-
-Fixes applied
-─────────────
-1. get_or_create_conversation: replaced bare rollback() after IntegrityError
-   with db.begin_nested() (savepoint).  This prevents a mid-transaction
-   rollback from discarding unrelated pending changes in the same unit of work.
-"""
-
 from __future__ import annotations
-
 from datetime import datetime
 from typing import Any
 from uuid import UUID
-
 from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
 from app.models.conversation import ChannelType, Conversation
 from app.models.workspace import Workspace
 
@@ -183,10 +170,7 @@ class ConversationService:
             db.flush()
             return conversation
 
-        # ── Race-safe insert using a savepoint ──────────
-        # begin_nested() creates a SAVEPOINT so that an IntegrityError from a
-        # concurrent INSERT only rolls back to the savepoint, not the entire
-        # transaction.  This prevents discarding unrelated pending changes.
+      
         try:
             with db.begin_nested():
                 conversation = Conversation(

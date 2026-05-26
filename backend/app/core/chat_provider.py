@@ -8,7 +8,7 @@ from app.services.chat_service import ChatService, ChatServiceConfig
 from app.core.config import settings
 from app.core.logger import logger
 
-# ── LLMRouter singleton
+#  LLMRouter singleton
 _llm_router_instance: LLMRouter | None = None
 _router_lock = asyncio.Lock()
 
@@ -22,7 +22,7 @@ async def get_llm_router() -> LLMRouter:
     return _llm_router_instance
 
 
-# ── ChatService singleton (chat.py use பண்றது) ───────────────
+
 _chat_service_instance: ChatService | None = None
 _chat_lock = asyncio.Lock()
 async def get_chat_service() -> ChatService:

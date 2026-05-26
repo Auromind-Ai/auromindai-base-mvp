@@ -20,7 +20,6 @@ from app.services.lead_agent_local import (
     get_messages as get_local_messages,
 )
 from app.services.flow_service_v2 import FlowServiceV2
-from app.workers.flow_execution import execute_incoming_message, send_next_pending_message
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +166,7 @@ class MessageService:
         body: str,
         metadata: Optional[dict[str, Any]] = None,
     ) -> None:
+        from app.workers.flow_execution import execute_incoming_message
         execute_incoming_message.delay(
             conversation_id=str(conversation_id),
             message=body,
@@ -270,32 +270,51 @@ User Message:
         return get_local_messages(user_id)
 
     @staticmethod
-    async def handle_twilio_status_callback(form_data, db: Session):
+    async def handle_twilio_status_callback(form_data, db: Session, outbound_message_id: str = None):
+        from app.workers.flow_execution import send_next_pending_message
         message_sid = form_data.get("MessageSid") or form_data.get("SmsSid")
         message_status = (form_data.get("MessageStatus") or form_data.get("SmsStatus") or "").lower()
 
         if not message_sid or not message_status:
             return str(MessagingResponse())
 
-        row = (
-            db.query(OutboundMessage)
-            .filter(OutboundMessage.twilio_sid == message_sid)
-            .with_for_update()
-            .first()
-        )
+        row = None
+        if outbound_message_id:
+            row = (
+                db.query(OutboundMessage)
+                .filter(OutboundMessage.id == outbound_message_id)
+                .with_for_update()
+                .first()
+            )
+
         if not row:
+            row = (
+                db.query(OutboundMessage)
+                .filter(OutboundMessage.twilio_sid == message_sid)
+                .with_for_update()
+                .first()
+            )
+
+        if not row:
+            logger.warning("[handle_twilio_status_callback] No row found for SID=%s, ID=%s", message_sid, outbound_message_id)
             return str(MessagingResponse())
+
+        if not row.twilio_sid:
+            row.twilio_sid = message_sid
 
         conversation_id = str(row.conversation_id)
         if row.status in MessageService._TERMINAL_STATES:
+            db.commit()  # Release lock immediately!
             return str(MessagingResponse())
 
         if message_status == "queued":
+            db.commit()  # Release lock immediately!
             return str(MessagingResponse())
 
         if message_status == "sent":
             valid_priors = MessageService._VALID_PRIOR_STATES.get("sent", ())
             if row.status not in valid_priors:
+                db.commit()  # Release lock immediately!
                 return str(MessagingResponse())
             row.status = "sent"
     
@@ -314,13 +333,14 @@ User Message:
 
                 if inbox_msg:
                     inbox_msg.status = MessageStatus.SENT
-            db.commit()
+            db.commit()  # Release lock immediately!
             send_next_pending_message.apply_async(args=[conversation_id], countdown=1)
             return str(MessagingResponse())
 
         if message_status == "delivered":
             valid_priors = MessageService._VALID_PRIOR_STATES.get("delivered", ())
             if row.status not in valid_priors:
+                db.commit()  # Release lock immediately!
                 return str(MessagingResponse())
             row.status = "delivered"
 
@@ -339,7 +359,7 @@ User Message:
                 if inbox_msg:
                     inbox_msg.status = MessageStatus.DELIVERED
 
-            db.commit()
+            db.commit()  # Release lock immediately!
 
             send_next_pending_message.apply_async(
                 args=[conversation_id],
@@ -351,10 +371,21 @@ User Message:
         if message_status in ("failed", "undelivered"):
             valid_priors = MessageService._VALID_PRIOR_STATES.get("failed", ())
             if row.status not in valid_priors:
+                db.commit()  # Release lock immediately!
                 return str(MessagingResponse())
             row.status = "failed"
-            db.commit()
+            db.commit()  # Release lock immediately!
             send_next_pending_message.apply_async(args=[conversation_id], countdown=2)
             return str(MessagingResponse())
 
+        db.commit()  # Release lock immediately!
         return str(MessagingResponse())
+    
+    @staticmethod
+    def save_ai_message(db, conversation, body, source="automation"):
+        return MessageService.save_manual_message(
+            db, conversation=conversation, body=body,
+            sender_type=SenderType.AI,
+            status=MessageStatus.SENT,
+            source=source,
+        )

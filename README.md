@@ -74,10 +74,10 @@ docker-compose up
 ### Project Structure
 ```
 auromind/
-├── backend/            # FastAPI Application
-│   ├── app/models/     # Database Schemas
-│   ├── app/routers/    # API Endpoints
-│   └── app/services/   # Business Logic & AI
-├── frontend/           # Next.js Application
-└── docker-compose.yml  # Infrastructure
+├ backend/            # FastAPI Application
+│   ├ app/models/     # Database Schemas
+│   ├ app/routers/    # API Endpoints
+│   └ app/services/   # Business Logic & AI
+├ frontend/           # Next.js Application
+└ docker-compose.yml  # Infrastructure
 ```

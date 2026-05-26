@@ -103,6 +103,7 @@ class ChannelService:
                 caption=body or "",
                 message_type=message_type,
                 raise_on_error=True,
+                metadata=metadata,
             )
 
         if media_url:
@@ -115,6 +116,7 @@ class ChannelService:
                 media_url,
                 caption=body or "",
                 raise_on_error=True,
+                metadata=metadata,
             )
 
         if buttons:
@@ -124,6 +126,7 @@ class ChannelService:
                 body,           
                 buttons,
                 raise_on_error=True,
+                metadata=metadata,
             )
 
         return TwilioService().send_whatsapp_message(
@@ -131,6 +134,7 @@ class ChannelService:
             normalized_to,
             body,
             raise_on_error=True,
+            metadata=metadata,
         )
 
     @staticmethod

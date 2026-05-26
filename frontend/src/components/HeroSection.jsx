@@ -66,7 +66,7 @@ export default function HeroSection() {
         "
       >
 
-        {/* ── LEFT COLUMN ── */}
+        {/*  LEFT COLUMN  */}
         <div className="flex flex-col justify-center max-w-[700px]">
 
           {/* Badge */}
@@ -156,7 +156,7 @@ export default function HeroSection() {
           </div>
         </div>
 
-        {/* ── RIGHT COLUMN ── */}
+        {/*  RIGHT COLUMN  */}
         <div
           className="
             relative flex flex-col items-center lg:items-end
@@ -262,7 +262,7 @@ export default function HeroSection() {
           to   { transform: translateX(-8px) translateY(-6px); }
         }
 
-        /* ── RESPONSIVE OVERRIDES ── */
+        /*  RESPONSIVE OVERRIDES  */
 
         /* Tablet (md–lg): stack vertically, smaller sphere */
         @media (max-width: 1023px) {
