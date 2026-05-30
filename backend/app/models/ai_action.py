@@ -159,6 +159,8 @@ class Lead(Base):
     # Qualification
     qualification = Column(String(50))
     lead_score = Column(Float, default=0)
+    is_favorite = Column(Boolean, default=False, nullable=False, server_default="false")
+
 
     # --- Lead Scoring fields (agnostic) ---
     status = Column(

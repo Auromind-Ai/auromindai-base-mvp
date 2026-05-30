@@ -1,7 +1,23 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CreditCard, Receipt, Sparkles } from "lucide-react"
+import {
+  CreditCard,
+  Receipt,
+  Sparkles,
+  RefreshCw,
+  Calendar,
+  IndianRupee,
+  Wallet,
+  ShieldCheck,
+  Mail,
+  FileText,
+  Download,
+  ArrowRight,
+  Zap,
+  BarChart3,
+  Infinity,
+} from "lucide-react"
 
 import api from "@/lib/api"
 import { getWorkspaceIdFromToken } from "@/lib/auth"
@@ -12,64 +28,59 @@ export default function BillingHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-useEffect(() => {
-  const id = getWorkspaceIdFromToken() || sessionStorage.getItem("workspace_id")
+  useEffect(() => {
+    const id = getWorkspaceIdFromToken() || sessionStorage.getItem("workspace_id")
 
-  if (!id) {
-    setError("Workspace not found. Please sign in again.")
-    setLoading(false)
-    return
-  }
-
-  const loadBillingHistory = async () => {
-    try {
-      setLoading(true)
-      setError("")
-
-      const [billingData, pricingData] = await Promise.all([
-        api.getBillingStatus(id),
-        api.getPricing(),
-      ])
-
-      setBilling(billingData)
-      setPricing(pricingData)
-    } catch (fetchError) {
-      console.error("[BILLING HISTORY] Unable to load billing data:", fetchError)
-      setError(fetchError.message || "Unable to load billing history")
-      setBilling(null)
-    } finally {
+    if (!id) {
+      setError("Workspace not found. Please sign in again.")
       setLoading(false)
+      return
     }
-  }
 
-  // initial load
-  loadBillingHistory()
+    const loadBillingHistory = async () => {
+      try {
+        setLoading(true)
+        setError("")
 
-  // correct interval
-  const interval = setInterval(() => {
-    api.getPricing().then(setPricing).catch(console.error)
-  }, 10000)
+        const [billingData, pricingData] = await Promise.all([
+          api.getBillingStatus(id),
+          api.getPricing(),
+        ])
 
-  return () => clearInterval(interval)
+        setBilling(billingData)
+        setPricing(pricingData)
+      } catch (fetchError) {
+        console.error("[BILLING HISTORY] Unable to load billing data:", fetchError)
+        setError(fetchError.message || "Unable to load billing history")
+        setBilling(null)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-}, [])
+    loadBillingHistory()
+
+    const interval = setInterval(() => {
+      api.getPricing().then(setPricing).catch(console.error)
+    }, 10000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const usage = useMemo(() => {
-    const used = Number(billing?.credits_used ?? 0) 
-    const total = Number(billing?.total_limit ?? 0) 
+    const used = Number(billing?.credits_used ?? 0)
+    const total = Number(billing?.total_limit ?? 0)
     const remaining = Number(
       billing?.credits_remaining ?? Math.max(total - used, 0)
     )
-    
-    // Calculate percentage based on credits
     const percent = total > 0 ? Math.min((used / total) * 100, 100) : 0
-    
+
     console.log("[BILLING HISTORY] Calculated usage:", { used, total, remaining, percent })
-    
+
     return {
-      used: Number(used.toFixed(2)),          
-      total: Number(total.toFixed(2)),       
-      remaining: Number(remaining.toFixed(2)), 
+      used: Number(used.toFixed(2)),
+      total: Number(total.toFixed(2)),
+      remaining: Number(remaining.toFixed(2)),
       percent,
     }
   }, [billing])
@@ -97,180 +108,281 @@ useEffect(() => {
   const currentPlanLabel = billing?.plan_label || titleCase(billing?.current_plan || "free")
 
   const currentPlanPrice = useMemo(() => {
-  if (!pricing || !billing) return 0
-
-  const plan = billing?.current_plan || "free"
-
-  if (plan === "free") return pricing.free_plan_price
-  if (plan === "pro") return pricing.pro_plan_price
-  if (plan === "enterprise") return pricing.enterprise_plan_price
-
-  return 0
-}, [pricing, billing])
+    if (!pricing || !billing) return 0
+    const plan = billing?.current_plan || "free"
+    if (plan === "free") return pricing.free_plan_price
+    if (plan === "pro") return pricing.pro_plan_price
+    if (plan === "enterprise") return pricing.enterprise_plan_price
+    return 0
+  }, [pricing, billing])
 
   return (
-    <section className="min-h-screen bg-[#09090b] px-4 py-10 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.10),transparent_24%),linear-gradient(180deg,rgba(24,24,27,0.94),rgba(9,9,11,0.98))] px-6 py-8 shadow-[0_30px_120px_rgba(0,0,0,0.45)] sm:px-8">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_28%)]" />
-          <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">
-              <Sparkles size={14} />
-              Billing History
-            </div>
-            <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Usage and payments
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400 sm:text-base">
-              Review your current plan, credit consumption, and recent billing activity in one place.
-            </p>
-          </div>
-        </header>
-
-        {error ? (
-          <section className="rounded-[2rem] border border-rose-500/20 bg-rose-500/10 p-6 text-sm text-rose-100">
-            {error}
-          </section>
-        ) : null}
-
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,27,0.92),rgba(9,9,11,0.98))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.32)] sm:p-8">
-            <div className="flex items-center gap-3 text-zinc-200">
-              <CreditCard size={18} className="text-cyan-300" />
-              <h2 className="text-lg font-semibold">Current Plan Summary</h2>
-            </div>
-
-            {loading ? (
-              <div className="mt-6 h-36 animate-pulse rounded-[1.5rem] bg-white/[0.05]" />
-            ) : (
-              <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Plan</p>
-                    <p className="mt-2 text-3xl font-semibold text-white">
-  {currentPlanLabel}
-</p>
-
-<p className="mt-2 text-lg text-zinc-400">
-  ₹ {currentPlanPrice} / month
-</p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-                      {usage.used} / {usage.total} credits used
-                    </div>
-                    <a
-                      href="/user/admin/billing/payment"
-                      className="rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-zinc-200"
-                    >
-                      Upgrade Plan
-                    </a>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <div className="mb-3 flex items-center justify-between text-sm text-zinc-400">
-                    <span>Usage progress</span>
-                    <span>{usage.percent.toFixed(1)}%</span>
-                  </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-500 transition-all duration-500"
-                      style={{ width: `${usage.percent}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <UsageCard usage={usage} loading={loading} />
-        </div>
-
-        <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,27,0.92),rgba(9,9,11,0.98))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.32)] sm:p-8">
-          <div className="flex items-center gap-3 text-zinc-200">
-            <Receipt size={18} className="text-cyan-300" />
-            <h2 className="text-lg font-semibold">Payment History</h2>
-          </div>
-          <PaymentTable payments={payments} loading={loading} />
-        </section>
+    <section style={{ minHeight: "100vh", background: "#0d0d0f", padding: "28px 32px", color: "#fff", fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#fff", margin: 0, letterSpacing: "-0.3px" }}>Billing</h1>
+        <p style={{ fontSize: 13, color: "#cdd1da", marginTop: 6 }}>
+          Create, manage and submit WhatsApp Business templates for approval.
+        </p>
       </div>
-    </section>
-  )
-}
 
-function UsageCard({ usage, loading }) {
-  return (
-    <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,27,0.92),rgba(9,9,11,0.98))] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.32)] sm:p-8">
-      <h2 className="text-lg font-semibold text-zinc-100">Usage</h2>
-
-      {loading ? (
-        <div className="mt-6 space-y-3">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-20 animate-pulse rounded-[1.25rem] bg-white/[0.05]" />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-6 grid gap-3">
-          <UsageStat label="Credits used" value={usage.used} tone="text-white" />
-          <UsageStat label="Remaining credits" value={usage.remaining} tone="text-emerald-300" />
-          <UsageStat label="Percentage used" value={`${usage.percent.toFixed(1)}%`} tone="text-cyan-300" />
+      {error && (
+        <div style={{ borderRadius: 12, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", padding: "14px 18px", fontSize: 13, color: "#fca5a5", marginBottom: 20 }}>
+          {error}
         </div>
       )}
+
+      {/* Top Row: Current Plan + Plan Details */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* Current Plan Card */}
+        <div style={cardStyle}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 10, fontWeight: 500 }}>Your current plan</p>
+              {loading ? (
+                <div style={skeletonStyle(120, 40)} />
+              ) : (
+                <>
+                  <h2 style={{ fontSize: 32, fontWeight: 700, margin: 0, letterSpacing: "-1px", color: "#fff" }}>
+                    {currentPlanLabel}
+                  </h2>
+                  <p style={{ fontSize: 15, color: "#9ca3af", marginTop: 6 }}>
+                    {currentPlanPrice} / month
+                  </p>
+                </>
+              )}
+            </div>
+            {!loading && (
+              <span style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#f5faf7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600 }}>
+                Active
+              </span>
+            )}
+          </div>
+
+          {/* Feature Pills */}
+          {!loading && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20, marginBottom: 24 }}>
+              {[
+                { label: "Unlimited AI Replies", icon: <Infinity size={11} /> },
+                { label: "Advanced Workflows", icon: <Zap size={11} /> },
+                { label: "Full Analytics", icon: <BarChart3 size={11} /> },
+              ].map((feat) => (
+                <span key={feat.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.25)", color: "#f1eff7", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 500 }}>
+                  {feat.icon} {feat.label}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {loading ? (
+            <div style={skeletonStyle(140, 42)} />
+          ) : (
+            <a
+              href="/user/admin/billing/payment"
+              style={{ display: "inline-block", background: "linear-gradient(135deg, #7c3aed, #9333ea)", color: "#fff", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, textDecoration: "none", transition: "opacity 0.2s" }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >
+              Upgrade plan
+            </a>
+          )}
+        </div>
+
+        {/* Plan Details Card */}
+        <div style={cardStyle}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Plan Details</p>
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {[1, 2, 3, 4].map(i => <div key={i} style={skeletonStyle("100%", 44)} />)}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {[
+                {
+                  icon: <RefreshCw size={16} color="#9ca3af" />,
+                  label: "Billing Cycle",
+                  value: billing?.subscription?.billing_cycle || billing?.billing_cycle || "Monthly",
+                },
+                {
+                  icon: <Calendar size={16} color="#9ca3af" />,
+                  label: "Next Billing Date",
+                  value: formatDate(billing?.subscription?.current_period_end || billing?.next_billing_date),
+                },
+                {
+                  icon: <IndianRupee size={16} color="#9ca3af" />,
+                  label: "Amount",
+                  value: currentPlanPrice || "—",
+                },
+                {
+                  icon: <CreditCard size={16} color="#9ca3af" />,
+                  label: "Payment Method",
+                  value: billing?.payment_method
+                    ? `.... ${String(billing.payment_method).slice(-4)}`
+                    : billing?.latest_payment?.payment_id
+                    ? `.... ${String(billing.latest_payment.payment_id).slice(-4)}`
+                    : "—",
+                },
+              ].map((row, idx, arr) => (
+                <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {row.icon}
+                    </span>
+                    <span style={{ fontSize: 13, color: "#9ca3af" }}>{row.label}</span>
+                  </div>
+                  <span style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 500 }}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Middle Row: Usage Summary + Recent Activity */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* Usage Summary */}
+        <div style={cardStyle}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Usage Summary</p>
+              <p style={{ fontSize: 12, color: "#cfd5df", marginTop: 4 }}>Current billing cycle usage</p>
+            </div>
+            <span style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.2)", color: "#f0edf8", borderRadius: 16, padding: "4px 12px", fontSize: 11, fontWeight: 500 }}>
+              This month
+            </span>
+          </div>
+
+          {loading ? (
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+              {[1, 2, 3].map(i => <div key={i} style={skeletonStyle("100%", 44)} />)}
+            </div>
+          ) : (
+            <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 20 }}>
+              <UsageBar
+                label="Credits Used"
+                value={`${usage.used} / ${usage.total}`}
+                percent={usage.percent}
+                barColor="linear-gradient(90deg, #22d3ee, #06b6d4)"
+              />
+              <UsageBar
+                label="Remaining Credits"
+                value={usage.remaining}
+                percent={usage.total > 0 ? (usage.remaining / usage.total) * 100 : 0}
+                barColor="linear-gradient(90deg, #818cf8, #6366f1)"
+              />
+              <UsageBar
+                label="Percentage Used"
+                value={`${usage.percent.toFixed(1)}%`}
+                percent={usage.percent}
+                barColor="linear-gradient(90deg, #f59e0b, #f97316)"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Recent Account Activity */}
+        <div style={cardStyle}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Recent Account Activity</p>
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[1, 2, 3].map(i => <div key={i} style={skeletonStyle("100%", 56)} />)}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {buildActivityItems(billing).map((item, idx, arr) => (
+                <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ width: 36, height: 36, borderRadius: 10, background: item.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {item.icon}
+                    </span>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(241, 242, 245, 0.94)", margin: 0 }}>{item.title}</p>
+                      <p style={{ fontSize: 11, color: "#b9c1cf", margin: 0, marginTop: 2 }}>{item.desc}</p>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 12 }}>{item.date}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Payment History */}
+      <div style={cardStyle}>
+        <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Payment History</p>
+
+        {loading ? (
+          <div style={skeletonStyle("100%", 200)} />
+        ) : payments.length === 0 ? (
+          <div style={{ border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 12, padding: "48px 24px", textAlign: "center", fontSize: 13, color: "#6b7280" }}>
+            No payment history available yet.
+          </div>
+        ) : (
+          <>
+            <div style={{ borderRadius: 12, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+                    {["Date", "Description", "Amount", "Status", "Payment ID", "Invoice"].map(h => (
+                      <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: "#6b7280", fontWeight: 600, fontSize: 12, letterSpacing: "0.02em" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment, idx) => (
+                    <tr
+                      key={payment.id || payment.payment_id || `${payment.amount}-${payment.date || "na"}`}
+                      style={{ borderTop: "1px solid rgba(255,255,255,0.05)", transition: "background 0.15s" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.025)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <td style={{ padding: "16px", color: "#d1d5db" }}>{formatDate(payment.date)}</td>
+                      <td style={{ padding: "16px", color: "#d1d5db" }}>{payment.description || `${currentPlanLabel} Plan Monthly`}</td>
+                      <td style={{ padding: "16px", color: "#fff", fontWeight: 600 }}>{formatAmount(payment.amount)}</td>
+                      <td style={{ padding: "16px" }}>
+                        <StatusPill status={payment.status} />
+                      </td>
+                      <td style={{ padding: "16px", color: "#6b7280", fontFamily: "monospace", fontSize: 12 }}>
+                        {payment.payment_id || "N/A"}
+                      </td>
+                      <td style={{ padding: "16px" }}>
+                        <button style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "background 0.15s" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
+                        >
+                          <Download size={14} color="#9ca3af" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ textAlign: "center", marginTop: 24 }}>
+              <a href="#" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#8b5cf6", textDecoration: "none", fontWeight: 500 }}>
+                View all invoices <ArrowRight size={14} />
+              </a>
+            </div>
+          </>
+        )}
+      </div>
     </section>
   )
 }
 
-function UsageStat({ label, value, tone }) {
+/* ─── Sub-components ─── */
+
+function UsageBar({ label, value, percent, barColor }) {
   return (
-    <div className="rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">{label}</p>
-      <p className={`mt-3 text-2xl font-semibold ${tone}`}>{value}</p>
-    </div>
-  )
-}
-
-function PaymentTable({ payments, loading }) {
-  if (loading) {
-    return <div className="mt-6 h-64 animate-pulse rounded-[1.5rem] bg-white/[0.05]" />
-  }
-
-  if (!payments.length) {
-    return (
-      <div className="mt-6 rounded-[1.5rem] border border-dashed border-white/10 bg-white/[0.02] px-6 py-12 text-center text-sm text-zinc-400">
-        No payment history available yet.
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: "#d1d5db", fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 13, color: "#9ca3af" }}>{value}</span>
       </div>
-    )
-  }
-
-  return (
-    <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-white/10">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-white/10 text-sm">
-          <thead className="bg-white/[0.03] text-left text-zinc-400">
-            <tr>
-              <th className="px-4 py-4 font-medium">Date</th>
-              <th className="px-4 py-4 font-medium">Amount</th>
-              <th className="px-4 py-4 font-medium">Status</th>
-              <th className="px-4 py-4 font-medium">Payment ID</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5 bg-[rgba(9,9,11,0.7)]">
-            {payments.map((payment) => (
-              <tr key={payment.id || payment.payment_id || `${payment.amount}-${payment.date || "na"}`}>
-                <td className="px-4 py-4 text-zinc-300">{formatDate(payment.date)}</td>
-                <td className="px-4 py-4 font-medium text-white">{formatAmount(payment.amount)}</td>
-                <td className="px-4 py-4">
-                  <StatusPill status={payment.status} />
-                </td>
-                <td className="px-4 py-4 font-mono text-xs text-zinc-400">
-                  {payment.payment_id || "N/A"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ height: 7, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+        <div style={{ height: "100%", borderRadius: 99, width: `${Math.max(percent, 0)}%`, background: barColor, transition: "width 0.6s ease" }} />
       </div>
     </div>
   )
@@ -278,23 +390,100 @@ function PaymentTable({ payments, loading }) {
 
 function StatusPill({ status }) {
   const normalized = String(status || "pending").toUpperCase()
-  const tone =
+  const style =
     normalized === "PAID" || normalized === "ACTIVE"
-      ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+      ? { background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }
       : normalized === "FAILED"
-        ? "border-rose-400/20 bg-rose-500/10 text-rose-200"
-        : "border-amber-400/20 bg-amber-500/10 text-amber-200"
+      ? { background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }
+      : { background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", color: "#fbbf24" }
 
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${tone}`}>
-      {normalized}
+    <span style={{ ...style, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, display: "inline-block" }}>
+      {normalized === "PAID" ? "Paid" : normalized === "ACTIVE" ? "Active" : normalized}
     </span>
   )
 }
 
+/* ─── Helpers ─── */
+const cardStyle = {
+  background: "#070012",
+  border: "0.43px solid rgba(157, 157, 157, 0.3)",
+  borderRadius: 20, 
+  padding: "24px",
+}
+
+const skeletonStyle = (w, h) => ({
+  width: w,
+  height: h,
+  borderRadius: 10,
+  background: "rgba(255,255,255,0.06)",
+  animation: "pulse 1.5s ease-in-out infinite",
+})
+
+function buildActivityItems(billing) {
+  const items = []
+
+  if (billing?.subscription?.created_at || billing?.activated_at) {
+    items.push({
+      icon: <ShieldCheck size={16} color="#4ade80" />,
+      bg: "rgba(34,197,94,0.12)",
+      title: "Plan Activated",
+      desc: `${titleCase(billing?.current_plan || "Pro")} plan subscription started`,
+      date: formatDate(billing?.subscription?.created_at || billing?.activated_at),
+    })
+  }
+
+  if (billing?.email_updated_at || billing?.user?.updated_at) {
+    items.push({
+      icon: <Mail size={16} color="#818cf8" />,
+      bg: "rgba(129,140,248,0.12)",
+      title: "Email Updated",
+      desc: `${titleCase(billing?.current_plan || "Pro")} plan subscription started`,
+      date: formatDate(billing?.email_updated_at || billing?.user?.updated_at),
+    })
+  }
+
+  if (billing?.latest_payment?.created_at || (Array.isArray(billing?.payments) && billing.payments[0]?.date)) {
+    items.push({
+      icon: <FileText size={16} color="#f59e0b" />,
+      bg: "rgba(245,158,11,0.12)",
+      title: "Invoice Generated",
+      desc: "Monthly Invoice Created",
+      date: formatDate(billing?.latest_payment?.created_at || billing?.payments?.[0]?.date),
+    })
+  }
+
+  if (items.length === 0) {
+    items.push(
+      {
+        icon: <ShieldCheck size={16} color="#4ade80" />,
+        bg: "rgba(34,197,94,0.12)",
+        title: "Plan Activated",
+        desc: "Pro plan subscription started",
+        date: "—",
+      },
+      {
+        icon: <Mail size={16} color="#818cf8" />,
+        bg: "rgba(129,140,248,0.12)",
+        title: "Email Updated",
+        desc: "Pro plan subscription started",
+        date: "—",
+      },
+      {
+        icon: <FileText size={16} color="#f59e0b" />,
+        bg: "rgba(245,158,11,0.12)",
+        title: "Invoice Generated",
+        desc: "Monthly Invoice Created",
+        date: "—",
+      }
+    )
+  }
+
+  return items
+}
+
 function formatDate(value) {
   if (!value) return "N/A"
-
   try {
     return new Date(value).toLocaleDateString("en-IN", {
       day: "2-digit",
@@ -308,7 +497,6 @@ function formatDate(value) {
 
 function formatAmount(value) {
   const amount = Number(value || 0)
-
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",

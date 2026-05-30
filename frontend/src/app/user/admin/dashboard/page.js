@@ -754,7 +754,7 @@ function RecentActivityCard({ activities = [] }) {
 
   return (
     <section
-      className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative"
+      className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative h-full"
       onMouseLeave={handleMouseLeave}
     >
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10 flex-shrink-0">
@@ -763,19 +763,25 @@ function RecentActivityCard({ activities = [] }) {
           View all
         </button>
       </div>
-      <div className="px-6 pb-3 pt-1 flex flex-col justify-between flex-1 recent-activity-list">
-        {activities.map((a, i) => (
-          <div
-            key={i}
-            ref={(el) => (itemRefs.current[i] = el)}
-            onMouseEnter={() => handleMouseEnter(i)}
-            className="activity-item flex items-center gap-3 py-[10px] border-b border-white/[0.04] last:border-0 cursor-default group"
-          >
-            <span className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0" />
-            <span className="flex-1 text-sm text-white/70">{a.label}</span>
-            <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
+      <div className="px-6 pb-3 pt-1 flex flex-col justify-start flex-1 recent-activity-list overflow-y-auto custom-scrollbar">
+        {activities.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-8 text-sm">
+            No recent activity
           </div>
-        ))}
+        ) : (
+          activities.map((a, i) => (
+            <div
+              key={i}
+              ref={(el) => (itemRefs.current[i] = el)}
+              onMouseEnter={() => handleMouseEnter(i)}
+              className="activity-item flex items-center gap-3 py-[10px] border-b border-white/[0.04] last:border-0 cursor-default group"
+            >
+              <span className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0" />
+              <span className="flex-1 text-sm text-white/70">{a.label}</span>
+              <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
+            </div>
+          ))
+        )}
       </div>
       <AnimatePresence>
         {hoveredIdx !== null && activity && (

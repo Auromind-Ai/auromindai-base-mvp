@@ -31,5 +31,19 @@ const nextConfig = {
             },
         ];
     },
+    async redirects() {
+        return [
+            {
+                source: '/user/admin/integrations',
+                destination: '/user/admin/channels',
+                permanent: true,
+            },
+            {
+                source: '/user/admin/integrations/:path*',
+                destination: '/user/admin/channels',
+                permanent: true,
+            },
+        ];
+    },
 };
 export default nextConfig;

@@ -379,31 +379,7 @@ async def list_leads_with_scores(
 # 6. Lead detail with conversation log
 
 
-@router.get(
-    "/leads/{lead_id}/detail",
-    response_model=LeadDetailResponse,
-    summary="Lead detail with conversation log",
-    description="Full lead detail including score breakdown and last 50 messages.",
-)
-async def lead_detail(
-    lead_id: UUID,
-    workspace_id: str | None = None,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    wid = verify_workspace_access(current_user, db, workspace_id)
-
-    lead = (
-        db.query(Lead)
-        .filter(Lead.id == lead_id, Lead.workspace_id == wid)
-        .first()
-    )
-    if not lead:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lead not found in this workspace",
-        )
-
+def _build_lead_detail_response(lead: Lead, db: Session) -> LeadDetailResponse:
     # Score breakdown
     days = lead_scoring_service._days_inactive(lead)
     responses = lead_scoring_service._template_responses(lead.id, db)
@@ -487,7 +463,69 @@ async def lead_detail(
         converted_at=lead.converted_at,
         converted_product=lead.converted_product,
         conversion_notes=lead.conversion_notes,
+        is_favorite=lead.is_favorite,
     )
+
+
+@router.get(
+    "/leads/{lead_id}/detail",
+    response_model=LeadDetailResponse,
+    summary="Lead detail with conversation log",
+    description="Full lead detail including score breakdown and last 50 messages.",
+)
+async def lead_detail(
+    lead_id: UUID,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = verify_workspace_access(current_user, db, workspace_id)
+
+    lead = (
+        db.query(Lead)
+        .filter(Lead.id == lead_id, Lead.workspace_id == wid)
+        .first()
+    )
+    if not lead:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lead not found in this workspace",
+        )
+
+    return _build_lead_detail_response(lead, db)
+
+
+@router.post(
+    "/leads/{lead_id}/favorite",
+    response_model=LeadDetailResponse,
+    summary="Toggle lead favorite status",
+    description="Toggle favorite status for a lead and return updated details.",
+)
+async def toggle_lead_favorite(
+    lead_id: UUID,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = verify_workspace_access(current_user, db, workspace_id)
+
+    lead = (
+        db.query(Lead)
+        .filter(Lead.id == lead_id, Lead.workspace_id == wid)
+        .first()
+    )
+    if not lead:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lead not found in this workspace",
+        )
+
+    lead.is_favorite = not getattr(lead, "is_favorite", False)
+    db.commit()
+    db.refresh(lead)
+
+    return _build_lead_detail_response(lead, db)
+
 
 
 @router.post(
