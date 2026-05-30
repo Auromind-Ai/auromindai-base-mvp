@@ -1,9 +1,9 @@
 'use client';
-
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Sparkles,
     Plus,
+    ArrowUp,
     Send,
     RotateCcw,
     ThumbsUp,
@@ -35,30 +35,28 @@ import {
     BarChart2,
     Bell,
     MessageSquare,
+    // ── NEW: scroll-to-bottom arrow ──
     ChevronDown as ArrowDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '@/context/SettingsContext';
-import { getWorkspace } from '@/lib/auth';
+import { getWorkspace, getToken } from '@/lib/auth';
 import ChatSidebar from '@/components/ChatSidebar';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
-import { Poppins } from 'next/font/google'
-
+import { Poppins } from 'next/font/google';
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
 })
 
-// ── Typewriter (unchanged) ──────────────────────────────────────────────────
+// ── Typewriter (unchanged) ────
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     const [displayedText, setDisplayedText] = useState('');
     const textRef = useRef(text);
     const indexRef = useRef(0);
-
     useEffect(() => { textRef.current = text; }, [text]);
-
     useEffect(() => {
         const intervalId = setInterval(() => {
             if (indexRef.current < textRef.current.length) {
@@ -73,7 +71,6 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
         }, speed);
         return () => clearInterval(intervalId);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
     return (
         <span>
             {displayedText}
@@ -82,14 +79,13 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     );
 };
 
-// ── Helpers (unchanged) ─────────────────────────────────────────────────────
+// ── Helpers (unchanged) ───────
 function getGreeting() {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
     if (hour < 18) return 'Good Afternoon';
     return 'Good Evening';
 }
-
 const GET_STARTED_CARDS = [
     {
         icon: BrainCircuit,
@@ -124,7 +120,6 @@ const GET_STARTED_CARDS = [
         borderColor: "rgba(34,67,130,0.18)",
     }
 ];
-
 const MODELS = [
     { id: "auto",         name: "✨ Auto",             plan: "free" },
     { id: "groq",         name: "⚡ Fast (Groq)",       plan: "free" },
@@ -132,11 +127,15 @@ const MODELS = [
     { id: "opus",         name: "🧪 Deep (Opus)",       plan: "pro"  },
     { id: "gemini_flash", name: "💡 Flash (Gemini)",    plan: "pro"  },
 ];
-
+const SOURCE_OPTIONS = [
+    { value: "internal_web", label: "All Sources", icon: Globe },
+    { value: "vector_db", label: "Documents", icon: Paperclip },
+    { value: "direct_storage", label: "Email", icon: Inbox },
+    { value: "web_search", label: "Web Search", icon: Search },
+];
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function AuromindAIPage() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -149,42 +148,37 @@ export default function AuromindAIPage() {
     const messagesEndRef = useRef(null);
     const [isPlusOpen, setIsPlusOpen] = useState(false);
     const plusRef = useRef(null);
-
     // ── FIX 1: isInitializing starts false; set true only while fetching ──
     const [isInitializing, setIsInitializing] = useState(false);
-
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [sessionsLoaded, setSessionsLoaded] = useState(false);
     const abortControllerRef = useRef(null);
     const lastTypedTextRef = useRef('');
-
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
-
     const [chatMode, setChatMode] = useState("auto");
     const [source, setSource] = useState("internal_web");
-
+    const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false);
     const [attachedFile, setAttachedFile] = useState(null);
     const [lastUploadedId, setLastUploadedId] = useState(null);
-
     // ── NEW: Scroll-to-bottom state ──────────────────────────────────────────
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
-
     const workspace = getWorkspace();
     const workspaceId = workspace?.id;
-
     const router = useRouter();
     const [userPlan, setUserPlan] = useState("free");
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
     const getModelName = () => {
         const model = MODELS.find(m => m.id === selectedModel);
         return model ? model.name : "✨ Auto";
     };
-
+    const getSourceLabel = () => {
+        const src = SOURCE_OPTIONS.find(s => s.value === source);
+        return src ? src.label : "All Sources";
+    };
     const handleModelSelect = (model) => {
         const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
         if (model.plan === "pro" && !hasPremiumAccess) {
@@ -195,7 +189,6 @@ export default function AuromindAIPage() {
         setSelectedModel(model.id);
         setIsModelDropdownOpen(false);
     };
-
     // ── loadSessions: don't auto-restore last session (always show hero) ────
     const loadSessions = useCallback(async () => {
         try {
@@ -213,7 +206,6 @@ export default function AuromindAIPage() {
             setSessionsLoaded(true);
         }
     }, [workspaceId]);
-
     useEffect(() => {
         setTimeout(() => setMounted(true), 0);
         sessionStorage.setItem("ai_active", "true");
@@ -223,7 +215,6 @@ export default function AuromindAIPage() {
         }
         return () => { sessionStorage.removeItem("ai_active"); };
     }, []);
-
     useEffect(() => {
         function handleClickOutside(event) {
             if (plusRef.current && !plusRef.current.contains(event.target)) setIsPlusOpen(false);
@@ -231,7 +222,6 @@ export default function AuromindAIPage() {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
-
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (!e.target.closest(".model-dropdown")) setIsModelDropdownOpen(false);
@@ -239,11 +229,16 @@ export default function AuromindAIPage() {
         document.addEventListener("click", handleClickOutside);
         return () => document.removeEventListener("click", handleClickOutside);
     }, []);
-
+    useEffect(() => {
+        const handleSourceClickOutside = (e) => {
+            if (!e.target.closest(".source-dropdown")) setIsSourceDropdownOpen(false);
+        };
+        document.addEventListener("click", handleSourceClickOutside);
+        return () => document.removeEventListener("click", handleSourceClickOutside);
+    }, []);
     useEffect(() => {
         if (workspaceId && mounted) loadSessions();
     }, [workspaceId, mounted, loadSessions]);
-
     useEffect(() => {
         if (workspaceId) {
             const checkPlan = async () => {
@@ -257,7 +252,6 @@ export default function AuromindAIPage() {
             checkPlan();
         }
     }, [workspaceId]);
-
     useEffect(() => {
         const currentModelObj = MODELS.find(m => m.id === selectedModel);
         const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
@@ -265,7 +259,6 @@ export default function AuromindAIPage() {
             setSelectedModel("auto");
         }
     }, [userPlan, selectedModel, setSelectedModel]);
-
     // FIX 3: currentSessionId effect — only fetch if we deliberately selected one
     useEffect(() => {
         if (!currentSessionId) return;
@@ -283,7 +276,6 @@ export default function AuromindAIPage() {
         };
         fetchMessages();
     }, [currentSessionId]);
-
     const handleSelectSession = async (sessionId) => {
         setCurrentSessionId(sessionId);
         sessionStorage.setItem("last_session_id", sessionId);
@@ -299,16 +291,14 @@ export default function AuromindAIPage() {
             setIsInitializing(false);
         }
     };
-
     const handleCreateSession = async () => {
         setCurrentSessionId(null);
-        sessionStorage.removeItem("last_session_id"); // ← இந்த line மட்டும் add பண்ணு
+        sessionStorage.removeItem("last_session_id");
         setMessages([]);
         setInputValue('');
         setAttachedFile(null);
         setIsSidebarOpen(false);
     };
-
     const handleDeleteSession = async (sessionId) => {
         try {
             await api.deleteChatSession(sessionId);
@@ -319,14 +309,12 @@ export default function AuromindAIPage() {
             }
         } catch (err) { console.error("Failed to delete session:", err); }
     };
-
     const handleUpdateSession = async (sessionId, title) => {
         try {
             await api.updateChatSession(sessionId, title);
             setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title } : s));
         } catch (err) { console.error("Failed to update session:", err); }
     };
-
     // ── FIX 6: Scroll-to-bottom — only auto-scroll when already near bottom ──
     const scrollToBottom = useCallback((force = false) => {
         const container = scrollContainerRef.current;
@@ -336,12 +324,10 @@ export default function AuromindAIPage() {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, []);
-
     // Auto-scroll on new messages (only if near bottom)
     useEffect(() => {
         scrollToBottom(false);
     }, [messages, scrollToBottom]);
-
     // ── NEW: Scroll detection for floating button ────────────────────────────
     useEffect(() => {
         const container = scrollContainerRef.current;
@@ -353,14 +339,12 @@ export default function AuromindAIPage() {
         container.addEventListener('scroll', handleScroll, { passive: true });
         return () => container.removeEventListener('scroll', handleScroll);
     }, [messages.length]); // re-attach when chat view appears
-
     const handleStop = () => {
         if (abortControllerRef.current) abortControllerRef.current.abort();
         setIsLoading(false);
         setMessages(prev => prev.map(msg => msg.isStreaming ? { ...msg, content: lastTypedTextRef.current, isStreaming: false } : msg));
         lastTypedTextRef.current = '';
     };
-
     const handleExecute = async () => {
         if ((!inputValue.trim() && !attachedFile) || isLoading) return;
         const userMsg = inputValue;
@@ -370,7 +354,6 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         setMessages(prev => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
         abortControllerRef.current = new AbortController();
-
         try {
             let activeSessionId = currentSessionId;
             if (!activeSessionId) {
@@ -389,22 +372,22 @@ export default function AuromindAIPage() {
                     handleUpdateSession(activeSessionId, newTitle);
                 }
             }
-
-            const res = await fetch(`${API_URL}/api/chat`, {
+            const token = getToken();
+            const res = await fetch(`${API_URL}/chat/stream`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
                 body: JSON.stringify({ message: userMsg, model: selectedModel, workspace_id: workspaceId, use_rag: true, document_id: lastUploadedId, chat_mode: chatMode, source: source, session_id: activeSessionId }),
                 signal: abortControllerRef.current.signal
             });
-
             setAttachedFile(null);
             setLastUploadedId(null);
-
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
             setIsLoading(false);
-
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -433,7 +416,6 @@ export default function AuromindAIPage() {
                     }
                 }
             }
-
             if (!fullText.trim()) {
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "No response received. Please try again.", isError: true, isStreaming: false } : msg));
             }
@@ -451,11 +433,9 @@ export default function AuromindAIPage() {
             setTimeout(() => scrollToBottom(true), 80);
         }
     };
-
     const handleStreamingComplete = (index) => {
         setMessages(prev => prev.map((msg, i) => i === index ? { ...msg, isStreaming: false } : msg));
     };
-
     const handleCopy = async (text, index) => {
         try {
             if (navigator.clipboard && window.isSecureContext) {
@@ -473,7 +453,6 @@ export default function AuromindAIPage() {
             setTimeout(() => setCopiedIndex(null), 2000);
         } catch (err) { console.error('Failed to copy text: ', err); }
     };
-
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -501,9 +480,7 @@ export default function AuromindAIPage() {
             setIsUploading(false);
         }
     };
-
     const handleEdit = (text, index) => { setEditingIndex(index); setEditValue(text); };
-
     const handleSaveEdit = async () => {
         if (!editValue.trim() || editingIndex === null) return;
         const newContent = editValue;
@@ -517,9 +494,13 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
         try {
-            const res = await fetch(`${API_URL}/api/chat`, {
+            const editToken = getToken();
+            const res = await fetch(`${API_URL}/chat/stream`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(editToken ? { 'Authorization': `Bearer ${editToken}` } : {})
+                },
                 body: JSON.stringify({ message: newContent, model: selectedModel, workspace_id: workspaceId }),
                 signal: abortControllerRef.current.signal
             });
@@ -557,9 +538,7 @@ export default function AuromindAIPage() {
             abortControllerRef.current = null;
         }
     };
-
     const handleCancelEdit = () => { setEditingIndex(null); setEditValue(''); };
-
     const handleRegenerate = async (index) => {
         if (index === 0) return;
         const userMsg = messages[index - 1].content;
@@ -569,9 +548,13 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
         try {
-            const res = await fetch(`${API_URL}/api/chat`, {
+            const regenToken = getToken();
+            const res = await fetch(`${API_URL}/chat/stream`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(regenToken ? { 'Authorization': `Bearer ${regenToken}` } : {})
+                },
                 body: JSON.stringify({ message: userMsg, model: selectedModel, workspace_id: workspaceId }),
                 signal: abortControllerRef.current.signal
             });
@@ -609,11 +592,9 @@ export default function AuromindAIPage() {
             abortControllerRef.current = null;
         }
     };
-
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleExecute(); }
     };
-
     function formatAssistantMessage(text) {
         if (!text) return text;
         if (/\n?\d+\.\s/.test(text)) return text;
@@ -621,13 +602,11 @@ export default function AuromindAIPage() {
         if (sentences.length > 2) return sentences.map((s, i) => `${i + 1}. ${s.trim()}`).join("\n\n");
         return text;
     }
-
     const greeting = getGreeting();
     const userName = workspace?.user_name || workspace?.name || 'Diana Rose';
-
     const isChatStarted = messages.length > 0 || isInitializing;
 
-    // ── RENDER ────────────────────────────────────────────────────────────────
+    // ── RENDER ──────────────────
     return (
         <div className={`${poppins.className} flex bg-[#0a0a0f] h-screen text-white overflow-hidden`}>
             <ChatSidebar
@@ -640,21 +619,12 @@ export default function AuromindAIPage() {
                 isOpen={isSidebarOpen}
                 toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
             />
-
             {/* Main content */}
             <div className="flex-1 flex flex-col relative overflow-hidden">
                 <div className="flex flex-col flex-1 bg-transparent relative overflow-hidden">
                     <style jsx global>{`
-                        .no-scrollbar::-webkit-scrollbar { width: 4px; }
-                        .no-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                        .no-scrollbar::-webkit-scrollbar-thumb { 
-                        background: rgba(139, 92, 246, 0.35); 
-                        border-radius: 10px; 
-                        }
-                        .no-scrollbar::-webkit-scrollbar-thumb:hover { 
-                        background: rgba(139, 92, 246, 0.6); 
-                        }
-                        .no-scrollbar { -ms-overflow-style: auto; scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.35) transparent; }
+                        .no-scrollbar::-webkit-scrollbar { display: none; }
+                        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                         .custom-scrollbar::-webkit-scrollbar-thumb { background: #2d2d3a; border-radius: 10px; }
@@ -664,7 +634,6 @@ export default function AuromindAIPage() {
                             border-color: rgba(139, 92, 246, 0.4) !important;
                         }
                     `}</style>
-
                     <main className="flex-1 flex flex-col overflow-hidden">
                         {/* ── Scrollable area — shared ref for scroll detection ── */}
                         <div
@@ -672,7 +641,6 @@ export default function AuromindAIPage() {
                             className="flex-1 overflow-y-auto custom-scrollbar no-scrollbar"
                         >
                             <AnimatePresence mode="wait">
-
                                 {/* ── HERO SCREEN (messages === 0 and not initializing) ── */}
                                 {!isChatStarted ? (
                                     <motion.div
@@ -693,7 +661,6 @@ export default function AuromindAIPage() {
                                                 <History size={16} />
                                             </button>
                                         )}
-
                                         {/* Greeting */}
                                         <motion.h1
                                             initial={{ opacity: 0, y: 10 }}
@@ -712,7 +679,6 @@ export default function AuromindAIPage() {
                                                 {userName}
                                             </span>
                                         </motion.h1>
-
                                         <motion.p
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
@@ -721,17 +687,10 @@ export default function AuromindAIPage() {
                                         >
                                             Let's get things done. What would you like to accomplish today?
                                         </motion.p>
-
                                         {/* Prompt Input */}
                                         <motion.div layoutId="chat-input-container" className="w-full max-w-4xl">
                                             <div className="ai-input-box bg-[#070012] rounded-2xl border border-purple-300/30 shadow-2xl transition-all duration-300 overflow-hidden">
-                                                <div className="px-5 pt-4">
-                                                    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-600/20 text-[12px] font-medium text-purple-300 border border-purple-500/25 hover:bg-purple-600/30 transition-all">
-                                                        <Plus size={13} />
-                                                        <span>Add Context</span>
-                                                    </button>
-                                                </div>
-                                                <div className="px-5 py-3">
+                                                <div className="px-5 py-4">
                                                     {attachedFile && (
                                                         <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-xl w-fit border border-white/10">
                                                             <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-[10px]">
@@ -764,13 +723,34 @@ export default function AuromindAIPage() {
                                                             <Plus size={14} />
                                                             <span>Add</span>
                                                         </button>
-                                                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] text-gray-400 hover:bg-white/5 border border-white/10 hover:border-white/20 transition-all">
-                                                            <Globe size={14} />
-                                                            <span>All sources</span>
-                                                            <ChevronDown size={12} />
-                                                        </button>
+                                                        <div className="relative source-dropdown">
+                                                            <button
+                                                                onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
+                                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] hover:bg-white/5 border hover:border-white/20 transition-all ${source !== 'internal_web' ? 'text-purple-300 border-purple-500/25 bg-purple-600/10' : 'text-gray-400 border-white/10'}`}
+                                                            >
+                                                                <Globe size={14} />
+                                                                <span>{getSourceLabel()}</span>
+                                                                <ChevronDown size={12} className={`transition-transform duration-200 ${isSourceDropdownOpen ? 'rotate-180' : ''}`} />
+                                                            </button>
+                                                            {isSourceDropdownOpen && (
+                                                                <div className="absolute bottom-10 left-0 bg-[#12121c] border border-white/10 rounded-xl shadow-xl w-48 p-2 z-50">
+                                                                    {SOURCE_OPTIONS.map((opt) => (
+                                                                        <button
+                                                                            key={opt.value}
+                                                                            onClick={() => { setSource(opt.value); setIsSourceDropdownOpen(false); }}
+                                                                            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left"
+                                                                        >
+                                                                            <opt.icon size={14} className="text-gray-400" />
+                                                                            <span>{opt.label}</span>
+                                                                            {source === opt.value && (
+                                                                                <span className="ml-auto text-purple-400 text-xs">✓</span>
+                                                                            )}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                
                                                     <button
                                                         onClick={handleExecute}
                                                         disabled={!inputValue.trim() || isLoading}
@@ -781,10 +761,9 @@ export default function AuromindAIPage() {
                                                 </div>
                                             </div>
                                         </motion.div>
-
                                         {/* Get started cards */}
                                         <div className="w-full max-w-4xl mt-10">
-                                            <p className="text-[16px] font-medium text-white/70 mb-4">Get started with</p>
+                                            <p className="text-[13px] font-medium text-gray-400 mb-4">Get started with</p>
                                             <div className="grid grid-cols-2 md:flex md:flex-row md:gap-5 gap-5">
                                                 {GET_STARTED_CARDS.map((card, i) => (
                                                     <motion.button
@@ -816,7 +795,6 @@ export default function AuromindAIPage() {
                                             </div>
                                         </div>
                                     </motion.div>
-
                                 ) : (
                                     /* ── CHAT SCREEN ── */
                                     <motion.div
@@ -825,21 +803,19 @@ export default function AuromindAIPage() {
                                         animate={{ opacity: 1 }}
                                         className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 pt-4 pb-36"
                                     >
-                                    
                                         {/* History icon — top of chat view */}
-                                            {!isSidebarOpen && (
-                                                <div className="sticky top-0 z-40 flex justify-start mb-4 pt-1">
-                                                    <button
-                                                        onClick={() => setIsSidebarOpen(true)}
-                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/5 border border-white/[0.06] hover:border-white/10 text-gray-600 hover:text-gray-300 transition-all text-[12px]"
-                                                        title="Chat History"
-                                                    >
-                                                        <History size={14} />
-                                                        <span>History</span>
-                                                    </button>
-                                                </div>
-                                            )}
-
+                                        {!isSidebarOpen && (
+                                            <div className="sticky top-0 z-40 flex justify-start mb-4 pt-1">
+                                                <button
+                                                    onClick={() => setIsSidebarOpen(true)}
+                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/5 border border-white/[0.06] hover:border-white/10 text-gray-600 hover:text-gray-300 transition-all text-[12px]"
+                                                    title="Chat History"
+                                                >
+                                                    <History size={14} />
+                                                    <span>History</span>
+                                                </button>
+                                            </div>
+                                        )}
                                         {/* Initializing spinner (session load) */}
                                         {isInitializing ? (
                                             <div className="flex items-center justify-center py-20 text-gray-500 text-sm gap-3">
@@ -903,7 +879,7 @@ export default function AuromindAIPage() {
                                                                             <span className="text-sm font-medium tracking-tight">Gathering insights...</span>
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="assistant-message-content whitespace-pre-line">
+                                                                        <div className="assistant-message-content whitespace-pre-line font-medium leading-[1.8] text-white/95">
                                                                             {formatAssistantMessage(msg.content)}
                                                                         </div>
                                                                     )}
@@ -938,11 +914,9 @@ export default function AuromindAIPage() {
                             </AnimatePresence>
                         </div>
                     </main>
-
                     {/* ── Floating bottom input (chat mode only) ── */}
                     {isChatStarted && (
                         <div className="absolute bottom-0 w-full z-30">
-                            {/* ── NEW: Scroll-to-bottom floating button ── */}
                             <AnimatePresence>
                                 {showScrollBottom && (
                                     <motion.div
@@ -962,24 +936,22 @@ export default function AuromindAIPage() {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-
                             <div className="flex justify-center pb-8 pt-4 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent">
                                 <motion.div
                                     initial={{ y: 20, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
                                     className="w-full max-w-3xl px-4 pointer-events-auto"
                                 >
-                                    <div className="ai-input-box bg-[#12121c] rounded-2xl border border-purple-300/30 shadow-2xl transition-all duration-300">
-                                        <div ref={plusRef} className="relative flex items-center px-4 py-3">
+                                    <div className="ai-input-box bg-[#12121c] rounded-2xl border border-white/10 shadow-2xl transition-all duration-300">
+                                        <div ref={plusRef} className="relative flex items-center px-4 py-3 gap-2">
                                             <button
                                                 onClick={() => setIsPlusOpen(!isPlusOpen)}
-                                                className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+                                                className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors flex-shrink-0"
                                             >
                                                 <Plus size={18} />
                                             </button>
-
                                             {/* Model Selector */}
-                                            <div className="relative model-dropdown">
+                                            <div className="relative model-dropdown flex-shrink-0">
                                                 <button
                                                     onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                                     className="px-2 py-1 rounded-md text-xs bg-white/5 text-gray-300 hover:bg-white/10 transition-colors"
@@ -994,7 +966,7 @@ export default function AuromindAIPage() {
                                                                 <button
                                                                     key={model.id}
                                                                     onClick={() => handleModelSelect(model)}
-                                                                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors"
+                                                                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left font-medium"
                                                                 >
                                                                     <span>{model.name}</span>
                                                                     {model.plan === "pro" && !hasPremiumAccess && (
@@ -1009,21 +981,51 @@ export default function AuromindAIPage() {
                                                     </div>
                                                 )}
                                             </div>
-
+                                            {/* Source Selector */}
+                                            <div className="relative source-dropdown flex-shrink-0">
+                                                <button
+                                                    onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
+                                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all border ${
+                                                        source !== 'internal_web'
+                                                            ? 'text-purple-300 border-purple-500/25 bg-purple-600/10'
+                                                            : 'bg-white/5 text-gray-300 border-transparent hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    {(() => {
+                                                        const SelectedSourceIcon = SOURCE_OPTIONS.find(s => s.value === source)?.icon || Globe;
+                                                        return <SelectedSourceIcon size={12} className={source !== 'internal_web' ? 'text-purple-300' : 'text-gray-400'} />;
+                                                    })()}
+                                                    <span>{getSourceLabel()}</span>
+                                                    <ChevronDown size={10} className={`transition-transform duration-200 ${isSourceDropdownOpen ? 'rotate-180' : ''}`} />
+                                                </button>
+                                                {isSourceDropdownOpen && (
+                                                    <div className="absolute bottom-10 left-0 bg-[#12121c] border border-white/10 rounded-xl shadow-xl w-48 p-2 z-50">
+                                                        {SOURCE_OPTIONS.map((opt) => (
+                                                            <button
+                                                                key={opt.value}
+                                                                onClick={() => {
+                                                                    setSource(opt.value);
+                                                                    setIsSourceDropdownOpen(false);
+                                                                }}
+                                                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left font-medium"
+                                                             >
+                                                                <opt.icon size={14} className="text-gray-400" />
+                                                                <span>{opt.label}</span>
+                                                                {source === opt.value && (
+                                                                    <span className="ml-auto text-purple-400 text-xs">✓</span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                             {isPlusOpen && (
                                                 <div className="absolute bottom-14 left-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
-                                                    <button onClick={() => { fileInputRef.current?.click(); setIsPlusOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg">
+                                                    <button onClick={() => { fileInputRef.current?.click(); setIsPlusOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg font-medium">
                                                         <Paperclip size={16} />Attach File
-                                                    </button>
-                                                    <button onClick={() => setIsPlusOpen(false)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg">
-                                                        <Globe size={16} />Search
-                                                    </button>
-                                                    <button onClick={() => setIsPlusOpen(false)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg">
-                                                        <Sparkles size={16} />{selectedModel === 'auto' ? 'Auto' : 'Pro'}
                                                     </button>
                                                 </div>
                                             )}
-
                                             <textarea
                                                 value={inputValue}
                                                 onChange={(e) => setInputValue(e.target.value)}
@@ -1032,13 +1034,12 @@ export default function AuromindAIPage() {
                                                 className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
                                                 rows={1}
                                             />
-
                                             <button
                                                 onClick={isLoading ? handleStop : handleExecute}
                                                 disabled={!inputValue.trim() && !isLoading}
-                                                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${inputValue.trim() || isLoading ? 'bg-purple-700 text-white shadow-lg shadow-purple-700/40 hover:bg-purple-600 hover:scale-110 hover:shadow-purple-500/50 hover:rotate-12' : 'bg-purple-900/40 text-purple-700'}`}
+                                                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${inputValue.trim() || isLoading ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 hover:bg-purple-500' : 'bg-white/5 text-gray-700'}`}
                                             >
-                                                {isLoading ? <Square size={14} fill="currentColor" /> : <Send size={16} />}
+                                                {isLoading ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
                                             </button>
                                         </div>
                                     </div>
@@ -1048,7 +1049,6 @@ export default function AuromindAIPage() {
                     )}
                 </div>
             </div>
-
             {/* Hidden file input */}
             <input
                 type="file"
@@ -1057,8 +1057,7 @@ export default function AuromindAIPage() {
                 accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.docx,.doc,.txt,.md"
                 onChange={handleFileUpload}
             />
-
-            {/* Upgrade Modal (unchanged) */}
+            {/* Upgrade Modal */}
             <AnimatePresence>
                 {showUpgradeModal && (
                     <motion.div
