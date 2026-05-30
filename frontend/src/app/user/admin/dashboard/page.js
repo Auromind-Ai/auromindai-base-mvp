@@ -63,9 +63,7 @@ const SecretLoginBanner = () => {
     );
 };
 
-
-
-// ─ Magic Bento helpers ─
+// Magic Bento helpers
 function parseRgb(hex) {
   const s = (hex || '#8400ff').trim();
   if (s[0] === '#') {
@@ -133,7 +131,7 @@ function BentoMetricCard({ metric, i, rgb }) {
       onPointerMove={onMove}
       onPointerLeave={onLeave}
       onClick={onClick}
-      className="relative group rounded-2xl p-5 border border-white/10 bg-[#070012] hover:border-white/10 transition-all cursor-default overflow-hidden bento-card"
+      className="relative group rounded-2xl p-5 border border-purple-300/30 bg-[#070012] hover:border-white/10 transition-all cursor-default overflow-hidden bento-card"
       style={{
         '--r': rgb.r, '--g': rgb.g, '--b': rgb.b,
         '--gx': '50%', '--gy': '50%', '--gi': 0,
@@ -158,7 +156,7 @@ function BentoMetricCard({ metric, i, rgb }) {
       </div>
       <div className="relative z-10 h-full flex flex-col justify-between">
         <div>
-          <h3 className="text-[15px] font-medium text-white/85 tracking-[-0.01em]">
+          <h3 className="text-[18px] font-medium text-white/85 tracking-[-0.01em]">
             {metric.label}
           </h3>
         </div>
@@ -232,7 +230,7 @@ function BentoMetricsGrid({ metrics }) {
           100% { transform: scale(1); opacity: 0; }
         }
 
-        /* ─ CHART STYLES ─ */
+        /* ─── CHART STYLES ─── */
         .chart-line-2026 { fill: none; stroke: #39ff7e; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
         .chart-line-2025 { fill: none; stroke: #b794f4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -255,8 +253,7 @@ function BentoMetricsGrid({ metrics }) {
           animation: dotPulse 1.4s ease-in-out infinite;
         }
 
-        /* ─ QUICK ACTIONS ─ */
-        /* New premium glassmorphism card styles */
+        /* ─── QUICK ACTIONS ─── */
         .quick-action-card {
           transition: transform 220ms cubic-bezier(0.34,1.2,0.64,1), border-color 200ms ease, box-shadow 220ms ease, background 200ms ease;
           position: relative;
@@ -278,26 +275,72 @@ function BentoMetricsGrid({ metrics }) {
           transform: rotate(0deg) scale(1.1);
         }
 
-        /* Card-specific glow overrides on hover */
+        /* Bottom glow pseudo-element for each card */
+        .qa-card-workflow::after,
+        .qa-card-broadcast::after,
+        .qa-card-lead::after,
+        .qa-card-connect::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 75%;
+          height: 55%;
+          border-radius: 0 0 14px 14px;
+          pointer-events: none;
+          z-index: 0;
+          transition: opacity 220ms ease;
+        }
+
+        /* Purple glow - New workflow */
+        .qa-card-workflow::after {
+          background: radial-gradient(ellipse 70% 45% at 50% 100%, rgba(101, 75, 204, 0.30) 0%, rgba(101, 75, 204, 0.10) 50%, transparent 75%);
+        }
+        .qa-card-workflow:hover::after {
+          background: radial-gradient(ellipse 75% 50% at 50% 100%, rgba(101, 75, 204, 0.42) 0%, rgba(101, 75, 204, 0.14) 50%, transparent 75%);
+        }
+
+        /* Blue glow - Broadcast */
+        .qa-card-broadcast::after {
+          background: radial-gradient(ellipse 70% 45% at 50% 100%, rgba(34, 67, 130, 0.35) 0%, rgba(34, 67, 130, 0.12) 50%, transparent 75%);
+        }
+        .qa-card-broadcast:hover::after {
+          background: radial-gradient(ellipse 75% 50% at 50% 100%, rgba(34, 67, 130, 0.48) 0%, rgba(34, 67, 130, 0.16) 50%, transparent 75%);
+        }
+
+        /* Green glow - Add Lead */
+        .qa-card-lead::after {
+          background: radial-gradient(ellipse 70% 45% at 50% 100%, rgba(26, 117, 90, 0.32) 0%, rgba(26, 117, 90, 0.10) 50%, transparent 75%);
+        }
+        .qa-card-lead:hover::after {
+          background: radial-gradient(ellipse 75% 50% at 50% 100%, rgba(26, 117, 90, 0.45) 0%, rgba(26, 117, 90, 0.14) 50%, transparent 75%);
+        }
+
+        /* Orange glow - Connect Channel */
+        .qa-card-connect::after {
+          background: radial-gradient(ellipse 70% 45% at 50% 100%, rgba(130, 73, 38, 0.35) 0%, rgba(130, 73, 38, 0.12) 50%, transparent 75%);
+        }
+        .qa-card-connect:hover::after {
+          background: radial-gradient(ellipse 75% 50% at 50% 100%, rgba(130, 73, 38, 0.48) 0%, rgba(130, 73, 38, 0.16) 50%, transparent 75%);
+        }
+
+        /* Card border hover */
         .qa-card-workflow:hover {
-          border-color: rgba(139,92,246,0.4);
-          box-shadow: 0 4px 24px rgba(139,92,246,0.18), 0 0 0 1px rgba(139,92,246,0.12) inset;
-          background: linear-gradient(135deg, rgba(139,92,246,0.10) 0%, rgba(99,102,241,0.06) 100%) !important;
+          border-color: rgba(139,92,246,0.35) !important;
+          box-shadow: 0 4px 24px rgba(139,92,246,0.12);
         }
         .qa-card-broadcast:hover {
-          border-color: rgba(56,189,248,0.4);
-          box-shadow: 0 4px 24px rgba(56,189,248,0.18), 0 0 0 1px rgba(56,189,248,0.10) inset;
-          background: linear-gradient(135deg, rgba(56,189,248,0.10) 0%, rgba(6,182,212,0.06) 100%) !important;
+          border-color: rgba(56,189,248,0.35) !important;
+          box-shadow: 0 4px 24px rgba(56,189,248,0.12);
         }
         .qa-card-lead:hover {
-          border-color: rgba(52,211,153,0.4);
-          box-shadow: 0 4px 24px rgba(52,211,153,0.18), 0 0 0 1px rgba(52,211,153,0.10) inset;
-          background: linear-gradient(135deg, rgba(52,211,153,0.10) 0%, rgba(20,184,166,0.06) 100%) !important;
+          border-color: rgba(52,211,153,0.35) !important;
+          box-shadow: 0 4px 24px rgba(52,211,153,0.12);
         }
         .qa-card-connect:hover {
-          border-color: rgba(251,146,60,0.4);
-          box-shadow: 0 4px 24px rgba(251,146,60,0.18), 0 0 0 1px rgba(251,146,60,0.10) inset;
-          background: linear-gradient(135deg, rgba(251,146,60,0.10) 0%, rgba(245,158,11,0.06) 100%) !important;
+          border-color: rgba(251,146,60,0.35) !important;
+          box-shadow: 0 4px 24px rgba(251,146,60,0.12);
         }
 
         .qa-arrow-btn {
@@ -346,29 +389,56 @@ function BentoMetricsGrid({ metrics }) {
   );
 }
 
+const calculateChartMax = (highestValue) => {
+  if (highestValue <= 0) return 10000;
+  
+  let step = 10000;
+  if (highestValue < 1000) {
+    step = 200;
+  } else if (highestValue < 10000) {
+    step = 2000;
+  } else if (highestValue < 100000) {
+    step = 10000;
+  } else if (highestValue < 1000000) {
+    if (highestValue < 200000) {
+      step = 10000;
+    } else if (highestValue < 500000) {
+      step = 50000;
+    } else {
+      step = 100000;
+    }
+  } else {
+    step = 100000;
+  }
+  
+  return Math.floor(highestValue / step) * step + step;
+};
+
 // Monthly Revenue Line Chart
 function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], currentData = [], priorData = [], currentYear, priorYear }) {
   const [tooltip, setTooltip] = useState(null);
   const [activeIdx, setActiveIdx] = useState(null);
 
-  const data2026 = currentData.length ? currentData : [0, 0, 0, 0, 0];
-  const data2025 = priorData.length ? priorData : [0, 0, 0, 0, 0];
+  const data2026 = currentData.length ? currentData : Array(months.length).fill(0);
+  const data2025 = priorData.length ? priorData : Array(months.length).fill(0);
 
   const W = 520, H = 200;
-const padL = 58, padR = 30, padT = 20, padB = 36;
+  const padL = 58, padR = 30, padT = 20, padB = 36;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
   const allVals = [...data2026, ...data2025];
-  const maxVal = allVals.length ? Math.max(...allVals, 1000) : 100000;
-  const minVal = allVals.length ? Math.min(...allVals, 0) : 20000;
+  const highestVal = allVals.length ? Math.max(...allVals) : 0;
+  const chartMax = calculateChartMax(highestVal);
+  const minVal = 0;
+  const maxVal = chartMax;
   
   // Calculate dynamic yLabels based on maxVal
-  const step = (maxVal - minVal) / 4;
-  const yLabels = [minVal, minVal + step, minVal + step * 2, minVal + step * 3, maxVal];
+  const step = chartMax / 4;
+  const yLabels = [0, step, step * 2, step * 3, chartMax];
 
-  const xOf = (i) => padL + (i / (months.length - 1)) * chartW;
-  const yOf = (v) => padT + chartH - ((v - minVal) / (maxVal - minVal)) * chartH;
+  const xOf = (i) => padL + (i / Math.max(months.length - 1, 1)) * chartW;
+  const yOf = (v) => padT + chartH - ((v - minVal) / Math.max(maxVal - minVal, 1)) * chartH;
 
   const catmullRomPath = (data) => {
     const pts = data.map((v, i) => [xOf(i), yOf(v)]);
@@ -401,16 +471,13 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
     return d;
   };
 
-  const toArea = (data, colorStop) =>
+  const toArea = (data) =>
     `${catmullRomPath(data)} L${xOf(data.length - 1).toFixed(1)},${(padT + chartH).toFixed(1)} L${padL},${(padT + chartH).toFixed(1)} Z`;
 
-  const handleMouseEnter = (i) => {
-    setActiveIdx(i);
-    setTooltip({ x: xOf(i), y: padT, month: months[i], val2026: data2026[i], val2025: data2025[i], idx: i });
-  };
-  const handleMouseLeave = () => {
-    setActiveIdx(null);
-    setTooltip(null);
+  const formatYLabel = (v) => {
+    if (v === 0) return { rupee: '', num: '0' };
+    if (v >= 100000) return { rupee: '₹', num: (v).toLocaleString('en-IN') };
+    return { rupee: '₹', num: (v).toLocaleString('en-IN') };
   };
 
   return (
@@ -418,76 +485,85 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
       viewBox={`0 0 ${W} ${H}`}
       className="w-full h-auto"
       style={{ minHeight: 150 }}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={() => { setActiveIdx(null); setTooltip(null); }}
     >
       <defs>
         <linearGradient id="grad2026" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#39ff7e" stopOpacity="0.55" />
-          <stop offset="60%" stopColor="#39ff7e" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#39ff7e" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="#333B37" stopOpacity="1" />
+          <stop offset="50%" stopColor="#333B37" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#333B37" stopOpacity="0.3" />
         </linearGradient>
         <linearGradient id="grad2025" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#b794f4" stopOpacity="0.40" />
-          <stop offset="60%" stopColor="#b794f4" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#b794f4" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="#2A1F3D" stopOpacity="0.85" />
+          <stop offset="50%" stopColor="#1E1530" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#151C1A" stopOpacity="0.15" />
         </linearGradient>
         <filter id="glowGreen" x="-80%" y="-80%" width="260%" height="260%">
           <feGaussianBlur stdDeviation="5" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
         <filter id="glowPurple" x="-80%" y="-80%" width="260%" height="260%">
           <feGaussianBlur stdDeviation="5" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
         <filter id="glowActive" x="-150%" y="-150%" width="400%" height="400%">
           <feGaussianBlur stdDeviation="7" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
         </filter>
         <filter id="tooltipBlur" x="-10%" y="-10%" width="120%" height="120%">
           <feGaussianBlur stdDeviation="8" result="blur" />
           <feColorMatrix type="matrix"
-            values="1 0 0 0 0.05
-                    0 1 0 0 0.05
-                    0 0 1 0 0.08
-                    0 0 0 18 -7"
+            values="1 0 0 0 0.05  0 1 0 0 0.05  0 0 1 0 0.08  0 0 0 18 -7"
             result="glass"
           />
           <feBlend in="SourceGraphic" in2="glass" mode="normal" />
         </filter>
       </defs>
 
+      {/* Grid lines */}
       {yLabels.map((v) => (
         <line
           key={v}
           x1={padL} y1={yOf(v).toFixed(1)}
           x2={padL + chartW} y2={yOf(v).toFixed(1)}
-          stroke="rgba(255,255,255,0.06)"
+          stroke="rgba(255,255,255,0.12)"
           strokeWidth="1"
-          strokeDasharray="4 6"
         />
       ))}
 
-      {yLabels.map((v) => (
-        <text
-          key={v}
-          x={padL - 8} y={yOf(v) + 4}
-          textAnchor="end"
-          fontSize="9.5"
-          fill="rgba(255,255,255,0.30)"
-          fontFamily="inherit"
-        >
-          ₹{v.toLocaleString('en-IN')}
-        </text>
+      {months.map((m, i) => (
+        <line key={`vgrid-${m}`}
+          x1={xOf(i).toFixed(1)} y1={padT}
+          x2={xOf(i).toFixed(1)} y2={padT + chartH}
+          stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
       ))}
+
+      {yLabels.map((v) => {
+        const { rupee, num } = formatYLabel(v);
+        const y = yOf(v) + 4;
+        return (
+          <text
+            key={v}
+            x={padL - 8}
+            y={y}
+            textAnchor="end"
+            fontSize="9.5"
+            fill="rgba(255,255,255,0.75)"
+            fontFamily="inherit"
+          >
+            <tspan
+              fontFamily="system-ui, -apple-system, 'Segoe UI', sans-serif"
+              fontSize="9"
+              dy="0"
+            >{rupee}</tspan>
+            <tspan
+              fontFamily="inherit"
+              fontSize="9.5"
+              dy="0"
+            >{num}</tspan>
+          </text>
+        );
+      })}
 
       {months.map((m, i) => (
         <text
@@ -495,7 +571,7 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
           x={xOf(i)} y={padT + chartH + 22}
           textAnchor="middle"
           fontSize="10"
-          fill={activeIdx === i ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.35)'}
+          fill={activeIdx === i ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)'}
           fontFamily="inherit"
           style={{ transition: 'fill 150ms ease' }}
         >
@@ -503,9 +579,11 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
         </text>
       ))}
 
+      {/* Area fills */}
       <path d={toArea(data2025)} fill="url(#grad2025)" />
       <path d={toArea(data2026)} fill="url(#grad2026)" />
 
+      {/* Lines */}
       <path
         d={catmullRomPath(data2025)}
         fill="none"
@@ -526,6 +604,7 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
         filter="url(#glowGreen)"
       />
 
+      {/* Static dots */}
       {data2025.map((v, i) =>
         activeIdx !== i ? (
           <g key={i} filter="url(#glowPurple)">
@@ -533,7 +612,6 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
           </g>
         ) : null
       )}
-
       {data2026.map((v, i) =>
         activeIdx !== i ? (
           <g key={i} filter="url(#glowGreen)">
@@ -542,44 +620,27 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
         ) : null
       )}
 
+      {/* Active state dots */}
       {activeIdx !== null && (
         <>
-          <circle
-            cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])}
-            r="12" fill="rgba(183,148,244,0.12)" stroke="none"
-          />
-          <circle
-            cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])}
-            r="12" fill="rgba(57,255,126,0.12)" stroke="none"
-          />
+          <circle cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])} r="12" fill="rgba(183,148,244,0.12)" stroke="none" />
+          <circle cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])} r="12" fill="rgba(57,255,126,0.12)" stroke="none" />
           <g filter="url(#glowActive)">
-            <circle
-              cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])}
-              r="5" fill="#b794f4" stroke="#0d0d14" strokeWidth="2"
-            />
+            <circle cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])} r="5" fill="#b794f4" stroke="#0d0d14" strokeWidth="2" />
           </g>
           <g filter="url(#glowActive)">
-            <circle
-              cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])}
-              r="5" fill="#39ff7e" stroke="#0d0d14" strokeWidth="2"
-            />
+            <circle cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])} r="5" fill="#39ff7e" stroke="#0d0d14" strokeWidth="2" />
           </g>
-          <circle
-            cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])}
-            r="11" fill="none" stroke="#39ff7e" strokeWidth="1.5" opacity="0.35"
-          />
-          <circle
-            cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])}
-            r="11" fill="none" stroke="#b794f4" strokeWidth="1.5" opacity="0.30"
-          />
+          <circle cx={xOf(activeIdx)} cy={yOf(data2026[activeIdx])} r="11" fill="none" stroke="#39ff7e" strokeWidth="1.5" opacity="0.35" />
+          <circle cx={xOf(activeIdx)} cy={yOf(data2025[activeIdx])} r="11" fill="none" stroke="#b794f4" strokeWidth="1.5" opacity="0.30" />
         </>
       )}
 
+      {/* Hit targets */}
       {data2026.map((v, i) => (
         <circle
           key={`hit2026-${i}`}
-          cx={xOf(i)} cy={yOf(v)}
-          r="18"
+          cx={xOf(i)} cy={yOf(v)} r="18"
           fill="transparent"
           style={{ cursor: 'crosshair' }}
           onMouseEnter={() => {
@@ -591,8 +652,7 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
       {data2025.map((v, i) => (
         <circle
           key={`hit2025-${i}`}
-          cx={xOf(i)} cy={yOf(v)}
-          r="18"
+          cx={xOf(i)} cy={yOf(v)} r="18"
           fill="transparent"
           style={{ cursor: 'crosshair' }}
           onMouseEnter={() => {
@@ -602,73 +662,65 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
         />
       ))}
 
+      {/* Tooltip */}
       {tooltip && (() => {
-        const tw = 128, th = 52;
+        const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+        const tw = isDesktop ? 88 : 128;
+        const th = isDesktop ? 34 : 52;
         const tx = Math.min(Math.max(tooltip.x - tw / 2, 4), W - tw - 4);
-        const ty = tooltip.y - th - 10 < padT
-          ? tooltip.y + 10
-          : tooltip.y - th - 10;
+        const ty = tooltip.y - th - 10 < padT ? tooltip.y + 10 : tooltip.y - th - 10;
 
         return (
           <g className="chart-tooltip-group" style={{ pointerEvents: 'none' }}>
-            <line
-              x1={tooltip.x} y1={padT}
-              x2={tooltip.x} y2={padT + chartH}
-              stroke="rgba(255,255,255,0.08)"
-              strokeWidth="1"
-              strokeDasharray="3 4"
-            />
-            <rect
-              x={tx - 2} y={ty - 2}
-              width={tw + 4} height={th + 4}
-              rx={11}
-              fill="rgba(255,255,255,0.03)"
-              filter="url(#tooltipBlur)"
-            />
-            <rect
-              x={tx} y={ty}
-              width={tw} height={th}
-              rx={9}
-              fill="rgba(12,12,20,0.82)"
-            />
-            <rect
-              x={tx + 1} y={ty + 1}
-              width={tw - 2} height={th / 2}
-              rx={8}
-              fill="rgba(255,255,255,0.04)"
-            />
-            <rect
-              x={tx} y={ty}
-              width={tw} height={th}
-              rx={9}
-              fill="none"
-              stroke="rgba(255,255,255,0.12)"
-              strokeWidth="0.8"
-            />
+            <line x1={tooltip.x} y1={padT} x2={tooltip.x} y2={padT + chartH}
+              stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="3 4" />
+            <rect x={tx - 2} y={ty - 2} width={tw + 4} height={th + 4} rx={5}
+              fill="rgba(255,255,255,0.03)" filter="url(#tooltipBlur)" />
+
+            <rect x={tx} y={ty} width={tw} height={th} rx={4}
+              fill="rgba(12,12,20,0.82)" />
+
+            <rect x={tx + 1} y={ty + 1} width={tw - 2} height={th / 2} rx={3}
+              fill="rgba(255,255,255,0.04)" />
+
+            <rect x={tx} y={ty} width={tw} height={th} rx={4}
+              fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.8" />
             <text
-              x={tx + 12} y={ty + 18}
-              fontSize="11"
-              fontWeight="700"
-              fill="rgb(255, 255, 255)"
+              x={tx + 8}
+              y={ty + 11}
+              fontSize={isDesktop ? "7" : "11"}
+              fontWeight="600"
+              fill="rgb(255,255,255)"
               fontFamily="inherit"
             >
               {months[activeIdx]}
             </text>
+
             <line
-              x1={tx + 12} y1={ty + 24}
-              x2={tx + tw - 12} y2={ty + 24}
-              stroke="rgba(255,255,255,0.07)"
-              strokeWidth="0.8"
+              x1={tx + 8}
+              y1={ty + 17}
+              x2={tx + tw - 8}
+              y2={ty + 17}
+              stroke="rgba(255,255,255,0.05)"
+              strokeWidth="0.6"
             />
-            <circle cx={tx + 18} cy={ty + 38} r="3.5" fill={tooltip.color} />
+
+            <circle
+              cx={tx + 12}
+              cy={ty + 25}
+              r="2.5"
+              fill={tooltip.color}
+            />
+
             <text
-              x={tx + 26} y={ty + 42}
-              fontSize="11"
-              fontWeight="600"
-              fill="rgba(255,255,255,0.88)"
+              x={tx + 18}
+              y={ty + 28}
+              fontSize={isDesktop ? "7" : "11"}
+              fontWeight="500"
+              fill="rgba(255,255,255,0.78)"
               fontFamily="inherit"
             >
-              {tooltip.label}: ₹{(tooltip.val / 1000).toFixed(0)}k
+              {tooltip.label}: ₹{Number(tooltip.val).toLocaleString('en-IN')}
             </text>
           </g>
         );
@@ -677,42 +729,40 @@ const padL = 58, padR = 30, padT = 20, padB = 36;
   );
 }
 
+// ─── Recent Activity Card ──────────────────────────────────────────────
 function RecentActivityCard({ activities = [] }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [popupPos, setPopupPos] = useState({ top: 0 });
   const itemRefs = useRef([]);
 
   const handleMouseEnter = (i) => {
-  const el = itemRefs.current[i];
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  const sectionRect = el.closest('section').getBoundingClientRect();
-  setPopupPos({
-    top: rect.top + rect.height / 2,
-    right: window.innerWidth - sectionRect.right + sectionRect.width + 12,
-    left: sectionRect.right + 12,
-  });
-  setHoveredIdx(i);
-};
-
-  const handleMouseLeave = () => {
-    setHoveredIdx(null);
+    const el = itemRefs.current[i];
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const sectionRect = el.closest('section').getBoundingClientRect();
+    setPopupPos({
+      top: rect.top + rect.height / 2,
+      right: window.innerWidth - sectionRect.right + sectionRect.width + 12,
+      left: sectionRect.right + 12,
+    });
+    setHoveredIdx(i);
   };
+
+  const handleMouseLeave = () => { setHoveredIdx(null); };
 
   const activity = hoveredIdx !== null ? activities[hoveredIdx] : null;
 
   return (
     <section
-      className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative"
+      className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative"
       onMouseLeave={handleMouseLeave}
     >
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10 flex-shrink-0">
-        <h2 className="text-base font-semibold text-white/90">Recent Activity</h2>
+        <h2 className="text-[18px] font-semibold text-white/90">Recent Activity</h2>
         <button className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
-
       <div className="px-6 pb-3 pt-1 flex flex-col justify-between flex-1 recent-activity-list">
         {activities.map((a, i) => (
           <div
@@ -721,19 +771,12 @@ function RecentActivityCard({ activities = [] }) {
             onMouseEnter={() => handleMouseEnter(i)}
             className="activity-item flex items-center gap-3 py-[10px] border-b border-white/[0.04] last:border-0 cursor-default group"
           >
-            <span
-              className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0"
-            />
-            <span
-              className="flex-1 text-sm text-white/70"
-            >
-              {a.label}
-            </span>
+            <span className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0" />
+            <span className="flex-1 text-sm text-white/70">{a.label}</span>
             <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
           </div>
         ))}
       </div>
-
       <AnimatePresence>
         {hoveredIdx !== null && activity && (
           <motion.div
@@ -743,17 +786,12 @@ function RecentActivityCard({ activities = [] }) {
             exit={{ opacity: 0, x: 8, scale: 0.95 }}
             transition={{ duration: 0.18, ease: [0.34, 1.2, 0.64, 1] }}
             className="fixed w-52 z-[9999] pointer-events-none"
-            style={{
-              top: popupPos.top - 36,
-              left: popupPos.left,
-            }}
+            style={{ top: popupPos.top - 36, left: popupPos.left }}
           >
             <div className="absolute left-[-6px] top-[30px] w-3 h-3 rotate-45 rounded-sm bg-[#1a1a2e] border-l border-b border-white/10" />
             <div className="rounded-xl border border-white/10 bg-[#1a1a2e]/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(139,92,246,0.08)] px-4 py-3">
               <div className="w-8 h-[2px] rounded-full bg-gradient-to-r from-purple-400 to-indigo-400 mb-3" />
-              <p className="text-[13px] font-medium text-white/90 leading-snug mb-2">
-                {activity.label}
-              </p>
+              <p className="text-[13px] font-medium text-white/90 leading-snug mb-2">{activity.label}</p>
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shadow-[0_0_6px_#a78bfa]" />
                 <span className="text-[11px] text-zinc-400">{activity.time}</span>
@@ -766,46 +804,46 @@ function RecentActivityCard({ activities = [] }) {
   );
 }
 
-// ─ Quick Actions Card 
+// Quick Actions Card
 const QUICK_ACTIONS = [
   {
     title: 'New workflow',
     desc: 'Create automation and streamline your process',
-    iconGradient: 'from-violet-500 via-purple-600 to-indigo-600',
-    iconShadow: '0 4px 16px rgba(139,92,246,0.5)',
+    iconGradient: 'from-[#654BCC] to-[#654BCC]',
+    iconShadow: '0 4px 16px rgba(101,75,204,0.5)',
     cardClass: 'qa-card-workflow',
-    borderColor: 'rgba(139,92,246,0.15)',
-    bgBase: 'rgba(139,92,246,0.06)',
+    borderColor: 'rgba(101,75,204,0.18)',
+    bgBase: '#070012',
     icon: Zap,
   },
   {
     title: 'Broadcast',
     desc: 'Send announcements to your audience',
-    iconGradient: 'from-sky-400 via-blue-500 to-cyan-500',
-    iconShadow: '0 4px 16px rgba(56,189,248,0.5)',
+    iconGradient: 'from-[#224382] to-[#224382]',
+    iconShadow: '0 4px 16px rgba(34,67,130,0.5)',
     cardClass: 'qa-card-broadcast',
-    borderColor: 'rgba(56,189,248,0.15)',
-    bgBase: 'rgba(56,189,248,0.05)',
+    borderColor: 'rgba(34,67,130,0.18)',
+    bgBase: '#070012',
     icon: Radio,
   },
   {
     title: 'Add Lead',
     desc: 'Add a new lead to your pipeline',
-    iconGradient: 'from-emerald-400 via-green-500 to-teal-600',
-    iconShadow: '0 4px 16px rgba(52,211,153,0.5)',
+    iconGradient: 'from-[#1A755A] to-[#1A755A]',
+    iconShadow: '0 4px 16px rgba(26,117,90,0.5)',
     cardClass: 'qa-card-lead',
-    borderColor: 'rgba(52,211,153,0.15)',
-    bgBase: 'rgba(52,211,153,0.05)',
+    borderColor: 'rgba(26,117,90,0.18)',
+    bgBase: '#070012',
     icon: UserPlus,
   },
   {
     title: 'Connect Channel',
     desc: 'Connect channel with other tools and apps',
-    iconGradient: 'from-orange-400 via-orange-500 to-amber-500',
-    iconShadow: '0 4px 16px rgba(251,146,60,0.5)',
+    iconGradient: 'from-[#824926] to-[#824926]',
+    iconShadow: '0 4px 16px rgba(130,73,38,0.5)',
     cardClass: 'qa-card-connect',
-    borderColor: 'rgba(251,146,60,0.15)',
-    bgBase: 'rgba(251,146,60,0.05)',
+    borderColor: 'rgba(130,73,38,0.18)',
+    bgBase: '#070012',
     icon: Link2,
   },
 ];
@@ -833,9 +871,9 @@ function QuickActionsCard({ onAddLeadClick }) {
   };
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
+    <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
       <div className="px-6 pt-6 pb-2">
-        <h2 className="text-base font-semibold text-white/90">Quick Actions</h2>
+        <h2 className="text-[18px] font-semibold text-white/90">Quick Actions</h2>
         <p className="text-xs text-white/70 mt-1">Perform important task in one click</p>
       </div>
       <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -847,23 +885,24 @@ function QuickActionsCard({ onAddLeadClick }) {
               onClick={() => handleAction(action.title)}
               className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-5 cursor-pointer overflow-hidden`}
               style={{
-                borderColor: action.borderColor,
+                borderColor: 'rgba(255,255,255,0.1)',
                 background: action.bgBase,
               }}
             >
+              {/* Icon — sits above the glow layer (z-10) */}
               <div
-                className={`w-11 h-11 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center mb-4 flex-shrink-0`}
+                className={`relative z-10 w-11 h-11 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center mb-4 flex-shrink-0`}
                 style={{ boxShadow: action.iconShadow }}
               >
                 <Icon size={20} className="text-white" />
               </div>
+
+              {/* Text content — also above glow */}
               <div className="relative z-10 flex flex-col flex-1">
                 <h3 className="text-sm font-semibold text-white/90 mb-1">{action.title}</h3>
-                <p className="text-xs text-zinc-500 leading-relaxed flex-1">{action.desc}</p>
+                <p className="text-xs text-white/75 leading-relaxed flex-1">{action.desc}</p>
                 <div className="flex justify-end mt-4">
-                  <button
-                    className="qa-arrow-btn w-8 h-8 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center"
-                  >
+                  <button className="qa-arrow-btn w-8 h-8 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
                     <ArrowUpRight size={14} className="text-white/60" />
                   </button>
                 </div>
@@ -876,6 +915,7 @@ function QuickActionsCard({ onAddLeadClick }) {
   );
 }
 
+// AI Insights Card 
 function AIInsightsCard({ insights = [] }) {
   const iconMap = {
     flame: Flame,
@@ -883,9 +923,9 @@ function AIInsightsCard({ insights = [] }) {
     bot: Bot
   };
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
+    <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10">
-        <h2 className="text-base font-semibold text-white/90">AI Insights</h2>
+        <h2 className="text-[18px] font-semibold text-white/90">AI Insights</h2>
         <button className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
@@ -903,9 +943,9 @@ function AIInsightsCard({ insights = [] }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white/85 leading-tight">{item.title}</p>
-                <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{item.subtitle}</p>
+                <p className="text-xs text-white/75 mt-0.5 leading-relaxed">{item.subtitle}</p>
               </div>
-              <ArrowRight size={15} className="text-zinc-600 group-hover:text-purple-400 transition-colors flex-shrink-0" />
+              <ArrowRight size={15} className="text-white group-hover:text-purple-400 transition-colors flex-shrink-0" />
             </div>
           );
         })}
@@ -914,13 +954,175 @@ function AIInsightsCard({ insights = [] }) {
   );
 }
 
-// ─ Main Dashboard
+const calculateDatesForPeriod = (selectedPeriod) => {
+  const now = new Date();
+  let start, end;
+  switch (selectedPeriod) {
+    case 'current_week': {
+      const day = now.getDay();
+      const monday = new Date(now);
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      monday.setDate(now.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+      start = monday;
+      end = sunday;
+      break;
+    }
+    case 'last_week': {
+      const day = now.getDay();
+      const monday = new Date(now);
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      monday.setDate(now.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+      const lastMonday = new Date(monday);
+      lastMonday.setDate(monday.getDate() - 7);
+      const lastSunday = new Date(lastMonday);
+      lastSunday.setDate(lastMonday.getDate() + 6);
+      lastSunday.setHours(23, 59, 59, 999);
+      start = lastMonday;
+      end = lastSunday;
+      break;
+    }
+    case 'current_month': {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      break;
+    }
+    case 'last_month': {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      break;
+    }
+    default:
+      return { startDate: '', endDate: '' };
+  }
+  const formatDate = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  return {
+    startDate: formatDate(start),
+    endDate: formatDate(end)
+  };
+};
+
+const formatDisplayRange = (startDateStr, endDateStr) => {
+  if (!startDateStr || !endDateStr) return '';
+  const [sy, sm, sd] = startDateStr.split('-').map(Number);
+  const [ey, em, ed] = endDateStr.split('-').map(Number);
+  const start = new Date(sy, sm - 1, sd);
+  const end = new Date(ey, em - 1, ed);
+  const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${fmt(start)} – ${fmt(end)}`;
+};
+
+function PeriodPicker({ period, dateRange, onPeriodChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const options = [
+    { value: 'current_week', label: 'Current Week' },
+    { value: 'last_week', label: 'Last Week' },
+    { value: 'current_month', label: 'Current Month' },
+    { value: 'last_month', label: 'Last Month' },
+  ];
+
+  const labels = {
+    current_week: 'Current Week',
+    last_week: 'Last Week',
+    current_month: 'Current Month',
+    last_month: 'Last Month',
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
+      >
+        <Calendar size={14} />
+        <span className="hidden xs:inline">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
+        <span className="xs:hidden">{labels[period]}</span>
+        <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute right-0 mt-2 w-56 rounded-xl bg-[#0e0e1a] border border-white/10 p-1.5 shadow-2xl z-[100] backdrop-blur-xl flex flex-col gap-1"
+          >
+            {options.map((opt) => {
+              const optDates = calculateDatesForPeriod(opt.value);
+              const isSelected = period === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    onPeriodChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex flex-col ${
+                    isSelected
+                      ? 'bg-purple-600/20 text-purple-300'
+                      : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <span className="text-xs font-medium">{opt.label}</span>
+                  <span className="text-[10px] text-zinc-500 mt-0.5 font-normal">
+                    {formatDisplayRange(optDates.startDate, optDates.endDate)}
+                  </span>
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Main Dashboard 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
   const [showAddLead, setShowAddLead] = useState(false);
 
-  const { metrics, revenue, activities, insights, loading, error, refetch } = useDashboard({ refreshInterval: 60000 });
+  const [period, setPeriod] = useState('current_week');
+  const [dateRange, setDateRange] = useState(() => calculateDatesForPeriod('current_week'));
+
+  const handlePeriodChange = (newPeriod) => {
+    setPeriod(newPeriod);
+    setDateRange(calculateDatesForPeriod(newPeriod));
+  };
+
+  const { metrics, revenue, activities, insights, loading, error, refetch } = useDashboard({
+    refreshInterval: 60000,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate
+  });
 
   useEffect(() => {
     console.log("📊 DASHBOARD LOADED")
@@ -992,19 +1194,14 @@ export default function DashboardPage() {
       )}
       <div className="max-w-[1600px] mx-auto space-y-8">
 
-        {/* HEADER — unchanged */}
+        {/* HEADER */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
             <p className="text-m text-white/90 lg:mt-2">Good morning! Here are your key actions for today.</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
-              <Calendar size={14} />
-              <span className="hidden xs:inline">Oct 12 - Oct 18, 2023</span>
-              <span className="xs:hidden">Current Week</span>
-              <ChevronDown size={14} />
-            </div>
+            <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
             <div className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
               <Bell size={18} className="text-zinc-400" />
               <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
@@ -1020,10 +1217,10 @@ export default function DashboardPage() {
         {/* ROW 1: Monthly Revenue + Recent Activity */}
         <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 overflow-visible ${cardStateClass}`}>
           {/* Monthly Revenue — 2/3 */}
-          <section className="lg:col-span-2 rounded-2xl border border-white/10 bg-[#070012] backdrop-blur-xl overflow-hidden">
+          <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden">
             <div className="px-6 pt-6 pb-2">
-              <h2 className="text-base font-semibold text-white/90">Monthly Revenue</h2>
-              <p className="text-xs text-white/70 mt-1">This year vs last year (USD)</p>
+              <h2 className="text-[18px] font-semibold text-white/90">Monthly Revenue</h2>
+              <p className="text-[14px] text-white/80 mt-1">This year vs last year (INR)</p>
             </div>
             {/* Legend */}
             <div className="flex items-center justify-center gap-5 px-6 pt-3 pb-2">

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 #  Helper: build a one-off orchestrator scoped to this DB session 
 
 def _get_orchestrator(db: Session) -> AgentOrchestration:
+    
     orchestrator = AgentOrchestration(db=db)
 
     # EscalationQueue needs the same DB session
@@ -22,16 +23,24 @@ def _get_orchestrator(db: Session) -> AgentOrchestration:
     return orchestrator
 
 async def execute_ai_reply(
-    *,
+    *,  
     db: Session,
     workspace_id: str,
     contact_phone: str,         
     user_message: str,           
     channel: str = "twilio",   
-    flow_context: dict = None,  
+    flow_context: dict = None,
+    conversation_id: str = None,
 ) -> dict:
+   
     flow_context = flow_context or {}
-    conversation_id = flow_context.get("conversation_id")
+    conversation_id = conversation_id or flow_context.get("conversation_id")
+
+    logger.info(
+        f"[AI DEBUG] workspace_id={workspace_id} "
+        f"conversation_id={conversation_id} "
+        f"channel={channel}"
+    )
 
     logger.info(
         "[AI Reply] Executing brain step",
@@ -43,21 +52,24 @@ async def execute_ai_reply(
     )
 
     try:
-        if not conversation_id:
-            raise ValueError("conversation_id is required for AI reply execution")
+        #  Build payload (mirrors what handle_twilio_webhook produces) 
         payload = {
-            # normalize_message reads these keys for twilio/whatsapp channel
             "from": contact_phone,
             "body": user_message,
             "workspace_id": workspace_id,
             "conversation_id": conversation_id,
-            # optional extras from the flow node config
-            **{k: v for k, v in flow_context.items() if k not in ("from", "body")},
+
+            "forced_agent": flow_context.get("agent_type"),
+
+            **{k: v for k, v in flow_context.items()
+            if k not in ("from", "body", "conversation_id")},
         }
 
         #  Run orchestration ─
         orchestrator = _get_orchestrator(db)
-        result = await orchestrator.process_message(payload=payload, channel=channel)
+        result = await orchestrator.process_message(payload=payload, channel=channel, skip_send=True)
+
+        # result shape: {"text": "...", "metadata": {...}}
         response_text = result.get("text") or result.get("response_text") or ""
         metadata = result.get("metadata") or {}
 
@@ -73,10 +85,10 @@ async def execute_ai_reply(
         return {
             "status": "sent",
             "response_text": response_text,
-            "action": metadata.get("action", "unknown"),
-            "stage": metadata.get("stage", "lead"),
-            "escalated": metadata.get("escalate", False),
-            "closed": metadata.get("close", False),
+            "action": result.get("action", metadata.get("action", "unknown")),
+            "stage": result.get("stage", metadata.get("stage", "lead")),
+            "escalated": result.get("escalate", metadata.get("escalate", False)),
+            "closed": result.get("close", metadata.get("close", False)),
         }
 
     except Exception:

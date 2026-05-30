@@ -1,46 +1,36 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useParams, usePathname, useRouter } from "next/navigation"
+import { notFound } from "next/navigation"
 import AdminSidebar from "@/components/admin/AdminSidebar"
-import { getToken } from "@/lib/auth"
 
 export default function AdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [isAuthorized, setIsAuthorized] = useState(false)
+  const params = useParams()
+  const adminPath = params.admin_path
+  const adminConsolePath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || "x7k2-admin-9pqm"
 
-  useEffect(() => {
-  if (pathname === "/admin/login") {
-    setIsAuthorized(true) // eslint-disable-line react-hooks/set-state-in-effect
-    return
+  // 404 if the path does not match the configured hidden path
+  if (adminPath !== adminConsolePath) {
+    notFound()
   }
 
-  const token = getToken()
-
-  if (!token || token === "null") {
-    router.push("/admin/login?redirect=" + encodeURIComponent(pathname))
-    return
-  }
-
-  setIsAuthorized(true) // eslint-disable-line react-hooks/set-state-in-effect
-}, [router, pathname])
-
+  const isLoginPage = pathname === `/${adminPath}`
 
   // For admin login page - render without the sidebar/layout
-  if (pathname === "/admin/login") {
+  if (isLoginPage) {
     return <>{children}</>
   }
 
-  if (!isAuthorized) {
-    return (
-      <div className="flex min-h-screen bg-[#020202] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
-          <p className="text-gray-500 text-xs">Checking access...</p>
-        </div>
-      </div>
-    )
+  const handleSignOut = async () => {
+    try {
+      await fetch(`/api/${adminPath}/logout`, { method: "POST" })
+    } catch (e) {
+      console.error("Sign out failed", e)
+    }
+    // Redirect to the admin login page
+    router.push(`/${adminPath}`)
   }
 
   return (
@@ -64,10 +54,7 @@ export default function AdminLayout({ children }) {
              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
            </div>
            <button
-             onClick={() => {
-               localStorage.clear()
-               router.push("/admin/login")
-             }}
+             onClick={handleSignOut}
              className="text-xs text-gray-600 hover:text-red-400 transition-colors px-3 py-1 rounded-lg hover:bg-red-500/10"
            >
              Sign Out

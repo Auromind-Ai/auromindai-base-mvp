@@ -1,10 +1,4 @@
-"""tenant_state_isolation_cutover
 
-Revision ID: 9f3c6d1a7b2e
-Revises: 7758fe8aa2cb
-Create Date: 2026-05-19 11:30:00.000000
-
-"""
 from typing import Sequence, Union
 
 from alembic import op

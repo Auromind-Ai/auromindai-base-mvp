@@ -59,6 +59,14 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.flow_execution.poll_scheduled_resumes",
         "schedule": 30.0,
     },
+    "purge-old-delivery-logs": {
+        "task": "app.workers.flow_execution.purge_old_delivery_logs",
+        "schedule": crontab(hour=2, minute=0),
+    },
+    "archive-old-conversations": {
+        "task": "app.workers.flow_execution.archive_old_conversations",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
 
 

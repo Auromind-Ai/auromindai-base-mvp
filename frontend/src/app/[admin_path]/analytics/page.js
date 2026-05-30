@@ -85,8 +85,8 @@ useEffect(() => {
               />
               <MetricCard
                 icon={TrendingUp}
-                label="Revenue (USD)"
-                value={`$${(analytics.total_revenue || 0).toLocaleString()}`}
+                label="Revenue (INR)"
+                value={`₹${(analytics.total_revenue || 0).toLocaleString('en-IN')}`}
                 change="+18%"
               />
             </div>
@@ -158,9 +158,9 @@ useEffect(() => {
             <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
               <h2 className="text-lg font-semibold text-white mb-6">Revenue Breakdown</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <RevenueItem label="Monthly Recurring" value={`$${(analytics.mrr || 0).toLocaleString()}`} />
-                <RevenueItem label="One-time Payments" value={`$${(analytics.one_time_revenue || 0).toLocaleString()}`} />
-                <RevenueItem label="Avg Revenue per User" value={`$${(analytics.arpu || 0).toFixed(2)}`} />
+                <RevenueItem label="Monthly Recurring" value={`₹${(analytics.mrr || 0).toLocaleString('en-IN')}`} />
+                <RevenueItem label="One-time Payments" value={`₹${(analytics.one_time_revenue || 0).toLocaleString('en-IN')}`} />
+                <RevenueItem label="Avg Revenue per User" value={`₹${(analytics.arpu || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
               </div>
             </div>
           </>

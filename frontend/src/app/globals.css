@@ -462,3 +462,28 @@ body {
   filter: hue-rotate(10deg) saturate(1.2) brightness(1.05);
 }
 
+/* Minimal Global Dark Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0d12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Firefox scrollbar compatibility */
+* {
+  scrollbar-color: #27272a #0d0d12;
+  scrollbar-width: thin;
+}
+

@@ -18,6 +18,7 @@ class APIClient {
     const { signal: optSignal, ...restOptions } = options;
     const config = {
       ...restOptions,
+      credentials: 'include',
       headers: {
         ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
         'ngrok-skip-browser-warning': 'true',
@@ -156,7 +157,8 @@ class APIClient {
     }, options);
   }
   async getPlatformSettings() {
-    return this.get("/admin/settings")
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.get(`/${adminPath}/settings`)
   }
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
@@ -240,17 +242,20 @@ class APIClient {
   //  Admin AI Activity 
 
   async getAIActivity() {
-    return this.get("/admin/ai_actions");
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.get(`/${adminPath}/ai_actions`);
   }
 
   //  Admin Token Methods 
 
   async getAdminTokens() {
-    return this.get("/admin/tokens")
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.get(`/${adminPath}/tokens`)
   }
 
   async updateTokenLimit(workspace_id, custom_token_limit) {
-    return this.request(`/admin/tokens/${workspace_id}/limit`, {
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.request(`/${adminPath}/tokens/${workspace_id}/limit`, {
       method: "PATCH",
       body: JSON.stringify({ custom_token_limit })
     })
@@ -305,22 +310,26 @@ class APIClient {
   //  Admin Workspace Methods 
 
   async getAdminWorkspaces() {
-    return this.get('/admin/workspaces');
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.get(`/${adminPath}/workspaces`);
   }
 
   async editWorkspacePlan(workspace_id, plan_type) {
-    return this.request(`/admin/workspaces/${workspace_id}`, {
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.request(`/${adminPath}/workspaces/${workspace_id}`, {
       method: 'PATCH',
       body: JSON.stringify({ plan_type })
     });
   }
 
   async resetWorkspaceLimits(workspace_id) {
-    return this.post(`/admin/workspaces/${workspace_id}/reset-limits`);
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.post(`/${adminPath}/workspaces/${workspace_id}/reset-limits`);
   }
 
   async toggleWorkspaceStatus(workspace_id) {
-    return this.post(`/admin/workspaces/${workspace_id}/toggle-status`);
+    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
+    return this.post(`/${adminPath}/workspaces/${workspace_id}/toggle-status`);
   }
 
   /**
@@ -389,9 +398,12 @@ class APIClient {
    * Full dashboard bundle — metrics + revenue + activities + insights
    * Single round-trip, cached 60s on backend.
    */
-  async getDashboardOverview(workspace_id) {
+  async getDashboardOverview(workspace_id, startDate, endDate) {
     const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/overview?workspace_id=${wid}`);
+    let url = `/dashboard/overview?workspace_id=${wid}`;
+    if (startDate) url += `&start_date=${startDate}`;
+    if (endDate) url += `&end_date=${endDate}`;
+    return this.get(url);
   }
 
   /**

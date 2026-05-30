@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import json
 from uuid import UUID
 from datetime import datetime, timezone
 
@@ -426,7 +427,11 @@ async def lead_detail(
 
     # Conversation log
     conversation_log = []
+    avg_reply_minutes = None
     if lead.conversation_id:
+        avg_reply_minutes = lead_scoring_service.calculate_avg_reply_minutes(
+            lead.conversation_id, db
+        )
         messages = (
             db.query(Message)
             .filter(Message.conversation_id == lead.conversation_id)
@@ -438,12 +443,19 @@ async def lead_detail(
             direction = (
                 "inbound" if msg.sender_type == SenderType.USER else "outbound"
             )
+            meta = {}
+            if msg.metadata_json:
+                try:
+                    meta = json.loads(msg.metadata_json) if isinstance(msg.metadata_json, str) else (msg.metadata_json or {})
+                except (json.JSONDecodeError, TypeError):
+                    meta = {}
             conversation_log.append(
                 ConversationLogItem(
                     id=msg.id,
                     content=msg.content or "",
                     direction=direction,
                     sent_at=msg.timestamp,
+                    metadata=meta if meta else None,
                 )
             )
 
@@ -452,6 +464,7 @@ async def lead_detail(
         name=lead.name,
         phone=lead.phone,
         source=lead.source,
+        channel=lead.source,
         status=lead.status or "new",
         score=lead.score or 0,
         behavioral_score=lead.behavioral_score or 0,
@@ -468,6 +481,12 @@ async def lead_detail(
         assigned_to=lead.assigned_to,
         created_at=lead.created_at,
         conversation_log=conversation_log,
+        avg_reply_minutes=avg_reply_minutes,
+        is_converted=lead.is_converted,
+        conversion_amount=float(lead.conversion_amount) if lead.conversion_amount is not None else None,
+        converted_at=lead.converted_at,
+        converted_product=lead.converted_product,
+        conversion_notes=lead.conversion_notes,
     )
 
 
@@ -498,7 +517,10 @@ async def convert_lead(
         )
 
     lead.status = "converted"
+    lead.is_converted = True
     lead.conversion_amount = body.amount
+    lead.converted_product = body.product
+    lead.conversion_notes = body.notes
     lead.converted_at = datetime.now(timezone.utc)
     
     # Recalculate lead score with reason "converted"
@@ -510,6 +532,9 @@ async def convert_lead(
         status=lead.status,
         conversion_amount=float(lead.conversion_amount),
         converted_at=lead.converted_at,
+        is_converted=lead.is_converted,
+        converted_product=lead.converted_product,
+        conversion_notes=lead.conversion_notes,
         score=lead.score or 0,
         behavioral_score=lead.behavioral_score or 0,
         semantic_intent_score=lead.semantic_intent_score or 0,

@@ -27,12 +27,21 @@ async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
         "free_plan_price":        get_setting(db, "free_plan_price", 0.0),
         "pro_plan_price":         get_setting(db, "pro_plan_price", 1000.0),
         "enterprise_plan_price":  get_setting(db, "enterprise_plan_price", 10000.0),
-
         
         "token_limit_per_plan":   get_setting(db, "token_limit_per_plan", {
             "free": 10000,
             "pro": 100000,
             "enterprise": 1000000
-        })
+        }),
+
+        "free_plan_name":         get_setting(db, "free_plan_name", "Free"),
+        "free_plan_desc":         get_setting(db, "free_plan_desc", ""),
+        "free_plan_features":     get_setting(db, "free_plan_features", []),
+        "pro_plan_name":          get_setting(db, "pro_plan_name", "Pro"),
+        "pro_plan_desc":          get_setting(db, "pro_plan_desc", ""),
+        "pro_plan_features":      get_setting(db, "pro_plan_features", []),
+        "enterprise_plan_name":   get_setting(db, "enterprise_plan_name", "Enterprise"),
+        "enterprise_plan_desc":   get_setting(db, "enterprise_plan_desc", ""),
+        "enterprise_plan_features": get_setting(db, "enterprise_plan_features", []),
     }
  

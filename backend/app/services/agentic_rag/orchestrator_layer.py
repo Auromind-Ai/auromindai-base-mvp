@@ -28,12 +28,22 @@ class OrchestratorLayer:
 
 
     #Reasoning Engine   
-    async def agent_loop(self, db, workspace_id, query,model="auto"):
+    async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None):
 
         website_names = []  
 
-        small_talk = self.helpers.get_small_talk_response(query)
+        web_search_enabled = (source == "web_search")
+        logger.info(f"DEBUG: web_search_enabled = {web_search_enabled}")
+
+        fallback_triggered = False
+
+        small_talk = None
+        if not web_search_enabled:
+            small_talk = self.helpers.get_small_talk_response(query)
+
         if small_talk:
+            fallback_triggered = True
+            logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (small talk)")
             response = await self.support.add_followup(query, small_talk, model=model)
 
             confidence = compute_confidence(tool="direct_answer")
@@ -225,7 +235,10 @@ class OrchestratorLayer:
         logger.info(rewritten_query)
         
         #Decide tool
-        tool =  await self.mcp.decide_tool(rewritten_query, model=model)
+        if source and source not in ("internal_web", "internal", ""):
+            tool = source
+        else:
+            tool =  await self.mcp.decide_tool(rewritten_query, model=model)
         learning_profile = get_learning_profile(workspace_id=str(workspace_id))
         
         #RULE BASED TOOL OVERRIDE
@@ -286,12 +299,17 @@ class OrchestratorLayer:
         rewritten_query = adjusted["rewritten_query"]
         tool = adjusted["tool"]
 
+        # Override tool if user explicitly selected a source
+        if source and source not in ("internal_web", "internal", ""):
+            tool = source
+
 
         #Tool execution
         if tool == "vector_db":
 
             
-            result = await self.iterative_retrieval(db, workspace_id, rewritten_query, model=model)
+            entry_ids = [document_id] if document_id else None
+            result = await self.iterative_retrieval(db, workspace_id, rewritten_query, model=model, entry_ids=entry_ids)
 
             context = result.get("context", "")
             retrieved_docs = result.get("docs", [])
@@ -354,6 +372,8 @@ class OrchestratorLayer:
 
             context = web_data.get("context", "")
             sources = web_data.get("sources", [])
+            search_results_count = len(sources)
+            logger.info(f"DEBUG: search_results_count = {search_results_count}")
 
             for s in sources:
                 domain = urlparse(s).netloc.replace("www.", "")
@@ -362,6 +382,8 @@ class OrchestratorLayer:
             logger.info(f"WEB SEARCH CONTEXT: {context[:500]}")
 
             if not context.strip():
+                fallback_triggered = True
+                logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (web search returned empty context)")
                 return self.mcp.format_response(
                     "Unable to retrieve relevant information from the internet.",
                     query,
@@ -417,6 +439,9 @@ class OrchestratorLayer:
 
             Answer:
             """
+            logger.info(f"DEBUG: final_context = {context}")
+            logger.info(f"DEBUG: final_prompt = {final_prompt}")
+
             llm_response = await  safe_llm_call(final_prompt, model=model)
             final_answer = llm_response["content"]
             source_text = "\n".join(f"• {site}" for site in website_names)
@@ -467,6 +492,8 @@ class OrchestratorLayer:
             )
 
         elif tool == "direct_answer":
+            fallback_triggered = True
+            logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (direct_answer tool)")
 
             response = self.helpers.get_small_talk_response(query)
             response = await self.support.add_followup(query, response, model=model)
@@ -533,6 +560,8 @@ class OrchestratorLayer:
             )
 
         else:
+            fallback_triggered = True
+            logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (unrecognized tool fallback)")
             # Unrecognised tool — log and fall back to LLM reasoning so the
             # caller always gets a non-None answer and the UI is never blank.
             logger.warning(f"agent_loop: unrecognised tool '{tool}' for query: {query!r}")
@@ -613,7 +642,7 @@ class OrchestratorLayer:
         for i in range(max_iterations):
 
             #Retrieve
-            result = self.retrieval.retrieve_context(db, workspace_id, current_query)
+            result = self.retrieval.retrieve_context(db, workspace_id, current_query, entry_ids=entry_ids)
 
             context = result.get("context", "")
             docs = result.get("docs", [])

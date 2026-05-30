@@ -7,6 +7,7 @@ from app.services.ai.chat_service import ChatService, ChatServiceConfig
 from app.core.config import settings
 from app.core.logger import logger
 
+#  LLMRouter singleton
 _llm_router_instance: LLMRouter | None = None
 _router_lock: asyncio.Lock | None = None
 

@@ -25,7 +25,6 @@ _rag_lock = threading.Lock()
 
 
 def _build_rag_system() -> OrchestratorLayer:
-    """Internal factory — called exactly once per process."""
     logger.info("Building RAG system (once per process)...")
 
     # Re-use process-level model singletons — no re-loading.

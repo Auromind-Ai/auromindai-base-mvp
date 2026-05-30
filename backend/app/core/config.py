@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     """PostgreSQL connection URL"""
 
-    
+    hf_token: str | None = None
+    hf_home: str | None = None
+    transformers_cache: str | None = None
+    hf_hub_enable_hf_transfer: str | None = None
+
+
     # SECURITY & AUTHENTICATION
     
     SECRET_KEY: str
@@ -27,7 +32,7 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: Optional[str] = None
     """Fernet encryption key for sensitive data (auto-generated if not set)"""
 
-    
+    ADMIN_CONSOLE_PATH: str = "x7k2-admin-9pqm"
     # LLM & AI PROVIDERS
     
     GOOGLE_API_KEY: str = ""

@@ -1,4 +1,3 @@
-
 from app.core.logger import logger
 from app.core.config import settings
 from app.services.inbox_agents.config_service import ConfigService
@@ -8,6 +7,9 @@ from app.services.inbox_agents.llm_client import LLMClient
 from app.services.inbox_agents.memory_service import MemoryService
 from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.inbox.twilio_service import TwilioService
+from app.models.flow_execution import FlowExecutionState
+from app.models import Conversation
+
 
 class AgentOrchestration:
 
@@ -16,6 +18,9 @@ class AgentOrchestration:
         self.logger.info("Initializing AgentOrchestration...")
 
         self.llm = LLMClient(api_key=settings.GROQ_API_KEY)
+        self.db = db
+
+        # Core Services
         self.memory = MemoryService(db) if db else None
         self.mcp = MCPService()
         self.config_service = ConfigService()
@@ -29,17 +34,31 @@ class AgentOrchestration:
 
         self.logger.info("AgentOrchestration initialized successfully")
 
+    # ─ MAIN ENTRY POINT ─
 
-    #  MAIN ENTRY POINT 
-
-    async def process_message(self, payload, channel):
+    async def process_message(self, payload, channel, skip_send=False):
         data = self.normalize_message(payload, channel)
 
-        user_id      = data.get("user_id")       
+        user_id      = data.get("user_id")
         workspace_id = data.get("workspace_id")
+        message      = data.get("message", "")
+        db           = self.db
         conversation_id = data.get("conversation_id")
-        message = data.get("message", "")
+
+        # ── LEAD_DEBUG: Log incoming message at orchestration entry ──
+        self.logger.warning(f"[LEAD_DEBUG][orchestration] Incoming message: {message!r}")
+
+        # Note: We no longer extract or generate a user_id-based memory_key.
+        # All state is strictly scoped to workspace_id and conversation_id.
+
         db = getattr(self.escalation_queue, "db", None)
+        
+        self.logger.info(
+            f"[AI DEBUG] Orchestration Layer: workspace_id={workspace_id} "
+            f"conversation_id={conversation_id} channel={channel} "
+            f"user_id={user_id}"
+        )
+
         if not workspace_id or not conversation_id:
             raise ValueError("workspace_id and conversation_id are required for inbox orchestration")
 
@@ -48,14 +67,11 @@ class AgentOrchestration:
         self.runtime_context["channel"]         = channel
         self.runtime_context["conversation_id"] = conversation_id
 
-        # turn / repeat counts
-        turn_count   = (
-            self.memory.get_turn_count(
-                workspace_id=workspace_id,
-                conversation_id=conversation_id,
-            )
-            if self.memory else 0
-        )
+        # Turn / repeat counts
+        turn_count = self.memory.get_turn_count(
+        workspace_id=workspace_id,
+        conversation_id=conversation_id,
+    ) if self.memory else 0
         repeat_count = 0
         if self.memory and message:
             repeat_count = self.memory.detect_and_track_repeat(
@@ -64,21 +80,13 @@ class AgentOrchestration:
                 message=message,
             )
 
-        # lead data
-        lead = (
-            self.memory.get_lead_data(
-                workspace_id=workspace_id,
-                conversation_id=conversation_id,
-            )
-            if self.memory else None
-        )
-        lead_data = {
-            "name":        getattr(lead, "name",        "") or "",
-            "requirement": getattr(lead, "requirement", "") or "",
-            "budget":      getattr(lead, "budget",      "") or "",
-            "timeline":    getattr(lead, "timeline",    "") or "",
-            "contact":     getattr(lead, "contact",     "") or "",
-        } if lead else {}
+        # Lead data from memory
+        lead = self.memory.get_lead_data(
+        workspace_id=workspace_id,
+        conversation_id=conversation_id,
+    ) if self.memory else None
+        # Lead fields from payload (set by flow config)
+        lead_fields = payload.get("lead_fields", [])
 
         state = (
             self.memory.get_conversation_state(
@@ -86,80 +94,120 @@ class AgentOrchestration:
                 conversation_id=conversation_id,
             ) or {}
         )
+        
+        if state.get("human_takeover"):
+            self.logger.info(
+                "[AI_AUTOMATION_PAUSED] Orchestration ignored because human_takeover is active",
+                extra={"workspace_id": workspace_id, "conversation_id": conversation_id}
+            )
+            return {"action": "ignored", "reason": "human_takeover"}
 
-        if all([lead_data.get("name"), lead_data.get("requirement"), lead_data.get("contact")]):
+        lead_data = {}
+        for field in lead_fields:
+            val = ""
+            if lead:
+                if lead.custom_fields and field in lead.custom_fields:
+                    val = lead.custom_fields[field]
+                elif hasattr(lead, field):
+                    val = getattr(lead, field, "")
+            if val:
+                lead_data[field] = val
+
+        # ── LEAD_DEBUG: Log lead_data loaded from DB ──
+        self.logger.warning(
+            f"[LEAD_DEBUG][orchestration] lead_data from DB: {lead_data}"
+        )
+        self.logger.warning(
+            f"[LEAD_DEBUG][orchestration] lead.custom_fields: {lead.custom_fields if lead else None}"
+        )
+
+        # Check if all lead fields already collected
+        if lead_fields and all(lead_data.get(f) for f in lead_fields):
             if self.memory:
                 self.memory.update_conversation_state(
-                    workspace_id=workspace_id,
-                    conversation_id=conversation_id,
-                    data={"current_stage": "sales"},
-                )
+                        workspace_id=workspace_id,
+                        conversation_id=conversation_id,
+                        data={
+                            "current_stage": "sales",
+                            "followup_count": 0,
+                            "repeat_count": 0,
+                            "last_agent": "sales_agent",
+                        }
+                    )
             state["current_stage"] = "sales"
 
-
-        agent_type = self._determine_agent_type(
-            message=message,
-            turn_count=turn_count,
-            lead_data=lead_data,
-            state=state,
-            is_followup_trigger=payload.get("is_followup_trigger", False)
-        )
+        # Determine agent
+        forced_agent = payload.get("forced_agent")
+        if forced_agent:
+            agent_type = forced_agent
+            self.logger.info(f"FORCED AGENT RAW: {payload.get('forced_agent')}")
+            self.logger.info(
+                "Using forced agent from automation",
+                extra={"agent_type": agent_type, "workspace_id": workspace_id}
+            )
+        else:
+            agent_type = self._determine_agent_type(
+                message=message,
+                turn_count=turn_count,
+                lead_data=lead_data,
+                state=state,
+                is_followup_trigger=payload.get("is_followup_trigger", False)
+            )
 
         self.logger.info(f"Agent type: {agent_type}", extra={
             "user_id": user_id, "turn_count": turn_count, "conversation_id": conversation_id
         })
 
-        # Pre-agent policy check
-        # policy = ConversationPolicy(self.memory, self.config_service)
-        # current_stage = state.get("current_stage", "lead")
-
-        # policy_result = policy.evaluate(
-        #     user_id=user_id,
-        #     stage=current_stage,
-        #     lead_data=lead_data
-        # ) or {}
-
-        # if policy_result and policy_result.get("action") == "ESCALATE":
-        #     if current_stage != "sales":
-        #         self.escalation_queue.add({
-        #             "user_id": user_id,
-        #             "message": message,
-        #             "channel": channel,
-        #             "reason": policy_result.get("reason"),
-        #             "workspace_id": workspace_id
-        #         })
-
-        #         response = {"text": "I'll connect you with our team for better assistance."}
-        #         self.send_response(channel, user_id, response)
-        #         return response
-        
-        # if policy_result.get("action") == "CLOSE":
-            
-        #     force_close = True
-        # else:
-        #     force_close = False
-
-        #  Unified Agent ─
+        # Run Unified Agent
         result = await self.unified_agent.handle(
             message=message,
             context={
-                "user_id":      user_id,
-                "conversation_id": conversation_id,
+                "agent_type": agent_type,
                 "workspace_id": workspace_id,
-                "db":           db,
-                "agent_type":   agent_type,
-                "turn_count":   turn_count,
+                "conversation_id": conversation_id,
+                "db": self.db,
+                "turn_count": turn_count,
                 "repeat_count": repeat_count,
+                "business_type": payload.get("business_type"),
+                "lead_fields": lead_fields,
+                "calendar_enabled": payload.get("calendar_enabled", False),
+                "payment_enabled": payload.get("payment_enabled", False),
             }
         ) or {}
 
-        # if force_close:
-        #     result["response"] = "Thanks for the details! Our team will contact you shortly."
-        #     result["close"] = True
-        #     result["action"] = "lead_complete"
-
         stage  = result.get("stage",  "lead")
-        action = result.get("action", "unknown")
+        action = result.get("action")
+
+        # ─ DEMO BOOKING ─
+        if action == "book_demo":
+            from app.services.email_automation.calender_executor import CalendarExecutor
+            calendar = CalendarExecutor()
+            calendar_result = calendar.execute(
+                db=db,
+                workspace_id=workspace_id,
+                action={
+                    "data": {
+                        "meeting_date": result.get("meeting_date"),
+                        "meeting_time": result.get("meeting_time"),
+                        "timezone":     result.get("timezone"),
+                        "location":     result.get("location", "Online")
+                    },
+                    "sender": payload.get("from")
+                },
+                decision={
+                    "summary":  "AI Demo Meeting",
+                    "priority": "high"
+                }
+            )
+            meet_link = calendar_result.get("meet_link") if calendar_result else None
+            if meet_link:
+                result["response"] += f"\n\nGoogle Meet Link:\n{meet_link}"
+            else:
+                result["response"] += "\n\nMeeting scheduled successfully."
+
+            # After booking demo, escalate to human
+            result["escalate"] = True
+            result["close"]    = True
 
         if action == "lead_complete":
             stage = "sales"
@@ -172,33 +220,195 @@ class AgentOrchestration:
                         "followup_count": 0,
                         "repeat_count":   0,
                         "last_agent":     "sales_agent",
-                    },
+                    }
                 )
+            # Force escalate to human agent after lead is fully collected
+            result["escalate"] = True
 
         confidence = result.get("confidence_score", 0.5)
 
-        #  Update memory ─
+        # ─ Update memory ─
         if self.memory:
-            if result.get("collect"):
-                cleaned = {k: v for k, v in result["collect"].items() if v}
-                if cleaned:
-                    self.memory.update_lead_data(
-                        workspace_id=workspace_id,
-                        conversation_id=conversation_id,
-                        data=cleaned,
+            collected = result.get("collect") or {}
+
+            # ── LEAD_DEBUG: Log raw collect from LLM result ──
+            self.logger.warning(
+                f"[LEAD_DEBUG][orchestration] RAW collect from LLM: {result.get('collect')}"
+            )
+
+            # Merge: also try to extract top-level values for known lead fields
+            for field in lead_fields:
+                if field in result and result[field] and not collected.get(field):
+                    collected[field] = result[field]
+
+            # Merge demo scheduling fields as well so they are persisted to Lead columns/custom_fields
+            for field in ["meeting_date", "meeting_time", "timezone"]:
+                if field in result and result[field] and not collected.get(field):
+                    collected[field] = result[field]
+
+            # ── LEAD_DEBUG: Log merged collected before validation ──
+            self.logger.warning(
+                f"[LEAD_DEBUG][orchestration] collected BEFORE validation: {collected}"
+            )
+
+            INVALID_WORDS = ["none", "null", "no", "nill", "don't have", 
+                             "not have", "இல்ல", "தெரியல", "na", "n/a"]
+
+            def validate_lead_fields(data: dict) -> dict:
+                import re
+                valid = {}
+                for field, value in data.items():
+                    if not value or not str(value).strip():
+                        self.logger.warning(
+                            f"[LEAD_DEBUG][validation] SKIP field={field!r}: empty value={value!r}"
+                        )
+                        continue
+                    v = str(value).strip().lower()
+                    
+                    # Reject invalid words
+                    if v in INVALID_WORDS:
+                        self.logger.warning(
+                            f"[LEAD_DEBUG][validation] REJECT field={field!r}: invalid word={v!r}"
+                        )
+                        continue
+                    
+                    # Field-specific rules
+                    if field == "email":
+                        self.logger.warning(
+                            f"[LEAD_DEBUG][validation] EMAIL check: raw value={value!r}, repr={value!r}"
+                        )
+                        if not re.match(r"[^@]+@[^@]+\.[^@]+", value):
+                            self.logger.warning(
+                                f"[LEAD_DEBUG][validation] EMAIL REJECTED by regex: {value!r}"
+                            )
+                            continue
+                        else:
+                            self.logger.warning(
+                                f"[LEAD_DEBUG][validation] EMAIL PASSED regex: {value!r}"
+                            )
+                    
+                    if field == "phone":
+                        digits = re.sub(r"\D", "", value)
+                        if len(digits) < 10:
+                            self.logger.warning(
+                                f"[LEAD_DEBUG][validation] PHONE REJECTED: digits={digits!r} len={len(digits)}"
+                            )
+                            continue
+                    
+                    if field == "name":
+                        if len(value.strip()) < 2:
+                            self.logger.warning(
+                                f"[LEAD_DEBUG][validation] NAME REJECTED: too short={value!r}"
+                            )
+                            continue
+                    
+                    valid[field] = value  
+
+                return valid
+
+            cleaned = validate_lead_fields(
+                {k: v for k, v in collected.items() if v}
+            )
+
+            # ── LEAD_DEBUG: Log cleaned output after validation ──
+            self.logger.warning(
+                f"[LEAD_DEBUG][orchestration] cleaned fields AFTER validation: {cleaned}"
+            )
+
+            if cleaned:
+                # ── LEAD_DEBUG: Log persistence attempt ──
+                self.logger.warning(
+                    f"[LEAD_DEBUG][orchestration] Persisting fields: {cleaned}"
+                )
+
+                self.logger.info(
+                    "[LEAD SAVE DEBUG] Before save",
+                    extra={
+                        "workspace_id": workspace_id,
+                        "conversation_id": conversation_id,
+                        "collect": cleaned
+                    }
+                )
+
+                self.memory.update_lead_data(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                    data=cleaned,
+                )
+                
+                # Force a refresh by re-fetching
+                lead = self.memory.get_lead_data(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                )
+                
+                # Re-build lead_data from standard fields and custom_fields
+                lead_data = {}
+                for field in lead_fields:
+                    val = ""
+                    if lead:
+                        if lead.custom_fields and field in lead.custom_fields:
+                            val = lead.custom_fields[field]
+                        elif hasattr(lead, field):
+                            val = getattr(lead, field, "")
+                    if val:
+                        lead_data[field] = val
+                
+                self.logger.info(
+                    "[LEAD LOAD DEBUG] After save and reload",
+                    extra={
+                        "workspace_id": workspace_id,
+                        "conversation_id": conversation_id,
+                        "lead_fields": lead_data,
+                        "custom_fields": lead.custom_fields if lead else None
+                    }
+                )
+
+                # ── LEAD_DEBUG: Log lead_data after persistence reload ──
+                self.logger.warning(
+                    f"[LEAD_DEBUG][orchestration] lead_data AFTER persistence: {lead_data}"
+                )
+                self.logger.warning(
+                    f"[LEAD_DEBUG][orchestration] custom_fields AFTER persistence: {lead.custom_fields if lead else None}"
+                )
+
+                missing_fields = [
+                    field for field in lead_fields
+                    if not lead_data.get(field)
+                ]
+                # All lead fields collected → auto escalate cleanly (only if calendar/demo booking is NOT enabled)
+                if lead_fields and not missing_fields and not payload.get("calendar_enabled", False):
+                    result["action"] = "lead_complete"
+                    result["escalate"] = True
+                    result["close"] = True
+                    stage = "sales"
+
+                    self.logger.info(
+                        "All lead fields collected. Escalating to human.",
+                        extra={
+                            "workspace_id": workspace_id,
+                            "conversation_id": conversation_id,
+                            "lead_data": lead_data
+                        }
                     )
+
+            else:
+                # ── LEAD_DEBUG: Log empty validation failure ──
+                self.logger.warning(
+                    "[LEAD_DEBUG][orchestration] ⚠️ No fields persisted after validation! "
+                    f"collected was: {collected}"
+                )
+
             self.memory.update_conversation_state(
                 workspace_id=workspace_id,
                 conversation_id=conversation_id,
                 data={
                     "current_stage": stage,
-                    "last_intent":   message,
-                    "last_agent":    agent_type,
-                },
+                    "last_action":   action,
+                }
             )
 
-        #  MCP validation 
-
+        # ─ MCP validation ─
         mcp_result = self.mcp.evaluate_action(
             workspace_id=workspace_id,
             action_type=action,
@@ -220,37 +430,71 @@ class AgentOrchestration:
             ) or {}
         )
 
-        if (result.get("escalate") or decision == "ESCALATE") \
-                and state.get("current_stage") != "sales":
+        # ─ ESCALATE: end AI session, hand off to human ─
+        should_escalate = (
+            result.get("escalate")
+            or result.get("close")
+            or decision == "ESCALATE"
+        ) and state.get("current_stage") != "sales"
+
+        # Also escalate if stage is sales and action is lead_complete
+        if action == "lead_complete":
+            should_escalate = True
+
+        if should_escalate:
+            self._end_ai_session(conversation_id)
             self.escalation_queue.add({
                 "user_id":      user_id,
                 "conversation_id": conversation_id,
                 "message":      message,
                 "channel":      channel,
-                "reason":       mcp_result.get("reason", "Escalated by AI"),
+                "reason":       mcp_result.get("reason", "Lead qualification complete — handoff to human"),
                 "workspace_id": workspace_id,
             })
-            response = {"text": "I'll connect you with our team for better assistance."}
-            self.send_response(channel, user_id, response)
+            response = {"text": result.get("response", "I'll connect you with our team for better assistance."), "metadata": result}
+            if not skip_send:
+                self.send_response(channel, user_id, response)
             return response
 
         if decision == "BLOCK":
             response = {"text": "Sorry, I cannot process this request."}
-            self.send_response(channel, user_id, response)
+            if not skip_send:
+                self.send_response(channel, user_id, response)
             return response
 
         response = {"text": result.get("response", "Processing..."), "metadata": result}
-        self.send_response(channel, user_id, response)
+        if not skip_send:
+            self.send_response(channel, user_id, response)
         return response
 
+    # ─ END AI SESSION ─
 
-    #  AGENT TYPE 
+    def _end_ai_session(self, conversation_id):
+        """Clear the active_ai_session flag so the flow doesn't stay locked."""
+        if not self.db or not conversation_id:
+            return
+        try:
+            state = (
+                self.db.query(FlowExecutionState)
+                .filter(FlowExecutionState.conversation_id == conversation_id)
+                .first()
+            )
+            if state and state.runtime_context:
+                state.runtime_context["active_ai_session"] = False
+                state.runtime_context["assigned_agent"]    = None
+                from sqlalchemy.orm.attributes import flag_modified
+                flag_modified(state, "runtime_context")
+                self.db.add(state)
+                self.db.commit()
+        except Exception:
+            self.logger.warning("_end_ai_session failed", exc_info=True)
+
+    # ─ AGENT TYPE ─
 
     def _determine_agent_type(self, message, turn_count, lead_data, state, is_followup_trigger=False):
         if is_followup_trigger:
             return "followup_agent"
 
-      
         if turn_count == 0:
             return "greeting_agent"
 
@@ -268,7 +512,6 @@ class AgentOrchestration:
             "privacy", "policy", "broken", "not working",
             "fix", "support", "ticket",
         ]
-        
         closing_keywords = ["thanks", "thank you", "ok thanks", "got it", "perfect"]
 
         if any(x in msg_lower for x in closing_keywords):
@@ -284,8 +527,7 @@ class AgentOrchestration:
 
         return "sales_agent"
 
-
-    #  NORMALIZE MESSAGE ─
+    # ─ NORMALIZE MESSAGE ─
 
     def normalize_message(self, payload, channel):
         try:
@@ -296,7 +538,6 @@ class AgentOrchestration:
             conversation_id = payload.get("conversation_id")
 
             if channel.lower() in ["whatsapp", "twilio"]:
-                #  Bug #9 fix — "from" is phone number set by webhook/task caller
                 user_id   = payload.get("from") or payload.get("WaId") or payload.get("phone")
                 message   = payload.get("body") or payload.get("message")
                 timestamp = payload.get("timestamp")
@@ -314,7 +555,7 @@ class AgentOrchestration:
                 timestamp = payload.get("timestamp")
 
             else:
-                user_id   = payload.get("user_id") or payload.get("sender_id") or payload.get("from")
+                user_id   = payload.get("user_id") or payload.get("sender_id")
                 message   = payload.get("text") or payload.get("message") or payload.get("body")
                 timestamp = payload.get("timestamp")
 
@@ -342,10 +583,12 @@ class AgentOrchestration:
                 "conversation_id": payload.get("conversation_id"),
             }
 
-
-    #  SEND RESPONSE ─
-
+    # ─ SEND RESPONSE ─
     def send_response(self, channel, user_id, response):
+        from app.services.inbox.message_service import MessageService
+        from app.models.message import SenderType, MessageStatus
+        from app.models.conversation import Conversation
+
         try:
             text = (
                 response.get("response_text") or response.get("text") or ""
@@ -356,66 +599,41 @@ class AgentOrchestration:
             if channel in {"twilio", "whatsapp"} and not user_id:
                 raise ValueError("Outbound channel requires a destination user identifier")
 
-            workspace_id = self.runtime_context.get("workspace_id")
+            workspace_id    = self.runtime_context.get("workspace_id")
             conversation_id = self.runtime_context.get("conversation_id")
             db = getattr(self.escalation_queue, "db", None)
 
-          
-            if channel == "twilio":
+            if channel in ("twilio", "whatsapp"):
                 to_number = user_id if user_id.startswith("whatsapp:") else f"whatsapp:{user_id}"
                 TwilioService().send_whatsapp_message(
                     workspace_id=workspace_id,
                     to_number=to_number,
                     body=text,
                 )
-
-            elif channel == "whatsapp":
-                to_number = user_id if user_id.startswith("whatsapp:") else f"whatsapp:{user_id}"
-                TwilioService().send_whatsapp_message(
-                    workspace_id=workspace_id,
-                    to_number=to_number,
-                    body=text,
-                )
-
             elif channel == "instagram":
                 if self.response_sender:
                     self.response_sender.send_message(user_id, text)
 
-           
             if db and conversation_id:
                 try:
-                    from app.services.inbox.message_service import MessageService
-                    from app.models.message import SenderType, MessageStatus
-                    from app.models.conversation import Conversation
+                    conversation = db.query(Conversation).filter(
+                        Conversation.id == conversation_id
+                    ).first()
 
-                   
-                    conversation = (
-                        db.query(Conversation)
-                        .filter(
-                            Conversation.id == conversation_id,
-                            Conversation.workspace_id == workspace_id,
+                    if not conversation:
+                        conversation = db.query(Conversation).filter(
+                            Conversation.phone == conversation_id,
+                            Conversation.workspace_id == workspace_id
                         ).first()
-                    )
 
                     if conversation:
-                        MessageService.save_manual_message(
-                            db,
-                            conversation=conversation,
-                            body=text,
-                            sender_type=SenderType.AI,
-                            status=MessageStatus.SENT,
-                            source="automation",
-                        )
+                        MessageService.save_ai_message(db, conversation, text, source="automation")
                         self.logger.info(f"Automation message saved to inbox: {conversation.id}")
                     else:
-                        self.logger.warning(
-                            "Conversation not found for automation message | workspace=%s conversation=%s",
-                            workspace_id,
-                            conversation_id,
-                        )
+                        self.logger.warning(f"Conversation not found: {conversation_id}")
 
                 except Exception as e:
-                    self.logger.error(f"Failed to save automation message to DB: {e}")
+                    self.logger.error(f"Failed to save message to DB: {e}")
 
         except Exception:
             self.logger.error("send_response failed", exc_info=True)

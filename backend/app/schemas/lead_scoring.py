@@ -168,6 +168,7 @@ class LeadScoreListItem(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     source: Optional[str] = None
+    channel: Optional[str] = None
     status: Optional[str] = None
     score: int
     behavioral_score: int
@@ -179,6 +180,11 @@ class LeadScoreListItem(BaseModel):
     last_activity_at: Optional[datetime] = None
     assigned_to: Optional[UUID] = None
     conversation_id: Optional[UUID] = None  # FIX 6
+    is_converted: bool = False
+    conversion_amount: Optional[float] = None
+    converted_at: Optional[datetime] = None
+    converted_product: Optional[str] = None
+    conversion_notes: Optional[str] = None
 
 
 class LeadScoreListResponse(BaseModel):
@@ -195,6 +201,7 @@ class ConversationLogItem(BaseModel):
     content: str
     direction: str  # inbound / outbound
     sent_at: datetime
+    metadata: Optional[dict] = None
 
 
 class LeadDetailResponse(BaseModel):
@@ -202,6 +209,7 @@ class LeadDetailResponse(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     source: Optional[str] = None
+    channel: Optional[str] = None
     status: str
     score: int
     behavioral_score: int
@@ -218,11 +226,19 @@ class LeadDetailResponse(BaseModel):
     assigned_to: Optional[UUID] = None
     created_at: datetime
     conversation_log: list[ConversationLogItem]
+    avg_reply_minutes: Optional[float] = None
+    is_converted: bool = False
+    conversion_amount: Optional[float] = None
+    converted_at: Optional[datetime] = None
+    converted_product: Optional[str] = None
+    conversion_notes: Optional[str] = None
+
 
 
 class ConvertLeadRequest(BaseModel):
     amount: float
-    note: Optional[str] = None
+    product: str
+    notes: Optional[str] = None
 
 
 class ConvertLeadResponse(BaseModel):
@@ -230,6 +246,9 @@ class ConvertLeadResponse(BaseModel):
     status: str
     conversion_amount: float
     converted_at: datetime
+    is_converted: bool
+    converted_product: Optional[str] = None
+    conversion_notes: Optional[str] = None
     score: int
     behavioral_score: int
     semantic_intent_score: int

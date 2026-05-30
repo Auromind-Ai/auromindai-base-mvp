@@ -89,6 +89,12 @@ async def get_current_user(
         raise credentials_exception
     
     user_id: str = payload.get("sub")
+    role = payload.get("role")
+    
+    if role == "platform_admin" or user_id == "platform_admin":
+        log_auth("❌ Platform admin token rejected on normal route")
+        raise credentials_exception
+
     workspace_id: str = payload.get("workspace_id")
     impersonated = payload.get("impersonated", False)
     admin_id = payload.get("admin_id")

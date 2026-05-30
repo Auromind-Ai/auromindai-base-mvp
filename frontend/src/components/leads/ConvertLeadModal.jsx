@@ -26,7 +26,7 @@ const showToast = (message) => {
   }
 
   const toast = document.createElement('div');
-  toast.className = 'flex items-center gap-2 px-4 py-3 rounded-xl border border-purple-500/30 bg-[#1a1a2e]/95 backdrop-blur-md shadow-2xl text-white text-sm font-semibold';
+  toast.className = 'flex items-center gap-2 px-4 py-3 rounded-xl border border-emerald-500/30 bg-[#0c1c14]/95 backdrop-blur-md shadow-2xl text-white text-sm font-semibold';
   toast.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
   toast.style.opacity = '0';
   toast.style.transform = 'translateY(20px)';
@@ -54,7 +54,8 @@ const showToast = (message) => {
 
 export default function ConvertLeadModal({ isOpen, onClose, lead, onSuccess }) {
   const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
+  const [product, setProduct] = useState('');
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,6 +64,12 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSuccess }) {
     const parsedAmount = parseFloat(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Please enter a valid amount greater than 0');
+      return;
+    }
+
+    // Validate product
+    if (!product.trim()) {
+      setError('Product/Service name is required');
       return;
     }
 
@@ -75,12 +82,18 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSuccess }) {
         throw new Error('Workspace session expired. Please log in again.');
       }
 
+      const leadId = lead?.lead_id || lead?.id;
+      if (!leadId) {
+        throw new Error('Invalid lead reference. Please try again.');
+      }
+
       // POST /lead-scoring/leads/{id}/convert
       const res = await api.post(
-        `/lead-scoring/leads/${lead.lead_id}/convert?workspace_id=${workspaceId}`,
+        `/lead-scoring/leads/${leadId}/convert?workspace_id=${workspaceId}`,
         {
           amount: parsedAmount,
-          note: note || null,
+          product: product.trim(),
+          notes: notes.trim() || null,
         }
       );
 
@@ -89,7 +102,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSuccess }) {
       onClose();
 
       // Toast notification
-      showToast(`✅ Lead converted! ₹${parsedAmount.toLocaleString('en-IN')}`);
+      showToast(`✅ Lead converted! Product: ${product.trim()}, Amount: ₹${parsedAmount.toLocaleString('en-IN')}`);
     } catch (err) {
       setError(err?.message || 'Failed to convert lead. Please try again.');
     } finally {
@@ -101,7 +114,7 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-6 shadow-2xl flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+      <div className="w-full max-w-md bg-[#111119] border border-white/[0.08] rounded-2xl p-6 shadow-2xl flex flex-col gap-5 animate-in zoom-in-95 duration-200">
         <div>
           <h2 className="text-lg font-bold text-white tracking-tight">Mark as Converted</h2>
           <p className="text-xs text-zinc-400 mt-1">
@@ -111,26 +124,38 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSuccess }) {
 
         {/* Amount Input */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-zinc-400">Sale Amount (₹) *</label>
+          <label className="text-xs font-semibold text-zinc-400">Revenue Amount (₹) *</label>
           <input
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="5000"
+            placeholder="15000"
             min="0"
-            className="w-full h-10 px-3 rounded-lg bg-[#0a0a0a] border border-[#2a2a2a] text-white text-sm outline-none focus:border-purple-500/50 transition-colors"
+            className="w-full h-10 px-3 rounded-lg bg-[#07010F] border border-white/[0.08] text-white text-sm outline-none focus:border-emerald-500/50 transition-colors"
           />
         </div>
 
-        {/* Note Input */}
+        {/* Product Input */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-zinc-400">Note (optional)</label>
+          <label className="text-xs font-semibold text-zinc-400">Product / Service *</label>
           <input
             type="text"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Bought red dress"
-            className="w-full h-10 px-3 rounded-lg bg-[#0a0a0a] border border-[#2a2a2a] text-white text-sm outline-none focus:border-purple-500/50 transition-colors"
+            value={product}
+            onChange={(e) => setProduct(e.target.value)}
+            placeholder="Premium Plan"
+            className="w-full h-10 px-3 rounded-lg bg-[#07010F] border border-white/[0.08] text-white text-sm outline-none focus:border-emerald-500/50 transition-colors"
+          />
+        </div>
+
+        {/* Notes Input */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-zinc-400">Notes (optional)</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Customer purchased annual subscription"
+            rows={3}
+            className="w-full p-3 rounded-lg bg-[#07010F] border border-white/[0.08] text-white text-sm outline-none focus:border-emerald-500/50 transition-colors resize-none"
           />
         </div>
 
@@ -143,16 +168,16 @@ export default function ConvertLeadModal({ isOpen, onClose, lead, onSuccess }) {
         <div className="flex items-center justify-end gap-3 mt-2">
           <button
             onClick={onClose}
-            className="h-10 px-4 rounded-lg bg-transparent border border-[#2a2a2a] text-zinc-300 hover:text-white hover:bg-white/5 text-sm transition-colors font-medium"
+            className="h-10 px-4 rounded-lg bg-transparent border border-white/[0.08] text-zinc-300 hover:text-white hover:bg-white/5 text-sm transition-colors font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="h-10 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 active:scale-95"
           >
-            {loading ? 'Converting...' : 'Convert ✓'}
+            {loading ? 'Saving...' : 'Save Conversion'}
           </button>
         </div>
       </div>

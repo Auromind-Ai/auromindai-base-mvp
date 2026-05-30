@@ -96,7 +96,8 @@ class ChatService:
             raise GuardrailError(f"Guardrails validation failed: {str(e)}")
 
     async def _get_rag_answer(
-        self, db: Session, workspace_id: str, query: str, model: str = "auto"
+        self, db: Session, workspace_id: str, query: str, model: str = "auto",
+        source: str = "internal_web", document_id: Optional[str] = None,
     ) -> Any:
         try:
             rag = get_rag_service()
@@ -104,7 +105,9 @@ class ChatService:
                 db=db,
                 workspace_id=workspace_id,
                 query=query,
-                model=model  
+                model=model,
+                source=source,
+                document_id=document_id,
             )
             return answer
         except RetryError as e:
@@ -336,6 +339,8 @@ class ChatService:
                                 workspace_id=workspace_id,
                                 query=safe_query,
                                 model=model,
+                                source=source,
+                                document_id=document_id,
                             ),
                             timeout=60,
                         )

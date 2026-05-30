@@ -389,6 +389,7 @@ def get_workspace_lead_scores(
             "name": lead.name,
             "phone": lead.phone,
             "source": lead.source,
+            "channel": lead.source,
             "status": lead.status,
 
             # total score
@@ -419,6 +420,42 @@ def get_workspace_lead_scores(
                 str(lead.conversation_id)
                 if lead.conversation_id else None
             ),
+            "is_converted": lead.is_converted,
+            "conversion_amount": float(lead.conversion_amount) if lead.conversion_amount is not None else None,
+            "converted_at": lead.converted_at,
+            "converted_product": lead.converted_product,
+            "conversion_notes": lead.conversion_notes,
         })
 
     return {"total": total, "items": items}
+
+
+def calculate_avg_reply_minutes(conversation_id: UUID, db: Session) -> float | None:
+    if not conversation_id:
+        return None
+
+    from app.models.message import Message, SenderType
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id)
+        .order_by(Message.timestamp.asc())
+        .all()
+    )
+
+    delays = []
+    last_outbound_time = None
+
+    for msg in messages:
+        if msg.sender_type in (SenderType.AI, SenderType.AGENT):
+            last_outbound_time = msg.timestamp
+        elif msg.sender_type == SenderType.USER and last_outbound_time:
+            delay_seconds = (msg.timestamp - last_outbound_time).total_seconds()
+            if delay_seconds > 0:
+                delays.append(delay_seconds / 60.0)
+            last_outbound_time = None
+
+    if not delays:
+        return None
+
+    return sum(delays) / len(delays)
+

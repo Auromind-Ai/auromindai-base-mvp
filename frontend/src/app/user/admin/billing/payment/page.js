@@ -38,7 +38,7 @@ function BillingContent() {
         //  BOTH CALLS
         const [billing, settingsData] = await Promise.all([
           api.getBillingStatus(id),
-          api.getPlatformSettings(), 
+          api.getPricing(), 
         ])
 
         console.log(LOG_PREFIX, "Billing:", billing)

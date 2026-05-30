@@ -1,5 +1,6 @@
 
 
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Any
@@ -27,13 +28,15 @@ router = APIRouter(tags=["dashboard"])
 @router.get("/overview", response_model=DashboardOverviewResponse)
 async def get_dashboard_overview(
     workspace_id: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
    
     wid = verify_workspace_access(current_user, db, workspace_id)
     try:
-        data = await dashboard_service.get_full_overview(wid, db)
+        data = await dashboard_service.get_full_overview(wid, db, start_date=start_date, end_date=end_date)
         return data
     except Exception as exc:
         raise HTTPException(
