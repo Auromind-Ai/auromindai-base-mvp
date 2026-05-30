@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 import re
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 from app.services.agentic_rag.vector_store_service import VectorStoreService
-# from app.models.brain import BrainEntry
 from app.models.brain import EmailMessage
 
 

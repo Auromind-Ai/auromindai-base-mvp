@@ -1,7 +1,6 @@
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
 from app.database import Base
 
 class ModelConfig(Base):
@@ -24,7 +23,7 @@ class ModelConfig(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def to_dict(self):
-        """Convert model to dictionary"""
+    
         return {
             'id': self.id,
             'name': self.name,

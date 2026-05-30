@@ -2,12 +2,10 @@
 import logging
 import uuid
 from typing import Optional
-
 import redis
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-
 REDIS_URL = settings.REDIS_URL
 
 # Module-level singleton — thread-safe, reused across Celery workers.
@@ -31,27 +29,11 @@ else
 end
 """
 
-
 def acquire_conversation_lock(
     conversation_id: str,
     ttl_seconds: int = 30,
 ) -> Optional[str]:
-    """Try to acquire a per-conversation send lock.
-
-    Returns a unique token (string) on success, or None if the lock is
-    already held by another worker.  The lock auto-expires after
-    ``ttl_seconds`` to prevent deadlocks from crashed workers.
-
-    Usage::
-
-        token = acquire_conversation_lock(conv_id)
-        if token is None:
-            return  # another worker is handling this conversation
-        try:
-            ... do work ...
-        finally:
-            release_conversation_lock(conv_id, token)
-    """
+    
     r = _get_redis()
     token = str(uuid.uuid4())
     key = f"conversation_send_lock:{conversation_id}"
@@ -70,13 +52,8 @@ def acquire_conversation_lock(
     )
     return None
 
-
 def release_conversation_lock(conversation_id: str, token: str) -> bool:
-    """Release the lock ONLY if we still own it (compare-and-delete).
-
-    Returns True if the lock was released, False if it was already
-    expired or owned by someone else.
-    """
+    
     r = _get_redis()
     key = f"conversation_send_lock:{conversation_id}"
 

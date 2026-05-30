@@ -1,8 +1,6 @@
 from __future__ import annotations
-
 import logging
 from typing import Any, Dict, Optional
-
 from app.models.conversation import ChannelType, Conversation
 from app.models.workspace import Workspace
 from app.services.inbox_agents.instagram_service import InstagramService

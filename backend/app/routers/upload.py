@@ -4,10 +4,8 @@ from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
 from app.schemas.upload import UploadResponse
 from sqlalchemy.orm import Session
-
 from app.database import get_db
 from app.models.media import MediaFile
-from app.models.workspace import WorkspaceMember
 from app.routers.auth import get_current_user, CurrentUser
 from app.services.storage.service import get_storage
 from app.core.security import verify_workspace_access
@@ -21,9 +19,7 @@ ALLOWED_TYPES = {
     "document": ["application/pdf"]
 }
 
-# Magic-byte signatures for every permitted MIME type.
-# No external dependencies — pure stdlib. Each entry maps a MIME type to a list
-# of (offset, prefix) pairs; any matching pair is enough to accept the file.
+
 _MAGIC_SIGNATURES: dict[str, list[tuple[int, bytes]]] = {
     "image/jpeg": [(0, b"\xff\xd8\xff")],
     "image/png":  [(0, b"\x89PNG\r\n\x1a\n")],
@@ -33,11 +29,7 @@ _MAGIC_SIGNATURES: dict[str, list[tuple[int, bytes]]] = {
 
 
 def _detect_mime_from_bytes(data: bytes) -> Optional[str]:
-    """Detect MIME type from the first bytes of the file.
-
-    Zero external dependencies — uses the built-in signature table only.
-    Covers every file type currently in ALLOWED_TYPES.
-    """
+   
     for mime, sigs in _MAGIC_SIGNATURES.items():
         for offset, prefix in sigs:
             if data[offset: offset + len(prefix)] == prefix:
@@ -46,11 +38,7 @@ def _detect_mime_from_bytes(data: bytes) -> Optional[str]:
 
 
 def _validate_mime(file_content: bytes) -> str:
-    """Raise 400 if the file's real MIME type is not in the allow-list.
-
-    Returns the validated MIME type string detected from the file bytes —
-    ignores the client-supplied Content-Type header entirely.
-    """
+    
     real_mime = _detect_mime_from_bytes(file_content)
 
     if real_mime is None:
@@ -79,9 +67,6 @@ def get_file_type(mime_type: str) -> Optional[str]:
     return None
 
 
-
-
-
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
@@ -95,8 +80,7 @@ async def upload_file(
             detail="File too large. Maximum size is 10MB."
         )
 
-    # Validate using actual file bytes — the client-supplied Content-Type header
-    # is ignored entirely to prevent MIME spoofing attacks.
+   
     real_mime = _validate_mime(file_content)
     file_type = get_file_type(real_mime)
 

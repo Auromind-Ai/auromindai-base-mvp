@@ -45,27 +45,26 @@ class helperslayer:
 
             cleaned_key = self.clean_text(key)
 
-            # full sentence similarity
-            score = self.similarity(q, cleaned_key)
-
-            # partial containment boost
-            if cleaned_key in q or q in cleaned_key:
-                score += 0.3
-
-            # word overlap boost
             q_words = set(q.split())
             k_words = set(cleaned_key.split())
 
-            overlap = len(q_words.intersection(k_words))
+            overlap = len(q_words & k_words)
+            overlap_ratio = overlap / max(len(k_words), 1)
 
-            score += overlap * 0.1
+            if overlap_ratio < 0.6:
+                continue
+
+            score = self.similarity(q, cleaned_key)
+
+            # containment boost
+            if cleaned_key in q or q in cleaned_key:
+                score += 0.2
 
             if score > best_score:
                 best_score = score
                 best_match = value
 
-
-        if best_score >= 0.55:
+        if best_score >= 0.65:
             return best_match
 
         return None

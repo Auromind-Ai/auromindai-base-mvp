@@ -15,22 +15,17 @@ router = APIRouter()
 
 @router.get("/analytics")
 async def get_analytics(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """
-    Get platform analytics and system metrics.
-    """
+    
     try:
-        # Count total users
-        total_users = db.query(func.count(User.id)).scalar() or 0
         
-        # Count active users
+        total_users = db.query(func.count(User.id)).scalar() or 0
+
         active_users = db.query(func.count(User.id)).filter(
             User.is_active == True
         ).scalar() or 0
         
-        # Count verified users
         verified_users = 0
         
-        # Count trial users (users created in last 30 days without paid subscription)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         trial_users = db.query(func.count(User.id)).filter(
             User.created_at > thirty_days_ago

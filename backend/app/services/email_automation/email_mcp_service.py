@@ -4,7 +4,6 @@ from app.models.brain import MCPDecision
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import json
-
 from app.models.integration import Integration
 from app.services.llm_utils import safe_llm_call
 

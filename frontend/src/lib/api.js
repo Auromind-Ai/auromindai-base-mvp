@@ -161,7 +161,7 @@ async getPricing() {
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
   }
-// ============== Automation Methods ==============
+// ==== Automation Methods ====
 
 
 
@@ -213,7 +213,7 @@ async getPricing() {
     return this.get(`/mcp/rules?workspace_id=${workspace_id}`);
   }
 
-  // ============== Chat History Methods ==============
+  // ==== Chat History Methods ====
 
   async getChatSessions(workspace_id) {
     return this.get(`/chat/sessions?workspace_id=${workspace_id}`);
@@ -237,13 +237,13 @@ async getPricing() {
       body: JSON.stringify({ title })
     });
   }
-  // ================= Admin AI Activity =================
+  //  Admin AI Activity 
 
   async getAIActivity() {
     return this.get("/admin/ai_actions");
   }
 
-  // ================= Admin Token Methods =================
+  //  Admin Token Methods 
 
   async getAdminTokens() {
     return this.get("/admin/tokens")
@@ -256,7 +256,7 @@ async getPricing() {
     })
   }
 
-  // ============== Brain / RAG Methods ==============
+  // ==== Brain / RAG Methods ====
   /**
    * Upload a document to the Brain (PDF, DOCX, TXT)
    */
@@ -302,7 +302,7 @@ async getPricing() {
 }
 
 
-  // ================= Admin Workspace Methods =================
+  //  Admin Workspace Methods 
 
   async getAdminWorkspaces() {
     return this.get('/admin/workspaces');

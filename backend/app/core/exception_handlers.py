@@ -78,7 +78,7 @@ async def general_exception_handler(request: Request, exc: AuromindException):
 
 
 def register_exception_handlers(app: FastAPI):
-    """Register all exception handlers with the FastAPI app."""
+    
     app.add_exception_handler(BillingError, billing_error_handler)
     app.add_exception_handler(GuardrailError, guardrail_error_handler)
     app.add_exception_handler(ChatProcessingError, chat_processing_error_handler)

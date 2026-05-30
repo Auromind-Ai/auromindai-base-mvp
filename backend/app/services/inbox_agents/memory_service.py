@@ -1,11 +1,9 @@
 import hashlib
 import uuid as _uuid
-
 from app.core.logger import logger
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.models import Message
-
 from app.models import (
     ConversationState,
     Lead,
@@ -18,7 +16,7 @@ from app.models import (
 
 
 def _is_valid_uuid(value) -> bool:
-    """Return True if *value* can be interpreted as a UUID."""
+   
     if value is None:
         return False
     try:

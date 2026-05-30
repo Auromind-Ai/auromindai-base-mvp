@@ -11,10 +11,9 @@ from typing import List
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.security import verify_workspace_access
-from app.schemas.automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, StatusResponse, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse
+from app.schemas.automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse
 
 router = APIRouter(prefix="/automation", tags=["automation"])
-
 engine = AutomationEngine()
 
 @router.post("/approve", response_model=ApproveResponse)
@@ -23,7 +22,7 @@ async def approve_action(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Approve and execute an automation action (with workspace verification)"""
+   
     workspace_id = verify_workspace_access(current_user, db)
     decision = db.query(MCPDecision).filter(
         MCPDecision.message_id == str(decision_id),
@@ -41,7 +40,7 @@ async def generate_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Generates an automation flow graph from a prompt (with workspace verification)"""
+   
     verify_workspace_access(current_user, db)
     
     flow = agentic_wiring_service.generate_flow(request.prompt)
@@ -52,7 +51,7 @@ async def get_flows(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Lists all automation flows for a workspace (enforced access control)"""
+
     workspace_id = verify_workspace_access(current_user, db)
     
     # Query flows filtered by workspace_id (security boundary)
@@ -68,7 +67,7 @@ async def save_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Creates or updates a flow (with workspace verification)"""
+    
     workspace_id = verify_workspace_access(current_user, db)
     
     # Validate flow structure
@@ -86,7 +85,7 @@ async def save_flow(
         # Update existing flow
         flow = db.query(AutomationFlow).filter(
             AutomationFlow.id == request.id,
-            AutomationFlow.workspace_id == workspace_id  # CRITICAL: Verify workspace ownership
+            AutomationFlow.workspace_id == workspace_id 
         ).first()
         
         if not flow:
@@ -113,7 +112,7 @@ async def save_flow(
         nodes=request.nodes,
         edges=request.edges,
         status=request.status,
-        workspace_id=workspace_id  # Set from authenticated workspace
+        workspace_id=workspace_id 
     )
     db.add(new_flow)
     db.commit()
@@ -126,13 +125,13 @@ async def get_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Get a specific flow (with workspace verification)"""
+    
     workspace_id = verify_workspace_access(current_user, db)
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(
         AutomationFlow.id == flow_id,
-        AutomationFlow.workspace_id == workspace_id  # CRITICAL: Enforce workspace boundary
+        AutomationFlow.workspace_id == workspace_id 
     ).first()
     
     if not flow:
@@ -149,13 +148,13 @@ async def delete_flow(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
-    """Deletes a flow (with workspace verification)"""
+    
     workspace_id = verify_workspace_access(current_user, db)
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(
         AutomationFlow.id == flow_id,
-        AutomationFlow.workspace_id == workspace_id  # CRITICAL: Enforce workspace boundary
+        AutomationFlow.workspace_id == workspace_id  
     ).first()
     
     if not flow:

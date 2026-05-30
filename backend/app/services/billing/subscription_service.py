@@ -1,10 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Any
-
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-
 from app.core.enums import SubscriptionStatus
 from app.models.plan import Plan
 from app.models.subscription import Subscription
@@ -23,12 +21,12 @@ class SubscriptionService:
 
         provider_id = subscription_data.get("id")
 
-        #  1. Try existing by provider_subscription_id
+       
         subscription = self._get_subscription_by_provider_id(db, provider, provider_id)
 
         status = override_status or self._map_subscription_status(subscription_data.get("status"))
 
-        #  2. Handle ACTIVE constraint (VERY IMPORTANT)
+        # Handle ACTIVE constraint (VERY IMPORTANT)
         if status == SubscriptionStatus.active:
           
 
@@ -54,7 +52,7 @@ class SubscriptionService:
             if existing_actives:
                 db.flush()
 
-        #  3. CREATE OR UPDATE
+        # CREATE OR UPDATE
         if subscription is None:
             subscription = Subscription(
                 id=uuid.uuid4(),

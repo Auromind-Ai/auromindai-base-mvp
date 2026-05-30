@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Core
@@ -15,16 +15,16 @@ from app.core.startup import init_rag, init_learning_cache, init_schedulers, shu
 
 # Routers
 from app.routers import (
-    auth, inbox, brain, followups, dashboard, chat,
+    auth, brain, dashboard, chat,
     integrations, gmail, email, automation, admin,
-    metric, public, billing, upload
+    public, billing, upload
 )
 from app.routers.feedback import router as feedback_router
 from app.routers.template import router as template_router
 from app.routers.inbox_chennal import meta_what, conversations, instagram, twilio_webhook
 
 
-#  Lifespan 
+# Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Starting...")
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Stopped")
 
 
-#  App ─
+# App
 app = FastAPI(
     title="Auromind API",
     description="AI-Powered Business Assistant Platform (Production)",
@@ -50,7 +50,7 @@ app = FastAPI(
 
 register_exception_handlers(app)
 
-#  Middleware─
+# Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")],
@@ -63,7 +63,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(UUIDValidationMiddleware)
 
 
-#  Health 
+# Health 
 @app.get("/")
 async def root():
     return {"message": "Auromind API", "version": "2.0.0", "status": "running"}
@@ -73,30 +73,13 @@ async def health_check():
     return {"status": "healthy"}
 
 
-#  Routers ─
-
-# Auth
-app.include_router(auth.router,         prefix="/auth",      tags=["auth"])
-
-# Inbox
-app.include_router(inbox.router)                                          
+app.include_router(auth.router, prefix="/auth", tags=["auth"])                                         
 app.include_router(conversations.router)                                 
-
-# Twilio 
-app.include_router(twilio_webhook.router)
-
-# WhatsApp (Meta) 
-app.include_router(meta_what.router,    prefix="/api")
-
-# Instagram  
-app.include_router(instagram.router,    prefix="/api")
-
-# Brain / AI
-app.include_router(brain.router,                             tags=["brain"])
+app.include_router(twilio_webhook.router) 
+app.include_router(meta_what.router, prefix="/api")
+app.include_router(instagram.router, prefix="/api")
+app.include_router(brain.router, tags=["brain"])
 app.include_router(chat.router)
-
-# Features
-app.include_router(followups.router)
 app.include_router(dashboard.router,    prefix="/dashboard", tags=["dashboard"])
 app.include_router(integrations.router)
 app.include_router(gmail.router)
@@ -104,12 +87,7 @@ app.include_router(email.router)
 app.include_router(automation.router)
 app.include_router(template_router)
 app.include_router(feedback_router)
-
-# Admin / Ops
-app.include_router(admin.router,                             tags=["admin"])
-app.include_router(metric.router,       prefix="/metrics",   tags=["metrics"])
+app.include_router(admin.router, tags=["admin"])
 app.include_router(public.router)
-
-# Billing & Upload
-app.include_router(billing.router,                           tags=["billing"])
-app.include_router(upload.router,                            tags=["upload"])
+app.include_router(billing.router, tags=["billing"])
+app.include_router(upload.router,tags=["upload"])

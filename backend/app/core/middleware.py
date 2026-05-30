@@ -2,7 +2,6 @@ import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.metrics import middleware_record
 
-
 class MetricsMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):

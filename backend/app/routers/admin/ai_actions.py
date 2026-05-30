@@ -1,18 +1,14 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Dict, Any
-
 from app.database import get_db
 from app.models.ai_action import AIAction
 
 router = APIRouter()
 
-
 @router.get("/ai_actions")
 async def get_ai_actions(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
-    """
-    Get all AI actions executed by the system.
-    """
+   
     actions = db.query(AIAction).options(joinedload(AIAction.workspace)).all()
     actions_list = []
     for action in actions:

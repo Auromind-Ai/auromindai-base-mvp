@@ -1,12 +1,8 @@
-
 from __future__ import annotations
-
 import uuid
 from uuid import UUID
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
 from app.models.conversation import ChatSession, ChatMessage
 
 

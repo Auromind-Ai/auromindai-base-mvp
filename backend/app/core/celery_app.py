@@ -57,14 +57,14 @@ celery_app.conf.beat_schedule = {
     },
 }
 
-@celery_app.on_after_finalize.connect
-def preload_models(sender, **kwargs):
-    """Worker startup-ல RAG models load பண்ணும்"""
-    try:
+# @celery_app.on_after_finalize.connect
+# def preload_models(sender, **kwargs):
+    
+#     try:
      
-        print(" RAG models preloaded at worker startup!")
-    except Exception as e:
-        print(f"⚠️ RAG preload failed (non-critical): {e}")
+#         print(" RAG models preloaded at worker startup!")
+#     except Exception as e:
+#         print(f" RAG preload failed (non-critical): {e}")
 
 if __name__ == "__main__":
     celery_app.start()

@@ -1,5 +1,4 @@
 from typing import Any
-
 from app.core.config import settings
 from app.models.workspace import Workspace
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
@@ -36,6 +35,7 @@ class PayUGateway(PaymentGateway):
         user_email: str,
         user_name: str | None,
     ) -> dict[str, Any]:
+        
         raise ValueError("PayU subscription flow is not production-ready and is disabled")
 
     def verify_payment(self, payload: dict[str, Any]) -> dict[str, str]:

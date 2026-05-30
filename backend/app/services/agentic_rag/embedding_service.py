@@ -1,6 +1,5 @@
 from sentence_transformers import SentenceTransformer
 import logging
-import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -73,16 +72,16 @@ class EmbeddingGenerator:
 
         return embedding
 
-    # Batch Query Embedding (optional)
-    def generate_batch_embeddings(self, texts):
+    # # Batch Query Embedding (optional)
+    # def generate_batch_embeddings(self, texts):
 
-        embeddings = self.model.encode(
-            texts,
-            convert_to_numpy=True,
-            normalize_embeddings=True
-        )
+    #     embeddings = self.model.encode(
+    #         texts,
+    #         convert_to_numpy=True,
+    #         normalize_embeddings=True
+    #     )
 
-        if embeddings.shape[1] != self.dimension:
-            raise ValueError("Batch embedding dimension mismatch")
+    #     if embeddings.shape[1] != self.dimension:
+    #         raise ValueError("Batch embedding dimension mismatch")
 
-        return embeddings
+    #     return embeddings

@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 import logging
 from typing import Any
-
 import requests
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
-
 from app.models.conversation import ChannelType
 from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
@@ -63,7 +60,6 @@ class WebhookService:
             workspace_id=workspace_id,
             channel=ChannelType.TWILIO,
             body=body,
-            #  strip whatsapp: prefix — store plain E.164 in DB
             phone=from_number.replace("whatsapp:", ""),
             message_external_id=message_sid,
             metadata={
@@ -71,8 +67,6 @@ class WebhookService:
                 "interactive_label": interactive_label,
                 "provider": "twilio",
                 "to_number": to_number,
-                #   pass workspace_id so orchestration_layer.normalize_message
-                #         can read it from payload and store in runtime_context
                 "workspace_id": workspace_id,
             },
         )

@@ -6,7 +6,6 @@ import psutil
 import redis
 from fastapi import FastAPI
 from prometheus_client import Counter, Gauge, Summary
-
 from app.core.logger import logger
 from app.core.config import settings
 
@@ -68,7 +67,7 @@ class SystemMetricsState:
 
     def _get_lock(self) -> asyncio.Lock:
         if self.lock is None:
-            self.lock = asyncio.Lock()  # event loop ready aana create
+            self.lock = asyncio.Lock()  
         return self.lock
 
     async def update(self, snapshot: SystemMetricsSnapshot) -> None:
@@ -200,11 +199,11 @@ def middleware_record(method, path, status, latency):
     if redis_client:
         try:
             redis_client.incr("metrics:requests")
-            redis_client.incrbyfloat("metrics:total_latency", latency)  # ← move inside try
+            redis_client.incrbyfloat("metrics:total_latency", latency)  
             if int(status) >= 500:
                 redis_client.incr("metrics:errors")
         except Exception:
-            pass  # Redis down aanalum app affect aagadhu
+            pass  
 
 
 def get_metrics():
