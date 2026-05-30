@@ -18,12 +18,16 @@ class ChannelConnectionService:
         if not code:
             raise HTTPException(status_code=400, detail="Missing authorization code")
 
+        app_id = settings.META_APP_ID or settings.IG_APP_ID
+        app_secret = settings.META_APP_SECRET or settings.IG_APP_SECRET
+        redirect_uri = settings.META_REDIRECT_URI or settings.IG_REDIRECT_URI
+
         token_res = requests.get(
             "https://graph.facebook.com/v19.0/oauth/access_token",
             params={
-                "client_id": settings.META_APP_ID,
-                "client_secret": settings.META_APP_SECRET,
-                "redirect_uri": settings.META_REDIRECT_URI,
+                "client_id": app_id,
+                "client_secret": app_secret,
+                "redirect_uri": redirect_uri,
                 "code": code,
             },
             timeout=10,
