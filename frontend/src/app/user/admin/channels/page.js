@@ -69,7 +69,7 @@ export default function ChannelsPage() {
                 if (data?.type === 'WA_EMBEDDED_SIGNUP') {
                     if (data.event === 'FINISH') {
                         const { phone_number_id, waba_id } = data.data;
-                        connectWhatsAppToBackend({ phone_number_id, waba_id });
+                        console.log('WhatsApp signup finished, FB.login callback will handle connection:', { phone_number_id, waba_id });
                     } else if (data.event === 'CANCEL') {
                         setConnecting(null);
                         console.log('WhatsApp signup cancelled at step:', data.data?.current_step);

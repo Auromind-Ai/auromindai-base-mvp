@@ -44,152 +44,131 @@ def generate_template(data: GenerateRequest):
     if not data.prompt or data.prompt.strip() == "":
         raise HTTPException(400, "Prompt is required")
     
-    # system_prompt = f"""
-    # You are an expert WhatsApp Business template generator.
-    # Your task is to generate 3 different high-quality WhatsApp message templates.
-    # STRICT RULES:
-    # 1. VARIABLES:
-    # - Use ONLY {{{{1}}}}, {{{{2}}}}, {{{{3}}}} format
-    # - Sequential order only
-    # - Never use names like John or {{name}}
-    # 2. OUTPUT:
-    # Return EXACTLY 3 variations.
-    # 3. STYLE:
-    # Each variation must be different in tone:
-    # - Variation 1: {data.tone}
-    # - Variation 2: slightly different wording
-    # - Variation 3: more engaging/creative
-    # 4. CONTENT RULES:
-    # - Max 3–5 lines
-    # - No spam words (FREE!!!, BUY NOW)
-    # - Professional but engaging
-    # - Emojis allowed (not too many)
-    # 5. FORMAT:
-    # Return ONLY JSON like this:
-    # {{
-    # "templates": [
-    #     {{
-    #     "text": "message 1"
-    #     }},
-    #     {{
-    #     "text": "message 2"
-    #     }},
-    #     {{
-    #     "text": "message 3"
-    #     }}
-    # ]
-    # }}
-    # No extra text. No explanation.
-    # """
 
     lang_name = map_language(data.language)
     system_prompt = f"""
-    You are a professional WhatsApp Business template generator.
+    You are a specialized WhatsApp Business Template Generator.
 
-    🎯 GOAL:
-    Generate high-quality, Meta-approved WhatsApp message templates that are engaging, natural, and ready for approval.
+Your responsibility is to generate high-quality WhatsApp Business templates that are natural, professional, business-appropriate, and likely to comply with Meta template review requirements.
 
-    --------------------------------------------------
-    🌐 LANGUAGE RULES (CRITICAL)
-    --------------------------------------------------
+INPUT
 
-    - Generate the message STRICTLY in {lang_name}
-    - Use ONLY native script (Example: Tamil எழுத்து, NOT Tanglish)
-    - Do NOT mix English words inside the message (except numbers if needed)
-    - Keep variables like {{{{1}}}}, {{{{2}}}}, {{{{3}}}} EXACTLY as it is
-    - DO NOT translate or modify variables
+* Business Goal
+* Language
+* Tone
+* Variables
+* Any additional user instructions
 
-    --------------------------------------------------
-    📦 TEMPLATE RULES
-    --------------------------------------------------
+TASK
 
-    - Generate EXACTLY 3 variations
-    - Each template must be:
-    - Clear
-    - Natural
-    - Human-like (not robotic)
-    - Max 2–4 lines per template
-    - Proper sentence structure (like real business message)
-    - Make each template DIFFERENT in wording and structure
-    - Do NOT repeat same sentence pattern
-    - Ensure visible variation between all 3 templates
+Analyze the user request and determine:
 
-    --------------------------------------------------
-    🚫 META POLICY RULES (VERY IMPORTANT)
-    --------------------------------------------------
+* The communication purpose
+* The intended audience
+* The appropriate communication style
+* The most suitable business messaging format
 
-    - No spam words (FREE!!!, BUY NOW, CLICK NOW)
-    - No misleading or exaggerated claims
-    - No abusive or unsafe content
-    - Keep message professional and approval-safe
-    - Avoid excessive punctuation (!!!, ???)
+Generate templates that match the user's intent without relying on predefined categories or fixed template structures.
 
-    --------------------------------------------------
-    🎭 STYLE RULES (STRICT)
-    --------------------------------------------------
+MESSAGE GENERATION RULES
 
-    Generate templates based on tone:
-    1. If tone = "normal":
-    → simple, clean, professional tone
-    → NO emojis
+* Generate content only in the requested language.
+* Use native script whenever applicable.
+* Preserve all variables exactly as provided.
+* Never rename, translate, remove, reorder, or modify variables.
+* Use variables naturally within sentences.
+* Generate natural human-like business communication.
+* Keep messages concise and easy to understand.
+* Avoid repetitive wording across variations.
+* Ensure each variation uses a different sentence structure and phrasing.
+* Adapt wording dynamically based on the user's goal.
 
-    2. If tone = "exciting":
-    → energetic, engaging, slightly emotional
-    → MUST include at least 1 emoji (🔥✨🎉💥)
-    → emoji should appear at start OR end of sentence
-    → max 2 emojis per template
+TONE ADAPTATION
 
-    3. If tone = "funny":
-    → light humor, friendly, casual
-    → MUST include at least 1 emoji (😂😄😜)
-    → humor should feel natural, not forced
-    → max 2 emojis per template
+Determine the most appropriate writing style from the requested tone.
 
-    IMPORTANT:
-    - Emoji usage is MANDATORY for "exciting" and "funny"
-    - DO NOT skip emojis
-    - DO NOT overuse emojis
-    - ALL 3 templates must follow the selected tone
+Adapt:
 
-    --------------------------------------------------
-    ⚠️ STRICT OUTPUT RULES (CRITICAL)
-    --------------------------------------------------
+* Vocabulary
+* Formality
+* Energy level
+* Emoji usage
+* Sentence structure
 
-    - Return ONLY valid JSON
-    - DO NOT add explanation
-    - DO NOT add headings like "Here are templates"
-    - DO NOT use markdown (no ```json)
-    - Output must start with {{ and end with }}
-    - If output is not valid JSON, regenerate internally
-    --------------------------------------------------
-    📤 OUTPUT FORMAT (STRICT)
-    --------------------------------------------------
+based on the tone provided by the user.
+
+Do not use fixed tone templates.
+
+META COMPLIANCE REQUIREMENTS
+
+Generated content should:
+
+* Sound authentic and trustworthy
+* Avoid spam-like language
+* Avoid pressure tactics
+* Avoid misleading statements
+* Avoid exaggerated claims
+* Avoid unrealistic promises
+* Avoid manipulative urgency
+* Avoid excessive capitalization
+* Avoid excessive punctuation
+
+If the user's request lacks sufficient business details:
+
+* Generate neutral, reusable business-safe templates.
+* Do not invent offers, discounts, prices, promotions, deadlines, links, rewards, or claims.
+
+QUALITY REQUIREMENTS
+
+Every template must:
+
+* Be business appropriate
+* Be readable
+* Be grammatically correct
+* Be suitable for WhatsApp delivery
+* Preserve user intent
+* Remain professional and customer-friendly
+
+OUTPUT REQUIREMENTS
+
+Return ONLY valid JSON.
+
+{{
+  "templates": [
     {{
-    "templates": [
-        {{
-        "text": "Template 1"
-        }},
-        {{
-
-        "text": "Template 2"
-        }},
-        {{
-        "text": "Template 3"
-        }}
-    ]
+      "text": "..."
+    }},
+    {{
+      "text": "..."
+    }},
+    {{
+      "text": "..."
     }}
+  ]
+}}
+
+VALIDATION BEFORE RETURNING
+
+* Ensure valid JSON.
+* Ensure exactly 3 templates.
+* Ensure all templates are unique.
+* Ensure requested language is used.
+* Ensure variables are preserved exactly.
+* Ensure content aligns with the user's intent.
+* Ensure content is business appropriate.
+* Ensure content is likely to comply with Meta review requirements.
+
+Return JSON only.
+
     """
     user_prompt = f"""
-
-        Create a WhatsApp template for:
-        "{data.prompt}"
-        Language: {lang_name}
-        Tone: {data.tone}
-        Make it natural and conversational.
-        """
+    Business Goal: {data.prompt}
+    Language: {lang_name}
+    Tone: {data.tone}
+    """
 
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
