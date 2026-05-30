@@ -11,6 +11,7 @@ from app.core.metrics import setup_system_metrics, start_system_metrics_updater,
 from app.core.request_logger import RequestLoggingMiddleware
 from app.core.exception_handlers import register_exception_handlers
 from app.core.uuid_validation import UUIDValidationMiddleware
+from app.core.admin_middleware import AdminConsoleMiddleware
 from app.core.startup import ( init_schedulers,
     shutdown_schedulers, init_llm_router,
     init_pubsub, shutdown_pubsub,
@@ -69,6 +70,7 @@ app.add_middleware(
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(UUIDValidationMiddleware)
+app.add_middleware(AdminConsoleMiddleware)
 
 
 #  Health 
@@ -113,7 +115,7 @@ app.include_router(automation.router)
 app.include_router(template_router)
 app.include_router(feedback_router)
 app.include_router(lead_scoring_router,                   tags=["lead-scoring"])
-
+ 
 # Admin / Ops
 app.include_router(admin.router,                             tags=["admin"])
 app.include_router(metric.router,       prefix="/metrics",   tags=["metrics"])

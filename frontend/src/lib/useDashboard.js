@@ -31,7 +31,7 @@ const DEFAULT_INSIGHTS   = [];
  * @param {number} [options.refreshInterval=0]  Auto-refresh interval in ms. 0 = disabled.
  * @param {string} [options.workspaceId]        Override workspace ID (defaults to JWT)
  */
-export function useDashboard({ refreshInterval = 0, workspaceId } = {}) {
+export function useDashboard({ refreshInterval = 0, workspaceId, startDate, endDate } = {}) {
   const [metrics,    setMetrics]    = useState(DEFAULT_METRICS);
   const [revenue,    setRevenue]    = useState(DEFAULT_REVENUE);
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
@@ -60,7 +60,7 @@ export function useDashboard({ refreshInterval = 0, workspaceId } = {}) {
     setError(null);
 
     try {
-      const data = await api.getDashboardOverview(wid);
+      const data = await api.getDashboardOverview(wid, startDate, endDate);
 
       // Safely apply data — backend service always returns non-null arrays
       if (data.metrics    && Array.isArray(data.metrics))    setMetrics(data.metrics);
@@ -78,12 +78,12 @@ export function useDashboard({ refreshInterval = 0, workspaceId } = {}) {
       setLoading(false);
       isFetchingRef.current = false;
     }
-  }, [workspaceId]);
+  }, [workspaceId, startDate, endDate]);
 
   // Initial load
   useEffect(() => {
     fetchDashboard();
-  }, [fetchDashboard]);
+  }, [fetchDashboard, startDate, endDate]);
 
   // Auto-refresh
   useEffect(() => {

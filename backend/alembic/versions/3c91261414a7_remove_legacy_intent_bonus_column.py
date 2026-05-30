@@ -1,9 +1,3 @@
-"""remove legacy intent_bonus column
-
-Revision ID: 3c91261414a7
-Revises: 4850d34b7159
-Create Date: 2026-05-23 06:52:46.188602
-"""
 
 from typing import Sequence, Union
 

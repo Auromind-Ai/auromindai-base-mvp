@@ -1,13 +1,11 @@
-
+from __future__ import annotations
 from datetime import datetime
 from typing import Any
 from uuid import UUID
-
 from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
 from app.models.conversation import ChannelType, Conversation
 from app.models.workspace import Workspace
 
@@ -107,12 +105,25 @@ class ConversationService:
             query = query.filter(
                 Conversation.channel == ConversationService.normalize_channel(channel)
             )
-        return (
+        conversations = (
             query.order_by(Conversation.updated_at.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
+        if conversations:
+            from sqlalchemy import func
+            from app.models.message import Message
+
+            counts = dict(
+                db.query(Message.conversation_id, func.count(Message.id))
+                .filter(Message.conversation_id.in_([c.id for c in conversations]))
+                .group_by(Message.conversation_id)
+                .all()
+            )
+            for c in conversations:
+                c.__dict__['message_count'] = counts.get(c.id, 0)
+        return conversations
 
     @staticmethod
     def get_conversation_or_404(
@@ -193,10 +204,7 @@ class ConversationService:
             db.flush()
             return conversation
 
-        #  Race-safe insert using a savepoint 
-        # begin_nested() creates a SAVEPOINT so that an IntegrityError from a
-        # concurrent INSERT only rolls back to the savepoint, not the entire
-        # transaction.  This prevents discarding unrelated pending changes.
+      
         try:
             with db.begin_nested():
                 conversation = Conversation(

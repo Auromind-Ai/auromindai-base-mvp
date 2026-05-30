@@ -65,7 +65,7 @@ class helperslayer:
                 best_match = value
 
 
-        if best_score >= 0.55:
+        if best_score >= 0.80:
             return best_match
 
         return None

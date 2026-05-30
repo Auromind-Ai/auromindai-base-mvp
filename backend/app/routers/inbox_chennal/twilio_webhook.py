@@ -65,7 +65,8 @@ async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
 async def twilio_status_callback(request: Request, db: Session = Depends(get_db)):
     try:
         form = await request.form()
-        return await MessageService.handle_twilio_status_callback(form, db)
+        outbound_message_id = request.query_params.get("outbound_message_id")
+        return await MessageService.handle_twilio_status_callback(form, db, outbound_message_id=outbound_message_id)
     except Exception:
         logger.exception("[status-callback] Unhandled error")
         return {"status": "error"}

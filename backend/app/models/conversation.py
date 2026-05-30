@@ -50,6 +50,8 @@ class Conversation(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    last_message_at = Column(DateTime(timezone=True), default=func.now(), server_default=func.now())
+
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "phone", "channel", 

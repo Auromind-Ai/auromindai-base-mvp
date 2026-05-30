@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import func, text, case, and_
@@ -100,29 +100,55 @@ def _trend(current: float, previous: float) -> str:
     return "neutral"
 
 
+def _resolve_dates(start_date: date | None, end_date: date | None) -> tuple[datetime, datetime]:
+    if start_date is not None and end_date is not None:
+        start_dt = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        end_dt = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+        return start_dt, end_dt
+
+    # Default to current week (Mon-Sun of this week)
+    now = datetime.now(timezone.utc)
+    monday = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    sunday = (monday + timedelta(days=6)).replace(hour=23, minute=59, second=59, microsecond=999999)
+    return monday, sunday
+
+
 def fmt_inr(amount: float | int) -> str:
-    """Format an INR amount for dashboard display."""
+    """Format an INR amount using the Indian numbering system (e.g. 1,00,000)."""
     try:
-        value = int(round(float(amount or 0)))
+        val_str = str(int(round(float(amount or 0))))
     except (TypeError, ValueError):
-        value = 0
-    return f"₹{value:,}"
+        val_str = "0"
+    
+    if len(val_str) <= 3:
+        return f"₹{val_str}"
+    
+    last_three = val_str[-3:]
+    remaining = val_str[:-3]
+    
+    groups = []
+    while remaining:
+        groups.append(remaining[-2:])
+        remaining = remaining[:-2]
+        
+    groups.reverse()
+    formatted = ",".join(groups) + "," + last_three
+    return f"₹{formatted}"
 
 
 # 1. Overview metrics
 
-async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
+async def get_overview_metrics(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> list[dict]:
  
-    cache_key = f"dashboard:overview:{workspace_id}"
+    start_dt, end_dt = _resolve_dates(start_date, end_date)
+    duration = end_dt - start_dt
+    prev_start_dt = start_dt - duration - timedelta(microseconds=1)
+    prev_end_dt = start_dt - timedelta(microseconds=1)
+
+    cache_key = f"dashboard:overview:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
     cached = await _cache_get(cache_key)
     if cached:
         return cached
-
-    now = _now_utc()
-    month_start = _start_of_month(now)
-    last_month_start = _start_of_month(now.replace(day=1) - timedelta(days=1))
-    thirty_days_ago = now - timedelta(days=30)
-    last_week = now - timedelta(days=7)
 
     try:
 
@@ -136,7 +162,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
                 .filter(
                     Lead.workspace_id == workspace_id,
                     Lead.status == "converted",
-                    Lead.last_activity_at >= month_start,
+                    Lead.created_at >= start_dt,
+                    Lead.created_at <= end_dt,
                 )
                 .scalar()
             ) or 0
@@ -147,8 +174,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
                 .filter(
                     Lead.workspace_id == workspace_id,
                     Lead.status == "converted",
-                    Lead.last_activity_at >= last_month_start,
-                    Lead.last_activity_at < month_start,
+                    Lead.created_at >= prev_start_dt,
+                    Lead.created_at <= prev_end_dt,
                 )
                 .scalar()
             ) or 0
@@ -162,7 +189,7 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
                 "raw_value": revenue_this,
                 "change": _safe_pct_change(revenue_this, revenue_last),
                 "trend": _trend(revenue_this, revenue_last),
-                "subtext": "vs last month",
+                "subtext": "vs prior period",
                 "gradient": "from-blue-500 via-cyan-400 to-emerald-400",
             }
         else:
@@ -182,6 +209,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Lead.workspace_id == workspace_id,
                 Lead.status.in_(["new", "active"]),
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
             )
             .scalar()
         ) or 0
@@ -191,8 +220,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Lead.workspace_id == workspace_id,
                 Lead.status.in_(["new", "active"]),
-                Lead.created_at < thirty_days_ago,
-                Lead.created_at >= (thirty_days_ago - timedelta(days=30)),
+                Lead.created_at >= prev_start_dt,
+                Lead.created_at <= prev_end_dt,
             )
             .scalar()
         ) or 0
@@ -202,7 +231,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             db.query(func.count(Lead.id))
             .filter(
                 Lead.workspace_id == workspace_id,
-                Lead.created_at >= thirty_days_ago,
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
             )
             .scalar()
         ) or 0
@@ -212,7 +242,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Lead.workspace_id == workspace_id,
                 Lead.status == "converted",
-                Lead.created_at >= thirty_days_ago,
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
             )
             .scalar()
         ) or 0
@@ -221,8 +252,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             db.query(func.count(Lead.id))
             .filter(
                 Lead.workspace_id == workspace_id,
-                Lead.created_at >= (thirty_days_ago - timedelta(days=30)),
-                Lead.created_at < thirty_days_ago,
+                Lead.created_at >= prev_start_dt,
+                Lead.created_at <= prev_end_dt,
             )
             .scalar()
         ) or 0
@@ -232,8 +263,8 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Lead.workspace_id == workspace_id,
                 Lead.status == "converted",
-                Lead.created_at >= (thirty_days_ago - timedelta(days=30)),
-                Lead.created_at < thirty_days_ago,
+                Lead.created_at >= prev_start_dt,
+                Lead.created_at <= prev_end_dt,
             )
             .scalar()
         ) or 0
@@ -253,13 +284,13 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             FROM (
               SELECT conversation_id, MIN(timestamp) as timestamp
               FROM messages WHERE sender_type::text = 'USER'
-              AND timestamp > now() - interval '30 days'
+              AND timestamp >= :start_dt AND timestamp <= :end_dt
               GROUP BY conversation_id
             ) usr
             JOIN (
               SELECT conversation_id, MIN(timestamp) as timestamp
               FROM messages 
-              WHERE sender_type::text IN ('AI','BOT','ASSISTANT')
+              WHERE sender_type::text IN ('AI','AGENT')
               GROUP BY conversation_id
             ) bot ON (
               bot.conversation_id = usr.conversation_id
@@ -271,7 +302,7 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
               (bot.timestamp - usr.timestamp)
             ) / 3600 < 1
         """)
-        avg_resp_min = db.execute(avg_resp_q, {"wid": workspace_id}).scalar()
+        avg_resp_min = db.execute(avg_resp_q, {"wid": workspace_id, "start_dt": start_dt, "end_dt": end_dt}).scalar()
         avg_resp_min = round(float(avg_resp_min or 0), 0)
 
         # Prior period avg resp
@@ -284,13 +315,13 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
             FROM (
               SELECT conversation_id, MIN(timestamp) as timestamp
               FROM messages WHERE sender_type::text = 'USER'
-              AND timestamp BETWEEN now() - interval '60 days' AND now() - interval '30 days'
+              AND timestamp >= :prev_start_dt AND timestamp <= :prev_end_dt
               GROUP BY conversation_id
             ) usr
             JOIN (
               SELECT conversation_id, MIN(timestamp) as timestamp
               FROM messages 
-              WHERE sender_type::text IN ('AI','BOT','ASSISTANT')
+              WHERE sender_type::text IN ('AI','AGENT')
               GROUP BY conversation_id
             ) bot ON (
               bot.conversation_id = usr.conversation_id
@@ -302,7 +333,7 @@ async def get_overview_metrics(workspace_id: str, db: Session) -> list[dict]:
               (bot.timestamp - usr.timestamp)
             ) / 3600 < 1
         """)
-        avg_resp_prev = db.execute(avg_resp_prev_q, {"wid": workspace_id}).scalar()
+        avg_resp_prev = db.execute(avg_resp_prev_q, {"wid": workspace_id, "prev_start_dt": prev_start_dt, "prev_end_dt": prev_end_dt}).scalar()
         avg_resp_prev = round(float(avg_resp_prev or 0), 0)
 
         # Format minutes → "Xm" or "Xh Ym"
@@ -365,35 +396,36 @@ def _fallback_metrics():
 
 # 2. Revenue chart data
 
-async def get_revenue_chart(workspace_id: str, db: Session) -> dict:
+async def get_revenue_chart(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> dict:
  
-    cache_key = f"dashboard:revenue:{workspace_id}"
+    start_dt, end_dt = _resolve_dates(start_date, end_date)
+    cache_key = f"dashboard:revenue:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
     cached = await _cache_get(cache_key)
     if cached:
         return cached
 
-    now = _now_utc()
-    current_year = now.year
+    current_year = end_dt.year
     prior_year = current_year - 1
 
     try:
         from app.models.ai_action import Lead
 
         rows = (
-        db.query(
-            func.extract("year", Lead.last_activity_at).label("yr"),
-            func.extract("month", Lead.last_activity_at).label("mo"),
-            func.coalesce(func.sum(Lead.conversion_amount), 0).label("total"),
+            db.query(
+                func.extract("year", Lead.created_at).label("yr"),
+                func.extract("month", Lead.created_at).label("mo"),
+                func.coalesce(func.sum(Lead.conversion_amount), 0).label("total"),
+            )
+            .filter(
+                Lead.workspace_id == workspace_id,
+                Lead.status == "converted",
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
+            )
+            .group_by("yr", "mo")
+            .order_by("yr", "mo")
+            .all()
         )
-        .filter(
-            Lead.workspace_id == workspace_id,
-            Lead.status == "converted",
-            func.extract("year", Lead.last_activity_at).in_([current_year, prior_year]),
-        )
-        .group_by("yr", "mo")
-        .order_by("yr", "mo")
-        .all()
-    )
 
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -409,7 +441,7 @@ async def get_revenue_chart(workspace_id: str, db: Session) -> dict:
                 prior_data[mo_idx] = int(amount_inr)
 
         # Only return up to current month (don't show future months as zeros)
-        current_month_idx = now.month  # 1-based; slice to [0:current_month_idx]
+        current_month_idx = end_dt.month  # 1-based; slice to [0:current_month_idx]
         months_trimmed = months[:current_month_idx]
         current_trimmed = current_data[:current_month_idx]
         prior_trimmed = prior_data[:current_month_idx]
@@ -426,7 +458,7 @@ async def get_revenue_chart(workspace_id: str, db: Session) -> dict:
 
     except Exception as exc:
         logger.error(f"[dashboard_service] get_revenue_chart error: {exc}", exc_info=True)
-        now_month = now.month
+        now_month = end_dt.month
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         return {
@@ -440,9 +472,10 @@ async def get_revenue_chart(workspace_id: str, db: Session) -> dict:
 
 # 3. Recent activities
 
-async def get_recent_activities(workspace_id: str, db: Session) -> list[dict]:
+async def get_recent_activities(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> list[dict]:
   
-    cache_key = f"dashboard:activities:{workspace_id}"
+    start_dt, end_dt = _resolve_dates(start_date, end_date)
+    cache_key = f"dashboard:activities:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
     cached = await _cache_get(cache_key)
     if cached:
         return cached
@@ -460,6 +493,8 @@ async def get_recent_activities(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Conversation.workspace_id == workspace_id,
                 Message.sender_type == SenderType.USER,
+                Message.timestamp >= start_dt,
+                Message.timestamp <= end_dt,
             )
             .order_by(Message.timestamp.desc())
             .limit(5)
@@ -479,7 +514,9 @@ async def get_recent_activities(workspace_id: str, db: Session) -> list[dict]:
         leads = (
             db.query(Lead.name, Lead.created_at)
             .filter(
-                Lead.workspace_id == workspace_id
+                Lead.workspace_id == workspace_id,
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
             )
             .order_by(Lead.created_at.desc())
             .limit(5)
@@ -503,6 +540,8 @@ async def get_recent_activities(workspace_id: str, db: Session) -> list[dict]:
                 Conversation.workspace_id == workspace_id,
                 Followup.status == "sent",
                 Followup.executed_at.isnot(None),
+                Followup.created_at >= start_dt,
+                Followup.created_at <= end_dt,
             )
             .order_by(Followup.executed_at.desc())
             .limit(5)
@@ -523,6 +562,8 @@ async def get_recent_activities(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 AIAction.workspace_id == workspace_id,
                 AIAction.execution_status == "completed",
+                AIAction.created_at >= start_dt,
+                AIAction.created_at <= end_dt,
             )
             .order_by(AIAction.created_at.desc())
             .limit(5)
@@ -552,15 +593,18 @@ async def get_recent_activities(workspace_id: str, db: Session) -> list[dict]:
 
 # 4. AI Insights
 
-async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
-   
-    cache_key = f"dashboard:insights:{workspace_id}"
+async def get_ai_insights(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> list[dict]:
+    start_dt, end_dt = _resolve_dates(start_date, end_date)
+    duration = end_dt - start_dt
+    prev_start_dt = start_dt - duration - timedelta(microseconds=1)
+    prev_end_dt = start_dt - timedelta(microseconds=1)
+
+    cache_key = f"dashboard:insights:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
     cached = await _cache_get(cache_key)
     if cached:
         return cached
 
     insights: list[dict] = []
-    now = _now_utc()
 
     # Hot leads 
     try:
@@ -572,7 +616,8 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Lead.workspace_id == workspace_id,
                 Lead.qualification == "hot",
-                Lead.created_at >= now - timedelta(days=7),
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
             )
             .scalar()
         ) or 0
@@ -582,7 +627,7 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
                 "type": "opportunity",
                 "icon_type": "flame",
                 "title": "Hot Leads Detected",
-                "subtitle": f"{hot_count} hot lead{'s' if hot_count != 1 else ''} showing high engagement this week.",
+                "subtitle": f"{hot_count} hot lead{'s' if hot_count != 1 else ''} showing high engagement in this period.",
                 "icon_bg": "bg-orange-500/10",
                 "icon_color": "text-orange-400",
             })
@@ -600,7 +645,8 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Conversation.workspace_id == workspace_id,
                 OutboundMessage.status == "sent",
-                OutboundMessage.created_at >= now - timedelta(days=7),
+                OutboundMessage.created_at >= start_dt,
+                OutboundMessage.created_at <= end_dt,
             )
             .scalar()
         ) or 0
@@ -611,8 +657,8 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
             .filter(
                 Conversation.workspace_id == workspace_id,
                 OutboundMessage.status == "sent",
-                OutboundMessage.created_at >= now - timedelta(days=14),
-                OutboundMessage.created_at < now - timedelta(days=7),
+                OutboundMessage.created_at >= prev_start_dt,
+                OutboundMessage.created_at <= prev_end_dt,
             )
             .scalar()
         ) or 0
@@ -623,7 +669,7 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
                 "type": "optimization",
                 "icon_type": "mail",
                 "title": "Outbound Activity Drop",
-                "subtitle": f"Messages sent dropped {drop_pct:.0f}% vs last week. Consider a broadcast campaign.",
+                "subtitle": f"Messages sent dropped {drop_pct:.0f}% vs prior period. Consider a broadcast campaign.",
                 "icon_bg": "bg-indigo-500/10",
                 "icon_color": "text-indigo-400",
             })
@@ -633,7 +679,7 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
                 "type": "opportunity",
                 "icon_type": "mail",
                 "title": "High Outbound Activity",
-                "subtitle": f"Messages sent increased {rise_pct:.0f}% vs last week. Keep the momentum!",
+                "subtitle": f"Messages sent increased {rise_pct:.0f}% vs prior period. Keep the momentum!",
                 "icon_bg": "bg-indigo-500/10",
                 "icon_color": "text-indigo-400",
             })
@@ -647,22 +693,24 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
         from app.models.followup import Followup
         from app.models.conversation import Conversation
 
-        # Leads created in last 48h that have NO sent followup
+        # Leads created in selected period that have NO sent followup
         recent_leads = (
             db.query(Lead.id)
             .filter(
                 WorkspaceMember.workspace_id == workspace_id,
-                Lead.created_at >= now - timedelta(hours=48),
+                Lead.created_at >= start_dt,
+                Lead.created_at <= end_dt,
             )
             .subquery()
         )
 
-        # Conversations linked to those users in last 48h
+        # Conversations linked to those users in selected period
         uncontacted = (
             db.query(func.count(Conversation.id))
             .filter(
                 Conversation.workspace_id == workspace_id,
-                Conversation.created_at >= now - timedelta(hours=48),
+                Conversation.created_at >= start_dt,
+                Conversation.created_at <= end_dt,
                 ~Conversation.id.in_(
                     select(Followup.conversation_id)
                     .join(
@@ -683,7 +731,7 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
                 "type": "optimization",
                 "icon_type": "bot",
                 "title": "Automation Opportunity",
-                "subtitle": f"{uncontacted} new conversation{'s' if uncontacted != 1 else ''} without a follow-up in the last 48h.",
+                "subtitle": f"{uncontacted} new conversation{'s' if uncontacted != 1 else ''} without a follow-up in this period.",
                 "icon_bg": "bg-emerald-500/10",
                 "icon_color": "text-emerald-400",
             })
@@ -709,17 +757,18 @@ async def get_ai_insights(workspace_id: str, db: Session) -> list[dict]:
 
 # 5. Overview bundle (single endpoint, parallel aggregation)
 
-async def get_full_overview(workspace_id: str, db: Session) -> dict:
-    cache_key = f"dashboard:full:{workspace_id}"
+async def get_full_overview(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> dict:
+    start_dt, end_dt = _resolve_dates(start_date, end_date)
+    cache_key = f"dashboard:full:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
     cached = await _cache_get(cache_key)
     if cached:
         return cached
 
     # Run all sub-aggregations (they each have their own caches too)
-    metrics = await get_overview_metrics(workspace_id, db)
-    revenue = await get_revenue_chart(workspace_id, db)
-    activities = await get_recent_activities(workspace_id, db)
-    insights = await get_ai_insights(workspace_id, db)
+    metrics = await get_overview_metrics(workspace_id, db, start_date=start_date, end_date=end_date)
+    revenue = await get_revenue_chart(workspace_id, db, start_date=start_date, end_date=end_date)
+    activities = await get_recent_activities(workspace_id, db, start_date=start_date, end_date=end_date)
+    insights = await get_ai_insights(workspace_id, db, start_date=start_date, end_date=end_date)
 
     result = {
         "metrics": metrics,

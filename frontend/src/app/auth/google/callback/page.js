@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [status, setStatus] = useState('Processing...');
@@ -66,5 +66,17 @@ export default function GoogleCallbackPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function GoogleCallbackPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+        }>
+            <GoogleCallbackPageContent />
+        </Suspense>
     );
 }

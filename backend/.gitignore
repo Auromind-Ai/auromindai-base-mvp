@@ -58,3 +58,9 @@ temp/
 
 # Playwright / browser cache
 playwright/.cache/
+.env 
+**/hf_cache/             
+
+# HuggingFace
+hf_cache/
+.cache/

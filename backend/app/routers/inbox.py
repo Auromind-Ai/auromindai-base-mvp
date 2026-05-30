@@ -80,3 +80,25 @@ def send_message(
         source="inbox_web",
     )
     return db_message
+
+@router.post("/conversations/{conversation_id}/resume_ai")
+def resume_ai(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    from app.models.ai_action import ConversationState
+    workspace_id = verify_workspace_access(current_user, db)
+    state = db.query(ConversationState).filter_by(
+        conversation_id=conversation_id,
+        workspace_id=workspace_id
+    ).first()
+    
+    if state and state.human_takeover:
+        state.human_takeover = False
+        state.ai_paused_at = None
+        db.commit()
+        return {"status": "success", "message": "AI automation resumed"}
+    
+    return {"status": "ignored", "message": "AI is already active or conversation not found"}
+

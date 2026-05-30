@@ -1,10 +1,10 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { getToken,authHeader } from "@/lib/auth";
 
-export default function InstagramCallback() {
+function InstagramCallbackContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [status, setStatus] = useState("Connecting Instagram...");
@@ -98,5 +98,17 @@ export default function InstagramCallback() {
         <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center text-white">
             <p className="text-lg">{status}</p>
         </div>
+    );
+}
+
+export default function InstagramCallback() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center text-white">
+                <p className="text-lg">Loading Instagram Connection...</p>
+            </div>
+        }>
+            <InstagramCallbackContent />
+        </Suspense>
     );
 }

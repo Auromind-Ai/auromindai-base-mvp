@@ -131,8 +131,7 @@ class WebhookService:
                 "interactive_label": interactive_label,
                 "provider": "twilio",
                 "to_number": to_number,
-                #   pass workspace_id so orchestration_layer.normalize_message
-                #         can read it from payload and store in runtime_context
+
                 "workspace_id": workspace_id,
             },
         )

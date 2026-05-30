@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
-# from app.services.mcp_service import MCPService
+from app.services.inbox_agents.mcpservice import MCPService
 from app.services.automations.flow_validation_service import FlowValidationService
 from app.models import BrainEntry, AIAction
-from app.services.email_service import EmailService # Added import
+from app.services.email_service import EmailService 
 import uuid
 from typing import Dict, Any, List, Optional
 

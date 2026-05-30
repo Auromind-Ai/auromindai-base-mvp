@@ -62,7 +62,7 @@ export default function BillingPage() {
               <BillingCard
                 icon={DollarSign}
                 label="Total Revenue"
-                value={`$${(billing.total_revenue || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`}
+                value={`₹${(billing.total_revenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 change="+18%"
               />
               <BillingCard
@@ -74,7 +74,7 @@ export default function BillingPage() {
               <BillingCard
                 icon={TrendingUp}
                 label="MRR"
-                value={`$${(billing.monthly_recurring_revenue || 0).toLocaleString()}`}
+                value={`₹${(billing.monthly_recurring_revenue || 0).toLocaleString('en-IN')}`}
                 change="+12%"
               />
               <BillingCard
@@ -91,10 +91,10 @@ export default function BillingPage() {
               <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
                 <h2 className="text-lg font-semibold text-white mb-6">Revenue Summary</h2>
                 <div className="space-y-4">
-                  <BillingRow label="Monthly Recurring Revenue" value={`$${(billing.monthly_recurring_revenue || 0).toLocaleString()}`} />
-                  <BillingRow label="One-time Payments (This Month)" value={`$${(billing.onetime_this_month || 0).toLocaleString()}`} />
-                  <BillingRow label="Total This Month" value={`$${((billing.monthly_recurring_revenue || 0) + (billing.onetime_this_month || 0)).toLocaleString()}`} highlight />
-                  <BillingRow label="Average Revenue per User" value={`$${(billing.arpu || 0).toFixed(2)}`} />
+                  <BillingRow label="Monthly Recurring Revenue" value={`₹${(billing.monthly_recurring_revenue || 0).toLocaleString('en-IN')}`} />
+                  <BillingRow label="One-time Payments (This Month)" value={`₹${(billing.onetime_this_month || 0).toLocaleString('en-IN')}`} />
+                  <BillingRow label="Total This Month" value={`₹${((billing.monthly_recurring_revenue || 0) + (billing.onetime_this_month || 0)).toLocaleString('en-IN')}`} highlight />
+                  <BillingRow label="Average Revenue per User" value={`₹${(billing.arpu || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
                 </div>
               </div>
 
@@ -139,7 +139,7 @@ export default function BillingPage() {
               <div className="bg-[#0f0f0f] border border-white/10 rounded-xl p-6">
                 <h2 className="text-lg font-semibold text-white mb-6">Refunds & Disputes</h2>
                 <div className="space-y-4">
-                  <RefundRow label="Pending Refunds" value={`$${(billing.pending_refunds || 0).toLocaleString()}`} count={billing.refund_count || 0} />
+                  <RefundRow label="Pending Refunds" value={`₹${(billing.pending_refunds || 0).toLocaleString('en-IN')}`} count={billing.refund_count || 0} />
                   <RefundRow label="Active Disputes" value={billing.active_disputes || 0} count={0} />
                   <RefundRow label="Chargeback Rate" value={`${(billing.chargeback_rate || 0).toFixed(2)}%`} count={0} />
                 </div>
@@ -167,7 +167,7 @@ export default function BillingPage() {
                         <tr key={invoice.id} className="border-b border-white/5 hover:bg-white/5 transition">
                           <td className="py-3 px-4 text-white font-mono text-xs">{invoice.id}</td>
                           <td className="py-3 px-4 text-gray-300">{invoice.customer_email}</td>
-                          <td className="py-3 px-4 text-right text-white font-semibold">${(invoice.amount || 0).toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right text-white font-semibold">₹{(invoice.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className="py-3 px-4 text-gray-400">{new Date(invoice.date).toLocaleDateString()}</td>
                           <td className="py-3 px-4">
                             <span className={`text-xs font-semibold px-2 py-1 rounded-full ${

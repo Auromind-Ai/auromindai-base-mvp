@@ -1,17 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { TrendingUp, RefreshCw } from 'lucide-react'
 
 export default function AILearningPage() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const params = useParams()
+  const adminPath = params.admin_path || 'x7k2-admin-9pqm'
 
   const fetchData = useCallback(async () => {
   try {
     setLoading(true)
-    const response = await fetch('http://localhost:8000/admin/learning-events')
+    const response = await fetch(`/api/${adminPath}/learning-events`)
     if (!response.ok) throw new Error('Failed to fetch learning events')
     const result = await response.json()
     setData(result)
