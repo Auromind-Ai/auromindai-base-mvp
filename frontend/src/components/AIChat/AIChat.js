@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { getToken } from '@/lib/auth';
 import {
     Sparkles,
     Search,
@@ -39,9 +38,10 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
         setIsLoading(true);
 
         try {
+            // Get workspace from localStorage
             let workspaceId = null;
             if (typeof window !== 'undefined') {
-                const workspace = sessionStorage.getItem('workspace');
+                const workspace = localStorage.getItem('workspace');
                 if (workspace) {
                     try {
                         workspaceId = JSON.parse(workspace)?.id;
@@ -49,13 +49,9 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 }
             }
 
-            const token = getToken();
-            const res = await fetch('/api/chat/stream', {
+            const res = await fetch('/api/chat', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: userMessage.content,
                     model: 'gemini',

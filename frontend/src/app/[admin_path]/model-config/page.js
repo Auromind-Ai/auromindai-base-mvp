@@ -15,7 +15,7 @@ import {
 
 const API_KEY_OPTIONS = ['GROQ_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY'];
 const PROVIDER_OPTIONS = ['claude', 'groq', 'gemini', 'openai'];
-const API = '/api'; // same-origin proxy → /api/* strips prefix and forwards to backend
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const getEmptyForm = () => ({
   name: '',
@@ -55,7 +55,7 @@ const ModelConfigAdmin = () => {
   const fetchConfigs = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API}/admin/model-configs`);
+      const response = await fetch(`${API}/admin/model-configs/`);
       const data = await response.json();
 
       if (data.success) {
@@ -162,8 +162,8 @@ const ModelConfigAdmin = () => {
 
     try {
       const url = editingConfig
-        ? `${API}/admin/model-configs/${editingConfig.id}`
-        : `${API}/admin/model-configs`;
+  ? `${API}/admin/model-configs/${editingConfig.id}`
+  : `${API}/admin/model-configs/`;
       const method = editingConfig ? 'PUT' : 'POST';
       const response = await fetch(url, {
         method,

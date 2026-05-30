@@ -1,6 +1,6 @@
 'use client';
 
-const API = '/api';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 import { useState, useEffect } from 'react';
 import { Calendar, ExternalLink, Settings, Plus } from 'lucide-react';

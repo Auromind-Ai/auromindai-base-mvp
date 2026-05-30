@@ -14,7 +14,7 @@ export default function InteractiveBrainSection() {
 
   const stageData = stages[currentStage - 1];
 
-  //  SCROLL → STAGE (only change from original) 
+  // ── SCROLL → STAGE (only change from original) ──────────────────────────
   useEffect(() => {
     const onScroll = () => {
       const el = sectionRef.current;
@@ -31,7 +31,7 @@ export default function InteractiveBrainSection() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  //  VISIBILITY for StageIndicator
+  // ── VISIBILITY for StageIndicator ───────────────────────────────────────
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setIsVisible(entry.isIntersecting),
@@ -41,7 +41,7 @@ export default function InteractiveBrainSection() {
     return () => observer.disconnect();
   }, []);
 
-  //  VIDEO (unchanged) 
+  // ── VIDEO (unchanged) ────────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     const nextSrc = currentStage >= 2 ? stageData.video : null;
@@ -62,7 +62,7 @@ export default function InteractiveBrainSection() {
   }, [currentStage, stageData.video]);
 
   return (
-    //  ONLY JSX CHANGE: wrapper div replaces <> 
+    // ── ONLY JSX CHANGE: wrapper div replaces <> ──────────────────────────
     <div
       id="interactive-brain-section"
       ref={sectionRef}

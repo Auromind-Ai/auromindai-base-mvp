@@ -1,9 +1,8 @@
 "use client";
 
-const API = '/api';
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 import { useEffect, useState } from "react";
-import { authHeader } from "@/lib/auth";
 
 export default function FileProgress({ entryId, onDone }) {
   const [status, setStatus] = useState("pending");
@@ -16,8 +15,7 @@ export default function FileProgress({ entryId, onDone }) {
     const interval = setInterval(async () => {
       try {
         const res = await fetch(
-          `${API}/brain/ingest/status/${entryId}`,
-          { headers: { ...authHeader() } }
+          `${API}/brain/ingest/status/${entryId}`
         );
 
         if (!res.ok) {

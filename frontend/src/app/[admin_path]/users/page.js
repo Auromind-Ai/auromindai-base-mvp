@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { Users, CheckCircle, Mail, ExternalLink } from "lucide-react";
+import { Users, CheckCircle, Mail, ExternalLink, Loader2 } from "lucide-react";
 
-const API_BASE = '/api'; // same-origin proxy
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";
 
 export default function UsersPage() {
@@ -28,7 +28,7 @@ export default function UsersPage() {
     try {
       const payload = decodeJwt(current);
       if (current && !payload?.impersonated) {
-        localStorage.setItem("admin_backup_token", current); //  ALWAYS overwrite
+        localStorage.setItem("admin_backup_token", current); // 🔥 ALWAYS overwrite
       }
     } catch (err) {
       console.error("Could not set admin backup:", err);
@@ -78,7 +78,7 @@ export default function UsersPage() {
       const adminToken = localStorage.getItem("admin_backup_token") || getToken();
       console.log("🔑 Admin token:", adminToken);
 
-      const res = await fetch(`${API_BASE}/admin/impersonate/${userId}`, {
+      const res = await fetch(`${API_BASE}/admin/switch-user/${userId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

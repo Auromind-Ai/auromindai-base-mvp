@@ -1,8 +1,10 @@
-console.log("API CLIENT VERSION: 1.1.21");
+console.log("API CLIENT VERSION: 1.1.22");
 import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
 
-// Always use the backend URL directly. CORS is configured to allow it.
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Always use the backend URL directly. Client uses relative rewrites, server uses absolute localhost.
+const API_BASE_URL = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+  : 'http://localhost:8000';
 
 console.log("Selected API_BASE_URL:", API_BASE_URL);
 
@@ -18,10 +20,9 @@ class APIClient {
     const { signal: optSignal, ...restOptions } = options;
     const config = {
       ...restOptions,
-      credentials: 'include',
       headers: {
-        ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
         'ngrok-skip-browser-warning': 'true',
+        ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers,
       },
     };
@@ -35,13 +36,15 @@ class APIClient {
     }
 
     const controller = options.signal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null;
     if (!config.signal && controller) {
       config.signal = controller.signal;
     }
 
     try {
-      console.log(`Fetching: ${url}`);
+      console.log("API URL:", url);
+      console.log("CONFIG:", config);
+
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
 
@@ -49,20 +52,22 @@ class APIClient {
       if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await response.json();
         if (!response.ok) {
-          console.error("FULL ERROR:", JSON.stringify(data, null, 2));
-
           let errorMessage = 'Request failed';
 
           if (data?.detail) {
-            // Handle FastAPI's array of validation errors
             if (Array.isArray(data.detail)) {
               errorMessage = data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join(', ');
             } else if (typeof data.detail === 'string') {
-              // Handle standard FastAPI HTTPExceptions
               errorMessage = data.detail;
             }
           } else {
             errorMessage = data?.message || data?.error?.message || 'Request failed';
+          }
+
+          // Handle expired tokens automatically
+          if (response.status === 401 && typeof window !== 'undefined') {
+             localStorage.removeItem('token');
+             window.location.href = '/login';
           }
 
           throw new Error(errorMessage);
@@ -100,17 +105,20 @@ class APIClient {
       body: JSON.stringify(body),
     });
   }
+
   async patch(endpoint, body) {
     return this.request(endpoint, {
       method: "PATCH",
       body: JSON.stringify(body),
     });
   }
+
   async delete(endpoint) {
     return this.request(endpoint, { method: 'DELETE' });
   }
 
-  // Auth methods
+  // ============== Auth Methods ==============
+
   async signup(email, password, full_name, workspace_name) {
     return this.post('/auth/signup', {
       email,
@@ -120,8 +128,9 @@ class APIClient {
     });
   }
 
+  // login = OTP அனுப்பு (step 1)
   async login(email) {
-    return this.post('/auth/login', { email });
+    return this.post('/auth/send-otp', { email });
   }
 
   async getCurrentUser() {
@@ -132,11 +141,40 @@ class APIClient {
     return this.get('/auth/workspaces');
   }
 
-  // Pricing methods
-  async getPricing() {
-    return this.get("/public/pricing")
+  // ============== OTP & Auth Methods ==============
+
+  // OTP அனுப்பு (login-ஓட alias — நேரடியாவும் call பண்ணலாம்)
+  async sendOTP(email, auth_type = 'login') {
+    return this.post('/auth/send-otp', { email, auth_type });
   }
-  // Billing methods
+
+  // OTP verify + access token பெறு (step 2)
+  async verifyOTP(email, otp, auth_type = 'login', full_name = null, workspace_name = null) {
+    return this.post('/auth/verify-otp', { email, otp, auth_type, full_name, workspace_name });
+  }
+
+  googleLogin(auth_type = 'login') {
+    window.location.href = `${this.baseURL}/auth/google/login?type=${auth_type}`;
+  }
+
+  // Refresh token cookie வழியா புதுசா access token பெறு
+  async refreshToken() {
+    return this.post('/auth/refresh', {});
+  }
+
+  // Logout — cookie clear
+  async logout() {
+    return this.post('/auth/logout', {});
+  }
+
+  // ============== Pricing Methods ==============
+
+  async getPricing() {
+    return this.get("/public/pricing");
+  }
+
+  // ============== Billing Methods ==============
+
   async getBillingStatus(workspace_id) {
     return this.get(`/billing/status?workspace_id=${workspace_id}`);
   }
@@ -149,6 +187,14 @@ class APIClient {
     return this.get(`/billing/usage?workspace_id=${workspace_id}`, options);
   }
 
+  async getCreditSummary(workspace_id, options = {}) {
+    return this.get(`/billing/credits/summary?workspace_id=${workspace_id}`, options);
+  }
+
+  async getCreditHistory(workspace_id, page = 1, options = {}) {
+    return this.get(`/billing/credits/history?workspace_id=${workspace_id}&page=${page}`, options);
+  }
+
   async createBillingSubscription(workspace_id, plan, provider = "razorpay", options = {}) {
     return this.post('/billing/create-subscription', {
       workspace_id,
@@ -156,16 +202,16 @@ class APIClient {
       provider,
     }, options);
   }
+
   async getPlatformSettings() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/settings`)
+    return this.get("/admin/settings");
   }
+
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
   }
-// ==== Automation Methods ====
 
-
+  // ============== Automation Methods ==============
 
   async getFlows() {
     const workspace_id = getWorkspaceIdFromToken();
@@ -181,7 +227,7 @@ class APIClient {
     const workspace_id = getWorkspaceIdFromToken();
     return this.post('/automation/flows', {
       ...flowData,
-      workspace_id: workspace_id // Auto-inject the workspace ID here!
+      workspace_id: workspace_id,
     });
   }
 
@@ -194,10 +240,12 @@ class APIClient {
     const workspace_id = getWorkspaceIdFromToken();
     return this.post('/automation/generate-flow', {
       prompt: prompt,
-      workspace_id: workspace_id
+      workspace_id: workspace_id,
     });
   }
-  // MCP methods
+
+  // ============== MCP Methods ==============
+
   async evaluateAction(actionData) {
     return this.post('/mcp/evaluate', actionData);
   }
@@ -215,7 +263,7 @@ class APIClient {
     return this.get(`/mcp/rules?workspace_id=${workspace_id}`);
   }
 
-  // ==== Chat History Methods ====
+  // ============== Chat History Methods ==============
 
   async getChatSessions(workspace_id) {
     return this.get(`/chat/sessions?workspace_id=${workspace_id}`);
@@ -236,35 +284,31 @@ class APIClient {
   async updateChatSession(session_id, title) {
     return this.request(`/chat/sessions/${session_id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ title })
+      body: JSON.stringify({ title }),
     });
   }
-  //  Admin AI Activity 
+
+  // ============== Admin AI Activity ==============
 
   async getAIActivity() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/ai_actions`);
+    return this.get("/admin/ai_actions");
   }
 
-  //  Admin Token Methods 
+  // ============== Admin Token Methods ==============
 
   async getAdminTokens() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/tokens`)
+    return this.get("/admin/tokens");
   }
 
   async updateTokenLimit(workspace_id, custom_token_limit) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.request(`/${adminPath}/tokens/${workspace_id}/limit`, {
+    return this.request(`/admin/tokens/${workspace_id}/limit`, {
       method: "PATCH",
-      body: JSON.stringify({ custom_token_limit })
-    })
+      body: JSON.stringify({ custom_token_limit }),
+    });
   }
 
-  // ==== Brain / RAG Methods ====
-  /**
-   * Upload a document to the Brain (PDF, DOCX, TXT)
-   */
+  // ============== Brain / RAG Methods ==============
+
   async uploadDocument(file, workspace_id) {
     const formData = new FormData();
     formData.append('file', file);
@@ -284,6 +328,7 @@ class APIClient {
     }
     return data;
   }
+
   async uploadFile(file) {
     const formData = new FormData();
     formData.append('file', file);
@@ -298,149 +343,68 @@ class APIClient {
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(data.detail || 'Upload failed');
     }
-
     return data;
   }
 
-
-  //  Admin Workspace Methods 
+  // ============== Admin Workspace Methods ==============
 
   async getAdminWorkspaces() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/workspaces`);
+    return this.get('/admin/workspaces');
   }
 
   async editWorkspacePlan(workspace_id, plan_type) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.request(`/${adminPath}/workspaces/${workspace_id}`, {
+    return this.request(`/admin/workspaces/${workspace_id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ plan_type })
+      body: JSON.stringify({ plan_type }),
     });
   }
 
   async resetWorkspaceLimits(workspace_id) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.post(`/${adminPath}/workspaces/${workspace_id}/reset-limits`);
+    return this.post(`/admin/workspaces/${workspace_id}/reset-limits`);
   }
 
   async toggleWorkspaceStatus(workspace_id) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.post(`/${adminPath}/workspaces/${workspace_id}/toggle-status`);
+    return this.post(`/admin/workspaces/${workspace_id}/toggle-status`);
   }
 
-  /**
-   * Sync a URL to the Brain
-   */
+  // ============== Brain Ingestion ==============
+
   async syncURL(url, workspace_id) {
     return this.post('/brain/ingest/url', { url, workspace_id });
   }
 
-  /**
-   * Crawl entire website and index all pages
-   */
   async crawlWebsite(url, workspace_id, max_pages = 50) {
     return this.post('/brain/ingest/website', { url, workspace_id, max_pages });
   }
 
-  /**
-   * Add manual text to the Brain
-   */
   async addTextKnowledge(title, content, workspace_id) {
     return this.post('/brain/ingest/text', { title, content, workspace_id });
   }
 
-  /**
-   * Get all Brain entries for a workspace
-   */
   async getBrainEntries() {
-
-    const workspace_id = getWorkspaceIdFromToken()
-
+    const workspace_id = getWorkspaceIdFromToken();
     return this.get(`/brain/entries?workspace_id=${workspace_id}`);
-
   }
 
-  /**
-   * Delete a Brain entry
-   */
   async deleteBrainEntry(entry_id, workspace_id) {
     return this.delete(`/brain/entries/${entry_id}?workspace_id=${workspace_id}`);
   }
 
-  /**
-   * Semantic search across the Brain
-   */
   async searchBrain(query, workspace_id, top_k = 5) {
     return this.post('/brain/search', { query, workspace_id, top_k });
   }
 
-  /**
-   * Ask a question and get a RAG-powered answer
-   */
   async queryBrain(question, workspace_id, top_k = 5, include_sources = true) {
     return this.post('/brain/query', { question, workspace_id, top_k, include_sources });
   }
 
-  /**
-   * Get Brain statistics
-   */
   async getBrainStats(workspace_id) {
     return this.get(`/brain/stats?workspace_id=${workspace_id}`);
   }
-
-  // ============== Dashboard Analytics Methods ==============
-
-  /**
-   * Full dashboard bundle — metrics + revenue + activities + insights
-   * Single round-trip, cached 60s on backend.
-   */
-  async getDashboardOverview(workspace_id, startDate, endDate) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    let url = `/dashboard/overview?workspace_id=${wid}`;
-    if (startDate) url += `&start_date=${startDate}`;
-    if (endDate) url += `&end_date=${endDate}`;
-    return this.get(url);
-  }
-
-  /**
-   * 4 KPI metric cards (revenue, leads, conversion, response time)
-   */
-  async getDashboardMetrics(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/metrics?workspace_id=${wid}`);
-  }
-
-  /**
-   * Monthly revenue chart — current year vs prior year
-   */
-  async getDashboardRevenue(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/revenue?workspace_id=${wid}`);
-  }
-
-  /**
-   * Recent 10 activity events across messages/leads/followups/ai_actions
-   */
-  async getDashboardActivities(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/activities?workspace_id=${wid}`);
-  }
-
-  /**
-   * AI-computed insights from real DB aggregations
-   */
-  async getDashboardInsights(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/insights?workspace_id=${wid}`);
-  }
 }
-
-
-
 
 export const api = new APIClient();
 export default api;

@@ -20,10 +20,10 @@ import { getWorkspaceIdFromToken } from '@/lib/auth';
 const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected'];
 
 const STATUS = {
-  draft:    { label: 'Draft',    color: '#94a3b8', bg: 'rgba(1, 5, 12, 0.12)',  ring: 'rgba(148,163,184,0.25)' },
-  pending:  { label: 'Pending',  color: '#fbbf24', bg: 'rgba(19, 14, 1, 0.12)',   ring: 'rgba(251,191,36,0.25)'  },
-  approved: { label: 'Approved', color: '#34c091', bg: 'rgba(1, 14, 9, 0.12)',   ring: 'rgba(18, 245, 162, 0.25)'  },
-  rejected: { label: 'Rejected', color: '#f87171', bg: 'rgba(7, 0, 0, 0.12)',  ring: 'rgba(248,113,113,0.25)' },
+  draft:    { label: 'Draft',    color: '#94a3b8', bg: 'rgba(148,163,184,0.12)',  ring: 'rgba(148,163,184,0.25)' },
+  pending:  { label: 'Pending',  color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',   ring: 'rgba(251,191,36,0.25)'  },
+  approved: { label: 'Approved', color: '#34d399', bg: 'rgba(52,211,153,0.12)',   ring: 'rgba(52,211,153,0.25)'  },
+  rejected: { label: 'Rejected', color: '#f87171', bg: 'rgba(248,113,113,0.12)',  ring: 'rgba(248,113,113,0.25)' },
 };
 
 const STAT_CFG = [
@@ -334,137 +334,159 @@ function StatCard({ cfg, count, onClick, isActive }) {
 /* ─────────────────────────────────────────────
    Preview Drawer
 ───────────────────────────────────────────── */
-function PreviewModal({ tpl, onClose, onSubmit }) {
+function PreviewDrawer({ tpl, onClose, onSubmit }) {
   const open = !!tpl;
 
   const fmt = (msg = '') => {
     const sampleValues = { 1: 'John', 2: 'ORD123', 3: '2 days', 4: '₹500' };
     return msg.replace(/\{\{(\d+)\}\}/g, (_, num) => {
       const value = sampleValues[num] || `Value${num}`;
-      return `{{${num}}}`;
+      return `<span style="background:rgba(124,58,237,0.2);color:#a78bfa;padding:0 5px;border-radius:4px;font-size:12px;font-family:var(--mono)">${value}</span>`;
     });
   };
-
-  if (!open) return null;
 
   return (
     <>
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]"
+        className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-[8px] transition-opacity duration-[250ms]"
+        style={{ opacity: open ? 1 : 0, pointerEvents: open ? 'all' : 'none' }}
       />
 
-      {/* Modal */}
+      {/* Drawer */}
       <div
-        className="fixed z-[101] flex flex-col"
+        className="fixed top-0 right-0 bottom-0 w-[440px] bg-[#0d0d1e] border-l border-[#1e1e3f] z-[101] flex flex-col overflow-hidden transition-transform duration-[320ms] ease-[cubic-bezier(0.32,0,0.14,1)]"
         style={{
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 420,
-          maxWidth: '95vw',
-          background: 'linear-gradient(160deg, #1a1030 0%, #0d0820 100%)',
-          borderRadius: 24,
-          border: '1px solid #2a1f4a',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.15)',
+          transform: open ? 'translateX(0)' : 'translateX(100%)',
+          boxShadow: '-8px 0 40px rgba(0,0,0,0.5)',
           fontFamily: 'var(--sans)',
-          overflow: 'hidden',
         }}
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 flex items-center justify-center cursor-pointer transition-all duration-[150ms]"
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 10,
-            border: '1px solid #2a2a4a',
-            background: 'rgba(255,255,255,0.06)',
-            color: '#ffffff',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-        >
-          <X size={15} color="#ffffff" />
-        </button>
-
-        {/* Body */}
-        <div className="p-6 flex flex-col gap-5">
-
-          {/* WhatsApp icon */}
-          <div
-            className="flex items-center justify-center"
-            style={{ width: 52, height: 52, borderRadius: 14, background: '#25D366' }}
-          >
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="#ffffff">
-              <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.96 9.96 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.96 7.96 0 0 1-4.073-1.117l-.291-.173-3.017.897.897-3.017-.173-.291A7.96 7.96 0 0 1 4 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.884c-.242-.121-1.432-.707-1.654-.787-.222-.081-.384-.121-.545.121-.161.242-.626.787-.768.949-.141.161-.282.181-.524.06-.242-.121-1.021-.376-1.945-1.199-.718-.641-1.203-1.432-1.344-1.674-.141-.242-.015-.373.106-.494.109-.109.242-.282.363-.424.121-.141.161-.242.242-.404.081-.161.04-.303-.02-.424-.061-.121-.545-1.314-.747-1.799-.196-.473-.396-.409-.545-.416l-.464-.008c-.161 0-.424.06-.646.303-.222.242-.848.829-.848 2.022s.868 2.346.989 2.507c.121.161 1.708 2.608 4.139 3.656.579.25 1.031.399 1.382.511.581.185 1.11.159 1.527.097.466-.069 1.432-.585 1.634-1.151.202-.565.202-1.049.141-1.151-.06-.101-.222-.161-.464-.282z"/>
-            </svg>
+        {/* Drawer header */}
+        <div className="p-[22px_24px] border-b border-[#1e1e3f] bg-[#111122] flex items-start justify-between shrink-0">
+          <div>
+            <p className="m-0 mb-[5px] text-[11px] text-[#a78bfa] tracking-[0.08em] uppercase" style={{ fontFamily: 'var(--mono)' }}>
+              Template Preview
+            </p>
+            <h3 className="m-0 text-[17px] font-bold text-[#f0f0ff] tracking-[-0.02em]">
+              {tpl?.name}
+            </h3>
           </div>
-
-          {/* Message bubble */}
-          <div
-            className="w-full flex flex-col gap-[10px] p-[18px_20px]"
-            style={{
-              background: '#1a1a2e',
-              borderRadius: 16,
-              border: '1px solid #25204a',
+          <button
+            onClick={onClose}
+            className="w-[34px] h-[34px] rounded-[9px] shrink-0 border border-[#1e1e3f] bg-transparent text-[#9090bb] flex items-center justify-center cursor-pointer transition-all duration-[150ms]"
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = '#a78bfa';
+              e.currentTarget.style.color = '#a78bfa';
+              e.currentTarget.style.background = 'rgba(124,58,237,0.1)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = '#1e1e3f';
+              e.currentTarget.style.color = '#9090bb';
+              e.currentTarget.style.background = 'transparent';
             }}
           >
-            <p
-              className="m-0 text-[14px] text-[#e8e8ff] leading-[1.7] whitespace-pre-wrap"
-              style={{ fontFamily: 'var(--sans)' }}
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+          {/* WhatsApp mock */}
+          <div className="rounded-[16px] overflow-hidden border border-[#1e1e3f]">
+            <div
+              className="p-[13px_18px] flex items-center gap-[11px]"
+              style={{ background: 'linear-gradient(135deg,#1a2e1a,#075e54)' }}
             >
-              {fmt(tpl?.content) || 'No content available.'}
-            </p>
+              <div className="w-[38px] h-[38px] rounded-full bg-[rgba(255,255,255,0.15)] flex items-center justify-center text-[rgba(255,255,255,0.8)]">
+                <MessageSquare size={16} />
+              </div>
+              <div>
+                <p className="m-0 text-[13px] font-bold text-white">Business</p>
+                <p className="m-0 text-[11px] text-[rgba(255,255,255,0.5)]">online</p>
+              </div>
+            </div>
+            <div
+              className="p-[20px_16px] min-h-[150px]"
+              style={{
+                background: '#0d0e18',
+                backgroundImage: 'radial-gradient(circle at 1px 1px, #1a1a2e 1px, transparent 0)',
+                backgroundSize: '22px 22px',
+              }}
+            >
+              <div
+                className="bg-[#1a1a2e] border border-[#1e1e3f] p-[14px_16px] max-w-[92%]"
+                style={{ borderRadius: '14px 14px 14px 0', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}
+              >
+                <p
+                  className="m-0 mb-3 text-[13px] text-[#d0d0f0] leading-[1.65]"
+                  dangerouslySetInnerHTML={{ __html: fmt(tpl?.content) }}
+                />
+                <div className="border-t border-[#1e1e3f] pt-[10px] flex items-center justify-center gap-[5px] text-[#a78bfa] text-[12px] font-bold">
+                  <ArrowUpRight size={12} /> Visit Website
+                </div>
+              </div>
+              <p className="m-0 mt-[6px] ml-1 text-[10px] text-[#55557a]" style={{ fontFamily: 'var(--mono)' }}>
+                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
+              </p>
+            </div>
           </div>
 
-          {/* Tag pills */}
-          <div className="flex items-center gap-[10px] flex-wrap">
+          {/* Metadata */}
+          <div className="border border-[#1e1e3f] rounded-[14px] overflow-hidden">
             {[
-              { label: 'Personalized', bg: 'rgba(16,100,50,0.5)',  border: '#1a5c30', color: '#4ade80' },
-              { label: 'Fast Delivery', bg: 'rgba(100,40,10,0.5)', border: '#7a3010', color: '#fb923c' },
-              { label: 'Secure Payment', bg: 'rgba(30,20,80,0.5)', border: '#3a2a70', color: '#a78bfa' },
-            ].map(({ label, bg, border, color }) => (
-              <span
+              ['Status', <StatusPill key="s" status={tpl?.status} />],
+              ['Type',   <TypeTag key="t" type={tpl?.type} />],
+              ['ID',     <span key="id" className="text-[11px] text-[#55557a]" style={{ fontFamily: 'var(--mono)' }}>{tpl?.id?.toString().slice(0, 18) ?? '—'}</span>],
+            ].map(([label, val], i, arr) => (
+              <div
                 key={label}
-                className="text-[12px] font-semibold px-[14px] py-[6px] rounded-full"
-                style={{ background: bg, border: `1px solid ${border}`, color }}
+                className="flex items-center justify-between p-[13px_18px]"
+                style={{
+                  borderBottom: i < arr.length - 1 ? '1px solid #1e1e3f' : 'none',
+                  background: i % 2 === 0 ? '#111122' : '#0b0b14',
+                }}
               >
-                {label}
-              </span>
+                <span className="text-[12px] text-[#55557a]" style={{ fontFamily: 'var(--mono)' }}>{label}</span>
+                {val}
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Footer — Review & Submit */}
-        <div className="px-6 pb-6">
-          {tpl?.status === 'draft' ? (
+        {/* Drawer footer */}
+        <div className="p-[16px_24px] border-t border-[#1e1e3f] bg-[#111122] flex gap-[10px] shrink-0">
+          <button
+            onClick={onClose}
+            className="flex-1 p-[11px] rounded-[11px] border border-[#1e1e3f] bg-transparent text-[#9090bb] text-[13px] font-semibold cursor-pointer transition-all duration-[150ms]"
+            style={{ fontFamily: 'var(--sans)' }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = '#15152e';
+              e.currentTarget.style.color = '#f0f0ff';
+              e.currentTarget.style.borderColor = '#2e2e60';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#9090bb';
+              e.currentTarget.style.borderColor = '#1e1e3f';
+            }}
+          >
+            Close
+          </button>
+          {tpl?.status === 'draft' && (
             <button
               onClick={() => { onSubmit(tpl); onClose(); }}
-              className="w-full py-[15px] rounded-[14px] border-none text-white text-[15px] font-bold cursor-pointer transition-all duration-[150ms]"
+              className="flex-1 p-[11px] rounded-[11px] border-none text-white text-[13px] font-bold cursor-pointer flex items-center justify-center gap-[7px] transition-all duration-[150ms]"
               style={{
-                background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-                boxShadow: '0 4px 24px rgba(124,58,237,0.5)',
+                background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                boxShadow: '0 2px 16px rgba(129,74,200,0.45)',
                 fontFamily: 'var(--sans)',
               }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 32px rgba(124,58,237,0.7)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(124,58,237,0.5)'}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(129,74,200,0.7)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 16px rgba(129,74,200,0.45)'; }}
             >
-              Review &amp; Submit
-            </button>
-          ) : (
-            <button
-              onClick={onClose}
-              className="w-full py-[15px] rounded-[14px] border-none text-white text-[15px] font-bold cursor-pointer transition-all duration-[150ms]"
-              style={{
-                background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-                boxShadow: '0 4px 24px rgba(124,58,237,0.5)',
-                fontFamily: 'var(--sans)',
-              }}
-            >
-              Close Preview
+              <Send size={13} /> Submit to Meta
             </button>
           )}
         </div>
@@ -598,8 +620,8 @@ export default function TemplatesPage() {
         className="tpl-root min-h-screen bg-[#0b0b14] text-[#f0f0ff]"
         style={{ fontFamily: 'var(--sans)' }}
       >
-
-        <div className="max-w-[1600px] mx-auto px-3 pt-8 pb-16">
+        {/* ── Main content ── */}
+        <div className="max-w-[1600px] mx-auto px-6 pt-8 pb-16">
 
           {/* ── Page header ── */}
           <div
@@ -638,9 +660,10 @@ export default function TemplatesPage() {
             </button>
           </div>
 
+          {/* ── Stats row ── */}
           {!loading && (
             <div
-              className="grid grid-cols-6 gap-[13px] mb-[34px] w-full"
+              className="grid grid-cols-6 gap-[13px] mb-[34px]"
               style={{ animation: 'fadeIn 0.5s 0.1s ease both' }}
             >
               {STAT_CFG.map(cfg => {
@@ -662,13 +685,14 @@ export default function TemplatesPage() {
             </div>
           )}
 
-          
+          {/* ── Toolbar ── */}
           <div
-            className="flex items-center gap-2 mb-[26px] w-full"
+            className="flex items-center gap-3 mb-[26px] w-full"
             style={{ animation: 'fadeIn 0.5s 0.15s ease both' }}
           >
+            {/* Search */}
             <div
-              className="flex items-center gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-[17px] flex-1 transition-[border-color] duration-[150ms]"
+              className="flex items-center gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-[17px] w-[680px] shrink-0 transition-[border-color] duration-[150ms]"
               onFocusCapture={e => e.currentTarget.style.borderColor = '#7c3aed'}
               onBlurCapture={e => e.currentTarget.style.borderColor = '#1e1e3f'}
             >
@@ -689,8 +713,8 @@ export default function TemplatesPage() {
               )}
             </div>
 
-            {/* Tabs — CHANGED px-8 to px-4 */}
-            <div className="flex items-center gap-1 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-3 shrink-0">
+            {/* Tabs */}
+            <div className="flex items-center gap-1 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-8 py-3 shrink-0">
               {TABS.map(tab => {
                 const active = activeTab === tab;
                 const cnt = countFor(tab);
@@ -735,43 +759,54 @@ export default function TemplatesPage() {
             </div>
 
             {/* Right controls */}
-            <div className="flex items-center gap-2 shrink-0 ml-auto">
-              {[['grid', LayoutGrid], ['list', List]].map(([mode, ModeIcon]) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className="flex items-center justify-center cursor-pointer transition-all duration-[150ms]"
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    border: `1.5px solid ${viewMode === mode ? '#7c3aed' : '#2a2a4a'}`,
-                    background: viewMode === mode ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : '#0d0d1e',
-                    color: '#ffffff',
-                    boxShadow: viewMode === mode ? '0 2px 14px rgba(124,58,237,0.4)' : 'none',
-                  }}
-                  onMouseEnter={e => {
-                    if (viewMode !== mode) {
-                      e.currentTarget.style.borderColor = '#7c3aed';
-                      e.currentTarget.style.background = 'rgba(124,58,237,0.12)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (viewMode !== mode) {
-                      e.currentTarget.style.borderColor = '#2a2a4a';
-                      e.currentTarget.style.background = '#0d0d1e';
-                    }
-                  }}
-                >
-                  <ModeIcon size={22} strokeWidth={1.8} color="#ffffff" />
-                </button>
-              ))}
+            <div className="flex items-center gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[12px] p-[6px_8px] shrink-0 ml-auto">
+              {/* Refresh */}
+              <button
+                onClick={() => fetchTemplates(true)}
+                className="w-9 h-9 rounded-[9px] border border-[#1e1e3f] bg-transparent text-[#9090bb] cursor-pointer flex items-center justify-center transition-all duration-[150ms]"
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = '#a78bfa';
+                  e.currentTarget.style.color = '#a78bfa';
+                  e.currentTarget.style.background = 'rgba(124,58,237,0.1)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '#1e1e3f';
+                  e.currentTarget.style.color = '#9090bb';
+                  e.currentTarget.style.background = 'transparent';
+                }}
+              >
+                <RefreshCw
+                  size={14}
+                  style={{ animation: spinning ? 'spin 0.7s linear infinite' : 'none' }}
+                />
+              </button>
+
+              {/* View toggle */}
+              <div className="flex border border-[#1e1e3f] rounded-[9px] overflow-hidden">
+                {[['grid', LayoutGrid], ['list', List]].map(([mode, ModeIcon]) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className="px-[11px] py-2 border-none flex items-center transition-all duration-[150ms]"
+                    style={{
+                      background: viewMode === mode ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'transparent',
+                      color: viewMode === mode ? '#fff' : '#55557a',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <ModeIcon size={15} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 items-start">
+          {/* ── Main two-column layout ── */}
+          <div className="flex gap-4 items-start">
+
+            {/* Categories sidebar */}
             <div
-              className="w-[240px] shrink-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[20px_14px] sticky top-[80px]"
+              className="w-[200px] shrink-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[20px_14px] sticky top-[80px]"
               style={{ animation: 'fadeIn 0.5s 0.2s ease both' }}
             >
               <p className="m-0 mb-2 ml-1 text-[10px] font-bold text-[rgba(255,255,255,0.9)] uppercase tracking-[0.12em]">
@@ -801,10 +836,15 @@ export default function TemplatesPage() {
               </div>
             </div>
 
-            {/* Cards area — flex-1 already fills remaining space */}
-            <div
-              className="flex-1 min-w-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[20px]"
-            >
+            {/* Cards area */}
+            <div className="flex-1 min-w-0">
+              {/* Result count */}
+              {!loading && (
+                <p className="m-0 mb-4 text-[12px] text-[#55557a]" style={{ fontFamily: 'var(--mono)' }}>
+                  {filtered.length} template{filtered.length !== 1 ? 's' : ''}
+                  {search ? ` matching "${search}"` : ''}
+                </p>
+              )}
 
               {/* Loading */}
               {loading ? (
@@ -863,7 +903,7 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      <PreviewModal tpl={selected} onClose={() => setSelected(null)} onSubmit={handleSubmit} />
+      <PreviewDrawer tpl={selected} onClose={() => setSelected(null)} onSubmit={handleSubmit} />
     </>
   );
 }
