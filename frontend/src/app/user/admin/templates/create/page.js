@@ -36,28 +36,13 @@ const icons = {
   phone:       'M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8',
 };
 
-// ── Nav item ──────────────────────────────────────────────────────────────────
-const NavItem = ({ iconKey, label, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200
-      ${active
-        ? 'bg-[#1A0B2E] text-white border border-[#3D1F6B]'
-        : 'text-[#B7B3C7] hover:text-white hover:bg-[#110820]'
-      }`}
-  >
-    <Icon d={icons[iconKey]} size={15} />
-    <span>{label}</span>
-  </button>
-);
-
 // ── Sidebar category item ─────────────────────────────────────────────────────
 const CatItem = ({ iconKey, label, active, onClick }) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200
       ${active
-        ? 'bg-[#1A0B2E] text-purple-400 border border-[#3D1F6B]'
+        ? 'bg-[#1A0B2E] text-white border border-[#3D1F6B]'
         : 'text-[#B7B3C7] hover:text-white hover:bg-[#110820]'
       }`}
   >
@@ -70,7 +55,7 @@ const CatItem = ({ iconKey, label, active, onClick }) => (
 const Input = ({ label, hint, placeholder, value, onChange, className = '' }) => (
   <div className={className}>
     {label && <p className="text-white text-sm font-medium mb-1">{label}</p>}
-    {hint && <p className="text-[#7B748D] text-xs mb-3 leading-relaxed">{hint}</p>}
+    {hint && <p className="text-white/60 text-xs mb-3 leading-relaxed">{hint}</p>}
     <input
       className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm text-white
         placeholder:text-[#4A4359] focus:outline-none focus:border-purple-500 focus:ring-2
@@ -81,6 +66,268 @@ const Input = ({ label, hint, placeholder, value, onChange, className = '' }) =>
     />
   </div>
 );
+
+// ── Phone Preview Component (extracted to avoid deep nesting in return) ────────
+function PhonePreview({ form, actionMode }) {
+  const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' opacity='0.06'%3E%3Ctext x='5' y='20' font-size='14' fill='white'%3E%F0%9F%98%8A%3C/text%3E%3Ctext x='40' y='15' font-size='12' fill='white'%3E%F0%9F%93%B7%3C/text%3E%3Ctext x='60' y='35' font-size='11' fill='white'%3E%F0%9F%8E%B5%3C/text%3E%3Ctext x='10' y='50' font-size='11' fill='white'%3E%E2%9D%A4%EF%B8%8F%3C/text%3E%3Ctext x='45' y='55' font-size='13' fill='white'%3E%F0%9F%8C%9F%3C/text%3E%3Ctext x='20' y='72' font-size='12' fill='white'%3E%F0%9F%93%B1%3C/text%3E%3Ctext x='58' y='70' font-size='11' fill='white'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E")`;
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'hidden', height: '560px' }}>
+      <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', width: '300px', position: 'relative' }}>
+
+        {/* ── Status Bar — IphoneMockup style: OUTSIDE phone shell, overlays notch ── */}
+        <div style={{
+          position: 'absolute',
+          top: '18px',
+          left: '0',
+          right: '0',
+          zIndex: 10,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '0 28px',
+          color: 'white',
+          fontSize: '12px',
+          fontWeight: '600',
+          pointerEvents: 'none',
+        }}>
+          <span>9:05</span>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            {/* WiFi */}
+            <svg width="14" height="11" viewBox="0 0 15 11" fill="none" style={{ display: 'block' }}>
+              <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="white"/>
+              <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+              <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+            {/* Battery */}
+            <svg width="22" height="11" viewBox="0 0 24 12" fill="none" style={{ display: 'block' }}>
+              <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="white" strokeOpacity="0.55"/>
+              <rect x="1.5" y="1.5" width="17" height="9" rx="1.5" fill="white"/>
+              <path d="M22 4V8C22.8 7.6 23.5 6.85 23.5 6C23.5 5.15 22.8 4.4 22 4Z" fill="white" fillOpacity="0.4"/>
+            </svg>
+          </div>
+        </div>
+
+        {/* ── Phone outer shell — IphoneMockup exact style ── */}
+        <div style={{
+          width: '300px',
+          borderRadius: '44px',
+          background: '#0d0d0e',
+          padding: '10px',
+          border: '1.5px solid rgba(255,255,255,0.18)',
+          boxShadow: '0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.05), 0 52px 110px rgba(0,0,0,0.88), 0 0 70px rgba(129,74,200,0.12)',
+          position: 'relative',
+        }}>
+
+          {/* ── Phone screen ── */}
+          <div style={{
+            background: '#0d0d14',
+            borderRadius: '36px',
+            overflow: 'hidden',
+            position: 'relative',
+            minHeight: '580px',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+
+            {/* Dynamic Island — IphoneMockup exact */}
+            <div style={{
+              width: '100px',
+              height: '28px',
+              background: '#000',
+              borderRadius: '20px',
+              margin: '12px auto 0',
+              flexShrink: 0,
+            }} />
+
+            {/* ── WA Header — IphoneMockup style ── */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              background: '#1a1a2e',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              flexShrink: 0,
+            }}>
+              {/* Back arrow */}
+              <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <svg width="9" height="16" viewBox="0 0 10 17" fill="none">
+                  <path d="M9 1L1.5 8.5L9 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+
+              {/* Avatar — IphoneMockup style: purple gradient + letter */}
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '13px',
+                fontWeight: '700',
+                flexShrink: 0,
+                position: 'relative',
+              }}>
+                A
+                {/* Online dot — IphoneMockup style */}
+                <span style={{
+                  position: 'absolute',
+                  bottom: '1px',
+                  right: '1px',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#22c55e',
+                  border: '1.5px solid #1a1a2e',
+                }} />
+              </div>
+
+              {/* Name + status */}
+              <div style={{ flex: 1 }}>
+                <div style={{ color: 'white', fontSize: '13px', fontWeight: '600', lineHeight: '1.2' }}>Auromind</div>
+                <div style={{ color: '#22c55e', fontSize: '10px' }}>online</div>
+              </div>
+
+              {/* Actions — IphoneMockup: video + phone only */}
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.899L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
+                    stroke="rgba(255,255,255,0.72)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 11.5 19.79 19.79 0 01.08 2.83 2 2 0 012.07 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
+                    stroke="rgba(255,255,255,0.72)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* ── Chat area — dark bg + WA pattern ── */}
+            <div style={{
+              flex: 1,
+              padding: '12px',
+              background: '#0d0d1a',
+              backgroundImage: whatsappPattern,
+              backgroundSize: '80px 80px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              minHeight: '380px',
+            }}>
+              <div style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
+
+                {/* Message bubble */}
+                <div style={{
+                  background: '#1e2a45',
+                  borderRadius: '16px 16px 16px 4px',
+                  overflow: 'hidden',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                }}>
+                  <div style={{ padding: '10px 12px' }}>
+                    {form.header && (
+                      <div style={{ fontWeight: '700', marginBottom: '4px', fontSize: '12px', color: 'white' }}>
+                        {form.header}
+                      </div>
+                    )}
+                    <div style={{ color: 'white', fontSize: '11px', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {form.message
+                        ? form.message
+                        : <span style={{ color: 'rgba(255,255,255,0.3)' }}>Your message will appear here...</span>
+                      }
+                    </div>
+                    {form.footer && (
+                      <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '10px', marginTop: '6px' }}>
+                        {form.footer}
+                      </div>
+                    )}
+                    <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '9px', textAlign: 'right', marginTop: '4px' }}>
+                      11:30 AM
+                    </div>
+                  </div>
+
+                  {/* CTA button */}
+                  {actionMode === 'cta' && (
+                    <div style={{
+                      borderTop: '1px solid rgba(255,255,255,0.1)',
+                      padding: '9px 12px',
+                      textAlign: 'center',
+                      color: '#4da3ff',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      letterSpacing: '0.3px',
+                    }}>
+                      🔗 Buy Now
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick reply buttons */}
+                {actionMode === 'quick' && (
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    {['Yes', 'No'].map(r => (
+                      <div key={r} style={{
+                        background: '#1e2a45',
+                        border: '1px solid rgba(77,163,255,0.4)',
+                        borderRadius: '20px',
+                        padding: '5px 14px',
+                        color: '#4da3ff',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                      }}>
+                        {r}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Input bar — IphoneMockup style ── */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              background: '#1a1a2e',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              flexShrink: 0,
+            }}>
+              <div style={{
+                flex: 1,
+                background: 'rgba(255,255,255,0.06)',
+                borderRadius: '20px',
+                padding: '6px 14px',
+                color: 'rgba(255,255,255,0.3)',
+                fontSize: '11px',
+              }}>
+                Message
+              </div>
+              {/* Send button — IphoneMockup purple gradient */}
+              <div style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function CreateTemplatePage() {
@@ -98,12 +345,11 @@ export default function CreateTemplatePage() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [tone, setTone] = useState('normal');
   const [generatedTemplates, setGeneratedTemplates] = useState([]);
-  const [actionMode, setActionMode] = useState('none'); // 'none' | 'cta' | 'quick'
+  const [actionMode, setActionMode] = useState('none');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isAuth = form.category === 'AUTHENTICATION';
 
-  // ── existing handlers (unchanged) ─────────────────────────────────────────
   const handleGenerate = async () => {
     if (!aiPrompt || aiPrompt.trim() === '') {
       alert('Please enter a prompt to generate message');
@@ -118,7 +364,14 @@ export default function CreateTemplatePage() {
       let templates = [];
       if (res?.message) {
         try {
-          let cleanMessage = res.message.replace(/```json/g, '').replace(/```/g, '').trim();
+          let cleanMessage = res.message.trim();
+          const firstBrace = cleanMessage.indexOf('{');
+          const lastBrace = cleanMessage.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            cleanMessage = cleanMessage.substring(firstBrace, lastBrace + 1);
+          } else {
+            cleanMessage = cleanMessage.replace(/```json/g, '').replace(/```/g, '').trim();
+          }
           const parsed = JSON.parse(cleanMessage);
           templates = parsed.templates || [];
         } catch (e) {
@@ -153,10 +406,8 @@ export default function CreateTemplatePage() {
     }
   };
 
-  // ── variable chip helper ───────────────────────────────────────────────────
   const insertVar = (v) => setForm({ ...form, message: form.message + v });
 
-  // ── sample variable labels ─────────────────────────────────────────────────
   const sampleVars = [
     { key: '{{1}}', label: 'Customer Name' },
     { key: '{{2}}', label: 'First Product Name' },
@@ -165,40 +416,30 @@ export default function CreateTemplatePage() {
     { key: '{{5}}', label: 'Coupon Code' },
   ];
 
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-[#05010D] text-white overflow-hidden font-sans">
 
-      {/* ── Mobile overlay ── */}
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 z-20 md:hidden"
           onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* ══════════════════════════════════════════
-          SIDEBAR
-      ══════════════════════════════════════════ */}
+      {/* ── SIDEBAR ── */}
       <aside className={`
         fixed md:static z-30 flex flex-col h-full w-[240px] bg-[#060010] border-r border-[#1A0B2E]
         transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-
-       
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-
-          {/* Manage */}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1 template-scroll">
           <div className="pt-4 pb-1">
-            <p className="text-[10px] text-[#4A4359] font-medium uppercase tracking-widest px-3 mb-2">Manage</p>
+            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Manage</p>
             <CatItem iconKey="template" label="Template Message" active={true} />
             <CatItem iconKey="agents"   label="Agents"           active={false} />
-            <CatItem iconKey="analytics"label="Analytics"        active={false} />
+            <CatItem iconKey="analytics" label="Analytics"       active={false} />
           </div>
-
-          {/* Categories */}
           <div className="pt-4 pb-1">
-            <p className="text-[10px] text-[#4A4359] font-medium uppercase tracking-widest px-3 mb-2">Categories</p>
+            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Categories</p>
             <CatItem iconKey="template" label="Utility"        active={false}
               onClick={() => setForm({ ...form, category: 'UTILITY' })} />
             <CatItem iconKey="template" label="Marketing"      active={form.category === 'MARKETING'}
@@ -206,10 +447,8 @@ export default function CreateTemplatePage() {
             <CatItem iconKey="template" label="Authentication" active={form.category === 'AUTHENTICATION'}
               onClick={() => setForm({ ...form, category: 'AUTHENTICATION' })} />
           </div>
-
-          {/* Template Type */}
           <div className="pt-4 pb-1">
-            <p className="text-[10px] text-[#4A4359] font-medium uppercase tracking-widest px-3 mb-2">Template Type</p>
+            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Template Type</p>
             <CatItem iconKey="text"  label="Text"  active={form.type === 'TEXT'}
               onClick={() => setForm({ ...form, type: 'TEXT' })} />
             <CatItem iconKey="image" label="Image" active={form.type === 'IMAGE'}
@@ -217,39 +456,10 @@ export default function CreateTemplatePage() {
             <CatItem iconKey="video" label="Video" active={form.type === 'VIDEO'}
               onClick={() => setForm({ ...form, type: 'VIDEO' })} />
           </div>
-
-          {/* Template Language */}
-          <div className="pt-4 pb-1">
-            <p className="text-[10px] text-[#4A4359] font-medium uppercase tracking-widest px-3 mb-2">Template Language</p>
-            <div className="px-1">
-              <select
-                className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs
-                  text-[#B7B3C7] focus:outline-none focus:border-purple-500/60"
-                value={form.language}
-                onChange={(e) => setForm({ ...form, language: e.target.value })}
-              >
-                <option value="en_US">English (US)</option>
-                <option value="en_GB">English (UK)</option>
-                <option value="ta">Tamil</option>
-              </select>
-            </div>
-          </div>
         </nav>
-
-        {/* Bottom */}
-        <div className="p-3 border-t border-[#1A0B2E] space-y-1">
-          <NavItem iconKey="settings" label="Settings" active={false} />
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm
-            text-[#B7B3C7] hover:text-red-400 hover:bg-red-500/5 transition-all duration-200">
-            <Icon d={icons.logout} size={15} />
-            <span>Log out</span>
-          </button>
-        </div>
       </aside>
 
-      {/* ══════════════════════════════════════════
-          MAIN CONTENT
-      ══════════════════════════════════════════ */}
+      {/* ── MAIN CONTENT ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top bar (mobile) */}
@@ -257,7 +467,9 @@ export default function CreateTemplatePage() {
           <button onClick={() => setSidebarOpen(true)}
             className="p-1.5 rounded-lg border border-[#24113A] text-[#B7B3C7]">
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
           <h1 className="text-base font-semibold">New Template Message</h1>
@@ -266,35 +478,32 @@ export default function CreateTemplatePage() {
         {/* Page header */}
         <div className="hidden md:block px-8 pt-7 pb-5 border-b border-[#1A0B2E]">
           <h1 className="text-3xl font-bold text-white tracking-tight">New Templates Message</h1>
-          <p className="text-[#7B748D] text-sm mt-1">Create, manage and approve WhatsApp Business templates.</p>
+          <p className="text-white/60 text-sm mt-1">Create, manage and approve WhatsApp Business templates.</p>
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto template-scroll">
           <div className="flex gap-6 p-6 max-w-[1400px] mx-auto">
 
-            {/* ── FORM COLUMN ─────────────────────────────── */}
+            {/* ── FORM COLUMN ── */}
             <div className="flex-1 min-w-0 space-y-6">
 
               {/* Generate with AI */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-8
-                  shadow-[0_0_40px_rgba(168,85,247,0.08)]">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
                   <h2 className="text-2xl font-bold text-center mb-1">Generate with AI</h2>
-                  <p className="text-[#7B748D] text-sm text-center mb-6 max-w-lg mx-auto leading-relaxed">
+                  <p className="text-white/60 text-sm text-center mb-6 max-w-lg mx-auto leading-relaxed">
                     Generate professional message templates in seconds using AI-powered
                     content suggestions and smart personalization.
                   </p>
-
-                  {/* Prompt */}
                   <div className="relative mb-4">
-                    <p className="text-white text-sm font-medium mb-1">Write your prompt here*</p>
-                    <p className="text-[#4A4359] text-xs mb-2">
+                    <p className="text-white text-m font-medium mb-1">Write your prompt here*</p>
+                    <p className="text-white/60 text-[13px] mb-2">
                       "Describe the template you want to create and AI will generate it for you."
                     </p>
                     <textarea
                       rows={3}
-                      placeholder='Write your prompt here...'
+                      placeholder="Write your prompt here..."
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                       className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm
@@ -302,8 +511,6 @@ export default function CreateTemplatePage() {
                         focus:ring-2 focus:ring-purple-500/20 transition-all duration-300 resize-none"
                     />
                   </div>
-
-                  {/* Tone + Generate */}
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div className="flex gap-2">
                       {[
@@ -324,7 +531,6 @@ export default function CreateTemplatePage() {
                         </button>
                       ))}
                     </div>
-
                     <button
                       onClick={handleGenerate}
                       disabled={!aiPrompt || aiPrompt.trim() === ''}
@@ -339,8 +545,6 @@ export default function CreateTemplatePage() {
                       ✨ Generate ($10 WCC)
                     </button>
                   </div>
-
-                  {/* Generated results */}
                   {generatedTemplates.length > 0 && (
                     <div className="mt-5 space-y-3">
                       {generatedTemplates.map((tpl, i) => (
@@ -361,8 +565,7 @@ export default function CreateTemplatePage() {
               )}
 
               {/* Template Name */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6
-                shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <Input
                   label="Template Name"
                   hint="Name can only be in lowercase alphanumeric characters and underscores. Special characters and white-space are not allowed e.g - app_verification_code"
@@ -374,10 +577,9 @@ export default function CreateTemplatePage() {
 
               {/* Header */}
               {form.type === 'TEXT' && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6
-                  shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                   <Input
-                    label={<span>Template Header Text <span className="text-[#7B748D] font-normal">(Optional)</span></span>}
+                    label={<span>Template Header Text <span className="text-white/60 font-normal">(Optional)</span></span>}
                     hint="Add a short header to grab attention ( upto 60 characters)"
                     placeholder="Enter header text here"
                     value={form.header}
@@ -387,15 +589,13 @@ export default function CreateTemplatePage() {
               )}
 
               {/* Message Body */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6
-                shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <p className="text-white text-sm font-medium mb-1">Message Content</p>
-                <p className="text-[#7B748D] text-xs mb-3 leading-relaxed">
-                  Use text formatting - *bold*, _italic_ & ~strikethrough~<br />
+              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <p className="text-white text-m font-medium mb-1">Message Content</p>
+                <p className="text-white/60 text-xs mb-3 leading-relaxed">
+                  Use text formatting - *bold*, _italic_ &amp; ~strikethrough~<br />
                   Your message content. Upto 1024 characters are allowed.<br />
-                  e.g – Hello {'{{1}}'}, your code will expire in {'{{2}}'} mins.
+                  {'e.g – Hello {{1}}, your code will expire in {{2}} mins.'}
                 </p>
-
                 <div className="relative">
                   <textarea
                     rows={6}
@@ -410,10 +610,8 @@ export default function CreateTemplatePage() {
                     {form.message.length} / 1024
                   </span>
                 </div>
-
-                {/* Variable chips */}
                 <div className="flex gap-2 mt-3 flex-wrap">
-                  {['{{1}}','{{2}}','{{3}}','{{4}}','{{5}}'].map((v) => (
+                  {['{{1}}', '{{2}}', '{{3}}', '{{4}}', '{{5}}'].map((v) => (
                     <button
                       key={v}
                       onClick={() => insertVar(v)}
@@ -428,10 +626,9 @@ export default function CreateTemplatePage() {
               </div>
 
               {/* Footer */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6
-                shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <Input
-                  label={<span>Message Footer <span className="text-[#7B748D] font-normal">(Optional)</span></span>}
+                  label={<span>Message Footer <span className="text-white/60 font-normal">(Optional)</span></span>}
                   hint="Your message content. Upto 60 characters are allowed."
                   placeholder="Enter footer text here"
                   value={form.footer}
@@ -441,14 +638,12 @@ export default function CreateTemplatePage() {
 
               {/* Interactive Actions */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6
-                  shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <p className="text-white text-sm font-medium mb-1">Interactive Actions</p>
-                  <p className="text-[#7B748D] text-xs mb-4 leading-relaxed">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <p className="text-white text-m font-medium mb-1">Interactive Actions</p>
+                  <p className="text-white/60 text-xs mb-4 leading-relaxed">
                     In addition to your message, you can send actions with your message. Maximum 25 characters
                     are allowed in CTA button title &amp; Quick Replies.
                   </p>
-
                   <div className="flex gap-2 mb-5 flex-wrap">
                     {[
                       { key: 'none',  label: 'None' },
@@ -468,9 +663,7 @@ export default function CreateTemplatePage() {
                       </button>
                     ))}
                   </div>
-
-                  {/* CTA fields */}
-                  {(actionMode === 'cta') && (
+                  {actionMode === 'cta' && (
                     <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-4">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-sm font-medium text-white">Call to Action</p>
@@ -478,19 +671,19 @@ export default function CreateTemplatePage() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <p className="text-[#7B748D] text-xs mb-1">Action Type</p>
+                          <p className="text-white/60 text-xs mb-1">Action Type</p>
                           <input defaultValue="URL"
                             className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
                               text-white focus:outline-none focus:border-purple-500/60" />
                         </div>
                         <div>
-                          <p className="text-[#7B748D] text-xs mb-1">Button Title</p>
+                          <p className="text-white/60 text-xs mb-1">Button Title</p>
                           <input defaultValue="Buy Now"
                             className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
                               text-white focus:outline-none focus:border-purple-500/60" />
                         </div>
                         <div>
-                          <p className="text-[#7B748D] text-xs mb-1">Website URL</p>
+                          <p className="text-white/60 text-xs mb-1">Website URL</p>
                           <input
                             placeholder="URL"
                             value={form.cta}
@@ -522,56 +715,26 @@ export default function CreateTemplatePage() {
               </button>
             </div>
 
-            {/* ── RIGHT PANEL ─────────────────────────────── */}
+            {/* ── RIGHT PANEL ── */}
             <div className="w-[300px] shrink-0 hidden lg:flex flex-col gap-5">
 
-              {/* Template Preview */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5
-                shadow-[0_0_30px_rgba(168,85,247,0.08)]">
+              {/* Template Preview card */}
+              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
                 <h3 className="text-white font-semibold mb-1">Template Preview</h3>
-                <p className="text-[#7B748D] text-xs mb-4 leading-relaxed">
+                <p className="text-white/60 text-xs mb-4 leading-relaxed">
                   Your template message preview. It will update as you fill in the values in the form.
                 </p>
-
-                {/* Phone mockup */}
-                <div className="mx-auto w-[200px] bg-[#0D021A] border border-[#2a1a3e] rounded-[28px] p-3
-                  shadow-[inset_0_0_20px_rgba(0,0,0,0.4)]">
-                  {/* Status bar */}
-                  <div className="flex items-center justify-between px-2 mb-3">
-                    <span className="text-[9px] text-[#4A4359]">9:41</span>
-                    <div className="flex gap-1">
-                      <div className="w-1 h-1 rounded-full bg-[#4A4359]" />
-                      <div className="w-1 h-1 rounded-full bg-[#4A4359]" />
-                      <div className="w-1 h-1 rounded-full bg-[#4A4359]" />
-                    </div>
-                  </div>
-                  {/* Chat bubble */}
-                  <div className="bg-[#1a0d30] rounded-[16px] p-3 min-h-[100px]">
-                    {form.header && (
-                      <p className="text-white text-[11px] font-semibold mb-1">{form.header}</p>
-                    )}
-                    <p className="text-[#B7B3C7] text-[10px] whitespace-pre-line leading-relaxed">
-                      {form.message || 'Message preview...'}
-                    </p>
-                    {form.footer && (
-                      <p className="text-[#4A4359] text-[9px] mt-2">{form.footer}</p>
-                    )}
-                    {form.cta && (
-                      <p className="text-purple-400 text-[10px] mt-2 text-center">Visit Link ↗</p>
-                    )}
-                    <p className="text-[#4A4359] text-[9px] text-right mt-2">1:00 AM</p>
-                  </div>
-                </div>
+                <PhonePreview form={form} actionMode={actionMode} />
               </div>
+              {/* ↑ Template Preview card closes here */}
 
               {/* Sample Values */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5
-                shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <h3 className="text-white font-semibold mb-4">Sample Values</h3>
                 <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
-                  <p className="text-white text-xs font-medium mb-1">About Variables</p>
-                  <p className="text-[#7B748D] text-[11px] mb-3">
-                    Use {'{{1}}'}, {'{{2}}'}, etc. to personalize your message.
+                  <p className="text-white text-[13px] font-medium mb-1">About Variables</p>
+                  <p className="text-white/60 text-[12px] mb-3">
+                    {'Use {{1}}, {{2}}, etc. to personalize your message.'}
                   </p>
                   <div className="space-y-2">
                     {sampleVars.map(({ key, label }) => (
@@ -585,22 +748,20 @@ export default function CreateTemplatePage() {
               </div>
 
               {/* Pro Tip */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5
-                shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 p-1.5 bg-purple-600/20 rounded-lg">
                     <Icon d={icons.tip} size={14} className="text-purple-400" />
                   </div>
                   <div>
                     <p className="text-white text-sm font-semibold mb-1">Pro Tip</p>
-                    <p className="text-[#7B748D] text-xs leading-relaxed">
+                    <p className="text-white/60 text-xs leading-relaxed">
                       Maximize engagement by adding up to 20 actions. These will appear as button to your users.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>

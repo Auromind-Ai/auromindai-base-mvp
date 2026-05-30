@@ -1,6 +1,6 @@
 'use client';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api';
 
 import { useState, useEffect } from "react";
 import { Inbox, RefreshCw, ExternalLink } from "lucide-react";
@@ -30,13 +30,20 @@ export default function EmailPage() {
   ---------------------------- */
 
   const checkConnection = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     const res = await fetch(
       `${API}/integrations/status?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (err) {
+        console.error("Status JSON parse failed:", text);
+        return;
+    }
     const isConnected = data.gmail?.connected || false;
 
     setConnected(isConnected);
@@ -51,14 +58,21 @@ export default function EmailPage() {
   ---------------------------- */
 
   const loadMessages = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     const res = await fetch(
       `${API}/email/inbox?workspace_id=${workspace?.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (err) {
+        console.error("Inbox JSON parse failed:", text);
+        return;
+    }
     setMessages(data.emails || []);
   };
 
@@ -88,7 +102,7 @@ export default function EmailPage() {
   ---------------------------- */
 
   const approveAction = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     await fetch(
       `${API}/automation/approve?decision_id=${aiData.id}`,
@@ -106,7 +120,7 @@ export default function EmailPage() {
   ---------------------------- */
 
   const rejectAction = async () => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     await fetch(
       `${API}/automation/reject?decision_id=${aiData.id}`,
@@ -130,7 +144,7 @@ export default function EmailPage() {
     }
 
     setSendingReply(true);
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     await fetch(
       `${API}/email/send-reply`,
@@ -176,7 +190,7 @@ export default function EmailPage() {
   }
 
   /* ---------------------------
-     🔥 MEETING CHECK (IMPORTANT)
+      MEETING CHECK (IMPORTANT)
   ---------------------------- */
 
   const isMeetingAction =

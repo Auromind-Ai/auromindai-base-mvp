@@ -9,7 +9,7 @@ import {
   Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
-  ZoomIn, ZoomOut, Upload, Timer, HelpCircle 
+  ZoomIn, ZoomOut, Upload, Timer, HelpCircle
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken } from '@/lib/auth';
@@ -181,7 +181,7 @@ const validateFlowGraph = (nodes = [], edges = []) => {
       errors.push(`Connection ${edge.id} cannot target the trigger.`);
     }
   });
-  
+ 
   if (triggerNodes.length === 1) {
     const [triggerNode] = triggerNodes;
     if (nodes.length > 1 && !(outgoingMap[triggerNode.id] || []).length) {
@@ -318,7 +318,7 @@ export default function AutomationCanvas() {
     const ty = (targetRect.top + targetRect.height / 2 - gridRect.top) / zoom;
 
     return { sx, sy, tx, ty };
-  }, [zoom, edgeTick]);
+  }, [zoom, edgeTick,nodes]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -574,7 +574,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
 
   const handleCanvasPointerDown = useCallback((e) => {
     if (e.target.closest?.('[data-node-id]')) return;
-    if (e.target.closest?.('[data-steps-panel]')) return; 
+    if (e.target.closest?.('[data-steps-panel]')) return;
     isPanningRef.current = true;
     panStartRef.current = { x: e.clientX, y: e.clientY };
     panOffsetStartRef.current = { x: canvasOffset.x, y: canvasOffset.y };
@@ -713,7 +713,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
       {/* FLOATING HEADER */}
       <header className="absolute top-5 left-0 right-0 h-[82px] z-[100] flex items-center justify-center px-4 bg-[#13131a] border-b border-white/5 shadow-xl">
       <div className="flex items-center justify-between px-4 py-2.5 my-2 rounded-2xl border border-white/15 bg-white/[0.03] w-[1479px] mx-auto gap-0">
-          
+         
           {/* LEFT: menu + title */}
           <div className="flex items-center gap-2">
             <button
@@ -1216,6 +1216,8 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           ))}
                         </section>
                       )}
+
+                     
                     </>
                   )}
 
@@ -1225,24 +1227,34 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Agent Type</label>
                         <div className="grid grid-cols-3 gap-2">
                           {[
-                            { value: 'lead_agent',    label: 'Lead',    emoji: '🎯' },
-                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼' },
-                            { value: 'support_agent', label: 'Support', emoji: '🛟' },
-                          ].map(({ value, label, emoji }) => {
+                            { value: 'lead_agent',    label: 'Lead',    emoji: '🎯', comingSoon: false },
+                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: true  },
+                            { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: true  },
+                          ].map(({ value, label, emoji, comingSoon }) => {
                             const isSelected = (activeNode.config?.agent_type || 'lead_agent') === value;
                             return (
-                              <button
-                                key={value}
-                                data-no-drag
-                                onClick={() => updateNodeConfig(activeNodeId, { agent_type: value })}
-                                className={`flex flex-col items-center gap-1 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all
-                                  ${isSelected
-                                    ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 ring-1 ring-indigo-500/30'
-                                    : 'bg-white/5 border-white/10 text-zinc-500 hover:border-white/20'}`}
-                              >
-                                <span className="text-lg">{emoji}</span>
-                                {label}
-                              </button>
+                              <div key={value} className="relative">
+                                <button
+                                  data-no-drag
+                                  disabled={comingSoon}
+                                  onClick={() => !comingSoon && updateNodeConfig(activeNodeId, { agent_type: value })}
+                                  className={`w-full flex flex-col items-center gap-1 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all
+                                    ${comingSoon
+                                      ? 'bg-white/[0.02] border-white/5 text-zinc-600 cursor-not-allowed opacity-60'
+                                      : isSelected
+                                        ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 ring-1 ring-indigo-500/30'
+                                        : 'bg-white/5 border-white/10 text-zinc-500 hover:border-white/20'}`}
+                                >
+                                  <span className="text-lg">{emoji}</span>
+                                  {label}
+                                  {comingSoon && (
+                                    <span className="text-[8px] font-semibold text-yellow-400/80 normal-case tracking-normal">
+                                      Coming Soon
+                                    </span>
+                                  )}
+                                </button>
+                               
+                              </div>
                             );
                           })}
                         </div>
@@ -1262,6 +1274,64 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white"
                           rows={3}
                         />
+                      </section>
+                      <section>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
+                        <select
+                          value={activeNode.config?.business_type || 'saas'}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { business_type: e.target.value })}
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                          style={{ backgroundColor: "#140D1F", color: "white" }}
+                        >
+                          <option value="saas">SaaS</option>
+                          <option value="ecommerce">E-Commerce</option>
+                          <option value="healthcare">Healthcare</option>
+                          <option value="education">Education</option>
+                          <option value="real_estate">Real Estate</option>
+                          <option value="finance">Finance</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </section>
+
+                      <section>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
+                        <textarea
+                          value={activeNode.config?.lead_fields || ''}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { lead_fields: e.target.value })}
+                          placeholder="name, email, phone, budget"
+                          rows={3}
+                          className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50 transition shadow-inner placeholder:text-zinc-600"
+                        />
+                      </section>
+
+                      <section className="space-y-3">
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
+                        {[
+                          { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
+                        ].map(({ key, label }) => (
+                          <label key={key} className="flex items-center gap-3 cursor-pointer group" data-no-drag>
+                            <div
+                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                              className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
+                                activeNode.config?.[key]
+                                  ? 'bg-indigo-500 border-indigo-500'
+                                  : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
+                              }`}
+                            >
+                              {activeNode.config?.[key] && (
+                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              )}
+                            </div>
+                            <span
+                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                              className="text-sm text-white/80 group-hover:text-white transition"
+                            >
+                              {label}
+                            </span>
+                          </label>
+                        ))}
                       </section>
                     </>
                   )}
@@ -1668,36 +1738,36 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
             }}
           >
             {/* SVG EDGES */}
-           <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
-              <g>
-                <defs>
-                  <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-                    <path d="M0,0 L0,8 L8,4 z" fill="#7c3aed" />
-                  </marker>
-                </defs>
-                {edges.map(edge => {
-                  const source = nodes.find(n => n.id === edge.source);
-                  const target = nodes.find(n => n.id === edge.target);
-                  if (!source || !target) return null;
-                  const pts = getEdgePoints(source, target, edge.sourceHandle);
-                  if (!pts) return null;
-                  const { sx, sy, tx, ty } = pts;
-                  const curve = Math.min(Math.abs(tx - sx) * 0.5, 150);
-                  const d = `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
-                  const isPreviewEdge = flowValidation.reachableEdgeIds.has(edge.id);
-                  return (
-                    <g key={edge.id}>
-                      <path d={d} fill="none" stroke={isPreviewEdge ? "#7c3aed" : "#4a4a6a"} strokeWidth={isPreviewEdge ? "2" : "1.5"} strokeOpacity={isPreviewEdge ? "0.9" : "0.5"} strokeDasharray={isPreviewEdge ? "0" : "6 4"} markerEnd="url(#arrow)" />
-                        {isPreviewEdge && (
-                          <circle r="3" fill="#a78bfa">
-                            <animateMotion dur="2.5s" repeatCount="indefinite" path={d} />
-                          </circle>
-                        )}
-                    </g>
-                  );
-                })}
-              </g>
-            </svg>
+<svg className="absolute inset-0 w-[8000px] h-[8000px] top-[-4000px] left-[-4000px] pointer-events-none">
+  <g transform="translate(4000, 4000)">
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L0,8 L8,4 z" fill="#7c3aed" />
+      </marker>
+    </defs>
+    {edges.map(edge => {
+      const source = nodes.find(n => n.id === edge.source);
+      const target = nodes.find(n => n.id === edge.target);
+      if (!source || !target) return null;
+      const pts = getEdgePoints(source, target, edge.sourceHandle);
+      if (!pts) return null;
+      const { sx, sy, tx, ty } = pts;
+      const curve = Math.min(Math.abs(tx - sx) * 0.5, 150);
+      const d = `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
+      const isPreviewEdge = flowValidation.reachableEdgeIds.has(edge.id);
+      return (
+        <g key={edge.id}>
+          <path d={d} fill="none" stroke={isPreviewEdge ? "#7c3aed" : "#4a4a6a"} strokeWidth={isPreviewEdge ? "2" : "1.5"} strokeOpacity={isPreviewEdge ? "0.9" : "0.5"} strokeDasharray={isPreviewEdge ? "0" : "6 4"} markerEnd="url(#arrow)" />
+          {isPreviewEdge && (
+            <circle r="3" fill="#a78bfa">
+              <animateMotion dur="2.5s" repeatCount="indefinite" path={d} />
+            </circle>
+          )}
+        </g>
+      );
+    })}
+  </g>
+</svg>
 
             {/* NODES */}
             <div className="absolute inset-0">
@@ -1788,11 +1858,11 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           <div className="mb-3">
                             <div className="bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-3 py-2.5">
                               <p className="text-[11px] tracking-[1px] text-white mb-2">
-                                {node.config?.type === 'brain_query' ? 'AI Reply' : 
+                                {node.config?.type === 'brain_query' ? 'AI Reply' :
                                 node.config?.type === 'ask_question' ? 'Question' : 'Reply Message'}
                               </p>
                               <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 min-h-[1.5rem]">
-                                {node.config?.text || node.config?.question || 
+                                {node.config?.text || node.config?.question ||
                                 <span className="italic text-zinc-600">No message yet</span>}
                               </p>
                             </div>
@@ -1808,13 +1878,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         </>
                       )}
 
-                      {/* MULTI-PATH NODES (button/condition): keep existing in-preview badge */}
-                      {isMultiPathNode(node) && isPreviewNode && !isDisconnectedNode && (
-                        <div className="mb-3 w-full rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 flex items-center justify-between">
-                          <span>In execution preview</span>
-                          <Eye size={11} className="text-emerald-400" />
-                        </div>
-                      )}
+                      {/* MULTI-PATH NODES (button/condition): remove badge, show preview button at bottom */}
 
                     {nodeButtons.length > 0 && (
                       <div className="mb-4 space-y-2">
@@ -1879,6 +1943,16 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           </div>
                         ))}
                       </div>
+                    )}
+
+                    {isConditionNode(node) && (
+                      <button
+                        data-no-drag
+                        onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
+                        className="w-full rounded-xl border border-[#814AC8] bg-[#140D1F] px-3 py-2.5 text-xs font-semibold text-white text-center hover:bg-[#140D1F]/80 transition mt-1"
+                      >
+                        Preview
+                      </button>
                     )}
 
 
@@ -2065,15 +2139,19 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 20px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.2); }
         select {
-  background-color: #0F1115 !important;
-  color: white !important;
-}
+          background-color: #0F1115 !important;
+          color: white !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+          background-repeat: no-repeat !important;
+          background-position: right 12px center !important;
+          padding-right: 36px !important;
+        }
 
-select option {
-  background-color: #0F1115;
-  color: white;
-}
-  
+        select option {
+          background-color: #0F1115;
+          color: white;
+        }
+ 
       `}</style>
     </div>
   );

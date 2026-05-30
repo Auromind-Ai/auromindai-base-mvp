@@ -13,13 +13,13 @@ from app import models
 from app.models.message import Message, MessageStatus, SenderType
 from app.models.outbound_message import OutboundMessage
 from app.services.agentic_rag.rag_service import get_rag_service
-from app.services.channel_service import ChannelService
-from app.services.conversation_service import ConversationService
-from app.services.lead_agent_local import (
+from app.services.inbox.channel_service import ChannelService
+from app.services.inbox.conversation_service import ConversationService
+from app.services.crm.lead_agent_local import (
     get_all_conversations,
     get_messages as get_local_messages,
 )
-from app.services.flow_service_v2 import FlowServiceV2
+from app.services.automations.flow_service_v2 import FlowServiceV2
 from app.workers.flow_execution import execute_incoming_message, send_next_pending_message
 
 logger = logging.getLogger(__name__)
