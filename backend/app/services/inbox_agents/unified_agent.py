@@ -386,7 +386,9 @@ class UnifiedAgent:
         - If knowledge base is empty: say "Our team will contact you shortly." and set escalate=true
 
         DEMO RULES:
-        If customer asks for demo/consultation/call/meeting: set action = "book_demo"
+        1. If customer asks for a demo/consultation/call/meeting, you MUST collect three details: meeting_date, meeting_time, and timezone.
+        2. Check if they have provided all three. If any are missing, politely ask for the missing details one at a time and keep action = null.
+        3. Once meeting_date, meeting_time, and timezone are all collected, set action = "book_demo".
 
         PAYMENT RULES:
         If customer shows strong buying intent AND payment_enabled={payment_enabled}:
@@ -403,6 +405,9 @@ class UnifiedAgent:
             "objection_detected": false,
             "payment_required": false,
             "meeting_required": false,
+            "meeting_date": null,
+            "meeting_time": null,
+            "timezone": null,
             "close": false,
             "escalate": false
         }}

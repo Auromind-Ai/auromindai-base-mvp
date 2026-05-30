@@ -168,8 +168,16 @@ class CalendarExecutor:
         try:
             source_tz = pytz.timezone(timezone_str)
         except Exception:
-            print("Invalid timezone. Defaulting to UTC")
-            source_tz = pytz.utc
+            print(f"Invalid timezone {timezone_str}. Attempting location fallback...")
+            detected_tz = self.detect_timezone_from_location(timezone_str)
+            try:
+                source_tz = pytz.timezone(detected_tz)
+                meeting["timezone"] = detected_tz
+                print(f"Fallback succeeded: resolved to {detected_tz}")
+            except Exception:
+                print("Fallback failed. Defaulting to UTC")
+                source_tz = pytz.utc
+                meeting["timezone"] = "UTC"
 
         # Localize datetime
         if meeting_datetime.tzinfo is None:

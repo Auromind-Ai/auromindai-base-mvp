@@ -193,15 +193,22 @@ class AgentOrchestration:
                     "priority": "high"
                 }
             )
-            meet_link = calendar_result.get("meet_link") if calendar_result else None
-            if meet_link:
-                result["response"] += f"\n\nGoogle Meet Link:\n{meet_link}"
+            demo_details = None
+            if calendar_result:
+                meet_link = calendar_result.get("meet_link")
+                if meet_link:
+                    result["response"] += f"\n\nGoogle Meet Link:\n{meet_link}"
+                else:
+                    result["response"] += "\n\nMeeting scheduled successfully."
+                demo_details = f"Demo Booked for {result.get('meeting_date')} at {result.get('meeting_time')} ({result.get('timezone')})"
             else:
-                result["response"] += "\n\nMeeting scheduled successfully."
+                result["response"] += "\n\nFailed to schedule meeting automatically. Our team will follow up to manually confirm the schedule."
+                demo_details = "Demo Booking Failed (Automatic scheduling failed)"
 
             # After booking demo, escalate to human
             result["escalate"] = True
             result["close"]    = True
+            result["demo_details"] = demo_details
 
         # ─ LEAD COMPLETE ─
         if action == "lead_complete":
@@ -286,17 +293,21 @@ class AgentOrchestration:
             or decision == "ESCALATE"
         ) and state.get("current_stage") != "sales"
 
-        # Also escalate if stage is sales and action is lead_complete
-        if action == "lead_complete":
+        # Also escalate if stage is sales and action is lead_complete or book_demo
+        if action in ["lead_complete", "book_demo"]:
             should_escalate = True
 
         if should_escalate:
             self._end_ai_session(conversation_id)
+            reason = mcp_result.get("reason", "Lead qualification complete — handoff to human")
+            if action == "book_demo" and result.get("demo_details"):
+                reason = result["demo_details"]
+                
             self.escalation_queue.add({
                 "user_id":      memory_key,
                 "message":      message,
                 "channel":      channel,
-                "reason":       mcp_result.get("reason", "Lead qualification complete — handoff to human"),
+                "reason":       reason,
                 "workspace_id": workspace_id,
             })
             response = {"text": result.get("response", "I'll connect you with our team for better assistance."), "metadata": result}
