@@ -68,43 +68,27 @@ export default function AILearningPage() {
         <table className="w-full">
           <thead className="bg-[#1a1a1a]">
             <tr>
-              <th className="px-4 py-3 text-left">Source</th>
               <th className="px-4 py-3 text-left">User Message</th>
               <th className="px-4 py-3 text-left">AI Response</th>
               <th className="px-4 py-3 text-left">Feedback Type</th>
-              <th className="px-4 py-3 text-left">Score</th>
+              <th className="px-4 py-3 text-left">Satisfaction Score</th>
               <th className="px-4 py-3 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
            {data.map((item, index) => (
-           <tr key={item.id || index} className="border-t border-white/10 hover:bg-white/[0.02] transition-colors">
-                <td className="px-4 py-3">
-                  <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
-                    item.source === 'rag_feedback' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400'
-                  }`}>
-                    {item.source === 'rag_feedback' ? 'RAG' : 'Event'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 max-w-xs truncate" title={item.user_message}>{item.user_message}</td>
-                <td className="px-4 py-3 max-w-xs truncate" title={item.ai_response}>{item.ai_response}</td>
-                <td className="px-4 py-3">
-                  <span className={item.feedback_type === 'up' || item.feedback_type === 'thumbs_up' ? 'text-green-400' : 'text-red-400'}>
-                    {item.feedback_type}
-                  </span>
-                </td>
+           <tr key={item.id || index} className="border-t border-white/10">
+                <td className="px-4 py-3 max-w-xs truncate">{item.user_message}</td>
+                <td className="px-4 py-3 max-w-xs truncate">{item.ai_response}</td>
+                <td className="px-4 py-3">{item.feedback_type}</td>
                 <td className="px-4 py-3">{item.user_satisfaction_score}</td>
                 <td className="px-4 py-3">
-                  {item.promoted_to_rule ? (
-                    <span className="text-xs text-gray-500 italic">Promoted</span>
-                  ) : (
-                    <button
-                      onClick={() => handlePromoteToRule(item.id)}
-                      className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 rounded text-sm transition-all"
-                    >
-                      Promote to Rule
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handlePromoteToRule(item.id)}
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 rounded text-sm"
+                  >
+                    Promote to Rule
+                  </button>
                 </td>
               </tr>
             ))}

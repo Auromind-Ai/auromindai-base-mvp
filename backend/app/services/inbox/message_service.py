@@ -1,22 +1,25 @@
 from __future__ import annotations
+
 import json
 import logging
 import uuid
 from datetime import datetime
 from typing import Any, Optional
+
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
 from app import models
 from app.models.message import Message, MessageStatus, SenderType
 from app.models.outbound_message import OutboundMessage
 from app.services.agentic_rag.rag_service import get_rag_service
-from app.services.inbox.channel_service import ChannelService
-from app.services.inbox.conversation_service import ConversationService
-from app.services.crm.lead_agent_local import (
+from app.services.channel_service import ChannelService
+from app.services.conversation_service import ConversationService
+from app.services.lead_agent_local import (
     get_all_conversations,
     get_messages as get_local_messages,
 )
-from app.services.automations.flow_service_v2 import FlowServiceV2
+from app.services.flow_service_v2 import FlowServiceV2
 from app.workers.flow_execution import execute_incoming_message, send_next_pending_message
 
 logger = logging.getLogger(__name__)
@@ -31,6 +34,7 @@ class MessageService:
         "undelivered": ("dispatched", "in_progress", "sent"),
     }
     _TERMINAL_STATES = {"delivered", "failed", "cancelled"}
+    _flow_service = FlowServiceV2()
 
     @staticmethod
     def list_messages(
@@ -41,20 +45,18 @@ class MessageService:
         skip: int = 0,
         limit: int = 100,
     ):
-        messages = (
+        return (
             db.query(Message)
             .join(models.Conversation, Message.conversation_id == models.Conversation.id)
             .filter(
                 Message.conversation_id == conversation_id,
                 models.Conversation.workspace_id == workspace_id,
             )
-            .order_by(Message.timestamp.desc())
-            .offset(skip)        
+            .order_by(Message.timestamp.asc())
+            .offset(skip)
             .limit(limit)
             .all()
         )
-        return list(reversed(messages))
-    
 
     @staticmethod
     def create_message(
@@ -79,30 +81,9 @@ class MessageService:
             metadata_json=json.dumps(metadata or {}),
         )
         conversation.updated_at = datetime.utcnow()
-        conversation.last_message_at = datetime.utcnow()
         db.add(message)
         db.flush()
         return message
-
-    @staticmethod
-    def _trigger_human_takeover(db: Session, conversation: models.Conversation) -> None:
-        from app.models.ai_action import ConversationState
-        from sqlalchemy.sql import func
-        state = db.query(ConversationState).filter_by(
-            conversation_id=conversation.id,
-            workspace_id=conversation.workspace_id
-        ).first()
-        if state:
-            state.human_takeover = True
-            state.ai_paused_at = func.now()
-        else:
-            state = ConversationState(
-                conversation_id=conversation.id,
-                workspace_id=conversation.workspace_id,
-                human_takeover=True,
-                ai_paused_at=func.now()
-            )
-            db.add(state)
 
     @staticmethod
     def persist_inbound_message(
@@ -176,8 +157,6 @@ class MessageService:
             external_id=external_id,
             source=source,
         )
-        if sender_type == SenderType.AGENT:
-            MessageService._trigger_human_takeover(db, conversation)
         db.commit()
         db.refresh(message)
         return message
@@ -188,12 +167,17 @@ class MessageService:
         body: str,
         metadata: Optional[dict[str, Any]] = None,
     ) -> None:
-        from app.workers.flow_execution import execute_incoming_message
-        execute_incoming_message.delay(
-            conversation_id=str(conversation_id),
-            message=body,
-            metadata=metadata or {},
-        )
+        try:
+            execute_incoming_message.delay(
+                conversation_id=str(conversation_id),
+                message=body,
+                metadata=metadata or {},
+            )
+        except Exception as exc:
+            logger.warning(
+                "Could not enqueue incoming message processing (Redis/Celery down?): %s",
+                exc,
+            )
 
     @staticmethod
     def send_reply(
@@ -220,7 +204,6 @@ class MessageService:
         )
         external_id = ChannelService.send_message(conversation, message, metadata)
         stored_message.external_id = external_id
-        MessageService._trigger_human_takeover(db, conversation)
         db.commit()
         db.refresh(stored_message)
         return {
@@ -251,12 +234,12 @@ class MessageService:
         )
         history = "\n".join([f"{item.sender_type}: {item.content}" for item in reversed(messages)])
         query = f"""
-        Conversation History:
-        {history}
+Conversation History:
+{history}
 
-        User Message:
-        {message}
-        """
+User Message:
+{message}
+"""
         rag = get_rag_service()
         reply = await rag.agent_loop(
             db=db,
@@ -276,8 +259,7 @@ class MessageService:
         if not conversation:
             return {"status": "no conversation found"}
 
-        flow_service = FlowServiceV2()
-        handled = await flow_service.execute_incoming_message(
+        handled = await MessageService._flow_service.execute_incoming_message(
             db,
             conversation_id=conversation.id,
             inbound_text=message,
@@ -285,60 +267,41 @@ class MessageService:
         )
         return {"status": "trigger tested", "handled": handled}
 
-    # @staticmethod
-    # def local_conversations():
-    #     return get_all_conversations()
-
-    # @staticmethod
-    # def local_messages(user_id: str):
-    #     return get_local_messages(user_id)
+    @staticmethod
+    def local_conversations():
+        return get_all_conversations()
 
     @staticmethod
-    async def handle_twilio_status_callback(form_data, db: Session, outbound_message_id: str = None):
-        from app.workers.flow_execution import send_next_pending_message
+    def local_messages(user_id: str):
+        return get_local_messages(user_id)
+
+    @staticmethod
+    async def handle_twilio_status_callback(form_data, db: Session):
         message_sid = form_data.get("MessageSid") or form_data.get("SmsSid")
         message_status = (form_data.get("MessageStatus") or form_data.get("SmsStatus") or "").lower()
 
         if not message_sid or not message_status:
             return str(MessagingResponse())
 
-        row = None
-        if outbound_message_id:
-            row = (
-                db.query(OutboundMessage)
-                .filter(OutboundMessage.id == outbound_message_id)
-                .with_for_update()
-                .first()
-            )
-
+        row = (
+            db.query(OutboundMessage)
+            .filter(OutboundMessage.twilio_sid == message_sid)
+            .with_for_update()
+            .first()
+        )
         if not row:
-            row = (
-                db.query(OutboundMessage)
-                .filter(OutboundMessage.twilio_sid == message_sid)
-                .with_for_update()
-                .first()
-            )
-
-        if not row:
-            logger.warning("[handle_twilio_status_callback] No row found for SID=%s, ID=%s", message_sid, outbound_message_id)
             return str(MessagingResponse())
-
-        if not row.twilio_sid:
-            row.twilio_sid = message_sid
 
         conversation_id = str(row.conversation_id)
         if row.status in MessageService._TERMINAL_STATES:
-            db.commit()  # Release lock immediately!
             return str(MessagingResponse())
 
         if message_status == "queued":
-            db.commit()  # Release lock immediately!
             return str(MessagingResponse())
 
         if message_status == "sent":
             valid_priors = MessageService._VALID_PRIOR_STATES.get("sent", ())
             if row.status not in valid_priors:
-                db.commit()  # Release lock immediately!
                 return str(MessagingResponse())
             row.status = "sent"
     
@@ -357,14 +320,13 @@ class MessageService:
 
                 if inbox_msg:
                     inbox_msg.status = MessageStatus.SENT
-            db.commit()  # Release lock immediately!
+            db.commit()
             send_next_pending_message.apply_async(args=[conversation_id], countdown=1)
             return str(MessagingResponse())
 
         if message_status == "delivered":
             valid_priors = MessageService._VALID_PRIOR_STATES.get("delivered", ())
             if row.status not in valid_priors:
-                db.commit()  # Release lock immediately!
                 return str(MessagingResponse())
             row.status = "delivered"
 
@@ -383,7 +345,7 @@ class MessageService:
                 if inbox_msg:
                     inbox_msg.status = MessageStatus.DELIVERED
 
-            db.commit()  # Release lock immediately!
+            db.commit()
 
             send_next_pending_message.apply_async(
                 args=[conversation_id],
@@ -395,21 +357,10 @@ class MessageService:
         if message_status in ("failed", "undelivered"):
             valid_priors = MessageService._VALID_PRIOR_STATES.get("failed", ())
             if row.status not in valid_priors:
-                db.commit()  # Release lock immediately!
                 return str(MessagingResponse())
             row.status = "failed"
-            db.commit()  # Release lock immediately!
+            db.commit()
             send_next_pending_message.apply_async(args=[conversation_id], countdown=2)
             return str(MessagingResponse())
 
-        db.commit()  # Release lock immediately!
         return str(MessagingResponse())
-    
-    @staticmethod
-    def save_ai_message(db, conversation, body, source="automation"):
-        return MessageService.save_manual_message(
-            db, conversation=conversation, body=body,
-            sender_type=SenderType.AI,
-            status=MessageStatus.SENT,
-            source=source,
-        )

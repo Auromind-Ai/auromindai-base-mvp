@@ -21,24 +21,59 @@ async def connect_whatsapp(
     verify_workspace_access(current_user, db, data.get("workspace_id"))
     try:
         return ChannelConnectionService.connect_meta_whatsapp(db, data)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("WhatsApp connect error: %s", exc)
-        raise HTTPException(status_code=500, detail="WhatsApp connection failed")
+        raise HTTPException(status_code=500, detail=f"WhatsApp connection failed: {str(exc)}")
 
+
+from fastapi.responses import PlainTextResponse
 
 @router.get("/whatsapp/webhook")
 async def verify_webhook(request: Request):
-    return WebhookService.verify_meta_subscription(
+    challenge = WebhookService.verify_meta_subscription(
         request.query_params,
         settings.META_VERIFY_TOKEN,
     )
+    if isinstance(challenge, int):
+        return PlainTextResponse(str(challenge))
+    return challenge
 
 
 @router.post("/whatsapp/webhook")
 async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
     try:
         data = await request.json()
+        logger.info("RECEIVED WHATSAPP WEBHOOK PAYLOAD: %s", data)
         return await WebhookService.handle_meta_whatsapp_webhook(data, db)
     except Exception as exc:
         logger.error("Webhook error: %s", exc)
         return {"status": "error"}
+
+
+@router.get("/channels/status")
+async def get_channels_status(workspace_id: str, db: Session = Depends(get_db)):
+    try:
+        from app.models.workspace import Workspace
+        workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+        if not workspace:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        
+        return {
+            "whatsapp": {
+                "connected": bool(workspace.meta_access_token and workspace.meta_phone_number_id),
+                "phone": workspace.meta_display_phone or ("Connected" if workspace.meta_phone_number_id else None)
+            },
+            "instagram": {
+                "connected": bool(workspace.meta_ig_id),
+                "username": workspace.meta_ig_id
+            },
+            "twilio": {
+                "connected": bool(workspace.twilio_account_sid and workspace.twilio_phone_number),
+                "phone": workspace.twilio_phone_number
+            }
+        }
+    except Exception as exc:
+        logger.error("Error getting channels status: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))

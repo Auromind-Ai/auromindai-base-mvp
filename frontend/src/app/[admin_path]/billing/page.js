@@ -12,7 +12,7 @@ export default function BillingPage() {
     const fetchBilling = async () => {
       try {
         setLoading(true)
-        const response = await fetch("/api/admin/billing")
+        const response = await fetch("http://localhost:8000/admin/billing")
         if (!response.ok) throw new Error("Failed to fetch billing data")
         const data = await response.json()
         setBilling(data)

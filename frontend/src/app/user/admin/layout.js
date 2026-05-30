@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Poppins } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import Link from 'next/link';
 import {
     Sparkles,
@@ -28,12 +28,12 @@ import {
     Calendar as CalendarIcon,
     Mail
 } from 'lucide-react';
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { getUser, getWorkspace, logout, restoreAdminToken } from '@/lib/auth';
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
-import { RealtimeProvider } from '@/context/RealtimeContext';
+import CreditRingDropdown from '@/components/CreditRingDropdown';
 
 const MAIN_NAV_ITEMS = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
@@ -42,8 +42,9 @@ const MAIN_NAV_ITEMS = [
     { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
     { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
-    { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
-     { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
+    { label: 'Templates', icon: FileText, href: '/user/admin/templates' }, 
+    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
+    { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
 ];
 
 const SYSTEM_NAV_ITEMS = [
@@ -51,7 +52,7 @@ const SYSTEM_NAV_ITEMS = [
     { label: 'Settings', icon: Settings, href: '#' },
 ];
 
-const poppins = Poppins({
+const inter = Inter({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 });
@@ -174,14 +175,16 @@ function AdminLayoutContent({ children }) {
                 key={item.href}
                 href={item.href}
                 onClick={handleClick}
-                className={`flex items-center gap-2.5 px-3 py-1 rounded-[4px] text-sm group select-none transition-colors duration-150
+                className={`flex items-center justify-between px-3 py-2 rounded-lg text-[14px] font-medium group select-none transition-all duration-200
                     ${isActive
-                        ? 'bg-[var(--notion-active)] text-white font-medium'
-                        : 'text-[#9b9b9b] hover:bg-[var(--notion-hover)] hover:text-white'}
+                        ? 'bg-white/10 text-[#EDEDED]'
+                        : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#EDEDED]'}
                 `}
             >
-                <Icon size={16} strokeWidth={2} className={`${isActive ? 'text-white' : 'text-[#7e7e7e] group-hover:text-white'}`} />
-                {item.label}
+                <div className="flex items-center gap-3">
+                    <Icon size={18} strokeWidth={1.75} className={`${isActive ? 'text-[#EDEDED]' : 'text-[#A1A1AA] group-hover:text-[#EDEDED]'} transition-colors`} />
+                    {item.label}
+                </div>
             </Link>
         );
     };
@@ -213,21 +216,20 @@ function AdminLayoutContent({ children }) {
         pathname === '/user/admin/brain' ||
         pathname.startsWith('/user/admin/brain/') ||
         pathname === '/user/admin/channels' ||
-        pathname.startsWith('/user/admin/channels/')
+        pathname.startsWith('/user/admin/channels/') ||
+        pathname === '/user/admin/integrations' ||
+        pathname.startsWith('/user/admin/integrations/')
     );
 
     return (
-        <RealtimeProvider user={user} workspace={workspace}>
-        <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
+        <div className={`${inter.className} flex min-h-screen text-[var(--notion-text)] relative bg-transparent`}>
             {/* Desktop Sidebar */}
             <aside
-                className={`${poppins.className} hidden md:flex w-[320px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
+                className={`${inter.className} hidden md:flex w-[320px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
             >
                 {/* Profile Section */}
                 <div className="flex items-center gap-3 px-5 pt-6 pb-5">
-                    <div className="w-11 h-11 rounded-full flex-shrink-0 overflow-hidden bg-orange-500 flex items-center justify-center text-sm text-white font-bold border-2 border-white/10">
-                        {user.email?.charAt(0).toUpperCase()}
-                    </div>
+                    <CreditRingDropdown user={user} size={44} />
                     <span className="font-semibold text-[17px] text-white truncate">{user.name || 'User'}</span>
                 </div>
 
@@ -240,12 +242,12 @@ function AdminLayoutContent({ children }) {
                 </div>
 
                 {/* Nav Items */}
-                <div className="flex-1 px-3 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 px-3 overflow-y-auto custom-scrollbar py-2">
                     <div className="space-y-0.5">
                         {MAIN_NAV_ITEMS.map(item => renderNavItem(item))}
                     </div>
                     <div className="mt-6 space-y-0.5">
-                        <div className="px-3 py-1 text-xs font-medium text-[#555] mb-1">System</div>
+                        <div className="px-3 py-2 text-[11px] font-semibold text-[#71717A] tracking-wider uppercase mb-1">System</div>
                         {SYSTEM_NAV_ITEMS.map(item => renderNavItem(item))}
                     </div>
                 </div>
@@ -274,7 +276,8 @@ function AdminLayoutContent({ children }) {
             {/* Mobile Drawer (Sheet) */}
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                 <SheetContent side="left" className="p-0 w-[300px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
-                    <div className={`${poppins.className} flex flex-col h-full bg-[#0f0f12]`}>
+                    <SheetTitle className="sr-only">Menu</SheetTitle>
+                    <div className={`${inter.className} flex flex-col h-full bg-[#0f0f12]`}>
                         {/* Workspace Brand */}
                         <div className="h-14 flex items-center px-4 border-b border-white/5">
                             <div className="flex items-center gap-2.5 overflow-hidden">
@@ -286,13 +289,13 @@ function AdminLayoutContent({ children }) {
                         </div>
 
                         {/* Navigation */}
-                        <div className="flex-1 px-2 py-4 overflow-y-auto custom-scrollbar">
+                        <div className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar">
                             <div className="space-y-6">
                                 <div className="space-y-0.5">
                                     {MAIN_NAV_ITEMS.map((item) => renderNavItem(item, true))}
                                 </div>
                                 <div className="space-y-0.5">
-                                    <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mb-1">
+                                    <div className="px-3 py-2 text-[11px] font-semibold text-[#71717A] tracking-wider uppercase mb-1">
                                         System
                                     </div>
                                     {SYSTEM_NAV_ITEMS.map((item) => renderNavItem(item, true))}
@@ -353,12 +356,12 @@ function AdminLayoutContent({ children }) {
                     </div>
                     
                     {/* Compact Profile Circle for Mobile Header */}
-                    <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold border border-white/10">
-                        {user.email?.charAt(0).toUpperCase()}
+                    <div className="flex items-center gap-3">
+                        <CreditRingDropdown user={user} size={36} />
                     </div>
                 </div>
 
-                <div className={`w-full flex-1 flex flex-col overflow-hidden ${isFullScreenPage ? '' : 'overflow-y-auto custom-scrollbar'}`}>
+                <div className={`w-full flex-1 flex flex-col overflow-hidden relative ${isFullScreenPage ? '' : 'overflow-y-auto custom-scrollbar'}`}>
                     {children}
                 </div>
             </main>
@@ -374,6 +377,5 @@ function AdminLayoutContent({ children }) {
             {/* Global AI Chat - Hidden on Auromind AI page */}
             {pathname !== '/user/admin/ai' && <GlobalAIChat />}
         </div>
-        </RealtimeProvider>
     );
 }

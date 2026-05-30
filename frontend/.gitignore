@@ -1,17 +1,6 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.sqlite3
-chroma_db/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Virtual env
-venv/
-
-# Env
-.env*
-
-# Node / dependencies
+# dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -21,41 +10,33 @@ venv/
 !.yarn/releases
 !.yarn/versions
 
-# Testing
+# testing
 /coverage
 
-# Next.js
+# next.js
 /.next/
 /out/
 
-# Production
+# production
 /build
 
-# Logs
-logs/
-*.log
+# misc
+.DS_Store
+*.pem
 
-# Debug
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Misc
-.DS_Store
-*.pem
+# env files (can opt-in for committing if needed)
+.env*
 
-# Vercel
+# vercel
 .vercel
 
-# TypeScript
+# typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# IDE
-.vscode/
-.idea/
-
-# HuggingFace
-hf_cache/
-.cache/
+.env*.local

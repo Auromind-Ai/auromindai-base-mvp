@@ -1,49 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
-import asyncio
-import secrets as secrets_module
-import time
-from collections import deque
 
 from sqlalchemy.orm import Session
-from app.schemas.auth import (
-    EmailLoginRequest,
-    UserResponse,
-    WorkspaceResponse,
-    SecretLoginRequest,
-    AdminLoginRequest,
-)
+from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
 from app.database import get_db
 from app.services.auth_service import AuthService
-from app.utils.auth import create_access_token, decode_access_token
+from app.utils.auth import decode_access_token
 import uuid
 from datetime import datetime, timezone
-from app.core.config import settings
-from app.models.user import User
+from fastapi import Request
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 logger = logging.getLogger(__name__)
-
-_ADMIN_LOGIN_ATTEMPTS: dict[str, deque[float]] = {}
-_ADMIN_LOGIN_WINDOW_SECONDS = 60
-_ADMIN_LOGIN_MAX_ATTEMPTS = 3
-
-async def admin_login_rate_limit(request: Request):
-    client_host = request.client.host if request.client else "unknown"
-    now = time.time()
-    attempts = _ADMIN_LOGIN_ATTEMPTS.setdefault(client_host, deque())
-    while attempts and now - attempts[0] > _ADMIN_LOGIN_WINDOW_SECONDS:
-        attempts.popleft()
-    if len(attempts) >= _ADMIN_LOGIN_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts, please try again later.",
-        )
-    attempts.append(now)
-    return True
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None):
@@ -55,6 +26,8 @@ class CurrentUser:
         self.impersonated = impersonated
         self.admin_id = admin_id
 
+
+# ---------- Dependency: get current user ----------
 
 async def get_current_user(
     request: Request,
@@ -76,41 +49,36 @@ async def get_current_user(
         except:
             pass
 
-    log_auth("🔒 Authenticating token...")
+    log_auth(f"🔒 Authenticating token: {token[:10]}...")
     
     try:
         payload = decode_access_token(token)
     except Exception:
-        log_auth("Token decode failed")
+        log_auth("❌ Token decode failed")
         raise credentials_exception
 
     if payload is None:
-        log_auth("Token payload is None")
+        log_auth("❌ Token payload is None")
         raise credentials_exception
     
     user_id: str = payload.get("sub")
-    role = payload.get("role")
-    
-    if role == "platform_admin" or user_id == "platform_admin":
-        log_auth("❌ Platform admin token rejected on normal route")
-        raise credentials_exception
-
     workspace_id: str = payload.get("workspace_id")
     impersonated = payload.get("impersonated", False)
     admin_id = payload.get("admin_id")
 
     if user_id is None:
-        log_auth(" Token missing sub")
+        log_auth("❌ Token missing sub")
         raise credentials_exception
 
     log_auth(f"👤 Token claims user_id: {user_id}")
     user = AuthService.get_user_by_id(db, user_id)
 
     if user is None:
-        log_auth(f" User {user_id} not found in DB")
+        log_auth(f"❌ User {user_id} not found in DB")
         raise credentials_exception
 
     log_auth(f"Authenticated: {user.email}")
+    logger.info(f"[AUTH HEADER] {request.headers.get('Authorization')}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,
@@ -119,20 +87,58 @@ async def get_current_user(
     )
 
 
-#Email Login 
+# ---------- Email Login & Signup (OTP) ----------
+
+from app.schemas.auth import EmailLoginRequest
+from pydantic import BaseModel
+from typing import Optional
+
+class SendOTPRequest(BaseModel):
+    email: str
+    auth_type: str  # "login" or "signup"
+
+class VerifyOTPRequest(BaseModel):
+    email: str
+    otp: str
+    auth_type: str
+    full_name: Optional[str] = None
+    workspace_name: Optional[str] = None
+
+@router.post("/send-otp")
+async def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
+    try:
+        AuthService.send_otp(db, request.email, request.auth_type)
+        return {"status": "success", "message": "OTP sent successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+@router.post("/verify-otp")
+async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
+    try:
+        result = AuthService.verify_otp(
+            db, 
+            request.email, 
+            request.otp, 
+            request.auth_type,
+            request.full_name,
+            request.workspace_name
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+# Kept for backward compatibility
 @router.post("/login")
 async def login(request: dict, db: Session = Depends(get_db)):
     try:
         email = request.get('email')
-        full_name = request.get('full_name')
-        workspace_name = request.get('workspace_name', 'My Workspace')
-        
-        result = AuthService.email_login(
-            db=db,
-            email=email,
-            full_name=full_name,
-            workspace_name=workspace_name
-        )
+        result = AuthService.email_login(db=db, email=email)
         return result
     except ValueError as e:
         raise HTTPException(
@@ -140,69 +146,59 @@ async def login(request: dict, db: Session = Depends(get_db)):
             detail=str(e),
         )
 
+# ---------- Google Auth ----------
+
+from fastapi.responses import RedirectResponse
+import urllib.parse
+
+@router.get("/google/login")
+async def google_login(type: str = "login"):
+    # In a real app, integrate authlib or similar here.
+    # For now, we mock the flow by redirecting directly back to callback with a dummy code.
+    return RedirectResponse(url=f"/auth/google/callback?code=mock_code&state={type}")
+
+@router.get("/google/callback")
+async def google_callback(code: str, state: str = "login", db: Session = Depends(get_db)):
+    # Mocking Google user fetching
+    # Assuming the user email is googleuser@example.com for demonstration.
+    email = "googleuser@example.com"
+    full_name = "Google User"
+    
+    try:
+        # We process it as a verify step bypassing OTP
+        result = AuthService.google_auth(db, email, full_name, state)
+        
+        # Redirect back to frontend
+        token = result["access_token"]
+        frontend_url = "http://localhost:3000/user/admin/dashboard"
+        return RedirectResponse(url=f"{frontend_url}?token={token}")
+    except ValueError as e:
+        # Redirect to frontend login with error
+        return RedirectResponse(url=f"http://localhost:3000/login?error={urllib.parse.quote(str(e))}")
+
+
 @router.post("/login/secret")
 async def login_secret(
     request: SecretLoginRequest,
     db: Session = Depends(get_db)
 ):
-   
+    from app.core.config import settings
+    
     master_key = settings.OWNER_SECRET_KEY
     if not master_key or request.key != master_key:
         raise HTTPException(status_code=401, detail="Invalid secret key")
     
     # Login as the first user found in DB (usually the owner/admin)
-    
+    from app.models import User
     admin = db.query(User).order_by(User.created_at.asc()).first()
     if not admin:
         raise HTTPException(status_code=404, detail="No users found in platform")
     
     return AuthService.login(db, admin.email)
 
-@router.post("/admin/login")
-async def admin_login(
-    request: Request,
-    body: AdminLoginRequest,
-    db: Session = Depends(get_db),
-    _rate_limit: bool = Depends(admin_login_rate_limit),
-):
-    from app.core.config import settings
-    from app.models import User
 
-    is_valid = secrets_module.compare_digest(
-        body.secret_key,
-        settings.OWNER_SECRET_KEY
-    )
-    if not is_valid:
-        await asyncio.sleep(1)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+# ---------- Current user ----------
 
-    if hasattr(User, "is_superadmin"):
-        owner = db.query(User).filter(User.is_superadmin == True).first()
-    else:
-        owner = db.query(User).order_by(User.created_at.asc()).first()
-
-    if not owner:
-        raise HTTPException(status_code=404, detail="Owner not found")
-
-    admin_data = AuthService.login(db, owner.email)
-    access_token = create_access_token({
-        "sub": str(owner.id),
-        "role": "superadmin",
-        "workspace_id": admin_data.get("workspaces", [])[0].get("id") if admin_data.get("workspaces") else None,
-    })
-
-    response = {
-        "message": "Access granted",
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": admin_data.get("user"),
-        "workspaces": admin_data.get("workspaces"),
-    }
-
-    return response
-
-
-#  Current user-
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: CurrentUser = Depends(get_current_user)):
     return {
@@ -212,12 +208,13 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
     }
 
 
-#  Workspaces
+# ---------- Workspaces ----------
+
 @router.get("/workspaces")
 async def get_workspaces(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    
+    """Get all workspaces for current user"""
     workspaces = AuthService.get_user_workspaces(db, current_user.id)
     return {"workspaces": workspaces}

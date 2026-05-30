@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
 import { getUser, restoreAdminToken, setToken, getAdminBackup } from '@/lib/auth';
+import CreditRingDropdown from '@/components/CreditRingDropdown';
 import {
   Bell,
   Calendar,
@@ -25,9 +26,7 @@ import {
   Bot,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Poppins } from 'next/font/google';
-import { useDashboard } from '@/lib/useDashboard';
-import AddLeadModal from '@/components/leads/AddLeadModal';
+import { Poppins } from 'next/font/google'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -51,7 +50,7 @@ const SecretLoginBanner = () => {
         <div className="fixed top-0 left-0 right-0 z-[100] bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-sm font-medium shadow-lg animate-in slide-in-from-top duration-300">
             <div className="flex items-center gap-2">
                 <Sparkles size={16} className="animate-pulse" />
-                <span>Secret Login Mode: Viewing {user?.name || user?.email}&apos;s dashboard</span>
+                <span>Secret Login Mode: Viewing {user?.name || user?.email}'s dashboard</span>
             </div>
             <button 
                 onClick={handleExit}
@@ -62,6 +61,41 @@ const SecretLoginBanner = () => {
         </div>
     );
 };
+
+const METRICS = [
+  {
+    label: 'Total Revenue',
+    value: '₹12.4L',
+    change: '+18.2%',
+    trend: 'up',
+    subtext: 'vs last month',
+    gradient: 'from-blue-500 via-cyan-400 to-emerald-400'
+  },
+  {
+    label: 'Active Leads',
+    value: '124',
+    change: '+12%',
+    trend: 'up',
+    subtext: 'vs last week',
+    gradient: 'from-yellow-400 via-amber-400 to-orange-500'
+  },
+  {
+    label: 'Conversion Rate',
+    value: '18%',
+    change: '-2.1%',
+    trend: 'down',
+    subtext: 'vs target',
+    gradient: 'from-purple-500 via-fuchsia-500 to-indigo-500'
+  },
+  {
+    label: 'Avg. Response Time',
+    value: '12m',
+    change: '8m',
+    trend: 'neutral',
+    subtext: 'improving',
+    gradient: 'from-orange-600 via-red-500 to-rose-600'
+  },
+];
 
 // Magic Bento helpers
 function parseRgb(hex) {
@@ -157,20 +191,24 @@ function BentoMetricCard({ metric, i, rgb }) {
       <div className="relative z-10 h-full flex flex-col justify-between">
         <div>
           <h3 className="text-[18px] font-medium text-white/85 tracking-[-0.01em]">
-            {metric.label}
+            {metric.label === 'Total Revenue' ? 'Total Revenue'
+              : metric.label === 'Active Leads' ? 'Active Leads'
+              : metric.label === 'Conversion Rate' ? 'Conversion Rate'
+              : 'Response Time'}
           </h3>
         </div>
         <div className="mt-7">
-          <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight flex items-baseline gap-2">
-            {metric.value}
-            {metric.change && metric.change !== '—' && (
-              <span className={`text-sm ${metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-zinc-400'}`}>
-                {metric.change}
-              </span>
-            )}
+          <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight">
+            {metric.label === 'Total Revenue' ? '₹24,580'
+              : metric.label === 'Active Leads' ? '1,248'
+              : metric.label === 'Conversion Rate' ? '20%'
+              : '1h 24m'}
           </div>
           <p className="mt-3 text-[14px] text-white/80 font-medium">
-            {metric.subtext}
+            {metric.label === 'Total Revenue' ? 'vs last month'
+              : metric.label === 'Active Leads' ? 'vs last week'
+              : metric.label === 'Conversion Rate' ? 'vs target'
+              : 'Improving'}
           </p>
         </div>
       </div>
@@ -389,56 +427,24 @@ function BentoMetricsGrid({ metrics }) {
   );
 }
 
-const calculateChartMax = (highestValue) => {
-  if (highestValue <= 0) return 10000;
-  
-  let step = 10000;
-  if (highestValue < 1000) {
-    step = 200;
-  } else if (highestValue < 10000) {
-    step = 2000;
-  } else if (highestValue < 100000) {
-    step = 10000;
-  } else if (highestValue < 1000000) {
-    if (highestValue < 200000) {
-      step = 10000;
-    } else if (highestValue < 500000) {
-      step = 50000;
-    } else {
-      step = 100000;
-    }
-  } else {
-    step = 100000;
-  }
-  
-  return Math.floor(highestValue / step) * step + step;
-};
-
-// Monthly Revenue Line Chart
-function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], currentData = [], priorData = [], currentYear, priorYear }) {
+function MonthlyRevenueChart() {
   const [tooltip, setTooltip] = useState(null);
   const [activeIdx, setActiveIdx] = useState(null);
 
-  const data2026 = currentData.length ? currentData : Array(months.length).fill(0);
-  const data2025 = priorData.length ? priorData : Array(months.length).fill(0);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+  const data2026 = [40000, 58000, 50000, 72000, 80000, 96000];
+  const data2025 = [30000, 42000, 46000, 51000, 70000, 82000];
 
   const W = 520, H = 200;
   const padL = 58, padR = 30, padT = 20, padB = 36;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
-  const allVals = [...data2026, ...data2025];
-  const highestVal = allVals.length ? Math.max(...allVals) : 0;
-  const chartMax = calculateChartMax(highestVal);
-  const minVal = 0;
-  const maxVal = chartMax;
-  
-  // Calculate dynamic yLabels based on maxVal
-  const step = chartMax / 4;
-  const yLabels = [0, step, step * 2, step * 3, chartMax];
+  const minVal = 0, maxVal = 100000;
+  const yLabels = [0, 20000, 40000, 60000, 80000, 100000];
 
-  const xOf = (i) => padL + (i / Math.max(months.length - 1, 1)) * chartW;
-  const yOf = (v) => padT + chartH - ((v - minVal) / Math.max(maxVal - minVal, 1)) * chartH;
+  const xOf = (i) => padL + (i / (months.length - 1)) * chartW;
+  const yOf = (v) => padT + chartH - ((v - minVal) / (maxVal - minVal)) * chartH;
 
   const catmullRomPath = (data) => {
     const pts = data.map((v, i) => [xOf(i), yOf(v)]);
@@ -476,7 +482,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
 
   const formatYLabel = (v) => {
     if (v === 0) return { rupee: '', num: '0' };
-    if (v >= 100000) return { rupee: '₹', num: (v).toLocaleString('en-IN') };
+    if (v >= 100000) return { rupee: '₹', num: '1,00,000' };
     return { rupee: '₹', num: (v).toLocaleString('en-IN') };
   };
 
@@ -551,11 +557,13 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
             fill="rgba(255,255,255,0.75)"
             fontFamily="inherit"
           >
+            {/* Rupee symbol in system font for clean rendering */}
             <tspan
               fontFamily="system-ui, -apple-system, 'Segoe UI', sans-serif"
               fontSize="9"
               dy="0"
             >{rupee}</tspan>
+            {/* Number in Poppins as before */}
             <tspan
               fontFamily="inherit"
               fontSize="9.5"
@@ -645,7 +653,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
           style={{ cursor: 'crosshair' }}
           onMouseEnter={() => {
             setActiveIdx(i);
-            setTooltip({ x: xOf(i), y: yOf(v), val: data2026[i], color: '#39ff7e', label: currentYear });
+            setTooltip({ x: xOf(i), y: yOf(v), val: data2026[i], color: '#39ff7e', label: '2026' });
           }}
         />
       ))}
@@ -657,7 +665,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
           style={{ cursor: 'crosshair' }}
           onMouseEnter={() => {
             setActiveIdx(i);
-            setTooltip({ x: xOf(i), y: yOf(v), val: data2025[i], color: '#b794f4', label: priorYear });
+            setTooltip({ x: xOf(i), y: yOf(v), val: data2025[i], color: '#b794f4', label: '2025' });
           }}
         />
       ))}
@@ -692,45 +700,54 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
               fontWeight="600"
               fill="rgb(255,255,255)"
               fontFamily="inherit"
-            >
+              >
               {months[activeIdx]}
-            </text>
+              </text>
 
-            <line
+              <line
               x1={tx + 8}
               y1={ty + 17}
               x2={tx + tw - 8}
               y2={ty + 17}
               stroke="rgba(255,255,255,0.05)"
               strokeWidth="0.6"
-            />
+              />
 
-            <circle
+              <circle
               cx={tx + 12}
               cy={ty + 25}
               r="2.5"
               fill={tooltip.color}
-            />
+              />
 
-            <text
+              <text
               x={tx + 18}
               y={ty + 28}
               fontSize={isDesktop ? "7" : "11"}
               fontWeight="500"
               fill="rgba(255,255,255,0.78)"
               fontFamily="inherit"
-            >
-              {tooltip.label}: ₹{Number(tooltip.val).toLocaleString('en-IN')}
-            </text>
-          </g>
-        );
-      })()}
-    </svg>
-  );
-}
+              >
+              {tooltip.label}: ₹{(tooltip.val / 1000).toFixed(0)}k
+              </text>
+                        </g>
+                      );
+                    })()}
+                  </svg>
+                );
+              }
 
 // ─── Recent Activity Card ──────────────────────────────────────────────
-function RecentActivityCard({ activities = [] }) {
+const ACTIVITIES = [
+  { label: 'New lead from Website', time: '2m ago' },
+  { label: 'Email campaign opened', time: '15m ago' },
+  { label: 'Automation "Welcome Flow" ran', time: '1h ago' },
+  { label: 'Lead converted', time: '3h ago' },
+  { label: 'Customer replied to proposal', time: '4h ago' },
+  { label: 'Meeting scheduled with client', time: '4h ago' },
+];
+
+function RecentActivityCard() {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [popupPos, setPopupPos] = useState({ top: 0 });
   const itemRefs = useRef([]);
@@ -750,11 +767,11 @@ function RecentActivityCard({ activities = [] }) {
 
   const handleMouseLeave = () => { setHoveredIdx(null); };
 
-  const activity = hoveredIdx !== null ? activities[hoveredIdx] : null;
+  const activity = hoveredIdx !== null ? ACTIVITIES[hoveredIdx] : null;
 
   return (
     <section
-      className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative h-full"
+      className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative"
       onMouseLeave={handleMouseLeave}
     >
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10 flex-shrink-0">
@@ -763,25 +780,19 @@ function RecentActivityCard({ activities = [] }) {
           View all
         </button>
       </div>
-      <div className="px-6 pb-3 pt-1 flex flex-col justify-start flex-1 recent-activity-list overflow-y-auto custom-scrollbar">
-        {activities.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-8 text-sm">
-            No recent activity
+      <div className="px-6 pb-3 pt-1 flex flex-col justify-between flex-1 recent-activity-list">
+        {ACTIVITIES.map((a, i) => (
+          <div
+            key={i}
+            ref={(el) => (itemRefs.current[i] = el)}
+            onMouseEnter={() => handleMouseEnter(i)}
+            className="activity-item flex items-center gap-3 py-[10px] border-b border-white/[0.04] last:border-0 cursor-default group"
+          >
+            <span className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0" />
+            <span className="flex-1 text-sm text-white/70">{a.label}</span>
+            <span className="text-[11px] text-zinc-300 whitespace-nowrap">{a.time}</span>
           </div>
-        ) : (
-          activities.map((a, i) => (
-            <div
-              key={i}
-              ref={(el) => (itemRefs.current[i] = el)}
-              onMouseEnter={() => handleMouseEnter(i)}
-              className="activity-item flex items-center gap-3 py-[10px] border-b border-white/[0.04] last:border-0 cursor-default group"
-            >
-              <span className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0" />
-              <span className="flex-1 text-sm text-white/70">{a.label}</span>
-              <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
-            </div>
-          ))
-        )}
+        ))}
       </div>
       <AnimatePresence>
         {hoveredIdx !== null && activity && (
@@ -817,36 +828,46 @@ const QUICK_ACTIONS = [
     desc: 'Create automation and streamline your process',
     iconGradient: 'from-[#654BCC] to-[#654BCC]',
     iconShadow: '0 4px 16px rgba(101,75,204,0.5)',
+
     cardClass: 'qa-card-workflow',
     borderColor: 'rgba(101,75,204,0.18)',
     bgBase: '#070012',
     icon: Zap,
   },
+
   {
     title: 'Broadcast',
     desc: 'Send announcements to your audience',
+
     iconGradient: 'from-[#224382] to-[#224382]',
     iconShadow: '0 4px 16px rgba(34,67,130,0.5)',
+
     cardClass: 'qa-card-broadcast',
     borderColor: 'rgba(34,67,130,0.18)',
     bgBase: '#070012',
     icon: Radio,
   },
+
   {
     title: 'Add Lead',
     desc: 'Add a new lead to your pipeline',
+
     iconGradient: 'from-[#1A755A] to-[#1A755A]',
     iconShadow: '0 4px 16px rgba(26,117,90,0.5)',
+
     cardClass: 'qa-card-lead',
     borderColor: 'rgba(26,117,90,0.18)',
     bgBase: '#070012',
     icon: UserPlus,
   },
+
   {
     title: 'Connect Channel',
     desc: 'Connect channel with other tools and apps',
+
     iconGradient: 'from-[#824926] to-[#824926]',
     iconShadow: '0 4px 16px rgba(130,73,38,0.5)',
+
     cardClass: 'qa-card-connect',
     borderColor: 'rgba(130,73,38,0.18)',
     bgBase: '#070012',
@@ -854,28 +875,7 @@ const QUICK_ACTIONS = [
   },
 ];
 
-function QuickActionsCard({ onAddLeadClick }) {
-  const router = useRouter();
-
-  const handleAction = (title) => {
-    switch (title) {
-      case 'New workflow':
-        router.push('/user/admin/automation');
-        break;
-      case 'Broadcast':
-        router.push('/user/admin/templates');
-        break;
-      case 'Add Lead':
-        if (onAddLeadClick) onAddLeadClick();
-        break;
-      case 'Connect Channel':
-        router.push('/user/admin/channels');
-        break;
-      default:
-        break;
-    }
-  };
-
+function QuickActionsCard() {
   return (
     <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
       <div className="px-6 pt-6 pb-2">
@@ -888,7 +888,6 @@ function QuickActionsCard({ onAddLeadClick }) {
           return (
             <div
               key={i}
-              onClick={() => handleAction(action.title)}
               className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-5 cursor-pointer overflow-hidden`}
               style={{
                 borderColor: 'rgba(255,255,255,0.1)',
@@ -905,7 +904,7 @@ function QuickActionsCard({ onAddLeadClick }) {
 
               {/* Text content — also above glow */}
               <div className="relative z-10 flex flex-col flex-1">
-                <h3 className="text-sm font-semibold text-white/90 mb-1">{action.title}</h3>
+                <h3 className="text-m font-semibold text-white/90 mb-1">{action.title}</h3>
                 <p className="text-xs text-white/75 leading-relaxed flex-1">{action.desc}</p>
                 <div className="flex justify-end mt-4">
                   <button className="qa-arrow-btn w-8 h-8 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
@@ -922,12 +921,31 @@ function QuickActionsCard({ onAddLeadClick }) {
 }
 
 // AI Insights Card 
-function AIInsightsCard({ insights = [] }) {
-  const iconMap = {
-    flame: Flame,
-    mail: Mail,
-    bot: Bot
-  };
+const AI_INSIGHT_ITEMS = [
+  {
+    icon: Mail,
+    title: 'Improve Email open rate',
+    subtitle: 'Your email open rate is 12% lower than last week.',
+    iconBg: 'bg-indigo-500/10',
+    iconColor: 'text-indigo-400',
+  },
+  {
+    icon: Flame,
+    title: 'Hot leads Detected',
+    subtitle: '24 leads are showing high engagement.',
+    iconBg: 'bg-orange-500/10',
+    iconColor: 'text-orange-400',
+  },
+  {
+    icon: Bot,
+    title: 'Automation Opportunity',
+    subtitle: 'You can automate follow-ups for inactive leads.',
+    iconBg: 'bg-emerald-500/10',
+    iconColor: 'text-emerald-400',
+  },
+];
+
+function AIInsightsCard() {
   return (
     <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10">
@@ -937,15 +955,15 @@ function AIInsightsCard({ insights = [] }) {
         </button>
       </div>
       <div className="flex-1 px-5 py-4 space-y-3">
-        {insights.map((item, i) => {
-          const Icon = iconMap[item.icon_type] || Sparkles;
+        {AI_INSIGHT_ITEMS.map((item, i) => {
+          const Icon = item.icon;
           return (
             <div
               key={i}
               className="ai-insight-item flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015] cursor-pointer group"
             >
-              <div className={`w-10 h-10 rounded-xl ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
-                <Icon size={18} className={item.icon_color} />
+              <div className={`w-10 h-10 rounded-xl ${item.iconBg} flex items-center justify-center flex-shrink-0`}>
+                <Icon size={18} className={item.iconColor} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white/85 leading-tight">{item.title}</p>
@@ -960,175 +978,11 @@ function AIInsightsCard({ insights = [] }) {
   );
 }
 
-const calculateDatesForPeriod = (selectedPeriod) => {
-  const now = new Date();
-  let start, end;
-  switch (selectedPeriod) {
-    case 'current_week': {
-      const day = now.getDay();
-      const monday = new Date(now);
-      const diffToMonday = day === 0 ? -6 : 1 - day;
-      monday.setDate(now.getDate() + diffToMonday);
-      monday.setHours(0, 0, 0, 0);
-      const sunday = new Date(monday);
-      sunday.setDate(monday.getDate() + 6);
-      sunday.setHours(23, 59, 59, 999);
-      start = monday;
-      end = sunday;
-      break;
-    }
-    case 'last_week': {
-      const day = now.getDay();
-      const monday = new Date(now);
-      const diffToMonday = day === 0 ? -6 : 1 - day;
-      monday.setDate(now.getDate() + diffToMonday);
-      monday.setHours(0, 0, 0, 0);
-      const lastMonday = new Date(monday);
-      lastMonday.setDate(monday.getDate() - 7);
-      const lastSunday = new Date(lastMonday);
-      lastSunday.setDate(lastMonday.getDate() + 6);
-      lastSunday.setHours(23, 59, 59, 999);
-      start = lastMonday;
-      end = lastSunday;
-      break;
-    }
-    case 'current_month': {
-      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      break;
-    }
-    case 'last_month': {
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-      break;
-    }
-    default:
-      return { startDate: '', endDate: '' };
-  }
-  const formatDate = (date) => {
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-  return {
-    startDate: formatDate(start),
-    endDate: formatDate(end)
-  };
-};
-
-const formatDisplayRange = (startDateStr, endDateStr) => {
-  if (!startDateStr || !endDateStr) return '';
-  const [sy, sm, sd] = startDateStr.split('-').map(Number);
-  const [ey, em, ed] = endDateStr.split('-').map(Number);
-  const start = new Date(sy, sm - 1, sd);
-  const end = new Date(ey, em - 1, ed);
-  const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  return `${fmt(start)} – ${fmt(end)}`;
-};
-
-function PeriodPicker({ period, dateRange, onPeriodChange }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
-
-  const options = [
-    { value: 'current_week', label: 'Current Week' },
-    { value: 'last_week', label: 'Last Week' },
-    { value: 'current_month', label: 'Current Month' },
-    { value: 'last_month', label: 'Last Month' },
-  ];
-
-  const labels = {
-    current_week: 'Current Week',
-    last_week: 'Last Week',
-    current_month: 'Current Month',
-    last_month: 'Last Month',
-  };
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
-      >
-        <Calendar size={14} />
-        <span className="hidden xs:inline">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
-        <span className="xs:hidden">{labels[period]}</span>
-        <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-0 mt-2 w-56 rounded-xl bg-[#0e0e1a] border border-white/10 p-1.5 shadow-2xl z-[100] backdrop-blur-xl flex flex-col gap-1"
-          >
-            {options.map((opt) => {
-              const optDates = calculateDatesForPeriod(opt.value);
-              const isSelected = period === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    onPeriodChange(opt.value);
-                    setIsOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex flex-col ${
-                    isSelected
-                      ? 'bg-purple-600/20 text-purple-300'
-                      : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <span className="text-xs font-medium">{opt.label}</span>
-                  <span className="text-[10px] text-zinc-500 mt-0.5 font-normal">
-                    {formatDisplayRange(optDates.startDate, optDates.endDate)}
-                  </span>
-                </button>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 // Main Dashboard 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [isImpersonated, setIsImpersonated] = useState(false);
-  const [showAddLead, setShowAddLead] = useState(false);
-
-  const [period, setPeriod] = useState('current_week');
-  const [dateRange, setDateRange] = useState(() => calculateDatesForPeriod('current_week'));
-
-  const handlePeriodChange = (newPeriod) => {
-    setPeriod(newPeriod);
-    setDateRange(calculateDatesForPeriod(newPeriod));
-  };
-
-  const { metrics, revenue, activities, insights, loading, error, refetch } = useDashboard({
-    refreshInterval: 60000,
-    startDate: dateRange.startDate,
-    endDate: dateRange.endDate
-  });
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     console.log("📊 DASHBOARD LOADED")
@@ -1150,42 +1004,15 @@ export default function DashboardPage() {
       console.log("🟡 ADMIN IMPERSONATION MODE")
       setIsImpersonated(true)
     }
+    setUser(getUser())
     setMounted(true)
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleLeadAdded = () => {
-      refetch();
-    };
-    window.addEventListener('lead-added', handleLeadAdded);
-    return () => window.removeEventListener('lead-added', handleLeadAdded);
-  }, [refetch]);
-
   if (!mounted) return null;
-
-  const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
-  const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
   return (
     <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
       <SecretLoginBanner />
-      
-      {error && (
-        <div className="max-w-[1600px] mx-auto mb-6 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center gap-3">
-            <AlertCircle size={18} className="flex-shrink-0" />
-            <span className="text-sm font-medium">{error}</span>
-          </div>
-          <button 
-            onClick={() => refetch()} 
-            className="text-xs bg-red-500/20 hover:bg-red-500/30 px-3 py-1.5 rounded-lg transition-colors font-semibold"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
       {isImpersonated && (
         <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl mb-6 px-6 py-2.5 text-amber-400 text-sm font-semibold">
           <ShieldAlert size={15} />
@@ -1207,70 +1034,59 @@ export default function DashboardPage() {
             <p className="text-m text-white/90 lg:mt-2">Good morning! Here are your key actions for today.</p>
           </div>
           <div className="flex items-center gap-3">
-            <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
+            <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
+              <Calendar size={14} />
+              <span className="hidden xs:inline">Oct 12 - Oct 18, 2023</span>
+              <span className="xs:hidden">Current Week</span>
+              <ChevronDown size={14} />
+            </div>
             <div className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
               <Bell size={18} className="text-zinc-400" />
               <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
+            </div>
+            {/* Credit Ring with User Profile Avatar inside */}
+            <div className="flex items-center gap-3 ml-2 pl-3 border-l border-white/10">
+              <CreditRingDropdown user={user} size={38} />
             </div>
           </div>
         </header>
 
         {/* METRICS GRID */}
-        <div className={cardStateClass}>
-          <BentoMetricsGrid metrics={metrics} />
-        </div>
+        <BentoMetricsGrid metrics={METRICS} />
 
         {/* ROW 1: Monthly Revenue + Recent Activity */}
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 overflow-visible ${cardStateClass}`}>
-          {/* Monthly Revenue — 2/3 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 overflow-visible">
           <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden">
             <div className="px-6 pt-6 pb-2">
               <h2 className="text-[18px] font-semibold text-white/90">Monthly Revenue</h2>
-              <p className="text-[14px] text-white/80 mt-1">This year vs last year (INR)</p>
+              <p className="text-[14px] text-white/80 mt-1">This year vs last year (USD)</p>
             </div>
-            {/* Legend */}
             <div className="flex items-center justify-center gap-5 px-6 pt-3 pb-2">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
-                <span className="text-xs text-white/60">{revenue.current_year || new Date().getFullYear()}</span>
+                <span className="text-xs text-white/60">2026</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
-                <span className="text-xs text-white/60">{revenue.prior_year || new Date().getFullYear() - 1}</span>
+                <span className="text-xs text-white/60">2025</span>
               </div>
             </div>
             <div className="px-4 pb-5">
-              <MonthlyRevenueChart 
-                months={revenue.months} 
-                currentData={revenue.current_data} 
-                priorData={revenue.prior_data}
-                currentYear={revenue.current_year}
-                priorYear={revenue.prior_year}
-              />
+              <MonthlyRevenueChart />
             </div>
           </section>
-
-          {/* Recent Activity — 1/3 */}
-          <div className="h-full">
-            <RecentActivityCard activities={activities} />
-          </div>
+          <RecentActivityCard />
         </div>
 
         {/* ROW 2: Quick Actions + AI Insights */}
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 ${cardStateClass}`}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-2 h-full">
-            <QuickActionsCard onAddLeadClick={() => setShowAddLead(true)} />
+            <QuickActionsCard />
           </div>
-          <AIInsightsCard insights={insights} />
+          <AIInsightsCard />
         </div>
 
       </div>
-
-      <AddLeadModal
-        isOpen={showAddLead}
-        onClose={() => setShowAddLead(false)}
-        onSuccess={() => refetch()}
-      />
     </div>
   );
 }
