@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.integration import Integration
-from app.models.workspace import WorkspaceMember
 from app.routers.auth import get_current_user
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -13,8 +12,6 @@ from app.core.security import verify_workspace_access
 from app.core.config import settings
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
-
-
 
 def get_gmail_service(workspace_id: str, db: Session):
 
@@ -50,103 +47,103 @@ def get_gmail_service(workspace_id: str, db: Session):
 
     return build("gmail", "v1", credentials=creds)
 
-@router.get("/messages")
-async def get_messages(
-    workspace_id: str,
-    max_results: int = 50,
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Fetch Gmail messages"""
-    try:
-        workspace_id = verify_workspace_access(current_user, db)
-        service = get_gmail_service(workspace_id, db)
+# @router.get("/messages")
+# async def get_messages(
+#     workspace_id: str,
+#     max_results: int = 50,
+#     current_user=Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+  
+#     try:
+#         workspace_id = verify_workspace_access(current_user, db)
+#         service = get_gmail_service(workspace_id, db)
         
-        # Get message list
-        results = service.users().messages().list(
-            userId='me',
-            maxResults=max_results
-        ).execute()
+#         # Get message list
+#         results = service.users().messages().list(
+#             userId='me',
+#             maxResults=max_results
+#         ).execute()
         
-        messages = results.get('messages', [])
+#         messages = results.get('messages', [])
         
-        # Fetch details for each message
-        detailed_messages = []
-        for msg in messages[:20]:  # Limit to 20 for performance
-            message = service.users().messages().get(
-                userId='me',
-                id=msg['id'],
-                format='metadata',
-                metadataHeaders=['From', 'To', 'Subject', 'Date']
-            ).execute()
+#         # Fetch details for each message
+#         detailed_messages = []
+#         for msg in messages[:20]:  # Limit to 20 for performance
+#             message = service.users().messages().get(
+#                 userId='me',
+#                 id=msg['id'],
+#                 format='metadata',
+#                 metadataHeaders=['From', 'To', 'Subject', 'Date']
+#             ).execute()
             
-            headers = {h['name']: h['value'] for h in message.get('payload', {}).get('headers', [])}
+#             headers = {h['name']: h['value'] for h in message.get('payload', {}).get('headers', [])}
             
-            detailed_messages.append({
-                'id': message['id'],
-                'threadId': message['threadId'],
-                'from': headers.get('From', 'Unknown'),
-                'to': headers.get('To', 'Unknown'),
-                'subject': headers.get('Subject', '(No subject)'),
-                'date': headers.get('Date', ''),
-                'snippet': message.get('snippet', '')
-            })
+#             detailed_messages.append({
+#                 'id': message['id'],
+#                 'threadId': message['threadId'],
+#                 'from': headers.get('From', 'Unknown'),
+#                 'to': headers.get('To', 'Unknown'),
+#                 'subject': headers.get('Subject', '(No subject)'),
+#                 'date': headers.get('Date', ''),
+#                 'snippet': message.get('snippet', '')
+#             })
         
-        return {"messages": detailed_messages}
+#         return {"messages": detailed_messages}
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
 
-@router.get("/messages/{message_id}")
-async def get_message(
-    message_id: str,
-    workspace_id: str,
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get full message content"""
-    try:
-        workspace_id = verify_workspace_access(current_user, db)
-        service = get_gmail_service(workspace_id, db)
+# @router.get("/messages/{message_id}")
+# async def get_message(
+#     message_id: str,
+#     workspace_id: str,
+#     current_user=Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+   
+#     try:
+#         workspace_id = verify_workspace_access(current_user, db)
+#         service = get_gmail_service(workspace_id, db)
         
-        message = service.users().messages().get(
-            userId='me',
-            id=message_id,
-            format='full'
-        ).execute()
+#         message = service.users().messages().get(
+#             userId='me',
+#             id=message_id,
+#             format='full'
+#         ).execute()
         
-        return message
+#         return message
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/send")
-async def send_email(
-    workspace_id: str,
-    to: str,
-    subject: str,
-    body: str,
-    current_user=Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Send an email via Gmail"""
-    try:
-        workspace_id = verify_workspace_access(current_user, db)
-        service = get_gmail_service(workspace_id, db)
-        
-        message = MIMEText(body)
-        message['to'] = to
-        message['subject'] = subject
-        
-        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        
-        sent_message = service.users().messages().send(
-            userId='me',
-            body={'raw': raw}
-        ).execute()
-        
-        return {"status": "success", "message_id": sent_message['id']}
+# @router.post("/send")
+# async def send_email(
+#     workspace_id: str,
+#     to: str,
+#     subject: str,
+#     body: str,
+#     current_user=Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#     try:
+#         workspace_id = verify_workspace_access(current_user, db)
+#         service = get_gmail_service(workspace_id, db)
+        
+#         message = MIMEText(body)
+#         message['to'] = to
+#         message['subject'] = subject
+        
+#         raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        
+#         sent_message = service.users().messages().send(
+#             userId='me',
+#             body={'raw': raw}
+#         ).execute()
+        
+#         return {"status": "success", "message_id": sent_message['id']}
+    
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))

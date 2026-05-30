@@ -1,15 +1,12 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List, Optional
 from app.schemas.chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, UpdateSessionRequest, ChatStreamRequest, ChatQueryRequest
 from uuid import UUID
-from datetime import datetime
 import logging
-
 from app.database import get_db
 from app.routers.auth import get_current_user
-from app.models.conversation import ChatSession, ChatMessage
 from app.core.security import verify_workspace_access
 from app.core.chat_provider import get_chat_service
 from app.core.exceptions import BillingError
@@ -19,8 +16,6 @@ from app.services.inbox.session_service import SessionService
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
-
-#  Pydantic Models ─
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])
 def get_sessions(
@@ -90,8 +85,6 @@ def update_session_title(
     return {"message": "Session updated", "title": session.title}
 
 
-#  Chat Endpoints 
-
 @router.post("/query")
 async def chat_query(
     request: ChatQueryRequest,
@@ -119,7 +112,7 @@ async def stream_chat(
     current_user=Depends(get_current_user),
     service: ChatService = Depends(get_chat_service),
 ):
-    logger.info(f"🔥 RAW MODEL FROM REQUEST: {request.model}")
+    logger.info(f" RAW MODEL FROM REQUEST: {request.model}")
     workspace_id = verify_workspace_access(current_user, db)
     logger.info(f"[STREAM CHAT] user={current_user.id} workspace={workspace_id} session={request.session_id}")
     try:

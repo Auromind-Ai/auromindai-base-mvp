@@ -2,7 +2,6 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
-
 from app.models.brain import MCPDecision, EmailMessage
 from app.services.email_automation.calender_executor import CalendarExecutor
 from app.services.email_automation.email_reply_excutor import EmailReplyExecutor
@@ -19,10 +18,8 @@ class AutomationEngine:
             "suggest_reply": EmailReplyExecutor(),
         }
 
-    # ------------------------------------------------------------------
+    
     # Public entry-points
-    # ------------------------------------------------------------------
-
     def approve_and_execute(self, db, decision_id: str):
         logger.info("[AutomationEngine] Approving decision %s", decision_id)
 
@@ -69,20 +66,20 @@ class AutomationEngine:
 
         logger.info("[AutomationEngine] Approved decision %s executed", decision_id)
 
-    def reject_decision(self, db, decision_id: str):
-        decision = db.query(MCPDecision).filter_by(id=decision_id).first()
+    # def reject_decision(self, db, decision_id: str):
+    #     decision = db.query(MCPDecision).filter_by(id=decision_id).first()
 
-        if not decision:
-            logger.warning("[AutomationEngine] Decision %s not found for rejection", decision_id)
-            return
+    #     if not decision:
+    #         logger.warning("[AutomationEngine] Decision %s not found for rejection", decision_id)
+    #         return
 
-        decision.user_action = "rejected"
-        db.commit()
-        logger.info("[AutomationEngine] Decision %s rejected", decision_id)
+    #     decision.user_action = "rejected"
+    #     db.commit()
+    #     logger.info("[AutomationEngine] Decision %s rejected", decision_id)
 
-    # ------------------------------------------------------------------
+   
     # Core execution
-    # ------------------------------------------------------------------
+   
 
     def execute(
         self,
@@ -92,16 +89,7 @@ class AutomationEngine:
         force_execute: bool = False,
         message_id: Optional[str] = None,
     ):
-        """
-        Execute all actions in *mcp_decision*.
-
-        Every action result — success or failure — is persisted back to the
-        MCPDecision row (when message_id is supplied) so that failures are
-        never silently swallowed.
-
-        Returns:
-            dict: {"succeeded": [...], "failed": [...]}
-        """
+       
         logger.info(
             "[AutomationEngine] Execution started | workspace=%s message_id=%s",
             workspace_id,
@@ -166,10 +154,8 @@ class AutomationEngine:
 
         return {"succeeded": succeeded, "failed": failed}
 
-    # ------------------------------------------------------------------
+   
     # Validation
-    # ------------------------------------------------------------------
-
     def validate_decision(self, mcp_decision: dict) -> bool:
         logger.debug("[AutomationEngine] Validating decision")
 
@@ -219,10 +205,8 @@ class AutomationEngine:
             logger.exception("[AutomationEngine] Validation error: %s", exc)
             return False
 
-    # ------------------------------------------------------------------
+   
     # Action routing
-    # ------------------------------------------------------------------
-
     def route_action(self, db, workspace_id: str, action: dict, decision: dict) -> dict:
         action_type = action.get("type")
         logger.info("[AutomationEngine] Routing action: %s", action_type)
@@ -244,12 +228,10 @@ class AutomationEngine:
             )
             return {"action": action_type, "status": "failed", "error": str(exc)}
 
-    # ------------------------------------------------------------------
+   
     # Internal helpers
-    # ------------------------------------------------------------------
-
     def _log_execution(self, result: dict):
-        """Structured log — replaces the bare print statement."""
+       
         if result.get("status") == "success":
             logger.info("[AutomationEngine] Action succeeded: %s", result.get("action"))
         else:
@@ -266,14 +248,7 @@ class AutomationEngine:
         succeeded: list,
         failed: list,
     ):
-        """
-        Write execution outcome back to the MCPDecision row so that any
-        failures are visible in the database — not just in stdout.
-
-        This is intentionally a best-effort write: if the DB call itself
-        fails we log it but do not re-raise (the original execution result
-        has already been determined at this point).
-        """
+        
         if not message_id or not db:
             return
 

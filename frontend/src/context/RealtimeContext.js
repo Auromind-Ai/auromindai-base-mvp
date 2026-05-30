@@ -30,7 +30,7 @@ const STALE_SOCKET_MS = 120000;
 
 function resolveWebSocketBaseUrl() {
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
-  const apiBase = process.env.NEXT_PUBLIC_API_URL;
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const source = explicit || apiBase;
 
   if (source) {

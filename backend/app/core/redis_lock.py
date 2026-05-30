@@ -2,12 +2,10 @@
 import logging
 import uuid
 from typing import Optional
-
 import redis
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-
 REDIS_URL = settings.REDIS_URL
 _REDIS_SOCKET_TIMEOUT_SECONDS = 2.0
 
@@ -38,7 +36,6 @@ else
     return 0
 end
 """
-
 
 def acquire_conversation_lock(
     conversation_id: str,

@@ -5,7 +5,6 @@ class ConfigService:
     def __init__(self):
         self.logger = logger
         
-
         #DEFAULT CONFIG
         self.default_config = {
             "confidence_threshold": 0.3,

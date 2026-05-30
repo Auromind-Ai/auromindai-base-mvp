@@ -1,32 +1,35 @@
 import time
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
 from app.core.metrics import middleware_record
 
+class MetricsMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-class MetricsMiddleware(BaseHTTPMiddleware):
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-    async def dispatch(self, request, call_next):
-
-        if request.url.path.startswith("/ws"):
-            return await call_next(request)
-
+        request = Request(scope, receive=receive)
         start_time = time.time()
+        status_code = [500]
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                status_code[0] = message["status"]
+            await send(message)
 
         try:
-            response = await call_next(request)
-            status_code = response.status_code
+            await self.app(scope, receive, send_wrapper)
         except Exception as e:
-            status_code = 500
+            status_code[0] = 500
             raise e
         finally:
-
             process_time = time.time() - start_time
-
             middleware_record(
                 request.method,
                 request.url.path,
-                status_code,
+                status_code[0],
                 process_time
-            )
-
-        return response
+            )

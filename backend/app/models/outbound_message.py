@@ -1,5 +1,4 @@
 import uuid
-
 from sqlalchemy import (
     Column,
     DateTime,
@@ -9,10 +8,8 @@ from sqlalchemy import (
     String,
     text
 )
-
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import func
-
 from app.database import Base
 
 
@@ -75,7 +72,6 @@ class OutboundMessage(Base):
         index=True
     )
 
-    # pending | in_progress | dispatched | sent
     # delivered | failed | cancelled
     status = Column(
         String(32),

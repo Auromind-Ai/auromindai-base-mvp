@@ -1,18 +1,12 @@
-
 import logging
 from sqlalchemy.orm import Session
-
 from app.services.inbox_agents.orchestration_layer import AgentOrchestration
-from app.services.inbox_agents.memory_service import MemoryService
-from app.services.inbox_agents.llm_client import LLMClient
 from app.services.inbox_agents.escalation_queue import EscalationQueue
-from app.core.config import settings
+
 
 logger = logging.getLogger(__name__)
 
-
 #  Helper: build a one-off orchestrator scoped to this DB session 
-
 def _get_orchestrator(db: Session) -> AgentOrchestration:
     
     orchestrator = AgentOrchestration(db=db)
@@ -65,7 +59,7 @@ async def execute_ai_reply(
             if k not in ("from", "body", "conversation_id")},
         }
 
-        #  Run orchestration ─
+        #  Run orchestration 
         orchestrator = _get_orchestrator(db)
         result = await orchestrator.process_message(payload=payload, channel=channel, skip_send=True)
 

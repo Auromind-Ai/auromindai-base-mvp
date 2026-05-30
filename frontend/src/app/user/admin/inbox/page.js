@@ -434,7 +434,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
     );
 }
 
-// ─── Reusable: Chat Area ──────────────────────────────────────────────────────
+// ─── Reusable: Chat Area ────────
 function ChatArea({
     ch, lead, messages, msg, setMsg, aiSuggestion, sendMessage,
     generateSuggestion, useSuggestion, onInfoClick, onBackToList,
@@ -660,7 +660,7 @@ function ChatArea({
     );
 }
 
-// ─── Channel Tabs ─────────────────────────────────────────────────────────────
+// ─── Channel Tabs ───────────────
 function ChannelTabs({ ch, setCh }) {
     function getTabActiveStyle(c) {
         if (c.id === 'instagram') return { background: c.gradient };
@@ -708,7 +708,7 @@ function PanelCard({ children, className = '', style = {} }) {
     );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Page ──────────────────
 export default function InboxPage() {
     const workspace = getWorkspace();
     const {

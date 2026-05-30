@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from sqlalchemy import func
-
 from app.database import get_db
 from app.models.brain import BrainEntry, BrainChunk
 
@@ -11,9 +10,7 @@ router = APIRouter()
 
 @router.get("/rag")
 async def get_rag_entries(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
-    """
-    Get RAG knowledge base entries.
-    """
+    
     try:
         entries = db.query(BrainEntry).all()
         rag_list = []

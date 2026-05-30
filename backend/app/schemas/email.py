@@ -18,7 +18,7 @@ class EmailItem(BaseModel):
         populate_by_name = True
 
 class InboxResponse(BaseModel):
-    emails: List[dict]  # dict used to preserve "from" key (reserved word)
+    emails: List[dict]  
 
 class SendReplyResponse(BaseModel):
     status: str

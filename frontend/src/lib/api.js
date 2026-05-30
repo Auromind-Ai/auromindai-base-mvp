@@ -163,7 +163,7 @@ class APIClient {
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
   }
-  // ============== Automation Methods ==============
+// ==== Automation Methods ====
 
 
 
@@ -215,7 +215,7 @@ class APIClient {
     return this.get(`/mcp/rules?workspace_id=${workspace_id}`);
   }
 
-  // ============== Chat History Methods ==============
+  // ==== Chat History Methods ====
 
   async getChatSessions(workspace_id) {
     return this.get(`/chat/sessions?workspace_id=${workspace_id}`);
@@ -261,7 +261,7 @@ class APIClient {
     })
   }
 
-  // ============== Brain / RAG Methods ==============
+  // ==== Brain / RAG Methods ====
   /**
    * Upload a document to the Brain (PDF, DOCX, TXT)
    */

@@ -103,7 +103,6 @@ class ConversationState(Base):
 )
 
 
-
 # LEADS
 class Lead(Base):
     __tablename__ = "leads"
@@ -218,37 +217,6 @@ class Lead(Base):
     )
 
 
-class LeadEvent(Base):
-    __tablename__ = "lead_events"
-
-    id = Column(
-    UUID(as_uuid=True),
-    primary_key=True,
-    default=uuid.uuid4
-)
-
-    workspace_id = Column(UUID(as_uuid=True), index=True)
-
-    lead_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("leads.id", ondelete="CASCADE"),
-        index=True,
-    )
-
-    conversation_id = Column(UUID(as_uuid=True), index=True)
-
-    event_type = Column(String(100), index=True)
-
-    source = Column(String(50))
-
-    event_metadata = Column(JSON)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        index=True,
-    )
-
 # SALES PIPELINE
 class SalesPipeline(Base):
     __tablename__ = "sales_pipeline"
@@ -295,7 +263,6 @@ class SalesPipeline(Base):
     )
 
 
-
 # SUPPORT TICKETS
 class SupportTicket(Base):
     __tablename__ = "support_tickets"
@@ -322,46 +289,6 @@ class SupportTicket(Base):
     description = Column(Text)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-# FOLLOWUPS
-class ChatFollowup(Base):
-    __tablename__ = "followups_chat"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("workspaces.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    conversation_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("conversations.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-
-    followup_count = Column(Integer)
-    last_followup_at = Column(DateTime(timezone=True))
-
-    status = Column(String(50))  # active / stopped
-
-
-
-# MCP RULES (DYNAMIC)
-class MCPRule(Base):
-    __tablename__ = "mcp_rules"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    workspace_id = Column(UUID(as_uuid=True), index=True)
-
-    rules = Column(JSON)
-
-    updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 # HUMAN ESCALATION
@@ -398,37 +325,3 @@ class HumanEscalation(Base):
     resolved_at = Column(DateTime(timezone=True))
 
     resolution_notes = Column(Text)
-
-class WorkspaceAIConfig(Base):
-    __tablename__ = "workspace_ai_configs"
-
-    id = Column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4
-    )
-
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        unique=True
-    )
-
-    last_agent = Column(String(50))
-    custom_fields = Column(JSONB, default=dict)
-
-    business_type = Column(String(100))
-
-    lead_fields = Column(JSON, default=list)
-
-    rag_enabled = Column(Boolean, default=True)
-
-    calendar_enabled = Column(Boolean, default=False)
-
-    payment_enabled = Column(Boolean, default=False)
-
-    support_enabled = Column(Boolean, default=True)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now()
-    )

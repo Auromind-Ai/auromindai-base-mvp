@@ -1,17 +1,13 @@
-from datetime import datetime
-
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from app.routers.auth import get_current_user
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, HttpUrl, UUID4
-from typing import Optional, List
+from typing import Optional
 import logging
 from app.database import get_db
 from app.services.document_service import get_url_scraper
 from app.models.brain import BrainEntry
 from app.workers.ingestion_worker import process_document_background
 import uuid
-from uuid import UUID
 import os
 import shutil
 from app.services.agentic_rag.rag_service import get_rag_service
@@ -20,12 +16,11 @@ from app.core.security import verify_workspace_access
 from app.schemas.brain import *
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/brain", tags=["brain"])
 
 
 
-# ============== Endpoints ==============
+#Endpoints
 
 @router.post("/ingest/document", response_model=IngestResponse)
 async def ingest_document(
@@ -37,7 +32,7 @@ async def ingest_document(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ Upload and index a document (PDF, DOCX, TXT, Images). """
+   
     # verify_workspace_access now returns the verified workspace_id string directly
     workspace_id = verify_workspace_access(current_user, db)
 
@@ -115,7 +110,7 @@ async def ingest_url(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ Scrape and index content from a URL. """
+
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
@@ -152,13 +147,13 @@ async def get_ingestion_status(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Secure ingestion status check (tenant-safe)"""
+   
     logger.info(f"[INGEST STATUS] user={current_user.id} entry_id={entry_id}")
     workspace_id = verify_workspace_access(current_user, db)
  
     entry = db.query(BrainEntry).filter(
         BrainEntry.id == entry_id,
-        BrainEntry.workspace_id == workspace_id,   # strict tenant isolation
+        BrainEntry.workspace_id == workspace_id,
     ).first()
  
     if not entry:
@@ -178,7 +173,7 @@ async def ingest_text(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ Manually add text knowledge to the brain. """
+   
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
@@ -217,7 +212,7 @@ async def crawl_website(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ Full website crawl via background tasks. """
+    
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
@@ -296,9 +291,6 @@ async def list_entries(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ List all knowledge entries for a workspace. """
-    # FIXED: was uuid.UUID(str(True)) → ValueError crash.
-    # Now verify_workspace_access returns the real UUID string.
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
@@ -355,43 +347,42 @@ async def list_entries(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/entries/{entry_id:uuid}")
-async def delete_entry(
-    entry_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """ Securely delete a knowledge entry and all its chunks. """
-    # FIXED: was uuid.UUID(str(True)) → ValueError crash.
-    workspace_id = verify_workspace_access(current_user, db)
+# @router.delete("/entries/{entry_id:uuid}")
+# async def delete_entry(
+#     entry_id: uuid.UUID,
+#     db: Session = Depends(get_db),
+#     current_user = Depends(get_current_user)
+# ):
+    
+#     workspace_id = verify_workspace_access(current_user, db)
 
-    try:
-        logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
-        entry = db.query(BrainEntry).filter(
-            BrainEntry.id == str(entry_id),
-            BrainEntry.workspace_id == workspace_id
-        ).first()
+#     try:
+#         logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
+#         entry = db.query(BrainEntry).filter(
+#             BrainEntry.id == str(entry_id),
+#             BrainEntry.workspace_id == workspace_id
+#         ).first()
 
-        if not entry:
-            raise HTTPException(status_code=404, detail="Entry not found in this workspace")
+#         if not entry:
+#             raise HTTPException(status_code=404, detail="Entry not found in this workspace")
 
-        rag = get_rag_service()
-        success = await rag.delete_entry(
-                    db,
-                    workspace_id,
-                    str(entry_id)
-                )
+#         rag = get_rag_service()
+#         success = await rag.delete_entry(
+#                     db,
+#                     workspace_id,
+#                     str(entry_id)
+#                 )
 
-        if success:
-            return {"status": "success", "message": "Entry deleted"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to delete from vector store")
+#         if success:
+#             return {"status": "success", "message": "Entry deleted"}
+#         else:
+#             raise HTTPException(status_code=500, detail="Failed to delete from vector store")
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to delete entry: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Failed to delete entry: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/search", response_model=SearchResponse)
@@ -400,6 +391,7 @@ async def search_knowledge(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
@@ -446,7 +438,7 @@ async def query_knowledge(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-
+    
     workspace_id = verify_workspace_access(current_user, db)
 
     try:
@@ -479,7 +471,7 @@ async def get_brain_stats(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """ Get statistics for the knowledge base. """
+   
     workspace_id = verify_workspace_access(current_user, db)
 
     try:

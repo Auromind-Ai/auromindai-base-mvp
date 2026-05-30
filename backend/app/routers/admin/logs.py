@@ -5,7 +5,6 @@ router = APIRouter()
 
 LOG_FILE = "logs/app.log"
 
-
 @router.get("/logs")
 async def get_logs():
 

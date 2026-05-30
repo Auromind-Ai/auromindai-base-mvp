@@ -49,8 +49,9 @@ const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
-});
-// ── Typewriter (unchanged) ──────────────────────────────────────────────────
+})
+
+// ── Typewriter (unchanged) ────
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     const [displayedText, setDisplayedText] = useState('');
     const textRef = useRef(text);
@@ -77,7 +78,8 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
         </span>
     );
 };
-// ── Helpers (unchanged) ─────────────────────────────────────────────────────
+
+// ── Helpers (unchanged) ───────
 function getGreeting() {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
@@ -603,7 +605,8 @@ export default function AuromindAIPage() {
     const greeting = getGreeting();
     const userName = workspace?.user_name || workspace?.name || 'Diana Rose';
     const isChatStarted = messages.length > 0 || isInitializing;
-    // ── RENDER ────────────────────────────────────────────────────────────────
+
+    // ── RENDER ──────────────────
     return (
         <div className={`${poppins.className} flex bg-[#0a0a0f] h-screen text-white overflow-hidden`}>
             <ChatSidebar

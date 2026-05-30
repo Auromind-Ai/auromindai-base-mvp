@@ -45,11 +45,11 @@ class GuardrailsService:
         future = asyncio.run_coroutine_threadsafe(coroutine, loop)
         return future.result()
 
-    def secure_pipeline_sync(self, query: str, user_role: str = "user") -> dict:
-        return self._run_sync(self.secure_pipeline(query, user_role=user_role))
+    # def secure_pipeline_sync(self, query: str, user_role: str = "user") -> dict:
+    #     return self._run_sync(self.secure_pipeline(query, user_role=user_role))
 
-    def secure_response_sync(self, response: str) -> str:
-        return self._run_sync(self.secure_response(response))
+    # def secure_response_sync(self, response: str) -> str:
+    #     return self._run_sync(self.secure_response(response))
 
 
     # INPUT GUARD LAYER
@@ -178,7 +178,7 @@ class GuardrailsService:
         filtered = context
 
         patterns = [
-            r"sk-[a-zA-Z0-9]{20,}",                    # API keys (OpenAI style)
+            r"sk-[a-zA-Z0-9]{20,}",                    # API keys
             r"api[_-]?key\s*[:=]\s*\S+",               # api_key patterns
             r"password\s*[:=]\s*\S+",                  # password fields
             r"secret\s*[:=]\s*\S+",                    # secrets
@@ -349,15 +349,14 @@ class GuardrailsService:
 
 
     def output_guard(self, response: str) -> str:
-        """Run output guard pipeline and return a safe response."""
-
+       
         self.logger.info("Output guard started")
 
         cleaned = self.sanitize_output(response)
 
         if self.detect_sensitive_output(cleaned):
             self.logger.warning("Sensitive content detected in output")
-            return "⚠️ Response blocked due to sensitive content"
+            return "Response blocked due to sensitive content"
 
         self.logger.info("Output guard passed")
 
@@ -366,8 +365,7 @@ class GuardrailsService:
 
 
     async def secure_pipeline(self, query: str, user_role: str = "user") -> dict:
-        """Execute full input-side guardrails pipeline before RAG."""
-
+      
         self.logger.info("Secure pipeline started")
 
         try:
@@ -401,8 +399,7 @@ class GuardrailsService:
 
 
     async def secure_response(self, response: str) -> str:
-        """Run final output validation pipeline before sending response."""
-
+       
         self.logger.info("Secure response pipeline started")
 
         try:

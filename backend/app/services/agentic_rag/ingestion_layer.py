@@ -1,5 +1,4 @@
 import logging
-
 from sqlalchemy.orm import Session 
 from typing import Dict, Any
 import uuid
@@ -24,7 +23,7 @@ class IngestionLayer:
         content_type: str,
         source: str = None,
         metadata: Dict[str, Any] = None,
-        existing_entry_id: str = None  # New param for Async support
+        existing_entry_id: str = None  
     ) -> Dict[str, Any]:
          
         if not text or len(text.strip()) < 10:

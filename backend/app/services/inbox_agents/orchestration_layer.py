@@ -1,5 +1,4 @@
 from app.core.logger import logger
-from app.core.config import settings
 from app.services.inbox_agents.config_service import ConfigService
 from app.services.inbox_agents.unified_agent import UnifiedAgent
 from app.services.inbox_agents.mcpservice import MCPService
@@ -34,8 +33,7 @@ class AgentOrchestration:
 
         self.logger.info("AgentOrchestration initialized successfully")
 
-    # ─ MAIN ENTRY POINT ─
-
+    # MAIN ENTRY POINT 
     async def process_message(self, payload, channel, skip_send=False):
         data = self.normalize_message(payload, channel)
 
@@ -199,15 +197,22 @@ class AgentOrchestration:
                     "priority": "high"
                 }
             )
-            meet_link = calendar_result.get("meet_link") if calendar_result else None
-            if meet_link:
-                result["response"] += f"\n\nGoogle Meet Link:\n{meet_link}"
+            demo_details = None
+            if calendar_result:
+                meet_link = calendar_result.get("meet_link")
+                if meet_link:
+                    result["response"] += f"\n\nGoogle Meet Link:\n{meet_link}"
+                else:
+                    result["response"] += "\n\nMeeting scheduled successfully."
+                demo_details = f"Demo Booked for {result.get('meeting_date')} at {result.get('meeting_time')} ({result.get('timezone')})"
             else:
-                result["response"] += "\n\nMeeting scheduled successfully."
+                result["response"] += "\n\nFailed to schedule meeting automatically. Our team will follow up to manually confirm the schedule."
+                demo_details = "Demo Booking Failed (Automatic scheduling failed)"
 
             # After booking demo, escalate to human
             result["escalate"] = True
             result["close"]    = True
+            result["demo_details"] = demo_details
 
         if action == "lead_complete":
             stage = "sales"
@@ -437,18 +442,22 @@ class AgentOrchestration:
             or decision == "ESCALATE"
         ) and state.get("current_stage") != "sales"
 
-        # Also escalate if stage is sales and action is lead_complete
-        if action == "lead_complete":
+        # Also escalate if stage is sales and action is lead_complete or book_demo
+        if action in ["lead_complete", "book_demo"]:
             should_escalate = True
 
         if should_escalate:
             self._end_ai_session(conversation_id)
+            reason = mcp_result.get("reason", "Lead qualification complete — handoff to human")
+            if action == "book_demo" and result.get("demo_details"):
+                reason = result["demo_details"]
+                
             self.escalation_queue.add({
                 "user_id":      user_id,
                 "conversation_id": conversation_id,
                 "message":      message,
                 "channel":      channel,
-                "reason":       mcp_result.get("reason", "Lead qualification complete — handoff to human"),
+                "reason":       reason,
                 "workspace_id": workspace_id,
             })
             response = {"text": result.get("response", "I'll connect you with our team for better assistance."), "metadata": result}
@@ -467,10 +476,9 @@ class AgentOrchestration:
             self.send_response(channel, user_id, response)
         return response
 
-    # ─ END AI SESSION ─
-
+    # END AI SESSION
     def _end_ai_session(self, conversation_id):
-        """Clear the active_ai_session flag so the flow doesn't stay locked."""
+       
         if not self.db or not conversation_id:
             return
         try:
@@ -489,8 +497,7 @@ class AgentOrchestration:
         except Exception:
             self.logger.warning("_end_ai_session failed", exc_info=True)
 
-    # ─ AGENT TYPE ─
-
+    # AGENT TYPE 
     def _determine_agent_type(self, message, turn_count, lead_data, state, is_followup_trigger=False):
         if is_followup_trigger:
             return "followup_agent"
@@ -527,8 +534,7 @@ class AgentOrchestration:
 
         return "sales_agent"
 
-    # ─ NORMALIZE MESSAGE ─
-
+    # NORMALIZE MESSAGE 
     def normalize_message(self, payload, channel):
         try:
             user_id         = None
@@ -583,7 +589,7 @@ class AgentOrchestration:
                 "conversation_id": payload.get("conversation_id"),
             }
 
-    # ─ SEND RESPONSE ─
+    # SEND RESPONSE
     def send_response(self, channel, user_id, response):
         from app.services.inbox.message_service import MessageService
         from app.models.message import SenderType, MessageStatus

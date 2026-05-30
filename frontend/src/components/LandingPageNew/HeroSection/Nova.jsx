@@ -242,14 +242,23 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
           const dpr = window.devicePixelRatio || 1;
           const width = container.clientWidth;
           const height = container.clientHeight;
+          if (width === 0 || height === 0) return;
           canvas.width = width * dpr;
           canvas.height = height * dpr;
           canvas.style.width = width + "px";
           canvas.style.height = height + "px";
           gl.viewport(0, 0, canvas.width, canvas.height);
         }
-        window.addEventListener("resize", resize);
+        const resizeObserver = new ResizeObserver(() => {
+          resize();
+        });
+        resizeObserver.observe(container);
+        
         resize();
+
+        requestAnimationFrame(() => {
+          resize();
+        });
 
         let targetHover = 0;
         let currentHover = 0;
@@ -279,8 +288,15 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
         container.addEventListener("mouseleave", handleMouseLeave);
 
         let rafId;
+        
         const update = (t) => {
           rafId = requestAnimationFrame(update);
+
+          if (canvas.width === 0 || canvas.height === 0) {
+            resize();
+            if (canvas.width === 0 || canvas.height === 0) return; // still 0 → skip frame
+          }
+
           const dt = (t - lastTime) * 0.001;
           lastTime = t;
 
@@ -319,7 +335,7 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
 
         cleanup = () => {
           cancelAnimationFrame(rafId);
-          window.removeEventListener("resize", resize);
+          resizeObserver.disconnect();
           container.removeEventListener("mousemove", handleMouseMove);
           container.removeEventListener("mouseleave", handleMouseLeave);
           if (container.contains(canvas)) {

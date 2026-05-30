@@ -4,7 +4,6 @@ from app.services.email_automation.email_monitor_service import EmailMonitor
 from datetime import datetime
 from app.core.logger import logger
 
-
 class EmailSchedulerService:
 
     def __init__(self, engine):

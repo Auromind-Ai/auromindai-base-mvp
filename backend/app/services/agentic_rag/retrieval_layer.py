@@ -1,5 +1,4 @@
 import logging
-
 from app.config.set import setter
 
 class RetrievalLayer:

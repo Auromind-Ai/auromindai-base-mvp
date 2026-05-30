@@ -1,13 +1,11 @@
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services.integration_service import IntegrationService
-from app.core.config import settings
 from app.core.security import verify_workspace_access
 from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
-
 
 
 @router.get("/google/auth/{integration_type}")
@@ -17,9 +15,7 @@ async def google_oauth_init(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Initiate Google OAuth flow for Calendar or Gmail.
-    """
+    
     workspace_id = verify_workspace_access(current_user, db)
     try:
         url = IntegrationService.get_google_oauth_url(db, workspace_id, integration_type)
@@ -38,9 +34,7 @@ async def google_oauth_callback(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """
-    Handle Google OAuth callback and store tokens.
-    """
+   
     try:
         verify_workspace_access(current_user, db)
         integration_type = IntegrationService.handle_google_oauth_callback(db, code, state)
@@ -54,9 +48,7 @@ async def get_integration_status(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get connection status for all integrations.
-    """
+    
     workspace_id = verify_workspace_access(current_user, db)
     return IntegrationService.get_integration_status(db, workspace_id)
 
@@ -67,9 +59,7 @@ async def disconnect_integration(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Disconnect an integration.
-    """
+    
     workspace_id = verify_workspace_access(current_user, db)
     IntegrationService.disconnect_integration(db, workspace_id, integration_type)
     

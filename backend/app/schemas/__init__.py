@@ -5,9 +5,6 @@ from .chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, U
 from .dashboard import MetricResponse, AttentionItemResponse, AIInsightResponse, FlowStatResponse, ScheduleItemResponse
 from .email import EmailItem, InboxResponse, SendReplyResponse
 from .feedback import FeedbackRequest
-# from .learning import FeedbackRequest, LearningEventCreate
-# from .mcp import EvaluateActionRequest, OverrideDecisionRequest
-# from .simulation import SimulationRequest
 from .template import TemplateCreate, TemplateListResponse, TemplateRead, TemplateSendRequest, TemplateStatusResponse
 from .upload import UploadResponse
 from .admin import ModelConfigCreate, ModelConfigUpdate
@@ -16,7 +13,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
-
 from app.models import ChannelType, SenderType, ConversationStatus
 
 class MessageBase(BaseModel):

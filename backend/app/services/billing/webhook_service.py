@@ -1,21 +1,16 @@
 from datetime import datetime, timezone
 from typing import Any
-
 from sqlalchemy.orm import Session
-
 from app.core.enums import PaymentStatus, SubscriptionStatus
 from app.models.billing import Payment
 from app.models.subscription import Subscription
 from app.models.webhook_event import WebhookEvent
-from app.services.billing.gateway.base import GatewayWebhookEvent
 from app.services.billing.payment_service import PaymentService
 from app.services.billing.plan_service import PlanService
 from app.services.billing.subscription_service import SubscriptionService
 from app.models.plan import Plan
 from app.services.billing.token_service import TokenService
-from app.services.billing.usage_service import UsageService
-
-
+from app.services.billing.gateway import get_gateway
 
 class WebhookService:
     def __init__(self, token_service: TokenService):
@@ -34,7 +29,7 @@ class WebhookService:
     ) -> dict[str, Any]:
         # Use a try/except/finally so we can always attempt to release the distributed lock
         try:
-            from app.services.billing.gateway import get_gateway
+            
             gateway = get_gateway(provider)
             webhook = gateway.handle_webhook(body, signature)
 
@@ -64,9 +59,8 @@ class WebhookService:
                     # If Redis fails, fall back to DB-based locking below
                     lock_token = None
 
-            
-            # PHASE 1: DURABLE AUDIT LOG (Commit immediately)
-            
+      
+            #  DURABLE AUDIT LOG (Commit immediately)
             webhook_event = (
                 db.query(WebhookEvent)
                 .filter(
@@ -89,13 +83,11 @@ class WebhookService:
                 )
                 db.add(webhook_event)
                 try:
-                    db.commit() #  Audit log is now permanently saved
+                    db.commit() 
                 except Exception:
-                    db.rollback() # Another thread beat us to it, which is fine
+                    db.rollback() 
 
-            
-            # PHASE 2: PROCESSING WITH ROW LOCK
-            
+           
             # Re-fetch with FOR UPDATE to safely lock the row for processing
             webhook_event = (
                 db.query(WebhookEvent)
@@ -153,7 +145,7 @@ class WebhookService:
                 }
 
             except Exception as e:
-                db.rollback() #  Roll back ONLY the failed business logic
+                db.rollback() 
                 
                 # Re-fetch the audit log to ensure it remains in a failed/unprocessed state
                 failed_event = db.query(WebhookEvent).filter(
@@ -162,7 +154,7 @@ class WebhookService:
                 ).first()
                 if failed_event:
                     failed_event.processed = False
-                    db.commit() # Save the failure state
+                    db.commit()
                 
                 # Re-raise so the API returns a 500 and Razorpay knows to retry
                 raise e

@@ -1,12 +1,9 @@
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
 from app.schemas.admin import ModelConfigCreate, ModelConfigUpdate
 from app.services.model_config_service import ModelConfigService
 
 router = APIRouter(prefix="/model-configs")
-
 
 
 # Dependency to get database session (replace with your actual DB session)
@@ -24,6 +21,7 @@ async def get_all_configs(
     active_only: bool = False,
     db: Session = Depends(get_db)
 ):
+    
     try:
         service = ModelConfigService(db)
         configs = service.get_all_configs(active_only=active_only)
@@ -43,7 +41,7 @@ async def get_config_by_name(
     config_name: str,
     db: Session = Depends(get_db)
 ):
-    """Get a specific model configuration by name"""
+
     try:
         service = ModelConfigService(db)
         config = service.get_config_by_name(config_name)
@@ -73,7 +71,7 @@ async def get_config_by_id(
     config_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get a specific model configuration by ID"""
+    
     try:
         service = ModelConfigService(db)
         config = service.get_config_by_id(config_id)
@@ -101,7 +99,7 @@ async def create_config(
     config: ModelConfigCreate,
     db: Session = Depends(get_db)
 ):
-    """Create a new model configuration"""
+   
     try:
         service = ModelConfigService(db)
         new_config = service.create_config(config.dict())
@@ -128,7 +126,7 @@ async def update_config(
     config: ModelConfigUpdate,
     db: Session = Depends(get_db)
 ):
-    """Update an existing model configuration"""
+    
     try:
         service = ModelConfigService(db)
         # Only include non-None values in the update
@@ -157,7 +155,7 @@ async def delete_config(
     config_id: int,
     db: Session = Depends(get_db)
 ):
-    """Delete a model configuration"""
+    
     try:
         service = ModelConfigService(db)
         service.delete_config(config_id)
@@ -182,7 +180,7 @@ async def toggle_config_status(
     config_id: int,
     db: Session = Depends(get_db)
 ):
-    """Toggle the active status of a model configuration"""
+    
     try:
         service = ModelConfigService(db)
         updated_config = service.toggle_active_status(config_id)
@@ -205,7 +203,7 @@ async def toggle_config_status(
 
 @router.post("/seed")
 async def seed_default_configs(db: Session = Depends(get_db)):
-    """Seed database with default model configurations"""
+   
     try:
         service = ModelConfigService(db)
         service.seed_default_configs()

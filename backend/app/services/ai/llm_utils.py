@@ -19,6 +19,6 @@ async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
 async def safe_llm_call_text(prompt: str, model: str = "auto") -> str:
-
+   
     result = await safe_llm_call(prompt, model=model)
     return result["content"]

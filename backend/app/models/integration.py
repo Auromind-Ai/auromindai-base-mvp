@@ -6,10 +6,6 @@ import uuid
 from sqlalchemy.sql import func
 
 
-
-# OAuth Integrations
-
-
 class Integration(Base):
     __tablename__ = "integrations"
 
@@ -40,8 +36,6 @@ class Integration(Base):
 
 
 # Calendar Events
-
-
 class CalendarEvent(Base):
     __tablename__ = "calendar_events"
 
@@ -66,18 +60,14 @@ class CalendarEvent(Base):
     google_event_id = Column(String, index=True)
 
     sync_status = Column(String, default="pending")
-    # pending / synced / failed
 
     status = Column(String, default="scheduled")
-    # scheduled / completed / cancelled
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 
 # Email Reply Logs
-
-
 class EmailReplyLog(Base):
     __tablename__ = "email_reply_logs"
 
