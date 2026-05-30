@@ -299,7 +299,8 @@ const normalizeLead = (lead) => {
         conversion_amount: lead.conversion_amount,
         converted_at: lead.converted_at,
         converted_product: lead.converted_product,
-        conversion_notes: lead.conversion_notes
+        conversion_notes: lead.conversion_notes,
+        is_favorite: lead.is_favorite || false
     };
 };
 
@@ -555,7 +556,7 @@ function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasM
 
 // ─── CHAT SECTION ─────────────────────────────────────────────────────────────
 
-function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert }) {
+function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onToggleFavorite }) {
     const endRef = useRef(null);
     const [previewMedia, setPreviewMedia] = useState(null);
 
@@ -611,6 +612,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert }) {
 
     const chKey = resolveLeadChannel(lead, leadDetail);
     const theme = getTheme(chKey);
+    const isFavorite = leadDetail?.is_favorite || lead?.is_favorite;
 
     return (
         <div className="flex-1 flex flex-col min-w-0 bg-[#07010F]">
@@ -649,11 +651,10 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert }) {
                 <div className="flex items-center gap-6">
                     <div className="text-right hidden sm:block">
                         <div className="text-[10px] uppercase tracking-widest text-zinc-600 font-bold mb-0.5">Lead Score</div>
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex items-baseline justify-end gap-2">
                             <span className={`text-3xl font-black ${theme.scoreColor}`}>{lead.score}%</span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${theme.scoreBg}`}>{lead.prob}</span>
                         </div>
-                        <div className="text-[10px] text-zinc-600 mt-0.5">Last activity : {lead.lastActive}</div>
+                        <div className="text-[10px] text-zinc-600 mt-0.5">Last activity: {lead.lastActive}</div>
                     </div>
                     <div className="flex items-center gap-2">
                         {leadDetail && !leadDetail.is_converted && (
@@ -678,11 +679,15 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert }) {
                             <ArrowUpRight size={14} />
                             <span className="hidden xs:inline">Open in Inbox</span>
                         </button>
-                        <button className="w-8 h-8 rounded-lg bg-white/5 border border-white/[0.06] flex items-center justify-center text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-all">
-                            <MoreHorizontal size={16} />
-                        </button>
-                        <button className="w-8 h-8 rounded-lg bg-white/5 border border-white/[0.06] flex items-center justify-center text-zinc-500 hover:text-yellow-400 hover:bg-white/10 transition-all">
-                            <Star size={16} />
+                        <button
+                            onClick={() => onToggleFavorite(lead.id)}
+                            className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all
+                                ${isFavorite
+                                    ? 'bg-yellow-400/10 border-yellow-400/20 text-yellow-400 hover:bg-yellow-400/20'
+                                    : 'bg-white/5 border-white/[0.06] text-zinc-500 hover:text-yellow-400 hover:bg-white/10'
+                                }`}
+                        >
+                            <Star size={16} fill={isFavorite ? 'currentColor' : 'none'} />
                         </button>
                     </div>
                 </div>
@@ -1315,6 +1320,62 @@ export default function LeadsPage() {
         fetchSelectedLeadData(updatedLead.id);
     };
 
+    const handleToggleFavorite = async (leadId) => {
+        const workspaceId = getWorkspaceIdFromToken();
+        if (!workspaceId) return;
+
+        // Optimistically toggle is_favorite
+        const originalLead = leads.find(l => l.id === leadId);
+        const originalDetail = leadsDetails[leadId];
+        const nextFavorite = !(originalDetail?.is_favorite || originalLead?.is_favorite);
+
+        const updateState = (isFav) => {
+            setLeads(prev => prev.map(l => {
+                if (l.id === leadId) {
+                    return { ...l, is_favorite: isFav };
+                }
+                return l;
+            }));
+            setLeadsDetails(prev => {
+                const current = prev[leadId];
+                if (!current) return prev;
+                return {
+                    ...prev,
+                    [leadId]: { ...current, is_favorite: isFav }
+                };
+            });
+        };
+
+        updateState(nextFavorite);
+
+        try {
+            const res = await api.post(`/lead-scoring/leads/${leadId}/favorite?workspace_id=${workspaceId}`);
+            const updatedLead = normalizeLead(res);
+            setLeads(prev => prev.map(l => {
+                if (l.id === leadId) {
+                    return { ...l, is_favorite: updatedLead.is_favorite };
+                }
+                return l;
+            }));
+            setLeadsDetails(prev => {
+                const current = prev[leadId] || {};
+                return {
+                    ...prev,
+                    [leadId]: {
+                        ...current,
+                        ...updatedLead,
+                        conversation_log: res.conversation_log || current.conversation_log || [],
+                        breakdown: res.breakdown || current.breakdown || null
+                    }
+                };
+            });
+        } catch (err) {
+            console.error('Failed to toggle favorite status:', err);
+            updateState(!nextFavorite);
+        }
+    };
+
+
     // Open in Inbox navigation
     const handleOpenInInbox = () => {
         const leadDetail = leadsDetails[selectedLeadId];
@@ -1362,10 +1423,6 @@ export default function LeadsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button className="flex items-center gap-2 px-3 h-9 rounded-xl border border-white/[0.06] bg-[#111119] text-sm text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-all">
-                            <Filter size={14} />
-                            <span className="hidden sm:inline">Filter</span>
-                        </button>
                         <button
                             onClick={() => setShowAddLeadModal(true)}
                             className="flex items-center gap-2 px-3 h-9 rounded-xl bg-gradient-to-r from-[#7C4DFF] to-[#6A3DE8] text-sm text-white font-semibold shadow-lg shadow-[#7C4DFF]/20 hover:opacity-90 transition-all"
@@ -1399,6 +1456,7 @@ export default function LeadsPage() {
                                 onBack={() => setView('leads')}
                                 onOpenInInbox={handleOpenInInbox}
                                 onConvert={() => setShowConvertModal(true)}
+                                onToggleFavorite={handleToggleFavorite}
                             />
                         )}
                         <RightPanel

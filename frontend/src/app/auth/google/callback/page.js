@@ -19,13 +19,13 @@ function GoogleCallbackPageContent() {
 
                 if (error) {
                     setError(`Authorization failed: ${error}`);
-                    setTimeout(() => router.push('/user/admin/integrations'), 3000);
+                    setTimeout(() => router.push('/user/admin/channels'), 3000);
                     return;
                 }
 
                 if (!code || !state) {
                     setError('Missing authorization code or state');
-                    setTimeout(() => router.push('/user/admin/integrations'), 3000);
+                    setTimeout(() => router.push('/user/admin/channels'), 3000);
                     return;
                 }
 
@@ -37,13 +37,13 @@ function GoogleCallbackPageContent() {
 
                 setStatus('Success! Redirecting...');
                 setTimeout(() => {
-                    router.push('/user/admin/integrations');
+                    router.push('/user/admin/channels');
                 }, 1500);
 
             } catch (err) {
                 console.error('Callback error:', err);
                 setError(err.message || 'Connection failed');
-                setTimeout(() => router.push('/user/admin/integrations'), 3000);
+                setTimeout(() => router.push('/user/admin/channels'), 3000);
             }
         };
 

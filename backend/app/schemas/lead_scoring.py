@@ -185,6 +185,8 @@ class LeadScoreListItem(BaseModel):
     converted_at: Optional[datetime] = None
     converted_product: Optional[str] = None
     conversion_notes: Optional[str] = None
+    is_favorite: bool = False
+
 
 
 class LeadScoreListResponse(BaseModel):
@@ -232,6 +234,8 @@ class LeadDetailResponse(BaseModel):
     converted_at: Optional[datetime] = None
     converted_product: Optional[str] = None
     conversion_notes: Optional[str] = None
+    is_favorite: bool = False
+
 
 
 

@@ -425,6 +425,7 @@ def get_workspace_lead_scores(
             "converted_at": lead.converted_at,
             "converted_product": lead.converted_product,
             "conversion_notes": lead.conversion_notes,
+            "is_favorite": lead.is_favorite,
         })
 
     return {"total": total, "items": items}

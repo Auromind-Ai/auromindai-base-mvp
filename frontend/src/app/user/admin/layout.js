@@ -42,8 +42,8 @@ const MAIN_NAV_ITEMS = [
     { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
     { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
-    { label: 'Templates', icon: FileText, href: '/user/admin/templates' }, 
-    { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
+    { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
+     { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
 ];
 
 const SYSTEM_NAV_ITEMS = [
@@ -213,9 +213,7 @@ function AdminLayoutContent({ children }) {
         pathname === '/user/admin/brain' ||
         pathname.startsWith('/user/admin/brain/') ||
         pathname === '/user/admin/channels' ||
-        pathname.startsWith('/user/admin/channels/') ||
-        pathname === '/user/admin/integrations' ||
-        pathname.startsWith('/user/admin/integrations/')
+        pathname.startsWith('/user/admin/channels/')
     );
 
     return (
