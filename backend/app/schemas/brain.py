@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl, UUID4
+from pydantic import BaseModel, UUID4
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID

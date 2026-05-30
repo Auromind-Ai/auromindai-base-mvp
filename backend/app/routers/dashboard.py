@@ -1,27 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any, Optional
+from typing import List
 from app.schemas.dashboard import MetricResponse, AttentionItemResponse, AIInsightResponse, FlowStatResponse, ScheduleItemResponse
-import uuid
-from datetime import datetime
-
 from app.database import get_db
-from app.routers.auth import get_current_user # Assuming user authentication is needed for dashboard data
-from app.models import AIAction, Followup # Example models that might feed data
-from app.models.workspace import WorkspaceMember
+from app.routers.auth import get_current_user 
 from app.core.security import verify_workspace_access
 
 router = APIRouter(tags=["dashboard"])
 
-
-
-
-# ============== Response Models ==============
-
-# ============== Endpoints ==============
-
-
-# ============== Endpoints ==============
 
 @router.get("/metrics", response_model=List[MetricResponse])
 async def get_metrics(
@@ -29,10 +15,7 @@ async def get_metrics(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """
-    Retrieves key sales metrics for the dashboard.
-    (Currently returns hardcoded data for demonstration)
-    """
+    
     verify_workspace_access(current_user, db)
     # TODO: Implement actual data retrieval from DB/services
     METRICS = [

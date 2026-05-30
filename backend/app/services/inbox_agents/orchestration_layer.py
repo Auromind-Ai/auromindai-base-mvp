@@ -1,5 +1,4 @@
 from app.core.logger import logger
-from app.core.config import settings
 from app.services.inbox_agents.config_service import ConfigService
 from app.services.inbox_agents.unified_agent import UnifiedAgent
 from app.services.inbox_agents.mcpservice import MCPService
@@ -37,8 +36,7 @@ class AgentOrchestration:
 
         self.logger.info("AgentOrchestration initialized successfully")
 
-    # ─ MAIN ENTRY POINT ─
-
+    # MAIN ENTRY POINT 
     async def process_message(self, payload, channel, skip_send=False):
         data = self.normalize_message(payload, channel)
 
@@ -317,10 +315,9 @@ class AgentOrchestration:
             self.send_response(channel, user_id, response)
         return response
 
-    # ─ END AI SESSION ─
-
+    # END AI SESSION
     def _end_ai_session(self, conversation_id):
-        """Clear the active_ai_session flag so the flow doesn't stay locked."""
+       
         if not self.db or not conversation_id:
             return
         try:
@@ -339,8 +336,7 @@ class AgentOrchestration:
         except Exception:
             self.logger.warning("_end_ai_session failed", exc_info=True)
 
-    # ─ AGENT TYPE ─
-
+    # AGENT TYPE 
     def _determine_agent_type(self, message, turn_count, lead_data, state, is_followup_trigger=False):
         if is_followup_trigger:
             return "followup_agent"
@@ -377,8 +373,7 @@ class AgentOrchestration:
 
         return "sales_agent"
 
-    # ─ NORMALIZE MESSAGE ─
-
+    # NORMALIZE MESSAGE 
     def normalize_message(self, payload, channel):
         try:
             user_id         = None
@@ -433,7 +428,7 @@ class AgentOrchestration:
                 "conversation_id": payload.get("conversation_id"),
             }
 
-    # ─ SEND RESPONSE ─
+    # SEND RESPONSE
     def send_response(self, channel, user_id, response):
         from app.services.message_service import MessageService
         from app.models.message import SenderType, MessageStatus

@@ -13,7 +13,6 @@ def init_rag(app):
     app.state.orchestrator = orchestrator
     logger.info("RAG service initialized")
 
-
 def init_learning_cache():
     db: Session = SessionLocal()
     try:
@@ -26,7 +25,7 @@ def init_learning_cache():
 
 
 def init_schedulers(app):
-    # ⚠️ Multi-worker safe check
+    # Multi-worker safe check
     if not settings.SCHEDULER_ENABLED:
         logger.warning("Schedulers disabled (multi-worker mode)")
         return

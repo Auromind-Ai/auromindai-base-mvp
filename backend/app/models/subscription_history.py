@@ -3,9 +3,6 @@ from sqlalchemy import UUID, Column, ForeignKey, Integer, String, DateTime, func
 from app.database import Base
 
 
-
-
-
 class SubscriptionHistory(Base):
     __tablename__ = "subscription_history"
 

@@ -1,10 +1,8 @@
 import hashlib
 import json
 from typing import Any
-
 from app.core.config import settings
 from groq import BadRequestError
-
 from app.models.workspace import Workspace
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
 
@@ -54,7 +52,7 @@ class RazorpayGateway(PaymentGateway):
                 return existing["items"][0]["id"]
 
         except Exception:
-            pass  # ignore search failure, fallback to create
+            pass 
 
 
    

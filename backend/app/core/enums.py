@@ -7,13 +7,11 @@ class SubscriptionStatus(str, enum.Enum):
     trialing = "trialing"
     past_due = "past_due"
 
-
 class PaymentStatus(str, enum.Enum):
     pending = "pending"
     paid = "paid"
     failed = "failed"
     refunded = "refunded"
-
 
 class InvoiceStatus(str, enum.Enum):
     draft = "draft"

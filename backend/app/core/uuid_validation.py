@@ -27,7 +27,6 @@ def _looks_like_uuid(value: str) -> bool:
 
     return True
 
-
 class UUIDValidationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
@@ -62,8 +61,8 @@ class UUIDValidationMiddleware(BaseHTTPMiddleware):
         try:
             return await call_next(request)
         except ValueError as exc:
+            
             # Catch any remaining UUID parse errors that slip past FastAPI's
-            # path converters (e.g. custom parsing code in handlers).
             if "UUID" in str(exc) or "badly formed" in str(exc):
                 logger.warning("UUID ValueError caught by middleware: %s", exc)
                 return JSONResponse(

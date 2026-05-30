@@ -5,7 +5,6 @@ from .ai_action import AIAction
 from .brain import BrainEntry
 from .workspace import Workspace, WorkspaceMember
 from .followup import Followup
-from .promise import Promise
 from .learning_event import LearningEvent, FeedbackType
 from .platform_setting import PlatformSetting
 from .impersonation import ImpersonationSession
@@ -17,8 +16,6 @@ from .ai_action import (
     Lead,
     SalesPipeline,
     SupportTicket,
-    ChatFollowup,
-    MCPRule,
     HumanEscalation
 )
 from .token_ledger import TokenLedger

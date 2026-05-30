@@ -78,10 +78,6 @@ class Conversation(Base):
     workspace = relationship("Workspace", back_populates="conversations")
 
 
-# ===============================
-# Chat Sessions
-# ===============================
-
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
@@ -103,10 +99,6 @@ class ChatSession(Base):
     )
 
 
-# ===============================
-# Chat Messages
-# ===============================
-
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
@@ -116,7 +108,7 @@ class ChatMessage(Base):
     ForeignKey("chat_sessions.id"),
     nullable=False
     )
-    role = Column(String) # user, assistant, system
+    role = Column(String) 
     content = Column(Text)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

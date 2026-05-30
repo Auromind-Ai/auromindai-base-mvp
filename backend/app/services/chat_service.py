@@ -2,12 +2,10 @@ import uuid
 import json
 import asyncio
 from datetime import datetime
-from typing import Optional, Dict, Any, AsyncGenerator, Tuple
-
+from typing import Optional, Dict, Any, AsyncGenerator
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from tenacity import RetryError
-
 from app.core.exceptions import (
     BillingError,
     GuardrailError,
@@ -155,82 +153,79 @@ class ChatService:
             logger.warning(f"Failed rollback before release (ignored): {e}")
         self._release_token_reservation(db, reservation_id, reason)
 
-    async def handle_chat_query(
-        self,
-        db: Session,
-        message: str,
-        workspace_id: str,
-        user_id: str,
-        model: str = "auto",  # FIX: was missing; _get_rag_answer requires it
-    ) -> Dict[str, Any]:
-        """
-        One-shot chat:
-        reserve -> guardrails -> RAG -> finalize/release
-        """
-        reservation_key = f"chat-query:{workspace_id}:{uuid.uuid4()}"
-        reservation = None
+    # async def handle_chat_query(
+    #     self,
+    #     db: Session,
+    #     message: str,
+    #     workspace_id: str,
+    #     user_id: str,
+    #     model: str = "auto",  # FIX: was missing; _get_rag_answer requires it
+    # ) -> Dict[str, Any]:
+       
+    #     reservation_key = f"chat-query:{workspace_id}:{uuid.uuid4()}"
+    #     reservation = None
 
-        try:
-            self._validate_workspace_access(db, workspace_id, user_id)
+    #     try:
+    #         self._validate_workspace_access(db, workspace_id, user_id)
 
-            # Run guardrails BEFORE reserving credits to avoid DoS via blocked prompts
-            guard_result = await self._check_guardrails(message)
-            safe_query = guard_result["safe_query"]
-            estimated_tokens = BillingService.estimate_reservation_amount(message=message, use_rag=True)
-            reservation = self._reserve_tokens(
-                db=db,
-                workspace_id=workspace_id,
-                reference_key=reservation_key,
-                amount=estimated_tokens,
-                description="chat.query reservation",
-            )
+    #         # Run guardrails BEFORE reserving credits to avoid DoS via blocked prompts
+    #         guard_result = await self._check_guardrails(message)
+    #         safe_query = guard_result["safe_query"]
+    #         estimated_tokens = BillingService.estimate_reservation_amount(message=message, use_rag=True)
+    #         reservation = self._reserve_tokens(
+    #             db=db,
+    #             workspace_id=workspace_id,
+    #             reference_key=reservation_key,
+    #             amount=estimated_tokens,
+    #             description="chat.query reservation",
+    #         )
 
-            # FIX: previously called without `model=`, causing TypeError since
-            # _get_rag_answer signature requires it with no default.
-            answer_data = await self._get_rag_answer(
-                db=db,
-                workspace_id=workspace_id,
-                query=safe_query,
-                model=model,
-            )
+    #         # FIX: previously called without `model=`, causing TypeError since
+    #         # _get_rag_answer signature requires it with no default.
+    #         answer_data = await self._get_rag_answer(
+    #             db=db,
+    #             workspace_id=workspace_id,
+    #             query=safe_query,
+    #             model=model,
+    #         )
 
-            if answer_data:
-                if isinstance(answer_data, dict):
-                    raw_answer = answer_data.get("answer", "")
-                    meta = answer_data.get("meta", {})
-                else:
-                    raw_answer = answer_data
-                    meta = {}
+    #         if answer_data:
+    #             if isinstance(answer_data, dict):
+    #                 raw_answer = answer_data.get("answer", "")
+    #                 meta = answer_data.get("meta", {})
+    #             else:
+    #                 raw_answer = answer_data
+    #                 meta = {}
 
-                safe_answer = await self.guardrails_service.secure_response(raw_answer)
-                self._finalize_billing(db, reservation.id, message, safe_answer)
-                return {"answer": safe_answer, "sources": [], "actions": [], "meta": meta}
+    #             safe_answer = await self.guardrails_service.secure_response(raw_answer)
+    #             self._finalize_billing(db, reservation.id, message, safe_answer)
+    #             return {"answer": safe_answer, "sources": [], "actions": [], "meta": meta}
 
-            self._release_token_reservation(db, reservation.id, "no_answer_generated")
-            return {
-                "answer": "I'm not sure how to help with that yet.",
-                "sources": [],
-                "actions": [],
-            }
+    #         self._release_token_reservation(db, reservation.id, "no_answer_generated")
+    #         return {
+    #             "answer": "I'm not sure how to help with that yet.",
+    #             "sources": [],
+    #             "actions": [],
+    #         }
 
-        except (GuardrailError, RAGError, BillingError, WorkspaceAccessError):
-            if reservation is not None:
-                try:
-                    self._force_release_reservation(
-                        db, reservation.id, "error:handled_exception"
-                    )
-                except Exception as release_err:
-                    logger.error(f"Failed force-release reservation: {release_err}")
-            raise
-        except Exception as e:
-            if reservation is not None:
-                try:
-                    self._force_release_reservation(
-                        db, reservation.id, f"error:{type(e).__name__}"
-                    )
-                except Exception as release_err:
-                    logger.error(f"Failed force-release reservation: {release_err}")
-            raise ChatProcessingError(f"Chat query failed: {str(e)}")
+    #     except (GuardrailError, RAGError, BillingError, WorkspaceAccessError):
+    #         if reservation is not None:
+    #             try:
+    #                 self._force_release_reservation(
+    #                     db, reservation.id, "error:handled_exception"
+    #                 )
+    #             except Exception as release_err:
+    #                 logger.error(f"Failed force-release reservation: {release_err}")
+    #         raise
+    #     except Exception as e:
+    #         if reservation is not None:
+    #             try:
+    #                 self._force_release_reservation(
+    #                     db, reservation.id, f"error:{type(e).__name__}"
+    #                 )
+    #             except Exception as release_err:
+    #                 logger.error(f"Failed force-release reservation: {release_err}")
+    #         raise ChatProcessingError(f"Chat query failed: {str(e)}")
 
     async def handle_stream_chat(
         self,
@@ -251,9 +246,6 @@ class ChatService:
         chunks_successfully_sent = False
         safe_query = message
 
-        # =========================================================
-        # PHASE 1: PRE-STREAM TRANSACTION (Fast & Durable)
-        # =========================================================
         with SessionLocal() as db:
             try:
                 workspace = self._validate_workspace_access(db, workspace_id, user_id)
@@ -304,11 +296,6 @@ class ChatService:
                 logger.error(f"Pre-stream setup failed: {e}")
                 raise
 
-        # --- DB CONNECTION IS NOW RETURNED TO THE POOL ---
-
-        # =========================================================
-        # PHASE 2: STREAMING (Slow Network Bound - NO DB HELD)
-        # =========================================================
         try:
             rag_answered = False
             if use_rag:
@@ -372,9 +359,7 @@ class ChatService:
             logger.error(f"Stream chat error: {e}")
             raise ChatProcessingError(f"Chat stream failed: {str(e)}")
 
-        # =========================================================
-        # PHASE 3: POST-STREAM CLEANUP (Fresh Transaction)
-        # =========================================================
+      
         finally:
             if reservation_id:
                 with SessionLocal() as cleanup_db:

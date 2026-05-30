@@ -23,15 +23,13 @@ class Followup(Base):
         String(50),
         default="pending"
     )
-    # pending / sent / stopped / failed
-
+    
     message_content = Column(Text)
 
     followup_count = Column(Integer, default=0)
 
     mcp_decision = Column(String(50))  
-    # allow / escalate / block
-
+   
     mcp_reason = Column(Text)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

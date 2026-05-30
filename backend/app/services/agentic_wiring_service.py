@@ -1,8 +1,7 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
 import google.generativeai as genai
 from groq import Groq
 from app.core.config import settings
@@ -19,9 +18,9 @@ class AgenticWiringServiceV2:
             genai.configure(api_key=self.google_api_key)
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
 
-    # ------------------------------------------------------------------ #
+    #
     #  PUBLIC                                                              #
-    # ------------------------------------------------------------------ #
+    #
 
     def generate_flow(self, prompt: str) -> Dict[str, Any]:
         system_prompt = self._get_system_prompt()
@@ -61,15 +60,13 @@ class AgenticWiringServiceV2:
             return self._validate_and_enhance_flow(flow_data)
 
         except Exception as e:
-            # FIX: was `print(...)` — exceptions were silently discarded with no
-            # structured log entry, making flow-generation failures invisible in
-            # production log aggregators (Datadog, CloudWatch, etc.).
+           
             logger.exception("[AgenticWiring] Flow generation failed: %s", e)
             return self._get_fallback_flow(str(e))
 
-    # ------------------------------------------------------------------ #
+    #
     #  SYSTEM PROMPT — aligned with flow_service_v2.py exactly            #
-    # ------------------------------------------------------------------ #
+    #
 
     def _get_system_prompt(self) -> str:
         return """You are a WhatsApp automation flow architect. Generate production-ready flows.
@@ -199,9 +196,9 @@ LANGUAGE & STYLE
 
 Return ONLY the JSON object with "nodes" and "edges" arrays."""
 
-    # ------------------------------------------------------------------ #
+    #
     #  WIRE FALLBACK BUTTONS                                               #
-    # ------------------------------------------------------------------ #
+    #
 
     def _wire_fallback_buttons(
         self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]
@@ -267,10 +264,7 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
 
         return [edge for edge in edges if edge.get("source") not in fallback_node_ids]
 
-    # ------------------------------------------------------------------ #
     #  VALIDATE & AUTO-FIX                                                 #
-    # ------------------------------------------------------------------ #
-
     def _validate_and_enhance_flow(self, flow_data: Dict[str, Any]) -> Dict[str, Any]:
         nodes: List[Dict] = flow_data.get("nodes", [])
         edges: List[Dict] = flow_data.get("edges", [])
@@ -405,10 +399,8 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
 
         return {"nodes": nodes, "edges": edges}
 
-    # ------------------------------------------------------------------ #
-    #  FALLBACK                                                            #
-    # ------------------------------------------------------------------ #
 
+    #  FALLBACK                                                            #
     def _get_fallback_flow(self, error: str) -> Dict[str, Any]:
         return {
             "nodes": [

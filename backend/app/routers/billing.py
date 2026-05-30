@@ -1,20 +1,16 @@
 import logging
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
-
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
 from app.services.billing import BillingService
 from app.schemas import (
     CreateSubscriptionRequest,
-    LegacyCreateOrderRequest,
-    LegacyUpgradePlanRequest,
     VerifyPaymentRequest
 )
 from app.core.security import verify_workspace_access
 
 router = APIRouter(prefix="/billing", tags=["billing"])
-
 logger = logging.getLogger(__name__)
 
 

@@ -1,21 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import Any, List, Optional
-from app.schemas.email import EmailItem, InboxResponse, SendReplyResponse
+from app.schemas.email import InboxResponse, SendReplyResponse
 from app.database import get_db
 from app.models.brain import EmailMessage, MCPDecision
 from app.routers.auth import get_current_user
-import json
 from app.services.email_automation.email_reply_excutor import EmailReplyExecutor
-from app.models.workspace import WorkspaceMember
 from app.core.security import verify_workspace_access
 
 router = APIRouter(prefix="/email", tags=["email"])
-
-
-# --- Response models ---
-
-
 
 
 @router.get("/inbox", response_model=InboxResponse)

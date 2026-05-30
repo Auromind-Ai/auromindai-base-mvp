@@ -1,7 +1,5 @@
 import uuid
-
 from sqlalchemy import UUID, Boolean, Column, ForeignKey, Integer, DateTime, UniqueConstraint, func
-from datetime import datetime
 from app.database import Base
 
 class Usage(Base):

@@ -1,5 +1,4 @@
 import logging
-
 from ddgs import DDGS
 from bs4 import BeautifulSoup
 from app.config.set import setter

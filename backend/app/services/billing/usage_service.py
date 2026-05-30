@@ -1,8 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any
-
 from sqlalchemy.orm import Session
-
 from app.models.subscription import Subscription
 from app.models.usage import Usage
 

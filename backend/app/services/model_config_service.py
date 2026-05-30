@@ -1,9 +1,8 @@
-
-
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.models.model_configs import ModelConfig
+
 ALLOWED_ENV_KEYS = [
     "GROQ_API_KEY",
     "ANTHROPIC_API_KEY",
@@ -19,13 +18,12 @@ def _normalize_api_key_env(api_key_env: str | None) -> str | None:
 
 
 class ModelConfigService:
-    """Service for managing model configurations"""
     
     def __init__(self, db_session: Session):
         self.db = db_session
    
     def get_all_configs(self, active_only: bool = False) -> List[Dict[str, Any]]:
-        """Get all model configurations"""
+       
         query = self.db.query(ModelConfig)
         if active_only:
             query = query.filter(ModelConfig.is_active == True)
@@ -33,17 +31,17 @@ class ModelConfigService:
         return [config.to_dict() for config in configs]
     
     def get_config_by_id(self, config_id: int) -> Optional[Dict[str, Any]]:
-        """Get a specific model configuration by ID"""
+        
         config = self.db.query(ModelConfig).filter(ModelConfig.id == config_id).first()
         return config.to_dict() if config else None
     
     def get_config_by_name(self, name: str) -> Optional[Dict[str, Any]]:
-        """Get a specific model configuration by name"""
+        
         config = self.db.query(ModelConfig).filter(ModelConfig.name == name).first()
         return config.to_dict() if config else None
     
     def create_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new model configuration"""
+       
         try:
             # Validate required fields
             required_fields = ['name', 'display_name', 'provider', 'model']
@@ -87,7 +85,7 @@ class ModelConfigService:
             raise e
     
     def update_config(self, config_id: int, config_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Update an existing model configuration"""
+        
         config = self.db.query(ModelConfig).filter(ModelConfig.id == config_id).first()
 
         if not config:
@@ -122,7 +120,7 @@ class ModelConfigService:
             raise e
     
     def delete_config(self, config_id: int) -> bool:
-        """Delete a model configuration"""
+      
         config = self.db.query(ModelConfig).filter(ModelConfig.id == config_id).first()
         
         if not config:
@@ -137,7 +135,7 @@ class ModelConfigService:
             raise e
     
     def toggle_active_status(self, config_id: int) -> Dict[str, Any]:
-        """Toggle the active status of a model configuration"""
+       
         config = self.db.query(ModelConfig).filter(ModelConfig.id == config_id).first()
         
         if not config:
@@ -154,7 +152,7 @@ class ModelConfigService:
             raise e
     
     def seed_default_configs(self):
-        """Seed database with default model configurations"""
+       
         default_configs = [
             {
                 'name': 'sonnet',

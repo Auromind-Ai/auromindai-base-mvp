@@ -1,16 +1,12 @@
 import logging
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-
 from app.core.config import settings
 from app.database import get_db
 from app.services.channel_connection_service import ChannelConnectionService
 from app.services.webhook_service import WebhookService
 
 logger = logging.getLogger(__name__)
-
-
 router = APIRouter(prefix="/instagram", tags=["instagram"])
 
 

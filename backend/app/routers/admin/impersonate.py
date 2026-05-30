@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
 import uuid
-
 from app.database import get_db
 from app.models.user import User
 from app.models.workspace import Workspace
@@ -27,9 +26,7 @@ def create_impersonation_session(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    print(f"🚀 CREATING IMPERSONATION SESSION for user {user_id}")
     session_id = str(uuid.uuid4())
-    print(f"🧠 Generated Session ID: {session_id}")
 
     session = ImpersonationSession(
         session_id=session_id,
@@ -41,9 +38,9 @@ def create_impersonation_session(
     try:
         db.add(session)
         db.commit()
-        print("Session saved to DB")
+       
     except Exception as e:
-        print(f"⚠️ FAILED to save session to DB (using in-memory fallback): {e}")
+       
         db.rollback()
     
     # Always save to in-memory fallback to be safe
@@ -63,9 +60,6 @@ def start_impersonation(
     db: Session = Depends(get_db)
 ):
 
-    print("🚀 START IMPERSONATION SESSION")
-    print("Session ID:", session_id)
-
     # Try DB first
     session = db.query(ImpersonationSession).filter(
         ImpersonationSession.session_id == session_id
@@ -82,7 +76,7 @@ def start_impersonation(
         user_id = session.user_id
         expires_at = session.expires_at
     elif session_id in SESSION_CACHE:
-        cached = SESSION_CACHE.pop(session_id) # One-time use
+        cached = SESSION_CACHE.pop(session_id) 
         admin_id = cached["admin_id"]
         user_id = cached["user_id"]
         expires_at = cached["expires_at"]

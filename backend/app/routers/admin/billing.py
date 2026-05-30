@@ -1,9 +1,7 @@
 from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Dict, Any
-
 from app.database import get_db
 
 router = APIRouter()
@@ -11,9 +9,7 @@ router = APIRouter()
 
 @router.get("/billing")
 async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """
-    Get billing and revenue data.
-    """
+   
     try:
         return {
             "total_revenue": 15320.50,

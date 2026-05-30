@@ -1,7 +1,6 @@
 import uuid
-from sqlalchemy import UUID, Boolean, Column, ForeignKey, String, DateTime, UniqueConstraint, func
+from sqlalchemy import UUID, Boolean, Column, ForeignKey, String, DateTime, func
 from app.database import Base
-from sqlalchemy import CheckConstraint
 from app.core.enums import SubscriptionStatus
 from sqlalchemy import Enum, Index
 

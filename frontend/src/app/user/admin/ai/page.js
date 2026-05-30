@@ -52,7 +52,7 @@ const poppins = Poppins({
   variable: '--font-poppins',
 })
 
-// ── Typewriter (unchanged) ──────────────────────────────────────────────────
+// ── Typewriter (unchanged) ────
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     const [displayedText, setDisplayedText] = useState('');
     const textRef = useRef(text);
@@ -83,7 +83,7 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     );
 };
 
-// ── Helpers (unchanged) ─────────────────────────────────────────────────────
+// ── Helpers (unchanged) ───────
 function getGreeting() {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
@@ -134,7 +134,7 @@ const MODELS = [
     { id: "gemini_flash", name: "💡 Flash (Gemini)",    plan: "pro"  },
 ];
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// ── Page ───────────────────────
 export default function AuromindAIPage() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -643,7 +643,7 @@ export default function AuromindAIPage() {
     // Chat: has messages OR is initializing (so spinner shows in chat region)
     const isChatStarted = messages.length > 0 || isInitializing;
 
-    // ── RENDER ────────────────────────────────────────────────────────────────
+    // ── RENDER ──────────────────
     return (
         <div className={`${poppins.className} flex bg-[#0a0a0f] h-screen text-white overflow-hidden`}>
             <ChatSidebar

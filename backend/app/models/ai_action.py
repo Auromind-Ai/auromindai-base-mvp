@@ -67,7 +67,6 @@ class ConversationState(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-
 # LEADS
 class Lead(Base):
     __tablename__ = "leads"
@@ -117,7 +116,6 @@ class Lead(Base):
     )
 
 
-
 # SALES PIPELINE
 class SalesPipeline(Base):
     __tablename__ = "sales_pipeline"
@@ -146,7 +144,6 @@ class SalesPipeline(Base):
     )
 
 
-
 # SUPPORT TICKETS
 class SupportTicket(Base):
     __tablename__ = "support_tickets"
@@ -161,34 +158,6 @@ class SupportTicket(Base):
     description = Column(Text)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-# FOLLOWUPS
-class ChatFollowup(Base):
-    __tablename__ = "followups_chat"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-
-    followup_count = Column(Integer)
-    last_followup_at = Column(DateTime(timezone=True))
-
-    status = Column(String(50))  # active / stopped
-
-
-
-# MCP RULES (DYNAMIC)
-class MCPRule(Base):
-    __tablename__ = "mcp_rules"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    workspace_id = Column(UUID(as_uuid=True))
-
-    rules = Column(JSON)
-
-    updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 # HUMAN ESCALATION
@@ -217,34 +186,3 @@ class HumanEscalation(Base):
     resolved_at = Column(DateTime(timezone=True))
 
     resolution_notes = Column(Text)
-
-class WorkspaceAIConfig(Base):
-    __tablename__ = "workspace_ai_configs"
-
-    id = Column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4
-    )
-
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        unique=True
-    )
-
-    business_type = Column(String(100))
-
-    lead_fields = Column(JSON, default=[])
-
-    rag_enabled = Column(Boolean, default=True)
-
-    calendar_enabled = Column(Boolean, default=False)
-
-    payment_enabled = Column(Boolean, default=False)
-
-    support_enabled = Column(Boolean, default=True)
-
-    created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now()
-    )

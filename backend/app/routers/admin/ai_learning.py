@@ -1,25 +1,22 @@
+import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
-
 from app.database import get_db
 from app.models.feedback import Feedback
-from app.models.learning_event import LearningEvent, FeedbackType
+from app.models.learning_event import LearningEvent
 from app.services.agentic_rag.rag_service import get_rag_service
 
 router = APIRouter()
 
 @router.get("/ai-learning")
 async def get_learning_events(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
-    """
-    Get AI learning events and user feedback from both RAG feedback and Learning events tables.
-    """
+   
     try:
-        # 1. Fetch from RAG Feedback (ReinforcementEngine data)
+        # (ReinforcementEngine data)
         rag_feedbacks = db.query(Feedback).order_by(Feedback.created_at.desc()).limit(50).all()
         
-        # 2. Fetch from AI Learning Events (Complex interaction data)
+        #Fetch from AI Learning Events (Complex interaction data)
         learning_events = db.query(LearningEvent).order_by(LearningEvent.created_at.desc()).limit(50).all()
         
         unified_list = []
@@ -33,7 +30,7 @@ async def get_learning_events(db: Session = Depends(get_db)) -> List[Dict[str, A
                 "ai_response": fb.answer,
                 "feedback_type": fb.feedback,  # "up" or "down"
                 "user_satisfaction_score": 5 if fb.feedback == "up" else 1,
-                "promoted_to_rule": False, # Basic feedback isn't automatically a rule
+                "promoted_to_rule": False,
                 "created_at": fb.created_at.isoformat() if fb.created_at else None,
                 "metadata": {
                     "tool": fb.selected_tool,
@@ -70,9 +67,7 @@ async def promote_to_rule(
     event_id: str,
     db: Session = Depends(get_db)
 ):
-    """
-    Promote a learning event or feedback to a permanent RAG rule.
-    """
+    
     try:
         # Check both tables for the ID
         event = db.query(LearningEvent).filter(LearningEvent.id == event_id).first()

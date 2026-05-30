@@ -2,8 +2,8 @@ from collections import Counter, deque
 from typing import Any, Dict, List, Set
 
 
-def _normalize_hint(value: Any) -> str:
-    return " ".join(str(value or "").lower().replace("_", " ").split())
+# def _normalize_hint(value: Any) -> str:
+#     return " ".join(str(value or "").lower().replace("_", " ").split())
 
 
 def _is_button_message_node(node: Dict[str, Any]) -> bool:
@@ -15,27 +15,27 @@ def _is_button_message_node(node: Dict[str, Any]) -> bool:
     )
 
 
-def _is_fallback_node(node: Dict[str, Any]) -> bool:
-    config = node.get("config") or {}
-    if config.get("is_fallback") is True:
-        return True
+# def _is_fallback_node(node: Dict[str, Any]) -> bool:
+#     config = node.get("config") or {}
+#     if config.get("is_fallback") is True:
+#         return True
 
-    hint = " ".join(
-        _normalize_hint(part)
-        for part in (node.get("label"), config.get("text"), config.get("message"))
-        if part
-    )
-    fallback_markers = (
-        "fallback",
-        "invalid option",
-        "invalid choice",
-        "did not understand",
-        "didn t understand",
-        "unclear input",
-        "not sure",
-        "try again",
-    )
-    return any(marker in hint for marker in fallback_markers)
+#     hint = " ".join(
+#         _normalize_hint(part)
+#         for part in (node.get("label"), config.get("text"), config.get("message"))
+#         if part
+#     )
+#     fallback_markers = (
+#         "fallback",
+#         "invalid option",
+#         "invalid choice",
+#         "did not understand",
+#         "didn t understand",
+#         "unclear input",
+#         "not sure",
+#         "try again",
+#     )
+#     return any(marker in hint for marker in fallback_markers)
 
 
 class FlowValidationService:
@@ -191,8 +191,7 @@ class FlowValidationService:
             stack.add(current_id)
 
             for edge in outgoing_map.get(current_id, []):
-                # Skip button-handle branches — they are intentional fan-outs,
-                # not linear edges that form execution loops.
+                
                 if edge.get("sourceHandle"):
                     continue
                 target = edge.get("target")

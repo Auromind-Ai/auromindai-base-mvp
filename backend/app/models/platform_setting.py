@@ -15,7 +15,6 @@ class PlatformSetting(Base):
         nullable=False,
         default="string"
     )
-    # string / int / float / bool
 
     created_at = Column(
         DateTime(timezone=True),

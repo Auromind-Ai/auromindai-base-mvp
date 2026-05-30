@@ -194,36 +194,36 @@ class ConversationService:
                 return existing
             raise
 
-    @staticmethod
-    def get_or_create_web_conversation(
-        db: Session,
-        *,
-        workspace_id: str,
-        conversation_id: str,
-        user_id: str,
-        contact_name: str | None = None,
-    ) -> Conversation:
-        conversation = (
-            db.query(Conversation)
-            .filter(
-                Conversation.id == conversation_id,
-                Conversation.workspace_id == workspace_id,
-            )
-            .first()
-        )
-        if conversation:
-            return conversation
+    # @staticmethod
+    # def get_or_create_web_conversation(
+    #     db: Session,
+    #     *,
+    #     workspace_id: str,
+    #     conversation_id: str,
+    #     user_id: str,
+    #     contact_name: str | None = None,
+    # ) -> Conversation:
+    #     conversation = (
+    #         db.query(Conversation)
+    #         .filter(
+    #             Conversation.id == conversation_id,
+    #             Conversation.workspace_id == workspace_id,
+    #         )
+    #         .first()
+    #     )
+    #     if conversation:
+    #         return conversation
 
-        conversation = Conversation(
-            id=UUID(str(conversation_id)),
-            user_id=UUID(str(user_id)),
-            contact_name=contact_name or "Unknown",
-            workspace_id=workspace_id,
-            channel=ChannelType.WEB,
-            external_id=f"web:{user_id}",
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        db.add(conversation)
-        db.flush()
-        return conversation
+    #     conversation = Conversation(
+    #         id=UUID(str(conversation_id)),
+    #         user_id=UUID(str(user_id)),
+    #         contact_name=contact_name or "Unknown",
+    #         workspace_id=workspace_id,
+    #         channel=ChannelType.WEB,
+    #         external_id=f"web:{user_id}",
+    #         created_at=datetime.utcnow(),
+    #         updated_at=datetime.utcnow(),
+    #     )
+    #     db.add(conversation)
+    #     db.flush()
+    #     return conversation

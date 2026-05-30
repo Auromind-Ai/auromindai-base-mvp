@@ -1,42 +1,24 @@
-"""
-Document Processing Service for RAG System
-Handles parsing of PDF, DOCX, TXT files and URL scraping.
-"""
-
 from typing import Dict, Any, Optional
 import io
 import logging
 import re
 import pandas as pd
+from PyPDF2 import PdfReader
+from docx import Document
+import httpx
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentService:
-    """
-    Processes various document types for RAG ingestion.
-    
-    Supported formats:
-    - PDF (using PyPDF2)
-    - DOCX (using python-docx)
-    - TXT (plain text)
-    """
     
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt", ".md", ".xlsx", ".xls", ".csv"}
     MAX_FILE_SIZE_MB = 10
     
     def extract_text_from_pdf(self, file_content: bytes) -> str:
-        """
-        Extract text from a PDF file.
         
-        Args:
-            file_content: Raw PDF bytes
-            
-        Returns:
-            Extracted text content
-        """
         try:
-            from PyPDF2 import PdfReader
             
             pdf_file = io.BytesIO(file_content)
             reader = PdfReader(pdf_file)
@@ -57,17 +39,9 @@ class DocumentService:
             raise ValueError(f"Could not extract text from PDF: {e}")
     
     def extract_text_from_docx(self, file_content: bytes) -> str:
-        """
-        Extract text from a DOCX file.
-        
-        Args:
-            file_content: Raw DOCX bytes
-            
-        Returns:
-            Extracted text content
-        """
+       
         try:
-            from docx import Document
+            
             
             docx_file = io.BytesIO(file_content)
             doc = Document(docx_file)
@@ -90,15 +64,7 @@ class DocumentService:
             raise ValueError(f"Could not extract text from DOCX: {e}")
     
     def extract_text_from_txt(self, file_content: bytes) -> str:
-        """
-        Extract text from a plain text file.
-        
-        Args:
-            file_content: Raw text bytes
-            
-        Returns:
-            Text content
-        """
+       
         try:
             # Try different encodings
             for encoding in ["utf-8", "latin-1", "cp1252"]:
@@ -114,10 +80,7 @@ class DocumentService:
             raise ValueError(f"Could not read text file: {e}")
     
     def extract_text_from_excel(self, file_content: bytes) -> str:
-        """
-        Extract text from an Excel file (xlsx, xls).
-        Converts sheets to string representation.
-        """
+        
         try:
             excel_file = io.BytesIO(file_content)
             # Read all sheets
@@ -135,9 +98,7 @@ class DocumentService:
             raise ValueError(f"Could not extract text from Excel: {e}")
 
     def extract_text_from_csv(self, file_content: bytes) -> str:
-        """
-        Extract text from a CSV file.
-        """
+        
         try:
             csv_file = io.BytesIO(file_content)
             df = pd.read_csv(csv_file)
@@ -147,16 +108,7 @@ class DocumentService:
             raise ValueError(f"Could not extract text from CSV: {e}")
 
     def process_file(self, file_content: bytes, filename: str) -> Dict[str, Any]:
-        """
-        Process a file and extract its content.
-        
-        Args:
-            file_content: Raw file bytes
-            filename: Original filename
-            
-        Returns:
-            Dictionary with extracted text and metadata
-        """
+       
         # Validate file size
         size_mb = len(file_content) / (1024 * 1024)
         if size_mb > self.MAX_FILE_SIZE_MB:
@@ -201,26 +153,13 @@ class DocumentService:
 
 
 class URLScraperService:
-    """
-    Scrapes and extracts content from URLs.
-    """
-    
+   
     TIMEOUT_SECONDS = 30
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
     
     async def scrape_url(self, url: str) -> Dict[str, Any]:
-        """
-        Scrape content from a URL.
-        
-        Args:
-            url: URL to scrape
-            
-        Returns:
-            Dictionary with extracted text and metadata
-        """
-        import httpx
-        from bs4 import BeautifulSoup
-        
+       
+           
         # Validate URL
         if not url.startswith(("http://", "https://")):
             raise ValueError("URL must start with http:// or https://")
@@ -279,7 +218,7 @@ class URLScraperService:
             raise ValueError(f"Failed to scrape URL: {e}")
     
     def _extract_text(self, element) -> str:
-        """Extract text from a BeautifulSoup element."""
+      
         texts = []
         for child in element.descendants:
             if child.name in ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th"]:
@@ -289,7 +228,7 @@ class URLScraperService:
         return "\n\n".join(texts)
     
     def _clean_text(self, text: str) -> str:
-        """Clean scraped text."""
+       
         # Remove excessive whitespace
         text = re.sub(r'\n{3,}', '\n\n', text)
         text = re.sub(r' {2,}', ' ', text)
@@ -304,7 +243,7 @@ _url_scraper: Optional[URLScraperService] = None
 
 
 def get_document_service() -> DocumentService:
-    """Get the global document service instance."""
+    
     global _document_service
     if _document_service is None:
         _document_service = DocumentService()
@@ -312,7 +251,7 @@ def get_document_service() -> DocumentService:
 
 
 def get_url_scraper() -> URLScraperService:
-    """Get the global URL scraper instance."""
+    
     global _url_scraper
     if _url_scraper is None:
         _url_scraper = URLScraperService()

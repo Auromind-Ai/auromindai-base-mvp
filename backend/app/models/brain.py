@@ -10,10 +10,7 @@ except ImportError:
     Vector = None
 
 
-# ==============================
 # Brain Knowledge Base
-# ==============================
-
 class BrainEntry(Base):
     __tablename__ = "brain"
 
@@ -28,7 +25,7 @@ class BrainEntry(Base):
     title = Column(String(255))
     content = Column(Text, nullable=False)
 
-    content_type = Column(String(50))  # text / pdf
+    content_type = Column(String(50)) 
 
     embedding = Column(Vector(384)) if Vector else Column(Text)
 
@@ -37,15 +34,11 @@ class BrainEntry(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    status = Column(String(20), default="completed")  # pending / processing / completed / failed
+    status = Column(String(20), default="completed")
     error_message = Column(Text)
     metadata_json = Column(Text)
 
-
-# ==============================
 # Brain Chunks
-# ==============================
-
 class BrainChunk(Base):
     __tablename__ = "brain_chunks"
 
@@ -73,10 +66,7 @@ class BrainChunk(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-# ==============================
 # Email Conversation Threads
-# ==============================
-
 class ConversationThread(Base):
     __tablename__ = "conversation_threads"
 
@@ -106,10 +96,7 @@ class ConversationThread(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
-# ==============================
 # MCP AI Decision Logs
-# ==============================
-
 class MCPDecision(Base):
     __tablename__ = "mcp_decisions"
 
@@ -144,10 +131,7 @@ class MCPDecision(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-# ==============================
 # Email Storage
-# ==============================
-
 class EmailMessage(Base):
     __tablename__ = "emails"
 
@@ -170,30 +154,10 @@ class EmailMessage(Base):
 
     body = Column(Text)
 
-    direction = Column(String(20))  # inbound / outbound
+    direction = Column(String(20)) 
 
     is_processed = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True))
 
     stored_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class EmailState(Base):
-    __tablename__ = "email_states"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-
-    workspace_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("workspaces.id", ondelete="CASCADE"),
-        unique=True,
-        index=True,
-        nullable=False
-    )
-
-    last_email_id = Column(Text, nullable=True)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

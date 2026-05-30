@@ -5,7 +5,7 @@ def _get_fernet_key() -> bytes:
     key = settings.ENCRYPTION_KEY
 
     if not key:
-        raise RuntimeError("❌ ENCRYPTION_KEY is required in production")
+        raise RuntimeError("ENCRYPTION_KEY is required in production")
 
     if isinstance(key, str):
         key = key.encode()
@@ -13,7 +13,7 @@ def _get_fernet_key() -> bytes:
     try:
         Fernet(key)  
     except Exception:
-        raise RuntimeError("❌ Invalid ENCRYPTION_KEY format")
+        raise RuntimeError(" Invalid ENCRYPTION_KEY format")
 
     return key
 
@@ -31,4 +31,4 @@ def decrypt_value(encrypted_value: str) -> str:
     try:
         return fernet.decrypt(encrypted_value.encode()).decode()
     except Exception:
-        raise RuntimeError("❌ Failed to decrypt value — wrong key or corrupted data")
+        raise RuntimeError(" Failed to decrypt value — wrong key or corrupted data")

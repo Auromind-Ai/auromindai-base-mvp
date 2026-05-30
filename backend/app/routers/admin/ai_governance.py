@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-
 from app.database import get_db
 from app.models.ai_action import AIAction
 
@@ -10,9 +9,7 @@ router = APIRouter()
 
 @router.get("/ai-governance")
 async def get_ai_governance(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
-    """
-    Get blocked or escalated AI actions for admin review.
-    """
+    
     try:
         actions = db.query(AIAction).filter(
             AIAction.mcp_decision.in_(["block", "escalate"])
