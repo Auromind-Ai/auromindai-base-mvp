@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, Any
-
 from app.core.metrics import get_metrics, get_system_metrics_snapshot
 
 router = APIRouter(tags=["system"])

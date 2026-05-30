@@ -59,10 +59,9 @@ class AnalyticsService:
             "worst_tool":       worst_tool,
         }
 
+    #Calculate query rewrite effectiveness from all feedback.
     def get_rewrite_effectiveness(self):
-        """
-        Calculate query rewrite effectiveness from all feedback.
-        """
+        
         data  = self.db.query(Feedback).all()
         total = 0
         improved      = 0

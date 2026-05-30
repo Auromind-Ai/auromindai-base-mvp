@@ -7,7 +7,6 @@ import uuid
 from app.database import Base
 
 
-
 class SenderType(str, enum.Enum):
     USER = "USER"
     AI = "AI"

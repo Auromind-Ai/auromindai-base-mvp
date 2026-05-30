@@ -1,27 +1,18 @@
 import hashlib
 import hmac
-import json
-import os
 import tiktoken
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
-
-from sqlalchemy import case, func,or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
-
 from app.core.enums import PaymentStatus, SubscriptionStatus
 from app.models.billing import Payment
 from app.models.token_ledger import TokenLedger
 from app.models.plan import Plan
 from app.models.subscription import Subscription
-from app.models.usage import Usage
-from app.models.webhook_event import WebhookEvent
 from app.models.workspace import Workspace, WorkspaceMember
-from app.services.platform_settings_service import get_setting
-
-from .gateway.base import RESERVATION_TTL_MINUTES, TOKENS_PER_CREDIT, BillingPlanConfig, GatewaySubscription, GatewayPayment, GatewayWebhookEvent, PaymentGateway, TokenBalance, TokenLimitStatus
+from .gateway.base import TOKENS_PER_CREDIT, PaymentGateway, TokenBalance, TokenLimitStatus
 from .gateway import get_gateway
 from .token_service import TokenService
 from .usage_service import UsageService
@@ -84,27 +75,24 @@ class BillingService:
 
     @staticmethod
     def credits_to_tokens(credits: float) -> int:
-        """Convert credits to tokens for internal storage."""
+       
         return int(credits * TOKENS_PER_CREDIT)
     
     @staticmethod
     def tokens_to_credits(tokens: int) -> float:
-        """Convert tokens to credits for display."""
+        
         return float(tokens) / TOKENS_PER_CREDIT
     
     @staticmethod
     def estimate_reservation_amount(message: str, use_rag: bool = True) -> int:
-        """
-        Estimate tokens needed for a chat operation.
-        Returns tokens (not credits).
-        """
+        
     
         input_tokens = BillingService.estimate_tokens(message)
 
         if use_rag:
-            buffer = input_tokens + 2000 + 500  # context + avg response
+            buffer = input_tokens + 2000 + 500  
         else:
-            buffer = input_tokens + 500  # just response
+            buffer = input_tokens + 500  
         
         # Add 20% safety margin
         return int(buffer * 1.2)
@@ -256,9 +244,7 @@ class BillingService:
             fetched_subscription = gateway.fetch_subscription(verification["subscription_id"])
             fetched_payment = gateway.fetch_payment(verification["payment_id"])
 
-            # Razorpay's payment object doesn't always return subscription_id.
-            # Since the cryptographic signature was already verified above, it is safe.
-            # We only check if the provider explicitly returned a mismatched ID.
+           
             if fetched_payment.subscription_id and fetched_payment.subscription_id != fetched_subscription.subscription_id:
                 raise ValueError("Payment does not belong to the subscription")
 
@@ -418,20 +404,16 @@ class BillingService:
         )
         latest_payment = payments[0] if payments else None
 
-        # 1. Get the plan key
+        # Get the plan key
         current_plan_key = "free"
         if subscription and subscription.plan_id:
             plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
             if plan and plan.name:
                 current_plan_key = plan.name.lower()
 
-        # 2. IMPORTANT: Settings-la irundhu current limit-ah edukuroam
+       
         plan_config = self.plan_service._get_plan_config(db, current_plan_key)
-        
-        # Neenga settings-la 100,000-nu mathuna, adhu inga total_tokens-ku vandhurum
         total_tokens = plan_config.tokens 
-        
-        # Usage-ah ledger-la irundhu edukuroam
         token_status = self.check_token_limit(db, str(workspace.id))
         used_tokens = token_status.tokens_used
 
@@ -442,7 +424,7 @@ class BillingService:
         
         usage_percent = round((used_tokens / total_tokens) * 100, 1) if total_tokens > 0 else 0
 
-        # ... (billing_status logic remains the same) ...
+        # billing_status logic remains the same
         if latest_payment and latest_payment.status == PaymentStatus.failed:
             billing_status = "FAILED"
         elif subscription and subscription.status == SubscriptionStatus.cancelled:
@@ -463,7 +445,7 @@ class BillingService:
             "tokens_used": used_tokens,
             "tokens_remaining": max(total_tokens - used_tokens, 0),
             
-            # Credit values (Ippo settings-la 100000-nu irundha, inga 100-nu pogum)
+            # Credit values 
             "credits_remaining": credits_remaining,
             "credits_used": credits_used,
             "total_limit": credits_total_limit, 
@@ -553,12 +535,12 @@ class BillingService:
         user_name: str | None,
     ) -> str | None:
 
-        # 1. Already exists → return
+        # Already exists → return
         if workspace.provider_customer_id:
             return workspace.provider_customer_id
 
         try:
-            # 2. Try create / fetch from gateway
+            # Try create / fetch from gateway
             customer_id = gateway.create_customer(
                 workspace,
                 user_email,
@@ -566,20 +548,20 @@ class BillingService:
             )
 
         except Exception as e:
-            # Optional: log this properly
+            # log this properly
             raise ValueError(f"Failed to create or fetch customer: {str(e)}")
 
         if not customer_id:
             return None
 
-        # 3. Save safely (handle race condition)
+        # Save safely 
         try:
             workspace.provider_customer_id = customer_id
             db.flush()
         except Exception:
             db.rollback()
 
-            # 4. Re-fetch (someone else might have set it)
+            # 4. Re-fetch 
             refreshed = (
                 db.query(Workspace)
                 .filter(Workspace.id == workspace.id)

@@ -1,5 +1,3 @@
-
-
 import logging
 
 from app.services.ai.llm_utils import safe_llm_call

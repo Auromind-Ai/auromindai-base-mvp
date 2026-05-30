@@ -1,7 +1,5 @@
-
 import asyncio
 from groq import Groq
-
 from app.services.ai.llm_router import LLMRouter
 from app.services.ai.chat_service import ChatService, ChatServiceConfig
 from app.core.config import settings
@@ -24,7 +22,6 @@ async def get_llm_router() -> LLMRouter:
                 _llm_router_instance = LLMRouter()
                 logger.info("LLMRouter singleton initialized")
     return _llm_router_instance
-
 
 
 _chat_service_instance: ChatService | None = None

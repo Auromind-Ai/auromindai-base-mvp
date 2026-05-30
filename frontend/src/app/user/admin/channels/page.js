@@ -249,7 +249,7 @@ export default function ChannelsPage() {
                 if (data?.type === 'WA_EMBEDDED_SIGNUP') {
                     if (data.event === 'FINISH') {
                         const { phone_number_id, waba_id } = data.data;
-                        connectWhatsAppToBackend({ phone_number_id, waba_id });
+                        console.log('WhatsApp signup finished, FB.login callback will handle connection:', { phone_number_id, waba_id });
                     } else if (data.event === 'CANCEL') {
                         setConnecting(null);
                     } else if (data.event === 'ERROR') {

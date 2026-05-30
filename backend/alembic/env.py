@@ -24,7 +24,7 @@ from app.models.model_configs import *
 from app.models.outbound_message import *
 from app.models.plan import *
 from app.models.platform_setting import *
-from app.models.promise import *
+# from app.models.promise import *
 from app.models.scheduled_resume import *
 from app.models.subscription_history import *
 from app.models.subscription import *

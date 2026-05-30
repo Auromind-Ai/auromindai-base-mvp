@@ -1,9 +1,6 @@
 import uuid
-
 from sqlalchemy import JSON, UUID, Boolean, Column, String, DateTime, UniqueConstraint, func
-
 from app.database import Base
-
 
 class WebhookEvent(Base):
     __tablename__ = "webhook_events"

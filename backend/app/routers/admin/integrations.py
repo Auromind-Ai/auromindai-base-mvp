@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-
 from app.database import get_db
 from app.models.integration import Integration
 from app.models.workspace import Workspace
@@ -11,9 +10,7 @@ router = APIRouter()
 
 @router.get("/integrations")
 async def get_integrations(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
-    """
-    Get integrations per workspace.
-    """
+    
     try:
         integrations = db.query(Integration, Workspace.name.label("workspace_name")).join(
             Workspace, Integration.workspace_id == Workspace.id

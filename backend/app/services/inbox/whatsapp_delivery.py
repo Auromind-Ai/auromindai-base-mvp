@@ -1,8 +1,6 @@
 import logging
 from typing import Any, Dict, Optional
-
 from sqlalchemy.orm import Session
-
 from app.models.conversation import Conversation
 from app.services.inbox.channel_service import ChannelService
 
@@ -17,7 +15,7 @@ def deliver_outbound_message(
     body: str,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Optional[str]:
-    """Dispatch a single outbound inbox message via the unified channel sender."""
+   
     metadata = metadata or {}
     conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:

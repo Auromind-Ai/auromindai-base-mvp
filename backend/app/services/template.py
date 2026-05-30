@@ -1,6 +1,5 @@
 import requests
 
-
 def submit_to_meta(payload, workspace):
     url = f"https://graph.facebook.com/v19.0/{workspace.meta_waba_id}/message_templates"
 

@@ -1,7 +1,7 @@
 
 import re
 import logging
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
 from starlette.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -28,9 +28,17 @@ def _looks_like_uuid(value: str) -> bool:
     return True
 
 
-class UUIDValidationMiddleware(BaseHTTPMiddleware):
+class UUIDValidationMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-    async def dispatch(self, request, call_next):
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
+
         #  Check query params containing "id" 
         for param_name, param_value in request.query_params.items():
             if not _ID_PARAM_RE.search(param_name):
@@ -41,33 +49,39 @@ class UUIDValidationMiddleware(BaseHTTPMiddleware):
                 logger.warning(
                     "Malformed UUID in query param '%s': %s", param_name, param_value
                 )
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=422,
                     content={
                         "detail": f"Invalid UUID format for parameter '{param_name}': {param_value}"
                     },
                 )
+                await response(scope, receive, send)
+                return
 
         #  Check path segments that look like UUIDs
         for segment in request.url.path.strip("/").split("/"):
             if _looks_like_uuid(segment) and not _UUID_RE.match(segment):
                 logger.warning("Malformed UUID in path segment: %s", segment)
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=422,
                     content={
                         "detail": f"Invalid UUID format in path: {segment}"
                     },
                 )
+                await response(scope, receive, send)
+                return
 
         try:
-            return await call_next(request)
+            await self.app(scope, receive, send)
         except ValueError as exc:
             # Catch any remaining UUID parse errors that slip past FastAPI's
-            # path converters (e.g. custom parsing code in handlers).
             if "UUID" in str(exc) or "badly formed" in str(exc):
                 logger.warning("UUID ValueError caught by middleware: %s", exc)
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=422,
                     content={"detail": f"Invalid UUID: {exc}"},
                 )
+                await response(scope, receive, send)
+                return
             raise
+

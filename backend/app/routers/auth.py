@@ -19,6 +19,8 @@ from app.services.auth_service import AuthService
 from app.utils.auth import create_access_token, decode_access_token
 import uuid
 from datetime import datetime, timezone
+from app.core.config import settings
+from app.models.user import User
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -54,8 +56,6 @@ class CurrentUser:
         self.admin_id = admin_id
 
 
-# ---------- Dependency: get current user ----------
-
 async def get_current_user(
     request: Request,
     token: str = Depends(oauth2_scheme),
@@ -81,11 +81,11 @@ async def get_current_user(
     try:
         payload = decode_access_token(token)
     except Exception:
-        log_auth("❌ Token decode failed")
+        log_auth("Token decode failed")
         raise credentials_exception
 
     if payload is None:
-        log_auth("❌ Token payload is None")
+        log_auth("Token payload is None")
         raise credentials_exception
     
     user_id: str = payload.get("sub")
@@ -100,14 +100,14 @@ async def get_current_user(
     admin_id = payload.get("admin_id")
 
     if user_id is None:
-        log_auth("❌ Token missing sub")
+        log_auth(" Token missing sub")
         raise credentials_exception
 
     log_auth(f"👤 Token claims user_id: {user_id}")
     user = AuthService.get_user_by_id(db, user_id)
 
     if user is None:
-        log_auth(f"❌ User {user_id} not found in DB")
+        log_auth(f" User {user_id} not found in DB")
         raise credentials_exception
 
     log_auth(f"Authenticated: {user.email}")
@@ -119,8 +119,7 @@ async def get_current_user(
     )
 
 
-# ---------- Email Login ----------
-
+#Email Login 
 @router.post("/login")
 async def login(request: dict, db: Session = Depends(get_db)):
     try:
@@ -146,14 +145,13 @@ async def login_secret(
     request: SecretLoginRequest,
     db: Session = Depends(get_db)
 ):
-    from app.core.config import settings
-    
+   
     master_key = settings.OWNER_SECRET_KEY
     if not master_key or request.key != master_key:
         raise HTTPException(status_code=401, detail="Invalid secret key")
     
     # Login as the first user found in DB (usually the owner/admin)
-    from app.models import User
+    
     admin = db.query(User).order_by(User.created_at.asc()).first()
     if not admin:
         raise HTTPException(status_code=404, detail="No users found in platform")
@@ -204,8 +202,7 @@ async def admin_login(
     return response
 
 
-# ---------- Current user ----------
-
+#  Current user-
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: CurrentUser = Depends(get_current_user)):
     return {
@@ -215,13 +212,12 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
     }
 
 
-# ---------- Workspaces ----------
-
+#  Workspaces
 @router.get("/workspaces")
 async def get_workspaces(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get all workspaces for current user"""
+    
     workspaces = AuthService.get_user_workspaces(db, current_user.id)
     return {"workspaces": workspaces}

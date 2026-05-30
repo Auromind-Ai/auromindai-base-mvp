@@ -2,11 +2,8 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
-
 from sqlalchemy import case, func
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
 from app.models.plan import Plan
 from app.models.subscription import Subscription
 from app.models.token_ledger import TokenLedger
@@ -28,8 +25,7 @@ class TokenService:
         reference_key: str,
         description: str,
     ) -> TokenLedger:
-        """Reserve tokens for a workspace.
-        """
+       
         try:
             if amount <= 0:
                 raise ValueError("Token reservation amount must be positive")
@@ -329,7 +325,7 @@ class TokenService:
         import uuid
         reference_key = f"token_grant:{payment.provider}:{payment.provider_payment_id}"
 
-        #  1. TRY FETCH WITH LOCK
+        #  TRY FETCH WITH LOCK
         existing = (
             db.query(TokenLedger)
             .filter(TokenLedger.reference_key == reference_key)
@@ -339,7 +335,7 @@ class TokenService:
         if existing:
             return existing
 
-        #  2. TRY INSERT
+        #  TRY INSERT
         try:
             with db.begin_nested():
                 entry = TokenLedger(
@@ -357,7 +353,7 @@ class TokenService:
                 db.flush()
             return entry
 
-        #  3. HANDLE RACE CONDITION (CRITICAL)
+        # HANDLE RACE CONDITION (CRITICAL)
         except Exception:
             from sqlalchemy.exc import IntegrityError
             #  RE-FETCH (another thread inserted already)

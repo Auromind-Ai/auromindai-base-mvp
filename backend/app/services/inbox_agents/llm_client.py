@@ -56,8 +56,18 @@ class LLMClient:
                 if not text:
                     continue
 
+                # Clean markdown formatting if present
+                cleaned_text = text.strip()
+                if cleaned_text.startswith("```json"):
+                    cleaned_text = cleaned_text[7:]
+                elif cleaned_text.startswith("```"):
+                    cleaned_text = cleaned_text[3:]
+                if cleaned_text.endswith("```"):
+                    cleaned_text = cleaned_text[:-3]
+                cleaned_text = cleaned_text.strip()
+
                 try:
-                    return json.loads(text)
+                    return json.loads(cleaned_text)
                 except json.JSONDecodeError:
                     self.logger.warning(
                         f"JSON parse failed (attempt {attempt})",
@@ -70,15 +80,15 @@ class LLMClient:
             self.logger.error("LLM JSON error", exc_info=True)
             return {}
 
-    # #TEXT GENERATION
-    # def generate_text(self, prompt):
-    #     try:
-    #         return self.generate(prompt)
-    #     except Exception as e:
-    #         self.logger.error("LLM text error", exc_info=True)
-    #         return ""
+    #TEXT GENERATION
+    def generate_text(self, prompt):
+        try:
+            return self.generate(prompt)
+        except Exception as e:
+            self.logger.error("LLM text error", exc_info=True)
+            return ""
 
-    #STREAM 
+    # STREAM 
     def generate_stream(self, prompt):
         try:
             stream = self.client.chat.completions.create(

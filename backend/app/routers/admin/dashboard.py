@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-
 from app.database import get_db
 from app.models.workspace import Workspace
 from app.models.user import User
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.core.metrics import get_metrics
 
 router = APIRouter()

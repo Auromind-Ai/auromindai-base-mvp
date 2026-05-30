@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import time
 import uuid
@@ -30,7 +29,6 @@ def _trigger_send_next(conversation_id: Any, countdown: int = 1):
     send_next_pending_message.apply_async(
         args=[str(conversation_id)], countdown=countdown
     )
-
 
 class SilentUndefined(Undefined):
     def _fail_with_undefined_error(self, *args, **kwargs):
@@ -78,41 +76,6 @@ class FlowServiceV2:
         self.template_env = Environment(undefined=SilentUndefined)
         self.template_env.globals.update({"safe": lambda x: x})
 
-    def _is_reset_command(self, text: str) -> bool:
-        if not text:
-            return False
-        val = text.strip().lower()
-        from app.services.automations.trigger_engine import normalize_text
-        normalized = normalize_text(val)
-        return normalized in {"reset", "restart", "start over", "clear"}
-
-    def _calculate_cost(self, tokens_in: int, tokens_out: int, model: str) -> float:
-        pricing = {
-            "claude": {"input": 0.003 / 1000, "output": 0.015 / 1000},
-            "gpt": {"input": 0.0005 / 1000, "output": 0.0015 / 1000},
-            "groq": {"input": 0.000025 / 1000, "output": 0.00010 / 1000},
-        }
-        provider_prices = pricing.get(model, pricing["groq"])
-        return (tokens_in * provider_prices["input"]) + (
-            tokens_out * provider_prices["output"]
-        )
-
-    # Allowed file extensions per media type
-    _MEDIA_EXTENSIONS: Dict[str, set] = {
-        "image": {".jpg", ".jpeg", ".png"},
-        "video": {".mp4"},
-        "document": {".pdf"},
-    }
-
-    # Expected Content-Type prefixes for HEAD validation
-    _MEDIA_CONTENT_TYPES: Dict[str, str] = {
-        "image": "image/",
-        "video": "video/",
-        "document": "application/pdf",
-    }
-
-
-    # PUBLIC ENTRY POINT
 
     async def execute_incoming_message(
         self,
@@ -122,7 +85,7 @@ class FlowServiceV2:
         inbound_text: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
-        logger.info(f"🚨 FLOW STARTED! Message: '{inbound_text}'")
+        logger.info(f" FLOW STARTED! Message: '{inbound_text}'")
         metadata = metadata or {}
 
         conversation = (
@@ -282,7 +245,7 @@ class FlowServiceV2:
                         _trigger_send_next(conversation_id, countdown=1)
                         return True
 
-            #  Priority 2: pending question reply 
+            # pending question reply 
             if state.pending_question:
                 handled = await self._handle_pending_question(
                     db=db,
@@ -296,8 +259,8 @@ class FlowServiceV2:
                     _trigger_send_next(conversation_id, countdown=1)
                     return True
 
-            #  Priority 3: Active AI/Agent session (if flow is running/paused)
-            # Priority 3: Active AI session — BUT check new trigger FIRST
+           
+            # Active AI session — BUT check new trigger FIRST
             active_ai = (
                 state.runtime_context.get("active_ai_session")
                 if state and state.runtime_context
@@ -311,7 +274,7 @@ class FlowServiceV2:
 
                 if ai_closed:
 
-                    logger.info("🛑 AI session closed")
+                    logger.info(" AI session closed")
 
                     # Fully terminate AI state
                     state.runtime_context["active_ai_session"] = False
@@ -358,8 +321,7 @@ class FlowServiceV2:
                 logger.info(f"Mid-conversation message '{inbound_text}' ignored by trigger match (preventing onboarding restart).")
                 return False
 
-            #  Priority 4: Only if NO pending/active flow state → trigger match
-
+            # Only if NO pending/active flow state → trigger match
             match = self._find_trigger_match(
                 db=db,
                 workspace_id=conversation.workspace_id,
@@ -421,7 +383,7 @@ class FlowServiceV2:
             logger.info(f"🎯 Matched Flow ID: {flow.id} | Next Node ID: {next_node_id}")
 
             if not next_node_id:
-                logger.warning("⚠️ Trigger node has no outgoing connection. Stopping.")
+                logger.warning(" Trigger node has no outgoing connection. Stopping.")
                 self._persist_state(db, state)
                 return True
 
@@ -435,8 +397,6 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
             self._persist_state(db, state)
-            # Kick off sequential dispatch — countdown=1 ensures all
-            # outbound rows from this execution are committed and visible.
             _trigger_send_next(conversation_id, countdown=1)
             return True
 
@@ -494,7 +454,7 @@ class FlowServiceV2:
 
             # NOTE: node_visit_counts intentionally persists across delay resumes
             # to enforce total execution safety over the entire flow run.
-            logger.info(f"⏳ Resuming flow {flow.id} from node {node_id} after delay!")
+            logger.info(f" Resuming flow {flow.id} from node {node_id} after delay!")
             msg_sequence = [msg_sequence_val]
 
             await self._execute_from_node(
@@ -708,9 +668,8 @@ class FlowServiceV2:
 
 
     # TRIGGER MATCHING
-
     def _find_trigger_match(self, db, workspace_id, inbound_text: str):
-        logger.info(f"🔍 Searching flows for Workspace ID: {workspace_id}")
+        logger.info(f" Searching flows for Workspace ID: {workspace_id}")
         flows = (
             db.query(AutomationFlow)
             .filter(
@@ -723,8 +682,8 @@ class FlowServiceV2:
         )
 
         best_match = None
-
-        # STEP 1: Keyword / fuzzy match (fast path)
+ 
+        # Keyword / fuzzy match (fast path)
         for flow in flows:
             trigger_node = next(
                 (n for n in (flow.nodes or []) if n.get("type") == "trigger"), None
@@ -738,9 +697,9 @@ class FlowServiceV2:
 
         if best_match:
             return best_match
-
-        # STEP 2: Semantic fallback via PgVector — guarded
-        logger.info("🧠 No keyword match. Trying semantic trigger fallback…")
+ 
+        # Semantic fallback via PgVector — guarded 
+        logger.info(" No keyword match. Trying semantic trigger fallback…")
         try:
             trigger_corpus = []
             for flow in flows:
@@ -781,7 +740,7 @@ class FlowServiceV2:
                     matched_keyword=matched_item["phrase"],
                 )
                 logger.info(
-                    f"🎯 Semantic match: '{inbound_text}' → '{matched_item['phrase']}' "
+                    f" Semantic match: '{inbound_text}' → '{matched_item['phrase']}' "
                     f"(score={semantic_results[0]['score']:.2f})"
                 )
                 return (matched_item["flow"], matched_item["node"], semantic_match)
@@ -815,7 +774,7 @@ class FlowServiceV2:
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at < now:
-                logger.info("⏰ Button expired | conversation=%s", conversation.id)
+                logger.info(" Button expired | conversation=%s", conversation.id)
                 state.pending_button = None
                 state.button_expires_at = None
                 return await self._handle_expired_pending(
@@ -876,13 +835,12 @@ class FlowServiceV2:
             ),
             None,
         )
-        # Fallback: use config-embedded target if edge lookup fails
-        # (guards against older flows saved before edge-based routing)
+      
         if not target_node_id:
             target_node_id = matched_button.get("target")
             if target_node_id:
                 logger.warning(
-                    "⚠️ Button edge not found for handle '%s' on node '%s'. "
+                    " Button edge not found for handle '%s' on node '%s'. "
                     "Falling back to config.target=%s",
                     button_value,
                     button_node_id,
@@ -891,9 +849,8 @@ class FlowServiceV2:
 
         if not target_node_id:
             logger.warning(
-                "⚠️ No target found for button '%s' on node '%s'. Stopping flow.",
-                button_value,
-                button_node_id,
+                " No target found for button '%s' on node '%s'. Stopping flow.",
+                button_value, button_node_id,
             )
             return True
 
@@ -908,9 +865,7 @@ class FlowServiceV2:
         )
         return True
 
-
     # ASK QUESTION HANDLING  ← NEW
-
     async def _handle_pending_question(
         self,
         db: Session,
@@ -932,13 +887,10 @@ class FlowServiceV2:
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
             if expires_at < now:
-                logger.info(
-                    "⏰ Question expired for conversation %s. Sending fallback.",
-                    conversation.id,
-                )
+                logger.info(" Question expired for conversation %s. Sending fallback.", conversation.id)
                 state.pending_question = None
                 state.question_expires_at = None
-                # Send expiry fallback so the user isn't left without feedback
+                
                 return await self._handle_expired_pending(
                     db, conversation, state,
                     node_id=pending.get("node_id"),
@@ -1008,7 +960,6 @@ class FlowServiceV2:
 
 
     # CORE EXECUTION LOOP
-
     async def _execute_from_node(
         self,
         db: Session,
@@ -1059,7 +1010,7 @@ class FlowServiceV2:
                 state.runtime_context["active_ai_session"] = False
                 return
 
-            # Per-node loop_limit enforcement
+            #  Per-node loop_limit enforcement
             is_brain_query = (
                 node.get("type") == "action"
                 and (node.get("config") or {}).get("type") == "brain_query"
@@ -1104,8 +1055,7 @@ class FlowServiceV2:
             if node_delay_seconds > 0 and not skip_delay:
                 self._persist_state(db, state)
 
-                # Short delay (<30 min): Celery countdown (in-memory, fast)
-                # Long delay (>=30 min): DB-persisted (survives restarts)
+               
                 _SHORT_DELAY_THRESHOLD = 1800  # 30 minutes in seconds
 
                 if node_delay_seconds < _SHORT_DELAY_THRESHOLD:
@@ -1125,7 +1075,7 @@ class FlowServiceV2:
                     )
                 else:
                     logger.info(
-                        f"⏳ Node '{current_node_id}' long delay {node_delay_seconds}s → DB scheduled_resumes"
+                        f" Node '{current_node_id}' long delay {node_delay_seconds}s → DB scheduled_resumes"
                     )
                     from app.models.scheduled_resume import ScheduledResume
 
@@ -1211,7 +1161,7 @@ class FlowServiceV2:
 
                     if error_target:
                         # Route to designer-defined error node
-                        logger.info(f"🔀 Routing to error node: {error_target}")
+                        logger.info(f" Routing to error node: {error_target}")
                         current_node_id = error_target
                         skip_delay = False
                         continue
@@ -1399,7 +1349,7 @@ class FlowServiceV2:
                 return False
 
             if escalated or closed:
-                logger.info(f"🤖 AI Session ended. Escalated: {escalated}, Closed: {closed}")
+                logger.info(f" AI Session ended. Escalated: {escalated}, Closed: {closed}")
                 state.runtime_context["active_ai_session"] = False
 
                 # Check for explicit outcomes
@@ -1424,12 +1374,13 @@ class FlowServiceV2:
                 state.current_node_id = target_node_id
                 return False
             else:
-                logger.info("🤖 AI Session is active. Locking conversation on brain_query node.")
+                logger.info(" AI Session is active. Locking conversation on brain_query node.")
                 state.runtime_context["active_ai_session"] = True
                 state.runtime_context["assigned_agent"] = agent_type
                 state.current_node_id = node.get("id")
                 return True
 
+            
         #  Ask Question (NEW) 
         if action_type == "ask_question":
             return await self._handle_ask_question_node(
@@ -1447,28 +1398,14 @@ class FlowServiceV2:
         if action_type == "assign_agent":
             strategy = config.get("strategy", "round_robin")
             state.runtime_context["assigned_agent_strategy"] = strategy
-            # TODO: wire to your actual agent assignment service here
-            # SERVICE NOT FOUND: AgentAssignmentService
-            # Requires implementation before this can be wired
-            # Expected: assign agent to lead_id using conversation context
-            logger.warning(
-                "Agent assignment service not implemented — skipping"
-            )
-            logger.info(f"🧑 Assign agent triggered: strategy={strategy}")
+            logger.info(f" Assign agent triggered: strategy={strategy}")
             return False
 
         #  Move Deal Stage
         if action_type == "move_stage":
             stage = config.get("stage")
             state.runtime_context["deal_stage"] = stage
-            # TODO: wire to your CRM/pipeline service here
-            # SERVICE NOT FOUND: CRMService
-            # Requires implementation before this can be wired
-            # Expected: move deal stage using conversation context
-            logger.warning(
-                "CRM/pipeline service not implemented — skipping"
-            )
-            logger.info(f"📊 Move stage triggered: stage={stage}")
+            logger.info(f" Move stage triggered: stage={stage}")
             return False
 
         # Notification (FIXED: was checking 'send_notification')
@@ -1476,23 +1413,14 @@ class FlowServiceV2:
             text = config.get("text") or config.get("message") or ""
             state.runtime_context["last_notification"] = text
             # TODO: wire to your internal notification service
-            # SERVICE NOT FOUND: NotificationService
-            # Requires implementation before this can be wired
-            # Expected: send notification using conversation context
-            logger.warning(
-                "Notification service not implemented — skipping"
-            )
-            logger.info(f"🔔 Notification triggered: {text[:80]}")
+            # e.g. notify_service.send(conversation.workspace_id, text)
+            logger.info(f" Notification triggered: {text[:80]}")
             return False
 
-        logger.warning(
-            f"⚠️ Unknown action type: '{action_type}' on node {node.get('id')}"
-        )
+        logger.warning(f" Unknown action type: '{action_type}' on node {node.get('id')}")
         return False
 
-
     # ASK QUESTION NODE HANDLER  ← NEW
-
     async def _handle_ask_question_node(
         self,
         db: Session,
@@ -1557,9 +1485,7 @@ class FlowServiceV2:
 
         return True  # Stop execution — wait for human reply
 
-
     # MESSAGE HANDLERS
-
     async def _handle_send_message_node(
         self,
         db: Session,
@@ -1586,11 +1512,8 @@ class FlowServiceV2:
             media_error = self._validate_media_url(media_url, message_type)
             if media_error:
                 logger.warning(
-                    "⚠️ Media validation failed for node %s: %s | url=%s type=%s",
-                    node.get("id"),
-                    media_error,
-                    media_url,
-                    message_type,
+                    " Media validation failed for node %s: %s | url=%s type=%s",
+                    node.get("id"), media_error, media_url, message_type,
                 )
                 self.tracer.trace(
                     db,
@@ -1671,42 +1594,13 @@ class FlowServiceV2:
         outbound_text = self._render_template(
             config.get("message") or config.get("text") or "", context
         )
-        logger.info(f"✉️ Generated Text: '{outbound_text}' | Mode: {mode}")
+        logger.info(f" Generated Text: '{outbound_text}' | Mode: {mode}")
         if not outbound_text:
-            logger.warning("⚠️ Outbound text is EMPTY — message will NOT be queued.")
+            logger.warning(" Outbound text is EMPTY — message will NOT be queued.")
 
-        if mode in {"ai", "hybrid"}:
-            ai_response, usage = await self._generate_guardrailed_ai_response(
-                db=db,
-                workspace_id=conversation.workspace_id,
-                prompt=config.get("prompt") or "",
-                inbound_text=inbound_text,
-                context=context,
-            )
-            self.tracer.trace(
-                db,
-                conversation_id=conversation.id,
-                flow_id=flow.id,
-                node_id=node.get("id"),
-                event_type="ai_called",
-                status="success" if ai_response else "miss",
-                tokens_in=usage.get("input_tokens"),
-                tokens_out=usage.get("output_tokens"),
-                total_tokens=usage.get("total_tokens"),
-                cost=0,
-                metadata={"mode": mode},
-            )
-            if ai_response != "Not Found" and mode == "ai":
-                outbound_text = ai_response
-            elif ai_response != "Not Found" and mode == "hybrid" and not outbound_text:
-                outbound_text = ai_response
-            elif ai_response == "Not Found" and mode == "ai":
-                # Ensure we don't send any configured placeholder/fallback message
-                # and just proceed silently to the next node
-                outbound_text = ""
 
         if outbound_text:
-            logger.info("🚀 Queuing outbound message!")
+            logger.info(" Queuing outbound message!")
             await self._queue_outbound_message(
                 db=db,
                 conversation_id=conversation.id,
@@ -1721,7 +1615,6 @@ class FlowServiceV2:
 
 
     # OUTBOX: queue & dispatch
-
     async def _queue_outbound_message(
         self,
         *,
@@ -1734,12 +1627,7 @@ class FlowServiceV2:
         execution_token: Optional[str] = None,
         state: FlowExecutionState,
     ) -> None:
-        """Insert message into the outbound_messages outbox.
-
-        Sequence is computed as MAX(sequence)+1 per conversation under a
-        SELECT FOR UPDATE lock so concurrent insertions never collide.
-        Also saves to Message table so the inbox displays automation messages.
-        """
+        
         metadata = metadata or {}
         self._refresh_execution_slot(db, conversation_id, execution_token)
     
@@ -1782,144 +1670,12 @@ class FlowServiceV2:
             next_seq,
             msg.id,
         )
+        
 
-
-    # AI RESPONSE
-
-    async def _generate_guardrailed_ai_response(
-        self,
-        db: Session,
-        *,
-        workspace_id: Any,
-        prompt: str,
-        inbound_text: str,
-        context: Dict[str, Any],
-        collection: Optional[str] = None,
-        entry_ids: Optional[List[str]] = None,
-    ) -> tuple[str, Dict[str, Any]]:
-
-        NOT_FOUND = "Not Found"
-
-        #
-        #  RETRY HELPER
-        #
-        async def _retry_async(fn, retries=3, delay=0.5):
-            last_exception = None
-            for attempt in range(retries):
-                try:
-                    return await fn()
-                except Exception as e:
-                    last_exception = e
-                    logger.warning(f"[RETRY] attempt={attempt+1} error={e}")
-                    await asyncio.sleep(delay * (attempt + 1))
-            logger.error("[RETRY FAILED] All attempts failed")
-            raise last_exception
-
-        #
-        #  RAG SEARCH (WITH RETRY)
-        #
-        async def call_rag_async():
-            return await self.rag.iterative_retrieval(
-                db=db,
-                workspace_id=workspace_id,
-                query=inbound_text,
-                max_iterations=1,
-                collection=collection,
-            )
-
-        try:
-            retrieved = await _retry_async(call_rag_async)
-        except Exception:
-            logger.exception("[RAG ERROR] Failed after retries")
-            return NOT_FOUND, {}
-
-        #
-        #  CONTEXT BUILD
-        #
-        retrieved_context = ""
-        docs = retrieved.get("docs", []) if isinstance(retrieved, dict) else []
-        if docs:
-            retrieved_context = "\n".join(
-                str(r.get("text", "")) for r in docs if r.get("text")
-            )
-
-        if not retrieved_context.strip():
-            logger.info("[RAG EMPTY] No relevant context found")
-            return NOT_FOUND, {}
-
-        #
-        #  PROMPT BUILD
-        #
-        llm_prompt = f"""You are a constrained WhatsApp automation answer engine.
-
-Rules:
-- Use only the provided context.
-- If the answer is not explicitly supported, return NOT_FOUND.
-- Do not hallucinate.
-- Keep the answer under 120 words.
-- Return strict JSON only.
-
-JSON schema:
-{{"status":"FOUND|NOT_FOUND","answer":"string"}}
-
-Instruction:
-{prompt or "Answer the user using the provided context only."}
-
-Conversation context:
-{json.dumps(context, ensure_ascii=True)}
-
-User message:
-{inbound_text}
-
-Retrieved context:
-{retrieved_context}
-"""
-
-        #
-        # LLM CALL (RETRY + TIMEOUT)
-        #
-        async def call_llm():
-            return await asyncio.wait_for(
-                safe_llm_call(llm_prompt, model="auto"),
-                timeout=15,  # prevents hanging workers
-            )
-
-        try:
-            result = await _retry_async(call_llm)
-        except Exception:
-            logger.exception("[LLM ERROR] Failed after retries")
-            return NOT_FOUND, {}
-
-        #
-        #  PARSE RESPONSE
-        #
-        content = (result or {}).get("content", "").strip()
-        parsed = self._safe_json(content)
-
-        if not parsed:
-            logger.warning("[LLM PARSE ERROR] Invalid JSON response")
-            return NOT_FOUND, result or {}
-
-        if parsed.get("status") == "NOT_FOUND":
-            logger.info("[LLM RESULT] Not found")
-            return NOT_FOUND, result or {}
-
-        answer = str(parsed.get("answer") or "").strip()
-
-        if not answer:
-            logger.warning("[LLM EMPTY ANSWER]")
-            return NOT_FOUND, result or {}
-
-        return answer, result or {}
-
-
-    # HELPERS
-
-    def _validate_media_url(self, media_url: str, message_type: str) -> Optional[str]:
-        """Validate a media URL against the declared message_type.
-
-        Returns an error string if invalid, or None if valid.
-        """
+    def _validate_media_url(
+        self, media_url: str, message_type: str
+    ) -> Optional[str]:
+        
         if not media_url:
             return "media_url is empty"
 
@@ -1943,23 +1699,10 @@ Retrieved context:
 
         return None  # valid
 
-    def _safe_json(self, value: str) -> Optional[Dict[str, Any]]:
-        try:
-            start = value.find("{")
-            end = value.rfind("}")
-            if start == -1 or end == -1:
-                return None
-            return json.loads(value[start : end + 1])
-        except json.JSONDecodeError:
-            return None
+    
 
     def _normalize_buttons(self, buttons: list[Dict[str, Any]]) -> list[Dict[str, Any]]:
-        """Normalize button configs for outbound message metadata.
-
-        ``value`` doubles as the edge ``sourceHandle`` key used by the
-        button-routing logic.  ``target`` from config is kept only as a
-        fallback — the edge graph is the primary routing source.
-        """
+        
         return [
             {
                 "label": b.get("label") or "",
@@ -2009,7 +1752,7 @@ Retrieved context:
         )
         return edge.get("target") if edge else None
     
-    # flow_service_v2.py — new helper:
+    
     async def _handle_expired_pending(
         self,
         db,

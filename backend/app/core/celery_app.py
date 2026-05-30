@@ -69,6 +69,14 @@ celery_app.conf.beat_schedule = {
     },
 }
 
+# @celery_app.on_after_finalize.connect
+# def preload_models(sender, **kwargs):
+    
+#     try:
+     
+#         print(" RAG models preloaded at worker startup!")
+#     except Exception as e:
+#         print(f" RAG preload failed (non-critical): {e}")
 
 @worker_process_init.connect
 def preload_rag_models(**kwargs):

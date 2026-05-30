@@ -1,13 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Poppins } from "next/font/google";
-
-const HeroBackgroundNew = dynamic(() => import("./HeroBackgroundNew"), {
-  ssr: false,
-});
+import HeroBackgroundNew from "./HeroBackgroundNew";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -53,7 +49,7 @@ export default function HeroSectionNew() {
 
     const timer = setTimeout(() => {
       setShowContent(true);
-    }, 800); 
+    }, 200); 
 
     return () => clearTimeout(timer);
   }, []);
@@ -62,7 +58,7 @@ export default function HeroSectionNew() {
     <section
       className={`${poppins.className} relative min-h-screen overflow-hidden bg-[#050505]`}
     >
-      {mounted && <HeroBackgroundNew />}
+      {mounted && showContent && <HeroBackgroundNew />}
       {showContent && (
         <>
       <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center translate-y-16">

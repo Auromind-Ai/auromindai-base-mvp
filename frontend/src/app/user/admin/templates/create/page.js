@@ -364,7 +364,14 @@ export default function CreateTemplatePage() {
       let templates = [];
       if (res?.message) {
         try {
-          let cleanMessage = res.message.replace(/```json/g, '').replace(/```/g, '').trim();
+          let cleanMessage = res.message.trim();
+          const firstBrace = cleanMessage.indexOf('{');
+          const lastBrace = cleanMessage.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            cleanMessage = cleanMessage.substring(firstBrace, lastBrace + 1);
+          } else {
+            cleanMessage = cleanMessage.replace(/```json/g, '').replace(/```/g, '').trim();
+          }
           const parsed = JSON.parse(cleanMessage);
           templates = parsed.templates || [];
         } catch (e) {

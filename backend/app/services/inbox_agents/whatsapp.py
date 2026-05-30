@@ -52,67 +52,67 @@ class WhatsAppService:
             return None
 
     # SEND TEMPLATE MESSAGE 
-    def send_template(
-        self,
-        to: str,
-        template_name: str,
-        language: str = "en_US",
-        components: list = None
-    ) -> Optional[str]:
-        try:
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": to,
-                "type": "template",
-                "template": {
-                    "name": template_name,
-                    "language": {
-                        "code": language
-                    }
-                }
-            }
+    # def send_template(
+    #     self,
+    #     to: str,
+    #     template_name: str,
+    #     language: str = "en_US",
+    #     components: list = None
+    # ) -> Optional[str]:
+    #     try:
+    #         payload = {
+    #             "messaging_product": "whatsapp",
+    #             "to": to,
+    #             "type": "template",
+    #             "template": {
+    #                 "name": template_name,
+    #                 "language": {
+    #                     "code": language
+    #                 }
+    #             }
+    #         }
 
-            if components:
-                payload["template"]["components"] = components
+    #         if components:
+    #             payload["template"]["components"] = components
 
-            response = requests.post(
-                self.base_url,
-                json=payload,
-                headers=self._headers()
-            )
+    #         response = requests.post(
+    #             self.base_url,
+    #             json=payload,
+    #             headers=self._headers()
+    #         )
 
-            data = response.json()
+    #         data = response.json()
 
-            if response.status_code != 200:
-                logger.error(f"Template send error: {data}")
-                return None
+    #         if response.status_code != 200:
+    #             logger.error(f"Template send error: {data}")
+    #             return None
 
-            message_id = data.get("messages", [{}])[0].get("id")
-            logger.info(f"Template sent: {message_id}")
+    #         message_id = data.get("messages", [{}])[0].get("id")
+    #         logger.info(f"Template sent: {message_id}")
 
-            return message_id
+    #         return message_id
 
-        except Exception as e:
-            logger.error(f"Send template failed: {str(e)}")
-            return None
+    #     except Exception as e:
+    #         logger.error(f"Send template failed: {str(e)}")
+    #         return None
 
-    # MARK MESSAGE AS READ
-    def mark_as_read(self, message_id: str):
-        try:
-            payload = {
-                "messaging_product": "whatsapp",
-                "status": "read",
-                "message_id": message_id
-            }
+    # # MARK MESSAGE AS READ
+    # def mark_as_read(self, message_id: str):
+    #     try:
+    #         payload = {
+    #             "messaging_product": "whatsapp",
+    #             "status": "read",
+    #             "message_id": message_id
+    #         }
 
-            response = requests.post(
-                self.base_url,
-                json=payload,
-                headers=self._headers()
-            )
+    #         response = requests.post(
+    #             self.base_url,
+    #             json=payload,
+    #             headers=self._headers()
+    #         )
 
-            if response.status_code != 200:
-                logger.warning(f"Mark read failed: {response.json()}")
+    #         if response.status_code != 200:
+    #             logger.warning(f"Mark read failed: {response.json()}")
 
-        except Exception as e:
-            logger.error(f"Mark read error: {str(e)}")
+    #     except Exception as e:
+    #         logger.error(f"Mark read error: {str(e)}")

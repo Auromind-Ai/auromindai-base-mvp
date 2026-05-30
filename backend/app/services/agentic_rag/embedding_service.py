@@ -1,3 +1,5 @@
+from sentence_transformers import SentenceTransformer
+import logging
 
 import logging
 import threading

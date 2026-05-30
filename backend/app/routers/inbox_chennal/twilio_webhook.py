@@ -1,11 +1,8 @@
 import logging
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
 from app import schemas
-from app.core.config import settings
 from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.models.workspace import Workspace
@@ -22,8 +19,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-
-#  Connect ─
 
 class TwilioConnectRequest(BaseModel):
     sid: str
@@ -50,7 +45,6 @@ def connect_twilio(
 
 
 #  Webhooks 
-
 @router.post("/webhook")
 async def twilio_webhook(request: Request, db: Session = Depends(get_db)):
     try:
@@ -73,7 +67,6 @@ async def twilio_status_callback(request: Request, db: Session = Depends(get_db)
 
 
 #  Conversations
-
 @router.get("/conversations")
 def list_conversations(
     db: Session = Depends(get_db),
@@ -101,8 +94,7 @@ def get_messages(
     )
 
 
-#  Actions ─
-
+#  Actions
 @router.post("/send-reply")
 def send_reply(
     data: schemas.SendReply,

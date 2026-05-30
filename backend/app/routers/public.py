@@ -8,15 +8,12 @@ router = APIRouter(prefix="/public", tags=["public"])
 
 @router.get("/announcement")
 async def get_announcement(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """
-    Return the global announcement banner state for the frontend.
-    """
+    
     settings = get_all_settings(db)
     return {
         "enabled": settings.get("announcement_enabled", False),
         "message": settings.get("announcement_message", ""),
     }
-
 
      
 @router.get("/pricing")

@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-
 from app.database import get_db
 from app.models.user import User
 
@@ -10,9 +9,7 @@ router = APIRouter()
 
 @router.get("/users")
 async def get_users(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
-    """
-    Retrieve all platform users with their details.
-    """
+   
     try:
         users = db.query(User).all()
         

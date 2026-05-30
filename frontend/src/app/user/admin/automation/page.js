@@ -9,9 +9,10 @@ import {
   Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
-  ZoomIn, ZoomOut, Upload, Timer, HelpCircle 
+  ZoomIn, ZoomOut, Upload, Timer, HelpCircle
 } from 'lucide-react';
 import api from '@/lib/api';
+import { getToken, getWorkspaceIdFromToken } from '@/lib/auth';
 import AskQuestionConfig from '@/components/AskQuestionConfig';
 
 const MAX_BUTTONS = 3;
@@ -24,12 +25,13 @@ const TRIGGERS = [
 
 const ACTIONS = [
   { id: 'send_msg', label: 'Send Message', icon: Send },
+  { id: 'assign_agent', label: 'Assign Agent', icon: Users },
   { id: 'brain_query', label: 'Brain Query', icon: Sparkles },
   { id: 'ask_question',  label: 'Ask Question',  icon: HelpCircle },
+  { id: 'condition',     label: 'Decision',      icon: Filter },
   { id: 'move_stage', label: 'Move Deal', icon: Split },
   { id: 'notification', label: 'Notify', icon: Bell },
 ];
-
 
 const getIcon = (type) => {
   const all = [...TRIGGERS, ...ACTIONS, { id: 'condition', icon: Filter }, { id: 'trigger', icon: Zap }];
@@ -62,6 +64,25 @@ const getNodeButtons = (node) => {
 
 const isButtonMessageNode = (node) => getNodeButtons(node).length > 0;
 
+const isConditionNode = (node) => {
+  const config = node?.config || {};
+  return node?.type === 'action' && config.type === 'condition';
+};
+
+const getNodeBranches = (node) => {
+  if (!isConditionNode(node)) return [];
+  const config = node?.config || {};
+  const branches = config.branches || [];
+  if (branches.length >= 2) return branches;
+  // Ensure at least true/false branches
+  return [
+    { id: 'branch-true', label: 'If True', value: 'true', target: null },
+    { id: 'branch-false', label: 'If False', value: 'false', target: null },
+  ];
+};
+
+const isMultiPathNode = (node) => isButtonMessageNode(node) || isConditionNode(node);
+
 const getHandleIdForButton = (button, index) => button.value || button.id || `button-${index}`;
 
 const buildOutgoingMap = (edges = []) => edges.reduce((acc, edge) => {
@@ -88,21 +109,50 @@ const normalizeTriggerType = (triggerType) => {
 // Sanitize flow data to ensure all trigger types are supported
 const sanitizeFlowData = (flow) => {
   if (!flow) return flow;
+
+  const nodes = flow.nodes || [];
+  const edges = flow.edges || [];
+
+  // Identify which nodes are multi-path (button or condition)
+  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const multiPathNodeIds = new Set(
+    nodes
+      .filter(node => isMultiPathNode(node))
+      .map(n => n.id)
+  );
+
+  // For non-multi-path nodes: strip sourceHandle + keep only ONE outgoing edge
+  const seenSources = new Set();
+  const sanitizedEdges = edges.reduce((acc, edge) => {
+    if (multiPathNodeIds.has(edge.source)) {
+      // Multi-path nodes can have multiple sourceHandle edges — keep as-is
+      acc.push(edge);
+    } else {
+      // Non-multi-path nodes: only ONE outgoing edge, no sourceHandle
+      if (!seenSources.has(edge.source)) {
+        seenSources.add(edge.source);
+        acc.push({ ...edge, sourceHandle: null });
+      }
+      // Extra edges from the same source are dropped silently
+    }
+    return acc;
+  }, []);
+
   return {
     ...flow,
     trigger_type: normalizeTriggerType(flow.trigger_type),
-    nodes: (flow.nodes || []).map(node => {
+    nodes: nodes.map(node => {
       if (node.type === 'trigger' && node.config?.event) {
         return {
           ...node,
-          config: { ...node.config, event: normalizeTriggerType(node.config.event) }
+          config: { ...node.config, event: normalizeTriggerType(node.config.event) },
         };
       }
       return node;
-    })
+    }),
+    edges: sanitizedEdges,
   };
 };
-
 const validateFlowGraph = (nodes = [], edges = []) => {
   const errors = [];
   const warnings = [];
@@ -131,7 +181,7 @@ const validateFlowGraph = (nodes = [], edges = []) => {
       errors.push(`Connection ${edge.id} cannot target the trigger.`);
     }
   });
-  
+ 
   if (triggerNodes.length === 1) {
     const [triggerNode] = triggerNodes;
     if (nodes.length > 1 && !(outgoingMap[triggerNode.id] || []).length) {
@@ -174,8 +224,15 @@ const validateFlowGraph = (nodes = [], edges = []) => {
     const outgoingEdges = outgoingMap[node.id] || [];
     if (!outgoingEdges.length) return;
 
-    if (!isButtonMessageNode(node) && outgoingEdges.some((edge) => edge.sourceHandle)) {
-      errors.push(`Node "${node.label || node.id}" uses button branches but is not a button message node.`);
+    if (!isMultiPathNode(node) && outgoingEdges.some((edge) => edge.sourceHandle)) {
+      errors.push(`Node "${node.label || node.id}" uses branching but is not a button or condition node.`);
+    }
+
+    if (isConditionNode(node)) {
+      const handles = new Set(outgoingEdges.filter(e => e.sourceHandle).map(e => e.sourceHandle));
+      if (!handles.has('true') || !handles.has('false')) {
+        errors.push(`Condition node "${node.label || node.id}" must have both "true" and "false" branches connected.`);
+      }
     }
   });
 
@@ -215,6 +272,7 @@ export default function AutomationCanvas() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewNode, setPreviewNode] = useState(null);
+  const [stepsOpen, setStepsOpen] = useState(false);
 
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -248,14 +306,11 @@ export default function AutomationCanvas() {
     let sy = (sourceRect.top + sourceRect.height / 2 - gridRect.top) / zoom;
 
     if (sourceHandle) {
-      const buttons = getNodeButtons(sourceNode);
-      const buttonIndex = buttons.findIndex((btn, i) => getHandleIdForButton(btn, i) === sourceHandle);
-      if (buttonIndex >= 0) {
-        const btnEl = sourceEl.querySelector(`[data-button-id="${sourceHandle}"]`);
-        if (btnEl) {
-          const btnRect = btnEl.getBoundingClientRect();
-          sy = (btnRect.top + btnRect.height / 2 - gridRect.top) / zoom;
-        }
+      // Check both button handles and condition branch handles
+      const btnEl = sourceEl.querySelector(`[data-button-id="${sourceHandle}"]`) || sourceEl.querySelector(`[data-branch-id="${sourceHandle}"]`);
+      if (btnEl) {
+        const btnRect = btnEl.getBoundingClientRect();
+        sy = (btnRect.top + btnRect.height / 2 - gridRect.top) / zoom;
       }
     }
 
@@ -263,7 +318,7 @@ export default function AutomationCanvas() {
     const ty = (targetRect.top + targetRect.height / 2 - gridRect.top) / zoom;
 
     return { sx, sy, tx, ty };
-  }, [zoom, edgeTick]);
+  }, [zoom, edgeTick,nodes]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -279,6 +334,12 @@ export default function AutomationCanvas() {
   }, []);
 useEffect(() => { edgesRef.current = edges; }, [edges]);
   const fetchFlows = async () => {
+    const token = getToken();
+    if (!token) return;
+
+    const workspaceId = getWorkspaceIdFromToken();
+    if (!workspaceId) return;
+
     try {
       const data = await api.getFlows();
       if (Array.isArray(data)) {
@@ -303,7 +364,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
-  // ─ NODE DRAG (native pointer events — no Framer conflict) ─
+  // ─── NODE DRAG (native pointer events — no Framer conflict) ───
   const handleNodePointerDown = useCallback((e, nodeId) => {
     if (e.target.closest?.('[data-no-drag]')) return;
     e.stopPropagation();
@@ -513,6 +574,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
 
   const handleCanvasPointerDown = useCallback((e) => {
     if (e.target.closest?.('[data-node-id]')) return;
+    if (e.target.closest?.('[data-steps-panel]')) return;
     isPanningRef.current = true;
     panStartRef.current = { x: e.clientX, y: e.clientY };
     panOffsetStartRef.current = { x: canvasOffset.x, y: canvasOffset.y };
@@ -538,14 +600,24 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
     if (!edge) return;
     setEdges(prev => prev.filter(e => e.id !== edgeId));
     if (edge.sourceHandle) {
-      updateNodeConfig(edge.source, (config) => ({
-        ...config,
-        buttons: normalizeButtons(config.buttons || []).map(button => {
-          const handleId = getHandleIdForButton(button);
-          if (handleId === edge.sourceHandle) return { ...button, target: null };
-          return button;
-        }),
-      }));
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      if (isConditionNode(sourceNode)) {
+        updateNodeConfig(edge.source, (config) => ({
+          ...config,
+          branches: (config.branches || []).map(branch =>
+            branch.value === edge.sourceHandle ? { ...branch, target: null } : branch
+          ),
+        }));
+      } else {
+        updateNodeConfig(edge.source, (config) => ({
+          ...config,
+          buttons: normalizeButtons(config.buttons || []).map(button => {
+            const handleId = getHandleIdForButton(button);
+            if (handleId === edge.sourceHandle) return { ...button, target: null };
+            return button;
+          }),
+        }));
+      }
     }
   };
 
@@ -583,7 +655,16 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
     };
     setNodes([...nodes, newNode]);
     setEdges([...edges, { id: `e-${sourceId}-${sourceHandle || 'default'}-${id}`, source: sourceId, sourceHandle, target: id }]);
-    if (sourceHandle) syncButtonTarget(sourceId, sourceHandle, id);
+    if (sourceHandle) {
+      if (isConditionNode(sourceNode)) {
+        updateNodeConfig(sourceId, (config) => ({
+          ...config,
+          branches: (config.branches || []).map(b => b.value === sourceHandle ? { ...b, target: id } : b),
+        }));
+      } else {
+        syncButtonTarget(sourceId, sourceHandle, id);
+      }
+    }
     setActiveNodeId(id);
   };
 
@@ -622,82 +703,86 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
   if (!isMounted) return null;
 
   return (
-    <div className={`${zenMode ? 'fixed inset-0 z-[200]' : 'relative w-full h-screen'} bg-[#020408] text-zinc-200 overflow-hidden font-sans select-none border-t border-white/5`}>
+    <div className={`${zenMode ? 'fixed inset-0 z-[200]' : 'relative w-full h-screen'} bg-[#0d0d12] text-zinc-200 overflow-hidden font-sans select-none border-t border-white/5`}>
 
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[150px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-violet-600/10 blur-[150px] rounded-full" />
+        <div className="absolute top-[-5%] left-[-5%] w-[40%] h-[40%] bg-indigo-500/5 blur-[200px] rounded-full" />
+        <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-violet-600/5 blur-[200px] rounded-full" />
       </div>
 
       {/* FLOATING HEADER */}
-      <header className="absolute top-6 left-1/2 -translate-x-1/2 w-[95%] max-w-[1400px] h-14 z-[100] flex items-center justify-between px-6 bg-[#0F1115]/70 backdrop-blur-3xl border border-white/5 rounded-2xl shadow-2xl">
-        <div className="flex items-center gap-6">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-lg transition ${sidebarOpen ? 'bg-indigo-500 text-white shadow-lg' : 'hover:bg-white/5 text-indigo-400'}`}
-          >
-            <Menu size={20} />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-indigo-500/20 shadow-lg">
-              <Cpu size={18} className="text-white" />
+      <header className="absolute top-5 left-0 right-0 h-[82px] z-[100] flex items-center justify-center px-4 bg-[#13131a] border-b border-white/5 shadow-xl">
+      <div className="flex items-center justify-between px-4 py-2.5 my-2 rounded-2xl border border-white/15 bg-white/[0.03] w-[1479px] mx-auto gap-0">
+         
+          {/* LEFT: menu + title */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`p-2 rounded-lg transition ${sidebarOpen ? 'bg-indigo-500 text-white shadow-lg' : 'hover:bg-white/5 text-indigo-400'}`}
+            >
+              <Menu size={20} />
+            </button>
+            <div className="w-9 h-9 rounded-xl bg-[#814AC8] flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <Sparkles size={16} className="text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Agentic Orchestrator</span>
-              <span className="text-sm font-bold text-white tracking-tight leading-none">{selectedItem?.name || "Untitled Wire"}</span>
+              <span className="text-[14px] font-semiBold text-white tracking-widest leading-none mb-2">Agentic Orchestrator</span>
+              <span className="text-[12px] font-medium text-white/75 leading-none">{selectedItem?.name || "Untitled Wire"}</span>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-4">
+          {/* DIVIDER */}
+          <div className="w-px h-8 bg-white/10 mx-2" />
+
+          {/* RIGHT: actions */}
+          <div className="flex items-center gap-2">
           <button
             onClick={() => setZenMode(!zenMode)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all text-[10px] font-bold uppercase tracking-widest ${zenMode ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-400' : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-xs font-medium ${zenMode ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-[#1e1e2a] border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-200'}`}
           >
-            {zenMode ? <EyeOff size={14} /> : <Eye size={14} />}
-            {zenMode ? 'Exit Zen' : 'Zen Mode'}
+            {zenMode ? <EyeOff size={13} /> : <Eye size={13} />}
+            {zenMode ? 'Exit Zen' : 'Zen mode'}
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || !selectedItem || !flowValidation.isValid}
-            className="flex items-center gap-2 px-6 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition text-[10px] font-black uppercase tracking-widest shadow-lg"
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 disabled:opacity-40 transition text-xs font-medium text-zinc-300"
           >
-            <Save size={14} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
+            <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
           </button>
           <button
             onClick={handleCreateNew}
-            className="flex items-center gap-2 px-6 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-indigo-600/40"
+            className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#814AC8] hover:bg-violet-500 transition text-xs font-semibold text-white shadow-lg shadow-violet-600/30"
           >
-            <Plus size={16} /> New Wire
+            <Plus size={15} /> New Wire
           </button>
+          </div>
         </div>
       </header>
 
       {/* FLOW HEALTH BAR */}
-      <div className="absolute top-24 left-1/2 -translate-x-1/2 w-[95%] max-w-[980px] z-[95]">
-        <div className="bg-[#0F1115]/80 backdrop-blur-3xl border border-white/10 rounded-2xl px-5 py-4 shadow-2xl">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[2px] text-zinc-500">Flow Health</p>
-              <p className="text-sm font-bold text-white">
-                Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
-              </p>
-            </div>
-            <div className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-[2px] border ${flowValidation.isValid ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/20 bg-amber-500/10 text-amber-300'}`}>
+      <div className="absolute top-26 left-0 right-0 z-[95]">
+        <div className="bg-[#13131a] border-b border-white/5 px-6 py-3">
+          <div className="flex items-center gap-4">
+            <span className="text-[14px] font-Regular text-white tracking-widest">Flow Health</span>
+            <span className="text-[12px] text-white/80">
+              Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
+            </span>
+            <div className={`ml-auto px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${flowValidation.isValid ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-amber-500/30 bg-amber-500/10 text-amber-400'}`}>
               {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
             </div>
           </div>
           {flowValidation.errors.length > 0 && (
-            <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               {flowValidation.errors.map((item, index) => (
-                <div key={`error-${index}`} className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs font-bold text-rose-200">{item}</div>
+                <div key={`error-${index}`} className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[11px] text-rose-300">{item}</div>
               ))}
             </div>
           )}
           {flowValidation.warnings.length > 0 && (
-            <div className="mt-3 space-y-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               {flowValidation.warnings.map((item, index) => (
-                <div key={`warning-${index}`} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs font-bold text-amber-100">{item}</div>
+                <div key={`warning-${index}`} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300">{item}</div>
               ))}
             </div>
           )}
@@ -705,44 +790,44 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
       </div>
 
       {/* ZOOM CONTROLS */}
-      <div className="absolute right-6 bottom-10 z-50 flex flex-col gap-2 bg-[#0A0B0F]/70 backdrop-blur-2xl border border-white/10 rounded-2xl p-2 shadow-xl">
-        <button onClick={() => setZoom(prev => Math.min(prev + 0.1, 2))} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition text-white font-bold">+</button>
-        <button onClick={() => setZoom(prev => Math.max(prev - 0.1, 0.4))} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition text-white font-bold">-</button>
-        <div className="text-center text-[10px] text-zinc-400 font-bold">{Math.round(zoom * 100)}%</div>
-        <button onClick={handleFitView} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 transition text-white">⬚</button>
+      <div className="absolute right-4 bottom-32 z-50 flex flex-col gap-1.5 bg-[#13131a]/95 border border-white/8 rounded-xl p-2 shadow-lg">
+        <button onClick={() => setZoom(prev => Math.min(prev + 0.1, 2))} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-zinc-300 text-sm font-bold">+</button>
+        <button onClick={() => setZoom(prev => Math.max(prev - 0.1, 0.4))} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-zinc-300 text-sm font-bold">−</button>
+        <div className="text-center text-[9px] text-zinc-500 py-0.5">{Math.round(zoom * 100)}%</div>
+        <button onClick={handleFitView} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-zinc-400 text-xs">⬚</button>
       </div>
 
       {/* REPO SIDEBAR */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.aside
-            initial={{ x: -450, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -450, opacity: 0 }}
-            className="absolute left-6 top-24 bottom-24 w-80 z-[110] bg-[#0A0B0F]/95 backdrop-blur-3xl border border-white/5 rounded-[32px] shadow-3xl flex flex-col"
-          >
-            <div className="p-8 border-b border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Layers size={18} className="text-indigo-400" />
-                <h2 className="text-xs font-black text-zinc-400 uppercase tracking-[2px]">Repository</h2>
+              initial={{ x: -450, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -450, opacity: 0 }}
+              className="absolute left-4 top-20 bottom-28 w-72 z-[110] bg-[#13131a]/98 backdrop-blur-3xl border border-white/8 rounded-2xl shadow-2xl flex flex-col"
+            >
+            <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Layers size={16} className="text-violet-400" />
+                <h2 className="text-xs font-semibold text-zinc-300 tracking-wide">Repository</h2>
               </div>
-              <X size={20} className="text-zinc-600 cursor-pointer hover:text-white transition" onClick={() => setSidebarOpen(false)} />
+              <X size={18} className="text-zinc-600 cursor-pointer hover:text-zinc-300 transition" onClick={() => setSidebarOpen(false)} />
             </div>
-            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
               {automations.map(item => (
                 <motion.div
                   key={item.id}
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.01 }}
                   onClick={() => handleSelectAutomation(item)}
-                  className={`group p-4 rounded-3xl cursor-pointer transition-all border ${selectedItem?.id === item.id ? 'bg-indigo-500/10 border-indigo-500/30 ring-1 ring-indigo-500/20 shadow-xl' : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                  className={`group px-4 py-3 rounded-xl cursor-pointer transition-all border ${selectedItem?.id === item.id ? 'bg-violet-500/10 border-violet-500/25 shadow-lg' : 'bg-white/[0.03] border-white/5 hover:border-white/10 hover:bg-white/5'}`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${selectedItem?.id === item.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-black/40 text-zinc-500'}`}>
-                      <Zap size={20} />
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${selectedItem?.id === item.id ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-zinc-500'}`}>
+                      <Zap size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-black truncate uppercase tracking-tight ${selectedItem?.id === item.id ? 'text-white' : 'text-zinc-400'}`}>{item.name}</p>
-                      <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">Active Wire</p>
+                      <p className={`text-sm font-semibold truncate ${selectedItem?.id === item.id ? 'text-white' : 'text-zinc-400'}`}>{item.name}</p>
+                      <p className="text-[10px] text-zinc-600 mt-0.5">Active Wire</p>
                     </div>
                   </div>
                 </motion.div>
@@ -759,38 +844,45 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
             initial={{ x: 450, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 450, opacity: 0 }}
-            className="absolute right-6 top-24 bottom-24 w-80 z-[120] bg-[#0A0B0F]/95 backdrop-blur-3xl border border-white/5 rounded-[32px] shadow-3xl flex flex-col overflow-hidden"
+            className="absolute right-3 top-51 bottom-0 h-[820px] w-[360px] z-[120] bg-[#15161C] border border-[#22252D] rounded-[20px] shadow-2xl flex flex-col overflow-hidden"
           >
-            <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+            <div className="px-5 py-2 border-b border-white/5 flex items-center justify-between bg-[#13131a]">
               <div className="flex items-center gap-3">
-                <Settings size={18} className="text-indigo-400" />
-                <h2 className="text-xs font-black text-zinc-400 uppercase tracking-[2px]">Configuration</h2>
+                <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center">
+                  <Settings size={15} className="text-violet-400" />
+                </div>
+                <h2 className="text-sm font-bold text-white tracking-wide">Configuration</h2>
               </div>
-              <X size={20} className="text-zinc-600 cursor-pointer hover:text-white" onClick={() => setActiveNodeId(null)} />
+              <button
+                onClick={() => setActiveNodeId(null)}
+                className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 flex items-center justify-center transition"
+              >
+                <X size={14} className="text-zinc-400" />
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto px-5 py-2 space-y-5 custom-scrollbar">
               <section>
-                <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Step Label</label>
+                <label className="text-[12px] font-regular text-white/65 tracking-wider block mb-2">New Label</label>
                 <input
                   value={activeNode.label}
                   onChange={(e) => {
                     const val = e.target.value;
                     setNodes(prev => prev.map(n => n.id === activeNodeId ? { ...n, label: val } : n));
                   }}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
+                  className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 transition placeholder:text-zinc-600"
                 />
               </section>
 
               {activeNode.type === 'trigger' && (
                 <>
                   <section>
-                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Trigger Event</label>
+                    <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Trigger Event</label>
                     <select
                       value={activeNode.config?.event || 'msg_recv'}
                       onChange={(e) => updateNodeConfig(activeNodeId, { event: e.target.value })}
-                      className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
-                      style={{ backgroundColor: "#0F1115", color: "white" }}
+                      className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                      style={{ backgroundColor: "#140D1F", color: "white" }}
                       disabled
                     >
                       <option value="msg_recv">Message Received</option>
@@ -800,12 +892,12 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                   {activeNode.config?.event === 'msg_recv' && (
                     <>
                       <section>
-                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Match Strategy</label>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Match Strategy</label>
                         <select
                           value={activeNode.config?.match_type || 'word_match'}
                           onChange={(e) => updateNodeConfig(activeNodeId, { match_type: e.target.value })}
-                          className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
-                          style={{ backgroundColor: "#0F1115", color: "white" }}
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                          style={{ backgroundColor: "#140D1F", color: "white" }}
                         >
                           <option value="exact">Exact Match</option>
                           <option value="contains">Contains (anywhere)</option>
@@ -824,7 +916,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                             onChange={(e) => setKeywordInput(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeywordToTrigger(activeNodeId); } }}
                             placeholder="e.g., hi, hello, hey"
-                            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
+                            className="flex-1 bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
                           />
                           <button
                             onClick={() => addKeywordToTrigger(activeNodeId)}
@@ -861,7 +953,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                   <section>
                     <div className="flex items-center gap-2 mb-3">
                       <Timer size={14} className="text-violet-400" />
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Delay Before This Step</label>
+                      <label className="text-[12px] font-regular text-white/65 tracking-widest">Delay Before This Step</label>
                     </div>
                     <div className="flex gap-2">
                       <input
@@ -870,13 +962,13 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         max={activeNode.config?.delay_unit === 'hours' ? 72 : activeNode.config?.delay_unit === 'minutes' ? 1440 : 86400}
                         value={activeNode.config?.delay_amount || 0}
                         onChange={(e) => updateNodeConfig(activeNodeId, { delay_amount: parseInt(e.target.value) || 0 })}
-                        className="w-24 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-violet-500/50 transition shadow-inner"
+                        className="w-24 bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none focus:border-violet-500/50 transition shadow-inner"
                       />
                       <select
                         value={activeNode.config?.delay_unit || 'minutes'}
                         onChange={(e) => updateNodeConfig(activeNodeId, { delay_unit: e.target.value })}
-                        className="flex-1 bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
-                        style={{ backgroundColor: "#0F1115", color: "white" }}
+                        className="flex-1 bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                        style={{ backgroundColor: "#1a1a24", color: "white" }}
                       >
                         <option value="seconds">Seconds</option>
                         <option value="minutes">Minutes</option>
@@ -893,27 +985,50 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                     )}
                   </section>
                    <section>
-                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Action Type</label>
+                    <label className="text-[12px] font-regular text-white/65 tracking-wider block mb-2">Action Type</label>
                     <select
                       value={activeNode.config?.type || 'send_msg'}
                       onChange={(e) => {
                         const newType = e.target.value;
-                        const labelMap = { send_msg: 'Send Message', brain_query: 'AI Reply', assign_agent: 'Assign Agent', ask_question: 'Ask Question', move_stage: 'Move Deal', notification: 'Notify' };
-                        updateNode(activeNodeId, (node) => ({ ...node, label: labelMap[newType] || 'New Step', config: { ...(node.config || {}), type: newType } }));
+                        const labelMap = { send_msg: 'Send Message', brain_query: 'AI Reply', assign_agent: 'Assign Agent', ask_question: 'Ask Question', condition: 'If / Else', move_stage: 'Move Deal', notification: 'Notify' };
+                        if (newType === 'condition') {
+                          updateNode(activeNodeId, (node) => ({
+                            ...node,
+                            label: 'If / Else',
+                            config: {
+                              ...(node.config || {}),
+                              type: 'condition',
+                              field: 'user_input',
+                              operator: 'equals',
+                              compare_value: '',
+                              branches: [
+                                { id: 'branch-true', label: 'If True', value: 'true', target: null },
+                                { id: 'branch-false', label: 'If False', value: 'false', target: null },
+                              ],
+                            },
+                          }));
+                        } else {
+                          // Clear condition branches + edges when switching away
+                          if (activeNode.config?.type === 'condition') {
+                            setEdges(prev => prev.filter(e => !(e.source === activeNodeId && e.sourceHandle)));
+                          }
+                          updateNode(activeNodeId, (node) => ({ ...node, label: labelMap[newType] || 'New Step', config: { ...(node.config || {}), type: newType } }));
+                        }
                       }}
-                      className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
-                      style={{ backgroundColor: "#0F1115", color: "white" }}
+                      className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                      style={{ backgroundColor: "#140D1F", color: "white" }}
                     >
                       <option value="send_msg">Send Message</option>
                       <option value="brain_query">AI Reply (Brain)</option>
                       <option value="ask_question">Ask Question</option>
+                      <option value="condition">Decision</option>
                     </select>
                   </section>
 
                   {activeNode.config?.type === 'send_msg' && (
                     <>
                       <section>
-                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Message Type</label>
+                        <label className="text-[12px] font-regular text-white/65 tracking-wider block mb-2">Message Type</label>
                         <select
                           value={activeNode.config?.message_type || DEFAULT_MESSAGE_TYPE}
                           onChange={(e) => {
@@ -924,8 +1039,8 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                             }));
                             if (nextType !== 'button_message') setEdges(prev => prev.filter(edge => edge.source !== activeNodeId || !edge.sourceHandle));
                           }}
-                          className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none"
-                          style={{ backgroundColor: "#0F1115", color: "white" }}
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                            style={{ backgroundColor: "#1a1a24", color: "white" }}
                         >
                           <option value="text">Text Message</option>
                           <option value="button_message">Button Message</option>
@@ -937,7 +1052,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
 
                       {['image', 'video', 'document'].includes(activeNode.config?.message_type) && (
                         <section>
-                          <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Media Upload</label>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Media Upload</label>
                           <div
                             className={`relative border-2 border-dashed rounded-2xl p-6 transition-colors ${isDragOver ? 'border-indigo-400 bg-indigo-400/10' : 'border-white/20 hover:border-white/40'} ${uploading ? 'pointer-events-none opacity-50' : ''}`}
                             onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
@@ -1004,24 +1119,24 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
 
                       {['image', 'video'].includes(activeNode.config?.message_type) && (
                         <section>
-                          <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Caption (optional)</label>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Caption (optional)</label>
                           <textarea
                             value={activeNode.config?.text || ''}
                             onChange={(e) => updateNodeConfig(activeNodeId, { text: e.target.value })}
                             rows={2} placeholder="Image caption..."
-                            className="w-full resize-none bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
+                            className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
                           />
                         </section>
                       )}
 
                       {(!activeNode.config?.message_type || ['text', 'button_message'].includes(activeNode.config?.message_type)) && (
                         <section>
-                          <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Message Text</label>
+                          <label className="text-[12px] font-regular text-white/65 tracking-wider block mb-2">Message Text</label>
                           <textarea
                             value={activeNode.config?.text || ''}
                             onChange={(e) => updateNodeConfig(activeNodeId, { text: e.target.value })}
                             rows={4} placeholder="Add your message"
-                            className="w-full resize-none bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
+                            className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
                           />
                         </section>
                       )}
@@ -1050,41 +1165,41 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                                 value={button.label}
                                 onChange={(e) => updateButtonField(activeNodeId, button.id, 'label', e.target.value)}
                                 placeholder="Button label"
-                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
+                                className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
                               />
                               <input
                                 value={button.value}
                                 onChange={(e) => updateButtonField(activeNodeId, button.id, 'value', e.target.value)}
                                 placeholder="payload value"
-                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
+                                className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm font-medium text-white outline-none focus:border-indigo-500/50 transition shadow-inner"
                               />
                               <div className="rounded-2xl border border-dashed border-indigo-500/20 bg-indigo-500/[0.04] px-4 py-3">
                                 <p className="text-[10px] font-black uppercase tracking-[2px] text-indigo-300">Target Node</p>
                                 <select
                                     value={button.target || ''}
-                                     className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white outline-none mt-2"
-                                      style={{ backgroundColor: "#0F1115", color: "white" }}
+                                     className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer mt-2"
+                                      style={{ backgroundColor: "#1a1a24", color: "white" }}
                                    onChange={(e) => {
-  const newTarget = e.target.value;
+                                      const newTarget = e.target.value;
 
-  const filteredEdges = edgesRef.current.filter(
-    edge => !(edge.source === activeNodeId && edge.sourceHandle === button.value)
-  );
+                                      const filteredEdges = edgesRef.current.filter(
+                                        edge => !(edge.source === activeNodeId && edge.sourceHandle === button.value)
+                                      );
 
 
-  setEdges(filteredEdges);
+                                      setEdges(filteredEdges);
 
-  if (newTarget) {
-    setEdges(prev => [...prev, {
-      id: `e-${activeNodeId}-${button.value}-${newTarget}`,
-      source: activeNodeId,
-      sourceHandle: button.value,
-      target: newTarget
-    }]);
-  }
+                                      if (newTarget) {
+                                        setEdges(prev => [...prev, {
+                                          id: `e-${activeNodeId}-${button.value}-${newTarget}`,
+                                          source: activeNodeId,
+                                          sourceHandle: button.value,
+                                          target: newTarget
+                                        }]);
+                                      }
 
-  updateButtonField(activeNodeId, button.id, 'target', newTarget || null);
-}}
+                                      updateButtonField(activeNodeId, button.id, 'target', newTarget || null);
+                                    }}
                                   >
                                     <option value="">Not connected</option>
 
@@ -1101,33 +1216,45 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           ))}
                         </section>
                       )}
+
+                     
                     </>
                   )}
 
                  {activeNode.config?.type === 'brain_query' && (
                     <>
                       <section>
-                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Agent Type</label>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Agent Type</label>
                         <div className="grid grid-cols-3 gap-2">
                           {[
-                            { value: 'lead_agent',    label: 'Lead',    emoji: '🎯' },
-                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼' },
-                            { value: 'support_agent', label: 'Support', emoji: '🛟' },
-                          ].map(({ value, label, emoji }) => {
+                            { value: 'lead_agent',    label: 'Lead',    emoji: '🎯', comingSoon: false },
+                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: true  },
+                            { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: true  },
+                          ].map(({ value, label, emoji, comingSoon }) => {
                             const isSelected = (activeNode.config?.agent_type || 'lead_agent') === value;
                             return (
-                              <button
-                                key={value}
-                                data-no-drag
-                                onClick={() => updateNodeConfig(activeNodeId, { agent_type: value })}
-                                className={`flex flex-col items-center gap-1 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all
-                                  ${isSelected
-                                    ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 ring-1 ring-indigo-500/30'
-                                    : 'bg-white/5 border-white/10 text-zinc-500 hover:border-white/20'}`}
-                              >
-                                <span className="text-lg">{emoji}</span>
-                                {label}
-                              </button>
+                              <div key={value} className="relative">
+                                <button
+                                  data-no-drag
+                                  disabled={comingSoon}
+                                  onClick={() => !comingSoon && updateNodeConfig(activeNodeId, { agent_type: value })}
+                                  className={`w-full flex flex-col items-center gap-1 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all
+                                    ${comingSoon
+                                      ? 'bg-white/[0.02] border-white/5 text-zinc-600 cursor-not-allowed opacity-60'
+                                      : isSelected
+                                        ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 ring-1 ring-indigo-500/30'
+                                        : 'bg-white/5 border-white/10 text-zinc-500 hover:border-white/20'}`}
+                                >
+                                  <span className="text-lg">{emoji}</span>
+                                  {label}
+                                  {comingSoon && (
+                                    <span className="text-[8px] font-semibold text-yellow-400/80 normal-case tracking-normal">
+                                      Coming Soon
+                                    </span>
+                                  )}
+                                </button>
+                               
+                              </div>
                             );
                           })}
                         </div>
@@ -1137,93 +1264,74 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           {(!activeNode.config?.agent_type || activeNode.config?.agent_type === 'lead_agent') && 'Collects name, requirement, budget, contact.'}
                         </p>
                       </section>
-                      <section>
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">
-                        Business Type
-                      </label>
-
-                      <select
-                        value={activeNode.config?.business_type || 'saas'}
-                        onChange={(e) =>
-                          updateNodeConfig(activeNodeId, {
-                            business_type: e.target.value
-                          })
-                        }
-                        className="w-full bg-[#0F1115] border border-white/10 rounded-2xl px-4 py-3 text-sm font-bold text-white"
-                      >
-                        <option value="saas">SaaS</option>
-                        <option value="agency">Agency</option>
-                        <option value="ecommerce">E-Commerce</option>
-                        <option value="hospital">Hospital</option>
-                        <option value="education">Education</option>
-                        <option value="real_estate">Real Estate</option>
-                        <option value="custom">Custom</option>
-                      </select>
-                    </section>
-
-                    <section>
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">
-                        Lead Fields
-                      </label>
-
-                      <textarea
-                        key={activeNodeId}
-                        defaultValue={(activeNode.config?.lead_fields || []).join(', ')}
-                        onBlur={(e) =>
-                          updateNodeConfig(activeNodeId, {
-                            lead_fields: e.target.value
-                              .split(/[,\s]+/)
-                              .map(v => v.trim())
-                              .filter(v => v.length > 0)
-                          })
-                        }
-                        placeholder="name, email, phone, budget"
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
-                        rows={3}
-                      />
-                    </section>
-
-                    <section className="space-y-3">
-
-                      <label className="flex items-center gap-3 text-sm text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={activeNode.config?.calendar_enabled || false}
-                          onChange={(e) =>
-                            updateNodeConfig(activeNodeId, {
-                              calendar_enabled: e.target.checked
-                            })
-                          }
-                        />
-
-                        Enable Demo Booking
-                      </label>
-
-                      <label className="flex items-center gap-3 text-sm text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={activeNode.config?.payment_enabled || false}
-                          onChange={(e) =>
-                            updateNodeConfig(activeNodeId, {
-                              payment_enabled: e.target.checked
-                            })
-                          }
-                        />
-
-                        Enable Payments
-                      </label>
-
-                    </section>
 
                       <section>
-                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
                         <textarea
                           value={activeNode.config?.prompt || ''}
                           onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
                           placeholder="Override AI behavior for this step..."
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white"
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white"
                           rows={3}
                         />
+                      </section>
+                      <section>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
+                        <select
+                          value={activeNode.config?.business_type || 'saas'}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { business_type: e.target.value })}
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                          style={{ backgroundColor: "#140D1F", color: "white" }}
+                        >
+                          <option value="saas">SaaS</option>
+                          <option value="ecommerce">E-Commerce</option>
+                          <option value="healthcare">Healthcare</option>
+                          <option value="education">Education</option>
+                          <option value="real_estate">Real Estate</option>
+                          <option value="finance">Finance</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </section>
+
+                      <section>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
+                        <textarea
+                          value={activeNode.config?.lead_fields || ''}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { lead_fields: e.target.value })}
+                          placeholder="name, email, phone, budget"
+                          rows={3}
+                          className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50 transition shadow-inner placeholder:text-zinc-600"
+                        />
+                      </section>
+
+                      <section className="space-y-3">
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
+                        {[
+                          { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
+                        ].map(({ key, label }) => (
+                          <label key={key} className="flex items-center gap-3 cursor-pointer group" data-no-drag>
+                            <div
+                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                              className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
+                                activeNode.config?.[key]
+                                  ? 'bg-indigo-500 border-indigo-500'
+                                  : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
+                              }`}
+                            >
+                              {activeNode.config?.[key] && (
+                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              )}
+                            </div>
+                            <span
+                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                              className="text-sm text-white/80 group-hover:text-white transition"
+                            >
+                              {label}
+                            </span>
+                          </label>
+                        ))}
                       </section>
                     </>
                   )}
@@ -1232,9 +1340,126 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                     <AskQuestionConfig node={activeNode} updateNodeConfig={updateNodeConfig} />
                   )}
 
-                  {activeNode.type === 'action' && activeNode.config?.message_type !== 'button_message' && (
+                  {activeNode.config?.type === 'condition' && (
+                    <>
+                      <section>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Condition Field</label>
+                        <select
+                          value={activeNode.config?.field || 'user_input'}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { field: e.target.value })}
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                          style={{ backgroundColor: "#1a1a24", color: "white" }}
+                        >
+                          <option value="user_input">User Input (last message)</option>
+                          <option value="user_name">User Name</option>
+                          <option value="user_email">User Email</option>
+                          <option value="last_ai_response">Last AI Response</option>
+                          <option value="user_reply">User Reply (ask_question)</option>
+                        </select>
+                      </section>
+
+                      <section>
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Operator</label>
+                        <select
+                          value={activeNode.config?.operator || 'equals'}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { operator: e.target.value })}
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                          style={{ backgroundColor: "#1a1a24", color: "white" }}
+                        >
+                          <option value="equals">Equals</option>
+                          <option value="not_equals">Not Equals</option>
+                          <option value="contains">Contains</option>
+                          <option value="is_empty">Is Empty</option>
+                          <option value="greater_than">Greater Than</option>
+                          <option value="less_than">Less Than</option>
+                        </select>
+                      </section>
+
+                      {activeNode.config?.operator !== 'is_empty' && (
+                        <section>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Compare Value</label>
+                          <input
+                            value={activeNode.config?.compare_value || ''}
+                            onChange={(e) => updateNodeConfig(activeNodeId, { compare_value: e.target.value })}
+                            placeholder="Value to compare against..."
+                            className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500/50 transition placeholder:text-zinc-600"
+                          />
+                        </section>
+                      )}
+
+                      <section className="space-y-4">
+                        <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block">Branch Connections</label>
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                            <span className="text-[10px] font-black uppercase tracking-[2px] text-emerald-400">If True</span>
+                          </div>
+                          <select
+                            value={getNodeBranches(activeNode).find(b => b.value === 'true')?.target || ''}
+                            onChange={(e) => {
+                              const newTarget = e.target.value;
+                              setEdges(prev => prev.filter(edge => !(edge.source === activeNodeId && edge.sourceHandle === 'true')));
+                              if (newTarget) {
+                                setEdges(prev => [...prev, { id: `e-${activeNodeId}-true-${newTarget}`, source: activeNodeId, sourceHandle: 'true', target: newTarget }]);
+                              }
+                              updateNodeConfig(activeNodeId, (config) => ({
+                                ...config,
+                                branches: (config.branches || getNodeBranches(activeNode)).map(b => b.value === 'true' ? { ...b, target: newTarget || null } : b),
+                              }));
+                            }}
+                            className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                            style={{ backgroundColor: "#140D1F", color: "white" }}
+                          >
+                            <option value="">Not connected</option>
+                            {nodes.filter(n => n.id !== activeNodeId && n.type !== 'trigger').map(n => (
+                              <option key={n.id} value={n.id}>{n.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                            <span className="text-[10px] font-black uppercase tracking-[2px] text-rose-400">If False</span>
+                          </div>
+                          <select
+                            value={getNodeBranches(activeNode).find(b => b.value === 'false')?.target || ''}
+                            onChange={(e) => {
+                              const newTarget = e.target.value;
+                              setEdges(prev => prev.filter(edge => !(edge.source === activeNodeId && edge.sourceHandle === 'false')));
+                              if (newTarget) {
+                                setEdges(prev => [...prev, { id: `e-${activeNodeId}-false-${newTarget}`, source: activeNodeId, sourceHandle: 'false', target: newTarget }]);
+                              }
+                              updateNodeConfig(activeNodeId, (config) => ({
+                                ...config,
+                                branches: (config.branches || getNodeBranches(activeNode)).map(b => b.value === 'false' ? { ...b, target: newTarget || null } : b),
+                              }));
+                            }}
+                            className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                            style={{ backgroundColor: "#140D1F", color: "white" }}
+                          >
+                            <option value="">Not connected</option>
+                            {nodes.filter(n => n.id !== activeNodeId && n.type !== 'trigger').map(n => (
+                              <option key={n.id} value={n.id}>{n.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </section>
+
+                      <section className="p-4 rounded-2xl border border-indigo-500/10 bg-indigo-500/5">
+                        <p className="text-[10px] font-black uppercase tracking-[2px] text-indigo-400 mb-1">Condition Preview</p>
+                        <p className="text-xs text-zinc-300 font-mono">
+                          IF <span className="text-indigo-300">{activeNode.config?.field || 'user_input'}</span>{' '}
+                          <span className="text-amber-300">{(activeNode.config?.operator || 'equals').replace('_', ' ')}</span>{' '}
+                          {activeNode.config?.operator !== 'is_empty' && <span className="text-emerald-300">"{activeNode.config?.compare_value || '...'}"</span>}
+                        </p>
+                      </section>
+                    </>
+                  )}
+
+                  {activeNode.type === 'action' && !isMultiPathNode(activeNode) && (
                     <section className="border-t border-white/5 pt-6 mt-2 pb-2">
-                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Next Step Connection</label>
+                      <label className="text-[12px] font-regular text-white/65 tracking-wider block mb-2">Next Step Connection</label>
                       {edges.find(e => e.source === activeNodeId && !e.sourceHandle) ? (
                         <div className="flex items-center justify-between bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 shadow-inner">
                           <div>
@@ -1252,7 +1477,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         </div>
                       ) : (
                         <div className="bg-white/5 border border-dashed border-white/20 rounded-2xl p-4">
-                          <p className="text-[10px] text-zinc-400 mb-3 font-medium">Select an existing step to connect this node to.</p>
+                          <p className="text-[11px] text-white/65 mb-3 font-medium">Select an existing step to connect this node to.</p>
                           <select
                             value=""
                             onChange={(e) => {
@@ -1268,30 +1493,30 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           >
                             <option value="">-- Link to existing step --</option>
                            {nodes.filter(n =>
-  n.id !== activeNodeId &&
-  n.type !== 'trigger' &&
-  !edges.some(e => e.source === activeNodeId && e.target === n.id)
-).map(n => (
-  <option key={n.id} value={n.id}>{n.label}</option>
-))}
+                              n.id !== activeNodeId &&
+                              n.type !== 'trigger' &&
+                              !edges.some(e => e.source === activeNodeId && e.target === n.id)
+                            ).map(n => (
+                              <option key={n.id} value={n.id}>{n.label}</option>
+                            ))}
                           </select>
                         </div>
                       )}
                     </section>
                   )}
 
-                  <section className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-1">
+                  {/* <section className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl space-y-1">
                     <div className="flex items-center gap-2 text-indigo-400 mb-1">
                       <Bot size={14} />
                       <span className="text-[10px] font-black uppercase tracking-widest">AI Managed</span>
                     </div>
-                    <p className="text-[10px] text-zinc-500 font-medium leading-relaxed italic">The Agent is automatically optimizing the parameters for this '{activeNode.label}' gateway. Manual tuning enabled after deploy.</p>
-                  </section>
+                    <p className="text-[11px] text-white/65 font-medium leading-relaxed italic">The Agent is automatically optimizing the parameters for this '{activeNode.label}' gateway. Manual tuning enabled after deploy.</p>
+                  </section> */}
                 </>
               )}
             </div>
 
-            <div className="p-8 bg-white/[0.02] border-t border-white/5">
+            <div className="px-5 py-4 border-t border-white/5">
               <button
                 onClick={() => {
                   if (!confirm("Delete this step?")) return;
@@ -1302,15 +1527,16 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                     config: {
                       ...node.config,
                       buttons: normalizeButtons(node.config?.buttons || []).map(button => button.target === activeNodeId ? { ...button, target: null } : button),
+                      branches: (node.config?.branches || []).map(branch => branch.target === activeNodeId ? { ...branch, target: null } : branch),
                     },
                   })));
                   setActiveNodeId(null);
                 }}
-                className="w-full py-4 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all rounded-2xl text-[10px] font-black uppercase tracking-[2px] border border-rose-500/20"
-              >
-                Delete Step
-              </button>
-            </div>
+                className="w-full py-3 bg-[#27101A] hover:bg-rose-500/20 text-[#ffffff] hover:text-rose-300 transition-all rounded-xl text-xs font-medium border border-[#501527] border-[0.2px]"
+                >
+                  Delete step
+                </button>
+              </div>
           </motion.aside>
         )}
       </AnimatePresence>
@@ -1318,13 +1544,188 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
       {/* CANVAS */}
       <section
         className={`absolute inset-0 z-10 ${isSpacePressed ? 'cursor-grabbing' : 'cursor-grab'}`}
+        style={{ top: flowValidation.errors.length > 0 || flowValidation.warnings.length > 0 ? '80px' : '48px' }}
         ref={canvasRef}
         onWheel={handleWheel}
         onPointerDown={handleCanvasPointerDown}
         onPointerMove={handleCanvasPointerMove}
         onPointerUp={handleCanvasPointerUp}
-        onClick={() => { setActiveNodeId(null); }}
+        onClick={(e) => {
+          if (e.target.closest('[data-steps-panel]')) return;
+          setActiveNodeId(null);
+          setStepsOpen(false);
+        }}
       >
+
+        {/* STEPS TOGGLE BUTTON */}
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-[90]" data-steps-panel="true">
+          <button
+            onClick={(e) => { e.stopPropagation(); setStepsOpen(!stepsOpen); }}
+            className="w-8 h-8 rounded-full bg-[#13131a] border border-white/10 flex items-center justify-center shadow-lg hover:border-white/20 transition"
+          >
+            <ChevronLeft
+              size={16}
+              className={`text-violet-400 transition-transform duration-300 ${stepsOpen ? '' : 'rotate-180'}`}
+            />
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {stepsOpen && (
+            <motion.div
+              initial={{ x: -320, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -320, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e) => e.stopPropagation()}
+              data-steps-panel="true"
+              className="absolute left-14 top-1/2 -translate-y-1/2 z-[90] w-[280px] backdrop-blur-3xl rounded-2xl overflow-hidden"
+              style={{
+                background: '#0e0e1a',
+                border: '1.5px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+              }}
+            >
+              {/* ── Header ── */}
+              <div className="px-5 pt-5 pb-4 border-b border-white/[0.06]">
+                <h3 className="text-[15px] font-bold text-white">Steps</h3>
+                <p className="text-[11px] text-white/60 mt-0.5 leading-snug">
+                  Drag and drop steps to build your automation
+                </p>
+              </div>
+
+              <div className="px-4 py-4 space-y-5">
+
+                {/* ── Trigger ── */}
+                <div>
+                  <p className="text-[13px] font-semibold text-white/90 mb-2.5">Trigger</p>
+                  <div
+                    className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                    style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.border = '1px solid rgba(16,185,129,0.35)';
+                      e.currentTarget.style.background = 'rgba(16,185,129,0.05)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
+                      e.currentTarget.style.background = '#161622';
+                    }}
+                  >
+                    {/* Green circle icon */}
+                    <div
+                      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: 'rgba(16,185,129,0.12)',
+                        border: '1.5px solid rgba(16,185,129,0.3)',
+                      }}
+                    >
+                      <MessageSquare size={19} className="text-emerald-400" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-semibold text-white leading-tight">Trigger Message</p>
+                      <p className="text-[11px] text-white/60 mt-0.5 leading-snug">
+                        Starts the flow when user send<br />the message
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Actions ── */}
+                <div>
+                  <p className="text-[13px] font-semibold text-white/90 mb-2.5">Actions</p>
+                  <div className="space-y-2.5">
+
+                    {/* Reply Message — purple filled */}
+                    <div
+                      className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                      style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.border = '1px solid rgba(139,92,246,0.4)';
+                        e.currentTarget.style.background = 'rgba(139,92,246,0.07)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
+                        e.currentTarget.style.background = '#161622';
+                      }}
+                    >
+                      <div
+                        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: 'linear-gradient(135deg, #6d28d9, #7c3aed)',
+                          boxShadow: '0 4px 12px rgba(109,40,217,0.4)',
+                        }}
+                      >
+                        <Send size={18} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold text-white leading-tight">Reply Message</p>
+                        <p className="text-[11px] text-white/60 mt-0.5">Sends a message back to user</p>
+                      </div>
+                    </div>
+
+                    {/* Configuration — dark circle */}
+                    <div
+                      className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                      style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.border = '1px solid rgba(255,255,255,0.18)';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
+                        e.currentTarget.style.background = '#161622';
+                      }}
+                    >
+                      <div
+                        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: '#1e1e2e',
+                          border: '1.5px solid rgba(255,255,255,0.12)',
+                        }}
+                      >
+                        <Settings size={18} className="text-zinc-400" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold text-white leading-tight">Configuration</p>
+                        <p className="text-[11px] text-white/60 mt-0.5">Sends a message back to user</p>
+                      </div>
+                    </div>
+
+                    {/* AI Generation — purple filled */}
+                    <div
+                      className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                      style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.border = '1px solid rgba(139,92,246,0.4)';
+                        e.currentTarget.style.background = 'rgba(139,92,246,0.07)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
+                        e.currentTarget.style.background = '#161622';
+                      }}
+                    >
+                      <div
+                        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: 'linear-gradient(135deg, #6d28d9, #7c3aed)',
+                          boxShadow: '0 4px 12px rgba(109,40,217,0.4)',
+                        }}
+                      >
+                        <Sparkles size={18} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold text-white leading-tight">AI Generation</p>
+                        <p className="text-[11px] text-white/60 mt-0.5">Sends a message back to user</p>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="absolute w-full h-full">
           <div
             ref={gridRef}
@@ -1332,45 +1733,41 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
             style={{
               transform: `scale(${zoom}) translate(${canvasOffset.x}px, ${canvasOffset.y}px)`,
               transformOrigin: '0 0',
-              backgroundImage: `
-                radial-gradient(circle at 1px 1px, rgba(99, 102, 241, 0.15) 1.5px, transparent 0),
-                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px),
-                linear-gradient(rgba(99, 102, 241, 0.01) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(99, 102, 241, 0.01) 1px, transparent 1px)
-              `,
-              backgroundSize: `100px 100px, 100px 100px, 100px 100px, 20px 20px, 20px 20px`,
+              backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)`,
+              backgroundSize: `28px 28px`,
             }}
           >
             {/* SVG EDGES */}
-            <svg className="absolute inset-0 w-[8000px] h-[8000px] top-[-4000px] left-[-4000px]">
-              <g transform="translate(4000, 4000)">
-                <defs>
-                  <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-                    <path d="M0,0 L0,8 L8,4 z" fill="#6366f1" />
-                  </marker>
-                </defs>
-                {edges.map(edge => {
-                  const source = nodes.find(n => n.id === edge.source);
-                  const target = nodes.find(n => n.id === edge.target);
-                  if (!source || !target) return null;
-                  const pts = getEdgePoints(source, target, edge.sourceHandle);
-                  if (!pts) return null;
-                  const { sx, sy, tx, ty } = pts;
-                  const curve = Math.min(Math.abs(tx - sx) * 0.5, 150);
-                  const d = `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
-                  const isPreviewEdge = flowValidation.reachableEdgeIds.has(edge.id);
-                  return (
-                    <g key={edge.id}>
-                      <path d={d} fill="none" stroke={isPreviewEdge ? "#818cf8" : "#6366f1"} strokeWidth={isPreviewEdge ? "3.5" : "2.5"} strokeOpacity={isPreviewEdge ? "0.8" : "0.15"} markerEnd="url(#arrow)" />
-                      <circle r="4" fill={isPreviewEdge ? "#c7d2fe" : "#818cf8"}>
-                        <animateMotion dur="3s" repeatCount="indefinite" path={d} />
-                      </circle>
-                    </g>
-                  );
-                })}
-              </g>
-            </svg>
+<svg className="absolute inset-0 w-[8000px] h-[8000px] top-[-4000px] left-[-4000px] pointer-events-none">
+  <g transform="translate(4000, 4000)">
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L0,8 L8,4 z" fill="#7c3aed" />
+      </marker>
+    </defs>
+    {edges.map(edge => {
+      const source = nodes.find(n => n.id === edge.source);
+      const target = nodes.find(n => n.id === edge.target);
+      if (!source || !target) return null;
+      const pts = getEdgePoints(source, target, edge.sourceHandle);
+      if (!pts) return null;
+      const { sx, sy, tx, ty } = pts;
+      const curve = Math.min(Math.abs(tx - sx) * 0.5, 150);
+      const d = `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
+      const isPreviewEdge = flowValidation.reachableEdgeIds.has(edge.id);
+      return (
+        <g key={edge.id}>
+          <path d={d} fill="none" stroke={isPreviewEdge ? "#7c3aed" : "#4a4a6a"} strokeWidth={isPreviewEdge ? "2" : "1.5"} strokeOpacity={isPreviewEdge ? "0.9" : "0.5"} strokeDasharray={isPreviewEdge ? "0" : "6 4"} markerEnd="url(#arrow)" />
+          {isPreviewEdge && (
+            <circle r="3" fill="#a78bfa">
+              <animateMotion dur="2.5s" repeatCount="indefinite" path={d} />
+            </circle>
+          )}
+        </g>
+      );
+    })}
+  </g>
+</svg>
 
             {/* NODES */}
             <div className="absolute inset-0">
@@ -1380,6 +1777,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                 const isPreviewNode = flowValidation.reachableNodeIds.has(node.id);
                 const isDisconnectedNode = flowValidation.disconnectedNodeIds.has(node.id);
                 const nodeButtons = getNodeButtons(node);
+                const nodeBranches = getNodeBranches(node);
                 const delayLabel = formatDelay(node.config?.delay_amount, node.config?.delay_unit);
 
                 return (
@@ -1395,7 +1793,9 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                       top: node.position.y,
                     }}
                     animate={{ scale: isActive ? 1.05 : 1, zIndex: isActive ? 100 : 10 }}
-                    className={`w-56 pointer-events-auto bg-[#12141C]/95 backdrop-blur-3xl border rounded-[40px] p-6 shadow-3xl cursor-grab active:cursor-grabbing transition-colors duration-300 ${isActive ? 'border-indigo-500 ring-[10px] ring-indigo-500/10 shadow-indigo-500/30' : isDisconnectedNode ? 'border-amber-500/70 ring-[8px] ring-amber-500/10' : isPreviewNode ? 'border-emerald-400/70 ring-[8px] ring-emerald-500/10 shadow-emerald-500/10' : 'border-white/5 hover:border-white/20'}`}
+                    className={`w-52 pointer-events-auto bg-[#0f0f18] backdrop-blur-xl border rounded-2xl p-5 shadow-2xl cursor-grab active:cursor-grabbing transition-all duration-200 ${isActive ? 'border-violet-500/60 shadow-[0_0_30px_rgba(139,92,246,0.15)]' : isDisconnectedNode ? 'border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : node.type === 'trigger'
+                      ? 'border-[#71D7A3] shadow-[2px_2px_14px_-4px_#71D7A3]'
+                      : 'border-[#814AC8] shadow-[2px_2px_15px_-2px_#814AC8]'}`}
                   >
                     {delayLabel && (
                       <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 whitespace-nowrap">
@@ -1405,16 +1805,16 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                     )}
 
                     <div className="flex items-center gap-4 mb-5">
-                      <div className={`w-12 h-12 rounded-[20px] shadow-inner flex items-center justify-center ${node.type === 'trigger' ? 'bg-amber-500/10 text-amber-500' : 'bg-indigo-500/10 text-indigo-400'}`}>
-                        <Icon size={22} />
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${node.type === 'trigger' ? 'bg-[#71D7A3]/15 text-[#71D7A3]' : 'bg-[#814AC8]/15 text-[#814AC8]'}`}>
+                        <Icon size={20} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-[13px] font-black text-white truncate leading-none uppercase tracking-tight mb-1">{node.label}</h3>
-                        <p className="text-[9px] font-black text-zinc-600 uppercase tracking-[2px]">{node.type}</p>
+                        <h3 className="text-sm font-semibold text-white truncate leading-none mb-1">{node.label}</h3>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest">{node.type}</p>
                       </div>
                     </div>
 
-                    <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/5 to-transparent mb-5" />
+                    <div className="h-px w-full bg-white/5 mb-4" />
 
                     {isDisconnectedNode && (
                       <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[2px] text-amber-200">
@@ -1422,16 +1822,63 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                       </div>
                     )}
 
-                    {isPreviewNode && !isDisconnectedNode && (
-                      <button
-                        data-no-drag
-                        onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
-                        className="w-full mb-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[2px] text-emerald-200 text-left flex items-center justify-between hover:bg-emerald-500/20 transition"
-                      >
-                        <span>In execution preview</span>
-                        <Eye size={12} className="text-emerald-400" />
-                      </button>
-                    )}
+                    {/* TRIGGER NODE: keyword tags + green preview button */}
+                      {node.type === 'trigger' && (
+                        <>
+                          {/* Keyword tags display */}
+                          <div className="mb-3 bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-3 py-2.5">
+                            <p className="text-[11px] tracking-[1px] text-White/80 mb-2">Trigger messages</p>
+                            {(node.config?.keywords || []).length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {(node.config.keywords).map(kw => (
+                                  <span key={kw} className="px-3 py-1.5 rounded-xl bg-[#1A1025] border border-[#2B2C33] border-[0.5px] text-[10px] text-white/70 font-medium shadow-inner">
+                                    {kw}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-white/60 ">No keywords — fires on all messages</p>
+                            )}
+                          </div>
+                          {/* Green preview button */}
+                          <button
+                            data-no-drag
+                            onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
+                            className="w-full rounded-xl border border-[#71D7A3] bg-[#140D1F] px-3 py-2.5 text-xs font-semibold text-white text-center hover:bg-[#140D1F]/80 transition"
+                          >
+                            Preview
+                          </button>
+                        </>
+                      )}
+
+                      {/* ACTION NODE: message text preview + purple preview button */}
+                      {node.type === 'action' && !isMultiPathNode(node) && (
+                        <>
+                          {/* Message text preview */}
+                          <div className="mb-3">
+                            <div className="bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-3 py-2.5">
+                              <p className="text-[11px] tracking-[1px] text-white mb-2">
+                                {node.config?.type === 'brain_query' ? 'AI Reply' :
+                                node.config?.type === 'ask_question' ? 'Question' : 'Reply Message'}
+                              </p>
+                              <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-2 min-h-[1.5rem]">
+                                {node.config?.text || node.config?.question ||
+                                <span className="italic text-zinc-600">No message yet</span>}
+                              </p>
+                            </div>
+                          </div>
+                          {/* Purple preview button */}
+                          <button
+                            data-no-drag
+                            onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
+                            className="w-full rounded-xl border border-[#814AC8] bg-[#140D1F] px-3 py-2.5 text-xs font-semibold text-white text-center hover:bg-[#140D1F]/80 transition"
+                          >
+                            Preview
+                          </button>
+                        </>
+                      )}
+
+                      {/* MULTI-PATH NODES (button/condition): remove badge, show preview button at bottom */}
 
                     {nodeButtons.length > 0 && (
                       <div className="mb-4 space-y-2">
@@ -1464,29 +1911,64 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                        <span className="text-[8px] font-black text-zinc-500 uppercase tracking-[1px]">Operational</span>
+                    {nodeBranches.length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        {/* Condition summary */}
+                        <div className="rounded-2xl border border-indigo-500/10 bg-indigo-500/5 px-3 py-2 mb-2">
+                          <p className="text-[9px] font-black uppercase tracking-[2px] text-indigo-400 mb-1">Condition</p>
+                          <p className="text-[10px] text-zinc-300 font-mono truncate">
+                            IF {node.config?.field || 'user_input'} {(node.config?.operator || 'equals').replace('_', ' ')} {node.config?.operator !== 'is_empty' ? `"${node.config?.compare_value || '...'}"` : ''}
+                          </p>
+                        </div>
+                        {nodeBranches.map((branch, index) => (
+                          <div
+                            key={branch.id || branch.value}
+                            data-branch-id={branch.value}
+                            className="relative rounded-2xl border border-white/10 bg-white/5 px-3 py-2 pr-10"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${branch.value === 'true' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
+                              <p className={`text-[10px] font-black uppercase tracking-[2px] ${branch.value === 'true' ? 'text-emerald-400' : 'text-rose-400'}`}>{branch.label}</p>
+                            </div>
+                            <div className="absolute -right-2 top-1/2 -translate-y-1/2 z-20">
+                              <motion.div
+                                whileHover={{ scale: 1.3, rotate: 90 }}
+                                data-no-drag
+                                onClick={(e) => handlePortClick(e, node.id, branch.value, (index + 1) * 80)}
+                                className={`w-5 h-5 rounded-full border-[3px] border-[#020408] cursor-crosshair flex items-center justify-center ${branch.value === 'true' ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.55)]' : 'bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.55)]'}`}
+                              >
+                                <Plus size={9} className="text-white" />
+                              </motion.div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <button data-no-drag className="p-2 hover:bg-white/5 rounded-xl transition text-zinc-700 hover:text-white">
-                        <MoreHorizontal size={14} />
-                      </button>
-                    </div>
+                    )}
 
-                    {nodeButtons.length === 0 && (
+                    {isConditionNode(node) && (
+                      <button
+                        data-no-drag
+                        onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
+                        className="w-full rounded-xl border border-[#814AC8] bg-[#140D1F] px-3 py-2.5 text-xs font-semibold text-white text-center hover:bg-[#140D1F]/80 transition mt-1"
+                      >
+                        Preview
+                      </button>
+                    )}
+
+
+                    {nodeButtons.length === 0 && nodeBranches.length === 0 && (
                       <motion.div
                         whileHover={{ scale: 1.6, rotate: 90 }}
                         data-no-drag
                         onClick={(e) => handlePortClick(e, node.id)}
-                        className={`absolute -right-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-indigo-500 rounded-full border-[4px] border-[#020408] shadow-[0_0_20px_rgba(99,102,241,0.6)] cursor-crosshair z-20 flex items-center justify-center group/port ${isActive ? 'scale-125' : ''}`}
+                        className={`absolute -right-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-violet-500 rounded-full border-[3px] border-[#0d0d12] shadow-[0_0_12px_rgba(139,92,246,0.5)] cursor-crosshair z-20 flex items-center justify-center group/port ${isActive ? 'scale-125' : ''}`}
                       >
                         <Plus size={10} className="text-white opacity-0 group-hover/port:opacity-100 transition-opacity" />
                       </motion.div>
                     )}
 
                     {node.type !== 'trigger' && (
-                      <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-zinc-800 rounded-full border-[3.5px] border-[#020408]" />
+                      <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#2a2a3a] rounded-full border-[3px] border-[#0d0d12]" />
                     )}
                   </motion.div>
                 );
@@ -1588,19 +2070,19 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
       </AnimatePresence>
 
       {/* AI MAGIC BAR */}
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[90%] max-w-[850px] z-[150]">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[80%] max-w-[760px] z-[150]">
         <div className="relative group">
-          <div className="absolute -inset-1.5 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 rounded-[36px] opacity-10 blur-3xl group-hover:opacity-30 transition-all duration-1000" />
-          <div className="relative bg-[#0F1115]/95 backdrop-blur-3xl border border-white/10 rounded-[32px] p-4 flex items-center gap-6 shadow-3xl">
-            <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center text-white shadow-2xl shadow-indigo-600/20 transition-all ${isGenerating ? 'animate-spin bg-indigo-500' : 'bg-gradient-to-br from-indigo-500 to-indigo-700'}`}>
-              {isGenerating ? <Activity size={32} /> : <Sparkles size={32} />}
+          <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 via-indigo-600/20 to-violet-600/20 rounded-[28px] opacity-0 blur-2xl group-hover:opacity-100 transition-all duration-700" />
+          <div className="relative bg-[#13131a]/98 backdrop-blur-2xl border border-white/8 rounded-[24px] px-4 py-3 flex items-center gap-4 shadow-2xl">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-violet-600/20 transition-all flex-shrink-0 ${isGenerating ? 'animate-spin bg-violet-500' : 'bg-[#814AC8]'}`}>
+              {isGenerating ? <Activity size={20} /> : <Sparkles size={20} />}
             </div>
             <input
               value={aiInput}
               onChange={(e) => setAiInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGenerateAI()}
-              placeholder="Describe your wire logic: 'If lead is vip, send ai personal video and slack sales'..."
-              className="flex-1 bg-transparent border-none outline-none text-lg text-zinc-100 placeholder:text-zinc-700 font-bold tracking-tight"
+              placeholder="Describe your wire logic to AI and get the solution..."
+              className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-200 placeholder:text-zinc-600 font-normal"
             />
             <button
               onClick={async () => {
@@ -1620,10 +2102,10 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                 finally { setIsGenerating(false); }
               }}
               disabled={isGenerating || !aiInput}
-              className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all rounded-[24px] text-white text-[12px] font-black uppercase tracking-[2px] shadow-2xl shadow-indigo-600/40 disabled:opacity-30"
-            >
-              {isGenerating ? 'Synthesizing...' : 'Magic Wire'}
-            </button>
+                className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 active:scale-95 transition-all rounded-xl text-white text-xs font-semibold shadow-lg shadow-violet-600/30 disabled:opacity-30 flex-shrink-0"
+              >
+                {isGenerating ? 'Synthesizing...' : 'New Wire'}
+              </button>
           </div>
 
           {error && (
@@ -1643,9 +2125,9 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
       <AnimatePresence>
         {nodes.length === 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-            <div className="text-center space-y-6 opacity-30">
-              <Bot size={80} className="mx-auto text-zinc-500 animate-pulse" />
-              <p className="text-sm font-black text-zinc-600 uppercase tracking-[6px]">Canvas Initialized | Run Magic Wire</p>
+            <div className="text-center space-y-4 opacity-20">
+              <Bot size={56} className="mx-auto text-zinc-500 animate-pulse" />
+              <p className="text-xs font-medium text-zinc-600 tracking-widest uppercase">Canvas Initialized · Run Magic Wire</p>
             </div>
           </motion.div>
         )}
@@ -1657,15 +2139,19 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 20px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.2); }
         select {
-  background-color: #0F1115 !important;
-  color: white !important;
-}
+          background-color: #0F1115 !important;
+          color: white !important;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+          background-repeat: no-repeat !important;
+          background-position: right 12px center !important;
+          padding-right: 36px !important;
+        }
 
-select option {
-  background-color: #0F1115;
-  color: white;
-}
-  
+        select option {
+          background-color: #0F1115;
+          color: white;
+        }
+ 
       `}</style>
     </div>
   );

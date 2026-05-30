@@ -2,9 +2,6 @@ import logging
 import os
 import traceback
 from typing import Optional, Dict, Any
-
-from sqlalchemy.orm import Session
-
 from app.database import SessionLocal
 from app.models.brain import BrainEntry
 from app.services.agentic_rag.embedding_service import get_embedding_generator
@@ -29,8 +26,7 @@ async def process_document_background(
     try:
         logger.info(f"Starting background processing for entry {entry_id}")
 
-        #  SECURITY CHECK 
-        # Always trust DB workspace_id, not incoming payload
+        # SECURITY CHECK 
         entry = db.query(BrainEntry).filter(
             BrainEntry.id == entry_id
         ).first()

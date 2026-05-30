@@ -6,7 +6,6 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-
 from app.core.config import settings
 from app.models.integration import Integration
 from app.services.email_automation.email_automation_engine import AutomationEngine

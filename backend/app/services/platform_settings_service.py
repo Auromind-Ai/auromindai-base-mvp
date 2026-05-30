@@ -60,7 +60,7 @@ def get_all_settings(db: Session) -> Dict[str, Any]:
     for setting in settings:
         value = setting.value
 
-        # 🔓 decrypt only for sensitive
+        # decrypt only for sensitive
         if setting.key in SENSITIVE_KEYS and value:
             value = decrypt_value(value)
         else:
@@ -105,7 +105,7 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
 
     db.commit()
 
-    # 🔄 clear cache
+    # clear cache
     global _cache, _cache_timestamp
     _cache = {}
     _cache_timestamp = 0
@@ -113,84 +113,84 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
     return get_all_settings(db)
 
 
-def initialize_default_settings(db: Session):
-    defaults = {
-        # Pricing
-        "free_plan_price": 0.0,
-        "pro_plan_price": 1000.0,
-        "enterprise_plan_price": 10000.0,
-        "token_limit_per_plan": {
-            "free": 10000,
-            "pro": 100000,
-            "enterprise": 1000000
-        },
-        "free_plan_name": "Free",
-        "pro_plan_name": "Pro",
-        "enterprise_plan_name": "Enterprise",
+# def initialize_default_settings(db: Session):
+#     defaults = {
+#         # Pricing
+#         "free_plan_price": 0.0,
+#         "pro_plan_price": 1000.0,
+#         "enterprise_plan_price": 10000.0,
+#         "token_limit_per_plan": {
+#             "free": 10000,
+#             "pro": 100000,
+#             "enterprise": 1000000
+#         },
+#         "free_plan_name": "Free",
+#         "pro_plan_name": "Pro",
+#         "enterprise_plan_name": "Enterprise",
 
-        "free_plan_desc": "",
-        "pro_plan_desc": "",
-        "enterprise_plan_desc": "",
+#         "free_plan_desc": "",
+#         "pro_plan_desc": "",
+#         "enterprise_plan_desc": "",
 
-        "free_plan_features": [],
-        "pro_plan_features": [],
-        "enterprise_plan_features": [],
-        # AI Controls
-        "temperature": 0.7,
-        "max_tokens": 4096,
-        "rpm_limit": 60,
-        "context_window": 8192,
+#         "free_plan_features": [],
+#         "pro_plan_features": [],
+#         "enterprise_plan_features": [],
+#         # AI Controls
+#         "temperature": 0.7,
+#         "max_tokens": 4096,
+#         "rpm_limit": 60,
+#         "context_window": 8192,
 
-        # Rate Limits
-        "api_rpm_limit": 60,
-        "api_tpm_limit": 100000,
-        "workspace_token_limit": 1000000,
+#         # Rate Limits
+#         "api_rpm_limit": 60,
+#         "api_tpm_limit": 100000,
+#         "workspace_token_limit": 1000000,
 
-        # AI Config
-        "model_name": "gpt-4o",
-        "ai_enabled": True,
+#         # AI Config
+#         "model_name": "gpt-4o",
+#         "ai_enabled": True,
 
-        # Announcement
-        "announcement_enabled": False,
-        "announcement_message": "",
+#         # Announcement
+#         "announcement_enabled": False,
+#         "announcement_message": "",
 
-        # Features
-        "enable_gmail_integration": True,
-        "enable_calendar_integration": True,
-        "enable_rag": True,
-        "enable_ai_learning": True,
+#         # Features
+#         "enable_gmail_integration": True,
+#         "enable_calendar_integration": True,
+#         "enable_rag": True,
+#         "enable_ai_learning": True,
 
-        # Limits
-        "max_workspaces": 10,
-        "max_users_per_workspace": 50,
-        "max_conversations": 1000,
+#         # Limits
+#         "max_workspaces": 10,
+#         "max_users_per_workspace": 50,
+#         "max_conversations": 1000,
 
-        # Infra
-        "twilio_account_sid": "",
-        "twilio_auth_token": "",
-        "twilio_from_number": "",
-        "openai_api_key": "",
-        "gemini_api_key": "",
-        "anthropic_api_key": "",
-        "groq_api_key": "",
+#         # Infra
+#         "twilio_account_sid": "",
+#         "twilio_auth_token": "",
+#         "twilio_from_number": "",
+#         "openai_api_key": "",
+#         "gemini_api_key": "",
+#         "anthropic_api_key": "",
+#         "groq_api_key": "",
 
-        # Payments
-        "razorpay_key": "",
-        "razorpay_secret": "",
-        "payu_merchant_key": "",
-        "payu_salt": "",
-    }
+#         # Payments
+#         "razorpay_key": "",
+#         "razorpay_secret": "",
+#         "payu_merchant_key": "",
+#         "payu_salt": "",
+#     }
 
-    existing_keys = {s.key for s in db.query(PlatformSetting.key).all()}
+#     existing_keys = {s.key for s in db.query(PlatformSetting.key).all()}
 
-    for key, value in defaults.items():
-        if key not in existing_keys:
-            str_value, value_type = _serialize_value(value)
-            setting = PlatformSetting(
-                key=key,
-                value=str_value,
-                value_type=value_type
-            )
-            db.add(setting)
+#     for key, value in defaults.items():
+#         if key not in existing_keys:
+#             str_value, value_type = _serialize_value(value)
+#             setting = PlatformSetting(
+#                 key=key,
+#                 value=str_value,
+#                 value_type=value_type
+#             )
+#             db.add(setting)
 
-    db.commit()
+#     db.commit()

@@ -1,11 +1,9 @@
-
+from __future__ import annotations
 import json
 import logging
 import uuid
 from datetime import datetime
 from typing import Any, Optional
-
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
 from app import models
@@ -253,12 +251,12 @@ class MessageService:
         )
         history = "\n".join([f"{item.sender_type}: {item.content}" for item in reversed(messages)])
         query = f"""
-Conversation History:
-{history}
+        Conversation History:
+        {history}
 
-User Message:
-{message}
-"""
+        User Message:
+        {message}
+        """
         rag = get_rag_service()
         reply = await rag.agent_loop(
             db=db,
@@ -287,13 +285,13 @@ User Message:
         )
         return {"status": "trigger tested", "handled": handled}
 
-    @staticmethod
-    def local_conversations():
-        return get_all_conversations()
+    # @staticmethod
+    # def local_conversations():
+    #     return get_all_conversations()
 
-    @staticmethod
-    def local_messages(user_id: str):
-        return get_local_messages(user_id)
+    # @staticmethod
+    # def local_messages(user_id: str):
+    #     return get_local_messages(user_id)
 
     @staticmethod
     async def handle_twilio_status_callback(form_data, db: Session, outbound_message_id: str = None):

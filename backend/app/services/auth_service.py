@@ -3,61 +3,57 @@ from app.models import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.auth import get_password_hash, verify_password, create_access_token
 from app.services.platform_settings_service import get_setting
-from datetime import timedelta
-import uuid
-from app.models.subscription import Subscription
-from app.models.plan import Plan
-from app.core.enums import SubscriptionStatus
+
 
 class AuthService:
-    @staticmethod
-    def signup(db: Session, email: str, password: str, full_name: str, workspace_name: str):
-        """Create a new user and workspace"""
-        # Check if user already exists
-        existing_user = db.query(User).filter(User.email == email).first()
-        if existing_user:
-            raise ValueError("Email already registered")
+    # @staticmethod
+    # def signup(db: Session, email: str, password: str, full_name: str, workspace_name: str):
+       
+    #     # Check if user already exists
+    #     existing_user = db.query(User).filter(User.email == email).first()
+    #     if existing_user:
+    #         raise ValueError("Email already registered")
         
-        # Check platform limits
-        max_workspaces = get_setting(db, "max_workspaces", 10)
-        current_workspaces = db.query(Workspace).count()
-        if current_workspaces >= max_workspaces:
-            raise ValueError(f"Maximum number of workspaces ({max_workspaces}) reached")
+    #     # Check platform limits
+    #     max_workspaces = get_setting(db, "max_workspaces", 10)
+    #     current_workspaces = db.query(Workspace).count()
+    #     if current_workspaces >= max_workspaces:
+    #         raise ValueError(f"Maximum number of workspaces ({max_workspaces}) reached")
         
-        # Create user
-        hashed_password = get_password_hash(password)
-        user = User(
-            email=email,
-            password_hash=hashed_password,
-            full_name=full_name
-        )
-        db.add(user)
-        db.flush()  # Get user ID without committing
+    #     # Create user
+    #     hashed_password = get_password_hash(password)
+    #     user = User(
+    #         email=email,
+    #         password_hash=hashed_password,
+    #         full_name=full_name
+    #     )
+    #     db.add(user)
+    #     db.flush()  # Get user ID without committing
         
-        # Create workspace
-        workspace = Workspace(
-            name=workspace_name,
-            created_by=user.id,
-        )
-        db.add(workspace)
-        db.flush()
+    #     # Create workspace
+    #     workspace = Workspace(
+    #         name=workspace_name,
+    #         created_by=user.id,
+    #     )
+    #     db.add(workspace)
+    #     db.flush()
         
-        # Add user as workspace member (founder role)
-        member = WorkspaceMember(
-            workspace_id=workspace.id,
-            user_id=user.id,
-            role="founder"
-        )
-        db.add(member)
-        db.commit()
-        db.refresh(user)
-        db.refresh(workspace)
+    #     # Add user as workspace member (founder role)
+    #     member = WorkspaceMember(
+    #         workspace_id=workspace.id,
+    #         user_id=user.id,
+    #         role="founder"
+    #     )
+    #     db.add(member)
+    #     db.commit()
+    #     db.refresh(user)
+    #     db.refresh(workspace)
         
-        return user, workspace
+    #     return user, workspace
     
     @staticmethod
     def login(db: Session, email: str, password: str = None):
-        """Authenticate user and return access token"""
+        
         user = db.query(User).filter(User.email == email).first()
         
         # For testing: allow login with just email, or verify password if provided
@@ -134,12 +130,12 @@ class AuthService:
     
     @staticmethod
     def get_user_by_id(db: Session, user_id: str):
-        """Get user by ID"""
+        
         return db.query(User).filter(User.id == user_id).first()
     
     @staticmethod
     def get_user_workspaces(db: Session, user_id: str):
-        """Get all workspaces for a user"""
+        
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
         ).filter(WorkspaceMember.user_id == user_id).all()

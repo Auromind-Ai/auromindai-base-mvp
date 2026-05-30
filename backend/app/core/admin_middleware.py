@@ -7,15 +7,24 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-class AdminConsoleMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+class AdminConsoleMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive=receive)
         path = request.url.path
         admin_prefix = f"/{settings.ADMIN_CONSOLE_PATH}"
         
         # Check if the request starts with the designated admin console path prefix
         if path.startswith(admin_prefix):
             if path == f"{admin_prefix}/auth":
-                return await call_next(request)
+                await self.app(scope, receive, send)
+                return
             
             token = request.cookies.get("admin_session")
             is_authorized = False
@@ -36,9 +45,12 @@ class AdminConsoleMiddleware(BaseHTTPMiddleware):
                 logger.warning(
                     f"Unauthorized access attempt to {path} from IP {request.client.host if request.client else 'unknown'}"
                 )
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=status.HTTP_404_NOT_FOUND,
                     content={"detail": "Not Found"}
                 )
+                await response(scope, receive, send)
+                return
         
-        return await call_next(request)
+        await self.app(scope, receive, send)
+

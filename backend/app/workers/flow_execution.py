@@ -1,14 +1,10 @@
-
 import asyncio
 import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-
 from celery.exceptions import MaxRetriesExceededError
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
-
 from app.core.celery_app import celery_app
 from app.core.redis_lock import acquire_conversation_lock, release_conversation_lock
 from app.database import SessionLocal
@@ -37,9 +33,9 @@ _DISPATCHED_TIMEOUT_SECONDS = 5
 _SEND_LOCK_TTL_SECONDS = 30
 
 
-# ── Shared retry/trace wrapper ──────────────────────────────────────────────
+# Shared retry/trace wrapper 
 def _run_flow_task(task_self, conversation_id, tracer, db, fn, extra_meta=None):
-    """Shared try/retry/trace wrapper for flow Celery tasks."""
+    
     try:
         return fn()
     except ConversationExecutionBusy as exc:
@@ -79,20 +75,8 @@ def _run_flow_task(task_self, conversation_id, tracer, db, fn, extra_meta=None):
                 conversation_id, exc,
             )
 
-
-# ── execute_incoming_message ────────────────────────────────────────────────
-
-@celery_app.task(
-    bind=True,
-    name="app.workers.flow_execution.execute_incoming_message",
-    max_retries=30,
-)
-def execute_incoming_message(
-    self,
-    conversation_id: str,
-    message: str,
-    metadata: dict = None,
-):
+@celery_app.task(bind=True, name="app.workers.flow_execution.execute_incoming_message", max_retries=30)
+def execute_incoming_message(self, conversation_id, message, metadata=None):
     db = SessionLocal()
     tracer = ExecutionTracer()
 
@@ -210,8 +194,7 @@ def resume_flow_node(
         db.close()
 
 
-# ── send_next_pending_message (REWRITTEN — race-condition-free) ─────────────
-
+# send_next_pending_message  (REWRITTEN — race-condition-free)
 @celery_app.task(
     bind=True,
     name="app.workers.flow_execution.send_next_pending_message",
@@ -221,12 +204,12 @@ def send_next_pending_message(self, conversation_id: str):
 
     from app.models.outbound_message import OutboundMessage
 
-    #  GUARD 1: Redis distributed lock
+    # Redis distributed lock 
     lock_token = acquire_conversation_lock(
         conversation_id, ttl_seconds=_SEND_LOCK_TTL_SECONDS
     )
     if lock_token is None:
-
+       
         logger.info(
             "[send_next_pending_message] Lock held by another worker | conversation=%s",
             conversation_id,

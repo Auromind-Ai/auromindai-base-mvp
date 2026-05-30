@@ -1,13 +1,10 @@
 from datetime import datetime
 import pytz
-
-import asyncio
 from datetime import timedelta
 from dateutil import parser
 from geopy.geocoders import Nominatim
 from google.oauth2.credentials import Credentials
 from timezonefinder import TimezoneFinder
-
 from app.core.config import settings
 from app.models.integration import CalendarEvent
 from app.models.integration import Integration
@@ -29,7 +26,7 @@ class CalendarExecutor:
         calendar_enabled = get_setting(db, "enable_calendar_integration", True)
 
         if not calendar_enabled:
-            print("❌ Calendar integration disabled by admin")
+            print("Calendar integration disabled by admin")
             return
         try:
 
@@ -171,8 +168,16 @@ class CalendarExecutor:
         try:
             source_tz = pytz.timezone(timezone_str)
         except Exception:
-            print("Invalid timezone. Defaulting to UTC")
-            source_tz = pytz.utc
+            print(f"Invalid timezone {timezone_str}. Attempting location fallback...")
+            detected_tz = self.detect_timezone_from_location(timezone_str)
+            try:
+                source_tz = pytz.timezone(detected_tz)
+                meeting["timezone"] = detected_tz
+                print(f"Fallback succeeded: resolved to {detected_tz}")
+            except Exception:
+                print("Fallback failed. Defaulting to UTC")
+                source_tz = pytz.utc
+                meeting["timezone"] = "UTC"
 
         # Localize datetime
         if meeting_datetime.tzinfo is None:
@@ -215,20 +220,20 @@ class CalendarExecutor:
 
         return meeting
     
-    async def smart_meeting_title(self, summary):
+    # async def smart_meeting_title(self, summary):
 
-        if not summary:
-            return "Meeting"
+    #     if not summary:
+    #         return "Meeting"
 
-        system_prompt = """
-        Generate a short meeting title (max 6 words).
-        """
+    #     system_prompt = """
+    #     Generate a short meeting title (max 6 words).
+    #     """
 
-        prompt = f"{system_prompt}\n\nUser:\n{summary}"
+    #     prompt = f"{system_prompt}\n\nUser:\n{summary}"
 
-        response = await safe_llm_call(prompt)
+    #     response = await safe_llm_call(prompt)
 
-        return response["content"].strip()
+    #     return response["content"].strip()
 
     def detect_participants(self, action):
 
@@ -262,35 +267,35 @@ class CalendarExecutor:
         print("No meeting conflict")
         return False
 
-    def smart_reschedule(self, db, meeting, workspace_id):
+    # def smart_reschedule(self, db, meeting, workspace_id):
 
-        original_time = meeting.get("utc_datetime")
+    #     original_time = meeting.get("utc_datetime")
 
-        print("Attempting smart reschedule...")
+    #     print("Attempting smart reschedule...")
 
-        # Try next slots
-        possible_offsets = [
-            timedelta(minutes=30),
-            timedelta(hours=1),
-            timedelta(hours=2)
-        ]
+    #     # Try next slots
+    #     possible_offsets = [
+    #         timedelta(minutes=30),
+    #         timedelta(hours=1),
+    #         timedelta(hours=2)
+    #     ]
 
-        for offset in possible_offsets:
+    #     for offset in possible_offsets:
 
-            new_time = original_time + offset
+    #         new_time = original_time + offset
 
-            meeting["utc_datetime"] = new_time
+    #         meeting["utc_datetime"] = new_time
 
-            conflict = self.conflict_detection(db, meeting, workspace_id)
+    #         conflict = self.conflict_detection(db, meeting, workspace_id)
 
-            if not conflict:
-                print("Rescheduled meeting to:", new_time)
-                return meeting
+    #         if not conflict:
+    #             print("Rescheduled meeting to:", new_time)
+    #             return meeting
 
-        print("No free slot found. Keeping original time.")
-        meeting["utc_datetime"] = original_time
+    #     print("No free slot found. Keeping original time.")
+    #     meeting["utc_datetime"] = original_time
 
-        return meeting
+    #     return meeting
     
     def store_event_db(self, db, workspace_id, meeting):
 

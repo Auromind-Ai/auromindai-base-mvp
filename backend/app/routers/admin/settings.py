@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Dict, Any
-
 from app.database import get_db
 from app.services.platform_settings_service import get_all_settings, update_settings
 
@@ -10,6 +9,7 @@ router = APIRouter()
 
 @router.get("/settings")
 async def get_platform_settings(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    
     try:
         return get_all_settings(db)
     except Exception as e:
@@ -21,6 +21,7 @@ async def update_platform_settings(
     updates: Dict[str, Any],
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
+    
     try:
         # Log plans before
         from app.models.plan import Plan

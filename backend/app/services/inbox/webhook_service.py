@@ -1,14 +1,14 @@
-
+from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+
+from app.models.ai_action import Lead
 import requests
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
-
-from app.models.ai_action import Lead
 from app.models.conversation import ChannelType
 from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
@@ -68,12 +68,6 @@ def upsert_lead(
     return lead
 
 
-# ────────────────────────────────────────────────────────
-# FIX 2: Auto intent detection + score update on inbound
-# This is now handled asynchronously via Celery (analyze_message_intent)
-# ────────────────────────────────────────────────────────
-
-
 class WebhookService:
     @staticmethod
     def verify_meta_subscription(query_params, verify_token: str):
@@ -123,7 +117,6 @@ class WebhookService:
             workspace_id=workspace_id,
             channel=ChannelType.TWILIO,
             body=body,
-            #  strip whatsapp: prefix — store plain E.164 in DB
             phone=from_number.replace("whatsapp:", ""),
             message_external_id=message_sid,
             metadata={
@@ -131,7 +124,6 @@ class WebhookService:
                 "interactive_label": interactive_label,
                 "provider": "twilio",
                 "to_number": to_number,
-
                 "workspace_id": workspace_id,
             },
         )

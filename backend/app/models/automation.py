@@ -8,12 +8,11 @@ class AutomationFlow(Base):
     __tablename__ = "automation_flows"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(UUID(as_uuid=True), index=True) # Workspace ownership
+    workspace_id = Column(UUID(as_uuid=True), index=True)
     name = Column(String, index=True)
     trigger_type = Column(String)
-    status = Column(String, default="Draft") # Draft, Active, Paused
-    nodes = Column(JSON, default=list) # [{id, type, label, position, config}]
-    edges = Column(JSON, default=list) # [{id, source, target}]
-    
+    status = Column(String, default="Draft")
+    nodes = Column(JSON, default=list)
+    edges = Column(JSON, default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

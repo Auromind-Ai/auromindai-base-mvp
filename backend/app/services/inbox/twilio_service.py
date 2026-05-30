@@ -1,14 +1,9 @@
-
-
 from __future__ import annotations
-
 import json
 import logging
 from typing import Optional
-
 from sqlalchemy.orm import Session
 from twilio.rest import Client
-
 from app.database import SessionLocal
 from app.models.workspace import Workspace
 
@@ -19,7 +14,6 @@ class TwilioService:
     _instance: "TwilioService | None" = None
 
     #  Singleton plumbing 
-
     def __new__(cls) -> "TwilioService":
         if cls._instance is None:
             inst = super().__new__(cls)
@@ -32,9 +26,8 @@ class TwilioService:
         return cls._instance
 
     #  Internal helpers 
-
     def _refresh_client(self, db: Session, workspace_id: str) -> None:
-        """Load Twilio credentials from the workspace row."""
+        
         workspace = db.query(Workspace).filter(
             Workspace.id == workspace_id
         ).first()
@@ -71,7 +64,7 @@ class TwilioService:
             logger.info(f"Twilio client initialized for workspace {workspace_id}")
 
     def _ensure_ready(self, workspace_id: str) -> None:
-        """Open a short-lived DB session and refresh credentials for the workspace."""
+       
         db: Session = SessionLocal()
         try:
             self._refresh_client(db, workspace_id)
@@ -81,7 +74,7 @@ class TwilioService:
             db.close()
 
     def _assert_ready(self, raise_on_error: bool) -> bool:
-        """Return True if the client + from_number are available."""
+       
         if not self.client:
             msg = "Twilio client is not initialized"
             if raise_on_error:
@@ -113,7 +106,6 @@ class TwilioService:
         return {"status_callback": url}
 
     #  Public API 
-
     def send_whatsapp_message(
         self,
         workspace_id: str,
@@ -122,7 +114,7 @@ class TwilioService:
         raise_on_error: bool = False,
         metadata: dict = None,
     ) -> str | None:
-        """Send a free-form WhatsApp message."""
+        
         logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
         self._ensure_ready(workspace_id)
         if not self._assert_ready(raise_on_error):
@@ -153,7 +145,7 @@ class TwilioService:
         raise_on_error: bool = False,
         metadata: dict = None,
     ) -> str | None:
-        """Send a WhatsApp message with inline button labels (text fallback)."""
+        
         button_lines = [
             f"{i}. {btn.get('label') or f'Option {i}'}"
             for i, btn in enumerate(buttons[:3], start=1)
@@ -175,7 +167,7 @@ class TwilioService:
         raise_on_error: bool = False,
         metadata: dict = None,
     ) -> str | None:
-        """Send a WhatsApp message with an image/video/document attachment."""
+      
         logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
         self._ensure_ready(workspace_id)
         if not self._assert_ready(raise_on_error):
@@ -202,30 +194,30 @@ class TwilioService:
                 raise
             return None
 
-    def send_whatsapp_template(
-        self,
-        workspace_id: str,
-        to_number: str,
-        content_sid: str,
-        content_variables: dict,
-        raise_on_error: bool = False,
-    ) -> str | None:
-        """Send a WhatsApp message using a Twilio Content Template."""
-        logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
-        self._ensure_ready(workspace_id)
-        if not self._assert_ready(raise_on_error):
-            return None
-        try:
-            message = self.client.messages.create(
-                to=to_number,
-                from_=self._from_number,
-                content_sid=content_sid,
-                content_variables=json.dumps(content_variables),
-            )
-            logger.info("WhatsApp template sent to %s: %s", to_number, message.sid)
-            return message.sid
-        except Exception as exc:
-            logger.error("Failed to send WhatsApp template to %s: %s", to_number, exc)
-            if raise_on_error:
-                raise
-            return None
+    # def send_whatsapp_template(
+    #     self,
+    #     workspace_id: str,
+    #     to_number: str,
+    #     content_sid: str,
+    #     content_variables: dict,
+    #     raise_on_error: bool = False,
+    # ) -> str | None:
+        
+    #     logger.info(f"TWILIO USING WORKSPACE: {workspace_id}")
+    #     self._ensure_ready(workspace_id)
+    #     if not self._assert_ready(raise_on_error):
+    #         return None
+    #     try:
+    #         message = self.client.messages.create(
+    #             to=to_number,
+    #             from_=self._from_number,
+    #             content_sid=content_sid,
+    #             content_variables=json.dumps(content_variables),
+    #         )
+    #         logger.info("WhatsApp template sent to %s: %s", to_number, message.sid)
+    #         return message.sid
+    #     except Exception as exc:
+    #         logger.error("Failed to send WhatsApp template to %s: %s", to_number, exc)
+    #         if raise_on_error:
+    #             raise
+    #         return None
