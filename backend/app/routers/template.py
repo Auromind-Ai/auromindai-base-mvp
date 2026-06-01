@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
+logger = logging.getLogger(__name__)
 import requests
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -167,17 +169,23 @@ Return JSON only.
     Tone: {data.tone}
     """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.7,
-        response_format={"type": "json_object"},
-    )
-    message = response.choices[0].message.content
-    return {"message": message}
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
+        message = response.choices[0].message.content
+        return {"message": message}
+    except Exception as e:
+        logger.exception("Template generation failed: %s", e)
+        from app.core.exceptions import AIProviderError, get_ai_provider_error_details
+        safe_msg, status_code = get_ai_provider_error_details(e, operation="template")
+        raise AIProviderError(safe_msg, status_code=status_code)
 
 # CREATE TEMPLATE
 @router.post("/templates/create")

@@ -86,10 +86,11 @@ def _human_time_ago(dt: datetime) -> str:
 
 def _safe_pct_change(current: float, previous: float) -> str:
     if previous == 0:
-        return "+100%" if current > 0 else "0%"
+        return "New" if current > 0 else "—"
     pct = ((current - previous) / previous) * 100
     sign = "+" if pct >= 0 else ""
     return f"{sign}{pct:.1f}%"
+
 
 
 def _trend(current: float, previous: float) -> str:
@@ -345,6 +346,11 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
                 return f"{m}m"
             return f"{m // 60}h {m % 60}m"
 
+        if avg_resp_prev == 0:
+            avg_resp_trend = "neutral" if avg_resp_min == 0 else "up"
+        else:
+            avg_resp_trend = "up" if avg_resp_min < avg_resp_prev else ("down" if avg_resp_min > avg_resp_prev else "neutral")
+
         result = [
             revenue_metric,
             {
@@ -369,8 +375,8 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
                 "label": "Avg. Response Time",
                 "value": fmt_time(avg_resp_min),
                 "raw_value": float(avg_resp_min),
-                "change": fmt_time(avg_resp_prev) if avg_resp_prev else "N/A",
-                "trend": "up" if avg_resp_min < avg_resp_prev else ("down" if avg_resp_min > avg_resp_prev else "neutral"),
+                "change": _safe_pct_change(avg_resp_min, avg_resp_prev),
+                "trend": avg_resp_trend,
                 "subtext": "AI first reply",
                 "gradient": "from-orange-600 via-red-500 to-rose-600",
             },

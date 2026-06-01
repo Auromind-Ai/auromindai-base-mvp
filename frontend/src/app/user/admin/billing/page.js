@@ -116,6 +116,32 @@ export default function BillingHistoryPage() {
     return 0
   }, [pricing, billing])
 
+  const activePlanFeatures = useMemo(() => {
+    if (!pricing || !billing) return []
+    const planKey = String(billing.current_plan || "free").toLowerCase()
+    
+    let rawFeatures = []
+    if (planKey === "free") {
+      rawFeatures = pricing.free_plan_features
+    } else if (planKey === "pro") {
+      rawFeatures = pricing.pro_plan_features
+    } else if (planKey === "enterprise" || planKey === "business") {
+      rawFeatures = pricing.enterprise_plan_features || pricing.business_plan_features
+    } else {
+      rawFeatures = pricing[`${planKey}_plan_features`] || pricing[`${planKey}_features`]
+    }
+
+    if (!rawFeatures) return []
+    if (typeof rawFeatures === "string") {
+      try {
+        rawFeatures = JSON.parse(rawFeatures)
+      } catch {
+        return [rawFeatures]
+      }
+    }
+    return Array.isArray(rawFeatures) ? rawFeatures : []
+  }, [pricing, billing])
+
   return (
     <section style={{ minHeight: "100vh", background: "#0d0d0f", padding: "28px 32px", color: "#fff", fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
       {/* Page Header */}
@@ -160,19 +186,16 @@ export default function BillingHistoryPage() {
           </div>
 
           {/* Feature Pills */}
-          {!loading && (
+          {!loading && activePlanFeatures.length > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20, marginBottom: 24 }}>
-              {[
-                { label: "Unlimited AI Replies", icon: <Infinity size={11} /> },
-                { label: "Advanced Workflows", icon: <Zap size={11} /> },
-                { label: "Full Analytics", icon: <BarChart3 size={11} /> },
-              ].map((feat) => (
-                <span key={feat.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.25)", color: "#f1eff7", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 500 }}>
-                  {feat.icon} {feat.label}
+              {activePlanFeatures.map((feat, idx) => (
+                <span key={`${feat}-${idx}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.25)", color: "#f1eff7", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 500 }}>
+                  {getFeatureIcon(feat)} {feat}
                 </span>
               ))}
             </div>
           )}
+
 
           {loading ? (
             <div style={skeletonStyle(140, 42)} />
@@ -510,4 +533,18 @@ function titleCase(value) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ")
+}
+
+function getFeatureIcon(feature) {
+  const text = String(feature || "").toLowerCase()
+  if (text.includes("reply") || text.includes("replies") || text.includes("unlimited")) {
+    return <Infinity size={11} />
+  }
+  if (text.includes("workflow") || text.includes("automation") || text.includes("api")) {
+    return <Zap size={11} />
+  }
+  if (text.includes("analytics") || text.includes("chart") || text.includes("reporting")) {
+    return <BarChart3 size={11} />
+  }
+  return <Sparkles size={11} />
 }
