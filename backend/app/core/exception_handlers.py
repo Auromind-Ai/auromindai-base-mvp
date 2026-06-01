@@ -7,6 +7,7 @@ from app.core.exceptions import (
     ChatProcessingError,
     RAGError,
     WorkspaceAccessError,
+    AIProviderError,
 )
 from app.core.logger import logger
 
@@ -20,6 +21,7 @@ async def billing_error_handler(request: Request, exc: BillingError):
             "message": str(exc),
         },
     )
+
 
 
 async def guardrail_error_handler(request: Request, exc: GuardrailError):
@@ -77,6 +79,17 @@ async def general_exception_handler(request: Request, exc: AuromindException):
     )
 
 
+async def ai_provider_error_handler(request: Request, exc: AIProviderError):
+    logger.error(f"AI provider error: {exc}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "message": str(exc),
+        },
+    )
+
+
 def register_exception_handlers(app: FastAPI):
     
     app.add_exception_handler(BillingError, billing_error_handler)
@@ -84,4 +97,5 @@ def register_exception_handlers(app: FastAPI):
     app.add_exception_handler(ChatProcessingError, chat_processing_error_handler)
     app.add_exception_handler(RAGError, rag_error_handler)
     app.add_exception_handler(WorkspaceAccessError, workspace_access_error_handler)
+    app.add_exception_handler(AIProviderError, ai_provider_error_handler)
     app.add_exception_handler(AuromindException, general_exception_handler)
