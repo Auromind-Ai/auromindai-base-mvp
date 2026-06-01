@@ -279,6 +279,28 @@ export default function AutomationCanvas() {
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const edgesRef = useRef(edges);
+  useEffect(() => { edgesRef.current = edges; }, [edges]);
+
+  const nodesRef = useRef(nodes);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+
+  const canvasOffsetRef = useRef(canvasOffset);
+  useEffect(() => { canvasOffsetRef.current = canvasOffset; }, [canvasOffset]);
+
+  const [wiringPreview, setWiringPreview] = useState(null);
+  const wiringRef = useRef(null);
+  const wireMoveListenerRef = useRef(null);
+  const wireUpListenerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (wireMoveListenerRef.current) {
+      window.removeEventListener('pointermove', wireMoveListenerRef.current);
+    }
+    if (wireUpListenerRef.current) {
+      window.removeEventListener('pointerup', wireUpListenerRef.current);
+    }
+    wiringRef.current = null;
+  }, []);
 
   const canvasRef = useRef(null);
   const gridRef = useRef(null);
@@ -332,7 +354,6 @@ export default function AutomationCanvas() {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
-useEffect(() => { edgesRef.current = edges; }, [edges]);
   const fetchFlows = async () => {
     const token = getToken();
     if (!token) return;
@@ -641,32 +662,205 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
     }
   };
 
-  const handlePortClick = (e, sourceId, sourceHandle = null, targetOffsetY = 0) => {
-    e.stopPropagation();
-    const existingEdge = edges.find(edge => edge.source === sourceId && (edge.sourceHandle || null) === (sourceHandle || null));
-    if (existingEdge) { setError('This output is already connected. Remove the existing path before adding another.'); return; }
-    const id = Math.random().toString(36).substr(2, 9);
-    const sourceNode = nodes.find(n => n.id === sourceId);
-    if (!sourceNode) { setError('Unable to create the next step from this node.'); return; }
-    const newNode = {
-      id, type: 'action', label: 'New Step',
-      position: { x: sourceNode.position.x + 350, y: sourceNode.position.y + targetOffsetY },
-      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', delay_amount: 0, delay_unit: 'minutes' }
+  const getCanvasPointFromClient = useCallback((clientX, clientY) => {
+    if (!canvasRef.current) return null;
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) / zoomRef.current - canvasOffsetRef.current.x,
+      y: (clientY - rect.top) / zoomRef.current - canvasOffsetRef.current.y,
     };
-    setNodes([...nodes, newNode]);
-    setEdges([...edges, { id: `e-${sourceId}-${sourceHandle || 'default'}-${id}`, source: sourceId, sourceHandle, target: id }]);
+  }, []);
+
+  const getPortAnchorPoint = useCallback((sourceId, sourceHandle = null) => {
+    if (!gridRef.current) return null;
+    const sourceEl = gridRef.current.querySelector(`[data-node-id="${sourceId}"]`);
+    if (!sourceEl) return null;
+
+    const gridRect = gridRef.current.getBoundingClientRect();
+    const sourceRect = sourceEl.getBoundingClientRect();
+    let x = (sourceRect.right - gridRect.left) / zoomRef.current;
+    let y = (sourceRect.top + sourceRect.height / 2 - gridRect.top) / zoomRef.current;
+
+    if (sourceHandle) {
+      const handleEl =
+        sourceEl.querySelector(`[data-button-id="${sourceHandle}"]`) ||
+        sourceEl.querySelector(`[data-branch-id="${sourceHandle}"]`);
+      if (handleEl) {
+        const handleRect = handleEl.getBoundingClientRect();
+        y = (handleRect.top + handleRect.height / 2 - gridRect.top) / zoomRef.current;
+      }
+    }
+
+    return { x, y };
+  }, []);
+
+  const createNodeFromPort = useCallback((sourceId, sourceHandle = null, targetOffsetY = 0, position = null) => {
+    const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
+    if (!sourceNode) {
+      setError('Unable to create the next step from this node.');
+      return;
+    }
+
+    const id = Math.random().toString(36).substr(2, 9);
+    const newNode = {
+      id,
+      type: 'action',
+      label: 'New Step',
+      position: position || { x: sourceNode.position.x + 350, y: sourceNode.position.y + targetOffsetY },
+      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', delay_amount: 0, delay_unit: 'minutes' },
+    };
+
+    setNodes((prev) => [...prev, newNode]);
+    setEdges((prev) => [...prev, {
+      id: `e-${sourceId}-${sourceHandle || 'default'}-${id}`,
+      source: sourceId,
+      sourceHandle,
+      target: id,
+    }]);
+
     if (sourceHandle) {
       if (isConditionNode(sourceNode)) {
         updateNodeConfig(sourceId, (config) => ({
           ...config,
-          branches: (config.branches || []).map(b => b.value === sourceHandle ? { ...b, target: id } : b),
+          branches: (config.branches || []).map((branch) =>
+            branch.value === sourceHandle ? { ...branch, target: id } : branch
+          ),
         }));
       } else {
         syncButtonTarget(sourceId, sourceHandle, id);
       }
     }
+
     setActiveNodeId(id);
-  };
+  }, []);
+
+  const connectPortToNode = useCallback((sourceId, sourceHandle = null, targetId) => {
+    if (sourceId === targetId) {
+      setError('A node cannot connect to itself.');
+      return false;
+    }
+
+    const targetNode = nodesRef.current.find((node) => node.id === targetId);
+    if (!targetNode || targetNode.type === 'trigger') {
+      setError('Connect this output to a valid action node.');
+      return false;
+    }
+
+    if (wouldCreateCycle(sourceId, targetId, edgesRef.current)) {
+      setError('This connection would create a loop in the flow.');
+      return false;
+    }
+
+    setEdges((prev) => {
+      const nextEdges = prev.filter(
+        (edge) => !(edge.source === sourceId && (edge.sourceHandle || null) === (sourceHandle || null))
+      );
+      return [...nextEdges, {
+        id: `e-${sourceId}-${sourceHandle || 'default'}-${targetId}`,
+        source: sourceId,
+        sourceHandle,
+        target: targetId,
+      }];
+    });
+
+    const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
+    if (sourceHandle) {
+      if (isConditionNode(sourceNode)) {
+        updateNodeConfig(sourceId, (config) => ({
+          ...config,
+          branches: (config.branches || []).map((branch) =>
+            branch.value === sourceHandle ? { ...branch, target: targetId } : branch
+          ),
+        }));
+      } else {
+        syncButtonTarget(sourceId, sourceHandle, targetId);
+      }
+    }
+
+    setActiveNodeId(targetId);
+    return true;
+  }, []);
+
+  const handlePortPointerDown = useCallback((e, sourceId, sourceHandle = null, targetOffsetY = 0) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const existingEdge = edgesRef.current.find(
+      (edge) => edge.source === sourceId && (edge.sourceHandle || null) === (sourceHandle || null)
+    );
+    if (existingEdge) {
+      setError('This output is already connected. Remove the existing path before adding another.');
+      return;
+    }
+
+    const startPoint = getPortAnchorPoint(sourceId, sourceHandle) || getCanvasPointFromClient(e.clientX, e.clientY);
+    if (!startPoint) {
+      setError('Unable to start wiring from this port.');
+      return;
+    }
+
+    const nextWire = {
+      sourceId,
+      sourceHandle,
+      targetOffsetY,
+      startPoint,
+      currentPoint: startPoint,
+      hasMoved: false,
+    };
+
+    wiringRef.current = nextWire;
+    setWiringPreview(nextWire);
+    setActiveNodeId(sourceId);
+
+    if (wireMoveListenerRef.current) {
+      window.removeEventListener('pointermove', wireMoveListenerRef.current);
+    }
+    if (wireUpListenerRef.current) {
+      window.removeEventListener('pointerup', wireUpListenerRef.current);
+    }
+
+    const handleWireMove = (moveEvent) => {
+      if (!wiringRef.current) return;
+      const point = getCanvasPointFromClient(moveEvent.clientX, moveEvent.clientY);
+      if (!point) return;
+      const updatedWire = { ...wiringRef.current, currentPoint: point, hasMoved: true };
+      wiringRef.current = updatedWire;
+      setWiringPreview(updatedWire);
+    };
+
+    const handleWireUp = (upEvent) => {
+      if (!wiringRef.current) return;
+
+      const wire = wiringRef.current;
+      wiringRef.current = null;
+      setWiringPreview(null);
+      window.removeEventListener('pointermove', handleWireMove);
+      window.removeEventListener('pointerup', handleWireUp);
+      wireMoveListenerRef.current = null;
+      wireUpListenerRef.current = null;
+
+      const dropTarget = document.elementFromPoint(upEvent.clientX, upEvent.clientY)?.closest?.('[data-node-id]');
+      const targetId = dropTarget?.getAttribute('data-node-id');
+      if (targetId && targetId !== wire.sourceId) {
+        if (connectPortToNode(wire.sourceId, wire.sourceHandle, targetId)) {
+          return;
+        }
+      }
+
+      const dropPoint = getCanvasPointFromClient(upEvent.clientX, upEvent.clientY);
+      createNodeFromPort(
+        wire.sourceId,
+        wire.sourceHandle,
+        wire.targetOffsetY,
+        wire.hasMoved && dropPoint ? dropPoint : null
+      );
+    };
+
+    wireMoveListenerRef.current = handleWireMove;
+    wireUpListenerRef.current = handleWireUp;
+    window.addEventListener('pointermove', handleWireMove);
+    window.addEventListener('pointerup', handleWireUp);
+  }, [connectPortToNode, createNodeFromPort, getCanvasPointFromClient, getPortAnchorPoint]);
 
   const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
     const visited = new Set();
@@ -1766,6 +1960,17 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
         </g>
       );
     })}
+    {wiringPreview && (() => {
+      const { startPoint, currentPoint } = wiringPreview;
+      const curve = Math.min(Math.abs(currentPoint.x - startPoint.x) * 0.5, 150);
+      const d = `M ${startPoint.x} ${startPoint.y} C ${startPoint.x + curve} ${startPoint.y}, ${currentPoint.x - curve} ${currentPoint.y}, ${currentPoint.x} ${currentPoint.y}`;
+      return (
+        <g key="wiring-preview">
+          <path d={d} fill="none" stroke="#a78bfa" strokeWidth="2" strokeDasharray="6 4" strokeOpacity="0.95" markerEnd="url(#arrow)" />
+          <circle cx={currentPoint.x} cy={currentPoint.y} r="4" fill="#c4b5fd" />
+        </g>
+      );
+    })()}
   </g>
 </svg>
 
@@ -1793,7 +1998,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                       top: node.position.y,
                     }}
                     animate={{ scale: isActive ? 1.05 : 1, zIndex: isActive ? 100 : 10 }}
-                    className={`w-52 pointer-events-auto bg-[#0f0f18] backdrop-blur-xl border rounded-2xl p-5 shadow-2xl cursor-grab active:cursor-grabbing transition-all duration-200 ${isActive ? 'border-violet-500/60 shadow-[0_0_30px_rgba(139,92,246,0.15)]' : isDisconnectedNode ? 'border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : node.type === 'trigger'
+                    className={`w-52 pointer-events-auto bg-[#0f0f18] backdrop-blur-xl border rounded-2xl p-5 shadow-2xl cursor-grab active:cursor-grabbing transition-colors duration-300 ${isActive ? 'border-violet-500/60 shadow-[0_0_30px_rgba(139,92,246,0.15)]' : isDisconnectedNode ? 'border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : node.type === 'trigger'
                       ? 'border-[#71D7A3] shadow-[2px_2px_14px_-4px_#71D7A3]'
                       : 'border-[#814AC8] shadow-[2px_2px_15px_-2px_#814AC8]'}`}
                   >
@@ -1900,7 +2105,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                               <motion.div
                                 whileHover={{ scale: 1.3, rotate: 90 }}
                                 data-no-drag
-                                onClick={(e) => handlePortClick(e, node.id, getHandleIdForButton(button, index), (index + 1) * 80)}
+                                onPointerDown={(e) => handlePortPointerDown(e, node.id, getHandleIdForButton(button, index), (index + 1) * 80)}
                                 className="w-5 h-5 bg-indigo-500 rounded-full border-[3px] border-[#020408] shadow-[0_0_14px_rgba(99,102,241,0.55)] cursor-crosshair flex items-center justify-center"
                               >
                                 <Plus size={9} className="text-white" />
@@ -1934,7 +2139,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                               <motion.div
                                 whileHover={{ scale: 1.3, rotate: 90 }}
                                 data-no-drag
-                                onClick={(e) => handlePortClick(e, node.id, branch.value, (index + 1) * 80)}
+                                onPointerDown={(e) => handlePortPointerDown(e, node.id, branch.value, (index + 1) * 80)}
                                 className={`w-5 h-5 rounded-full border-[3px] border-[#020408] cursor-crosshair flex items-center justify-center ${branch.value === 'true' ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.55)]' : 'bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.55)]'}`}
                               >
                                 <Plus size={9} className="text-white" />
@@ -1960,7 +2165,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                       <motion.div
                         whileHover={{ scale: 1.6, rotate: 90 }}
                         data-no-drag
-                        onClick={(e) => handlePortClick(e, node.id)}
+                        onPointerDown={(e) => handlePortPointerDown(e, node.id)}
                         className={`absolute -right-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-violet-500 rounded-full border-[3px] border-[#0d0d12] shadow-[0_0_12px_rgba(139,92,246,0.5)] cursor-crosshair z-20 flex items-center justify-center group/port ${isActive ? 'scale-125' : ''}`}
                       >
                         <Plus size={10} className="text-white opacity-0 group-hover/port:opacity-100 transition-opacity" />
