@@ -56,57 +56,62 @@ class LLMRouter:
 
   
     async def generate(self, prompt: str, model: str = "auto"):
+        try:
+            start_time = time.time()
 
-        start_time = time.time()
+            model = MODEL_MAP.get(model, "auto")
+            print(f"Requested model: {model}")
 
-        model = MODEL_MAP.get(model, "auto")
-        print(f"Requested model: {model}")
+            if model != "auto":
+                try:
+                    config = self._get_config(model)
+                    provider = config["provider"]
 
-        if model != "auto":
+                    if provider == "claude":
+                        if not settings.ANTHROPIC_API_KEY:
+                            raise Exception("Claude key missing")
+                        return await self._claude_call(prompt, config)
+
+                    elif provider == "gemini":
+                        if not settings.GOOGLE_API_KEY:
+                            raise Exception("Gemini key missing")
+                        return await self._gemini_call(prompt, config)
+
+
+                    elif provider == "groq":
+                        if not settings.GROQ_API_KEY:
+                            raise Exception("Groq key missing")
+                        return await self._groq_call(prompt, config)
+
+                except Exception as e:
+                    logger.warning(f"{model} not available → fallback AUTO: {e}")
+
             try:
-                config = self._get_config(model)
-                provider = config["provider"]
-
-                if provider == "claude":
-                    if not settings.ANTHROPIC_API_KEY:
-                        raise Exception("Claude key missing")
+                if settings.ANTHROPIC_API_KEY:
+                    logger.info("AUTO → Claude Sonnet")
+                    config = self._get_config("sonnet")
                     return await self._claude_call(prompt, config)
 
-                elif provider == "gemini":
-                    if not settings.GOOGLE_API_KEY:
-                        raise Exception("Gemini key missing")
+            except Exception as e:
+                logger.warning(f"Claude failed: {e}")
+
+            try:
+                if settings.GOOGLE_API_KEY:
+                    logger.info("AUTO → Gemini")
+                    config = self._get_config("gemini")
                     return await self._gemini_call(prompt, config)
 
-
-                elif provider == "groq":
-                    if not settings.GROQ_API_KEY:
-                        raise Exception("Groq key missing")
-                    return await self._groq_call(prompt, config)
-
             except Exception as e:
-                logger.warning(f"{model} not available → fallback AUTO: {e}")
+                logger.warning(f"Gemini failed: {e}")
 
-        try:
-            if settings.ANTHROPIC_API_KEY:
-                logger.info("AUTO → Claude Sonnet")
-                config = self._get_config("sonnet")
-                return await self._claude_call(prompt, config)
-
+            logger.info("AUTO -> Groq fallback")
+            config = self._get_config("groq")
+            return await self._groq_call(prompt, config)
         except Exception as e:
-            logger.warning(f"Claude failed: {e}")
-
-        try:
-            if settings.GOOGLE_API_KEY:
-                logger.info("AUTO → Gemini")
-                config = self._get_config("gemini")
-                return await self._gemini_call(prompt, config)
-
-        except Exception as e:
-            logger.warning(f"Gemini failed: {e}")
-
-        logger.info("AUTO -> Groq fallback")
-        config = self._get_config("groq")
-        return await self._groq_call(prompt, config)
+            logger.exception("AI Generation failed: %s", e)
+            from app.core.exceptions import AIProviderError, get_ai_provider_error_details
+            safe_msg, status_code = get_ai_provider_error_details(e, operation="general")
+            raise AIProviderError(safe_msg, status_code=status_code)
             
     async def _gemini_call(self, prompt, config):
         try:

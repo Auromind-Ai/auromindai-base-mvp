@@ -60,9 +60,10 @@ class AgenticWiringServiceV2:
             return self._validate_and_enhance_flow(flow_data)
 
         except Exception as e:
-           
             logger.exception("[AgenticWiring] Flow generation failed: %s", e)
-            return self._get_fallback_flow(str(e))
+            from app.core.exceptions import AIProviderError, get_ai_provider_error_details
+            safe_msg, status_code = get_ai_provider_error_details(e, operation="flow")
+            raise AIProviderError(safe_msg, status_code=status_code)
 
     #
     #  SYSTEM PROMPT — aligned with flow_service_v2.py exactly            #
@@ -401,7 +402,7 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
 
 
     #  FALLBACK                                                            #
-    def _get_fallback_flow(self, error: str) -> Dict[str, Any]:
+    def _get_fallback_flow(self) -> Dict[str, Any]:
         return {
             "nodes": [
                 {
@@ -423,7 +424,7 @@ Return ONLY the JSON object with "nodes" and "edges" arrays."""
                         "type": "send_msg",
                         "message_type": "text",
                         "mode": "manual",
-                        "text": f"⚠️ Flow generation failed. Please build manually.\n\nError: {error[:100]}",
+                        "text": "⚠️ Flow generation failed. Please build manually.",
                     },
                     "position": {"x": 500, "y": 200},
                 },
