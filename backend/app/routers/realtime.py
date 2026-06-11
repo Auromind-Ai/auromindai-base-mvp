@@ -26,10 +26,26 @@ _RECV_TIMEOUT       = 70
 async def websocket_endpoint(
     websocket: WebSocket,
     user_id: str,
-    token: str = Query(..., description="JWT access token"),
+    token: str | None = Query(None, description="JWT access token"),
 ):
     #  1. Authenticate
-    payload = decode_access_token(token)
+    actual_token = token
+    if not actual_token:
+        # Check websocket cookies dict
+        actual_token = websocket.cookies.get("auth_token")
+
+    if not actual_token:
+        # Check raw Cookie header if cookies dict is empty
+        cookie_header = websocket.headers.get("cookie", "")
+        import http.cookies
+        try:
+            simple_cookie = http.cookies.SimpleCookie(cookie_header)
+            if "auth_token" in simple_cookie:
+                actual_token = simple_cookie["auth_token"].value
+        except Exception:
+            pass
+
+    payload = decode_access_token(actual_token) if actual_token else None
     if payload is None:
         await websocket.close(code=4001, reason="Invalid or expired token")
         return

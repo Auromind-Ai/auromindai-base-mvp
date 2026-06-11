@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { getToken } from "@/lib/auth";
 
 const RealtimeContext = createContext(null);
 
@@ -46,11 +45,10 @@ function resolveWebSocketBaseUrl() {
   return `${protocol}//${window.location.host}`;
 }
 
-function buildWebSocketUrl(userId, token) {
+function buildWebSocketUrl(userId) {
   const baseUrl = resolveWebSocketBaseUrl();
-  if (!baseUrl || !userId || !token) return null;
-
-  return `${baseUrl}/ws/${encodeURIComponent(userId)}?token=${encodeURIComponent(token)}`;
+  if (!baseUrl || !userId) return null;
+  return `${baseUrl}/ws/${encodeURIComponent(userId)}`;
 }
 
 export function RealtimeProvider({ user, workspace, children }) {
@@ -122,8 +120,7 @@ export function RealtimeProvider({ user, workspace, children }) {
 
   const connect = useCallback(() => {
     const userId = user?.id;
-    const token = getToken();
-    const url = buildWebSocketUrl(userId, token);
+    const url = buildWebSocketUrl(userId);
 
     if (!url) {
       setStatus(SOCKET_STATES.idle);

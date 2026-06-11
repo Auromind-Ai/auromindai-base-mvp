@@ -4,11 +4,11 @@ const API = '/api';
 
 import { useState, useEffect } from "react";
 import { Inbox, RefreshCw, ExternalLink } from "lucide-react";
-import { getWorkspace } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 
 export default function EmailPage() {
-
-  const workspace = getWorkspace();
+  const { workspaces, workspaceId } = useAuth();
+  const workspace = workspaces.find((item) => item.id === workspaceId) || null;
 
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,18 +22,19 @@ export default function EmailPage() {
   const [editingReply, setEditingReply] = useState(false);
 
   useEffect(() => {
-    checkConnection();
-  }, []);
+    if (workspace?.id) {
+      checkConnection();
+    }
+  }, [workspace?.id]);
 
   /* ---------------------------
      CHECK GMAIL CONNECTION
   ---------------------------- */
 
-  const checkConnection = async () => {
-    const token = sessionStorage.getItem("token");
+  async function checkConnection() {
     const res = await fetch(
-      `${API}/integrations/status?workspace_id=${workspace?.id}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API}/integrations/status`,
+      { credentials: 'include' }
     );
 
     const text = await res.text();
@@ -51,18 +52,16 @@ export default function EmailPage() {
       await loadMessages();
     }
     setLoading(false);
-  };
+  }
 
   /* ---------------------------
      LOAD EMAILS
   ---------------------------- */
 
-  const loadMessages = async () => {
-    const token = sessionStorage.getItem("token");
-
+  async function loadMessages() {
     const res = await fetch(
-      `${API}/email/inbox?workspace_id=${workspace?.id}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API}/email/inbox`,
+      { credentials: 'include' }
     );
 
     const text = await res.text();
@@ -74,7 +73,7 @@ export default function EmailPage() {
         return;
     }
     setMessages(data.emails || []);
-  };
+  }
 
   /* ---------------------------
      OPEN EMAIL
@@ -102,13 +101,11 @@ export default function EmailPage() {
   ---------------------------- */
 
   const approveAction = async () => {
-    const token = sessionStorage.getItem("token");
-
     await fetch(
       `${API}/automation/approve?decision_id=${aiData.id}`,
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       }
     );
 
@@ -120,13 +117,11 @@ export default function EmailPage() {
   ---------------------------- */
 
   const rejectAction = async () => {
-    const token = sessionStorage.getItem("token");
-
     await fetch(
       `${API}/automation/reject?decision_id=${aiData.id}`,
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       }
     );
 
@@ -144,18 +139,16 @@ export default function EmailPage() {
     }
 
     setSendingReply(true);
-    const token = sessionStorage.getItem("token");
 
     await fetch(
       `${API}/email/send-reply`,
       {
         method: "POST",
+        credentials: 'include',
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          workspace_id: workspace?.id,
           message_id: selectedEmail.id,
           thread_id: selectedEmail.thread_id,
           to_email: selectedEmail.from,

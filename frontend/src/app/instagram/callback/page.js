@@ -2,7 +2,6 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, Suspense } from "react";
-import { getToken,authHeader } from "@/lib/auth";
 
 function InstagramCallbackContent() {
     const searchParams = useSearchParams();
@@ -16,6 +15,7 @@ function InstagramCallbackContent() {
 
         const code = searchParams.get("code");
         const error = searchParams.get("error");
+        const workspace_id = searchParams.get("state");
 
         // OAuth error handling
         if (error) {
@@ -29,12 +29,6 @@ function InstagramCallbackContent() {
             return;
         }
 
-        //  Safe localStorage access
-        let workspace_id = null;
-        if (typeof window !== "undefined") {
-            workspace_id = localStorage.getItem("instagram_workspace_id"); 
-        }
-
         if (!workspace_id) {
             setStatus("Workspace ID missing. Please reconnect.");
             return;
@@ -45,13 +39,12 @@ function InstagramCallbackContent() {
 
         const connectInstagram = async () => {
             try {
-                const token = getToken();
                 const res = await fetch(`/backend/api/instagram/connect`, {
                     method: "POST",
+                    credentials: "include",
                     headers: {
                         "Content-Type": "application/json",
                         "ngrok-skip-browser-warning": "true",
-                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
                     },
                     body: JSON.stringify({
                         code,
@@ -75,9 +68,6 @@ function InstagramCallbackContent() {
                 }
 
                 setStatus("Connected! Redirecting...");
-
-                //  cleanup
-                localStorage.removeItem("instagram_workspace_id");
 
                 setTimeout(() => {
                     router.push("/user/admin/channels");

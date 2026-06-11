@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { getWorkspaceIdFromToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 /* ─────────────────────────────────────────────
    Config
@@ -512,6 +512,7 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
 ───────────────────────────────────────────── */
 export default function TemplatesPage() {
   const router = useRouter();
+  const { workspaceId } = useAuth();
   const [templates, setTemplates] = useState([]);
   const [filtered, setFiltered]   = useState([]);
   const [activeTab, setActiveTab] = useState('All');
@@ -541,8 +542,9 @@ export default function TemplatesPage() {
   const fetchTemplates = async (refresh = false) => {
     if (refresh) setSpinning(true);
     try {
-      const workspace_id = getWorkspaceIdFromToken() || localStorage.getItem('workspace_id');
-      await api.get(`/templates/status/${workspace_id}`);
+      if (workspaceId) {
+        await api.get(`/templates/status/${workspaceId}`);
+      }
       const data = await api.get('/templates');
       setTemplates(data.templates || []);
     } catch (err) {

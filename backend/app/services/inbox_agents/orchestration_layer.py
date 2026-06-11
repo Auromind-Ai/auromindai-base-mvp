@@ -8,6 +8,7 @@ from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.inbox.twilio_service import TwilioService
 from app.models.flow_execution import FlowExecutionState
 from app.models import Conversation
+from app.core.config import settings
 
 
 class AgentOrchestration:
@@ -85,6 +86,12 @@ class AgentOrchestration:
     ) if self.memory else None
         # Lead fields from payload (set by flow config)
         lead_fields = payload.get("lead_fields", [])
+        if isinstance(lead_fields, str):
+            lead_fields = [
+                field.strip()
+                for field in lead_fields.split(",")
+                if field.strip()
+            ]
 
         state = (
             self.memory.get_conversation_state(

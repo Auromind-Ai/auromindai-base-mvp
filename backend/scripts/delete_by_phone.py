@@ -4,8 +4,7 @@ import os
 import re
 from sqlalchemy import or_
 
-# Ensure project `backend` package is on sys.path so `import app` works when
-# running the script from repo root or from inside the container.
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(script_dir, ".."))
 if project_root not in sys.path:

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from "next/link"
-import { usePathname, useParams } from "next/navigation"
+import { usePathname } from "next/navigation"
 
 import {
   LayoutDashboard,
@@ -27,27 +27,23 @@ import {
 
 export default function AdminSidebar() {
   const pathname = usePathname()
-  const params = useParams()
-  const adminPath = params.admin_path || "x7k2-admin-9pqm"
 
   const menu = [
-    { name: "Dashboard", href: `/${adminPath}/dashboard`, icon: LayoutDashboard },
-    { name: "RAG Analytics", href: `/${adminPath}/rag_analytics`, icon: LayoutDashboard },
-    { name: "Workspaces", href: `/${adminPath}/workspaces`, icon: Building2 },
-    { name: "Users", href: `/${adminPath}/users`, icon: Users },
-    { name: "Token Usage", href: `/${adminPath}/tokens`, icon: Coins },
-    { name: "Conversations", href: `/${adminPath}/conversations`, icon: MessageSquare },
-    { name: "Logs", href: `/${adminPath}/logs`, icon: FileText },
-    { name: "Analytics", href: `/${adminPath}/analytics`, icon: BarChart3 },
-    { name: "Billing", href: `/${adminPath}/billing`, icon: CreditCard },
-    { name: "AI Activity", href: `/${adminPath}/ai-activity`, icon: Activity },
-    { name: "AI Governance", href: `/${adminPath}/ai-governance`, icon: Shield },
-    { name: "Integrations", href: `/${adminPath}/integrations`, icon: Plug },
-    { name: "RAG Brain", href: `/${adminPath}/rag`, icon: Brain },
-    { name: "System Health", href: `/${adminPath}/system`, icon: Heart },
-    { name: "AI Learning", href: `/${adminPath}/ai-learning`, icon: TrendingUp },
-    { name: "Model Config", href: `/${adminPath}/model-config`, icon: Key },
-    { name: "Settings", href: `/${adminPath}/settings`, icon: Settings },
+    { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+    { name: "RAG Analytics", href: "/admin/rag_analytics", icon: LayoutDashboard },
+    { name: "Workspaces", href: "/admin/workspaces", icon: Building2 },
+    { name: "Users", href: "/admin/users", icon: Users },
+    { name: "Token Usage", href: "/admin/tokens", icon: Coins },
+    { name: "Conversations", href: "/admin/conversations", icon: MessageSquare },
+    { name: "Logs", href: "/admin/logs", icon: FileText },
+    { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+    { name: "Billing", href: "/admin/billing", icon: CreditCard },
+    { name: "AI Governance", href: "/admin/ai-governance", icon: Shield },
+    { name: "Integrations", href: "/admin/integrations", icon: Plug },
+    { name: "RAG Brain", href: "/admin/rag", icon: Brain },
+    { name: "System Health", href: "/admin/system", icon: Heart },
+    { name: "Model Config", href: "/admin/model-config", icon: Key },
+    { name: "Settings", href: "/admin/settings", icon: Settings },
   ]
 
   return (

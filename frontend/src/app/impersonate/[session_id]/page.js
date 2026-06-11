@@ -2,11 +2,11 @@
 
 import { useEffect } from "react"
 import { useParams } from "next/navigation"
-import { setToken, setUser, setWorkspace, backupAdminToken } from "@/lib/auth"
+import { useAuth } from "@/context/AuthContext"
 
 export default function Page() {
-
   const params = useParams()
+  const { refreshUser } = useAuth()
 
   useEffect(() => {
     async function start() {
@@ -21,7 +21,7 @@ export default function Page() {
         const url = `/api/admin/impersonate/session/${sessionId}`
         console.log("Calling API:", url)
 
-        const res = await fetch(url, { cache: "no-store" })
+        const res = await fetch(url, { cache: "no-store", credentials: 'include' })
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}))
           throw new Error(errData.detail || "Failed to start session")
@@ -30,58 +30,20 @@ export default function Page() {
         const data = await res.json()
         console.log("[DEBUG] Session Data:", data)
         
-        if (!data.token || !data.user) {
+        if (!data.user) {
            throw new Error("Invalid session response from server")
         }
 
-        // 1. Storage Operations
-        console.log("💾 [DEBUG] Storage: Backing up admin and setting user...")
-        backupAdminToken()
-        setToken(data.token)
-        setUser(data.user)
-        localStorage.setItem("is_impersonating", "true")
+        // Clear storage of previous session cache
+        localStorage.removeItem("user")
+        localStorage.removeItem("workspace")
+        localStorage.removeItem("workspace_id")
+        sessionStorage.clear()
 
-        // 2. Fetch Workspaces
-        console.log("🔍 [DEBUG] Fetching workspaces...")
-        try {
-          const wsRes = await fetch(`/api/auth/workspaces`, {
-            headers: { 'Authorization': `Bearer ${data.token}` }
-          })
-          
-          if (wsRes.ok) {
-            const { workspaces = [] } = await wsRes.json()
-            console.log("🏢 [DEBUG] Workspaces:", workspaces)
-            
-            let targetWorkspace = null
-            try {
-              const payload = JSON.parse(atob(data.token.split(".")[1]))
-              if (payload.workspace_id) {
-                 targetWorkspace = workspaces.find(w => w.id === payload.workspace_id)
-              }
-            } catch (pErr) { console.warn("Payload decode fail", pErr) }
+        // Sync fresh profile state from set cookies
+        await refreshUser()
 
-            if (!targetWorkspace && workspaces.length > 0) targetWorkspace = workspaces[0]
-            
-            if (targetWorkspace) {
-              console.log("📍 [DEBUG] Setting workspace:", targetWorkspace.name)
-              setWorkspace(targetWorkspace)
-              sessionStorage.setItem("workspace_id", targetWorkspace.id)
-            } else {
-              console.warn("⚠️ No workspace found")
-              sessionStorage.removeItem("workspace")
-            }
-          }
-        } catch (wsErr) {
-          console.error("Failed workspace fetch", wsErr)
-        }
-
-        console.log("🚀 [DEBUG] Final check before redirect:", {
-            token: !!sessionStorage.getItem('token'),
-            user: !!sessionStorage.getItem('user'),
-            is_imp: localStorage.getItem('is_impersonating')
-        })
-
-        // 3. Final Redirect
+        // Redirect to dashboard
         window.location.replace("/user/admin/dashboard")
 
       } catch (err) {
@@ -93,7 +55,7 @@ export default function Page() {
     if (params?.session_id) {
       start()
     }
-  }, [params])
+  }, [params, refreshUser])
 
   return (
     <div className="flex items-center justify-center h-screen text-white">

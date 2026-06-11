@@ -172,6 +172,7 @@ class Lead(Base):
     behavioral_score = Column(Integer, default=0)
     semantic_intent_score = Column(Integer, default=0)
     lead_tier = Column(String(50), default="cold")
+    labels = Column(JSON, default=list, nullable=True)
 
     intent_signals = Column(
         JSON,

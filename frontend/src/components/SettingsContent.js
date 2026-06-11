@@ -1,428 +1,1048 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-    X,
-    User,
-    Settings,
-    Bell,
-    Palette,
-    Sparkles,
-    Globe,
-    Shield,
-    ChevronDown,
-    Check,
-    Moon,
-    Sun,
-    Monitor,
-    ArrowUp
+  User,
+  Settings,
+  Bell,
+  Globe,
+  Users,
+  Shield,
+  ChevronRight,
+  Info,
 } from 'lucide-react';
-import { useSettings } from '@/context/SettingsContext';
-import { getUser } from '@/lib/auth';
 
-const SettingsContent = () => {
-    const [activeTab, setActiveTab] = useState('account');
-    const { selectedModel, setSelectedModel } = useSettings();
-    const user = getUser();
-    const [appearance, setAppearance] = useState('system');
-    const [notifications, setNotifications] = useState(true);
-    const [soundEffects, setSoundEffects] = useState(true);
-    const [showMobileMenu, setShowMobileMenu] = useState(true);
+// ─── Nav Config ───────────────────────────────────────────────────────────────
 
-    const handleAppearanceChange = (value) => {
-        setAppearance(value);
-        localStorage.setItem('auromind_appearance', value);
-    };
+const NAV_SECTIONS = [
+  {
+    title: 'General',
+    items: [
+      { id: 'my-account', label: 'My Account', icon: <User size={15} /> },
+      { id: 'preferences', label: 'Preferences', icon: <Settings size={15} /> },
+      { id: 'notifications', label: 'Notifications', icon: <Bell size={15} /> },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [
+      { id: 'people', label: 'People', icon: <Users size={15} /> },
+      { id: 'security', label: 'Security', icon: <Shield size={15} /> },
+      { id: 'about', label: 'About', icon: <Info size={15} /> },
+    ],
+  },
+];
 
-    const handleModelChange = (value) => {
-        setSelectedModel(value);
-    };
+// ─── Toggle Component ─────────────────────────────────────────────────────────
 
-    const sidebarItems = [
-        { id: 'account', label: user?.name || 'User', icon: User, section: 'Account', isProfile: true },
-        { id: 'preferences', label: 'Preferences', icon: Settings, section: 'Account' },
-        { id: 'notifications', label: 'Notifications', icon: Bell, section: 'Account' },
-        { id: 'connections-account', label: 'Connections', icon: Globe, section: 'Account' },
-        { id: 'general', label: 'General', icon: Settings, section: 'Workspace' },
-        { id: 'people', label: 'People', icon: User, section: 'Workspace' },
-        { id: 'teamspaces', label: 'Teamspaces', icon: Palette, section: 'Workspace' },
-        { id: 'security', label: 'Security', icon: Monitor, section: 'Workspace' },
-        { id: 'identity', label: 'Identity', icon: Shield, section: 'Workspace' },
-        { id: 'ai-models', label: 'Notion AI', icon: Sparkles, section: 'Workspace' },
-        { id: 'public-pages', label: 'Public pages', icon: Globe, section: 'Workspace' },
-        { id: 'import', label: 'Import', icon: ArrowUp, section: 'Workspace' },
-        { id: 'upgrade', label: 'Upgrade plan', icon: ArrowUp, section: 'Workspace', isAccent: true },
-    ];
+function Toggle({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`
+        relative inline-flex items-center shrink-0
+        w-12 h-[26px] rounded-full
+        transition-all duration-300 ease-in-out
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070012]
+        ${checked ? 'bg-violet-600 shadow-[0_0_12px_rgba(124,58,237,0.5)]' : 'bg-zinc-600'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+      `}
+    >
+      <span
+        className={`
+          inline-block w-[20px] h-[20px] rounded-full bg-white shadow-md
+          transform transition-transform duration-300 ease-in-out
+          ${checked ? 'translate-x-[24px]' : 'translate-x-[3px]'}
+        `}
+      />
+    </button>
+  );
+}
 
-    return (
-        <div className="flex h-full w-full bg-[#1f1f1f] overflow-hidden">
-            {/* Sidebar */}
-            <div className={`
-                    bg-[#191919] border-r border-[#333] flex flex-col
-                    w-full lg:w-56
-                    ${showMobileMenu ? 'block' : 'hidden'}
-                    lg:block
-                `}>
-                {/* Account Section */}
-                <div className="p-4">
-                    <div className="flex items-center justify-between px-2 py-1.5 hover:bg-[#252525] rounded transition-colors cursor-pointer group">
-                        <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded overflow-hidden">
-                                <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white uppercase">
-                                    {(user?.name || 'U').charAt(0)}
-                                </div>
-                            </div>
-                            <span className="text-[13px] font-medium text-[#e8e8e8] truncate">{user?.name || 'User'}&apos;s Sp...</span>
-                        </div>
-                        <ChevronDown size={14} className="text-[#555] group-hover:text-[#787878]" />
+// ─── Preferences Section ──────────────────────────────────────────────────────
+
+function PreferencesSection() {
+  const [autoTimezone, setAutoTimezone] = useState(false);
+  const [weekStart, setWeekStart] = useState('Mon');
+
+  const [timezone, setTimezone] = useState('');
+  const [timezoneLabel, setTimezoneLabel] = useState('Detecting...');
+
+  useEffect(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    setTimezone(tz);
+    const offset = -new Date().getTimezoneOffset();
+    const sign = offset >= 0 ? '+' : '-';
+    const h = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+    const m = String(Math.abs(offset) % 60).padStart(2, '0');
+    const cityName = tz.split('/').pop().replace(/_/g, ' ');
+    setTimezoneLabel(`(GMT${sign}${h}:${m}) ${cityName}`);
+  }, []);
+
+  const handleAutoTimezone = (val) => {
+    setAutoTimezone(val);
+    if (val) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const offset = -new Date().getTimezoneOffset();
+      const sign = offset >= 0 ? '+' : '-';
+      const h = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+      const m = String(Math.abs(offset) % 60).padStart(2, '0');
+      const cityName = tz.split('/').pop().replace(/_/g, ' ');
+      setTimezoneLabel(`(GMT${sign}${h}:${m}) ${cityName}`);
+    }
+  };
+
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  return (
+    <div>
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-regular tracking-tight text-white">
+          My Account
+        </h1>
+        <p className="mt-1.5 text-sm text-white/65">
+          Manage your account settings and security
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+
+      {/* Appearance Card */}
+      <section
+        className="
+          mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
+          bg-[#070012] overflow-hidden
+          shadow-[0_4px_24px_rgba(0,0,0,0.3)]
+        "
+      >
+        <div className="mx-0">
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-5
+            "
+          >
+            <div>
+              <p className="text-[15px] font-semibold text-white">Appearance</p>
+              <p className="mt-0.5 text-[13px] text-white/65">
+                Customize how auromind looks on your device.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="
+                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
+                bg-white/5 border border-white/10
+                hover:bg-white/10 active:scale-95
+                transition-all duration-200
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+                whitespace-nowrap
+              "
+            >
+              Use system setting
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Language & Time */}
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-white tracking-tight">
+          Language &amp; Time
+        </h2>
+      </div>
+
+      <section
+        className="
+          rounded-2xl border border-[rgba(157,157,157,0.43)]
+          bg-[#070012] overflow-hidden
+          shadow-[0_4px_24px_rgba(0,0,0,0.3)]
+        "
+      >
+        <div className="mx-0 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
+
+          {/* Language row */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-4
+              border-b border-[rgba(157,157,157,0.43)]
+            "
+          >
+            <div>
+              <p className="text-[15px] font-medium text-white">Language</p>
+              <p className="mt-0.5 text-[13px] text-white/65">
+                Change the language used in the user interface.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="
+                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
+                bg-white/5 border border-white/10
+                hover:bg-white/10 active:scale-95
+                transition-all duration-200
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+              "
+            >
+              English
+            </button>
+          </div>
+
+          {/* Time zone row */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-4
+              border-b border-[rgba(157,157,157,0.43)]
+            "
+          >
+            <div>
+              <p className="text-[15px] font-medium text-white">Time zone</p>
+              <p className="mt-0.5 text-[13px] text-white/65">
+                Set your time zone for accurate scheduling and notifications.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="
+                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
+                bg-white/5 border border-white/10
+                hover:bg-white/10 active:scale-95
+                transition-all duration-200
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+                whitespace-nowrap
+              "
+            >
+              {timezoneLabel}
+            </button>
+          </div>
+
+          {/* Auto timezone row */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-4
+              border-b border-[rgba(157,157,157,0.43)]
+            "
+          >
+            <div>
+              <p className="text-[15px] font-medium text-white">
+                Set time zone automatically using your location
+              </p>
+              <p className="mt-0.5 text-[13px] text-white/65">
+                Reminders, notifications and emails are delivered based on your time zone.
+              </p>
+            </div>
+            <div className="shrink-0">
+              <Toggle checked={autoTimezone} onChange={handleAutoTimezone} />
+            </div>
+          </div>
+
+          {/* Week starts on row */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-4
+            "
+          >
+            <div className="sm:max-w-[240px]">
+              <p className="text-[15px] font-medium text-white">Week starts on</p>
+              <p className="mt-0.5 text-[13px] text-white/65">
+                Choose the first day of your work
+              </p>
+            </div>
+            {/* Day selector — wraps on mobile */}
+            <div className="flex flex-wrap gap-1.5 shrink-0">
+              {days.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => setWeekStart(day)}
+                  className={`
+                    h-9 px-3 rounded-lg text-xs font-medium
+                    transition-all duration-200 active:scale-95
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+                    ${
+                      weekStart === day
+                        ? 'bg-violet-600 text-white shadow-[0_0_10px_rgba(124,58,237,0.4)]'
+                        : 'bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10'
+                    }
+                  `}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Notifications Section ────────────────────────────────────────────────────
+
+function NotificationsSection() {
+  const [notifs, setNotifs] = useState({
+    reminders: false,
+    productUpdates: false,
+    securityAlerts: false,
+    aiAgentEvents: false,
+    workflowAlerts: false,
+    leadsAlerts: false,
+  });
+
+  const toggleNotif = (key) =>
+    setNotifs((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const notifItems = [
+    {
+      key: 'reminders',
+      label: 'Reminders',
+      desc: 'Notify me about upcoming events .',
+    },
+    {
+      key: 'productUpdates',
+      label: 'Product Updates',
+      desc: 'Notify me about new features and improvements.',
+    },
+    {
+      key: 'securityAlerts',
+      label: 'Security Alerts',
+      desc: 'Notify me about important security activities.',
+    },
+    {
+      key: 'aiAgentEvents',
+      label: 'AI Agent Events',
+      desc: 'Notify me about AI replies generating and escalations.',
+    },
+    {
+      key: 'workflowAlerts',
+      label: 'Workflow Alerts',
+      desc: 'Notify me when workflow completed or failed.',
+    },
+    {
+      key: 'leadsAlerts',
+      label: 'Leads Alerts',
+      desc: 'Notify me when new lead captured, qualified, updated.',
+    },
+  ];
+
+  return (
+    <div>
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+          Notifications
+        </h1>
+        <p className="mt-1.5 text-sm text-white/65">
+          Manage how and when you receive notifications across all channels and automations.
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+
+      {/* Notification Preferences card */}
+      <section
+        className="
+          rounded-2xl border border-[rgba(157,157,157,0.43)]
+          bg-[#070012] p-6
+          shadow-[0_4px_24px_rgba(0,0,0,0.3)]
+        "
+      >
+        <h2 className="mb-5 text-base font-semibold text-white tracking-tight">
+          Notification Preferences
+        </h2>
+
+        <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
+          {notifItems.map((item, idx) => (
+            <div
+              key={item.key}
+              className={`
+                flex flex-col sm:flex-row sm:items-center justify-between
+                gap-3 px-5 py-4
+                ${idx < notifItems.length - 1 ? 'border-b border-[rgba(157,157,157,0.43)]' : ''}
+              `}
+            >
+              <div>
+                <p className="text-[15px] font-medium text-white">{item.label}</p>
+                <p className="mt-0.5 text-[13px] text-white/65">{item.desc}</p>
+              </div>
+              <div className="shrink-0">
+                <Toggle
+                  checked={notifs[item.key]}
+                  onChange={() => toggleNotif(item.key)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Placeholder sections ─────────────────────────────────────────────────────
+
+function PlaceholderSection({ title, desc }) {
+  return (
+    <div>
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+          {title}
+        </h1>
+        <p className="mt-1.5 text-sm text-zinc-400">{desc}</p>
+      </div>
+      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+      <div className="flex items-center justify-center h-48 rounded-2xl border border-dashed border-[rgba(157,157,157,0.43)] bg-[#070012] text-zinc-500 text-sm">
+        Content coming soon…
+      </div>
+    </div>
+  );
+}
+
+// ─── People Section ───────────────────────────────────────────────────────────
+
+function PeopleSection() {
+  const [search, setSearch] = useState('');
+
+  const people = [
+    { name: 'Diana Rose', email: 'diana04478@gmail.com', lead: 'Premium Lead',  leadColor: 'bg-[#4B2580] text-white', status: 'Active', statusColor: 'bg-green-500/20 text-green-300 border-green-500/30',  channel: 'Instagram', joined: '29 April 2025' },
+    { name: 'Diana Rose', email: 'diana04478@gmail.com', lead: 'High priority', leadColor: 'bg-[#7B1A2E] text-white', status: 'Closed', statusColor: 'bg-red-500/20 text-red-300 border-red-500/30',       channel: 'WhatsApp',  joined: '10 June 2026' },
+    { name: 'Diana Rose', email: 'diana04478@gmail.com', lead: 'Interested',    leadColor: 'bg-[#145A32] text-white', status: 'Active', statusColor: 'bg-green-500/20 text-green-300 border-green-500/30',  channel: 'Twilio',    joined: '22 Sep 2025' },
+    { name: 'Diana Rose', email: 'diana04478@gmail.com', lead: 'Premium Lead',  leadColor: 'bg-[#4B2580] text-white', status: 'Closed', statusColor: 'bg-red-500/20 text-red-300 border-red-500/30',       channel: 'Instagram', joined: '10 June 2026' },
+    { name: 'Diana Rose', email: 'diana04478@gmail.com', lead: 'High priority', leadColor: 'bg-[#7B1A2E] text-white', status: 'Active', statusColor: 'bg-green-500/20 text-green-30OTHING', channel: 'Instagram', joined: '10 June 2026' },
+  ];
+
+  const filtered = people.filter(
+    (p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">People</h1>
+        <p className="mt-1.5 text-sm text-zinc-400">
+          Manage how and when you receive notifications across all channels and automations.
+        </p>
+      </div>
+
+      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+
+      {/* Card */}
+      <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+
+        {/* Search + Filter */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-[rgba(157,157,157,0.43)]">
+          <div className="relative flex-1 max-w-xs">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input
+              type="text"
+              placeholder="Search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-9 pl-8 pr-3 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-violet-500 transition-colors"
+            />
+          </div>
+          <button
+            type="button"
+            className="h-9 px-4 rounded-lg text-sm font-medium text-zinc-200 bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all duration-200 focus:outline-none"
+          >
+            Filter
+          </button>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[rgba(157,157,157,0.43)]">
+                {['People', 'Lead', 'Status', 'Channel', 'Joined On'].map((col) => (
+                  <th key={col} className="px-5 py-3 text-left text-xs font-medium text-white/80 whitespace-nowrap">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((person, idx) => (
+                <tr
+                  key={idx}
+                  className={`transition-colors hover:bg-white/[0.03] ${idx < filtered.length - 1 ? 'border-b border-[rgba(157,157,157,0.2)]' : ''}`}
+                >
+                  {/* Person */}
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-900 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-[0_0_10px_rgba(124,58,237,0.3)]">
+                        {person.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-white font-medium text-sm">{person.name}</p>
+                        <p className="text-white/65 text-xs">{person.email}</p>
+                      </div>
                     </div>
-                </div>
+                  </td>
+                  {/* Lead */}
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${person.leadColor}`}>
+                      {person.lead}
+                    </span>
+                  </td>
+                  {/* Status */}
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${person.statusColor}`}>
+                      {person.status}
+                    </span>
+                  </td>
+                  {/* Channel */}
+                  <td className="px-5 py-3 text-white text-sm">{person.channel}</td>
+                  {/* Joined */}
+                  <td className="px-5 py-3 text-zinc-400 text-sm whitespace-nowrap">{person.joined}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
 
-                {/* Navigation */}
-                <div className="flex-1 py-2 overflow-y-auto custom-scrollbar">
-                    {/* Account Section */}
-                    <div className="px-3 py-2">
-                        <span className="text-[11px] font-medium text-[#787878] uppercase tracking-wider">Account</span>
-                    </div>
-                    {sidebarItems.filter(item => item.section === 'Account').map((item) => (
-                        <button
+// ─── Security Section ─────────────────────────────────────────────────────────
+
+function SecuritySection() {
+  const items = [
+    {
+      label: 'Active Sessions',
+      desc: 'View and manage devices currently logged into your account.',
+      value: '3 Devices Active',
+      valueColor: 'text-zinc-300',
+    },
+    {
+      label: 'Recent Login Activity',
+      desc: 'Track recent sign-ins, locations, and login attempts.',
+      value: 'Last Login 2 hours ago',
+      valueColor: 'text-zinc-300',
+    },
+    {
+      label: 'Blocked Devices',
+      desc: 'Manage devices that are restricted from accessing your account.',
+      value: '0 Devices Blocked',
+      valueColor: 'text-zinc-300',
+    },
+    {
+      label: 'Security Score',
+      desc: "Measure your account's overall security strength and protection level.",
+      value: 'Strong',
+      valueColor: 'text-green-400',
+    },
+  ];
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">Security</h1>
+        <p className="mt-1.5 text-[14px] text-white/65">
+          Manage account access, monitor login activity, and keep your account protected.
+        </p>
+      </div>
+
+      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+
+      {/* Card */}
+      <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+        <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden mx-0">
+          {items.map((item, idx) => (
+            <div
+              key={item.label}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 ${idx < items.length - 1 ? 'border-b border-[rgba(157,157,157,0.43)]' : ''}`}
+            >
+              <div>
+                <p className="text-[16px] font-medium text-white">{item.label}</p>
+                <p className="mt-0.5 text-[13px] text-white/65">{item.desc}</p>
+              </div>
+              <p className={`shrink-0 text-sm font-medium whitespace-nowrap ${item.valueColor}`}>
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── About Section ────────────────────────────────────────────────────────────
+
+function AboutSection() {
+  const items = [
+    {
+      label: 'Platform Version',
+      desc: 'Current version of the website',
+      value: 'v2.4.1',
+      valueColor: 'text-zinc-300',
+    },
+    {
+      label: 'Release Date',
+      desc: 'When this version was released',
+      value: 'June 05, 2026',
+      valueColor: 'text-zinc-300',
+    },
+    {
+      label: 'Copyright',
+      desc: 'All rights reserved',
+      value: '@2026 Auromind',
+      valueColor: 'text-zinc-300',
+    },
+    {
+      label: 'Last Updated',
+      desc: 'Last updated date & time',
+      value: 'June 05, 2026, 10:30 AM',
+      valueColor: 'text-zinc-300',
+    },
+  ];
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">About</h1>
+        <p className="mt-1.5 text-[14px] text-white/65">
+          Customize your dashboard experience and application settings.
+        </p>
+      </div>
+
+      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+
+      {/* Card */}
+      <section className="rounded-2xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+        <div className="rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden mx-0">
+          {items.map((item, idx) => (
+            <div
+              key={item.label}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 ${idx < items.length - 1 ? 'border-b border-[rgba(157,157,157,0.43)]' : ''}`}
+            >
+              <div>
+                <p className="text-[16px] font-medium text-white">{item.label}</p>
+                <p className="mt-0.5 text-[13px] text-white/65">{item.desc}</p>
+              </div>
+              <p className={`shrink-0 text-sm font-medium whitespace-nowrap ${item.valueColor}`}>
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── My Account Section ───────────────────────────────────────────────────────
+
+function MyAccountSection({
+  preferredName,
+  handleNameChange,
+  userEmail,
+  userInitial,
+  twoFactorEnabled,
+  handleTwoFactorToggle,
+  handleChangeEmail,
+  handleAddPassword,
+  handleDeleteAccount,
+}) {
+  return (
+    <div className="pb-6">
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+          My Account
+        </h1>
+        <p className="mt-1.5 text-sm text-zinc-400">
+          Manage your account settings and security
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div className="mb-8 h-px w-full bg-[rgba(124,58,237,0.15)]" />
+
+      {/* Profile Card */}
+      <section
+        className="
+          mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
+          bg-[#070012] p-6
+          shadow-[0_4px_24px_rgba(0,0,0,0.3)]
+        "
+      >
+        <h2 className="mb-5 text-base font-semibold text-white tracking-tight">
+          Account
+        </h2>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+          {/* Avatar */}
+          <div
+            className="
+              flex items-center justify-center
+              w-[72px] h-[72px] md:w-[88px] md:h-[88px]
+              rounded-full shrink-0
+              bg-gradient-to-br from-violet-500 to-purple-900
+              text-white text-2xl md:text-3xl font-bold
+              shadow-[0_0_24px_rgba(124,58,237,0.4)]
+              select-none
+            "
+            aria-label={`Avatar for ${preferredName}`}
+          >
+            {userInitial}
+          </div>
+
+          {/* Name field */}
+          <div className="flex-1 w-full sm:max-w-sm">
+            <label
+              htmlFor="preferred-name"
+              className="mb-1.5 block text-xs font-medium text-zinc-400 uppercase tracking-widest"
+            >
+              Preferred name
+            </label>
+            <input
+              id="preferred-name"
+              type="text"
+              value={preferredName}
+              onChange={handleNameChange}
+              className="
+                w-full h-[42px] rounded-xl px-3.5
+                bg-[#0B021A] text-white text-sm
+                border border-[rgba(157,157,157,0.43)]
+                placeholder:text-zinc-600
+                focus:outline-none focus:border-violet-500
+                focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)]
+                transition-all duration-200
+              "
+              placeholder="Your name"
+            />
+            <button
+              type="button"
+              className="
+                mt-2 text-xs text-violet-400 hover:text-violet-300
+                transition-colors duration-200 underline-offset-2 hover:underline
+              "
+            >
+              Create your portrait
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Account Security Card */}
+      <section
+        className="
+          rounded-2xl border border-[rgba(157,157,157,0.43)]
+          bg-[#070012] overflow-hidden
+          shadow-[0_4px_24px_rgba(0,0,0,0.3)]
+        "
+      >
+        <div className="px-6 pt-6 pb-4">
+          <h2 className="text-base font-semibold text-white tracking-tight">
+            Account Security
+          </h2>
+        </div>
+
+        <div className="mx-6 mb-6 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
+
+          {/* Email row */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-4
+              border-b border-[rgba(157,157,157,0.43)]
+            "
+          >
+            <div>
+              <p className="text-sm font-medium text-white">Email</p>
+              <p className="mt-0.5 text-xs text-white/65">{userEmail}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleChangeEmail}
+              className="
+                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
+                bg-white/5 border border-white/10
+                hover:bg-white/10 active:scale-95
+                transition-all duration-200
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+              "
+            >
+              Change Email
+            </button>
+          </div>
+
+          {/* Password row */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-4
+              border-b border-[rgba(157,157,157,0.43)]
+            "
+          >
+            <div>
+              <p className="text-sm font-medium text-white">Password</p>
+              <p className="mt-0.5 text-xs text-white/65">
+                Set a permanent password to login to your account
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddPassword}
+              className="
+                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
+                bg-white/5 border border-white/10
+                hover:bg-white/10 active:scale-95
+                transition-all duration-200
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+              "
+            >
+              Add Password
+            </button>
+          </div>
+
+          {/* Two-step verification row */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-4
+              border-b border-[rgba(157,157,157,0.43)]
+            "
+          >
+            <div>
+              <p className="text-sm font-medium text-white">
+                Two-step verification
+              </p>
+              <p className="mt-0.5 text-xs text-white/65">
+                Add an additional layer of security to your account.
+              </p>
+            </div>
+            <div className="shrink-0">
+              <Toggle
+                checked={twoFactorEnabled}
+                onChange={handleTwoFactorToggle}
+              />
+            </div>
+          </div>
+
+          {/* Delete Account row — removed border-t overlap, uses rounded bottom naturally */}
+          <div
+            className="
+              flex flex-col sm:flex-row sm:items-center justify-between
+              gap-4 px-5 py-5
+              bg-red-950/10
+            "
+          >
+            <div>
+              <p className="text-sm font-semibold text-[#B91C1C]">
+                Delete Account
+              </p>
+              <p className="mt-0.5 text-xs text-white/65">
+                Permanently delete your account and all associated data from our workspace.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              className="
+                shrink-0 h-10 px-4 rounded-xl text-sm font-medium
+                text-[#B91C1C] bg-black/80 border border-red-500/30
+                hover:bg-red-500/20 active:scale-95
+                transition-all duration-200
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500
+              "
+            >
+              Delete my account
+            </button>
+          </div>
+
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function SettingsContent({ email }) {
+  const [activeSection, setActiveSection] = useState('my-account');
+  const [preferredName, setPreferredName] = useState('User');
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const userEmail = 'dharun1108@gmail.com';
+  const userInitial = preferredName?.charAt(0)?.toUpperCase() ?? 'U';
+
+  const handleNameChange = (e) => setPreferredName(e.target.value);
+  const handleChangeEmail = () => {};
+  const handleAddPassword = () => {};
+  const handleDeleteAccount = () => {};
+  const handleTwoFactorToggle = (val) => setTwoFactorEnabled(val);
+
+  const activeLabel =
+    NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === activeSection)?.label ?? '';
+
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'my-account':
+        return (
+          <MyAccountSection
+            preferredName={preferredName}
+            handleNameChange={handleNameChange}
+            userEmail={userEmail}
+            userInitial={userInitial}
+            twoFactorEnabled={twoFactorEnabled}
+            handleTwoFactorToggle={handleTwoFactorToggle}
+            handleChangeEmail={handleChangeEmail}
+            handleAddPassword={handleAddPassword}
+            handleDeleteAccount={handleDeleteAccount}
+          />
+        );
+      case 'preferences':
+        return <PreferencesSection />;
+      case 'notifications':
+        return <NotificationsSection />;
+      case 'people':
+        return <PeopleSection />;
+      case 'security':
+        return <SecuritySection />;
+      case 'about':
+        return <AboutSection />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="h-full w-full font-sans text-white">
+      <div className="w-full h-full flex flex-col">
+
+        {/* ── Outer card wrapper ── */}
+        <div
+          className="
+            flex flex-col xl:flex-row gap-0
+            rounded-3xl overflow-hidden
+            flex-1 min-h-0
+            border border-[rgba(157,157,157,0.43)]
+            bg-[#070012]
+            shadow-[0_0_60px_rgba(124,58,237,0.08)]
+          "
+        >
+
+          {/* ════════════════════════════════════════
+              MOBILE: top bar with section name + hamburger
+          ════════════════════════════════════════ */}
+          <div className="xl:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
+            <span className="text-sm font-semibold text-white">{activeLabel}</span>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="flex flex-col gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none"
+              aria-label="Toggle navigation"
+            >
+              <span
+                className={`block w-5 h-0.5 bg-zinc-300 transition-transform duration-200 ${sidebarOpen ? 'translate-y-1.5 rotate-45' : ''}`}
+              />
+              <span
+                className={`block w-5 h-0.5 bg-zinc-300 transition-opacity duration-200 ${sidebarOpen ? 'opacity-0' : ''}`}
+              />
+              <span
+                className={`block w-5 h-0.5 bg-zinc-300 transition-transform duration-200 ${sidebarOpen ? '-translate-y-1.5 -rotate-45' : ''}`}
+              />
+            </button>
+          </div>
+
+          {/* ════════════════════════════════════════
+              LEFT SIDEBAR
+          ════════════════════════════════════════ */}
+          
+            <aside
+              className={`
+                xl:w-[240px] xl:min-w-[240px] xl:shrink-0
+                xl:block
+                border-b xl:border-b-0 border-[rgba(157,157,157,0.43)]
+                bg-[#070012] p-3
+                ${sidebarOpen ? 'block' : 'hidden'}
+                xl:!block
+              `}
+            >
+              {/* ── Sidebar Card Wrapper ── */}
+              <div
+                className="
+                  rounded-2xl border border-[rgba(157,157,157,0.43)]
+                  bg-[#070012] p-4
+                  h-full min-h-full
+                "
+              >
+                {NAV_SECTIONS.map((section) => (
+                  <div key={section.title} className="mb-6 last:mb-0">
+                    <p className="mb-2 px-3 text-[14px] font-semibold text-white/90">
+                      {section.title}
+                    </p>
+                    <nav className="flex flex-col gap-0.5">
+                      {section.items.map((item) => {
+                        const isActive = activeSection === item.id;
+                        return (
+                          <button
                             key={item.id}
                             onClick={() => {
-                                setActiveTab(item.id);
-                                setShowMobileMenu(false);
+                              setActiveSection(item.id);
+                              setSidebarOpen(false);
                             }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${activeTab === item.id
-                                ? 'bg-[#333] text-white'
-                                : 'text-[#a0a0a0] hover:bg-[#252525] hover:text-[#e8e8e8]'
-                                } ${item.isProfile ? 'mb-1' : ''}`}
-                        >
-                            {item.isProfile ? (
-                                <div className="w-5 h-5 rounded overflow-hidden mr-0.5">
-                                    <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
-                                        RS
-                                    </div>
-                                </div>
-                            ) : (
-                                <item.icon size={16} />
-                            )}
-                            {item.label}
-                        </button>
-                    ))}
+                            className={`
+                              group flex items-center gap-3 w-full rounded-xl px-3 py-2.5
+                              text-sm font-medium text-left
+                              transition-all duration-200
+                              focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
+                              ${
+                                isActive
+                                  ? 'bg-[rgba(124,58,237,0.18)] text-white'
+                                  : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                              }
+                            `}
+                          >
+                            <span
+                              className={`
+                                flex items-center justify-center w-5 h-5 shrink-0
+                                transition-colors duration-200
+                                ${isActive ? 'text-zinc-200' : 'text-zinc-500 group-hover:text-zinc-300'}
+                              `}
+                            >
+                              {item.icon}
+                            </span>
+                            <span className="flex-1">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </nav>
+                  </div>
+                ))}
+              </div>
+            </aside>
 
-                    {/* Workspace Section */}
-                    <div className="px-3 py-2 mt-4">
-                        <span className="text-[11px] font-medium text-[#787878] uppercase tracking-wider">Workspace</span>
-                    </div>
-                    {sidebarItems.filter(item => item.section === 'Workspace').map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => setActiveTab(item.id)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${activeTab === item.id
-                                ? 'bg-[#333] text-white'
-                                : 'text-[#a0a0a0] hover:bg-[#252525] hover:text-[#e8e8e8]'
-                                }`}
-                        >
-                            <item.icon size={16} />
-                            {item.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className={`
-                flex-1 flex flex-col min-w-0
-                ${showMobileMenu ? 'hidden lg:flex' : 'flex'}
-                `}>
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-[#333]">
-
-                    <div className="flex items-center gap-3">
-                    {/* Back button mobile */}
-                    <button
-                        onClick={() => setShowMobileMenu(true)}
-                        className="lg:hidden text-[#aaa] hover:text-white"
-                    >
-                        ←
-                    </button>
-                    <h2 className="text-lg font-semibold text-white">
-                        {sidebarItems.find(item => item.id === activeTab)?.label || 'Settings'}
-                    </h2>
-                </div>
-                </div>
-
-                {/* Content Area */}
-                <div className="flex-1 overflow-y-auto p-5 sm:p-6 lg:p-8 custom-scrollbar">
-                    {activeTab === 'account' && (
-                        <div className="max-w-2xl mx-auto space-y-12">
-                            {/* Account Section */}
-                            <div className="space-y-6">
-                                <h1 className="text-[14px] font-semibold text-white">Account</h1>
-
-                                <div className="flex items-start gap-4">
-                                    <div className="w-16 h-16 rounded overflow-hidden group relative cursor-pointer">
-                                        <div className="w-full h-full bg-indigo-500 flex items-center justify-center text-xl font-bold text-white uppercase">
-                                            {(user?.name || 'U').charAt(0)}
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 space-y-4">
-                                        <div>
-                                            <h3 className="text-[12px] text-[#787878] mb-1.5 font-medium tracking-tight">Preferred name</h3>
-                                            <input
-                                                type="text"
-                                                defaultValue={user?.name || 'User'}
-                                                className="w-full bg-[#252525] border border-[#333] rounded px-3 py-1.5 text-[14px] text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
-                                            />
-                                        </div>
-                                        <button className="text-[13px] text-indigo-400 hover:text-indigo-300 transition-colors">
-                                            Create your portrait
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="h-px bg-[#333] w-full" />
-
-                            {/* Account Security Section */}
-                            <div className="space-y-6">
-                                <h2 className="text-[14px] font-semibold text-white">Account security</h2>
-
-                                <div className="space-y-6">
-                                    {/* Email */}
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-[14px] font-medium text-white mb-0.5">Email</h3>
-                                            <p className="text-[13px] text-[#787878]">{user?.email || 'test@example.com'}</p>
-                                        </div>
-                                        <button className="px-3 py-1.5 bg-[#252525] border border-[#333] rounded text-[13px] text-white hover:bg-[#2a2a2a] font-medium transition-colors">
-                                            Change email
-                                        </button>
-                                    </div>
-
-                                    {/* Password */}
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-[14px] font-medium text-white mb-0.5">Password</h3>
-                                            <p className="text-[13px] text-[#787878]">Set a permanent password to login to your account.</p>
-                                        </div>
-                                        <button className="px-3 py-1.5 bg-[#252525] border border-[#333] rounded text-[13px] text-white hover:bg-[#2a2a2a] font-medium transition-colors">
-                                            Add password
-                                        </button>
-                                    </div>
-
-                                    {/* 2-step verification */}
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-[14px] font-medium text-white mb-0.5">2-step verification</h3>
-                                            <p className="text-[13px] text-[#787878]">Add an additional layer of security to your account during login.</p>
-                                        </div>
-                                        <button className="px-3 py-1.5 bg-[#252525] border border-[#333] rounded text-[13px] text-white/30 cursor-not-allowed font-medium">
-                                            Add verification method
-                                        </button>
-                                    </div>
-
-                                    {/* Passkeys */}
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-[14px] font-medium text-white mb-0.5">Passkeys</h3>
-                                            <p className="text-[13px] text-[#787878]">Securely sign-in with on-device biometric authentication.</p>
-                                        </div>
-                                        <button className="px-3 py-1.5 bg-[#252525] border border-[#333] rounded text-[13px] text-white hover:bg-[#2a2a2a] font-medium transition-colors">
-                                            Add passkey
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="h-px bg-[#333] w-full" />
-
-                            {/* Support Section */}
-                            <div className="space-y-6">
-                                <h2 className="text-[14px] font-semibold text-white">Support</h2>
-
-                                <div className="space-y-6">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <h3 className="text-[14px] font-medium text-white mb-1">Support access</h3>
-                                            <p className="text-[13px] text-[#787878]">Grant Notion support temporary access to your account so we can troubleshoot problems or recover content on your behalf. You can revoke access at any time.</p>
-                                        </div>
-                                        <button className="w-9 h-5 rounded-full bg-[#333] relative transition-colors mt-1">
-                                            <div className="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-[#787878]" />
-                                        </button>
-                                    </div>
-
-                                    <div>
-                                        <button className="flex items-center justify-between w-full group">
-                                            <div className="text-left">
-                                                <h3 className="text-[14px] font-medium text-red-500 mb-0.5">Delete my account</h3>
-                                                <p className="text-[13px] text-[#787878]">Permanently delete the account and remove access from all workspaces.</p>
-                                            </div>
-                                            <ChevronDown size={14} className="text-[#555] -rotate-90 group-hover:text-[#787878]" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'preferences' && (
-                        <div className="max-w-2xl mx-auto space-y-10">
-                            <div className="space-y-6">
-                                {/* Appearance */}
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <h3 className="text-[14px] font-medium text-white mb-1">Appearance</h3>
-                                        <p className="text-[13px] text-[#787878]">Customize how Auromind looks on your device.</p>
-                                    </div>
-                                    <div className="relative">
-                                        <select
-                                            value={appearance}
-                                            onChange={(e) => handleAppearanceChange(e.target.value)}
-                                            className="bg-transparent text-[13px] text-[#e8e8e8] border-none focus:ring-0 cursor-pointer appearance-none pr-6 hover:bg-[#252525] px-2 py-1 rounded transition-colors"
-                                        >
-                                            <option value="system">Use system setting</option>
-                                            <option value="light">Light</option>
-                                            <option value="dark">Dark</option>
-                                        </select>
-                                        <ChevronDown size={14} className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[#787878]" />
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-[#333] w-full" />
-
-                                {/* Language & Time Section */}
-                                <div>
-                                    <h2 className="text-[14px] font-semibold text-white mb-6">Language & Time</h2>
-                                    <div className="space-y-6">
-                                        {/* Language */}
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <h3 className="text-[14px] font-medium text-white mb-1">Language</h3>
-                                                <p className="text-[13px] text-[#787878]">Change the language used in the user interface.</p>
-                                            </div>
-                                            <div className="relative">
-                                                <button className="flex items-center gap-2 px-3 py-1.5 bg-[#252525] border border-[#333] rounded text-[13px] text-white hover:bg-[#2a2a2a] transition-colors">
-                                                    English (US)
-                                                    <ChevronDown size={14} className="text-[#787878]" />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Text Direction */}
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <h3 className="text-[14px] font-medium text-white mb-1">Always show text direction controls</h3>
-                                                <p className="text-[13px] text-[#787878]">Show options to change text direction (LTR/RTL) in the editor menu, even when your language is left-to-right.</p>
-                                            </div>
-                                            <button className="w-9 h-5 rounded-full bg-[#333] relative transition-colors mt-1">
-                                                <div className="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-[#787878]" />
-                                            </button>
-                                        </div>
-
-                                        {/* Start week on Monday */}
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <h3 className="text-[14px] font-medium text-white mb-1">Start week on Monday</h3>
-                                                <p className="text-[13px] text-[#787878]">This will change how all calendars in your app look.</p>
-                                            </div>
-                                            <button className="w-9 h-5 rounded-full bg-[#333] relative transition-colors mt-1">
-                                                <div className="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-[#787878]" />
-                                            </button>
-                                        </div>
-
-                                        {/* Timezone */}
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                                <h3 className="text-[14px] font-medium text-white mb-1">Set timezone automatically using your location</h3>
-                                                <p className="text-[13px] text-[#787878]">Reminders, notifications and emails are delivered based on your time zone.</p>
-                                            </div>
-                                            <button className="w-9 h-5 rounded-full bg-[#0077d4] relative transition-colors mt-1">
-                                                <div className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-[#333] w-full" />
-
-                                {/* Desktop App */}
-                                <div>
-                                    <h2 className="text-[14px] font-semibold text-white mb-6">Desktop app</h2>
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <h3 className="text-[14px] font-medium text-white mb-1">Open links in desktop app</h3>
-                                            <p className="text-[13px] text-[#787878]">You must have the <span className="underline cursor-pointer">macOS app</span> installed.</p>
-                                        </div>
-                                        <button className="w-9 h-5 rounded-full bg-[#333] relative transition-colors mt-1">
-                                            <div className="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-[#787878]" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'ai-models' && (
-                        <div className="max-w-2xl mx-auto space-y-10">
-                            <div className="space-y-6">
-                                {/* Default Model */}
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <h3 className="text-[14px] font-medium text-white mb-1">Default AI Model</h3>
-                                        <p className="text-[13px] text-[#787878]">Choose the default model for new conversations.</p>
-                                    </div>
-                                    <div className="relative">
-                                        <select
-                                            value={selectedModel}
-                                            onChange={(e) => handleModelChange(e.target.value)}
-                                            className="bg-transparent text-[13px] text-[#e8e8e8] border-none focus:ring-0 cursor-pointer appearance-none pr-6 hover:bg-[#252525] px-2 py-1 rounded transition-colors"
-                                        >
-                                            <option value="auto">Auto</option>
-                                            <option value="auromind">Auromind AI (Beta)</option>
-                                            <option value="gemini">Gemini</option>
-                                        </select>
-                                        <ChevronDown size={14} className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[#787878]" />
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-[#333] w-full" />
-
-                                {/* Models Info */}
-                                <div className="space-y-4">
-                                    <div className="p-4 rounded-lg bg-[#252525] border border-[#333]">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <Sparkles size={16} className="text-indigo-400" />
-                                            <span className="text-sm font-medium text-white">Auromind AI</span>
-                                        </div>
-                                        <p className="text-xs text-[#787878]">Our flagship model for complex reasoning and workflow automation.</p>
-                                    </div>
-                                    <div className="p-4 rounded-lg bg-[#252525] border border-[#333]">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <svg className="w-4 h-4" viewBox="0 0 32 32" fill="none">
-                                                <path d="M16 4L4 10L16 16L28 10L16 4Z" fill="#4285F4" />
-                                                <path d="M4 16L16 22L28 16L28 10L16 16L4 10L4 16Z" fill="#34A853" />
-                                                <path d="M4 22L16 28L28 22L28 16L16 22L4 16L4 22Z" fill="#FBBC04" />
-                                                <path d="M16 28L28 22L28 16" fill="#EA4335" opacity="0.7" />
-                                            </svg>
-                                            <span className="text-sm font-medium text-white">Gemini</span>
-                                        </div>
-                                        <p className="text-xs text-[#787878]">Fast and efficient for quick tasks and general assistance.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Placeholder Tabs */}
-                    {['notifications', 'connections-account', 'general', 'people', 'teamspaces', 'security', 'public-pages', 'import'].includes(activeTab) && (
-                        <div className="max-w-2xl mx-auto flex flex-col items-center justify-center h-full opacity-50">
-                            <Settings size={48} className="mb-4 text-[#333]" />
-                            <p className="text-[14px] text-[#787878]">This section is under development.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+          {/* ════════════════════════════════════════
+              RIGHT CONTENT AREA
+          ════════════════════════════════════════ */}
+          <main className="flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto">
+            {renderContent()}
+          </main>
         </div>
-    );
-};
-export default SettingsContent;
+      </div>
+    </div>
+  );
+}

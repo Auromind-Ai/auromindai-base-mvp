@@ -1,225 +1,292 @@
-"use client"
+'use client';
 
-import { ArrowRight, Check, ChevronRight } from "lucide-react"
+import { motion } from 'framer-motion';
+import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 
 const PLAN_ORDER = {
   free: 0,
   pro: 1,
   enterprise: 2,
+};
+
+const TOKENS_PER_CREDIT = 1000;
+const ANNUAL_DISCOUNT = 0.8;
+
+const containerVariants = {
+  hidden: {},
+  visible: {},
+};
+
+const cardVariants = {
+  hidden:  { opacity: 0, y: 80, scale: 0.96 },
+  visible: (index) => ({
+    opacity: 1,
+    y: 0,
+    scale: index === 1 ? 1.03 : 1,
+    transition: { duration: 0.8, delay: index * 0.12, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
+
+function CheckIcon() {
+  return (
+    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7C3AED]/20">
+      <svg className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M16.704 5.29a1 1 0 010 1.42l-7.2 7.2a1 1 0 01-1.415 0l-3.2-3.2a1 1 0 111.414-1.42l2.493 2.494 6.493-6.494a1 1 0 011.415 0z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </div>
+  );
 }
 
-function PricingCard({ plan, currentPlan, onUpgrade }) {
-  const isCurrent = currentPlan === plan.key
-  const isEnterprise = plan.key === "enterprise"
+function PricingCard({ plan, currentPlan, onUpgrade, index }) {
+  const isCurrent    = currentPlan === plan.key;
+  const isEnterprise = plan.key === 'enterprise';
 
-  const currentRank = PLAN_ORDER[currentPlan] ?? 0
-  const planRank = PLAN_ORDER[plan.key] ?? 0
-  const shouldShowActionButton = planRank >= currentRank
+  const currentRank          = PLAN_ORDER[currentPlan] ?? 0;
+  const planRank             = PLAN_ORDER[plan.key]    ?? 0;
+  const shouldShowActionButton = planRank >= currentRank;
 
   const handleClick = () => {
-    if (isCurrent || isEnterprise || typeof onUpgrade !== "function") return
-    onUpgrade(plan.key)
-  }
+    if (isCurrent || isEnterprise || typeof onUpgrade !== 'function') return;
+    onUpgrade(plan.key);
+  };
 
   const getCTA = (planKey) => {
-    if (currentPlan === planKey) return "Current Plan"
-    if (planKey === "pro") return "Upgrade to Pro"
-    return "Contact Sales"
-  }
+    if (currentPlan === planKey) return 'Current Plan';
+    if (planKey === 'pro')       return 'Upgrade to Pro';
+    return 'Contact Sales';
+  };
+
+  const isFeatured = plan.featured;
+  const showPerMonth = !['Free', 'Custom'].includes(plan.price);
+
+  const cardBg = isCurrent
+    ? 'border-[#814AC8]/50 bg-[radial-gradient(circle_at_top,rgba(129,74,200,0.22),rgba(12,12,12,1)_68%)] shadow-[0_0_40px_rgba(129,74,200,0.28)]'
+    : isFeatured
+    ? 'border-[#7C3AED]/30 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.22),rgba(12,12,12,1)_68%)] shadow-[0_0_40px_rgba(124,58,237,0.18)]'
+    : 'border-white/10 bg-[linear-gradient(to_top,rgba(129,74,200,0.30)_0%,rgba(0,0,0,1)_60%)]';
+
+  const buttonClass = isCurrent
+    ? 'cursor-not-allowed border border-[#814AC8]/30 bg-[#814AC8]/10 text-[#C4A0F0]'
+    : isEnterprise
+    ? 'cursor-not-allowed border border-white/10 bg-white/[0.03] text-zinc-400'
+    : isFeatured
+    ? 'bg-[#814AC8] text-white hover:bg-[#9B5DE5] shadow-[0_20px_40px_rgba(129,74,200,0.35)]'
+    : 'border border-white/10 bg-white/10 text-white hover:bg-white hover:text-black';
 
   return (
-    <article
-      className={[
-        "group relative flex h-full flex-col overflow-hidden rounded-2xl border p-6 text-left transition-all duration-300 md:p-7",
-        "bg-[linear-gradient(180deg,rgba(24,24,27,0.92),rgba(9,9,11,0.98))] backdrop-blur-xl",
-        plan.featured
-          ? "border-cyan-400/40 shadow-[0_0_0_1px_rgba(34,211,238,0.10),0_24px_80px_rgba(8,145,178,0.18)]"
-          : "border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.32)]",
-        isCurrent
-          ? "border-emerald-400/50 shadow-[0_0_0_1px_rgba(16,185,129,0.18),0_0_40px_rgba(16,185,129,0.18)]"
-          : "hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
-      ].join(" ")}
+    <motion.div
+      custom={index}
+      variants={cardVariants}
+      className={`relative overflow-hidden rounded-[32px] border min-h-[465px] px-[30px] pt-[28px] pb-[28px] backdrop-blur-xl transition-all duration-500 flex flex-col ${cardBg}`}
     >
-      <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_60%)] opacity-70" />
-      <div
-        className={[
-          "absolute inset-0 opacity-80",
-          plan.featured
-            ? "bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.16),transparent_38%)]"
-            : isCurrent
-              ? "bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.14),transparent_38%)]"
-              : "bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_36%)]",
-        ].join(" ")}
-      />
+      {isFeatured && (
+        <div className="absolute -top-20 left-1/2 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-[#7C3AED]/20 blur-[100px] pointer-events-none" />
+      )}
 
-      <div className="relative flex h-full flex-col">
-        <div className="flex min-h-14 items-start justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium uppercase tracking-[0.28em] text-zinc-500">
-                {plan.name}
-              </span>
+      {isFeatured && !isCurrent && (
+        <div className="absolute top-4 right-4 rounded-[8px] border border-white/10 bg-white/[0.04] px-3 py-1 text-[13px] font-medium text-white/90">
+          Popular
+        </div>
+      )}
+      {isCurrent && (
+        <div className="absolute top-4 right-4 rounded-[8px] border border-[#814AC8]/30 bg-[#814AC8]/10 px-3 py-1 text-[13px] font-medium text-[#C4A0F0]">
+          Current Plan
+        </div>
+      )}
 
-              {plan.featured && !isCurrent && !isEnterprise && (
-                <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium text-cyan-100">
-                  Most Popular
-                </span>
-              )}
+      <div className="relative z-10 flex h-full flex-col flex-1">
+        <h3 className="font-['Poppins'] text-[23px] font-medium text-white/80 tracking-[-0.02em] leading-[1.2em] flex items-center gap-2">
+          <span className="text-[22px]">{plan.icon}</span>
+          {plan.name}
+        </h3>
 
-              {isCurrent && (
-                <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[11px] font-medium text-emerald-200">
-                  Current Plan
-                </span>
-              )}
-            </div>
-
-            <p className="mt-4 text-4xl font-semibold tracking-tight text-white md:text-5xl">
-              {plan.price}
-            </p>
-
-            <p className="mt-3 max-w-xs text-sm leading-6 text-zinc-400">
-              {plan.description}
-            </p>
-          </div>
+        <div className="mt-4 flex items-end">
+          <span className="text-[40px] leading-none font-semibold tracking-[-0.04em] text-white">
+            {plan.price ?? 'Custom'}
+          </span>
+          {showPerMonth && (
+            <span className="ml-1 mb-[4px] text-[14px] text-white/60">/month</span>
+          )}
         </div>
 
-        <div className="mt-6 rounded-[1.35rem] border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Usage</p>
-          <p className="mt-3 text-lg font-medium text-zinc-100">{plan.usage}</p>
-        </div>
-
-        <ul className="mt-6 space-y-3 text-sm text-zinc-300">
-          {plan.features.map((feature) => (
-            <li key={feature} className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-                <Check size={12} />
-              </span>
-              <span>{feature}</span>
-            </li>
-          ))}
-        </ul>
+        <p className="mt-4 text-sm lg:text-base leading-6 text-white/85">
+          {plan.description}
+        </p>
 
         {shouldShowActionButton && (
-          <button
-            type="button"
-            onClick={handleClick}
-            disabled={isCurrent || isEnterprise}
-            className={[
-              "mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200",
-              isCurrent
-                ? "cursor-not-allowed border border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-                : isEnterprise
-                  ? "cursor-not-allowed border border-white/10 bg-white/[0.03] text-zinc-400"
-                  : plan.featured
-                    ? "bg-white text-black hover:bg-zinc-200"
-                    : "border border-white/10 bg-white/[0.05] text-white hover:bg-white/[0.1]",
-            ].join(" ")}
-          >
-            <span>{getCTA(plan.key)}</span>
-            {!isCurrent && !isEnterprise && <ArrowRight size={16} />}
-            {isEnterprise && <ChevronRight size={16} />}
-          </button>
+          <div className="mt-7">
+            <button
+              type="button"
+              onClick={handleClick}
+              disabled={isCurrent || isEnterprise}
+              className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 flex items-center justify-center gap-2 ${buttonClass}`}
+            >
+              <span>{getCTA(plan.key)}</span>
+              {isEnterprise && !isCurrent && <ChevronRight size={16} />}
+            </button>
+          </div>
         )}
-      </div>
-    </article>
-  )
-}
-const TOKENS_PER_CREDIT = 1000;
-export default function PricingPage({ currentPlan = "free", onUpgrade, settings }) {
-  if (!settings) {
-    return (
-      <section className="min-h-screen bg-[#09090b] px-4 py-16 text-white sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,27,0.94),rgba(9,9,11,0.98))] px-6 py-12 text-center">
-            Loading...
-          </div>
-        </div>
-      </section>
-    )
-  }
 
-  const plans = [
-    {
-      key: "free",
-      name: settings.free_plan_name || "Free",
-      price: settings.free_plan_price === 0 ? "Free" : `₹${settings.free_plan_price}`,
-      usage: `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} credits / month`,
-      description:
-        settings.free_plan_desc ||
-        "A clean starting point for individual builders exploring the platform.",
-      features: settings.free_plan_features || [
-        `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
-        "Core workspace access",
-        "Basic automations",
-        "Community support",
-      ],
-    },
-    {
-      key: "pro",
-      name: settings.pro_plan_name || "Pro",
-      price: `₹${settings.pro_plan_price || 999}`,
-      usage: `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
-      description:
-        settings.pro_plan_desc ||
-        "For teams running daily AI workflows and needing faster execution.",
-      featured: true,
-      features: settings.pro_plan_features || [
-        `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
-        "Priority model access",
-        "Advanced workflow automations",
-        "Team collaboration tools",
-        "Priority email support",
-      ],
-    },
-    {
-      key: "enterprise",
-      name: settings.enterprise_plan_name || "Enterprise",
-      usage: "Custom credits and seats",
-      description:
-        settings.enterprise_plan_desc ||
-        "Tailored capacity, security, and support for larger organizations.",
-      features: settings.enterprise_plan_features || [
-        "Custom usage limits",
-        "Dedicated onboarding",
-        "SSO and advanced controls",
-        "Custom SLA and support",
-        "Procurement-ready billing",
-      ],
-    },
-  ]
-
-  return (
-    <section className="min-h-screen bg-[#09090b] px-4 py-16 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.10),transparent_24%),linear-gradient(180deg,rgba(24,24,27,0.94),rgba(9,9,11,0.98))] px-6 py-12 shadow-[0_30px_120px_rgba(0,0,0,0.45)] sm:px-8 lg:px-12 lg:py-16">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.04),transparent_28%)]" />
-
-          <div className="relative mx-auto max-w-3xl text-center">
-            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-400">
-              Pricing
-            </span>
-
-            <h1 className="mt-4 text-2xl font-semibold tracking-tight text-white sm:text-3xl lg:text-4xl">
-              “Flexible pricing for powerful AI automation”
-            </h1>
-
-            <p className="mx-auto mt-3 max-w-xl text-xs leading-5 text-zinc-400 sm:text-sm">
-              Start free, upgrade when your workflows scale, and move to enterprise controls when procurement and security matter.
-            </p>
-          </div>
-
-          <div className="relative mt-12 grid gap-6 lg:grid-cols-3">
-            {plans.map((plan) => (
-              <PricingCard
-                key={plan.key}
-                plan={plan}
-                currentPlan={currentPlan}
-                onUpgrade={onUpgrade}
-              />
+        <div className="mt-8 flex-1">
+          <p className="text-white/90 text-sm lg:text-base font-medium mb-4">
+            What's Included:
+          </p>
+          <div className="space-y-2">
+            {plan.features.map((feature) => (
+              <div
+                key={feature}
+                className="flex items-start gap-3 text-sm lg:text-base text-white/80"
+              >
+                <CheckIcon />
+                <span>{feature}</span>
+              </div>
             ))}
           </div>
         </div>
       </div>
+    </motion.div>
+  );
+}
+
+export default function PricingPage({ currentPlan = 'free', onUpgrade, settings }) {
+  const [isAnnual, setIsAnnual] = useState(false);
+
+  if (!settings) {
+    return (
+      <section className="relative overflow-hidden bg-black py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="rounded-[32px] border border-white/10 bg-[linear-gradient(to_top,rgba(129,74,200,0.30)_0%,rgba(0,0,0,1)_60%)] px-6 py-12 text-center text-white/60">
+            Loading...
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const plans = [
+    {
+      key:         'free',
+      icon:        '🚀',
+      name:        settings.free_plan_name  || 'Free',
+      price:       settings.free_plan_price === 0 ? 'Free' : `₹${settings.free_plan_price}`,
+      usage:       `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} credits / month`,
+      description: settings.free_plan_desc  || 'Try Auromind for free and see the ROI yourself.',
+      features:    settings.free_plan_features || [
+        `${Math.round((settings.token_limit_per_plan?.free || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
+        'Core workspace access',
+        'Basic automations',
+        'Community support',
+      ],
+    },
+    {
+      key:         'pro',
+      icon:        '⚡',
+      name:        settings.pro_plan_name  || 'Pro',
+      price: isAnnual
+        ? `₹${Math.round((settings.pro_plan_price || 999) * ANNUAL_DISCOUNT)}`
+        : `₹${settings.pro_plan_price || 999}`,
+      usage:       `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
+      description: settings.pro_plan_desc  || 'Advanced features for growing teams and scalable workflows.',
+      featured:    true,
+      features:    settings.pro_plan_features || [
+        `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
+        'Priority model access',
+        'Advanced workflow automations',
+        'Team collaboration tools',
+        'Priority email support',
+      ],
+    },
+    {
+      key:         'enterprise',
+      icon:        '👑',
+      name:        settings.enterprise_plan_name  || 'Enterprise',
+      price:       'Custom',
+      usage:       'Custom credits and seats',
+      description: settings.enterprise_plan_desc  || 'Tailored capacity, security, and support for larger organizations.',
+      features:    settings.enterprise_plan_features || [
+        'Custom usage limits',
+        'Dedicated onboarding',
+        'SSO and advanced controls',
+        'Custom SLA and support',
+        'Procurement-ready billing',
+      ],
+    },
+  ];
+
+  return (
+    <section className="relative overflow-hidden bg-black py-24 md:py-32">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="font-['Poppins'] text-[26px] font-medium text-white tracking-[-0.04em] leading-[1.1em] sm:text-[50px]">
+            Simple, Transparent Pricing
+            <br />
+            For Every Stage of Growth
+          </h2>
+          <p className="mt-5 max-w-2xl mx-auto text-md md:text-base lg:text-lg text-white/80 leading-7 font-normal">
+            Choose the perfect plan for your business and scale your AI-powered
+            sales system with confidence.
+          </p>
+        </div>
+
+        <div className="mt-10 flex items-center justify-center gap-4">
+          <span className={`text-[15px] font-medium transition-colors duration-200 ${
+            !isAnnual ? 'text-white' : 'text-white/40'
+          }`}>
+            Monthly
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setIsAnnual(prev => !prev)}
+            className={`relative inline-flex h-7 w-[52px] items-center rounded-full transition-colors duration-300 focus:outline-none ${
+              isAnnual ? 'bg-[#7C3AED]' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+                isAnnual ? 'translate-x-[28px]' : 'translate-x-1'
+              }`}
+            />
+          </button>
+
+          <span className={`text-[15px] font-medium transition-colors duration-200 ${
+            isAnnual ? 'text-white' : 'text-white/40'
+          }`}>
+            Annually
+          </span>
+
+          <span className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-all duration-300 ${
+            isAnnual
+              ? 'bg-[#7C3AED] text-white'
+              : 'bg-white/10 text-white/50'
+          }`}>
+            Save 20%
+          </span>
+        </div>
+
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          className="mt-16 md:mt-20 grid md:grid-cols-3 gap-6 xl:gap-8 items-start"
+        >
+          {plans.map((plan, index) => (
+            <PricingCard
+              key={plan.key}
+              plan={plan}
+              index={index}
+              currentPlan={currentPlan}
+              onUpgrade={onUpgrade}
+            />
+          ))}
+        </motion.div>
+      </div>
     </section>
-  )
+  );
 }

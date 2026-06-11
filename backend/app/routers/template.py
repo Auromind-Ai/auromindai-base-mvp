@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 import os
 from groq import Groq
 import re
+from app.core.security import verify_workspace_access
+from app.routers.auth import get_current_user
 
 load_dotenv()
 
@@ -23,7 +25,7 @@ class TemplateCreate(BaseModel):
     name: str
     type: str
     message: str
-    workspace_id: str
+    workspace_id: str | None = None
     category: str
     language: str
     header: str | None = None
@@ -189,9 +191,13 @@ Return JSON only.
 
 # CREATE TEMPLATE
 @router.post("/templates/create")
-def create_template(data: TemplateCreate, db: Session = Depends(get_db)):
-
-    workspace = db.query(Workspace).filter(Workspace.id == data.workspace_id).first()
+def create_template(
+    data: TemplateCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         raise HTTPException(404, "Workspace not found")
     if not workspace.meta_waba_id or not workspace.meta_access_token:
@@ -205,7 +211,7 @@ def create_template(data: TemplateCreate, db: Session = Depends(get_db)):
         type=data.type,
         content=data.message,
         status="pending",
-        workspace_id=data.workspace_id,
+        workspace_id=workspace_id,
     )
     db.add(new_template)
     db.commit()
@@ -337,10 +343,13 @@ def get_templates(db: Session = Depends(get_db)):
 
 
 @router.get("/templates/status/{workspace_id}")
-def check_template_status(workspace_id: str, db: Session = Depends(get_db)):
-
-    if not workspace_id or workspace_id == "null":
-        return {"status": "skipped", "message": "No workspace ID provided"}
+def check_template_status(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    target_workspace_id = None if (not workspace_id or workspace_id == "null") else workspace_id
+    workspace_id = verify_workspace_access(current_user, db, target_workspace_id)
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         return {"status": "skipped", "message": "Workspace not found"}

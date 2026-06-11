@@ -18,7 +18,8 @@ def connect_instagram(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    verify_workspace_access(current_user, db, data.get("workspace_id"))
+    workspace_id = verify_workspace_access(current_user, db, data.get("workspace_id"))
+    data["workspace_id"] = workspace_id
     return ChannelConnectionService.connect_instagram(db, data)
 
 

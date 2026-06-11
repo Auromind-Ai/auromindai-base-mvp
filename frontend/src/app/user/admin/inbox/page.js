@@ -1,18 +1,24 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Phone, Instagram, Globe, Mail, Paperclip,
     Zap, Sparkles, Send, Clock, User, Star, Calendar,
     ArrowRight, ChevronRight, MoreHorizontal, Info,
     ArrowLeft, SlidersHorizontal, Camera, FileText,
-    PenLine, CheckSquare, UserCheck, XCircle, ChevronDown
+    PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, Check,
+    Inbox
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { getWorkspace, getToken } from '@/lib/auth';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import { useRealtime } from '@/context/RealtimeContext';
 import MessageRenderer from '@/components/chat/MessageRenderer';
+import { insertDateSeparators } from '@/lib/dateUtils';
+import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
+import CloseConversationModal from '@/components/inbox/CloseConversationModal';
+import api from '@/lib/api';
 
 const CHANNELS = [
     { id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#28C661', gradient: null },
@@ -23,11 +29,7 @@ const CHANNELS = [
     { id: 'twilio', label: 'Twilio', icon: Zap, color: '#CE272D', gradient: null },
 ];
 
-const FILTER_PILLS = {
-    whatsapp: ['All', 'Unread', 'Open', 'Closed'],
-    instagram: [],
-    twilio: [],
-};
+const STATUS_FILTERS = ['Open', 'Converted', 'Closed', 'All'];
 
 const PROXY_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -36,11 +38,9 @@ const CARD_BG = '#15161C';
 const CARD_BORDER = 'rgba(255,255,255,0.07)';
 
 function getHeaders() {
-    const token = typeof window !== 'undefined' ? getToken() : null;
     return {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 }
 
@@ -106,34 +106,77 @@ function UnreadBadge({ count, channel }) {
     );
 }
 
-function formatActiveTime(dateStr) {
-    if (!dateStr) return 'Inactive';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return 'Inactive';
-    const mins = Math.floor((Date.now() - d.getTime()) / 60000);
-    if (mins < 1) return 'Active just now';
-    if (mins < 60) return `Active ${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `Active ${hrs}h ago`;
-    if (hrs < 48) return 'Active yesterday';
+function formatActiveTime(dateInput) {
+    if (!dateInput) return 'Inactive';
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(d.getTime())) return 'Inactive';
+
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+
+    if (d.toDateString() === now.toDateString()) {
+        const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
+        if (mins < 1) return 'Active now';
+        if (mins < 60) return `Active ${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        return `Active ${hrs}h ago`;
+    }
+    if (d.toDateString() === yesterday.toDateString()) return 'Active yesterday';
+
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const msgDay = new Date(d); msgDay.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today - msgDay) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 7) return `Active ${diffDays} days ago`;
+
     return `Active ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
 }
 
-// ─── Reusable: Sidebar / Conversations List ───────────────────────────────────
+function getLastUserActivity(lead, messages) {
+    // Scan messages (newest first) for the latest inbound customer message (sender_type === 'user')
+    if (messages && messages.length > 0) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const m = messages[i];
+            const senderType = m.sender_type?.toLowerCase();
+            if (senderType === 'user') {
+                const ts = m.timestamp || m.created_at;
+                if (ts) {
+                    const d = new Date(ts);
+                    if (!isNaN(d.getTime())) return d;
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
 function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterChange, onLeadSelect }) {
     const [searchQuery, setSearchQuery] = useState('');
+    const containerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
-    const filters = FILTER_PILLS[ch.id] || [];
+
+    useEffect(() => {
+        if (lead?.id && containerRef.current) {
+            const activeEl = containerRef.current.querySelector('[data-active="true"]');
+            if (activeEl) {
+                activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    }, [lead?.id]);
 
     function formatConvTime(dateStr) {
         if (!dateStr) return '';
         const d = new Date(dateStr);
-        if (isNaN(d)) return '';
+        if (isNaN(d.getTime())) return '';
         const today = new Date(); today.setHours(0,0,0,0);
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
         const msgDay = new Date(d); msgDay.setHours(0,0,0,0);
         if (msgDay.getTime() === today.getTime()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         if (msgDay.getTime() === yesterday.getTime()) return 'Yesterday';
+        const diffDays = Math.round((today - msgDay) / (1000 * 60 * 60 * 24));
+        if (diffDays < 7) return `${diffDays} days ago`;
         return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
     }
 
@@ -156,7 +199,6 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
 
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: CARD_BG }}>
-            {/* Header */}
             <div className="p-4 pb-3 shrink-0">
                 <div className="flex items-center gap-2.5 mb-4">
                     {isInstagram ? (
@@ -182,41 +224,39 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                     />
                 </div>
 
-                {filters.length > 0 && (
-                    <div className="flex items-center gap-2">
-                        {ch.id !== 'whatsapp' && (
-                            <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[#666]"
-                                style={{ backgroundColor: '#1e1e1e', borderColor: 'rgba(255,255,255,0.07)' }}>
-                                <SlidersHorizontal size={13} strokeWidth={2} />
-                                <ChevronDown size={12} strokeWidth={2} />
-                            </button>
-                        )}
-                        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-                            {filters.map((f, i) => (
-                                <button
-                                    key={f}
-                                    onClick={() => onFilterChange(i)}
-                                    className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border"
-                                    style={activeFilter === i
-                                        ? { backgroundColor: `${ch.color}20`, color: ch.color, borderColor: `${ch.color}40` }
-                                        : { backgroundColor: 'transparent', color: '#666', borderColor: 'rgba(255,255,255,0.07)' }
-                                    }
-                                >
-                                    {f}
-                                    {f === 'All' && conversations.length > 0 && (
-                                        <span className="ml-1 text-[10px] opacity-60">{conversations.length}</span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                    {STATUS_FILTERS.map((f, i) => (
+                        <button
+                            key={f}
+                            onClick={() => onFilterChange(i)}
+                            className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all border"
+                            style={activeFilter === i
+                                ? { backgroundColor: `${ch.color}20`, color: ch.color, borderColor: `${ch.color}40` }
+                                : { backgroundColor: 'transparent', color: '#666', borderColor: 'rgba(255,255,255,0.07)' }
+                            }
+                        >
+                            {f}
+                            {f === 'All' && conversations.length > 0 && (
+                                <span className="ml-1 text-[10px] opacity-60">{conversations.length}</span>
+                            )}
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto px-3 pb-3">
+            <div ref={containerRef} className="flex-1 overflow-y-auto px-3 pb-3">
                 {filtered.length === 0 && (
-                    <p className="text-center text-[#444] text-[12px] mt-10">No conversations yet</p>
+                    <div className="flex flex-col items-center justify-center mt-16 gap-3">
+                        <div className="w-12 h-12 rounded-full bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+                            <Inbox size={20} className="text-[#444]" />
+                        </div>
+                        <p className="text-center text-[#555] text-[13px] font-medium">
+                            {activeFilter === 0 ? 'No open conversations' : 'No conversations found'}
+                        </p>
+                        <p className="text-center text-[#3a3a3a] text-[11px]">
+                            {activeFilter === 0 ? 'All caught up! ✨' : 'Try a different filter'}
+                        </p>
+                    </div>
                 )}
                 {filtered.map((l, idx) => {
                     const sel = lead?.id === l.id;
@@ -226,12 +266,13 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                     return (
                         <motion.button
                             key={l.id}
+                            data-active={sel}
                             onClick={() => onLeadSelect(l)}
                             whileHover={{ backgroundColor: '#1e1e1e' }}
                             className="w-full p-3.5 mb-1 rounded-xl text-left transition-all border"
                             style={sel
                                 ? { backgroundColor: '#1e1e1e', borderColor: `${ch.color}40`, borderLeftColor: ch.color, borderLeftWidth: 3 }
-                                : { backgroundColor: 'transparent', borderColor: 'transparent', borderLeftWidth: 3, borderLeftColor: 'transparent' }
+                                : { backgroundColor: 'rgba(30, 30, 30, 0)', borderColor: 'transparent', borderLeftWidth: 3, borderLeftColor: 'transparent' }
                             }
                         >
                             <div className="flex items-center gap-3">
@@ -293,11 +334,19 @@ function getConversationStats(conversation, messages) {
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return '';
         const today = new Date(); today.setHours(0,0,0,0);
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
         const msgDay = new Date(d); msgDay.setHours(0,0,0,0);
         
         const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         if (msgDay.getTime() === today.getTime()) {
             return `Today, ${timeStr}`;
+        }
+        if (msgDay.getTime() === yesterday.getTime()) {
+            return `Yesterday, ${timeStr}`;
+        }
+        const diffDays = Math.round((today - msgDay) / (1000 * 60 * 60 * 24));
+        if (diffDays < 7) {
+            return `${diffDays} days ago, ${timeStr}`;
         }
         const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         return `${datePart} ${timeStr}`;
@@ -311,11 +360,36 @@ function getConversationStats(conversation, messages) {
     };
 }
 
-// ─── Reusable: Info Panel ─────────────────────────────────────────────────────
-function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages }) {
+function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages, onCloseConversation, onConvertClick, leadDetail, setLeadDetail }) {
     const router = useRouter();
     const isInstagram = ch.id === 'instagram';
     const stats = getConversationStats(lead, messages);
+
+    // Add toggle handler function inside InfoPanel
+    const handleLabelClick = async (leadId, label) => {
+        if (!leadId) return;
+        const currentLabels = leadDetail?.labels || [];
+        const isActive = currentLabels.includes(label);
+        const action = isActive ? "remove" : "add";
+        
+        try {
+            // Call API to save label and trigger score recalculation
+            const res = await api.updateLeadLabels(leadId, label, action);
+            if (setLeadDetail) {
+                setLeadDetail(prev => ({
+                    ...prev,
+                    ...res,
+                    labels: res.labels || []
+                }));
+            }
+        } catch (err) {
+            console.error("Failed to update label:", err);
+        }
+    };
+
+    const activeLabels = leadDetail?.labels || [];
+    const tier = leadDetail?.lead_tier || 'cold';
+    const score = leadDetail?.score || 0;
 
     return (
         <div className="w-full h-full overflow-y-auto p-5" style={{ backgroundColor: CARD_BG }}>
@@ -337,7 +411,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                     <p className="text-[16px] font-regular text-white/90 tracking-widest mb-8">Contact Details</p>
 
                     <div className="flex items-center gap-3 mb-5">
-                        {/* Avatar — left */}
                         <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-xl font-bold shrink-0"
                             style={{ backgroundColor: '#1e1e1e' }}>
                             {isInstagram && lead.profile_pic ? (
@@ -347,7 +420,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                             )}
                         </div>
 
-                        {/* Info — right */}
                         <div className="flex flex-col min-w-0">
                             <h4 className="text-[15px] font-semibold text-white truncate">
                                 {getDisplayName(lead, ch.id)}
@@ -372,21 +444,88 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         <button className="text-[13px] mt-1 font-medium" style={{ color: ch.color }}>View more</button>
                     </div>
 
+                    {/* SECTION A: System Tier */}
+                    <div className="mb-6 border-b border-white/[0.06] pb-6">
+                        <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">System Tier</p>
+                        <div className="flex items-center gap-2">
+                            {tier.toLowerCase() === 'hot' && (
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-rose-500/10 border border-rose-500/25 text-rose-400">
+                                    🔥 Hot
+                                </span>
+                            )}
+                            {tier.toLowerCase() === 'warm' && (
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/25 text-amber-400">
+                                    🟡 Warm
+                                </span>
+                            )}
+                            {tier.toLowerCase() === 'cold' && (
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-500/10 border border-zinc-500/25 text-zinc-400">
+                                    ❄️ Cold
+                                </span>
+                            )}
+                            <span className="text-[11px] text-zinc-500 font-medium italic">Calculated automatically ({score || 0})</span>
+                        </div>
+                    </div>
+
+                    {/* SECTION B: Agent Labels */}
                     <div className="mb-6">
-                        <p className="text-[16px] font-regular text-white/90 tracking-wider mb-3 mt-10">Labels</p>
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar" style={{ flexWrap: 'nowrap' }}>
-                            <button onClick={() => {
-                                const leadId = resolvedLeadId || lead?.id;
-                                router.push(`/user/admin/leads?leadId=${leadId}`);
-                            }} className="px-4 py-1.5 rounded-lg text-[13px] font-semibold text-white shrink-0 hover:opacity-80 transition-opacity" style={{ backgroundColor: '#752643' }}>High Priority</button>
-                            <button onClick={() => {
-                                const leadId = resolvedLeadId || lead?.id;
-                                router.push(`/user/admin/leads?leadId=${leadId}`);
-                            }} className="px-4 py-1.5 rounded-lg text-[13px] font-semibold text-white shrink-0 hover:opacity-80 transition-opacity" style={{ background: '#3B2372' }}>Premium Lead</button>
-                            <button onClick={() => {
-                                const leadId = resolvedLeadId || lead?.id;
-                                router.push(`/user/admin/leads?leadId=${leadId}`);
-                            }} className="px-4 py-1.5 rounded-lg text-[13px] font-semibold text-white shrink-0 hover:opacity-80 transition-opacity" style={{ backgroundColor: '#1F5A38' }}>Interested</button>
+                        <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">Agent Labels</p>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => {
+                                    const leadId = resolvedLeadId || lead?.id;
+                                    handleLabelClick(leadId, "Premium Lead");
+                                }}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
+                                    ${activeLabels.includes("Premium Lead")
+                                        ? "bg-[#4B2580] border-[#6D39BD] text-white shadow-lg shadow-[#4B2580]/20"
+                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
+                                    }`}
+                            >
+                                👑 Premium Lead
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    const leadId = resolvedLeadId || lead?.id;
+                                    handleLabelClick(leadId, "High Priority");
+                                }}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
+                                    ${activeLabels.includes("High Priority")
+                                        ? "bg-[#7B1A2E] border-[#A82B44] text-white shadow-lg shadow-[#7B1A2E]/20"
+                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
+                                    }`}
+                            >
+                                🔥 High Priority
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    const leadId = resolvedLeadId || lead?.id;
+                                    handleLabelClick(leadId, "Interested");
+                                }}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
+                                    ${activeLabels.includes("Interested")
+                                        ? "bg-[#145A32] border-[#208A4E] text-white shadow-lg shadow-[#145A32]/20"
+                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
+                                    }`}
+                            >
+                                ⚡ Interested
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    const leadId = resolvedLeadId || lead?.id;
+                                    handleLabelClick(leadId, "Follow Up");
+                                }}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
+                                    ${activeLabels.includes("Follow Up")
+                                        ? "bg-[#0F4C81] border-[#1A73C2] text-white shadow-lg shadow-[#0F4C81]/20"
+                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
+                                    }`}
+                            >
+                                📅 Follow Up
+                            </button>
                         </div>
                     </div>
 
@@ -421,7 +560,15 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                 </button>
                             ))}
                             <button
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors"
+                                onClick={onConvertClick}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] border text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10 cursor-pointer transition-colors"
+                                style={{ backgroundColor: 'rgba(16,185,129,0.05)' }}>
+                                <Check size={15} strokeWidth={2} />
+                                Convert Lead
+                            </button>
+                            <button
+                                onClick={() => onCloseConversation(lead?.id)}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors cursor-pointer"
                                 style={{ backgroundColor: 'rgba(239,68,68,0.05)' }}>
                                 <XCircle size={15} strokeWidth={2} />
                                 Close Conversation
@@ -434,14 +581,178 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
     );
 }
 
-// ─── Reusable: Chat Area ────────
+function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
+    const [templates, setTemplates] = useState([]);
+    const [selectedTemplate, setSelectedTemplate] = useState(null);
+    const [variables, setVariables] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [fetching, setFetching] = useState(true);
+
+    useEffect(() => {
+        if (!isOpen || !workspace?.id) return;
+        const fetchTemplates = async () => {
+            setFetching(true);
+            try {
+                const data = await api.get('/api/templates');
+                const list = data.templates || [];
+                const approved = list.filter(t => t.status === 'approved');
+                setTemplates(approved);
+                if (approved.length > 0) {
+                    setSelectedTemplate(approved[0]);
+                }
+            } catch (e) {
+                console.error("Failed to fetch templates:", e);
+            } finally {
+                setFetching(false);
+            }
+        };
+        fetchTemplates();
+    }, [isOpen, workspace?.id]);
+
+    useEffect(() => {
+        if (!selectedTemplate) {
+            setVariables({});
+            return;
+        }
+        const matches = selectedTemplate.content.match(/\{\{(\d+)\}\}/g) || [];
+        const uniqueVars = {};
+        matches.forEach(m => {
+            const num = m.replace(/\{\{|\}\}/g, '');
+            uniqueVars[num] = '';
+        });
+        setVariables(uniqueVars);
+    }, [selectedTemplate]);
+
+    if (!isOpen) return null;
+
+    const getPreviewContent = () => {
+        if (!selectedTemplate) return '';
+        let text = selectedTemplate.content;
+        Object.keys(variables).forEach(k => {
+            const val = variables[k] || `{{${k}}}`;
+            text = text.replaceAll(`{{${k}}}`, val);
+        });
+        return text;
+    };
+
+    const handleSend = async () => {
+        if (!selectedTemplate || !workspace?.id || !lead?.phone) return;
+        setLoading(true);
+        try {
+            const varArray = Object.keys(variables)
+                .sort((a, b) => parseInt(a) - parseInt(b))
+                .map(k => variables[k]);
+
+            await api.post('/api/messages/send', {
+                workspace_id: workspace.id,
+                phone: lead.phone,
+                template_name: selectedTemplate.name,
+                variables: varArray
+            });
+            const preview = getPreviewContent();
+            onSuccess(preview);
+            onClose();
+        } catch (e) {
+            console.error("Send template error:", e);
+            alert("Error sending template message.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const varKeys = Object.keys(variables).sort((a, b) => parseInt(a) - parseInt(b));
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-[#15161C] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+                <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0">
+                    <span className="text-[14px] font-bold text-white uppercase tracking-wide">Send WhatsApp Template</span>
+                    <button onClick={onClose} className="p-1 text-zinc-400 hover:text-white rounded-lg transition-colors text-lg">&times;</button>
+                </div>
+
+                <div className="p-5 overflow-y-auto flex-1 space-y-4">
+                    {fetching ? (
+                        <p className="text-zinc-500 text-[13px] text-center py-8">Fetching templates...</p>
+                    ) : templates.length === 0 ? (
+                        <div className="text-center py-6 space-y-3">
+                            <p className="text-zinc-500 text-[13px]">No approved templates found.</p>
+                            <Link href="/user/admin/templates" className="inline-block text-[12px] font-bold text-indigo-400 hover:underline">
+                                Go to Templates Page →
+                            </Link>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Select Template</label>
+                                <select
+                                    value={selectedTemplate?.id || ''}
+                                    onChange={e => setSelectedTemplate(templates.find(t => t.id === e.target.value))}
+                                    className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none"
+                                >
+                                    {templates.map(t => (
+                                        <option key={t.id} value={t.id}>{t.name} ({t.category})</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {varKeys.length > 0 && (
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Variables</label>
+                                    {varKeys.map(k => (
+                                        <div key={k} className="flex flex-col gap-1.5">
+                                            <span className="text-[12px] text-zinc-400 font-medium font-mono">Variable {`{{${k}}}`}</span>
+                                            <input
+                                                type="text"
+                                                value={variables[k]}
+                                                onChange={e => setVariables(prev => ({ ...prev, [k]: e.target.value }))}
+                                                placeholder={`Enter value for {{${k}}}`}
+                                                className="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] text-white outline-none"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Preview</label>
+                                <div className="bg-[#252525] border border-white/5 rounded-2xl p-4 text-[13px] text-[#eee] leading-relaxed whitespace-pre-wrap">
+                                    {getPreviewContent() || 'No preview available.'}
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <div className="p-4 border-t border-white/5 bg-[#181820] flex items-center justify-end gap-2 shrink-0">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 rounded-xl text-[12px] font-semibold text-zinc-400 hover:text-white transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    {templates.length > 0 && (
+                        <button
+                            onClick={handleSend}
+                            disabled={loading}
+                            className="px-5 py-2 rounded-xl text-[12px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition duration-150 disabled:opacity-50 active:scale-95"
+                        >
+                            {loading ? 'Sending...' : 'Send Template'}
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function ChatArea({
     ch, lead, messages, msg, setMsg, aiSuggestion, sendMessage,
     generateSuggestion, useSuggestion, onInfoClick, onBackToList,
     previewMedia, setPreviewMedia,
     showMobileBackButton = false,
-    // For tablet/desktop info icon active state
     infoActive = false,
+    workspace,
+    onSendTemplateSuccess,
 }) {
     const ref = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -455,6 +766,60 @@ function ChatArea({
             ref.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
+
+    const messagesWithSeparators = useMemo(
+        () => insertDateSeparators(messages),
+        [messages]
+    );
+
+    const hasIncomingMessage = useMemo(() => {
+        return messages.some(m => m.sender_type?.toLowerCase() === 'user');
+    }, [messages]);
+
+    const lastUserActivity = useMemo(
+        () => getLastUserActivity(lead, messages),
+        [lead, messages]
+    );
+
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        if (ch.id !== 'whatsapp' || !lastUserActivity) return;
+
+        const timeout = setTimeout(() => {
+            setNow(Date.now());
+        }, 0);
+
+        const interval = setInterval(() => {
+            setNow(Date.now());
+        }, 30000);
+
+        return () => {
+            clearTimeout(timeout);
+            clearInterval(interval);
+        };
+    }, [ch.id, lastUserActivity]);
+
+    const { whatsAppWindowState, whatsAppWindowRemaining } = useMemo(() => {
+        if (ch.id !== 'whatsapp') {
+            return { whatsAppWindowState: 'window_open', whatsAppWindowRemaining: '' };
+        }
+        if (!hasIncomingMessage) {
+            return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
+        }
+        if (!lastUserActivity) {
+            return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
+        }
+        const diffMs = 24 * 60 * 60 * 1000 - (now - lastUserActivity.getTime());
+        if (diffMs > 0) {
+            const diffHrs = Math.floor(diffMs / (60 * 60 * 1000));
+            const diffMins = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
+            const remaining = diffHrs > 0 ? `${diffHrs}h ${diffMins}m remaining` : `${diffMins}m remaining`;
+            return { whatsAppWindowState: 'window_open', whatsAppWindowRemaining: remaining };
+        }
+        return { whatsAppWindowState: 'window_closed', whatsAppWindowRemaining: '' };
+    }, [ch.id, hasIncomingMessage, lastUserActivity, now]);
 
     function getOutgoingStyle() {
         if (ch.id === 'instagram') return { background: 'linear-gradient(135deg, #7c3aed, #a855f7)' };
@@ -472,7 +837,6 @@ function ChatArea({
 
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: CARD_BG }}>
-            {/* Chat Header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b shrink-0"
                 style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                 <div className="flex items-center gap-3">
@@ -500,13 +864,31 @@ function ChatArea({
                         <p className="text-[12px] text-[#666]">
                             {ch.id === 'whatsapp' ? (
                                 <span className="text-emerald-400">● Online</span>
-                            ) : formatActiveTime(lead?.last_message_at || lead?.updated_at)}
+                            ) : formatActiveTime(lastUserActivity)}
                         </p>
+                        {ch.id === 'whatsapp' && (
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                {whatsAppWindowState === 'awaiting_reply' && (
+                                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium border backdrop-blur-sm bg-zinc-500/10 text-zinc-400 border-zinc-500/20">
+                                        ◉ Awaiting First Reply
+                                    </span>
+                                )}
+                                {whatsAppWindowState === 'window_open' && (
+                                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium border backdrop-blur-sm bg-emerald-500/10 text-emerald-300 border-emerald-500/20">
+                                        ◉ Window Open · {whatsAppWindowRemaining}
+                                    </span>
+                                )}
+                                {whatsAppWindowState === 'window_closed' && (
+                                    <span className="px-2.5 py-1 rounded-full text-[11px] font-medium border backdrop-blur-sm bg-rose-500/10 text-rose-300 border-rose-500/20">
+                                        ◉ Window Closed
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {/* Info icon: visible on tablet only (hidden on desktop since info is always visible) */}
                     <button
                         onClick={onInfoClick}
                         className="p-2 rounded-lg hover:bg-white/5 transition-colors lg:hidden"
@@ -514,7 +896,6 @@ function ChatArea({
                     >
                         <Info size={17} strokeWidth={2} />
                     </button>
-                    {/* Info icon: desktop version (no-op / decorative) */}
                     <button
                         className="p-2 rounded-lg text-[#777] hidden lg:flex"
                         style={{ color: '#777' }}
@@ -524,16 +905,20 @@ function ChatArea({
                 </div>
             </div>
 
-            {/* Messages */}
             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
-                <div className="flex items-center justify-center mb-4">
-                    <span className="text-[11px] text-[#555] px-3 py-1 rounded-full border border-white/5 bg-white/[0.03]">
-                        Today
-                    </span>
-                </div>
-
                 <div className="max-w-2xl mx-auto space-y-2">
-                    {messages.map((m) => {
+                    {messagesWithSeparators.map((item) => {
+                        if (item._dateSeparator) {
+                            return (
+                                <div key={item.key} className="flex items-center justify-center my-4">
+                                    <span className="text-[11px] text-[#555] px-3 py-1 rounded-full border border-white/5 bg-white/[0.03]">
+                                        {item.label}
+                                    </span>
+                                </div>
+                            );
+                        }
+
+                        const m = item;
                         const isUser = m.sender_type?.toLowerCase() === 'user';
                         const isAI = m.sender_type?.toLowerCase() === 'ai';
                         const isSuggested = m.status?.toLowerCase() === 'suggested';
@@ -583,7 +968,6 @@ function ChatArea({
                     <div ref={ref} />
                 </div>
 
-                {/* Media preview modal */}
                 {previewMedia && (
                     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
                         onClick={() => setPreviewMedia(null)}>
@@ -596,7 +980,6 @@ function ChatArea({
                 )}
             </div>
 
-            {/* AI Suggestion Banner */}
             <AnimatePresence>
                 {aiSuggestion && (
                     <motion.div
@@ -617,50 +1000,72 @@ function ChatArea({
                 )}
             </AnimatePresence>
 
-            {/* Input Area */}
             <div className="px-4 pb-4 pt-2 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="max-w-2xl mx-auto">
-                    <div className="flex items-center gap-2 mb-2">
-                        <button
-                            onClick={generateSuggestion}
-                            className="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
-                            style={{ backgroundColor: `${ch.color}15`, color: ch.color }}
-                        >
-                            <Sparkles size={11} />
-                            Suggest Reply
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-2 px-2 py-2 rounded-full border"
-                        style={{ backgroundColor: '#1e1e1e', borderColor: 'rgba(255,255,255,0.07)' }}>
-                        <button className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-                            style={{ backgroundColor: `${ch.color}20` }}>
-                            <Camera size={16} style={{ color: ch.color }} strokeWidth={2} />
-                        </button>
-                        <input
-                            value={msg}
-                            onChange={(e) => setMsg(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                            placeholder="Message"
-                            className="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#555] outline-none px-1"
-                        />
-                        <button
-                            onClick={sendMessage}
-                            className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
-                            style={isInstagram
-                                ? { background: 'linear-gradient(135deg, #ee2a7b, #6228d7)' }
-                                : { backgroundColor: ch.color }
-                            }
-                        >
-                            <Send size={15} className="text-white" strokeWidth={2} />
-                        </button>
-                    </div>
+                    {ch.id === 'whatsapp' && whatsAppWindowState === 'window_closed' ? (
+                        <div className="p-5 rounded-2xl border border-red-500/20 bg-red-500/5 flex flex-col items-center text-center gap-3">
+                            <div className="text-[#eee] text-[13px] font-medium leading-relaxed">
+                                🔒 WhatsApp 24-hour window has expired.<br />Only approved template messages can be sent.
+                            </div>
+                            <button
+                                onClick={() => setShowTemplateModal(true)}
+                                className="mt-1 px-5 py-2.5 rounded-full text-[13px] font-bold text-white bg-red-600 hover:bg-red-700 transition duration-150 active:scale-95 shadow-[0_4px_16px_rgba(239,68,68,0.25)]"
+                            >
+                                Use Template Message
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex items-center gap-2 mb-2">
+                                <button
+                                    onClick={generateSuggestion}
+                                    className="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                                    style={{ backgroundColor: `${ch.color}15`, color: ch.color }}
+                                >
+                                    <Sparkles size={11} />
+                                    Suggest Reply
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-2 px-2 py-2 rounded-full border"
+                                style={{ backgroundColor: '#1e1e1e', borderColor: 'rgba(255,255,255,0.07)' }}>
+                                <button className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                                    style={{ backgroundColor: `${ch.color}20` }}>
+                                    <Camera size={16} style={{ color: ch.color }} strokeWidth={2} />
+                                </button>
+                                <input
+                                    value={msg}
+                                    onChange={(e) => setMsg(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                                    placeholder="Message"
+                                    className="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#555] outline-none px-1"
+                                />
+                                <button
+                                    onClick={sendMessage}
+                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
+                                    style={isInstagram
+                                        ? { background: 'linear-gradient(135deg, #ee2a7b, #6228d7)' }
+                                        : { backgroundColor: ch.color }
+                                    }
+                                >
+                                    <Send size={15} className="text-white" strokeWidth={2} />
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
+
+            <SendTemplateModal
+                isOpen={showTemplateModal}
+                onClose={() => setShowTemplateModal(false)}
+                workspace={workspace}
+                lead={lead}
+                onSuccess={onSendTemplateSuccess}
+            />
         </div>
     );
 }
 
-// ─── Channel Tabs ───────────────
 function ChannelTabs({ ch, setCh }) {
     function getTabActiveStyle(c) {
         if (c.id === 'instagram') return { background: c.gradient };
@@ -709,43 +1114,68 @@ function PanelCard({ children, className = '', style = {} }) {
 }
 
 // ─── Main Page ──────────────────
-export default function InboxPage() {
-    const workspace = getWorkspace();
+function InboxContent() {
+    const { workspaces, workspaceId } = useAuth();
+    const workspace = workspaces.find((item) => item.id === workspaceId) || null;
     const {
         subscribe,
         subscribeConversation,
         unsubscribeConversation,
     } = useRealtime();
     const [ch, setCh] = useState(CHANNELS[0]);
+    const [activeFilter, setActiveFilter] = useState(3);
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
     const [lead, setLead] = useState(null);
     const [resolvedLeadId, setResolvedLeadId] = useState(null);
+    const [leadDetail, setLeadDetail] = useState(null);
     const [msg, setMsg] = useState('');
     const [aiSuggestion, setAiSuggestion] = useState('');
-    const [activeFilter, setActiveFilter] = useState(0);
     const [previewMedia, setPreviewMedia] = useState(null);
+    const [showConvertModal, setShowConvertModal] = useState(false);
+    const [showCloseModal, setShowCloseModal] = useState(false);
+    const [closeTargetId, setCloseTargetId] = useState(null);
+    const [closingConversation, setClosingConversation] = useState(false);
     const messagesContainerRef = useRef(null);
     const leadRef = useRef(null);
 
-    // Tablet: right panel = 'chat' | 'info'
-    const [tabletRight, setTabletRight] = useState('chat');
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
+    const urlConversationId = searchParams.get('conversationId') || searchParams.get('conversation');
+    const lastProcessedIdRef = useRef(null);
 
-    // Mobile view: 'list' | 'chat' | 'info'
+    const [tabletRight, setTabletRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
 
     useEffect(() => {
         leadRef.current = lead;
     }, [lead]);
 
+    useEffect(() => {
+        if (!resolvedLeadId) {
+            setLeadDetail(null);
+            return;
+        }
+        let active = true;
+        const fetchDetail = async () => {
+            try {
+                const data = await api.get(`/lead-scoring/leads/${resolvedLeadId}/detail`);
+                if (active) {
+                    setLeadDetail(data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch lead detail in inbox:", err);
+            }
+        };
+        fetchDetail();
+        return () => { active = false; };
+    }, [resolvedLeadId]);
+
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
         if (!conversationId || !workspace?.id) return null;
         try {
-            const res = await fetch(
-                `${PROXY_BASE}/lead-scoring/leads?workspace_id=${workspace.id}&limit=100&offset=0`,
-                { headers: getHeaders() }
-            );
-            const data = await res.json();
+            const data = await api.get('/api/lead-scoring/leads?limit=100&offset=0');
             const items = data.items || data || [];
             const match = items.find(l => l.conversation_id === conversationId);
             return match?.lead_id || match?.id || null;
@@ -758,15 +1188,7 @@ export default function InboxPage() {
         if (!id) return;
 
         try {
-            const res = await fetch(`${PROXY_BASE}/api/messages/${id}`, { headers: getHeaders() });
-            const text = await res.text();
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (err) {
-                console.error("Failed to parse messages JSON. Raw response:", text);
-                return;
-            }
+            const data = await api.get(`/api/messages/${id}`);
 
             if (!Array.isArray(data)) {
                 console.warn("Messages API returned a non-array payload:", data);
@@ -792,22 +1214,18 @@ export default function InboxPage() {
         }
     }, []);
 
-    const fetchConversations = useCallback(async ({ selectFirst = false } = {}) => {
+    const getStatusParam = useCallback((filterIdx) => {
+        const map = { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' };
+        return map[filterIdx] || 'OPEN';
+    }, []);
+
+    const fetchConversations = useCallback(async ({ selectFirst = false, statusOverride = null } = {}) => {
         if (!workspace?.id) return;
 
+        const statusParam = statusOverride || getStatusParam(activeFilter);
+
         try {
-            const res = await fetch(
-                `${PROXY_BASE}/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}`,
-                { headers: getHeaders() }
-            );
-            const text = await res.text();
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (err) {
-                console.error("Failed to parse conversations JSON. Raw response:", text);
-                return;
-            }
+            const data = await api.get(`/api/conversations?channel=${ch.id}&status=${statusParam}`);
 
             if (!Array.isArray(data)) {
                 console.warn("Conversations API returned a non-array payload:", data);
@@ -823,10 +1241,27 @@ export default function InboxPage() {
                 return;
             }
 
-            const currentLeadId = leadRef.current?.id;
-            const nextLead = selectFirst
-                ? data[0]
-                : data.find((item) => item.id === currentLeadId) || data[0];
+            let urlConversationIdLocal = null;
+            if (typeof window !== 'undefined') {
+                const params = new URLSearchParams(window.location.search);
+                urlConversationIdLocal = params.get('conversationId') || params.get('conversation');
+            }
+
+            let nextLead = null;
+            if (urlConversationIdLocal && data.some((item) => item.id === urlConversationIdLocal)) {
+                nextLead = data.find((item) => item.id === urlConversationIdLocal);
+                if (typeof window !== 'undefined') {
+                    const newParams = new URLSearchParams(searchParams.toString());
+                    newParams.delete('conversationId');
+                    newParams.delete('conversation');
+                    router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
+                }
+            } else {
+                const currentLeadId = leadRef.current?.id;
+                nextLead = selectFirst
+                    ? data[0]
+                    : data.find((item) => item.id === currentLeadId) || data[0];
+            }
 
             setLead(nextLead);
             fetchMessages(nextLead.id);
@@ -836,7 +1271,36 @@ export default function InboxPage() {
         } catch (e) {
             console.error('Conversation fetch error:', e);
         }
-    }, [workspace?.id, ch.id, fetchMessages, fetchLeadIdForConversation]);
+    }, [workspace?.id, ch.id, activeFilter, fetchMessages, fetchLeadIdForConversation, getStatusParam, pathname, router, searchParams]);
+
+    useEffect(() => {
+        if (!workspace?.id || !urlConversationId) {
+            if (!urlConversationId) {
+                lastProcessedIdRef.current = null;
+            }
+            return;
+        }
+
+        if (urlConversationId === lastProcessedIdRef.current) return;
+        lastProcessedIdRef.current = urlConversationId;
+
+        const checkConversation = async () => {
+            try {
+                const data = await api.get(`/api/conversations/${urlConversationId}`);
+                if (data && data.channel) {
+                    const targetChannel = CHANNELS.find(c => c.id === data.channel);
+                    if (targetChannel) {
+                        setCh(targetChannel);
+                        setActiveFilter(3);
+                        fetchConversations({ selectFirst: true, statusOverride: 'ALL' });
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to look up conversation details:', e);
+            }
+        };
+        checkConversation();
+    }, [workspace?.id, urlConversationId, fetchConversations]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -882,293 +1346,382 @@ export default function InboxPage() {
                     fetchConversations();
                     if (eventConversationId && leadRef.current?.id === eventConversationId) {
                         fetchMessages(eventConversationId);
-                    }
-                    break;
-                case "message_status_updated":
-                case "ai_response_ready":
-                case "ai_thinking":
-                    if (eventConversationId && leadRef.current?.id === eventConversationId) {
-                        fetchMessages(eventConversationId);
-                    }
-                    break;
-                default:
-                    break;
-            }
-        });
-    }, [fetchConversations, fetchMessages, subscribe, workspace?.id]);
+                      }
+                      break;
+                  case "message_status_updated":
+                  case "ai_response_ready":
+                  case "ai_thinking":
+                      if (eventConversationId && leadRef.current?.id === eventConversationId) {
+                          fetchMessages(eventConversationId);
+                      }
+                      break;
+                  case "lead.score.updated":
+                  case "lead.updated":
+                      fetchConversations();
+                      const targetLeadId = event.payload?.lead_id || resolvedLeadId;
+                      if (targetLeadId && (event.payload?.conversation_id === leadRef.current?.id || event.payload?.lead_id === resolvedLeadId)) {
+                          api.get(`/lead-scoring/leads/${targetLeadId}/detail`).then((data) => {
+                              setLeadDetail(data);
+                          }).catch((err) => {
+                              console.error("Failed to fetch updated lead details:", err);
+                          });
+                      }
+                      break;
+                  default:
+                      break;
+              }
+          });
+      }, [fetchConversations, fetchMessages, subscribe, workspace?.id]);
 
-    useEffect(() => {
-        const container = messagesContainerRef.current;
+      useEffect(() => {
+          const container = messagesContainerRef.current;
 
-        if (!container) return;
+          if (!container) return;
 
-        const isNearBottom =
-            container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+          const isNearBottom =
+              container.scrollHeight - container.scrollTop - container.clientHeight < 120;
 
-        if (isNearBottom) {
-            ref.current?.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [messages]);
+          if (isNearBottom) {
+              ref.current?.scrollIntoView({ behavior: 'smooth' });
+          }
+      }, [messages]);
 
-    async function sendMessage() {
-        if (!msg.trim() || !lead) return;
-        try {
-            await fetch(`${PROXY_BASE}/api/send-reply`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({ conversation_id: lead.id, message: msg }),
-            });
-            setMsg('');
-            fetchMessages(lead.id);
-        } catch (e) { console.error('Send error:', e); }
-    }
+      async function sendMessage() {
+          if (!msg.trim() || !lead) return;
+          try {
+              await api.post(`/api/send-reply`, { conversation_id: lead.id, message: msg });
+              setMsg('');
+              fetchMessages(lead.id);
+          } catch (e) { console.error('Send error:', e); }
+      }
 
-    async function generateSuggestion() {
-        if (!lead) return;
-        try {
-            const res = await fetch(`${PROXY_BASE}/api/ai-suggest`, {
-                method: 'POST',
-                headers: getHeaders(),
-                body: JSON.stringify({
-                    conversation_id: lead.id,
-                    workspace_id: lead.workspace_id,
-                    message: messages[messages.length - 1]?.content || '',
-                }),
-            });
-            const text = await res.text();
-            let data;
-            try { data = JSON.parse(text); } catch { return; }
-            setAiSuggestion(data.suggestion);
-        } catch (e) { console.error(e); }
-    }
+      async function generateSuggestion() {
+          if (!lead) return;
+          try {
+              const data = await api.post(`/api/ai-suggest`, {
+                  conversation_id: lead.id,
+                  message: messages[messages.length - 1]?.content || '',
+              });
+              setAiSuggestion(data.suggestion);
+          } catch (e) { console.error(e); }
+      }
 
-    function useSuggestion() {
-        setMsg(aiSuggestion);
-        setAiSuggestion('');
-    }
+      function useSuggestion() {
+          setMsg(aiSuggestion);
+          setAiSuggestion('');
+      }
 
-    function handleLeadSelectTablet(l) {
-        setLead(l);
-        fetchMessages(l.id);
-        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
-        setTabletRight('chat');
-    }
+      function removeConversationFromList(conversationId) {
+          setConversations(prev => {
+              const updated = prev.filter(c => c.id !== conversationId);
+              if (lead?.id === conversationId) {
+                  if (updated.length > 0) {
+                      const next = updated[0];
+                      setLead(next);
+                      fetchMessages(next.id);
+                      fetchLeadIdForConversation(next.id).then(id => setResolvedLeadId(id));
+                  } else {
+                      setLead(null);
+                      setResolvedLeadId(null);
+                      setMessages([]);
+                  }
+              }
+              return updated;
+          });
+      }
 
-    function handleLeadSelectMobile(l) {
-        setLead(l);
-        fetchMessages(l.id);
-        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
-        setMobileView('chat');
-    }
+      function promptCloseConversation(conversationId) {
+          if (!conversationId) return;
+          setCloseTargetId(conversationId);
+          setShowCloseModal(true);
+      }
 
-    const chatAreaProps = {
-        ch,
-        lead,
-        messages,
-        msg,
-        setMsg,
-        aiSuggestion,
-        sendMessage,
-        generateSuggestion,
-        useSuggestion,
-        previewMedia,
-        setPreviewMedia,
-    };
+      async function handleConfirmClose() {
+          if (!closeTargetId) return;
+          setClosingConversation(true);
+          try {
+              await api.post(`/api/conversations/${closeTargetId}/close`);
+              removeConversationFromList(closeTargetId);
+              setShowCloseModal(false);
+              setCloseTargetId(null);
+          } catch (e) {
+              console.error('Failed to close conversation:', e);
+          } finally {
+              setClosingConversation(false);
+          }
+      }
 
-    return (
-        <div
-            className="h-screen flex flex-col overflow-hidden"
-            style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}
-        >
-            
-            {/* DESKTOP LAYOUT (≥1024px) */}
-<div className="hidden lg:flex flex-1 overflow-hidden p-3 gap-3">
+      function handleConvertSuccess(convertRes) {
+          if (!lead?.id) return;
+          removeConversationFromList(lead.id);
+      }
 
-    {/* Left column: channel tabs + leads panel — UNCHANGED */}
-    <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
-        <ChannelTabs ch={ch} setCh={setCh} />
-        <PanelCard className="flex-1">
-            <ConversationSidebar
-                ch={ch}
-                conversations={conversations}
-                lead={lead}
-                activeFilter={activeFilter}
-                onFilterChange={setActiveFilter}
-                onLeadSelect={(l) => {
-                    setLead(l);
-                    fetchMessages(l.id);
-                    fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
-                }}
-            />
-        </PanelCard>
-    </div>
+      function handleLeadSelectTablet(l) {
+          setLead(l);
+          fetchMessages(l.id);
+          fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+          setTabletRight('chat');
+      }
 
-    {/* Chat column — spacer added to match tab height */}
-    <div className="flex flex-col gap-3 flex-1" style={{ minWidth: 0 }}>
-        <div className="shrink-0" style={{ height: 40 }} />  {/* ← tab height spacer */}
-        <PanelCard className="flex-1">
-            <ChatArea
-                {...chatAreaProps}
-                onInfoClick={() => {}}
-                infoActive={false}
-                showMobileBackButton={false}
-            />
-        </PanelCard>
-    </div>
+      function handleLeadSelectMobile(l) {
+          setLead(l);
+          fetchMessages(l.id);
+          fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+          setMobileView('chat');
+      }
 
-    {/* Contact Details column — spacer added to match tab height */}
-    <div className="flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
-        <div className="shrink-0" style={{ height: 40 }} />  {/* ← tab height spacer */}
-        <PanelCard className="flex-1">
-            <InfoPanel ch={ch} lead={lead} showBackButton={false} resolvedLeadId={resolvedLeadId} messages={messages} />
-        </PanelCard>
-    </div>
+      const chatAreaProps = {
+          ch,
+          lead,
+          messages,
+          msg,
+          setMsg,
+          aiSuggestion,
+          sendMessage,
+          generateSuggestion,
+          useSuggestion,
+          previewMedia,
+          setPreviewMedia,
+          workspace,
+          onSendTemplateSuccess: (formattedContent) => {
+              fetchMessages(lead.id);
+              const localMsg = {
+                  id: 'temp-' + Date.now(),
+                  sender_type: 'agent',
+                  content: formattedContent,
+                  timestamp: new Date().toISOString(),
+                  status: 'sent'
+              };
+              setMessages(prev => [...prev, localMsg]);
+          }
+      };
 
-</div>
+      return (
+          <div
+              className="h-screen flex flex-col overflow-hidden"
+              style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}
+          >
+              {/* DESKTOP LAYOUT (≥1024px) */}
+              <div className="hidden lg:flex flex-1 overflow-hidden p-3 gap-3">
+                  <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
+                      <ChannelTabs ch={ch} setCh={setCh} />
+                      <PanelCard className="flex-1">
+                          <ConversationSidebar
+                              ch={ch}
+                              conversations={conversations}
+                              lead={lead}
+                              activeFilter={activeFilter}
+                              onFilterChange={setActiveFilter}
+                              onLeadSelect={(l) => {
+                                  setLead(l);
+                                  fetchMessages(l.id);
+                                  fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                              }}
+                          />
+                      </PanelCard>
+                  </div>
 
-            {/* TABLET LAYOUT  (≥768px and <1024px)*/}
-            <div className="hidden md:flex lg:hidden flex-col flex-1 overflow-hidden">
-                {/* Channel tabs - full width on tablet */}
-                <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
-                    <ChannelTabs ch={ch} setCh={setCh} />
-                </div>
+                  <div className="flex flex-col gap-3 flex-1" style={{ minWidth: 0 }}>
+                      <div className="shrink-0" style={{ height: 40 }} />
+                      <PanelCard className="flex-1">
+                          <ChatArea
+                              {...chatAreaProps}
+                              onInfoClick={() => {}}
+                              infoActive={false}
+                              showMobileBackButton={false}
+                          />
+                      </PanelCard>
+                  </div>
 
-                <div className="flex flex-1 overflow-hidden px-3 pb-3 gap-3">
-                    {/* Leads panel — always visible */}
-                    <PanelCard style={{ width: 260, minWidth: 240 }}>
-                        <ConversationSidebar
-                            ch={ch}
-                            conversations={conversations}
-                            lead={lead}
-                            activeFilter={activeFilter}
-                            onFilterChange={setActiveFilter}
-                            onLeadSelect={handleLeadSelectTablet}
-                        />
-                    </PanelCard>
+                  <div className="flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
+                      <div className="shrink-0" style={{ height: 40 }} />
+                      <PanelCard className="flex-1">
+                          <InfoPanel
+                              ch={ch}
+                              lead={lead}
+                              showBackButton={false}
+                              resolvedLeadId={resolvedLeadId}
+                              messages={messages}
+                              onCloseConversation={promptCloseConversation}
+                              onConvertClick={() => setShowConvertModal(true)}
+                              leadDetail={leadDetail}
+                              setLeadDetail={setLeadDetail}
+                          />
+                      </PanelCard>
+                  </div>
+              </div>
 
-                    {/* Right panel: Chat OR Contact Details */}
-                    <div className="flex-1 relative overflow-hidden">
-                        <AnimatePresence mode="wait">
-                            {tabletRight === 'chat' ? (
-                                <motion.div
-                                    key="tablet-chat"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="absolute inset-0 rounded-2xl overflow-hidden border"
-                                    style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}
-                                >
-                                    <ChatArea
-                                        {...chatAreaProps}
-                                        onInfoClick={() => setTabletRight('info')}
-                                        infoActive={false}
-                                        showMobileBackButton={false}
-                                    />
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    key="tablet-info"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="absolute inset-0 rounded-2xl overflow-hidden border overflow-y-auto"
-                                    style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}
-                                >
-                                    <InfoPanel
-                                        ch={ch}
-                                        lead={lead}
-                                        showBackButton={true}
-                                        onBack={() => setTabletRight('chat')}
-                                        resolvedLeadId={resolvedLeadId}
-                                        messages={messages}
-                                    />
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </div>
-            </div>
+              {/* TABLET LAYOUT (≥768px and <1024px) */}
+              <div className="hidden md:flex lg:hidden flex-col flex-1 overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
+                      <ChannelTabs ch={ch} setCh={setCh} />
+                  </div>
 
-            {/* MOBILE LAYOUT  (<768px) */}
-            <div className="flex md:hidden flex-col flex-1 overflow-hidden">
-                {/* Channel tabs */}
-                <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
-                    <ChannelTabs ch={ch} setCh={setCh} />
-                </div>
+                  <div className="flex flex-1 overflow-hidden px-3 pb-3 gap-3">
+                      <PanelCard style={{ width: 260, minWidth: 240 }}>
+                          <ConversationSidebar
+                              ch={ch}
+                              conversations={conversations}
+                              lead={lead}
+                              activeFilter={activeFilter}
+                              onFilterChange={setActiveFilter}
+                              onLeadSelect={handleLeadSelectTablet}
+                          />
+                      </PanelCard>
 
-                <div className="flex flex-1 overflow-hidden relative">
-                    <AnimatePresence mode="wait">
-                        {mobileView === 'list' && (
-                            <motion.div
-                                key="mobile-list"
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                transition={{ duration: 0.2 }}
-                                className="absolute inset-0"
-                                style={{ backgroundColor: CARD_BG }}
-                            >
-                                <ConversationSidebar
-                                    ch={ch}
-                                    conversations={conversations}
-                                    lead={lead}
-                                    activeFilter={activeFilter}
-                                    onFilterChange={setActiveFilter}
-                                    onLeadSelect={handleLeadSelectMobile}
-                                />
-                            </motion.div>
-                        )}
+                      <div className="flex-1 relative overflow-hidden">
+                          <AnimatePresence mode="wait">
+                              {tabletRight === 'chat' ? (
+                                  <motion.div
+                                      key="tablet-chat"
+                                      initial={{ opacity: 0, x: 20 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      exit={{ opacity: 0, x: -20 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="absolute inset-0 rounded-2xl overflow-hidden border"
+                                      style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}
+                                  >
+                                      <ChatArea
+                                          {...chatAreaProps}
+                                          onInfoClick={() => setTabletRight('info')}
+                                          infoActive={false}
+                                          showMobileBackButton={false}
+                                      />
+                                  </motion.div>
+                              ) : (
+                                  <motion.div
+                                      key="tablet-info"
+                                      initial={{ opacity: 0, x: 20 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      exit={{ opacity: 0, x: 20 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="absolute inset-0 rounded-2xl overflow-hidden border overflow-y-auto"
+                                      style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}
+                                  >
+                                      <InfoPanel
+                                          ch={ch}
+                                          lead={lead}
+                                          showBackButton={true}
+                                          onBack={() => setTabletRight('chat')}
+                                          resolvedLeadId={resolvedLeadId}
+                                          messages={messages}
+                                          onCloseConversation={promptCloseConversation}
+                                          onConvertClick={() => setShowConvertModal(true)}
+                                          leadDetail={leadDetail}
+                                          setLeadDetail={setLeadDetail}
+                                      />
+                                  </motion.div>
+                              )}
+                          </AnimatePresence>
+                      </div>
+                  </div>
+              </div>
 
-                        {mobileView === 'chat' && (
-                            <motion.div
-                                key="mobile-chat"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                transition={{ duration: 0.2 }}
-                                className="absolute inset-0 flex flex-col"
-                                style={{ backgroundColor: CARD_BG }}
-                            >
-                                <ChatArea
-                                    {...chatAreaProps}
-                                    onInfoClick={() => setMobileView('info')}
-                                    infoActive={false}
-                                    showMobileBackButton={true}
-                                    onBackToList={() => setMobileView('list')}
-                                />
-                            </motion.div>
-                        )}
+              {/* MOBILE LAYOUT (<768px) */}
+              <div className="flex md:hidden flex-col flex-1 overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
+                      <ChannelTabs ch={ch} setCh={setCh} />
+                  </div>
 
-                        {mobileView === 'info' && lead && (
-                            <motion.div
-                                key="mobile-info"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                                transition={{ duration: 0.2 }}
-                                className="absolute inset-0 overflow-y-auto"
-                                style={{ backgroundColor: CARD_BG }}
-                            >
-                                <InfoPanel
-                                    ch={ch}
-                                    lead={lead}
-                                    showBackButton={true}
-                                    onBack={() => setMobileView('chat')}
-                                    resolvedLeadId={resolvedLeadId}
-                                    messages={messages}
-                                />
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
+                  <div className="flex flex-1 overflow-hidden relative">
+                      <AnimatePresence mode="wait">
+                          {mobileView === 'list' && (
+                              <motion.div
+                                  key="mobile-list"
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, x: -20 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="absolute inset-0"
+                                  style={{ backgroundColor: CARD_BG }}
+                              >
+                                  <ConversationSidebar
+                                      ch={ch}
+                                      conversations={conversations}
+                                      lead={lead}
+                                      activeFilter={activeFilter}
+                                      onFilterChange={setActiveFilter}
+                                      onLeadSelect={handleLeadSelectMobile}
+                                  />
+                              </motion.div>
+                          )}
 
-            <style>{`
-                .no-scrollbar::-webkit-scrollbar { display: none; }
-                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-            `}</style>
-        </div>
-    );
-}
+                          {mobileView === 'chat' && (
+                              <motion.div
+                                  key="mobile-chat"
+                                  initial={{ opacity: 0, x: 20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, x: 20 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="absolute inset-0 flex flex-col"
+                                  style={{ backgroundColor: CARD_BG }}
+                              >
+                                  <ChatArea
+                                      {...chatAreaProps}
+                                      onInfoClick={() => setMobileView('info')}
+                                      infoActive={false}
+                                      showMobileBackButton={true}
+                                      onBackToList={() => setMobileView('list')}
+                                  />
+                              </motion.div>
+                          )}
+
+                          {mobileView === 'info' && lead && (
+                              <motion.div
+                                  key="mobile-info"
+                                  initial={{ opacity: 0, x: 20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0, x: 20 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="absolute inset-0 overflow-y-auto"
+                                  style={{ backgroundColor: CARD_BG }}
+                              >
+                                  <InfoPanel
+                                      ch={ch}
+                                      lead={lead}
+                                      showBackButton={true}
+                                      onBack={() => setMobileView('chat')}
+                                      resolvedLeadId={resolvedLeadId}
+                                      messages={messages}
+                                      onCloseConversation={promptCloseConversation}
+                                      onConvertClick={() => setShowConvertModal(true)}
+                                      leadDetail={leadDetail}
+                                      setLeadDetail={setLeadDetail}
+                                  />
+                              </motion.div>
+                          )}
+                      </AnimatePresence>
+                  </div>
+              </div>
+
+              {showConvertModal && (
+                  <ConvertLeadModal
+                      isOpen={showConvertModal}
+                      onClose={() => setShowConvertModal(false)}
+                      conversation={lead}
+                      onSuccess={handleConvertSuccess}
+                  />
+              )}
+
+              <CloseConversationModal
+                  isOpen={showCloseModal}
+                  onClose={() => { setShowCloseModal(false); setCloseTargetId(null); }}
+                  onConfirm={handleConfirmClose}
+                  loading={closingConversation}
+              />
+
+              <style>{`
+                  .no-scrollbar::-webkit-scrollbar { display: none; }
+                  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+              `}</style>
+          </div>
+      );
+  }
+
+  export default function InboxPage() {
+      return (
+          <Suspense fallback={<div className="h-screen flex items-center justify-center text-zinc-500">Loading Inbox...</div>}>
+              <InboxContent />
+          </Suspense>
+      );
+  }

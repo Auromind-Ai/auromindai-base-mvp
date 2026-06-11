@@ -165,9 +165,7 @@ class FlowServiceV2:
                     _trigger_send_next(conversation_id, countdown=1)
                     return True
                 else:
-                    # Mismatch on pending button!
-                    # If mid-conversation, route to fallback target or send fallback message.
-                    # We must NOT fall through to trigger matching.
+                 
                     if state.active_flow_id:
                         flow = (
                             db.query(AutomationFlow)
@@ -423,9 +421,6 @@ class FlowServiceV2:
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
 
-
-    # RESUME EXECUTION (Triggered by Celery after delay)
-
     # RESUME EXECUTION
     async def resume_node_execution(
         self,
@@ -451,9 +446,6 @@ class FlowServiceV2:
             )
             if not flow:
                 return
-
-            # NOTE: node_visit_counts intentionally persists across delay resumes
-            # to enforce total execution safety over the entire flow run.
             logger.info(f" Resuming flow {flow.id} from node {node_id} after delay!")
             msg_sequence = [msg_sequence_val]
 
@@ -469,8 +461,6 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
             self._persist_state(db, state)
-            # Kick off sequential dispatch — countdown=1 ensures all
-            # outbound rows from this execution are committed and visible.
             _trigger_send_next(conversation_id, countdown=1)
         finally:
             self._release_execution_slot(db, conversation.id, execution_token)
@@ -820,10 +810,6 @@ class FlowServiceV2:
 
         state.pending_button = None
         state.button_expires_at = None
-
-        # Resolve target from the EDGE GRAPH (single source of truth)
-        # Look for an edge where source == button_node_id and
-        # sourceHandle == button.value  (the handle the frontend wires).
         button_node_id = pending.get("node_id")
         button_value = matched_button.get("value") or ""
         target_node_id = next(
@@ -1286,7 +1272,7 @@ class FlowServiceV2:
                 # Integrations
                 "calendar_enabled": config.get(
                     "calendar_enabled",
-                    False
+                    config.get("enable_demo_booking", False)
                 ),
 
                 "payment_enabled": config.get(
@@ -1776,3 +1762,10 @@ class FlowServiceV2:
        
         _trigger_send_next(conversation.id, countdown=1)
         return True
+
+    def _is_reset_command(self, text: str) -> bool:
+        if not text or not isinstance(text, str):
+            return False
+        normalized = text.strip().lower()
+        return normalized in {"/reset", "reset", "clear", "restart", "start over"}
+
