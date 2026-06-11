@@ -1,5 +1,4 @@
 console.log("API CLIENT VERSION: 1.1.21");
-import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
 
 // Always use the backend URL directly. CORS is configured to allow it.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -13,7 +12,9 @@ class APIClient {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
+    const url = (endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
+      ? endpoint
+      : `${this.baseURL}${endpoint}`;
     const isPostOrPut = options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH';
     const { signal: optSignal, ...restOptions } = options;
     const config = {
@@ -26,19 +27,11 @@ class APIClient {
       },
     };
 
-    // Add auth token if available
-    if (typeof window !== 'undefined') {
-      const token = getToken();
-      if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-      }
-    }
+    // No manual Authorization header injection needed. Cookies are sent automatically.
 
-    const controller = options.signal ? null : new AbortController();
+    const controller = optSignal ? null : new AbortController();
     const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
-    if (!config.signal && controller) {
-      config.signal = controller.signal;
-    }
+    config.signal = optSignal || controller?.signal;
 
     try {
       console.log(`Fetching: ${url}`);
@@ -49,33 +42,51 @@ class APIClient {
       if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await response.json();
         if (!response.ok) {
-          console.error("FULL ERROR:", JSON.stringify(data, null, 2));
-
-          let errorMessage = 'Request failed';
-
-          if (data?.detail) {
-            // Handle FastAPI's array of validation errors
+        let errorMessage = 'Request failed';
+        if (data?.detail) {
             if (Array.isArray(data.detail)) {
-              errorMessage = data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join(', ');
+                errorMessage = data.detail.map(err => `${err.loc[err.loc.length - 1]}: ${err.msg}`).join(', ');
             } else if (typeof data.detail === 'string') {
-              // Handle standard FastAPI HTTPExceptions
-              errorMessage = data.detail;
+                errorMessage = data.detail;
+            } else if (typeof data.detail === 'object') {
+                if (Array.isArray(data.detail.errors)) {
+                    errorMessage = data.detail.errors.join(', ');
+                } else {
+                    errorMessage = JSON.stringify(data.detail);
+                }
             }
-          } else {
+        } else {
             errorMessage = data?.message || data?.error?.message || 'Request failed';
-          }
-
-          throw new Error(errorMessage);
         }
+
+        const errorObj = new Error(errorMessage);
+        errorObj.status = response.status;
+
+        // ← Only log if NOT 401
+        if (response.status !== 401) {
+            console.error("FULL ERROR:", JSON.stringify(data, null, 2));
+        }
+
+        throw errorObj;
+    }
         return data;
       } else {
         const text = await response.text();
         console.error("Non-JSON response:", text);
-        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
+        const errorObj = new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
+        errorObj.status = response.status;
+        throw errorObj;
       }
 
     } catch (error) {
-      console.error('API Error:', error, 'URL:', url);
+      // Suppress AbortError console noise from StrictMode double-invoke
+      if (error.name === 'AbortError') {
+        if (timeoutId) clearTimeout(timeoutId);
+        throw error; // re-throw silently
+      }
+      if (error?.status !== 401) {
+        console.error('API Error:', error, 'URL:', url);
+      }
       if (timeoutId) clearTimeout(timeoutId);
       throw error;
     }
@@ -111,6 +122,24 @@ class APIClient {
   }
 
   // Auth methods
+  async sendOTP(email, auth_type) {
+    return this.post('/auth/send-otp', { email, auth_type });
+  }
+
+  async verifyOTP(email, otp, auth_type, full_name = null, workspace_name = null) {
+    return this.post('/auth/verify-otp', {
+      email,
+      otp,
+      auth_type,
+      full_name,
+      workspace_name
+    });
+  }
+
+  googleLogin(auth_type) {
+    window.location.href = `${this.baseURL}/auth/google/login?type=${auth_type}`;
+  }
+
   async signup(email, password, full_name, workspace_name) {
     return this.post('/auth/signup', {
       email,
@@ -124,8 +153,8 @@ class APIClient {
     return this.post('/auth/login', { email });
   }
 
-  async getCurrentUser() {
-    return this.get('/auth/me');
+  async getCurrentUser(options = {}) {
+    return this.get('/auth/me', options);
   }
 
   async getWorkspaces() {
@@ -138,15 +167,15 @@ class APIClient {
   }
   // Billing methods
   async getBillingStatus(workspace_id) {
-    return this.get(`/billing/status?workspace_id=${workspace_id}`);
+    return this.get('/billing/status');
   }
 
   async getBillingPlan(workspace_id, options = {}) {
-    return this.get(`/billing/plan?workspace_id=${workspace_id}`, options);
+    return this.get('/billing/plan', options);
   }
 
   async getBillingUsage(workspace_id, options = {}) {
-    return this.get(`/billing/usage?workspace_id=${workspace_id}`, options);
+    return this.get('/billing/usage', options);
   }
 
   async createBillingSubscription(workspace_id, plan, provider = "razorpay", options = {}) {
@@ -157,8 +186,7 @@ class APIClient {
     }, options);
   }
   async getPlatformSettings() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/settings`)
+    return this.get('/api/admin/settings');
   }
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
@@ -168,33 +196,28 @@ class APIClient {
 
 
   async getFlows() {
-    const workspace_id = getWorkspaceIdFromToken();
-    return this.get(`/automation/flows?workspace_id=${workspace_id}`);
+    return this.get('/api/automation/flows');
   }
 
   async getFlowById(flow_id) {
-    const workspace_id = getWorkspaceIdFromToken();
-    return this.get(`/automation/flows/${flow_id}?workspace_id=${workspace_id}`);
+    return this.get(`/api/automation/flows/${flow_id}`);
   }
 
   async saveFlow(flowData) {
-    const workspace_id = getWorkspaceIdFromToken();
-    return this.post('/automation/flows', {
-      ...flowData,
-      workspace_id: workspace_id // Auto-inject the workspace ID here!
-    });
+    return this.post('/api/automation/flows', flowData);
   }
 
   async deleteFlow(flow_id) {
-    const workspace_id = getWorkspaceIdFromToken();
-    return this.delete(`/automation/flows/${flow_id}?workspace_id=${workspace_id}`);
+    return this.delete(`/api/automation/flows/${flow_id}`);
+  }
+
+  async updateFlowStatus(flow_id, status) {
+    return this.patch(`/api/automation/flows/${flow_id}/status`, { status });
   }
 
   async generateAIFlow(prompt) {
-    const workspace_id = getWorkspaceIdFromToken();
-    return this.post('/automation/generate-flow', {
+    return this.post('/api/automation/generate-flow', {
       prompt: prompt,
-      workspace_id: workspace_id
     });
   }
   // MCP methods
@@ -218,7 +241,7 @@ class APIClient {
   // ==== Chat History Methods ====
 
   async getChatSessions(workspace_id) {
-    return this.get(`/chat/sessions?workspace_id=${workspace_id}`);
+    return this.get('/chat/sessions');
   }
 
   async createChatSession(title, workspace_id) {
@@ -242,23 +265,24 @@ class APIClient {
   //  Admin AI Activity 
 
   async getAIActivity() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/ai_actions`);
+    return this.get('/api/admin/ai_actions');
   }
 
   //  Admin Token Methods 
 
   async getAdminTokens() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/tokens`)
+    return this.get('/api/admin/tokens')
   }
 
   async updateTokenLimit(workspace_id, custom_token_limit) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.request(`/${adminPath}/tokens/${workspace_id}/limit`, {
+    return this.request(`/api/admin/tokens/${workspace_id}/limit`, {
       method: "PATCH",
       body: JSON.stringify({ custom_token_limit })
     })
+  }
+
+  async getAdminLogs() {
+    return this.get('/api/admin/logs')
   }
 
   // ==== Brain / RAG Methods ====
@@ -268,13 +292,13 @@ class APIClient {
   async uploadDocument(file, workspace_id) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('workspace_id', workspace_id);
-
-    const token = typeof window !== 'undefined' ? getToken() : null;
 
     const response = await fetch(`${this.baseURL}/brain/ingest/document`, {
       method: 'POST',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+      },
       body: formData,
     });
 
@@ -287,13 +311,13 @@ class APIClient {
   async uploadFile(file) {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('workspace_id', getWorkspaceIdFromToken());
-
-    const token = getToken();
 
     const response = await fetch(`${this.baseURL}/upload`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+      },
       body: formData,
     });
 
@@ -310,86 +334,70 @@ class APIClient {
   //  Admin Workspace Methods 
 
   async getAdminWorkspaces() {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.get(`/${adminPath}/workspaces`);
+    return this.get('/api/admin/workspaces');
   }
 
   async editWorkspacePlan(workspace_id, plan_type) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.request(`/${adminPath}/workspaces/${workspace_id}`, {
+    return this.request(`/api/admin/workspaces/${workspace_id}`, {
       method: 'PATCH',
       body: JSON.stringify({ plan_type })
     });
   }
 
   async resetWorkspaceLimits(workspace_id) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.post(`/${adminPath}/workspaces/${workspace_id}/reset-limits`);
+    return this.post(`/api/admin/workspaces/${workspace_id}/reset-limits`);
   }
 
   async toggleWorkspaceStatus(workspace_id) {
-    const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
-    return this.post(`/${adminPath}/workspaces/${workspace_id}/toggle-status`);
+    return this.post(`/api/admin/workspaces/${workspace_id}/toggle-status`);
   }
 
-  /**
-   * Sync a URL to the Brain
-   */
+  
   async syncURL(url, workspace_id) {
-    return this.post('/brain/ingest/url', { url, workspace_id });
+    return this.post('/brain/ingest/url', { url });
   }
 
-  /**
-   * Crawl entire website and index all pages
-   */
   async crawlWebsite(url, workspace_id, max_pages = 50) {
-    return this.post('/brain/ingest/website', { url, workspace_id, max_pages });
+    return this.post('/brain/ingest/website', { url, max_pages });
   }
 
-  /**
-   * Add manual text to the Brain
-   */
+ 
   async addTextKnowledge(title, content, workspace_id) {
-    return this.post('/brain/ingest/text', { title, content, workspace_id });
+    return this.post('/brain/ingest/text', { title, content });
   }
 
-  /**
-   * Get all Brain entries for a workspace
-   */
+
+ 
   async getBrainEntries() {
-
-    const workspace_id = getWorkspaceIdFromToken()
-
-    return this.get(`/brain/entries?workspace_id=${workspace_id}`);
-
+    return this.get('/brain/entries');
   }
 
   /**
    * Delete a Brain entry
    */
   async deleteBrainEntry(entry_id, workspace_id) {
-    return this.delete(`/brain/entries/${entry_id}?workspace_id=${workspace_id}`);
+    return this.delete(`/brain/entries/${entry_id}`);
   }
 
   /**
    * Semantic search across the Brain
    */
   async searchBrain(query, workspace_id, top_k = 5) {
-    return this.post('/brain/search', { query, workspace_id, top_k });
+    return this.post('/brain/search', { query, top_k });
   }
 
   /**
    * Ask a question and get a RAG-powered answer
    */
   async queryBrain(question, workspace_id, top_k = 5, include_sources = true) {
-    return this.post('/brain/query', { question, workspace_id, top_k, include_sources });
+    return this.post('/brain/query', { question, top_k, include_sources });
   }
 
   /**
    * Get Brain statistics
    */
   async getBrainStats(workspace_id) {
-    return this.get(`/brain/stats?workspace_id=${workspace_id}`);
+    return this.get('/brain/stats');
   }
 
   // ============== Dashboard Analytics Methods ==============
@@ -399,43 +407,71 @@ class APIClient {
    * Single round-trip, cached 60s on backend.
    */
   async getDashboardOverview(workspace_id, startDate, endDate) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    let url = `/dashboard/overview?workspace_id=${wid}`;
-    if (startDate) url += `&start_date=${startDate}`;
-    if (endDate) url += `&end_date=${endDate}`;
-    return this.get(url);
+    let url = '/dashboard/overview';
+    const params = new URLSearchParams();
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+    return this.get(params.size ? `${url}?${params.toString()}` : url);
   }
 
   /**
    * 4 KPI metric cards (revenue, leads, conversion, response time)
    */
   async getDashboardMetrics(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/metrics?workspace_id=${wid}`);
+    return this.get('/dashboard/metrics');
   }
 
   /**
    * Monthly revenue chart — current year vs prior year
    */
   async getDashboardRevenue(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/revenue?workspace_id=${wid}`);
+    return this.get('/dashboard/revenue');
   }
 
   /**
    * Recent 10 activity events across messages/leads/followups/ai_actions
    */
   async getDashboardActivities(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/activities?workspace_id=${wid}`);
+    return this.get('/dashboard/activities');
   }
 
   /**
    * AI-computed insights from real DB aggregations
    */
   async getDashboardInsights(workspace_id) {
-    const wid = workspace_id || getWorkspaceIdFromToken();
-    return this.get(`/dashboard/insights?workspace_id=${wid}`);
+    return this.get('/dashboard/insights');
+  }
+
+  // Update lead labels and trigger score recalculation (CHANGE 1)
+  async updateLeadLabels(leadId, label, action) {
+    try {
+      const leadDetail = await this.get(`/lead-scoring/leads/${leadId}/detail`);
+      const currentLabels = leadDetail.labels || [];
+      let newLabels = [...currentLabels];
+      if (action === "add") {
+        if (!newLabels.includes(label)) {
+          newLabels.push(label);
+        }
+      } else if (action === "remove") {
+        newLabels = newLabels.filter(l => l !== label);
+      }
+      return await this.post(`/lead-scoring/leads/${leadId}/labels`, { labels: newLabels });
+    } catch (err) {
+      // Fallback in case of failure or network issues
+      return await this.post(`/lead-scoring/leads/${leadId}/labels`, { labels: [label] });
+    }
+  }
+
+  // Get lead details by conversation ID
+  async getLeadByConversation(conversationId) {
+    try {
+      const data = await this.get('/api/lead-scoring/leads?limit=100&offset=0');
+      const items = data.items || data || [];
+      const match = items.find(l => l.conversation_id === conversationId);
+      return match || null;
+    } catch {
+      return null;
+    }
   }
 }
 

@@ -11,7 +11,7 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 @router.get("/google/auth/{integration_type}")
 async def google_oauth_init(
     integration_type: str,
-    workspace_id: str,
+    workspace_id: str | None = None,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -44,7 +44,7 @@ async def google_oauth_callback(
 
 @router.get("/status")
 async def get_integration_status(
-    workspace_id: str,
+    workspace_id: str | None = None,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -55,7 +55,7 @@ async def get_integration_status(
 @router.delete("/disconnect/{integration_type}")
 async def disconnect_integration(
     integration_type: str,
-    workspace_id: str,
+    workspace_id: str | None = None,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { Users, CheckCircle, Mail, ExternalLink } from "lucide-react";
+import { Users, CheckCircle, Mail, ExternalLink, Loader2 } from "lucide-react";
 
-const API_BASE = '/api'; // same-origin proxy
+const API_BASE = '/api'; 
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";
 
 export default function UsersPage() {
@@ -16,43 +15,19 @@ export default function UsersPage() {
   const [impersonating, setImpersonating] = useState(null);
 
   useEffect(() => {
-    const decodeJwt = (token) => {
-      try {
-        return JSON.parse(atob(token.split(".")[1]));
-      } catch {
-        return null;
-      }
-    };
-
-    const current = getToken();
-    try {
-      const payload = decodeJwt(current);
-      if (current && !payload?.impersonated) {
-        localStorage.setItem("admin_backup_token", current); //  ALWAYS overwrite
-      }
-    } catch (err) {
-      console.error("Could not set admin backup:", err);
-    }
-
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const token = getToken();
-
-        if (!token || token === "null") {
-          router.push("/login?redirect=/admin/users");
-          return;
-        }
 
         const res = await fetch(`${API_BASE}/admin/users`, {
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            ...authHeader(),
           },
         });
 
         if (res.status === 401) {
-          window.location.href = "/login";
+          window.location.href = "/admin";
           return;
         }
 
@@ -68,25 +43,19 @@ export default function UsersPage() {
       }
     };
     fetchUsers();
-  }, []);
+  }, [router]);
 
   const handleViewDashboard = async (userId) => {
-    console.log("🚀 ADMIN CLICKED IMPERSONATE");
     setImpersonating(userId);
 
     try {
-      const adminToken = localStorage.getItem("admin_backup_token") || getToken();
-      console.log("🔑 Admin token:", adminToken);
-
       const res = await fetch(`${API_BASE}/admin/impersonate/${userId}`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
         },
       });
-
-      console.log("📡 Impersonate API status:", res.status);
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -94,19 +63,16 @@ export default function UsersPage() {
       }
 
       const data = await res.json();
-      console.log("📦 API Response:", data);
 
       const { session_id } = data;
       if (!session_id) {
         throw new Error("No session ID returned from server");
       }
 
-      console.log("🧠 Session ID:", session_id);
       const url = `${CLIENT_URL}/impersonate/${session_id}`;
-      console.log("🌐 Opening URL:", url);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
-      console.error("❌ Impersonation failed:", err);
+      console.error("Impersonation failed:", err);
       alert("Could not start impersonation: " + err.message);
   } finally {
 

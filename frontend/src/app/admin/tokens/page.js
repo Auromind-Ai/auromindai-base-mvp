@@ -48,46 +48,27 @@ export default function TokenUsagePage() {
   }
 }
   const fetchTokens = async () => {
-
     try {
-
       setLoading(true)
-
-      const data = await api.get("/admin/tokens")
-
+      const data = await api.getAdminTokens()
       setTokens(Array.isArray(data) ? data : data.tokens || [])
-
       setError(null)
-
     } catch (err) {
-
       setError(err.message)
       setTokens([])
-
     } finally {
-
       setLoading(false)
-
     }
-
   }
 
   const updateLimit = async (workspaceId, value) => {
-
     try {
-
-      await api.patch(`/admin/tokens/${workspaceId}/limit`, {
-        custom_token_limit: Number(value)
-      })
-
+      await api.updateTokenLimit(workspaceId, Number(value))
       fetchTokens()
       fetchPricing()
     } catch (err) {
-
       console.error("Limit update failed", err)
-
     }
-
   }
 
   const handleLimitChange = (index, value) => {

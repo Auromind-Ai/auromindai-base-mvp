@@ -317,58 +317,6 @@ class ChatService:
         final_billing_reason = "no_response_generated"
         full_response = ""
         chunks_successfully_sent = False
-        safe_query = message
-
-        with SessionLocal() as db:
-            try:
-                workspace = self._validate_workspace_access(db, workspace_id, user_id)
-                if session_id:
-                    session = db.query(ChatSession).filter(
-                        ChatSession.id == session_id,
-                        ChatSession.user_id == user_id,
-                    ).first()
-                    if not session:
-                        raise ChatProcessingError("Session not found")
-                    if str(session.workspace_id) != str(workspace.id):
-                        raise WorkspaceAccessError("Session does not belong to this workspace")
-
-                # Guardrails BEFORE reservation
-                guard_result = await self.guardrails_service.secure_pipeline(message)
-                if guard_result["status"] == "blocked":
-                    yield f"{json.dumps({'content': guard_result['message']})}\n"
-                    return
-                safe_query = guard_result["safe_query"]
-                estimated_tokens = BillingService.estimate_reservation_amount(
-                    message=message,
-                    use_rag=use_rag,
-                )
-                # Reserve Tokens
-                reservation = self._reserve_tokens(
-                    db=db,
-                    workspace_id=workspace_id,
-                    reference_key=f"api-chat:{workspace_id}:{uuid.uuid4()}",
-                    amount=estimated_tokens,
-                    description="api.chat reservation",
-                )
-                reservation_id = reservation.id
-
-                # Save User Message
-                if session_id:
-                    user_msg = ChatMessage(
-                        id=str(uuid.uuid4()),
-                        session_id=session_id,
-                        role="user",
-                        content=message,
-                    )
-                    db.add(user_msg)
-
-                # COMMIT NOW. The charge is locked, the user message is safe.
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                logger.error(f"Pre-stream setup failed: {e}")
-                raise
-
         try:
             rag_answered = False
             if use_rag:

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/api';
-import { getWorkspaceIdFromToken } from '@/lib/auth';
 
 
 
@@ -48,19 +47,12 @@ export function useDashboard({ refreshInterval = 0, workspaceId, startDate, endD
   const fetchDashboard = useCallback(async (silent = false) => {
     if (isFetchingRef.current) return;
 
-    const wid = workspaceId || getWorkspaceIdFromToken();
-    if (!wid) {
-      setError('No workspace found. Please log in again.');
-      setLoading(false);
-      return;
-    }
-
     isFetchingRef.current = true;
     if (!silent) setLoading(true);
     setError(null);
 
     try {
-      const data = await api.getDashboardOverview(wid, startDate, endDate);
+      const data = await api.getDashboardOverview(workspaceId, startDate, endDate);
 
       // Safely apply data — backend service always returns non-null arrays
       if (data.metrics    && Array.isArray(data.metrics))    setMetrics(data.metrics);

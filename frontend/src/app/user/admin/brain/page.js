@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Brain, Upload, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe } from 'lucide-react';
 import api from '@/lib/api';
-import { getWorkspace } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import FileProgress from "./FileProgress";
 import AnimatedCounter from "../AnimatedCounter";
 
@@ -24,8 +24,7 @@ export default function BrainPage() {
     const [currentEntryId, setCurrentEntryId] = useState(null);
     const fileInputRef = useRef(null);
 
-    const workspace = getWorkspace();
-    const workspaceId = workspace?.id;
+    const { workspaceId } = useAuth();
 
     // Fetch brain entries and stats
     const fetchData = async () => {

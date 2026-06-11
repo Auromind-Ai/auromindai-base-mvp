@@ -246,11 +246,6 @@ def send_next_pending_message(self, conversation_id: str):
                 release_conversation_lock(conversation_id, lock_token)
                 return
 
-        #  GUARD 2: Removed legacy in_progress logic
-
-        #  GUARD 3: Claim the next pending message under row lock ─
-        # Filter by active_flow_id to avoid sending messages from a
-        # superseded flow (old pending messages).
         state = (
             db.query(FlowExecutionState)
             .filter(FlowExecutionState.conversation_id == conversation_id)

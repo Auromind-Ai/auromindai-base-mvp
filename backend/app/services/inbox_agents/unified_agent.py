@@ -49,6 +49,16 @@ class UnifiedAgent:
                 conversation_id=conversation_id
             ) if self.memory else None
             lead_fields = context.get("lead_fields", [])
+            if isinstance(lead_fields, str):
+                lead_fields = [
+                    field.strip()
+                    for field in lead_fields.split(",")
+                    if field.strip()
+                ]
+            self.logger.warning(
+                f"lead_fields={lead_fields} "
+                f"type={type(lead_fields)}"
+            )
             calendar_enabled = context.get("calendar_enabled", False)
             payment_enabled = context.get("payment_enabled", False)
 

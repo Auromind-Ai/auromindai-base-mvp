@@ -43,11 +43,22 @@ useEffect(() => {
     setConfirmWorkspace(workspace)
   }
 
-const toggleWorkspace = async (id) => {
-  await api.toggleWorkspaceStatus(id)
-  fetchWorkspaces()
+  const deactivateWorkspace = async () => {
+    if (!confirmWorkspace) return
+    try {
+      await api.toggleWorkspaceStatus(confirmWorkspace.id)
+      fetchWorkspaces()
+    } catch (err) {
+      alert("Failed to deactivate workspace: " + err.message)
+    } finally {
+      setConfirmWorkspace(null)
+    }
+  }
 
-}
+  const toggleWorkspace = async (id) => {
+    await api.toggleWorkspaceStatus(id)
+    fetchWorkspaces()
+  }
 
   return (
     <div className="min-h-screen bg-black p-8">

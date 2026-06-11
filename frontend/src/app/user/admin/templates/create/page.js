@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import api from '@/lib/api';
-import { getWorkspaceIdFromToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 // ── Icons (inline SVG to avoid extra deps) ────────────────────────────────────
 const Icon = ({ d, size = 16, className = '' }) => (
@@ -331,6 +331,7 @@ function PhonePreview({ form, actionMode }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function CreateTemplatePage() {
+  const { workspaceId } = useAuth();
   const [form, setForm] = useState({
     category: 'MARKETING',
     language: 'en_US',
@@ -397,7 +398,7 @@ export default function CreateTemplatePage() {
         cta: form.cta,
         category: form.category,
         language: form.language,
-        workspace_id: getWorkspaceIdFromToken(),
+        workspace_id: workspaceId,
       });
       window.location.href = '/user/admin/templates';
     } catch (err) {

@@ -1,21 +1,18 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
-import { Brain, RefreshCw } from 'lucide-react'
+import { Shield, RefreshCw } from 'lucide-react'
 
-export default function RAGBrainPage() {
+export default function AIGovernancePage() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const params = useParams()
-  const adminPath = params.admin_path || 'x7k2-admin-9pqm'
 
- const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
   try {
     setLoading(true)
-    const response = await fetch(`/api/${adminPath}/rag`)
-    if (!response.ok) throw new Error('Failed to fetch RAG data')
+    const response = await fetch('/api/admin/ai-governance')
+    if (!response.ok) throw new Error('Failed to fetch AI governance data')
     const result = await response.json()
     setData(result)
   } catch (err) {
@@ -25,9 +22,14 @@ export default function RAGBrainPage() {
   }
 }, [])
 
+  const handleOverride = async (actionId) => {
+    // Placeholder for override functionality
+    alert(`Override action ${actionId}`)
+  }
 
-useEffect(() => {
+  useEffect(() => {
   fetchData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [fetchData])
 
   if (loading) {
@@ -35,7 +37,7 @@ useEffect(() => {
       <div className="min-h-screen bg-[#050505] text-white p-6">
         <div className="flex items-center justify-center h-64">
           <RefreshCw className="animate-spin h-8 w-8" />
-          <span className="ml-2">Loading RAG Brain...</span>
+          <span className="ml-2">Loading AI Governance...</span>
         </div>
       </div>
     )
@@ -55,36 +57,42 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-[#050505] text-white p-6">
       <div className="flex items-center gap-3 mb-6">
-        <Brain className="h-6 w-6" />
-        <h1 className="text-2xl font-bold">RAG Brain</h1>
+        <Shield className="h-6 w-6" />
+        <h1 className="text-2xl font-bold">AI Governance</h1>
       </div>
 
       <div className="bg-[#0f0f0f] rounded-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-[#1a1a1a]">
             <tr>
+              <th className="px-4 py-3 text-left">Action</th>
+              <th className="px-4 py-3 text-left">Rule Triggered</th>
               <th className="px-4 py-3 text-left">Workspace</th>
-              <th className="px-4 py-3 text-left">Entry Title</th>
-              <th className="px-4 py-3 text-left">Chunk Count</th>
-              <th className="px-4 py-3 text-left">Embedding Status</th>
-              <th className="px-4 py-3 text-left">Created At</th>
+              <th className="px-4 py-3 text-left">Decision</th>
+              <th className="px-4 py-3 text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
             {data.map((item) => (
               <tr key={item.id} className="border-t border-white/10">
+                <td className="px-4 py-3">{item.action_type}</td>
+                <td className="px-4 py-3">{item.mcp_reason}</td>
                 <td className="px-4 py-3">{item.workspace_id}</td>
-                <td className="px-4 py-3">{item.title}</td>
-                <td className="px-4 py-3">{item.chunk_count}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded text-xs ${
-                    item.status?.toLowerCase() === 'completed' ? 'bg-green-600' :
-                    item.status?.toLowerCase() === 'processing' ? 'bg-yellow-600' : 'bg-red-600'
+                    item.mcp_decision === 'block' ? 'bg-red-600' : 'bg-yellow-600'
                   }`}>
-                    {item.status}
+                    {item.decision}
                   </span>
                 </td>
-                <td className="px-4 py-3">{new Date(item.created_at).toLocaleString()}</td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => handleOverride(item.id)}
+                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 rounded text-sm"
+                  >
+                    Override
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

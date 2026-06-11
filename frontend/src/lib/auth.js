@@ -1,182 +1,96 @@
-
 const isBrowser = typeof window !== "undefined";
+let memoryUser = null;
+let memoryWorkspace = null;
 
 /* ---------------- TOKEN ---------------- */
 
 export const setToken = (token) => {
-  if (!isBrowser || !token) return;
-
-  sessionStorage.setItem("token", token);
-  localStorage.setItem("token", token); 
+  // Cookies are set by the server. Storage writes for the JWT token are removed for security.
 };
 
 export const getToken = () => {
-  if (!isBrowser) return null;
-
-  return (
-    sessionStorage.getItem("token") ||
-    localStorage.getItem("token")
-  );
+  // JWT tokens are inside HttpOnly cookies and not readable by JavaScript.
+  return null;
 };
 
 export const removeToken = () => {
-  if (!isBrowser) return;
-
-  const keys = ["token", "user", "workspace", "workspace_id"];
-
-  keys.forEach((key) => {
-    sessionStorage.removeItem(key);
-    localStorage.removeItem(key);
-  });
+  memoryUser = null;
+  memoryWorkspace = null;
 };
 
 /* ---------------- USER ---------------- */
 
 export const setUser = (user) => {
-  if (!isBrowser || !user) return;
-  const serialized = JSON.stringify(user);
-  sessionStorage.setItem("user", serialized);
-  localStorage.setItem("user", serialized);
+  memoryUser = user || null;
 };
 
 export const getUser = () => {
-  if (!isBrowser) return null;
-
-  const getStoredUser = (storage) => {
-    try {
-      const raw = storage.getItem("user");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      storage.removeItem("user");
-      return null;
-    }
-  };
-
-  let user = getStoredUser(sessionStorage);
-  if (user) return user;
-
-  user = getStoredUser(localStorage);
-  if (user) {
-    sessionStorage.setItem("user", JSON.stringify(user));
-  }
-
-  return user;
+  return isBrowser ? memoryUser : null;
 };
 
 /* ---------------- WORKSPACE ---------------- */
 
 export const setWorkspace = (workspace) => {
-  if (!isBrowser || !workspace) return;
-  const serialized = JSON.stringify(workspace);
-  sessionStorage.setItem("workspace", serialized);
-  localStorage.setItem("workspace", serialized);
+  memoryWorkspace = workspace || null;
 };
 
 export const getWorkspace = () => {
-  if (!isBrowser) return null;
-
-  const getStoredWorkspace = (storage) => {
-    try {
-      const raw = storage.getItem("workspace");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      storage.removeItem("workspace");
-      return null;
-    }
-  };
-
-  let workspace = getStoredWorkspace(sessionStorage);
-  if (workspace) return workspace;
-
-  workspace = getStoredWorkspace(localStorage);
-  if (workspace) {
-    sessionStorage.setItem("workspace", JSON.stringify(workspace));
-  }
-
-  return workspace;
+  return isBrowser ? memoryWorkspace : null;
 };
 
 /* ---------------- AUTH ---------------- */
 
 export const isAuthenticated = () => {
   if (!isBrowser) return false;
-  return !!getToken(); 
+  return !!getUser();
 };
 
 export const logout = () => {
   removeToken();
   if (isBrowser) {
-    window.location.replace("/login"); //  better than href (no history)
+    // Delete cookies via api first if possible, then redirect
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+      .finally(() => {
+        window.location.replace("/login");
+      });
   }
 };
 
 /* ---------------- ADMIN ---------------- */
 
 export const getAdminBackup = () => {
-  if (!isBrowser) return null;
-  return localStorage.getItem("admin_backup_token");
+  // admin backup tokens are handled as cookies, not accessible via JS
+  return null;
 };
 
 export const clearAdminBackup = () => {
-  if (!isBrowser) return;
-  localStorage.removeItem("admin_backup_token");
+  // Handled on backend
 };
 
 /* ---------------- JWT HELPERS ---------------- */
 
 export const getWorkspaceIdFromToken = () => {
-  const token = getToken();
-  if (!token) return null;
-
-  try {
-    const base64 = token.split(".")[1];
-
-    //fix: handle URL-safe base64
-    const decoded = atob(base64.replace(/-/g, "+").replace(/_/g, "/"));
-
-    const payload = JSON.parse(decoded);
-
-    return payload.workspace_id || null;
-  } catch {
-    return null;
-  }
+  if (!isBrowser) return null;
+  return memoryWorkspace?.id || null;
 };
 
 /* ---------------- HEADERS ---------------- */
 
 export const adminAuthHeader = () => {
-  const admin = getAdminBackup();
-  return admin ? { Authorization: `Bearer ${admin}` } : {};
+  return {};
 };
 
 export const authHeader = () => {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {};
 };
 
 /* ---------------- IMPERSONATION ---------------- */
 
 export const backupAdminToken = () => {
-  if (!isBrowser) return;
-
-  const token = getToken();
-  if (token) {
-    localStorage.setItem("admin_backup_token", token);
-    localStorage.setItem("is_impersonating", "true"); //  useful flag
-  }
+  // Handled on the backend when starting the impersonation session
 };
 
 export const restoreAdminToken = () => {
-  if (!isBrowser) return false;
-
-  const backup = localStorage.getItem("admin_backup_token");
-  if (!backup) return false;
-
-  sessionStorage.setItem("token", backup);
-  localStorage.setItem("token", backup); 
-
-  localStorage.removeItem("admin_backup_token");
-  localStorage.removeItem("is_impersonating");
-
+  // Handled on the backend via the /auth/stop-impersonation endpoint
   return true;
 };

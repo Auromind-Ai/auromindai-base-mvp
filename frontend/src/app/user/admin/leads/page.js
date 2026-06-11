@@ -6,7 +6,7 @@ import {
     Search, Plus, Filter, Phone, Instagram, Globe, Mail,
     MessageSquare, Clock, User, ChevronDown, ArrowUpRight,
     TrendingUp, Check, MoreHorizontal, Star, Inbox, Zap, Users,
-    FileText
+    FileText, Tag
 } from 'lucide-react';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
@@ -24,6 +24,19 @@ const CHANNEL_META = {
     Twilio:    { icon: Zap,       gradient: 'from-[#F22F46] to-[#CE272D]', dot: 'bg-red-500',    label: 'Twilio',    textColor: 'text-red-500',     scoreColor: 'text-red-500'     },
 };
 
+const TIER_BADGES = {
+    hot: { text: '🔥 Hot', bg: 'bg-rose-500/10', textCls: 'text-rose-400', border: 'border-rose-500/20' },
+    warm: { text: '🟡 Warm', bg: 'bg-amber-500/10', textCls: 'text-amber-400', border: 'border-amber-500/20' },
+    cold: { text: '❄️ Cold', bg: 'bg-zinc-500/10', textCls: 'text-zinc-400', border: 'border-zinc-500/20' }
+};
+
+const AGENT_LABEL_BADGES = {
+    'Premium Lead': { text: '👑 Premium Lead', bg: 'bg-[#4B2580]/30', textCls: 'text-[#C084FC]', border: 'border-[#7C3AED]/30' },
+    'High Priority': { text: '🔥 High Priority', bg: 'bg-[#7B1A2E]/30', textCls: 'text-[#F87171]', border: 'border-[#DC2626]/30' },
+    'Interested': { text: '⚡ Interested', bg: 'bg-[#145A32]/30', textCls: 'text-[#34D399]', border: 'border-[#059669]/30' },
+    'Follow Up': { text: '📅 Follow Up', bg: 'bg-[#0F4C81]/30', textCls: 'text-[#38BDF8]', border: 'border-[#0F4C81]/30' }
+};
+
 const TAG_META = {
     'Premium Lead': { bg: 'bg-[#7C3AED]/20', text: 'text-[#A78BFA]', border: 'border-[#7C3AED]/30' },
     'High Priority': { bg: 'bg-[#DC2626]/20', text: 'text-[#F87171]', border: 'border-[#DC2626]/30' },
@@ -34,6 +47,7 @@ const TAG_PILL_META = {
     'High Priority': { bg: 'bg-[#7B1A2E]', text: 'text-white' },
     'Premium Lead':  { bg: 'bg-[#4B2580]', text: 'text-white' },
     'Interested':    { bg: 'bg-[#145A32]', text: 'text-white' },
+    'Follow Up':     { bg: 'bg-[#0F4C81]', text: 'text-white' },
     // Status mappings
     'New':           { bg: 'bg-[#1e293b]', text: 'text-zinc-300' },
     'Active':        { bg: 'bg-[#0f172a]', text: 'text-sky-400' },
@@ -275,6 +289,7 @@ const normalizeLead = (lead) => {
         source: lead.source || 'manual',
         channel: getChannelKey(lead.source),
         tag: getNormalizedTag(lead.lead_tier || lead.status),
+        labels: lead.labels || [],
         score: lead.score !== undefined ? lead.score : 0,
         value: formatBudgetText(lead.budget_min, lead.budget_max),
         prob: lead.breakdown?.intent?.score !== undefined 
@@ -526,9 +541,32 @@ function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasM
                                             <span className="text-sm font-semibold text-white truncate">{lead.name}</span>
                                             <span className={`text-sm font-bold ml-2 ${scoreColor}`}>{lead.score}</span>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <TagPill label={lead.tag} size="sm" />
-                                            <span className="text-[10px] text-zinc-600 ml-auto">· {lead.lastActive}</span>
+                                        <div className="flex flex-col gap-1 mt-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                {(() => {
+                                                    const t = lead.lead_tier || 'cold';
+                                                    const badge = TIER_BADGES[t.toLowerCase()] || TIER_BADGES.cold;
+                                                    return (
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg} ${badge.textCls} ${badge.border}`}>
+                                                            {badge.text}
+                                                        </span>
+                                                    );
+                                                })()}
+                                                <span className="text-[10px] text-zinc-600 ml-auto">· {lead.lastActive}</span>
+                                            </div>
+                                            {lead.labels && lead.labels.length > 0 && (
+                                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                                    {lead.labels.map(lbl => {
+                                                        const badge = AGENT_LABEL_BADGES[lbl];
+                                                        if (!badge) return null;
+                                                        return (
+                                                            <span key={lbl} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${badge.bg} ${badge.textCls} ${badge.border}`}>
+                                                                {badge.text}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -644,7 +682,26 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onTog
                                 <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">Preview Only</span>
                             </div>
                         </div>
-                        <TagPill label={lead.tag} size="sm" />
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {(() => {
+                                const t = leadDetail?.lead_tier || lead?.lead_tier || 'cold';
+                                const badge = TIER_BADGES[t.toLowerCase()] || TIER_BADGES.cold;
+                                return (
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg} ${badge.textCls} ${badge.border}`}>
+                                        {badge.text}
+                                    </span>
+                                );
+                            })()}
+                            {(leadDetail?.labels || lead?.labels || []).map(lbl => {
+                                const badge = AGENT_LABEL_BADGES[lbl];
+                                if (!badge) return null;
+                                return (
+                                    <span key={lbl} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${badge.bg} ${badge.textCls} ${badge.border}`}>
+                                        {badge.text}
+                                    </span>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 
@@ -762,7 +819,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onTog
 
 // ─── RIGHT PANEL ──────────────────────────────────────────────────────────────
 
-function RightPanel({ lead, details, history, loadingHistory }) {
+function RightPanel({ lead, details, history, loadingHistory, onToggleLabel }) {
     if (!lead) {
         return (
             <div className="hidden xl:flex w-[380px] flex-shrink-0 flex-col bg-[#0D0D17] border-l border-white/[0.06] items-center justify-center text-zinc-500 text-sm p-6 text-center">
@@ -846,6 +903,14 @@ function RightPanel({ lead, details, history, loadingHistory }) {
                 if (item.reason === 'manual_creation' || item.reason === 'manual_recalculation') {
                     icon = User;
                     label = item.reason === 'manual_creation' ? 'Lead created' : 'Manual score recalculation';
+                } else if (item.reason.startsWith('label_added:')) {
+                    icon = Tag;
+                    const lblName = item.reason.substring('label_added:'.length);
+                    label = `Agent added ${lblName} label`;
+                } else if (item.reason.startsWith('label_removed:')) {
+                    icon = Tag;
+                    const lblName = item.reason.substring('label_removed:'.length);
+                    label = `Agent removed ${lblName} label`;
                 } else if (item.reason.startsWith('node_')) {
                     icon = Zap;
                     label = `Flow node progress: ${item.reason.replace('node_', '').replace(/_/g, ' ')}`;
@@ -879,10 +944,14 @@ function RightPanel({ lead, details, history, loadingHistory }) {
 
     const timelineEvents = getTimelineEvents();
 
-    const tagsToDisplay = [lead.tag];
-    if (lead.status) {
-        tagsToDisplay.push(lead.status.charAt(0).toUpperCase() + lead.status.slice(1));
-    }
+    const activeLabels = details?.labels || lead.labels || [];
+    const calculatedBonus = activeLabels.reduce((sum, lbl) => {
+        if (lbl === 'Interested') return sum + 10;
+        if (lbl === 'High Priority') return sum + 15;
+        if (lbl === 'Premium Lead') return sum + 20;
+        if (lbl === 'Follow Up') return sum + 5;
+        return sum;
+    }, 0);
 
     const isLeadConverted = details?.is_converted || lead.status === 'converted' || lead.is_converted;
 
@@ -944,11 +1013,110 @@ function RightPanel({ lead, details, history, loadingHistory }) {
                 )}
             </div>
 
-            {/* Tags and Status */}
-            <div className="p-5 border-b border-white/[0.06]">
-                <h3 className="text-sm font-bold text-white mb-4">Tags and status</h3>
-                <div className="flex flex-wrap gap-2 mb-4">
-                    {tagsToDisplay.map(t => <TagPill key={t} label={t} />)}
+            {/* Score Breakdown Section */}
+            <div className="p-5 border-b border-white/[0.06] bg-gradient-to-b from-[#111119] to-[#0D0D17]">
+                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    <TrendingUp size={16} className="text-[#7C4DFF]" />
+                    Score Breakdown
+                </h3>
+                
+                <div className="space-y-3">
+                    <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-all">
+                        <span className="text-zinc-400">AI / Behavioral Score</span>
+                        <span className="font-semibold text-sky-400">{details?.breakdown?.behavioral_score !== undefined ? details.breakdown.behavioral_score : (details?.behavioral_score ?? lead.behavioral_score ?? 0)} <span className="text-[10px] text-zinc-500 font-normal">/ 60</span></span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-all">
+                        <span className="text-zinc-400">Intent Score</span>
+                        <span className="font-semibold text-emerald-400">{details?.breakdown?.intent_score !== undefined ? details.breakdown.intent_score : (details?.semantic_intent_score ?? lead.semantic_intent_score ?? 0)} <span className="text-[10px] text-zinc-500 font-normal">/ 40</span></span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-all">
+                        <span className="text-zinc-400">Agent Label Bonus</span>
+                        <span className="font-semibold text-purple-400">+{details?.breakdown?.agent_label_bonus !== undefined ? details.breakdown.agent_label_bonus : calculatedBonus}</span>
+                    </div>
+
+                    <div className="pt-2 mt-2 border-t border-white/[0.06] flex justify-between items-baseline">
+                        <span className="text-sm font-bold text-white">Final Score</span>
+                        <span className={`text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r ${details?.score >= 80 ? 'from-[#FF2A6D] to-[#FF5E62]' : 'from-[#7C4DFF] to-[#00F2FE]'}`}>
+                            {details?.score ?? lead.score ?? 0}%
+                        </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs mt-1.5">
+                        <span className="text-zinc-500">Tier Classification</span>
+                        {(() => {
+                            const t = details?.lead_tier || lead.lead_tier || 'cold';
+                            const badge = TIER_BADGES[t.toLowerCase()] || TIER_BADGES.cold;
+                            return (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.bg} ${badge.textCls} ${badge.border}`}>
+                                    {badge.text}
+                                </span>
+                            );
+                        })()}
+                    </div>
+                </div>
+            </div>
+
+            {/* System Tier & Agent Labels */}
+            <div className="p-5 border-b border-white/[0.06] space-y-5">
+                {/* System Tier Section */}
+                <div>
+                    <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2.5">System Tier</h3>
+                    <div className="flex items-center gap-2">
+                        {tier.toLowerCase() === 'hot' && (
+                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-rose-500/10 border border-rose-500/25 text-rose-400">
+                                🔥 Hot
+                            </span>
+                        )}
+                        {tier.toLowerCase() === 'warm' && (
+                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/25 text-amber-400">
+                                🟡 Warm
+                            </span>
+                        )}
+                        {tier.toLowerCase() === 'cold' && (
+                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-500/10 border border-zinc-500/25 text-zinc-400">
+                                ❄️ Cold
+                            </span>
+                        )}
+                        <span className="text-[11px] text-zinc-500 font-medium italic">Computed automatically ({details?.score ?? lead?.score ?? 0})</span>
+                    </div>
+                </div>
+
+                {/* Agent Labels Section */}
+                <div>
+                    <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2.5">Agent Labels</h3>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            { name: 'Premium Lead', emoji: '👑', activeBg: 'bg-[#4B2580] border-[#6D39BD]', inactiveBorder: 'border-white/10 hover:border-white/20' },
+                            { name: 'High Priority', emoji: '🔥', activeBg: 'bg-[#7B1A2E] border-[#A82B44]', inactiveBorder: 'border-white/10 hover:border-white/20' },
+                            { name: 'Interested', emoji: '⚡', activeBg: 'bg-[#145A32] border-[#208A4E]', inactiveBorder: 'border-white/10 hover:border-white/20' },
+                            { name: 'Follow Up', emoji: '📅', activeBg: 'bg-[#0F4C81] border-[#1A73C2]', inactiveBorder: 'border-white/10 hover:border-white/20' }
+                        ].map(lbl => {
+                            const isActive = activeLabels.includes(lbl.name);
+                            return (
+                                <button
+                                    key={lbl.name}
+                                    onClick={() => onToggleLabel && onToggleLabel(lead.id, lbl.name)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5 cursor-pointer
+                                        ${isActive
+                                            ? `${lbl.activeBg} text-white shadow-lg`
+                                            : `bg-transparent ${lbl.inactiveBorder} text-zinc-400 hover:text-white`
+                                        }`}
+                                >
+                                    {lbl.emoji} {lbl.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Lead Status / Tags */}
+                <div>
+                    <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2.5">Status</h3>
+                    <div className="flex flex-wrap gap-2">
+                        {lead.status && <TagPill label={lead.status.charAt(0).toUpperCase() + lead.status.slice(1)} />}
+                    </div>
                 </div>
             </div>
 
@@ -1320,6 +1488,57 @@ export default function LeadsPage() {
         fetchSelectedLeadData(updatedLead.id);
     };
 
+    const handleToggleLabel = async (leadId, label) => {
+        if (!leadId) return;
+        const currentLabels = leadsDetails[leadId]?.labels || [];
+        const isActive = currentLabels.includes(label);
+        const action = isActive ? "remove" : "add";
+
+        try {
+            const res = await api.updateLeadLabels(leadId, label, action);
+            
+            // 1. Update leadsDetails cache
+            setLeadsDetails(prev => {
+                const current = prev[leadId] || {};
+                return {
+                    ...prev,
+                    [leadId]: {
+                        ...current,
+                        labels: res.labels || [],
+                        score: res.score || 0,
+                        lead_tier: res.lead_tier || 'cold',
+                        breakdown: res.breakdown || null
+                    }
+                };
+            });
+
+            // 2. Update lead in leads list
+            setLeads(prev => prev.map(l => {
+                if (l.id === leadId) {
+                    return {
+                        ...l,
+                        labels: res.labels || [],
+                        score: res.score || 0,
+                        lead_tier: res.lead_tier || 'cold',
+                        breakdown: res.breakdown || null
+                    };
+                }
+                return l;
+            }));
+
+            // 3. Fetch history to show updated timeline
+            const workspaceId = getWorkspaceIdFromToken();
+            const historyRes = await api.get(`/lead-scoring/leads/${leadId}/history?workspace_id=${workspaceId}`);
+            setHistoryLogs(prev => ({
+                ...prev,
+                [leadId]: historyRes.history || []
+            }));
+
+        } catch (err) {
+            console.error("Failed to update label:", err);
+        }
+    };
+
     const handleToggleFavorite = async (leadId) => {
         const workspaceId = getWorkspaceIdFromToken();
         if (!workspaceId) return;
@@ -1464,6 +1683,7 @@ export default function LeadsPage() {
                             details={leadsDetails[selectedLeadId]}
                             history={historyLogs[selectedLeadId]}
                             loadingHistory={historyLoading === selectedLeadId}
+                            onToggleLabel={handleToggleLabel}
                         />
                     </div>
                 </div>
