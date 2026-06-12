@@ -10,7 +10,7 @@ from app.services.email_automation.email_monitor_service import EmailMonitor
 
 GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
-REDIRECT_URI = settings.OAUTH_REDIRECT_URI
+REDIRECT_URI = settings.GOOGLE_INTEGRATION_REDIRECT_URI
 
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/calendar",

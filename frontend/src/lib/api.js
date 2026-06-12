@@ -11,7 +11,7 @@ class APIClient {
     console.log("APIClient initialized with baseURL:", this.baseURL);
   }
 
-  async request(endpoint, options = {}) {
+  async request(endpoint, options = {}, isRetryAttempt = false) {
     const url = (endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
       ? endpoint
       : `${this.baseURL}${endpoint}`;
@@ -34,7 +34,7 @@ class APIClient {
     config.signal = optSignal || controller?.signal;
 
     try {
-      console.log(`Fetching: ${url}`);
+      console.log(`Fetching: ${url}${isRetryAttempt ? ' (Retry Attempt)' : ''}`);
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
 
@@ -62,13 +62,15 @@ class APIClient {
         const errorObj = new Error(errorMessage);
         errorObj.status = response.status;
 
-        // ← Only log if NOT 401
-        if (response.status !== 401) {
-            console.error("FULL ERROR:", JSON.stringify(data, null, 2));
+        const isClientError = response.status >= 400 && response.status < 500;
+        if (isClientError) {
+            console.warn("CLIENT ERROR:", response.status, JSON.stringify(data, null, 2));
+        } else {
+            console.error("SERVER ERROR:", response.status, JSON.stringify(data, null, 2));
         }
 
         throw errorObj;
-    }
+      }
         return data;
       } else {
         const text = await response.text();
@@ -79,15 +81,34 @@ class APIClient {
       }
 
     } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
+
       // Suppress AbortError console noise from StrictMode double-invoke
       if (error.name === 'AbortError') {
-        if (timeoutId) clearTimeout(timeoutId);
         throw error; // re-throw silently
       }
-      if (error?.status !== 401) {
+      const isClientError = error?.status >= 400 && error?.status < 500;
+      const isFetchNetworkError = (error instanceof TypeError || error?.name === 'TypeError') && error?.message?.toLowerCase().includes('fetch');
+
+      // Attempt automatic retry once for network errors on safe/idempotent endpoints
+      if (isFetchNetworkError && !isRetryAttempt) {
+        const method = (options.method || 'GET').toUpperCase();
+        const isOTPOrSensitive = endpoint.includes('/auth/verify-otp') || endpoint.includes('/auth/send-otp') || endpoint.includes('/billing/');
+        const isIdempotent = method === 'GET' || method === 'PUT' || method === 'DELETE';
+        const canRetry = isIdempotent && !isOTPOrSensitive;
+
+        if (canRetry) {
+          console.warn(`Fetch failed (likely cold-start/Strict dev double-invoke). Retrying once in 500ms... URL: ${url}`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return this.request(endpoint, options, true);
+        }
+      }
+
+      if (isClientError || isFetchNetworkError) {
+        console.warn('API Client/Network Error:', error, 'URL:', url);
+      } else {
         console.error('API Error:', error, 'URL:', url);
       }
-      if (timeoutId) clearTimeout(timeoutId);
       throw error;
     }
   }

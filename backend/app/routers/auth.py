@@ -183,8 +183,12 @@ import httpx
 
 @router.get("/google/login")
 async def google_login(request: Request, type: str = "login"):
+    import secrets
     from app.core.config import settings
     redirect_uri = settings.OAUTH_REDIRECT_URI
+
+    state_token = secrets.token_urlsafe(32)
+    state = f"{state_token}:{type}"
 
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth?"
@@ -193,11 +197,25 @@ async def google_login(request: Request, type: str = "login"):
         "response_type=code&"
         "scope=openid%20email%20profile&"
         "access_type=offline&"
-        f"state={type}"
+        f"state={state}"
     )
     print(f"GOOGLE REDIRECT URI = {redirect_uri}")
     print(f"FRONTEND URL = {settings.FRONTEND_URL}")
-    return RedirectResponse(url=auth_url)
+    print("CLIENT ID =", settings.GOOGLE_CLIENT_ID)
+    print("CLIENT SECRET EXISTS =", bool(settings.GOOGLE_CLIENT_SECRET))
+
+    is_prod = settings.ENVIRONMENT.lower() == "production"
+    response = RedirectResponse(url=auth_url)
+    response.set_cookie(
+        key="oauth_state",
+        value=state_token,
+        httponly=True,
+        secure=is_prod,
+        samesite="lax",
+        max_age=300,
+        path="/",
+    )
+    return response
 
 @router.get("/google/callback")
 async def google_callback(request: Request, code: str = None, state: str = "login", db: Session = Depends(get_db)):
@@ -205,8 +223,21 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
     frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
     is_prod = settings.ENVIRONMENT.lower() == "production"
 
+    cookie_state = request.cookies.get("oauth_state")
+    if not cookie_state or not state.startswith(cookie_state + ":"):
+        response = RedirectResponse(url=f"{frontend_url}/login?error=State+verification+failed")
+        response.delete_cookie("oauth_state", path="/")
+        return response
+
+    try:
+        _, auth_type = state.split(":", 1)
+    except ValueError:
+        auth_type = "login"
+
     if not code:
-        return RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
+        response = RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
+        response.delete_cookie("oauth_state", path="/")
+        return response
 
     redirect_uri = settings.OAUTH_REDIRECT_URI
 
@@ -240,11 +271,16 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             if not email:
                 raise ValueError("Google account has no associated email")
 
-        result = AuthService.google_auth(db, email, full_name, state)
+        result = AuthService.google_auth(db, email, full_name, auth_type)
        
         jwt_token = result["access_token"]
         response = RedirectResponse(url=f"{frontend_url}/user/admin/dashboard")
         
+        # NOTE FOR PRODUCTION COOKIE SAMESITE POLICY:
+        # - If frontend and backend end up on different domains in production (e.g. Vercel + Render), 
+        #   samesite must be set to "none" with secure=True to allow cross-site cookie transmission.
+        # - If same-site subdomains (e.g. app.domain.com and api.domain.com), use "lax" not "strict" 
+        #   (strict breaks authentication/session on navigation from external links).
         response.set_cookie(
             key="auth_token",
             value=jwt_token,
@@ -254,11 +290,16 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/",
         )
+        response.delete_cookie("oauth_state", path="/")
         return response
     except ValueError as e:
-        return RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote(str(e))}")
+        response = RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote(str(e))}")
+        response.delete_cookie("oauth_state", path="/")
+        return response
     except Exception as e:
-        return RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote('Internal Server Error')}")
+        response = RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote('Internal Server Error')}")
+        response.delete_cookie("oauth_state", path="/")
+        return response
 
 
 @router.post("/login/secret")
