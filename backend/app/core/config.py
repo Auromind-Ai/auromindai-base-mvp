@@ -47,7 +47,8 @@ class Settings(BaseSettings):
     # GOOGLE & OAUTH INTEGRATIONS
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    OAUTH_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
+    OAUTH_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
+    GOOGLE_INTEGRATION_REDIRECT_URI: str = "http://localhost:8000/integrations/google/callback"
     
     # ADMIN & SECURITY
     OWNER_SECRET_KEY: Optional[str] = None

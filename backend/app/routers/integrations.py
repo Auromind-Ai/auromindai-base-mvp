@@ -34,13 +34,30 @@ async def google_oauth_callback(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-   
+    from fastapi.responses import RedirectResponse
+    from app.core.config import settings
+    frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
+
+    integration_type = "google"
+    try:
+        if state and ":" in state:
+            integration_type, _ = state.split(":", 1)
+    except Exception:
+        pass
+
     try:
         verify_workspace_access(current_user, db)
         integration_type = IntegrationService.handle_google_oauth_callback(db, code, state)
-        return {"status": "success", "message": f"Successfully connected {integration_type}"}
+        return RedirectResponse(
+            url=f"{frontend_url}/user/admin/channels?status=success&integration={integration_type}"
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Google integration callback failed: {str(e)}")
+        return RedirectResponse(
+            url=f"{frontend_url}/user/admin/channels?status=error&integration={integration_type}"
+        )
 
 @router.get("/status")
 async def get_integration_status(
