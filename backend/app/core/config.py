@@ -82,6 +82,19 @@ class Settings(BaseSettings):
     SCHEDULER_ENABLED: bool = True
     SYSTEM_METRICS_UPDATE_INTERVAL: int = 5
    
+
+    GMAIL_USER: Optional[str] = None
+    """Gmail address for sending OTP"""
+
+    GMAIL_APP_PASSWORD: Optional[str] = None
+    """Gmail App Password for SMTP"""
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: Optional[int] = None
+    SMTP_USER: Optional[str] = None
+    SMTP_PASS: Optional[str] = None
+    FROM_EMAIL: Optional[str] = None
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
     # BILLING
     BILLING_RESERVATION_TTL_SECONDS: int = 1800
     RAZORPAY_PRO_PLAN_ID: str | None = None

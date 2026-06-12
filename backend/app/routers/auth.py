@@ -1,53 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
-import asyncio
-import secrets as secrets_module
-import time
-from collections import deque
-from typing import Optional
-from pydantic import BaseModel
-import urllib.parse
-from fastapi.responses import RedirectResponse
 
 from sqlalchemy.orm import Session
-from app.schemas.auth import (
-    EmailLoginRequest,
-    UserResponse,
-    WorkspaceResponse,
-    SecretLoginRequest,
-    AdminLoginRequest,
-)
+from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
 from app.database import get_db
 from app.services.auth_service import AuthService
-from app.utils.auth import create_access_token, decode_access_token
+from app.utils.auth import decode_access_token
 import uuid
 from datetime import datetime, timezone
-from app.core.config import settings
-from app.models.user import User
+from fastapi import Request
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 logger = logging.getLogger(__name__)
-
-_ADMIN_LOGIN_ATTEMPTS: dict[str, deque[float]] = {}
-_ADMIN_LOGIN_WINDOW_SECONDS = 60
-_ADMIN_LOGIN_MAX_ATTEMPTS = 3
-
-async def admin_login_rate_limit(request: Request):
-    client_host = request.client.host if request.client else "unknown"
-    now = time.time()
-    attempts = _ADMIN_LOGIN_ATTEMPTS.setdefault(client_host, deque())
-    while attempts and now - attempts[0] > _ADMIN_LOGIN_WINDOW_SECONDS:
-        attempts.popleft()
-    if len(attempts) >= _ADMIN_LOGIN_MAX_ATTEMPTS:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts, please try again later.",
-        )
-    attempts.append(now)
-    return True
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None):
@@ -59,72 +26,63 @@ class CurrentUser:
         self.impersonated = impersonated
         self.admin_id = admin_id
 
+
+# ---------- Dependency: get current user ----------
+
 async def get_current_user(
     request: Request,
+    header_token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
+   
 ):
+   
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     
+    token = request.cookies.get("auth_token") or header_token
+    if not token:
+        raise credentials_exception
+   
     def log_auth(msg):
         try:
-            import os
-            log_dir = "logs"
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir)
-            with open(os.path.join(log_dir, "auth_debug.log"), "a") as f:
+            with open("/tmp/auth_debug.log", "a") as f:
                 f.write(f"{datetime.now(timezone.utc)}: {msg}\n")
         except:
             pass
 
-    log_auth("🔒 Authenticating token...")
-    
-    token = request.cookies.get("auth_token")
-    if not token:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            token = auth_header.replace("Bearer ", "")
-            
-    if not token:
-        log_auth("No token found in cookie or Authorization header")
-        raise credentials_exception
-    
+    log_auth(f"🔒 Authenticating token: {token[:10]}...")
+   
     try:
         payload = decode_access_token(token)
     except Exception:
-        log_auth("Token decode failed")
+        log_auth("❌ Token decode failed")
         raise credentials_exception
 
     if payload is None:
-        log_auth("Token payload is None")
+        log_auth("❌ Token payload is None")
         raise credentials_exception
-    
+   
     user_id: str = payload.get("sub")
-    role = payload.get("role")
-    
-    if role == "platform_admin" or user_id == "platform_admin":
-        log_auth("❌ Platform admin token rejected on normal route")
-        raise credentials_exception
-
     workspace_id: str = payload.get("workspace_id")
     impersonated = payload.get("impersonated", False)
     admin_id = payload.get("admin_id")
 
     if user_id is None:
-        log_auth(" Token missing sub")
+        log_auth("❌ Token missing sub")
         raise credentials_exception
 
     log_auth(f"👤 Token claims user_id: {user_id}")
     user = AuthService.get_user_by_id(db, user_id)
 
     if user is None:
-        log_auth(f" User {user_id} not found in DB")
+        log_auth(f"❌ User {user_id} not found in DB")
         raise credentials_exception
 
     log_auth(f"Authenticated: {user.email}")
+    logger.info(f"[AUTH HEADER] {request.headers.get('Authorization')}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,
@@ -132,7 +90,12 @@ async def get_current_user(
         admin_id=admin_id
     )
 
-# ---------- OTP Login & Signup ----------
+
+# ---------- Email Login & Signup (OTP) ----------
+
+from app.schemas.auth import EmailLoginRequest
+from pydantic import BaseModel
+from typing import Optional
 
 class SendOTPRequest(BaseModel):
     email: str
@@ -156,6 +119,8 @@ async def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
             detail=str(e),
         )
 
+from fastapi import Response
+
 @router.post("/verify-otp")
 async def verify_otp(request: VerifyOTPRequest, response: Response, db: Session = Depends(get_db)):
     try:
@@ -167,20 +132,21 @@ async def verify_otp(request: VerifyOTPRequest, response: Response, db: Session 
             request.full_name,
             request.workspace_name
         )
-        token = result.pop("access_token", None)
-        result.pop("token_type", None)
         
-        IS_PROD = settings.ENVIRONMENT == "production"
+        token = result["access_token"]
+        from app.core.config import settings
+        is_prod = settings.ENVIRONMENT.lower() == "production"
+        
         response.set_cookie(
             key="auth_token",
             value=token,
             httponly=True,
-            secure=IS_PROD,
-            samesite="strict" if IS_PROD else "lax",
+            secure=is_prod,
+            samesite="strict" if is_prod else "lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/",
-            max_age=60 * 60 * 24 * 7,
         )
-        result["access_token"] = token
+        
         return result
     except ValueError as e:
         raise HTTPException(
@@ -190,32 +156,17 @@ async def verify_otp(request: VerifyOTPRequest, response: Response, db: Session 
 
 # Kept for backward compatibility
 @router.post("/login")
-async def login(request: dict, response: Response, db: Session = Depends(get_db)):
+async def login(request: dict, db: Session = Depends(get_db)):
     try:
+        from app.models import User
         email = request.get('email')
-        full_name = request.get('full_name')
-        workspace_name = request.get('workspace_name', 'My Workspace')
-        
-        result = AuthService.email_login(
-            db=db,
-            email=email,
-            full_name=full_name,
-            workspace_name=workspace_name
-        )
-        token = result.pop("access_token", None)
-        result.pop("token_type", None)
-        
-        IS_PROD = settings.ENVIRONMENT == "production"
-        response.set_cookie(
-            key="auth_token",
-            value=token,
-            httponly=True,
-            secure=IS_PROD,
-            samesite="strict" if IS_PROD else "lax",
-            path="/",
-            max_age=60 * 60 * 24 * 7,  # 7 days
-        )
-        result["access_token"] = token
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your email is not registered. Please sign up first.",
+            )
+        result = AuthService.email_login(db=db, email=email)
         return result
     except ValueError as e:
         raise HTTPException(
@@ -225,123 +176,110 @@ async def login(request: dict, response: Response, db: Session = Depends(get_db)
 
 # ---------- Google Auth ----------
 
+from fastapi.responses import RedirectResponse
+import urllib.parse
+
+import httpx
+
 @router.get("/google/login")
-async def google_login(type: str = "login"):
-    # In a real app, integrate authlib or similar here.
-    return RedirectResponse(url=f"/auth/google/callback?code=mock_code&state={type}")
+async def google_login(request: Request, type: str = "login"):
+    from app.core.config import settings
+    redirect_uri = settings.OAUTH_REDIRECT_URI
+
+    auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={settings.GOOGLE_CLIENT_ID}&"
+        f"redirect_uri={urllib.parse.quote(redirect_uri)}&"
+        "response_type=code&"
+        "scope=openid%20email%20profile&"
+        "access_type=offline&"
+        f"state={type}"
+    )
+    print(f"GOOGLE REDIRECT URI = {redirect_uri}")
+    print(f"FRONTEND URL = {settings.FRONTEND_URL}")
+    return RedirectResponse(url=auth_url)
 
 @router.get("/google/callback")
-async def google_callback(code: str, state: str = "login", db: Session = Depends(get_db)):
-    # Mocking Google user fetching
-    email = "googleuser@example.com"
-    full_name = "Google User"
-    
+async def google_callback(request: Request, code: str = None, state: str = "login", db: Session = Depends(get_db)):
+    from app.core.config import settings
+    frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
+    is_prod = settings.ENVIRONMENT.lower() == "production"
+
+    if not code:
+        return RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
+
+    redirect_uri = settings.OAUTH_REDIRECT_URI
+
     try:
+        async with httpx.AsyncClient() as client:
+            token_res = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": redirect_uri,
+                },
+            )
+            token_data = token_res.json()
+            if "error" in token_data:
+                raise ValueError(token_data.get("error_description", "Failed to exchange authorization code"))
+            
+            access_token = token_data["access_token"]
+            
+            profile_res = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            profile_data = profile_res.json()
+            
+            email = profile_data.get("email")
+            full_name = profile_data.get("name", "Google User")
+            
+            if not email:
+                raise ValueError("Google account has no associated email")
+
         result = AuthService.google_auth(db, email, full_name, state)
-        token = result["access_token"]
+       
+        jwt_token = result["access_token"]
+        response = RedirectResponse(url=f"{frontend_url}/user/admin/dashboard")
         
-        frontend_url = "http://localhost:3000/user/admin/dashboard"
-        
-        # Create response and set cookie
-        response = RedirectResponse(url=f"{frontend_url}?token={token}")
-        IS_PROD = settings.ENVIRONMENT == "production"
         response.set_cookie(
             key="auth_token",
-            value=token,
+            value=jwt_token,
             httponly=True,
-            secure=IS_PROD,
-            samesite="strict" if IS_PROD else "lax",
+            secure=is_prod,
+            samesite="strict" if is_prod else "lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/",
-            max_age=60 * 60 * 24 * 7,
         )
         return response
     except ValueError as e:
-        return RedirectResponse(url=f"http://localhost:3000/login?error={urllib.parse.quote(str(e))}")
+        return RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote(str(e))}")
+    except Exception as e:
+        return RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote('Internal Server Error')}")
 
-# ---------- Secrets / Admin Login ----------
 
 @router.post("/login/secret")
 async def login_secret(
     request: SecretLoginRequest,
-    response: Response,
     db: Session = Depends(get_db)
 ):
+    from app.core.config import settings
+   
     master_key = settings.OWNER_SECRET_KEY
     if not master_key or request.key != master_key:
         raise HTTPException(status_code=401, detail="Invalid secret key")
-    
+   
+    # Login as the first user found in DB (usually the owner/admin)
+    from app.models import User
     admin = db.query(User).order_by(User.created_at.asc()).first()
     if not admin:
         raise HTTPException(status_code=404, detail="No users found in platform")
-    
-    result = AuthService.login(db, admin.email)
-    token = result.pop("access_token", None)
-    result.pop("token_type", None)
-    
-    IS_PROD = settings.ENVIRONMENT == "production"
-    response.set_cookie(
-        key="auth_token",
-        value=token,
-        httponly=True,
-        secure=IS_PROD,
-        samesite="strict" if IS_PROD else "lax",
-        path="/",
-        max_age=60 * 60 * 24 * 7,
-    )
-    result["access_token"] = token
-    return result
+   
+    return AuthService.login(db, admin.email)
 
-@router.post("/admin/login")
-async def admin_login(
-    request: Request,
-    body: AdminLoginRequest,
-    response: Response,
-    db: Session = Depends(get_db),
-    _rate_limit: bool = Depends(admin_login_rate_limit),
-):
-    from app.core.config import settings
-    from app.models import User
-
-    is_valid = secrets_module.compare_digest(
-        body.secret_key,
-        settings.OWNER_SECRET_KEY
-    )
-    if not is_valid:
-        await asyncio.sleep(1)
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    if hasattr(User, "is_superadmin"):
-        owner = db.query(User).filter(User.is_superadmin == True).first()
-    else:
-        owner = db.query(User).order_by(User.created_at.asc()).first()
-
-    if not owner:
-        raise HTTPException(status_code=404, detail="Owner not found")
-
-    admin_data = AuthService.login(db, owner.email)
-    access_token = create_access_token({
-        "sub": str(owner.id),
-        "role": "superadmin",
-        "workspace_id": admin_data.get("workspaces", [])[0].get("id") if admin_data.get("workspaces") else None,
-    })
-
-    IS_PROD = settings.ENVIRONMENT == "production"
-    response.set_cookie(
-        key="auth_token",
-        value=access_token,
-        httponly=True,
-        secure=IS_PROD,
-        samesite="strict" if IS_PROD else "lax",
-        path="/",
-        max_age=60 * 60 * 24 * 7,
-    )
-
-    return {
-        "message": "Access granted",
-        "user": admin_data.get("user"),
-        "workspaces": admin_data.get("workspaces"),
-        "access_token": access_token
-    }
 
 # ---------- Current user ----------
 
@@ -350,9 +288,7 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
     return {
         "id": str(current_user.id),
         "email": current_user.email,
-        "full_name": current_user.full_name,
-        "workspace_id": current_user.workspace_id,
-        "impersonated": current_user.impersonated
+        "full_name": current_user.full_name
     }
 
 
@@ -363,50 +299,18 @@ async def get_workspaces(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Get all workspaces for current user"""
     workspaces = AuthService.get_user_workspaces(db, current_user.id)
     return {"workspaces": workspaces}
 
-
 @router.post("/logout")
 async def logout(response: Response):
-    IS_PROD = settings.ENVIRONMENT == "production"
-    response.delete_cookie(
-        key="auth_token",
-        path="/",
-        secure=IS_PROD,
-        httponly=True,
-        samesite="strict" if IS_PROD else "lax",
-    )
-    response.delete_cookie(
-        key="admin_backup_token",
-        path="/",
-        secure=IS_PROD,
-        httponly=True,
-        samesite="strict" if IS_PROD else "lax",
-    )
-    return {"status": "success"}
-
-@router.post("/stop-impersonation")
-async def stop_impersonation(request: Request, response: Response):
-    admin_token = request.cookies.get("admin_backup_token")
-    if not admin_token:
-        raise HTTPException(status_code=400, detail="No impersonation session active")
+    from app.core.config import settings
+    is_prod = settings.ENVIRONMENT.lower() == "production"
     
-    IS_PROD = settings.ENVIRONMENT == "production"
-    response.set_cookie(
-        key="auth_token",
-        value=admin_token,
-        httponly=True,
-        secure=IS_PROD,
-        samesite="strict" if IS_PROD else "lax",
-        path="/",
-        max_age=60 * 60 * 24 * 7,
-    )
     response.delete_cookie(
-        key="admin_backup_token",
+        key="auth_token",
         path="/",
-        secure=IS_PROD,
-        httponly=True,
-        samesite="strict" if IS_PROD else "lax"
+        samesite="strict" if is_prod else "lax",
     )
-    return {"status": "success"}
+    return {"status": "success", "message": "Logged out"}
