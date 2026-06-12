@@ -23,6 +23,7 @@ export function AuthProvider({ children }) {
   const fetchingRef = useRef(false);
 
   const refreshUser = async (signal) => {
+    setLoading(true);
     try {
       const userData = await api.getCurrentUser({ signal });
       const profile = userData?.user || userData;

@@ -136,10 +136,6 @@ class APIClient {
     });
   }
 
-  googleLogin(auth_type) {
-    window.location.href = `${this.baseURL}/auth/google/login?type=${auth_type}`;
-  }
-
   async signup(email, password, full_name, workspace_name) {
     return this.post('/auth/signup', {
       email,
@@ -151,6 +147,10 @@ class APIClient {
 
   async login(email) {
     return this.post('/auth/login', { email });
+  }
+
+  googleLogin(type = 'login') {
+    window.location.href = `${this.baseURL}/auth/google/login?type=${type}`;
   }
 
   async getCurrentUser(options = {}) {

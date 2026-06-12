@@ -1,12 +1,38 @@
 'use client';
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+
+const getErrorMessage = (err) => {
+  let msg = err?.message || '';
+  let status = err?.status;
+  
+  if (msg.includes("Invalid or expired OTP") || msg.includes("Invalid OTP") || msg.includes("expired OTP")) {
+    return "Invalid or expired OTP. Please request a new code.";
+  }
+  if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("Please log in") || msg.includes("Email already registered")) {
+    return "Account already exists. Please log in.";
+  }
+  if (msg.includes("not registered") || msg.includes("not found") || msg.includes("sign up first") || msg.includes("Account not found")) {
+    return "Account not found. Please sign up.";
+  }
+  if (msg.includes("Too many OTP requests") || msg.includes("too many requests") || status === 429) {
+    return "Too many OTP requests. Please wait before trying again.";
+  }
+  if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("aborted")) {
+    return "Network error. Please check your connection and try again.";
+  }
+  if (status >= 500 || msg.toLowerCase().includes("server error") || msg.toLowerCase().includes("non-json response")) {
+    return "Server error. Please try again later.";
+  }
+  return "Something went wrong. Please try again.";
+};
 
 export default function SignupFormCard() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [step, setStep] = useState('form'); // 'form' | 'otp'
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -24,8 +50,16 @@ export default function SignupFormCard() {
     try {
       await api.sendOTP(email, 'signup');
       setStep('otp');
-    } catch (e) {
-      setError(e.message || 'Failed to send OTP');
+    } catch (err) {
+      const mappedError = getErrorMessage(err);
+      setError(mappedError);
+      if (mappedError.includes("Account already exists")) {
+        console.log("Setting redirect timeout to /login");
+        setTimeout(() => {
+          console.log("Executing redirect to /login via router.push");
+          router.push('/login');
+        }, 3000);
+      }
     } finally {
       setLoading(false);
     }
@@ -45,9 +79,10 @@ export default function SignupFormCard() {
       if (data.workspaces?.length > 0) {
         localStorage.setItem('workspace', JSON.stringify(data.workspaces[0]));
       }
+      await refreshUser();
       router.push('/user/admin/dashboard');
-    } catch (e) {
-      setError(e.message || 'Invalid OTP');
+    } catch (err) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

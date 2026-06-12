@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles } from 'lucide-react';
 import { setToken, setUser, setWorkspace, isAuthenticated, getUser } from '@/lib/auth';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, MeshDistortMaterial, Environment, Float, Stars } from '@react-three/drei';
@@ -58,10 +59,36 @@ const features = [
     }
 ];
 
+const getErrorMessage = (err) => {
+    let msg = err?.message || '';
+    let status = err?.status;
+    
+    if (msg.includes("Invalid or expired OTP") || msg.includes("Invalid OTP") || msg.includes("expired OTP")) {
+        return "Invalid or expired OTP. Please request a new code.";
+    }
+    if (msg.includes("already registered") || msg.includes("already exists") || msg.includes("Please log in") || msg.includes("Email already registered")) {
+        return "Account already exists. Please log in.";
+    }
+    if (msg.includes("not registered") || msg.includes("not found") || msg.includes("sign up first") || msg.includes("Account not found")) {
+        return "Account not found. Please sign up.";
+    }
+    if (msg.includes("Too many OTP requests") || msg.includes("too many requests") || status === 429) {
+        return "Too many OTP requests. Please wait before trying again.";
+    }
+    if (msg.toLowerCase().includes("failed to fetch") || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("aborted")) {
+        return "Network error. Please check your connection and try again.";
+    }
+    if (status >= 500 || msg.toLowerCase().includes("server error") || msg.toLowerCase().includes("non-json response")) {
+        return "Server error. Please try again later.";
+    }
+    return "Something went wrong. Please try again.";
+};
+
 export default function LoginPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirectPath = searchParams.get('redirect');
+    const { user, loading: authLoading, refreshUser } = useAuth();
 
     const [step, setStep] = useState('email');
     const [email, setEmail] = useState('');
@@ -72,18 +99,38 @@ export default function LoginPage() {
     const [featureIndex, setFeatureIndex] = useState(0);
 
     useEffect(() => {
-        if (isAuthenticated() && getUser()) {
+        if (!authLoading && user) {
             router.push(redirectPath || '/user/admin/dashboard');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [user, authLoading, router, redirectPath]);
 
     useEffect(() => {
         const err = searchParams.get('error');
         if (err) {
-            setError(decodeURIComponent(err));
+            let decodedErr = decodeURIComponent(err);
+            // Handle google oauth error callback redirect gracefully
+            let mappedErr = getErrorMessage({ message: decodedErr });
+            // If it's for non-existent email on google login, requirement asks for:
+            // "Account not found. Please sign up first."
+            if (decodedErr.includes("not registered") || decodedErr.includes("not found") || decodedErr.includes("sign up first")) {
+                mappedErr = "Account not found. Please sign up first.";
+            }
+            setError(mappedErr);
+            if (mappedErr.includes("Account not found")) {
+                console.log("useEffect QueryParamError: Setting redirect timeout to /signup");
+                setTimeout(() => {
+                    console.log("useEffect QueryParamError: Executing redirect to /signup via router.push");
+                    router.push('/signup');
+                }, 3000);
+            } else if (mappedErr.includes("Account already exists")) {
+                console.log("useEffect QueryParamError: Setting redirect timeout to /login");
+                setTimeout(() => {
+                    console.log("useEffect QueryParamError: Executing redirect to /login via router.push");
+                    router.push('/login');
+                }, 3000);
+            }
         }
-    }, [searchParams]);
+    }, [searchParams, router]);
 
     useEffect(() => {
         if (resendTimer <= 0) return;
@@ -107,7 +154,15 @@ export default function LoginPage() {
             setStep('otp');
             setResendTimer(60);
         } catch (err) {
-            setError(err.message || 'Failed to send OTP');
+            const mappedError = getErrorMessage(err);
+            setError(mappedError);
+            if (mappedError.includes("Account not found")) {
+                console.log("Setting redirect timeout to /signup");
+                setTimeout(() => {
+                    console.log("Executing redirect to /signup via router.push");
+                    router.push('/signup');
+                }, 3000);
+            }
         } finally {
             setLoading(false);
         }
@@ -137,9 +192,11 @@ export default function LoginPage() {
                 localStorage.setItem('workspace_id', data.workspaces[0].id);
             }
 
+            await refreshUser();
+
             router.push(redirectPath || '/user/admin/dashboard');
         } catch (err) {
-            setError(err.message || 'Invalid OTP');
+            setError(getErrorMessage(err));
         } finally {
             setLoading(false);
         }
@@ -154,7 +211,7 @@ export default function LoginPage() {
             setResendTimer(60);
             setOtp('');
         } catch (err) {
-            setError(err.message || 'Failed to resend OTP');
+            setError(getErrorMessage(err));
         } finally {
             setLoading(false);
         }
