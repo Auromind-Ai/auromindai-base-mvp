@@ -163,7 +163,7 @@ function BentoMetricCard({ metric, i, rgb }) {
         <div className="mt-7">
           <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight flex items-baseline gap-2">
             {metric.value}
-            {metric.change && metric.change !== '—' && (
+            {metric.change && (metric.change !== '—' || metric.value !== '—') && (
               <span className={`text-sm ${metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-zinc-400'}`}>
                 {metric.change}
               </span>

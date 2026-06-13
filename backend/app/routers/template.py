@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
+logger = logging.getLogger(__name__)
 import requests
 from sqlalchemy.orm import Session
 from pydantic import BaseModel

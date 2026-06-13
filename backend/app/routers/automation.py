@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
+logger = logging.getLogger(__name__)
 from app.services.email_automation.email_automation_engine import AutomationEngine
 from app.services.automations.agentic_wiring_service import agentic_wiring_service
 from app.services.automations.flow_validation_service import FlowValidationService
@@ -43,8 +45,16 @@ async def generate_flow(
    
     verify_workspace_access(current_user, db)
     
-    flow = agentic_wiring_service.generate_flow(request.prompt)
-    return flow
+    try:
+        flow = agentic_wiring_service.generate_flow(request.prompt)
+        return flow
+    except Exception as e:
+        logger.exception("[Router] Flow generation failed: %s", e)
+        from app.core.exceptions import AIProviderError, get_ai_provider_error_details
+        if isinstance(e, AIProviderError):
+            raise e
+        safe_msg, status_code = get_ai_provider_error_details(e, operation="flow")
+        raise AIProviderError(safe_msg, status_code=status_code)
 
 @router.get("/flows", response_model=List[FlowResponseModel])
 async def get_flows(
