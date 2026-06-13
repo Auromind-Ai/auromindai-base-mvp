@@ -90,7 +90,8 @@ class IngestionLayer:
             workspace_id=workspace_id,
             chunks=chunks,   
             embeddings=embeddings,
-            parent_id=parent_id
+            parent_id=parent_id,
+            chunk_metadata=chunk_metadata
         )
         
         db.commit()

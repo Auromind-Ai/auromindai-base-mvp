@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
 
@@ -259,7 +259,7 @@ function PhonePreview({ form, actionMode }) {
                       fontWeight: '600',
                       letterSpacing: '0.3px',
                     }}>
-                      🔗 Buy Now
+                      🔗 {form.ctaBtnTitle || 'Buy Now'}
                     </div>
                   )}
                 </div>
@@ -340,6 +340,7 @@ export default function CreateTemplatePage() {
     message: '',
     footer: '',
     cta: '',
+    ctaBtnTitle: 'Buy Now',
   });
 
   const [aiPrompt, setAiPrompt] = useState('');
@@ -347,6 +348,35 @@ export default function CreateTemplatePage() {
   const [generatedTemplates, setGeneratedTemplates] = useState([]);
   const [actionMode, setActionMode] = useState('none');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const name = params.get('name');
+      const category = params.get('category');
+      const content = params.get('content');
+      const header = params.get('header');
+      const footer = params.get('footer');
+      const cta = params.get('cta');
+      const ctaBtnTitle = params.get('cta_btn_title');
+
+      if (name || category || content || header || footer || cta || ctaBtnTitle) {
+        setForm(prev => ({
+          ...prev,
+          name: name || prev.name,
+          category: category ? category.toUpperCase() : prev.category,
+          message: content ? decodeURIComponent(content) : prev.message,
+          header: header || prev.header,
+          footer: footer || prev.footer,
+          cta: cta || prev.cta,
+          ctaBtnTitle: ctaBtnTitle || prev.ctaBtnTitle || 'Buy Now',
+        }));
+        if (cta) {
+          setActionMode('cta');
+        }
+      }
+    }
+  }, []);
 
   const isAuth = form.category === 'AUTHENTICATION';
 
@@ -387,6 +417,20 @@ export default function CreateTemplatePage() {
   };
 
   const handleSubmit = async () => {
+    if (!form.name || form.name.trim() === '') {
+      alert('Template Name is required');
+      return;
+    }
+    const nameRegex = /^[a-z0-9_]+$/;
+    if (!nameRegex.test(form.name)) {
+      alert('Template Name can only contain lowercase alphanumeric characters and underscores (e.g., app_verification_code)');
+      return;
+    }
+    if (!form.message || form.message.trim() === '') {
+      alert('Message content is required');
+      return;
+    }
+
     try {
       await api.post('/templates/create', {
         name: form.name,
@@ -395,6 +439,7 @@ export default function CreateTemplatePage() {
         header: form.header,
         footer: form.footer,
         cta: form.cta,
+        cta_btn_title: form.ctaBtnTitle,
         category: form.category,
         language: form.language,
         workspace_id: getWorkspaceIdFromToken(),
@@ -575,6 +620,34 @@ export default function CreateTemplatePage() {
                 />
               </div>
 
+              {/* Language Selection */}
+              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <p className="text-white text-sm font-medium mb-1">Language</p>
+                <p className="text-white/60 text-xs mb-4 leading-relaxed">
+                  Select the language for your message template. Meta requires matching the content language with the selected code.
+                </p>
+                <div className="flex gap-2.5">
+                  {[
+                    { key: 'en_US', label: 'English (US)' },
+                    { key: 'ta',    label: 'Tamil (தமிழ்)' },
+                    { key: 'hi',    label: 'Hindi (हिन्दी)' },
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setForm({ ...form, language: key })}
+                      className={`flex-1 py-3 px-4 rounded-2xl border text-sm font-medium transition-all duration-300
+                        ${form.language === key
+                          ? 'border-purple-500 text-purple-300 bg-purple-600/10 shadow-[0_0_12px_rgba(168,85,247,0.2)]'
+                          : 'border-[#24113A] text-[#B7B3C7] hover:border-purple-500/40 hover:text-white bg-[#0B0613]'
+                        }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Header */}
               {form.type === 'TEXT' && (
                 <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
@@ -678,9 +751,12 @@ export default function CreateTemplatePage() {
                         </div>
                         <div>
                           <p className="text-white/60 text-xs mb-1">Button Title</p>
-                          <input defaultValue="Buy Now"
+                          <input
+                            value={form.ctaBtnTitle}
+                            onChange={(e) => setForm({ ...form, ctaBtnTitle: e.target.value })}
                             className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
-                              text-white focus:outline-none focus:border-purple-500/60" />
+                              text-white focus:outline-none focus:border-purple-500/60"
+                          />
                         </div>
                         <div>
                           <p className="text-white/60 text-xs mb-1">Website URL</p>

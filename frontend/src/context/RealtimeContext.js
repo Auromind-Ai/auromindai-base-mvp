@@ -262,7 +262,7 @@ export function RealtimeProvider({ user, workspace, children }) {
       }
 
       connect();
-    }, 0);
+    }, 100);
 
     return () => {
       clearTimeout(timer);

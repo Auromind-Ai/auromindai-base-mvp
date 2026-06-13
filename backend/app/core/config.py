@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     META_PAGE_ACCESS_TOKEN: Optional[str] = None
     META_APP_ID: Optional[str] = None
     META_APP_SECRET: Optional[str] = None
+    META_SYSTEM_USER_TOKEN: Optional[str] = None
     META_REDIRECT_URI: Optional[str] = None
     IG_APP_ID: Optional[str] = None
     IG_APP_SECRET: Optional[str] = None

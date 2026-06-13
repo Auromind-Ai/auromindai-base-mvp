@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Phone, Instagram, Globe, Mail, Paperclip,
     Zap, Sparkles, Send, Clock, User, Star, Calendar,
     ArrowRight, ChevronRight, MoreHorizontal, Info,
     ArrowLeft, SlidersHorizontal, Camera, FileText,
-    PenLine, CheckSquare, UserCheck, XCircle, ChevronDown
+    PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, X
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { getWorkspace, getToken } from '@/lib/auth';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { getWorkspace, getToken, getWorkspaceIdFromToken } from '@/lib/auth';
 import { useRealtime } from '@/context/RealtimeContext';
 import MessageRenderer from '@/components/chat/MessageRenderer';
 
@@ -442,6 +442,14 @@ function ChatArea({
     showMobileBackButton = false,
     // For tablet/desktop info icon active state
     infoActive = false,
+    templateName,
+    setTemplateName,
+    setTemplateVariables,
+    setTemplateLanguage,
+    fetchInboxTemplates,
+    setSelectedInboxTemplate,
+    setTemplateSearchQuery,
+    setShowTemplateSelect,
 }) {
     const ref = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -620,22 +628,58 @@ function ChatArea({
             {/* Input Area */}
             <div className="px-4 pb-4 pt-2 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="max-w-2xl mx-auto">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <button
                             onClick={generateSuggestion}
-                            className="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                            className="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
                             style={{ backgroundColor: `${ch.color}15`, color: ch.color }}
                         >
                             <Sparkles size={11} />
                             Suggest Reply
                         </button>
+                        {templateName && (
+                            <div
+                                className="text-[11px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-2 border border-purple-500/30 shrink-0"
+                                style={{ backgroundColor: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}
+                            >
+                                <FileText size={11} />
+                                <span>Active Template: <strong>{templateName}</strong></span>
+                                <button
+                                    onClick={() => {
+                                        setTemplateName(null);
+                                        setTemplateVariables([]);
+                                        setTemplateLanguage('en_US');
+                                        setMsg('');
+                                    }}
+                                    className="hover:text-white transition-colors ml-1"
+                                    title="Clear template"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2 px-2 py-2 rounded-full border"
                         style={{ backgroundColor: '#1e1e1e', borderColor: 'rgba(255,255,255,0.07)' }}>
-                        <button className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                        <button className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0"
                             style={{ backgroundColor: `${ch.color}20` }}>
                             <Camera size={16} style={{ color: ch.color }} strokeWidth={2} />
                         </button>
+                        {ch.id === 'whatsapp' && (
+                            <button
+                                onClick={() => {
+                                    fetchInboxTemplates();
+                                    setSelectedInboxTemplate(null);
+                                    setTemplateSearchQuery('');
+                                    setShowTemplateSelect(true);
+                                }}
+                                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0"
+                                style={{ backgroundColor: `${ch.color}20` }}
+                                title="Use Template"
+                            >
+                                <FileText size={16} style={{ color: ch.color }} strokeWidth={2} />
+                            </button>
+                        )}
                         <input
                             value={msg}
                             onChange={(e) => setMsg(e.target.value)}
@@ -708,8 +752,9 @@ function PanelCard({ children, className = '', style = {} }) {
     );
 }
 
-// ─── Main Page ──────────────────
-export default function InboxPage() {
+// ─── Main Page Content ───────────
+function InboxContent() {
+    const searchParams = useSearchParams();
     const workspace = getWorkspace();
     const {
         subscribe,
@@ -725,14 +770,112 @@ export default function InboxPage() {
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [activeFilter, setActiveFilter] = useState(0);
     const [previewMedia, setPreviewMedia] = useState(null);
+    const [templateName, setTemplateName] = useState(null);
+    const [templateVariables, setTemplateVariables] = useState([]);
+    const [templateLanguage, setTemplateLanguage] = useState('en_US');
+    const [showTemplateSelect, setShowTemplateSelect] = useState(false);
+    const [inboxTemplates, setInboxTemplates] = useState([]);
+    const [selectedInboxTemplate, setSelectedInboxTemplate] = useState(null);
+    const [inboxTemplateVariables, setInboxTemplateVariables] = useState({});
+    const [templateSearchQuery, setTemplateSearchQuery] = useState('');
     const messagesContainerRef = useRef(null);
     const leadRef = useRef(null);
+
+    const fetchInboxTemplates = useCallback(async () => {
+        try {
+            const workspace_id = getWorkspaceIdFromToken() || localStorage.getItem('workspace_id');
+            if (!workspace_id) return;
+            await fetch(`${PROXY_BASE}/api/templates/status/${workspace_id}`, { headers: getHeaders() });
+            const res = await fetch(`${PROXY_BASE}/api/templates`, { headers: getHeaders() });
+            const data = await res.json();
+            const approved = (data.templates || []).filter(t => t.status === 'approved');
+            setInboxTemplates(approved);
+        } catch (e) {
+            console.error("Failed to fetch templates in inbox:", e);
+        }
+    }, [workspace?.id]);
+
+    useEffect(() => {
+        if (selectedInboxTemplate && selectedInboxTemplate.content) {
+            const regex = /(?:\{\{|\{)(\d+)(?:\}\}|\})/g;
+            let match;
+            const vars = {};
+            while ((match = regex.exec(selectedInboxTemplate.content)) !== null) {
+                const varNum = match[1];
+                vars[varNum] = '';
+            }
+            setInboxTemplateVariables(vars);
+        } else {
+            setInboxTemplateVariables({});
+        }
+    }, [selectedInboxTemplate]);
+
+    const getInboxTemplatePreviewText = () => {
+        if (!selectedInboxTemplate || !selectedInboxTemplate.content) return '';
+        return selectedInboxTemplate.content.replace(/(?:\{\{|\{)(\d+)(?:\}\}|\})/g, (_, num) => {
+            return inboxTemplateVariables[num] || `{{${num}}}`;
+        });
+    };
+
+    const handleApplyInboxTemplate = () => {
+        if (!selectedInboxTemplate) return;
+        const finalMsg = getInboxTemplatePreviewText();
+        const varKeys = Object.keys(inboxTemplateVariables).sort((a, b) => Number(a) - Number(b));
+        const varValues = varKeys.map(key => inboxTemplateVariables[key]);
+
+        setMsg(finalMsg);
+        setTemplateName(selectedInboxTemplate.name);
+        setTemplateVariables(varValues);
+        setTemplateLanguage(selectedInboxTemplate.language || 'en_US');
+        setShowTemplateSelect(false);
+    };
+
+    const filteredInboxTemplates = inboxTemplates.filter(t =>
+        t.name.toLowerCase().includes(templateSearchQuery.toLowerCase()) ||
+        (t.content || '').toLowerCase().includes(templateSearchQuery.toLowerCase())
+    );
 
     // Tablet: right panel = 'chat' | 'info'
     const [tabletRight, setTabletRight] = useState('chat');
 
     // Mobile view: 'list' | 'chat' | 'info'
     const [mobileView, setMobileView] = useState('list');
+
+    useEffect(() => {
+        const msgParam = searchParams.get('msg');
+        const channelParam = searchParams.get('channel');
+        const tplNameParam = searchParams.get('template_name');
+        const tplVarsParam = searchParams.get('variables');
+        const tplLangParam = searchParams.get('language');
+
+        console.log("INBOX PAGE PARSED PARAMS FROM URL:", { msgParam, channelParam, tplNameParam, tplVarsParam, tplLangParam });
+
+        const timer = setTimeout(() => {
+            if (msgParam) {
+                setMsg(msgParam);
+            }
+            if (channelParam) {
+                const matchedCh = CHANNELS.find(c => c.id === channelParam);
+                if (matchedCh) {
+                    setCh(matchedCh);
+                }
+            }
+            if (tplNameParam) {
+                setTemplateName(tplNameParam);
+            }
+            if (tplVarsParam) {
+                try {
+                    setTemplateVariables(JSON.parse(tplVarsParam));
+                } catch (e) {
+                    console.error('Failed to parse template variables:', e);
+                }
+            }
+            if (tplLangParam) {
+                setTemplateLanguage(tplLangParam);
+            }
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [searchParams]);
 
     useEffect(() => {
         leadRef.current = lead;
@@ -912,13 +1055,28 @@ export default function InboxPage() {
 
     async function sendMessage() {
         if (!msg.trim() || !lead) return;
+        console.log("INBOX PAGE SENDING MESSAGE. templateName:", templateName, "variables:", templateVariables, "language:", templateLanguage);
         try {
+            const payload = {
+                conversation_id: lead.id,
+                message: msg,
+            };
+            if (templateName) {
+                payload.metadata = {
+                    template_name: templateName,
+                    variables: templateVariables,
+                    language: templateLanguage,
+                };
+            }
             await fetch(`${PROXY_BASE}/api/send-reply`, {
                 method: 'POST',
                 headers: getHeaders(),
-                body: JSON.stringify({ conversation_id: lead.id, message: msg }),
+                body: JSON.stringify(payload),
             });
             setMsg('');
+            setTemplateName(null);
+            setTemplateVariables([]);
+            setTemplateLanguage('en_US');
             fetchMessages(lead.id);
         } catch (e) { console.error('Send error:', e); }
     }
@@ -973,6 +1131,14 @@ export default function InboxPage() {
         useSuggestion,
         previewMedia,
         setPreviewMedia,
+        templateName,
+        setTemplateName,
+        setTemplateVariables,
+        setTemplateLanguage,
+        fetchInboxTemplates,
+        setSelectedInboxTemplate,
+        setTemplateSearchQuery,
+        setShowTemplateSelect,
     };
 
     return (
@@ -1165,10 +1331,200 @@ export default function InboxPage() {
                 </div>
             </div>
 
+            {showTemplateSelect && (
+                <>
+                    <div
+                        onClick={() => setShowTemplateSelect(false)}
+                        className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]"
+                    />
+                    <div
+                        className="fixed z-[101] flex flex-col"
+                        style={{
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: 800,
+                            height: 600,
+                            maxWidth: '95vw',
+                            maxHeight: '90vh',
+                            background: 'linear-gradient(160deg, #16112c 0%, #0d0820 100%)',
+                            borderRadius: 24,
+                            border: '1px solid #2a1f4a',
+                            boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.15)',
+                            fontFamily: "'Poppins', sans-serif",
+                            overflow: 'hidden',
+                        }}
+                    >
+                        {/* Header */}
+                        <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-[#2a1f4a]/50">
+                            <h2 className="m-0 text-[18px] font-bold text-[#f0f0ff] tracking-tight flex items-center gap-2">
+                                <FileText size={18} className="text-purple-400" />
+                                Select WhatsApp Template
+                            </h2>
+                            <button
+                                onClick={() => setShowTemplateSelect(false)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-all border border-[#2a2a4a] bg-white/5 text-white hover:bg-white/10"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        {/* Split Body */}
+                        <div className="flex flex-1 overflow-hidden">
+                            {/* Left List Pane */}
+                            <div className="w-[320px] border-r border-[#2a1f4a]/30 flex flex-col bg-[#0b0717]/40">
+                                {/* Search */}
+                                <div className="p-3">
+                                    <div className="flex items-center gap-2 bg-[#120d22] border border-[#2a1f4a] rounded-xl px-3 py-2">
+                                        <Search size={14} className="text-gray-400 shrink-0" />
+                                        <input
+                                            type="text"
+                                            value={templateSearchQuery}
+                                            onChange={(e) => setTemplateSearchQuery(e.target.value)}
+                                            placeholder="Search templates..."
+                                            className="bg-transparent border-none outline-none text-white text-[12px] w-full placeholder:text-gray-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Templates List */}
+                                <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-1.5 custom-scrollbar">
+                                    {filteredInboxTemplates.length > 0 ? (
+                                        filteredInboxTemplates.map((t) => {
+                                            const isSelected = selectedInboxTemplate?.id === t.id;
+                                            return (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => setSelectedInboxTemplate(t)}
+                                                    className="w-full text-left p-3 rounded-xl transition-all border outline-none"
+                                                    style={{
+                                                        backgroundColor: isSelected ? 'rgba(124,58,237,0.12)' : 'transparent',
+                                                        borderColor: isSelected ? '#7c3aed' : 'transparent',
+                                                    }}
+                                                >
+                                                    <div className="font-semibold text-white text-[13px] truncate">{t.name}</div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] text-purple-300 bg-purple-500/15 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">{t.category}</span>
+                                                        <span className="text-[10px] text-gray-400">{t.language}</span>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="text-center py-8 text-gray-500 text-[12px]">
+                                            No approved templates found.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Preview & Input Pane */}
+                            <div className="flex-1 flex flex-col bg-[#0b081c]/10 overflow-y-auto custom-scrollbar p-6">
+                                {selectedInboxTemplate ? (
+                                    <div className="flex-1 flex flex-col gap-5">
+                                        {/* Metadata banner */}
+                                        <div className="flex justify-between items-center bg-[#150f28] border border-[#2a1f4a]/50 p-3 rounded-xl">
+                                            <div>
+                                                <div className="text-xs text-gray-400">Template Name</div>
+                                                <div className="text-sm font-semibold text-white">{selectedInboxTemplate.name}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs text-gray-400">Language</div>
+                                                <div className="text-sm font-semibold text-purple-300">{selectedInboxTemplate.language}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* WhatsApp Chat Preview */}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Preview</div>
+                                            <div className="bg-[#100b21] border border-[#251d3b] p-4 rounded-2xl max-w-md">
+                                                {selectedInboxTemplate.header && (
+                                                    <div className="font-bold text-white text-[13px] mb-1">{selectedInboxTemplate.header}</div>
+                                                )}
+                                                <div className="text-[13px] text-white/90 whitespace-pre-wrap leading-relaxed">
+                                                    {getInboxTemplatePreviewText()}
+                                                </div>
+                                                {selectedInboxTemplate.footer && (
+                                                    <div className="text-[11px] text-gray-400 mt-2">{selectedInboxTemplate.footer}</div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Dynamic Variable Inputs */}
+                                        {Object.keys(inboxTemplateVariables).length > 0 && (
+                                            <div className="flex flex-col gap-3">
+                                                <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Variables</div>
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {Object.keys(inboxTemplateVariables)
+                                                        .sort((a, b) => Number(a) - Number(b))
+                                                        .map((key) => (
+                                                            <div key={key} className="flex flex-col gap-1">
+                                                                <label className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">
+                                                                    Variable {`{{${key}}}`}
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={inboxTemplateVariables[key]}
+                                                                    onChange={(e) => {
+                                                                        setInboxTemplateVariables(prev => ({
+                                                                            ...prev,
+                                                                            [key]: e.target.value
+                                                                        }));
+                                                                    }}
+                                                                    placeholder={`Enter value for {{${key}}}`}
+                                                                    className="w-full px-3 py-2 rounded-lg border border-[#2a1f4a] bg-[#120d22] text-white text-[13px] outline-none focus:border-[#7c3aed]"
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-500">
+                                        <FileText size={42} className="text-gray-600 mb-3" />
+                                        <p className="text-[13px]">Select a template from the list to preview and configure.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-[#2a1f4a]/50 flex justify-end gap-3 bg-[#0d091e]">
+                            <button
+                                onClick={() => setShowTemplateSelect(false)}
+                                className="px-5 py-2.5 rounded-xl border border-[#2a1f4a] bg-transparent text-white text-[13px] font-semibold hover:bg-white/5"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleApplyInboxTemplate}
+                                disabled={!selectedInboxTemplate}
+                                className="px-5 py-2.5 rounded-xl border-none text-white text-[13px] font-bold transition-all disabled:opacity-50"
+                                style={{
+                                    background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                                    boxShadow: selectedInboxTemplate ? '0 2px 14px rgba(129,74,200,0.45)' : 'none',
+                                }}
+                            >
+                                Apply Template
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
             <style>{`
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
         </div>
+    );
+}
+
+export default function InboxPage() {
+    return (
+        <Suspense fallback={<div className="h-screen bg-[#0d0d0d] flex items-center justify-center text-white/70">Loading...</div>}>
+            <InboxContent />
+        </Suspense>
     );
 }

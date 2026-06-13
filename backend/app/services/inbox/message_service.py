@@ -209,16 +209,46 @@ class MessageService:
             workspace_id=workspace_id,
             conversation_id=conversation_id,
         )
+        enriched_metadata = (metadata or {}).copy()
+        template_name = enriched_metadata.get("template_name")
+        if template_name:
+            from app.models.templates import Template
+            try:
+                template = db.query(Template).filter(
+                    Template.name == template_name,
+                    Template.workspace_id == workspace_id
+                ).first()
+                if template:
+                    if template.header:
+                        enriched_metadata["template_header"] = template.header
+                    if template.footer:
+                        enriched_metadata["template_footer"] = template.footer
+                    if template.cta:
+                        btn_text = template.cta_btn_title or "Visit"
+                        enriched_metadata["buttons"] = [
+                            {
+                                "text": btn_text,
+                                "url": template.cta
+                            }
+                        ]
+                    if template.type in {"IMAGE", "VIDEO", "DOCUMENT"}:
+                        media_url = enriched_metadata.get("media_url") or enriched_metadata.get("header_url")
+                        if media_url:
+                            enriched_metadata["media_url"] = media_url
+                            enriched_metadata["message_type"] = template.type.lower()
+            except Exception as e:
+                logger.warning(f"Error enriching metadata in send_reply: {e}")
+
         stored_message = MessageService.create_message(
             db,
             conversation=conversation,
             content=message,
             sender_type=SenderType.AGENT,
             status=MessageStatus.SENT,
-            metadata=metadata,
+            metadata=enriched_metadata,
             source="manual_reply",
         )
-        external_id = ChannelService.send_message(conversation, message, metadata)
+        external_id = ChannelService.send_message(conversation, message, enriched_metadata)
         stored_message.external_id = external_id
         MessageService._trigger_human_takeover(db, conversation)
         db.commit()

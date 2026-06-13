@@ -96,7 +96,8 @@ async def process_document_background(
             workspace_id=workspace_id,
             chunks=chunks,
             embeddings=embeddings,
-            parent_id=entry_id
+            parent_id=entry_id,
+            chunk_metadata=ingestion_metadata
         )
 
         logger.info(

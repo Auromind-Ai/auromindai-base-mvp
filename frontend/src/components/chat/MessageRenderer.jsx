@@ -19,9 +19,100 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
   const mediaUrl = meta.media_url;
   const messageType = meta.message_type;
   const buttons = meta.buttons;
+  const templateHeader = meta.template_header;
+  const templateFooter = meta.template_footer;
 
   // Nothing to render
   if (!content && !mediaUrl) return null;
+
+  // ── Template layout rendering (header, body, footer, buttons) ─────
+  if (templateHeader || templateFooter || (buttons && Array.isArray(buttons) && buttons.length > 0)) {
+    return (
+      <div className="flex flex-col gap-1.5 min-w-[180px]">
+        {/* Header */}
+        {templateHeader && (
+          <div className="text-[12px] font-bold text-white/60 mb-0.5 uppercase tracking-wide">
+            {templateHeader}
+          </div>
+        )}
+
+        {/* Media (if image/video attached to template) */}
+        {mediaUrl && (messageType === 'image' || /\.(jpe?g|png|gif|webp)(\?|$)/i.test(mediaUrl)) && (
+          <img
+            src={mediaUrl}
+            alt="header media"
+            className="max-w-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition mb-1"
+            onClick={() => onPreviewMedia?.({ type: 'image', url: mediaUrl })}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        )}
+        {mediaUrl && (messageType === 'video' || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(mediaUrl)) && (
+          <video
+            src={mediaUrl}
+            controls
+            className="max-w-[220px] rounded-xl mb-1"
+            onClick={(e) => { e.stopPropagation(); onPreviewMedia?.({ type: 'video', url: mediaUrl }); }}
+          />
+        )}
+
+        {/* Body content */}
+        {content && (
+          <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
+            {content}
+          </p>
+        )}
+
+        {/* Footer */}
+        {templateFooter && (
+          <div className="text-[11px] text-white/50 italic mt-0.5">
+            {templateFooter}
+          </div>
+        )}
+
+        {/* Buttons */}
+        {buttons && Array.isArray(buttons) && buttons.length > 0 && (
+          <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/10">
+            {buttons.slice(0, 3).map((btn, i) => {
+              const label = typeof btn === 'string' ? btn : (btn.label || btn.title || btn.text || `Option ${i + 1}`);
+              const url = typeof btn === 'object' && btn ? btn.url : null;
+              if (url) {
+                const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+                return (
+                  <a
+                    key={i}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-center py-2 px-4 rounded-xl text-[13px] font-medium block hover:bg-white/10 transition"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.15)',
+                      color: '#fff',
+                      border: '1px solid rgba(255,255,255,0.25)',
+                    }}
+                  >
+                    {label}
+                  </a>
+                );
+              }
+              return (
+                <button
+                  key={i}
+                  className="w-full text-center py-2 px-4 rounded-xl text-[13px] font-medium hover:bg-white/10 transition"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ── 1. Structured media from metadata ────────────────────────────
 
@@ -161,10 +252,30 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
         <div className="flex flex-col gap-2">
           {buttons.slice(0, 3).map((btn, i) => {
             const label = typeof btn === 'string' ? btn : (btn.label || btn.title || btn.text || `Option ${i + 1}`);
+            const url = typeof btn === 'object' && btn ? btn.url : null;
+            if (url) {
+              const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+              return (
+                <a
+                  key={i}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full text-center py-2 px-4 rounded-xl text-[13px] font-medium block hover:bg-white/10 transition"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                  }}
+                >
+                  {label}
+                </a>
+              );
+            }
             return (
               <button
                 key={i}
-                className="w-full text-center py-2 px-4 rounded-xl text-[13px] font-medium"
+                className="w-full text-center py-2 px-4 rounded-xl text-[13px] font-medium hover:bg-white/10 transition"
                 style={{
                   backgroundColor: 'rgba(255,255,255,0.15)',
                   color: '#fff',

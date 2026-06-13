@@ -273,6 +273,7 @@ export default function AutomationCanvas() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewNode, setPreviewNode] = useState(null);
   const [stepsOpen, setStepsOpen] = useState(false);
+  const [salesManualText, setSalesManualText] = useState('');
 
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -470,6 +471,79 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
   };
   const handleFileSelect = (e) => { const file = e.target.files[0]; if (file) handleFileUpload(file); };
   const clearUpload = () => { setPreviewUrl(null); setUploadError(null); updateNodeConfig(activeNodeId, { media_url: null }); };
+
+  const handleSalesFileUpload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const workspace_id = getWorkspaceIdFromToken();
+      const agentType = activeNode?.config?.agent_type || 'sales_agent';
+      let data;
+      if (agentType === 'sales_agent') {
+        data = await api.uploadSalesDocument(file, workspace_id);
+      } else if (agentType === 'support_agent') {
+        data = await api.uploadSupportDocument(file, workspace_id);
+      } else {
+        data = await api.uploadDocument(file, workspace_id, 'general');
+      }
+      const newEntryId = data.entry_id;
+      if (newEntryId && activeNodeId) {
+         updateNodeConfig(activeNodeId, (config) => ({
+            ...config,
+            entry_ids: [...(config.entry_ids || []), newEntryId]
+         }));
+      }
+    } catch (err) {
+      console.error(err);
+      setUploadError(err.message || 'File upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSalesFileSelect = (e) => { const file = e.target.files[0]; if (file) handleSalesFileUpload(file); };
+  const handleSalesDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleSalesFileUpload(file);
+  };
+  
+  const handleSalesManualSave = async () => {
+    if (!salesManualText.trim()) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const workspace_id = getWorkspaceIdFromToken();
+      const agentType = activeNode?.config?.agent_type || 'sales_agent';
+      let collection = 'general';
+      if (agentType === 'sales_agent') collection = 'sales';
+      else if (agentType === 'support_agent') collection = 'support';
+      const data = await api.addTextKnowledge(`Sales Note - ${new Date().toLocaleString()}`, salesManualText, workspace_id, collection);
+      const newEntryId = data.entry_id;
+      if (newEntryId && activeNodeId) {
+         updateNodeConfig(activeNodeId, (config) => ({
+            ...config,
+            entry_ids: [...(config.entry_ids || []), newEntryId]
+         }));
+         setSalesManualText(''); 
+      }
+    } catch (err) {
+      console.error(err);
+      setUploadError('Text save failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeSalesEntry = (idToRemove) => {
+     if (!activeNodeId) return;
+     updateNodeConfig(activeNodeId, (config) => ({
+        ...config,
+        entry_ids: (config.entry_ids || []).filter(id => id !== idToRemove)
+     }));
+  };
 
   const handleSave = async () => {
     if (!selectedItem) return;
@@ -1228,7 +1302,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         <div className="grid grid-cols-3 gap-2">
                           {[
                             { value: 'lead_agent',    label: 'Lead',    emoji: '🎯', comingSoon: false },
-                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: true  },
+                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: false  },
                             { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: true  },
                           ].map(({ value, label, emoji, comingSoon }) => {
                             const isSelected = (activeNode.config?.agent_type || 'lead_agent') === value;
@@ -1265,16 +1339,18 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         </p>
                       </section>
 
-                      <section>
-                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
-                        <textarea
-                          value={activeNode.config?.prompt || ''}
-                          onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
-                          placeholder="Override AI behavior for this step..."
-                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white"
-                          rows={3}
-                        />
-                      </section>
+                      {activeNode.config?.agent_type !== 'sales_agent' && (
+                        <section>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
+                          <textarea
+                            value={activeNode.config?.prompt || ''}
+                            onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
+                            placeholder="Override AI behavior for this step..."
+                            className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white"
+                            rows={3}
+                          />
+                        </section>
+                      )}
                       <section>
                         <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
                         <select
@@ -1293,46 +1369,127 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         </select>
                       </section>
 
-                      <section>
-                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
-                        <textarea
-                          value={activeNode.config?.lead_fields || ''}
-                          onChange={(e) => updateNodeConfig(activeNodeId, { lead_fields: e.target.value })}
-                          placeholder="name, email, phone, budget"
-                          rows={3}
-                          className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50 transition shadow-inner placeholder:text-zinc-600"
-                        />
-                      </section>
+                      {activeNode.config?.agent_type !== 'sales_agent' && (
+                        <section>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
+                          <textarea
+                            value={activeNode.config?.lead_fields || ''}
+                            onChange={(e) => updateNodeConfig(activeNodeId, { lead_fields: e.target.value })}
+                            placeholder="name, email, phone, budget"
+                            rows={3}
+                            className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50 transition shadow-inner placeholder:text-zinc-600"
+                          />
+                        </section>
+                      )}
 
                       <section className="space-y-3">
                         <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
                         {[
                           { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
+                          ...(activeNode.config?.agent_type === 'sales_agent' ? [{ key: 'payment_enabled', label: 'Enable Payment' }] : [])
                         ].map(({ key, label }) => (
-                          <label key={key} className="flex items-center gap-3 cursor-pointer group" data-no-drag>
-                            <div
-                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                              className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
-                                activeNode.config?.[key]
-                                  ? 'bg-indigo-500 border-indigo-500'
-                                  : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
-                              }`}
-                            >
-                              {activeNode.config?.[key] && (
-                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              )}
-                            </div>
-                            <span
-                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                              className="text-sm text-white/80 group-hover:text-white transition"
-                            >
-                              {label}
-                            </span>
-                          </label>
+                          <div key={key} className="space-y-3">
+                            <label className="flex items-center gap-3 cursor-pointer group" data-no-drag>
+                              <div
+                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
+                                  activeNode.config?.[key]
+                                    ? 'bg-indigo-500 border-indigo-500'
+                                    : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
+                                }`}
+                              >
+                                {activeNode.config?.[key] && (
+                                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <span
+                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                className="text-sm text-white/80 group-hover:text-white transition"
+                              >
+                                {label}
+                              </span>
+                            </label>
+                            {key === 'payment_enabled' && activeNode.config?.[key] && (
+                              <div className="pl-8" data-no-drag>
+                                <input
+                                  type="text"
+                                  value={activeNode.config?.payment_link || ''}
+                                  onChange={(e) => updateNodeConfig(activeNodeId, { payment_link: e.target.value })}
+                                  placeholder="Paste payment link here"
+                                  className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500/50 outline-none placeholder:text-zinc-600"
+                                />
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </section>
+                      {activeNode.config?.agent_type === 'sales_agent' && (
+                        <section className="space-y-4 pt-4 border-t border-white/5">
+                          <label className="text-[12px] font-semibold text-white tracking-wider block">Product Details & Knowledge</label>
+                          <p className="text-[10px] text-zinc-500 mb-2">Upload documents or manually add details. The AI will strictly answer from this context.</p>
+                          
+                          {/* File Upload Zone */}
+                          <div
+                            className={`relative border-2 border-dashed rounded-2xl p-6 transition-colors ${isDragOver ? 'border-indigo-400 bg-indigo-400/10' : 'border-white/20 hover:border-white/40'} ${uploading ? 'pointer-events-none opacity-50' : ''}`}
+                            onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleSalesDrop}
+                          >
+                             <div className="text-center space-y-4">
+                                <div className="flex flex-col items-center gap-2">
+                                  <Upload size={24} className="text-white/40" />
+                                  <div>
+                                    <p className="text-xs text-white/80">{isDragOver ? 'Drop your file here' : 'Drag & drop document'}</p>
+                                  </div>
+                                </div>
+                                <input type="file" accept=".pdf,.txt,.docx,.md" onChange={handleSalesFileSelect} className="hidden" id="sales-file-upload" disabled={uploading} />
+                                <label htmlFor="sales-file-upload" className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition-colors text-xs">
+                                  <Upload size={14} /> Browse
+                                </label>
+                              </div>
+                              {uploading && (
+                                  <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
+                                    <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                  </div>
+                              )}
+                          </div>
+
+                          {/* Manual Text Entry */}
+                          <div>
+                             <textarea
+                               value={salesManualText}
+                               onChange={(e) => setSalesManualText(e.target.value)}
+                               placeholder="Or manually type product details, features, and pricing here..."
+                               className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500/50 outline-none resize-none h-24"
+                             />
+                             <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={handleSalesManualSave}
+                                  disabled={uploading || !salesManualText.trim()}
+                                  className="px-4 py-2 bg-indigo-500/20 text-indigo-300 rounded-lg text-xs font-semibold hover:bg-indigo-500/30 transition disabled:opacity-50"
+                                >
+                                  {uploading ? 'Saving...' : 'Save Text'}
+                                </button>
+                             </div>
+                          </div>
+
+                          {/* Render attached entry IDs if any */}
+                          {(activeNode.config?.entry_ids || []).length > 0 && (
+                            <div className="space-y-2 mt-4">
+                               <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Attached Knowledge</label>
+                               {(activeNode.config?.entry_ids || []).map((id, index) => (
+                                  <div key={id} className="flex items-center justify-between px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+                                     <span className="text-xs text-indigo-300 font-mono truncate max-w-[200px]">Doc {id.substring(0,8)}</span>
+                                     <button onClick={() => removeSalesEntry(id)} className="text-rose-400 hover:text-rose-300 p-1">
+                                        <X size={14} />
+                                     </button>
+                                  </div>
+                               ))}
+                            </div>
+                          )}
+
+                        </section>
+                      )}
                     </>
                   )}
 

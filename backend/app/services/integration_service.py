@@ -138,7 +138,10 @@ class IntegrationService:
         status = {
             "calendar": {"connected": False, "email": None},
             "gmail": {"connected": False, "email": None},
-            "zoho": {"connected": False, "account": None}
+            "zoho": {"connected": False, "account": None},
+            "whatsapp": {"connected": False, "phone": None},
+            "instagram": {"connected": False, "username": None},
+            "twilio": {"connected": False, "phone": None}
         }
         
         for integration in integrations:
@@ -157,6 +160,22 @@ class IntegrationService:
                     "connected": integration.is_active,
                     "account": integration.connected_account_id
                 }
+        
+        from app.models.workspace import Workspace
+        ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+        if ws:
+            status["whatsapp"] = {
+                "connected": bool(ws.meta_access_token and ws.meta_phone_number_id),
+                "phone": ws.meta_display_phone
+            }
+            status["instagram"] = {
+                "connected": bool(ws.meta_ig_id),
+                "username": ws.meta_ig_id
+            }
+            status["twilio"] = {
+                "connected": bool(ws.twilio_account_sid and ws.twilio_phone_number),
+                "phone": ws.twilio_phone_number
+            }
         
         return status
 

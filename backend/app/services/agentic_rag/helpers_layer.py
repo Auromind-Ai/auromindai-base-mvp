@@ -48,18 +48,20 @@ class helperslayer:
             q_words = set(q.split())
             k_words = set(cleaned_key.split())
 
-            overlap = len(q_words & k_words)
-            overlap_ratio = overlap / max(len(k_words), 1)
+            # only for multi-word keys
+            if len(k_words) > 1:
+                overlap = len(q_words & k_words)
+                overlap_ratio = overlap / len(k_words)
 
-            if overlap_ratio < 0.6:
-                continue
+                if overlap_ratio < 0.6:
+                    continue
 
             score = self.similarity(q, cleaned_key)
 
-            # containment boost
             if cleaned_key in q or q in cleaned_key:
                 score += 0.2
 
+  
             if score > best_score:
                 best_score = score
                 best_match = value

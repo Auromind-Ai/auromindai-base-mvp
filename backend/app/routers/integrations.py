@@ -16,7 +16,7 @@ async def google_oauth_init(
     db: Session = Depends(get_db)
 ):
     
-    workspace_id = verify_workspace_access(current_user, db)
+    verify_workspace_access(current_user, db, workspace_id)
     try:
         url = IntegrationService.get_google_oauth_url(db, workspace_id, integration_type)
         return {"authorization_url": url}
@@ -36,7 +36,7 @@ async def google_oauth_callback(
 ):
    
     try:
-        verify_workspace_access(current_user, db)
+        verify_workspace_access(current_user, db) # No workspace_id available here, so default behavior is fine.
         integration_type = IntegrationService.handle_google_oauth_callback(db, code, state)
         return {"status": "success", "message": f"Successfully connected {integration_type}"}
     except Exception as e:
@@ -49,7 +49,7 @@ async def get_integration_status(
     db: Session = Depends(get_db)
 ):
     
-    workspace_id = verify_workspace_access(current_user, db)
+    verify_workspace_access(current_user, db, workspace_id)
     return IntegrationService.get_integration_status(db, workspace_id)
 
 @router.delete("/disconnect/{integration_type}")
@@ -60,7 +60,7 @@ async def disconnect_integration(
     db: Session = Depends(get_db)
 ):
     
-    workspace_id = verify_workspace_access(current_user, db)
+    verify_workspace_access(current_user, db, workspace_id)
     IntegrationService.disconnect_integration(db, workspace_id, integration_type)
     
     return {"status": "success", "message": f"Disconnected {integration_type}"}
