@@ -23,7 +23,8 @@ class VectorStoreService:
         workspace_id: str,
         chunks: List[Dict[str, Any]],
         embeddings,
-        parent_id: Optional[str] = None
+        parent_id: Optional[str] = None,
+        chunk_metadata: Optional[Dict[str, Any]] = None
     ) -> List[str]:
 
         if not chunks:
@@ -42,6 +43,8 @@ class VectorStoreService:
                 "content_hash": chunk.get("id"),  # MD5 from Schunker
                 "parent_id": parent_id
             }
+            if chunk_metadata:
+                metadata.update(chunk_metadata)
 
             db_chunk = BrainChunk(
                 id=chunk["id"],  # Use deterministic MD5 id
@@ -141,7 +144,9 @@ class VectorStoreService:
         workspace_id: str,
         query_embedding,
         top_k: int = 5,
-        parent_id: Optional[str] = None
+        parent_id: Optional[str] = None,
+        entry_ids: Optional[List[str]] = None,
+        collection: Optional[str] = None
     ) -> List[Dict[str, Any]]:
 
         try:
@@ -155,6 +160,17 @@ class VectorStoreService:
 
             if parent_id:
                 query = query.filter(BrainChunk.entry_id == parent_id)
+            
+            if entry_ids:
+                query = query.filter(BrainChunk.entry_id.in_(entry_ids))
+                
+            if collection:
+                if isinstance(collection, list):
+                    from sqlalchemy import or_
+                    conditions = [BrainChunk.metadata_json.like(f'%"collection": "{c}"%') for c in collection]
+                    query = query.filter(or_(*conditions))
+                else:
+                    query = query.filter(BrainChunk.metadata_json.like(f'%"collection": "{collection}"%'))
 
             results = query.order_by(
                 text("distance ASC")

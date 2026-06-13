@@ -244,22 +244,19 @@ class SalesPipeline(Base):
     )
 
     stage = Column(String(50))  
-    # awareness / consideration / decision
-
-    interest_level = Column(String(50))
-    objections = Column(JSON)
-
-    updated_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    deal_value = Column(Float)
+    intent = Column(String(255))
+    lead_score = Column(String(50))  # e.g., hot, warm, cold
+    confidence_score = Column(Float)
+    
+    objection_detected = Column(Boolean, default=False)
+    payment_required = Column(Boolean, default=False)
+    meeting_required = Column(Boolean, default=False)
 
-    expected_close_date = Column(
-        DateTime(timezone=True)
-    )
-
-    payment_completed = Column(
-        Boolean,
-        default=False
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
     )
 
 

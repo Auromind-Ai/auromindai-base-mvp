@@ -4,6 +4,7 @@ class SendReply(BaseModel):
     conversation_id: str
     message: str
     phone: str | None = None
+    metadata: dict | None = None
 
 class AISuggest(BaseModel):
     conversation_id: str

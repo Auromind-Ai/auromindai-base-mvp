@@ -45,12 +45,14 @@ def send_reply(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    print("BACKEND RECEIVED SEND-REPLY DATA:", data.dict())
     workspace_id = verify_workspace_access(current_user, db)
     return MessageService.send_reply(
         db,
         workspace_id=workspace_id,
         conversation_id=data.conversation_id,
         message=data.message,
+        metadata=data.metadata,
     )
 
 

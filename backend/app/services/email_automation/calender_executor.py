@@ -331,19 +331,26 @@ class CalendarExecutor:
 
         tz = pytz.timezone(event.timezone)
 
-        # convert stored UTC → user timezone
-        start_time = event.event_date.astimezone(tz)
-        end_time = start_time + timedelta(minutes=30)
+        # Ensure we treat DB datetime as UTC if it's naive
+        if event.event_date.tzinfo is None:
+            utc_dt = pytz.utc.localize(event.event_date)
+        else:
+            utc_dt = event.event_date.astimezone(pytz.utc)
 
+        # convert stored UTC → user timezone
+        start_time = utc_dt.astimezone(tz)
+        end_time = start_time + timedelta(minutes=30)
 
         event_body = {
             "summary": event.title,
             "description": event.description,
             "start": {
-                "dateTime": start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+                "dateTime": start_time.isoformat(),
+                "timeZone": event.timezone
             },
             "end": {
-                 "dateTime": end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+                 "dateTime": end_time.isoformat(),
+                 "timeZone": event.timezone
             },
             "conferenceData": {
                 "createRequest": {

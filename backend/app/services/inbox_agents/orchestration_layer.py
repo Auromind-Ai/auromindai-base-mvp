@@ -1,6 +1,7 @@
 from app.core.logger import logger
 from app.services.inbox_agents.config_service import ConfigService
 from app.services.inbox_agents.unified_agent import UnifiedAgent
+from app.services.inbox_agents.sales_agent import SalesAgent
 from app.services.inbox_agents.mcpservice import MCPService
 from app.services.inbox_agents.llm_client import LLMClient
 from app.services.inbox_agents.memory_service import MemoryService
@@ -8,6 +9,7 @@ from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.inbox.twilio_service import TwilioService
 from app.models.flow_execution import FlowExecutionState
 from app.models import Conversation
+from app.core.config import settings
 
 
 class AgentOrchestration:
@@ -25,6 +27,7 @@ class AgentOrchestration:
         self.config_service = ConfigService()
         self.mcp.config_service = self.config_service
         self.unified_agent = UnifiedAgent(self.llm, self.memory)
+        self.sales_agent = SalesAgent(self.llm, self.memory)
         self.escalation_queue = EscalationQueue(db=db)
 
         self.channel_adapters = {"twilio": None, "instagram": None, "whatsapp": None}
@@ -156,22 +159,38 @@ class AgentOrchestration:
             "user_id": user_id, "turn_count": turn_count, "conversation_id": conversation_id
         })
 
-        # Run Unified Agent
-        result = await self.unified_agent.handle(
-            message=message,
-            context={
-                "agent_type": agent_type,
-                "workspace_id": workspace_id,
-                "conversation_id": conversation_id,
-                "db": self.db,
-                "turn_count": turn_count,
-                "repeat_count": repeat_count,
-                "business_type": payload.get("business_type"),
-                "lead_fields": lead_fields,
-                "calendar_enabled": payload.get("calendar_enabled", False),
-                "payment_enabled": payload.get("payment_enabled", False),
-            }
-        ) or {}
+        # Run Agent
+        if agent_type == "sales_agent":
+            result = await self.sales_agent.handle(
+                message=message,
+                context={
+                    "agent_type": agent_type,
+                    "workspace_id": workspace_id,
+                    "conversation_id": conversation_id,
+                    "db": self.db,
+                    "business_type": payload.get("business_type"),
+                    "calendar_enabled": payload.get("calendar_enabled", False),
+                    "payment_enabled": payload.get("payment_enabled", False),
+                    "entry_ids": payload.get("entry_ids", []),
+                }
+            ) or {}
+        else:
+            result = await self.unified_agent.handle(
+                message=message,
+                context={
+                    "agent_type": agent_type,
+                    "workspace_id": workspace_id,
+                    "conversation_id": conversation_id,
+                    "db": self.db,
+                    "turn_count": turn_count,
+                    "repeat_count": repeat_count,
+                    "business_type": payload.get("business_type"),
+                    "lead_fields": lead_fields,
+                    "calendar_enabled": payload.get("calendar_enabled", False),
+                    "payment_enabled": payload.get("payment_enabled", False),
+                    "entry_ids": payload.get("entry_ids", []),
+                }
+            ) or {}
 
         stage  = result.get("stage",  "lead")
         action = result.get("action")
@@ -412,6 +431,22 @@ class AgentOrchestration:
                     "last_action":   action,
                 }
             )
+
+            if agent_type == "sales_agent":
+                sales_data = {
+                    "stage": "sales",
+                    "intent": result.get("intent"),
+                    "lead_score": result.get("lead_score"),
+                    "confidence_score": result.get("confidence_score"),
+                    "objection_detected": result.get("objection_detected", False),
+                    "payment_required": result.get("payment_required", False),
+                    "meeting_required": result.get("meeting_required", False),
+                }
+                self.memory.update_sales_data(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                    data={k: v for k, v in sales_data.items() if v is not None}
+                )
 
         # ─ MCP validation ─
         mcp_result = self.mcp.evaluate_action(

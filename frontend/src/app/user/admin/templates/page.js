@@ -63,6 +63,171 @@ const INDUSTRIES = [
   { id: 'travel',      label: 'Travel',      Icon: Plane        },
 ];
 
+const PRE_TEMPLATE_SAMPLES = [
+  {
+    id: 'sample_1',
+    name: 'order_delivery_update',
+    type: 'TEXT',
+    category: 'UTILITY',
+    language: 'en_US',
+    content: `Hello,
+
+Your order {{1}} has been shipped and is on its way.
+
+You can track your shipment using this link: {{2}}
+
+Thank you for choosing us. We look forward to delivering your order soon.`,
+    status: 'approved',
+    tag: 'trending',
+  },
+  {
+    id: 'sample_2',
+    name: 'abandoned_cart_reminder',
+    type: 'TEXT',
+    category: 'MARKETING',
+    language: 'en_US',
+    content: `Hi {{1}},
+
+We noticed you left some items in your cart.
+
+Use code {{2}} to get {{3}}% off your order!
+
+Complete your checkout here: {{4}}
+
+We look forward to serving you soon!`,
+    status: 'approved',
+    tag: 'trending',
+  },
+  {
+    id: 'sample_3',
+    name: 'appointment_confirmation',
+    type: 'TEXT',
+    category: 'UTILITY',
+    language: 'en_US',
+    content: `Hi {{1}},
+
+Your appointment with {{2}} has been successfully confirmed for {{3}}.
+
+If you need to reschedule or view booking details, please visit: {{4}}
+
+Thank you!`,
+    status: 'approved',
+    tag: 'general',
+  },
+  {
+    id: 'sample_4',
+    name: 'feedback_request',
+    type: 'TEXT',
+    category: 'MARKETING',
+    language: 'en_US',
+    content: `Hi {{1}},
+
+Thank you for choosing us! We hope you loved your experience.
+
+Could you take a moment to share your feedback here: {{2}}
+
+Your review helps us grow and improve.`,
+    status: 'approved',
+    tag: 'top_rated',
+  },
+  {
+    id: 'sample_5',
+    name: 'ecommerce_flash_sale',
+    type: 'TEXT',
+    category: 'MARKETING',
+    language: 'en_US',
+    content: `Flash Sale Alert!
+
+Hi {{1}}, get {{2}}% off on all items, today only.
+
+Shop the sale now before it ends: {{3}}
+
+Happy shopping!`,
+    status: 'approved',
+    tag: 'ecommerce',
+  },
+  {
+    id: 'sample_6',
+    name: 'education_class_reminder',
+    type: 'TEXT',
+    category: 'UTILITY',
+    language: 'en_US',
+    content: `Class Reminder:
+
+Hi {{1}}, this is a quick reminder that your upcoming class {{2}} is scheduled for {{3}}.
+
+Please join using this link: {{4}}
+
+See you there!`,
+    status: 'approved',
+    tag: 'education',
+  },
+  {
+    id: 'sample_7',
+    name: 'banking_txn_alert',
+    type: 'TEXT',
+    category: 'UTILITY',
+    language: 'en_US',
+    content: `Transaction Alert:
+
+Your account ending in {{1}} was debited for {{2}} on {{3}}.
+
+Your available balance is now: {{4}}
+
+If you did not perform this transaction, please contact support immediately.`,
+    status: 'approved',
+    tag: 'banking',
+  },
+  {
+    id: 'sample_8',
+    name: 'healthcare_prescription_ready',
+    type: 'TEXT',
+    category: 'UTILITY',
+    language: 'en_US',
+    content: `Prescription Ready:
+
+Hi {{1}}, your prescription from {{2}} is ready for pickup.
+
+Location details: {{3}}
+
+Please bring a valid ID when picking up.`,
+    status: 'approved',
+    tag: 'healthcare',
+  },
+  {
+    id: 'sample_9',
+    name: 'realestate_new_listing',
+    type: 'TEXT',
+    category: 'MARKETING',
+    language: 'en_US',
+    content: `New Property Listing:
+
+Hi {{1}}, a new property matching your search preferences is now available in {{2}}.
+
+Price details: {{3}}
+
+View photos and booking details here: {{4}}. We hope you like it!`,
+    status: 'approved',
+    tag: 'real_estate',
+  },
+  {
+    id: 'sample_10',
+    name: 'travel_flight_delay',
+    type: 'TEXT',
+    category: 'UTILITY',
+    language: 'en_US',
+    content: `Flight Update:
+
+Flight {{1}} to {{2}} has been delayed by {{3}} minutes.
+
+New departure time: {{4}}
+
+We apologize for the inconvenience and appreciate your patience.`,
+    status: 'approved',
+    tag: 'travel',
+  },
+];
+
 /* ─────────────────────────────────────────────
    Atoms
 ───────────────────────────────────────────── */
@@ -122,7 +287,7 @@ const SkeletonCard = () => (
 /* ─────────────────────────────────────────────
    Template Card
 ───────────────────────────────────────────── */
-function TemplateCard({ tpl, onPreview, onSubmit, viewMode, idx }) {
+function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   const [hov, setHov] = useState(false);
   const isList = viewMode === 'list';
   const ci = CARD_ICONS[idx % CARD_ICONS.length];
@@ -258,7 +423,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, viewMode, idx }) {
           {/* Use (approved) */}
           {tpl.status === 'approved' && (
             <button
-              onClick={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onUse(tpl); }}
               className="px-[14px] py-[7px] rounded-[9px] border-none text-white text-[12px] font-bold cursor-pointer flex items-center gap-[5px] transition-all duration-[150ms] font-[var(--sans)]"
               style={{
                 background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
@@ -412,12 +577,36 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
               border: '1px solid #25204a',
             }}
           >
+            {tpl.header && (
+              <div style={{ fontWeight: '700', marginBottom: '4px', fontSize: '13px', color: 'white' }}>
+                {tpl.header}
+              </div>
+            )}
             <p
               className="m-0 text-[14px] text-[#e8e8ff] leading-[1.7] whitespace-pre-wrap"
               style={{ fontFamily: 'var(--sans)' }}
             >
               {fmt(tpl?.content) || 'No content available.'}
             </p>
+            {tpl.footer && (
+              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', marginTop: '6px' }}>
+                {tpl.footer}
+              </div>
+            )}
+            {tpl.cta && (
+              <div style={{
+                borderTop: '1px solid rgba(255,255,255,0.1)',
+                paddingTop: '9px',
+                marginTop: '6px',
+                textAlign: 'center',
+                color: '#4da3ff',
+                fontSize: '13px',
+                fontWeight: '600',
+                letterSpacing: '0.3px',
+              }}>
+                🔗 {tpl.cta_btn_title || 'Open'}
+              </div>
+            )}
           </div>
 
           {/* Tag pills */}
@@ -473,6 +662,174 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
   );
 }
 
+function UseTemplateModal({ tpl, onClose }) {
+  const router = useRouter();
+  const [variables, setVariables] = useState({});
+  const open = !!tpl;
+
+  // Extract variables when template changes
+  useEffect(() => {
+    if (tpl && tpl.content) {
+      const regex = /\{\{(\d+)\}\}/g;
+      let match;
+      const initialVars = {};
+      while ((match = regex.exec(tpl.content)) !== null) {
+        const varNum = match[1];
+        initialVars[varNum] = '';
+      }
+      const timer = setTimeout(() => {
+        setVariables(initialVars);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [tpl]);
+
+  if (!open) return null;
+
+  const varKeys = Object.keys(variables).sort((a, b) => Number(a) - Number(b));
+
+  const handleInputChange = (key, val) => {
+    setVariables(prev => ({ ...prev, [key]: val }));
+  };
+
+  const getPreviewText = () => {
+    if (!tpl || !tpl.content) return '';
+    return tpl.content.replace(/\{\{(\d+)\}\}/g, (_, num) => {
+      return variables[num] || `{{${num}}}`;
+    });
+  };
+
+  const handleUseTemplate = () => {
+    const finalMsg = getPreviewText();
+    const varValues = varKeys.map(key => variables[key]);
+    const query = new URLSearchParams({
+      msg: finalMsg,
+      channel: 'whatsapp',
+      template_name: tpl.name || '',
+      variables: JSON.stringify(varValues),
+      language: tpl.language || 'en_US'
+    }).toString();
+    router.push(`/user/admin/inbox?${query}`);
+    onClose();
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]"
+      />
+
+      {/* Modal */}
+      <div
+        className="fixed z-[101] flex flex-col"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 500,
+          maxWidth: '95vw',
+          background: 'linear-gradient(160deg, #1a1030 0%, #0d0820 100%)',
+          borderRadius: 24,
+          border: '1px solid #2a1f4a',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.15)',
+          fontFamily: 'var(--sans)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-[#2a1f4a]/50">
+          <h2 className="m-0 text-[18px] font-bold text-[#f0f0ff] tracking-[-0.02em]">
+            Fill Template Variables
+          </h2>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center cursor-pointer transition-all duration-[150ms]"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              border: '1px solid #2a2a4a',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#ffffff',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+          >
+            <X size={14} color="#ffffff" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 flex flex-col gap-5 max-h-[50vh] overflow-y-auto">
+          {varKeys.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {varKeys.map(key => (
+                <div key={key} className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-bold uppercase tracking-wider text-purple-300">
+                    Variable {"{{"}{key}{"}}"}
+                  </label>
+                  <input
+                    type="text"
+                    value={variables[key]}
+                    onChange={e => handleInputChange(key, e.target.value)}
+                    placeholder={`Enter value for {{${key}}}`}
+                    className="w-full px-4 py-3 rounded-xl border border-[#2a1f4a] bg-[#140D1F] text-[#f0f0ff] text-[14px] outline-none focus:border-[#7c3aed] transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[13px] text-gray-400">
+              {'No variables found in this template. Click "Proceed to Inbox" to use the message as is.'}
+            </p>
+          )}
+
+          {/* Live Preview */}
+          <div className="flex flex-col gap-2 mt-2">
+            <span className="text-[12px] font-bold uppercase tracking-wider text-gray-400">Message Preview</span>
+            <div
+              className="w-full flex flex-col gap-[10px] p-[16px_18px]"
+              style={{
+                background: '#140D1F',
+                borderRadius: 16,
+                border: '1px solid #25204a',
+              }}
+            >
+              <p className="m-0 text-[14px] text-[#e8e8ff] leading-[1.6] whitespace-pre-wrap">
+                {getPreviewText() || 'No preview available.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 pt-4 border-t border-[#2a1f4a]/50 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-[12px] rounded-[12px] border border-[#2a1f4a] bg-transparent text-white text-[14px] font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUseTemplate}
+            className="flex-1 py-[12px] rounded-[12px] border-none text-white text-[14px] font-bold cursor-pointer transition-all duration-[150ms]"
+            style={{
+              background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
+              boxShadow: '0 4px 24px rgba(124,58,237,0.4)',
+            }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 32px rgba(124,58,237,0.6)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(124,58,237,0.4)'}
+          >
+            Proceed to Inbox
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ─────────────────────────────────────────────
    Category Sidebar Item
 ───────────────────────────────────────────── */
@@ -514,13 +871,15 @@ export default function TemplatesPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState([]);
   const [filtered, setFiltered]   = useState([]);
-  const [activeTab, setActiveTab] = useState('All');
+  const [viewSource, setViewSource] = useState('samples'); // 'samples' or 'user'
+  const [activeTab, setActiveTab] = useState(null); // All, Draft, Pending, Approved, Rejected
   const [search, setSearch]       = useState('');
   const [loading, setLoading]     = useState(true);
   const [selected, setSelected]   = useState(null);
+  const [useTemplate, setUseTemplate] = useState(null);
   const [viewMode, setViewMode]   = useState('grid');
   const [spinning, setSpinning]   = useState(false);
-  const [activeCategory, setActiveCategory] = useState('trending');
+  const [activeCategory, setActiveCategory] = useState('trending'); // trending, ecommerce, etc.
 
   const countFor = tab =>
     tab === 'All' ? templates.length
@@ -529,14 +888,29 @@ export default function TemplatesPage() {
   useEffect(() => { fetchTemplates(); }, []);
 
   useEffect(() => {
-    let d = [...templates];
-    if (activeTab !== 'All') d = d.filter(t => t.status === activeTab.toLowerCase());
-    if (search) d = d.filter(t =>
-      t.name.toLowerCase().includes(search.toLowerCase()) ||
-      (t.content || '').toLowerCase().includes(search.toLowerCase())
-    );
-    setFiltered(d);
-  }, [templates, activeTab, search]);
+    if (viewSource === 'samples') {
+      let d = PRE_TEMPLATE_SAMPLES.filter(t => t.tag === activeCategory);
+      if (search) {
+        d = d.filter(t =>
+          t.name.toLowerCase().includes(search.toLowerCase()) ||
+          (t.content || '').toLowerCase().includes(search.toLowerCase())
+        );
+      }
+      setFiltered(d);
+    } else {
+      let d = [...templates];
+      if (activeTab && activeTab !== 'All') {
+        d = d.filter(t => t.status === activeTab.toLowerCase());
+      }
+      if (search) {
+        d = d.filter(t =>
+          t.name.toLowerCase().includes(search.toLowerCase()) ||
+          (t.content || '').toLowerCase().includes(search.toLowerCase())
+        );
+      }
+      setFiltered(d);
+    }
+  }, [templates, viewSource, activeTab, activeCategory, search]);
 
   const fetchTemplates = async (refresh = false) => {
     if (refresh) setSpinning(true);
@@ -654,8 +1028,12 @@ export default function TemplatesPage() {
                     key={cfg.key}
                     cfg={cfg}
                     count={count}
-                    onClick={isClickable ? () => setActiveTab(tabName) : undefined}
-                    isActive={isClickable && activeTab === tabName}
+                    onClick={isClickable ? () => {
+                      setViewSource('user');
+                      setActiveTab(tabName);
+                      setActiveCategory(null);
+                    } : undefined}
+                    isActive={isClickable && viewSource === 'user' && activeTab === tabName}
                   />
                 );
               })}
@@ -692,12 +1070,16 @@ export default function TemplatesPage() {
             {/* Tabs — CHANGED px-8 to px-4 */}
             <div className="flex items-center gap-1 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-3 shrink-0">
               {TABS.map(tab => {
-                const active = activeTab === tab;
+                const active = viewSource === 'user' && activeTab === tab;
                 const cnt = countFor(tab);
                 return (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => {
+                      setViewSource('user');
+                      setActiveTab(tab);
+                      setActiveCategory(null);
+                    }}
                     className="flex items-center gap-[6px] px-[14px] py-[7px] rounded-[9px] border-none text-[13px] cursor-pointer whitespace-nowrap transition-all duration-[150ms]"
                     style={{
                       background: active ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'transparent',
@@ -781,8 +1163,12 @@ export default function TemplatesPage() {
                 {CATEGORIES.map(({ id, label, Icon }) => (
                   <SidebarItem
                     key={id} id={id} label={label} Icon={Icon}
-                    active={activeCategory === id}
-                    onClick={() => setActiveCategory(id)}
+                    active={viewSource === 'samples' && activeCategory === id}
+                    onClick={() => {
+                      setViewSource('samples');
+                      setActiveCategory(id);
+                      setActiveTab(null);
+                    }}
                   />
                 ))}
               </div>
@@ -794,8 +1180,12 @@ export default function TemplatesPage() {
                 {INDUSTRIES.map(({ id, label, Icon }) => (
                   <SidebarItem
                     key={id} id={id} label={label} Icon={Icon}
-                    active={activeCategory === id}
-                    onClick={() => setActiveCategory(id)}
+                    active={viewSource === 'samples' && activeCategory === id}
+                    onClick={() => {
+                      setViewSource('samples');
+                      setActiveCategory(id);
+                      setActiveTab(null);
+                    }}
                   />
                 ))}
               </div>
@@ -854,6 +1244,9 @@ export default function TemplatesPage() {
                       viewMode={viewMode}
                       onPreview={setSelected}
                       onSubmit={handleSubmit}
+                      onUse={(t) => {
+                        setUseTemplate(t);
+                      }}
                     />
                   ))}
                 </div>
@@ -864,6 +1257,7 @@ export default function TemplatesPage() {
       </div>
 
       <PreviewModal tpl={selected} onClose={() => setSelected(null)} onSubmit={handleSubmit} />
+      <UseTemplateModal tpl={useTemplate} onClose={() => setUseTemplate(null)} />
     </>
   );
 }

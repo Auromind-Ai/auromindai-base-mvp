@@ -202,13 +202,13 @@ export default function ChannelsPage() {
         if (twPhone) setConnectedInfo(prev => ({ ...prev, twilio: twPhone }));
     }, []);
 
-    const loadIntegrationStatus = async () => {
+    const loadIntegrationStatus = useCallback(async () => {
         try {
             const token = getToken();
             if (!token || !workspace?.id) return;
             const response = await fetch(
                 `${API}/integrations/status?workspace_id=${workspace.id}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
+                { headers: { 'Authorization': `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' } }
             );
             if (response.ok) {
                 const data = await response.json();
@@ -216,18 +216,51 @@ export default function ChannelsPage() {
                     ...prev,
                     gmail: data.gmail?.connected || false,
                     google_calendar: data.calendar?.connected || false,
+                    whatsapp: data.whatsapp?.connected || false,
+                    instagram: data.instagram?.connected || false,
+                    twilio: data.twilio?.connected || false,
                 }));
                 if (data.gmail?.email) setConnectedInfo(prev => ({ ...prev, gmail: data.gmail.email }));
                 if (data.calendar?.email) setConnectedInfo(prev => ({ ...prev, google_calendar: data.calendar.email }));
+                
+                // Sync WhatsApp Status and Info
+                if (data.whatsapp?.connected) {
+                    setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone || "Connected" }));
+                    localStorage.setItem("whatsapp_connected", "true");
+                    if (data.whatsapp.phone) localStorage.setItem("whatsapp_phone", data.whatsapp.phone);
+                } else {
+                    localStorage.removeItem("whatsapp_connected");
+                    localStorage.removeItem("whatsapp_phone");
+                }
+
+                // Sync Instagram Status and Info
+                if (data.instagram?.connected) {
+                    setConnectedInfo(prev => ({ ...prev, instagram: data.instagram.username || "Connected" }));
+                    localStorage.setItem("instagram_connected", "true");
+                    if (data.instagram.username) localStorage.setItem("instagram_username", data.instagram.username);
+                } else {
+                    localStorage.removeItem("instagram_connected");
+                    localStorage.removeItem("instagram_username");
+                }
+
+                // Sync Twilio Status and Info
+                if (data.twilio?.connected) {
+                    setConnectedInfo(prev => ({ ...prev, twilio: data.twilio.phone || "Connected" }));
+                    localStorage.setItem("twilio_connected", "true");
+                    if (data.twilio.phone) localStorage.setItem("twilio_phone", data.twilio.phone);
+                } else {
+                    localStorage.removeItem("twilio_connected");
+                    localStorage.removeItem("twilio_phone");
+                }
             }
         } catch (err) {
             console.error('Failed to load integration status:', err);
         }
-    };
+    }, [workspace?.id]);
 
     useEffect(() => {
         if (workspace?.id) loadIntegrationStatus();
-    }, [workspace?.id]);
+    }, [workspace?.id, loadIntegrationStatus]);
 
     const [statuses, setStatuses] = useState({
         whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false
@@ -264,28 +297,31 @@ export default function ChannelsPage() {
 
     const startWhatsAppSignup = useCallback(() => {
         setConnecting('whatsapp');
-        window.FB.login(
-            (response) => {
-                if (response.authResponse?.code) {
-                    connectWhatsAppToBackend({ code: response.authResponse.code });
-                } else {
-                    setConnecting(null);
-                }
-            },
-            {
-                config_id: WA_CONFIG_ID,
-                response_type: 'code',
-                override_default_response_type: true,
-                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
-            }
-        );
-    }, [WA_CONFIG_ID]);
+        const workspaceId = workspace?.id;
+        if (!workspaceId) {
+            showToast("Workspace not loaded. Please wait...");
+            setConnecting(null);
+            return;
+        }
+        localStorage.setItem("whatsapp_workspace_id", workspaceId);
+
+        const REDIRECT_URI = `${window.location.origin}/whatsapp/callback`;
+        const authUrl =
+            `https://www.facebook.com/v19.0/dialog/oauth?` +
+            `client_id=${process.env.NEXT_PUBLIC_FB_APP_ID}` +
+            `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+            `&scope=${encodeURIComponent('business_management,whatsapp_business_management,whatsapp_business_messaging')}` +
+            `&response_type=code` +
+            `&config_id=${WA_CONFIG_ID}`;
+
+        window.location.href = authUrl;
+    }, [WA_CONFIG_ID, workspace?.id]);
 
     const connectWhatsAppToBackend = async (payload) => {
         try {
             const res = await fetch(`/backend/api/whatsapp/connect`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeader() },
+                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...authHeader() },
                 body: JSON.stringify({ ...payload, workspace_id: workspace?.id })
             });
             const text = await res.text();
@@ -325,7 +361,7 @@ export default function ChannelsPage() {
         try {
             const res = await fetch(`/backend/api/instagram/connect`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
                 body: JSON.stringify({ code, workspace_id: workspace?.id })
             });
             const text = await res.text();
@@ -349,7 +385,7 @@ export default function ChannelsPage() {
         const backendId = integrationId === 'google_calendar' ? 'calendar' : integrationId;
         const response = await fetch(
             `${API}/integrations/google/auth/${backendId}?workspace_id=${workspace.id}`,
-            { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
+            { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' } }
         );
         if (!response.ok) {
             const error = await response.json();
@@ -375,7 +411,7 @@ const disconnectIntegration = async (integrationId) => {
         const backendId = integrationId === 'google_calendar' ? 'calendar' : integrationId;
         await fetch(
             `${API}/integrations/disconnect/google_${backendId}?workspace_id=${workspace.id}`,
-            { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }
+            { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' } }
         );
         setStatuses(prev => ({ ...prev, [integrationId]: false }));
         setConnectedInfo(prev => ({ ...prev, [integrationId]: null }));
@@ -404,7 +440,7 @@ const disconnectIntegration = async (integrationId) => {
         try {
             const res = await fetch(`/backend/twilio/connect`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...authHeader() },
+                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...authHeader() },
                 body: JSON.stringify({ 
                     sid: sid.trim(), 
                     token: token.trim(), 

@@ -21,6 +21,10 @@ async def connect_whatsapp(
     verify_workspace_access(current_user, db, data.get("workspace_id"))
     try:
         return ChannelConnectionService.connect_meta_whatsapp(db, data)
+    except HTTPException as e:
+        logger.exception("WhatsApp connect failed")
+        logger.error(f"WhatsApp connect error: {e.detail}")
+        raise
     except Exception as exc:
         logger.error("WhatsApp connect error: %s", exc)
         raise HTTPException(status_code=500, detail="WhatsApp connection failed")
@@ -28,6 +32,8 @@ async def connect_whatsapp(
 
 @router.get("/whatsapp/webhook")
 async def verify_webhook(request: Request):
+    logger.info("=== META WHATSAPP WEBHOOK VERIFICATION REQUEST ===")
+    logger.info(f"Query Params: {request.query_params}")
     return WebhookService.verify_meta_subscription(
         request.query_params,
         settings.META_VERIFY_TOKEN,
@@ -36,9 +42,12 @@ async def verify_webhook(request: Request):
 
 @router.post("/whatsapp/webhook")
 async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
+    print("🔥 WEBHOOK HIT")
+    logger.info("=== INCOMING META WHATSAPP WEBHOOK ===")
     try:
         data = await request.json()
+        logger.info(f"Raw Webhook Payload: {data}")
         return await WebhookService.handle_meta_whatsapp_webhook(data, db)
     except Exception as exc:
-        logger.error("Webhook error: %s", exc)
+        logger.exception(f"Webhook processing error: {exc}")
         return {"status": "error"}

@@ -1,11 +1,14 @@
 from __future__ import annotations
 import logging
+import json
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
 
 from app.models.ai_action import Lead
+from app.models.templates import Template
+from app.models.workspace import Workspace
 import requests
 from sqlalchemy.orm import Session
 from twilio.twiml.messaging_response import MessagingResponse
@@ -132,38 +135,136 @@ class WebhookService:
 
     @staticmethod
     async def handle_meta_whatsapp_webhook(payload: dict, db: Session):
+        logger.info("Starting WebhookService.handle_meta_whatsapp_webhook")
         for entry in payload.get("entry", []):
+            logger.info(f"Processing entry: {entry.get('id')}")
             for change in entry.get("changes", []):
+                field = change.get("field")
                 value = change.get("value", {})
-                phone_number_id = (value.get("metadata") or {}).get("phone_number_id")
+                logger.info(f"Processing change field: {field}, value keys: {list(value.keys())}")
+                
+                if field == "message_template_status_update":
+                    tpl_name = value.get("message_template_name")
+                    tpl_lang = value.get("message_template_language")
+                    tpl_event = value.get("event")
+                    tpl_id = value.get("message_template_id")
+                    logger.info(f"Template status update webhook hit: {tpl_name} ({tpl_lang}) -> {tpl_event}")
+                    
+                    waba_id = entry.get("id")
+                    workspace = None
+                    if waba_id:
+                        workspace = db.query(Workspace).filter(Workspace.meta_waba_id == str(waba_id)).first()
+                        
+                    template = None
+                    if tpl_id:
+                        query = db.query(Template).filter(Template.meta_template_id == str(tpl_id))
+                        if workspace:
+                            query = query.filter(Template.workspace_id == workspace.id)
+                        template = query.first()
+                        
+                    if not template and tpl_name:
+                        query = db.query(Template).filter(
+                            Template.name == tpl_name,
+                            Template.language == tpl_lang
+                        )
+                        if workspace:
+                            query = query.filter(Template.workspace_id == workspace.id)
+                        template = query.first()
+                        
+                    if template:
+                        if tpl_event:
+                            new_status = tpl_event.lower()
+                            logger.info(f"Updating template {template.id} status to {new_status}")
+                            template.status = new_status
+                            db.commit()
+                        else:
+                            logger.warning("Template status update had no 'event' status value.")
+                    else:
+                        logger.warning(f"No template found in DB for name: {tpl_name}, lang: {tpl_lang}, id: {tpl_id}")
+                    continue
+                
+                # In WhatsApp Cloud API, incoming messages usually have 'metadata' with 'phone_number_id'
+                metadata = value.get("metadata") or {}
+                phone_number_id = metadata.get("phone_number_id")
+                
                 if not phone_number_id:
+                    logger.warning("No phone_number_id found in webhook change value. Skipping.")
                     continue
 
+                logger.info(f"Looking up workspace for phone_number_id: {phone_number_id}")
                 workspace = ConversationService.get_workspace_for_meta_whatsapp_phone_number_id(
                     db,
                     phone_number_id,
                 )
+                
+                if not workspace:
+                    logger.error(f"No workspace found attached to phone_number_id: {phone_number_id}. Message dropped.")
+                    continue
+                
+                logger.info(f"Found workspace: {workspace.id}")
 
-                for message in value.get("messages") or []:
+                statuses = value.get("statuses") or []
+                if statuses:
+                    print("WHATSAPP STATUS UPDATE")
+                    print(json.dumps(payload, indent=2))
+                    for status_update in statuses:
+                        wamid = status_update.get("id")
+                        status_str = status_update.get("status")
+                        if wamid and status_str:
+                            from app.models.message import Message, MessageStatus
+                            
+                            status_mapping = {
+                                "sent": MessageStatus.SENT,
+                                "delivered": MessageStatus.DELIVERED,
+                                "read": MessageStatus.DELIVERED,
+                                "failed": MessageStatus.FAILED
+                            }
+                            mapped_status = status_mapping.get(status_str.lower())
+                            if mapped_status:
+                                try:
+                                    msg = db.query(Message).filter(Message.external_id == wamid).first()
+                                    if msg:
+                                        msg.status = mapped_status
+                                        db.commit()
+                                        logger.info(f"Updated message status for {wamid} to {status_str}")
+                                except Exception as exc:
+                                    logger.error(f"Failed to update message status for {wamid}: {exc}")
+
+                messages = value.get("messages") or []
+                if not messages:
+                    logger.info("No 'messages' array in payload (might be a status update). Skipping message processing.")
+                
+                for message in messages:
+                    logger.info(f"Processing message ID: {message.get('id')}")
                     body, interactive_value, interactive_label = WebhookService._extract_meta_whatsapp_body(message)
                     from_number = message.get("from")
-                    if not from_number or not body:
+                    
+                    if not from_number:
+                        logger.warning("Message has no 'from' number. Skipping.")
+                        continue
+                    if not body:
+                        logger.warning(f"Message has no textual body (unsupported media type?). Skipping. Raw message: {message}")
                         continue
 
-                    await WebhookService.process_incoming_message(
-                        db,
-                        workspace_id=str(workspace.id),
-                        channel=ChannelType.WHATSAPP,
-                        body=body,
-                        phone=from_number,
-                        message_external_id=message.get("id"),
-                        metadata={
-                            "interactive_value": interactive_value,
-                            "interactive_label": interactive_label,
-                            "provider": "meta_whatsapp",
-                            "phone_number_id": phone_number_id,
-                        },
-                    )
+                    logger.info(f"Forwarding message from {from_number} to unified pipeline...")
+                    try:
+                        result = await WebhookService.process_incoming_message(
+                            db,
+                            workspace_id=str(workspace.id),
+                            channel=ChannelType.WHATSAPP,
+                            body=body,
+                            phone=from_number,
+                            message_external_id=message.get("id"),
+                            metadata={
+                                "interactive_value": interactive_value,
+                                "interactive_label": interactive_label,
+                                "provider": "meta_whatsapp",
+                                "phone_number_id": phone_number_id,
+                            },
+                        )
+                        logger.info(f"Pipeline processing result: {result}")
+                    except Exception as e:
+                        logger.exception(f"Exception during process_incoming_message: {e}")
 
         return {"status": "ok"}
 
@@ -179,15 +280,39 @@ class WebhookService:
                 db,
                 instagram_account_id,
             )
+            
+            if not workspace:
+                logger.error(f"No workspace found for Instagram account {instagram_account_id}. Skipping.")
+                continue
 
             for event in messaging_events:
                 message_data = event.get("message", {})
+                postback_data = event.get("postback", {})
                 if message_data.get("is_echo"):
                     continue
 
                 sender_id = event.get("sender", {}).get("id")
+                
+                # Extract text and button payload
                 text = message_data.get("text")
                 message_id = message_data.get("mid")
+                
+                interactive_value = None
+                interactive_label = None
+
+                # Handle quick replies
+                quick_reply = message_data.get("quick_reply", {})
+                if quick_reply:
+                    interactive_value = quick_reply.get("payload")
+                    text = text or interactive_value
+
+                # Handle postbacks (button clicks)
+                if postback_data:
+                    interactive_value = postback_data.get("payload")
+                    interactive_label = postback_data.get("title")
+                    text = text or interactive_label or interactive_value
+                    message_id = message_id or postback_data.get("mid")
+
                 if not sender_id or not text:
                     continue
 
@@ -204,6 +329,8 @@ class WebhookService:
                     metadata={
                         "provider": "instagram",
                         "instagram_account_id": instagram_account_id,
+                        "interactive_value": interactive_value,
+                        "interactive_label": interactive_label,
                     },
                 )
 

@@ -143,20 +143,114 @@ class ChannelService:
         body: str,
         metadata: Dict[str, Any],
     ) -> Optional[str]:
-        rendered_body = body
-        if metadata.get("buttons"):
-            rendered_body = ChannelService._render_button_text(body, metadata.get("buttons") or [])
-        if metadata.get("media_url"):
-            logger.warning(
-                "Meta WhatsApp media dispatch is not implemented in ChannelService yet; sending text fallback"
-            )
-            rendered_body = rendered_body or "Media received"
-
         service = WhatsAppService(
             access_token=workspace.meta_access_token,
             phone_number_id=workspace.meta_phone_number_id,
         )
-        message_id = service.send_text_message(to_number, rendered_body)
+
+        template_name = metadata.get("template_name")
+        if template_name:
+            components = []
+            
+            # Fetch template from database to inspect component structures
+            from sqlalchemy.orm import object_session
+            from app.models.templates import Template
+            
+            db = object_session(workspace)
+            is_temp_db = False
+            if not db:
+                from app.database import SessionLocal
+                db = SessionLocal()
+                is_temp_db = True
+                
+            try:
+                template = db.query(Template).filter(
+                    Template.name == template_name,
+                    Template.workspace_id == workspace.id
+                ).first()
+            except Exception as e:
+                logger.warning(f"Error querying template from DB: {e}")
+                template = None
+            finally:
+                if is_temp_db:
+                    db.close()
+
+            if template:
+                # 1. Header component mapping
+                if template.type in {"IMAGE", "VIDEO", "DOCUMENT"}:
+                    media_url = metadata.get("media_url") or metadata.get("header_url")
+                    if media_url:
+                        param_type = template.type.lower()
+                        components.append({
+                            "type": "header",
+                            "parameters": [
+                                {
+                                    "type": param_type,
+                                    param_type: {"link": media_url}
+                                }
+                            ]
+                        })
+                elif template.header and "{{" in template.header:
+                    header_vars = metadata.get("header_variables", [])
+                    if header_vars:
+                        components.append({
+                            "type": "header",
+                            "parameters": [{"type": "text", "text": str(v)} for v in header_vars]
+                        })
+
+                # 2. Body component mapping
+                variables = metadata.get("variables", [])
+                if variables:
+                    components.append({
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": str(v)} for v in variables],
+                    })
+
+                # 3. Button component mapping
+                if template.cta and "{{" in template.cta:
+                    btn_vars = metadata.get("button_variables", [])
+                    if btn_vars:
+                        components.append({
+                            "type": "button",
+                            "sub_type": "url",
+                            "index": "0",
+                            "parameters": [{"type": "text", "text": str(v)} for v in btn_vars]
+                        })
+                
+                quick_replies = metadata.get("quick_replies", [])
+                for idx, qr_payload in enumerate(quick_replies):
+                    components.append({
+                        "type": "button",
+                        "sub_type": "quick_reply",
+                        "index": str(idx),
+                        "parameters": [{"type": "payload", "payload": str(qr_payload)}]
+                    })
+            else:
+                # Fallback: only map body variables
+                variables = metadata.get("variables", [])
+                if variables:
+                    components.append({
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": str(v)} for v in variables],
+                    })
+
+            message_id = service.send_template(
+                to=to_number,
+                template_name=template_name,
+                language=metadata.get("language", "en_US"),
+                components=components
+            )
+        else:
+            rendered_body = body
+            if metadata.get("buttons"):
+                rendered_body = ChannelService._render_button_text(body, metadata.get("buttons") or [])
+            if metadata.get("media_url"):
+                logger.warning(
+                    "Meta WhatsApp media dispatch is not implemented in ChannelService yet; sending text fallback"
+                )
+                rendered_body = rendered_body or "Media received"
+            message_id = service.send_text_message(to_number, rendered_body)
+
         if not message_id:
             raise RuntimeError("Meta WhatsApp send failed")
         return message_id

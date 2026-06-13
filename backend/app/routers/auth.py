@@ -69,7 +69,11 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    def log_auth(msg):
+    def log_auth(msg, level="info"):
+        if level == "error":
+            logger.error(f"Auth Error: {msg}")
+        else:
+            logger.info(f"Auth Info: {msg}")
         try:
             with open("/tmp/auth_debug.log", "a") as f:
                 f.write(f"{datetime.now(timezone.utc)}: {msg}\n")
@@ -80,19 +84,19 @@ async def get_current_user(
     
     try:
         payload = decode_access_token(token)
-    except Exception:
-        log_auth("Token decode failed")
+    except Exception as e:
+        log_auth(f"Token decode failed: {e}", "error")
         raise credentials_exception
 
     if payload is None:
-        log_auth("Token payload is None")
+        log_auth("Token payload is None", "error")
         raise credentials_exception
     
     user_id: str = payload.get("sub")
     role = payload.get("role")
     
     if role == "platform_admin" or user_id == "platform_admin":
-        log_auth("❌ Platform admin token rejected on normal route")
+        log_auth("❌ Platform admin token rejected on normal route", "error")
         raise credentials_exception
 
     workspace_id: str = payload.get("workspace_id")
@@ -100,14 +104,14 @@ async def get_current_user(
     admin_id = payload.get("admin_id")
 
     if user_id is None:
-        log_auth(" Token missing sub")
+        log_auth(" Token missing sub", "error")
         raise credentials_exception
 
     log_auth(f"👤 Token claims user_id: {user_id}")
     user = AuthService.get_user_by_id(db, user_id)
 
     if user is None:
-        log_auth(f" User {user_id} not found in DB")
+        log_auth(f" User {user_id} not found in DB", "error")
         raise credentials_exception
 
     log_auth(f"Authenticated: {user.email}")

@@ -1,5 +1,5 @@
 console.log("API CLIENT VERSION: 1.1.21");
-import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
+import { getToken, getWorkspaceIdFromToken, logout } from "@/lib/auth"
 
 // Always use the backend URL directly. CORS is configured to allow it.
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -35,7 +35,9 @@ class APIClient {
     }
 
     const controller = options.signal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
+    const timeoutId = controller ? setTimeout(() => {
+      controller.abort(new Error(`API request timed out after 30 seconds: ${endpoint}`));
+    }, 30000) : null; // 30s timeout
     if (!config.signal && controller) {
       config.signal = controller.signal;
     }
@@ -49,6 +51,14 @@ class APIClient {
       if (contentType && contentType.indexOf("application/json") !== -1) {
         const data = await response.json();
         if (!response.ok) {
+          if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/signup')) {
+            console.warn("Unauthorized API call. Token may be expired. Logging out...");
+            if (typeof window !== 'undefined') {
+              logout();
+              return null; // Stop further execution since we are redirecting
+            }
+          }
+
           console.error("FULL ERROR:", JSON.stringify(data, null, 2));
 
           let errorMessage = 'Request failed';
@@ -265,14 +275,55 @@ class APIClient {
   /**
    * Upload a document to the Brain (PDF, DOCX, TXT)
    */
-  async uploadDocument(file, workspace_id) {
+  async uploadDocument(file, workspace_id, collection = null) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('workspace_id', workspace_id);
+    if (collection) formData.append('collection', collection);
+
+    const token = typeof window !== 'undefined' ? getToken() : null;
+
+    const response = await fetch(`${this.baseURL}/brain/ingest/document`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || 'Upload failed');
+    }
+    return data;
+  }
+
+  async uploadSalesDocument(file, workspace_id) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('workspace_id', workspace_id);
 
     const token = typeof window !== 'undefined' ? getToken() : null;
 
-    const response = await fetch(`${this.baseURL}/brain/ingest/document`, {
+    const response = await fetch(`${this.baseURL}/brain/ingest/sales_document`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || 'Upload failed');
+    }
+    return data;
+  }
+
+  async uploadSupportDocument(file, workspace_id) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('workspace_id', workspace_id);
+
+    const token = typeof window !== 'undefined' ? getToken() : null;
+
+    const response = await fetch(`${this.baseURL}/brain/ingest/support_document`, {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
@@ -349,8 +400,10 @@ class APIClient {
   /**
    * Add manual text to the Brain
    */
-  async addTextKnowledge(title, content, workspace_id) {
-    return this.post('/brain/ingest/text', { title, content, workspace_id });
+  async addTextKnowledge(title, content, workspace_id, collection = null) {
+    const payload = { title, content, workspace_id };
+    if (collection) payload.collection = collection;
+    return this.post('/brain/ingest/text', payload);
   }
 
   /**
