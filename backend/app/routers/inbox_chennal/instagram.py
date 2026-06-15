@@ -18,8 +18,13 @@ def connect_instagram(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    print(">>> [FASTAPI] RECEIVED INSTAGRAM CONNECT REQUEST")
+    print(f">>> [FASTAPI] Data: {data}")
     verify_workspace_access(current_user, db, data.get("workspace_id"))
-    return ChannelConnectionService.connect_instagram(db, data)
+    print(">>> [FASTAPI] Workspace verified. Calling connect_instagram service...")
+    result = ChannelConnectionService.connect_instagram(db, data)
+    print(">>> [FASTAPI] connect_instagram service completed.")
+    return result
 
 
 @router.get("/webhook")

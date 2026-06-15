@@ -16,6 +16,7 @@ export default function RootLayout({ children }) {
         className={`${GeistSans.variable} ${GeistMono.variable}`}
         suppressHydrationWarning
       >
+        <div id="fb-root"></div>
         <Preloader />
         <Providers>
           {children}

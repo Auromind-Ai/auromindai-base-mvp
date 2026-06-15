@@ -229,8 +229,9 @@ class AuthService:
         
         user = db.query(User).filter(User.email == email).first()
         
-        if auth_type == "login" and not user:
-            raise ValueError("Your email is not here, sign up first")
+        # For testing, allow login to auto-register unregistered emails
+        # if auth_type == "login" and not user:
+        #     raise ValueError("Your email is not registered. Please sign up first.")
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
 
@@ -269,8 +270,12 @@ class AuthService:
                 raise ValueError("Invalid or expired OTP")
                 
         if auth_type == "signup":
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                raise ValueError("Email already registered. Please log in.")
             return AuthService.email_login(db, email, full_name, workspace_name)
         elif auth_type == "login":
+            # Auto-create user if email is not registered (for testing ease)
             return AuthService.email_login(db, email)
         else:
             raise ValueError("Invalid auth type")
@@ -280,9 +285,7 @@ class AuthService:
         user = db.query(User).filter(User.email == email).first()
         
         if auth_type == "login" and not user:
-            # We can either block them or create an account automatically.
-            # Assuming we let them create it seamlessly since Google verified them.
-            pass
+            raise ValueError("Your email is not registered. Please sign up first.")
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
             

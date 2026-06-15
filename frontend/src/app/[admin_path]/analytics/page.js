@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { TrendingUp, Users, Activity, BarChart3 } from "lucide-react"
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -12,7 +14,7 @@ useEffect(() => {
     try {
       setLoading(true)
 
-      const response = await fetch("http://localhost:8000/admin/analytics")
+      const response = await fetch(`${API_BASE}/admin/analytics`)
 
       if (!response.ok) {
         const text = await response.text()

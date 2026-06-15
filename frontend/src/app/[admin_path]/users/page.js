@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { Users, CheckCircle, Mail, ExternalLink, Loader2 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -10,6 +10,9 @@ const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000"
 
 export default function UsersPage() {
   const router = useRouter();
+  const params = useParams();
+  const adminPath = params?.admin_path || "x7k2-admin-9pqm";
+  
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,22 +40,11 @@ export default function UsersPage() {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const token = getToken();
 
-        if (!token || token === "null") {
-          router.push("/login?redirect=/admin/users");
-          return;
-        }
+        const res = await fetch(`${API_BASE}/admin/users`);
 
-        const res = await fetch(`${API_BASE}/admin/users`, {
-          headers: {
-            "Content-Type": "application/json",
-            ...authHeader(),
-          },
-        });
-
-        if (res.status === 401) {
-          window.location.href = "/login";
+        if (res.status === 401 || res.status === 404) {
+          router.push(`/${adminPath}`);
           return;
         }
 

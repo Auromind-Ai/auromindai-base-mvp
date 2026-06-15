@@ -72,8 +72,13 @@ export default function SignupFormCard() {
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '10px 14px', color: '#f87171', fontSize: '13px', marginBottom: '16px' }}>
-          {error}
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '12px 14px', color: '#f87171', fontSize: '13px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div>{error}</div>
+          {(error.includes("already registered") || error.includes("log in") || error.includes("registered")) && (
+            <Link href="/login" style={{ color: '#a78bfa', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              Go to Login page →
+            </Link>
+          )}
         </div>
       )}
 

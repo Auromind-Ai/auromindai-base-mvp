@@ -12,28 +12,31 @@ export default function AILearningPage() {
   const adminPath = params.admin_path || 'x7k2-admin-9pqm'
 
   const fetchData = useCallback(async () => {
-  try {
+    try {
+      const response = await fetch(`/api/${adminPath}/learning-events`)
+      if (!response.ok) throw new Error('Failed to fetch learning events')
+      const result = await response.json()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [adminPath])
+
+  const handleRefresh = () => {
     setLoading(true)
-    const response = await fetch(`/api/${adminPath}/learning-events`)
-    if (!response.ok) throw new Error('Failed to fetch learning events')
-    const result = await response.json()
-    setData(result)
-  } catch (err) {
-    setError(err.message)
-  } finally {
-    setLoading(false)
+    fetchData()
   }
-}, [])
 
   const handlePromoteToRule = async (eventId) => {
-    // Placeholder for promote to rule functionality
     alert(`Promote event ${eventId} to rule`)
   }
 
   useEffect(() => {
-  fetchData()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [fetchData])
+    fetchData()
+  }, [fetchData])
 
   if (loading) {
     return (
@@ -50,7 +53,7 @@ export default function AILearningPage() {
     return (
       <div className="min-h-screen bg-[#050505] text-white p-6">
         <div className="text-red-500">Error: {error}</div>
-        <button onClick={fetchData} className="mt-4 px-4 py-2 bg-indigo-600 rounded">
+        <button onClick={handleRefresh} className="mt-4 px-4 py-2 bg-indigo-600 rounded">
           Retry
         </button>
       </div>

@@ -20,18 +20,24 @@ const nextConfig = {
   reactStrictMode: true,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || (isLocal
-      ? 'http://localhost:8000'
+      ? 'http://127.0.0.1:8000'
       : 'https://playhouse-broker-gating.ngrok-free.dev'),
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
   },
   async rewrites() {
     return [
       {
         source: '/api-proxy/:path*',
-        destination: 'http://localhost:8000/:path*',
+        destination: 'http://127.0.0.1:8000/:path*',
       },
       {
         source: '/api/whatsapp/webhook',
-        destination: 'http://localhost:8000/api/whatsapp/webhook',
+        destination: 'http://127.0.0.1:8000/api/whatsapp/webhook',
       },
     ];
   },

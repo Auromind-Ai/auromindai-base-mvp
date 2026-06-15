@@ -1,4 +1,4 @@
-console.log("API CLIENT VERSION: 1.1.22");
+
 import { getToken, getWorkspaceIdFromToken } from "@/lib/auth"
 
 // Always use the backend URL directly. Client uses relative rewrites, server uses absolute localhost.
@@ -6,12 +6,11 @@ const API_BASE_URL = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
   : 'http://localhost:8000';
 
-console.log("Selected API_BASE_URL:", API_BASE_URL);
+
 
 class APIClient {
   constructor(baseURL = API_BASE_URL) {
     this.baseURL = baseURL;
-    console.log("APIClient initialized with baseURL:", this.baseURL);
   }
 
   async request(endpoint, options = {}) {
@@ -36,15 +35,13 @@ class APIClient {
     }
 
     const controller = options.signal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null;
+    // 60 second timeout — dashboard does heavy DB aggregation
+    const timeoutId = controller ? setTimeout(() => controller.abort(new Error('Request Timeout')), 60000) : null;
     if (!config.signal && controller) {
       config.signal = controller.signal;
     }
 
     try {
-      console.log("API URL:", url);
-      console.log("CONFIG:", config);
-
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
 
@@ -74,14 +71,24 @@ class APIClient {
         }
         return data;
       } else {
+        // For non-JSON success responses (e.g. 204 No Content), return empty
+        if (response.ok) {
+          return {};
+        }
         const text = await response.text();
-        console.error("Non-JSON response:", text);
-        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
+        throw new Error(`Server error: ${response.status} ${text.substring(0, 100)}`);
       }
 
     } catch (error) {
-      console.error('API Error:', error, 'URL:', url);
       if (timeoutId) clearTimeout(timeoutId);
+      // Handle AbortError (timeout or cancelled request) gracefully
+      if (error?.name === 'AbortError' || error?.message === 'Request Timeout') {
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
+      // Only log unexpected errors
+      if (error?.message !== 'The user aborted a request.') {
+        console.error('API Error:', error?.message, 'URL:', url);
+      }
       throw error;
     }
   }
@@ -171,6 +178,31 @@ class APIClient {
 
   async getPricing() {
     return this.get("/public/pricing");
+  }
+
+  // ============== Dashboard Methods ==============
+
+  async getDashboardOverview(workspace_id, start_date = null, end_date = null, options = {}) {
+    let url = `/dashboard/overview?workspace_id=${workspace_id}`;
+    if (start_date) url += `&start_date=${start_date}`;
+    if (end_date) url += `&end_date=${end_date}`;
+    return this.get(url, options);
+  }
+
+  async getDashboardMetrics(workspace_id, options = {}) {
+    return this.get(`/dashboard/metrics?workspace_id=${workspace_id}`, options);
+  }
+
+  async getDashboardRevenue(workspace_id, options = {}) {
+    return this.get(`/dashboard/revenue?workspace_id=${workspace_id}`, options);
+  }
+
+  async getDashboardActivities(workspace_id, options = {}) {
+    return this.get(`/dashboard/activities?workspace_id=${workspace_id}`, options);
+  }
+
+  async getDashboardInsights(workspace_id, options = {}) {
+    return this.get(`/dashboard/insights?workspace_id=${workspace_id}`, options);
   }
 
   // ============== Billing Methods ==============

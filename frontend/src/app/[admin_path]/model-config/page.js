@@ -48,10 +48,6 @@ const ModelConfigAdmin = () => {
   const [formErrors, setFormErrors] = useState({});
   const [formData, setFormData] = useState(getEmptyForm());
 
-  useEffect(() => {
-    fetchConfigs();
-  }, []);
-
   const fetchConfigs = async () => {
     try {
       setLoading(true);
@@ -71,6 +67,10 @@ const ModelConfigAdmin = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchConfigs();
+  }, []);
 
   const resetForm = () => {
     setFormErrors({});

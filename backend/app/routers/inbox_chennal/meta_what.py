@@ -77,3 +77,38 @@ async def get_channels_status(workspace_id: str, db: Session = Depends(get_db)):
     except Exception as exc:
         logger.error("Error getting channels status: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.delete("/channels/disconnect/{channel_type}")
+async def disconnect_channel(
+    channel_type: str,
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    verify_workspace_access(current_user, db, workspace_id)
+    from app.models.workspace import Workspace
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    if channel_type == "whatsapp":
+        workspace.meta_access_token = None
+        workspace.meta_business_id = None
+        workspace.meta_waba_id = None
+        workspace.meta_phone_number_id = None
+        workspace.meta_display_phone = None
+    elif channel_type == "instagram":
+        workspace.meta_ig_id = None
+        workspace.meta_access_token = None
+        workspace.meta_business_id = None
+    elif channel_type == "twilio":
+        workspace.twilio_account_sid = None
+        workspace.twilio_auth_token = None
+        workspace.twilio_phone_number = None
+    else:
+        raise HTTPException(status_code=400, detail="Invalid channel type")
+        
+    db.commit()
+    return {"status": "success", "message": f"Disconnected {channel_type}"}
+
