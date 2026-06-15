@@ -2,18 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import AnimatedCounter from "../AnimatedCounter";
-import { getUser, restoreAdminToken, setToken, getAdminBackup } from '@/lib/auth';
+import { getUser, restoreAdminToken } from '@/lib/auth';
 import {
   Bell,
   Calendar,
   ChevronDown,
   ArrowUpRight,
-  ArrowDownRight,
   Sparkles,
   AlertCircle,
-  MoreHorizontal,
-  CheckCircle2,
   ShieldAlert,
   ArrowRight,
   Zap,
@@ -28,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { Poppins } from 'next/font/google';
 import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
+import CreditRingDropdown from '@/components/CreditRingDropdown';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -1131,27 +1128,15 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    console.log("📊 DASHBOARD LOADED")
-    const token = localStorage.getItem("token")
-    console.log("Stored token:", token)
-    if (!token) {
-      console.log("⚠️ No token found")
-      setMounted(true)
-      return
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) {
+      const payload = decodeJwt(token);
+      if (payload?.impersonated) {
+        setIsImpersonated(true);
+      }
     }
-    const payload = decodeJwt(token)
-    console.log("TOKEN WORKSPACE:", payload.workspace_id)
-    console.log("LOCALSTORAGE WORKSPACE:", localStorage.getItem("workspace"))
-    console.log("LOCALSTORAGE WORKSPACE_ID:", localStorage.getItem("workspace_id"))
-    console.log("Decoded token payload:", payload)
-    console.log("Workspace ID from token:", payload?.workspace_id)
-    console.log("Impersonated:", payload?.impersonated)
-    if (payload?.impersonated) {
-      console.log("🟡 ADMIN IMPERSONATION MODE")
-      setIsImpersonated(true)
-    }
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1166,6 +1151,8 @@ export default function DashboardPage() {
 
   const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
   const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
+
+  const user = getUser();
 
   return (
     <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
@@ -1211,6 +1198,9 @@ export default function DashboardPage() {
             <div className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
               <Bell size={18} className="text-zinc-400" />
               <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
+            </div>
+            <div className="relative z-50 ml-1">
+                <CreditRingDropdown user={user} size={36} />
             </div>
           </div>
         </header>

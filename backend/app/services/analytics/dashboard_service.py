@@ -764,7 +764,7 @@ async def get_full_overview(workspace_id: str, db: Session, start_date: date | N
     if cached:
         return cached
 
-    # Run all sub-aggregations (they each have their own caches too)
+    # Run sub-aggregations sequentially to prevent concurrent access issues on the shared DB session
     metrics = await get_overview_metrics(workspace_id, db, start_date=start_date, end_date=end_date)
     revenue = await get_revenue_chart(workspace_id, db, start_date=start_date, end_date=end_date)
     activities = await get_recent_activities(workspace_id, db, start_date=start_date, end_date=end_date)

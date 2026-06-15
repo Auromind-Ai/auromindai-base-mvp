@@ -137,7 +137,14 @@ async def verify_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
 @router.post("/login")
 async def login(request: dict, db: Session = Depends(get_db)):
     try:
+        from app.models import User
         email = request.get('email')
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your email is not registered. Please sign up first.",
+            )
         result = AuthService.email_login(db=db, email=email)
         return result
     except ValueError as e:

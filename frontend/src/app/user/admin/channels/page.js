@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Instagram, Mail, Search,
-         ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap } from 'lucide-react';
+         ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap, RefreshCw } from 'lucide-react';
 import { getWorkspace, authHeader, getToken } from '@/lib/auth';
 
 const showToast = (message) => {
@@ -177,9 +177,19 @@ export default function ChannelsPage() {
     const WA_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID;
 
     const [workspace, setWorkspace] = useState(null);
+    const [statuses, setStatuses] = useState({
+        whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false
+    });
+    const [connecting, setConnecting] = useState(null);
+    const [showTwilioModal, setShowTwilioModal] = useState(false);
+    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '' });
+    const [showAuthToken, setShowAuthToken] = useState(false);
+    const [twilioSubmitting, setTwilioSubmitting] = useState(false);
+    const [connectedInfo, setConnectedInfo] = useState({});
 
     useEffect(() => {
         const ws = getWorkspace();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setWorkspace(ws);
 
         // Load statuses from localStorage
@@ -225,20 +235,40 @@ export default function ChannelsPage() {
         }
     };
 
+    const loadChannelsStatus = async () => {
+        try {
+            const token = getToken();
+            if (!token || !workspace?.id) return;
+            const response = await fetch(
+                `${API}/api/channels/status?workspace_id=${workspace.id}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setStatuses(prev => ({
+                    ...prev,
+                    whatsapp: data.whatsapp?.connected || false,
+                    instagram: data.instagram?.connected || false,
+                    twilio: data.twilio?.connected || false,
+                }));
+                if (data.whatsapp?.phone) setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone }));
+                if (data.instagram?.username) setConnectedInfo(prev => ({ ...prev, instagram: data.instagram.username }));
+                if (data.twilio?.phone) setConnectedInfo(prev => ({ ...prev, twilio: data.twilio.phone }));
+            }
+        } catch (err) {
+            console.error('Failed to load channels status:', err);
+        }
+    };
+
     useEffect(() => {
-        if (workspace?.id) loadIntegrationStatus();
+        if (workspace?.id) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            loadIntegrationStatus();
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            loadChannelsStatus();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workspace?.id]);
-
-    const [statuses, setStatuses] = useState({
-        whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false
-    });
-
-    const [connecting, setConnecting] = useState(null);
-    const [showTwilioModal, setShowTwilioModal] = useState(false);
-    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '' });
-    const [showAuthToken, setShowAuthToken] = useState(false);
-    const [twilioSubmitting, setTwilioSubmitting] = useState(false);
-    const [connectedInfo, setConnectedInfo] = useState({});
 
     // ─── Listen for WhatsApp embedded signup messages ─
     useEffect(() => {
@@ -262,28 +292,9 @@ export default function ChannelsPage() {
         return () => window.removeEventListener('message', handleMessage);
     }, [workspace?.id]);
 
-    const startWhatsAppSignup = useCallback(() => {
-        setConnecting('whatsapp');
-        window.FB.login(
-            (response) => {
-                if (response.authResponse?.code) {
-                    connectWhatsAppToBackend({ code: response.authResponse.code });
-                } else {
-                    setConnecting(null);
-                }
-            },
-            {
-                config_id: WA_CONFIG_ID,
-                response_type: 'code',
-                override_default_response_type: true,
-                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
-            }
-        );
-    }, [WA_CONFIG_ID]);
-
     const connectWhatsAppToBackend = async (payload) => {
         try {
-            const res = await fetch(`/backend/api/whatsapp/connect`, {
+            const res = await fetch(`${API}/api/whatsapp/connect`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader() },
                 body: JSON.stringify({ ...payload, workspace_id: workspace?.id })
@@ -301,6 +312,25 @@ export default function ChannelsPage() {
         } finally {
             setConnecting(null);
         }
+    };
+
+    const startWhatsAppSignup = () => {
+        setConnecting('whatsapp');
+        window.FB.login(
+            (response) => {
+                if (response.authResponse?.code) {
+                    connectWhatsAppToBackend({ code: response.authResponse.code });
+                } else {
+                    setConnecting(null);
+                }
+            },
+            {
+                config_id: WA_CONFIG_ID,
+                response_type: 'code',
+                override_default_response_type: true,
+                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
+            }
+        );
     };
 
     const startInstagramLogin = useCallback(() => {
@@ -323,7 +353,7 @@ export default function ChannelsPage() {
 
     const connectInstagramToBackend = async (code) => {
         try {
-            const res = await fetch(`/backend/api/instagram/connect`, {
+            const res = await fetch(`${API}/api/instagram/connect`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, workspace_id: workspace?.id })
@@ -358,7 +388,7 @@ export default function ChannelsPage() {
         }
         const data = await response.json();
         if (data.authorization_url) {
-            window.location.href = data.authorization_url;
+            window.location.assign(data.authorization_url);
         }
     } catch (err) {
         console.error('Integration connect error:', err);
@@ -384,6 +414,33 @@ const disconnectIntegration = async (integrationId) => {
     }
 };
 
+const disconnectChannel = async (channelId) => {
+    if (!confirm(`Disconnect ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'}?`)) return;
+    try {
+        const token = getToken();
+        const res = await fetch(
+            `${API}/api/channels/disconnect/${channelId}?workspace_id=${workspace.id}`,
+            { 
+                method: 'DELETE', 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            }
+        );
+        if (res.ok) {
+            setStatuses(prev => ({ ...prev, [channelId]: false }));
+            setConnectedInfo(prev => ({ ...prev, [channelId]: null }));
+            localStorage.removeItem(`${channelId}_connected`);
+            localStorage.removeItem(`${channelId}_phone`);
+            localStorage.removeItem(`${channelId}_username`);
+            showToast(`Disconnected ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'} successfully`);
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            alert("Failed to disconnect: " + (errData.detail || "Unknown error"));
+        }
+    } catch (err) {
+        console.error('Disconnect failed:', err);
+    }
+};
+
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
         
@@ -402,7 +459,7 @@ const disconnectIntegration = async (integrationId) => {
 
         setTwilioSubmitting(true);
         try {
-            const res = await fetch(`/backend/twilio/connect`, {
+            const res = await fetch(`${API}/twilio/connect`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeader() },
                 body: JSON.stringify({ 
@@ -439,6 +496,17 @@ const disconnectIntegration = async (integrationId) => {
 
     const handleConnect = (id) => {
         if (statuses[id]) return;
+        triggerConnect(id);
+    };
+
+    // Reconnect bypasses the "already connected" guard
+    const handleReconnect = (id) => {
+        setStatuses(prev => ({ ...prev, [id]: false }));
+        setConnectedInfo(prev => ({ ...prev, [id]: null }));
+        triggerConnect(id);
+    };
+
+    const triggerConnect = (id) => {
         if (id === 'whatsapp')        startWhatsAppSignup();
         if (id === 'instagram')       startInstagramLogin();
         if (id === 'gmail')           connectIntegration('gmail');
@@ -571,14 +639,24 @@ const disconnectIntegration = async (integrationId) => {
                                         </span>
                                     </div>
 
-                                    {/* Connect / Connected button */}
+                                    {/* Connect / Connected / Reconnect buttons */}
                                     {isConnected ? (
-                                        <button
-                                            title="Connected"
-                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium cursor-default">
-                                            <Check size={14} />
-                                            Connected
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleReconnect(item.id)}
+                                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 text-[12px] font-medium hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400 transition-all"
+                                                title="Reconnect">
+                                                <RefreshCw size={12} />
+                                                Reconnect
+                                            </button>
+                                            <button
+                                                onClick={() => disconnectChannel(item.id)}
+                                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all cursor-pointer"
+                                                title="Click to disconnect">
+                                                <Check size={14} />
+                                                Connected
+                                            </button>
+                                        </div>
                                     ) : (
                                         <button
                                             onClick={() => handleConnect(item.id)}
@@ -653,12 +731,21 @@ const disconnectIntegration = async (integrationId) => {
                                             <span className="text-[12px] text-[#888]">{isConnected ? 'Connected' : item.categoryLabel}</span>
                                         </div>
                                         {isConnected ? (
-                                            <button
-                                                onClick={() => disconnectIntegration(item.id)}
-                                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
-                                                title="Click to disconnect">
-                                                <Check size={14} /> Connected
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleReconnect(item.id)}
+                                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 text-[12px] font-medium hover:bg-blue-500/10 hover:border-blue-500/30 hover:text-blue-400 transition-all"
+                                                    title="Reconnect">
+                                                    <RefreshCw size={12} />
+                                                    Reconnect
+                                                </button>
+                                                <button
+                                                    onClick={() => disconnectIntegration(item.id)}
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
+                                                    title="Click to disconnect">
+                                                    <Check size={14} /> Connected
+                                                </button>
+                                            </div>
                                         ) : (
                                             <button
                                                 onClick={() => handleConnect(item.id)}

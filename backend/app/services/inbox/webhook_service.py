@@ -305,6 +305,13 @@ class WebhookService:
             interactive_label = button_reply.get("title")
             text = text or interactive_label
 
+        if not text:
+            msg_type = message.get("type")
+            if msg_type in ["image", "audio", "video", "document", "sticker", "location", "contacts"]:
+                text = f"[{msg_type.upper()}]"
+            elif msg_type:
+                text = f"[{msg_type.upper()} message]"
+
         return text, interactive_value, interactive_label
 
     @staticmethod

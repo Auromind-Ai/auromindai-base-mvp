@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react"
 import { AlertCircle, CheckCircle, Clock } from "lucide-react"
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 export default function LogsPage() {
 
   const [logs, setLogs] = useState([])
@@ -20,7 +22,7 @@ export default function LogsPage() {
 
         setLoading(true)
 
-        const response = await fetch("http://localhost:8000/admin/logs")
+        const response = await fetch(`${API_BASE}/admin/logs`)
 
         if (!response.ok) throw new Error("Failed to fetch logs")
 

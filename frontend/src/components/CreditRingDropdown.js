@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, Sparkles, Wallet, Coins } from 'lucide-react';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 
 export default function CreditRingDropdown({ user, size = 36 }) {
   const [credits, setCredits] = useState(null);
   const [workspace, setWorkspace] = useState(null);
+  const [wccBalance, setWccBalance] = useState(1245.50);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const router = useRouter();
 
+  // Fetch AI credits summary
   useEffect(() => {
     async function fetchCredits() {
       try {
@@ -32,6 +34,16 @@ export default function CreditRingDropdown({ user, size = 36 }) {
     fetchCredits();
   }, []);
 
+  // Fetch WCC wallet balance from localStorage whenever opened
+  useEffect(() => {
+    if (isOpen) {
+      const storedWcc = localStorage.getItem('wcc_balance');
+      if (storedWcc) {
+        setWccBalance(parseFloat(storedWcc));
+      }
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -42,16 +54,18 @@ export default function CreditRingDropdown({ user, size = 36 }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (!credits) return null;
-
-  const balance = credits.credits_balance || 0;
-  const added = credits.credits_added || 0;
+  const balance = credits?.credits_balance ?? 2450;
+  const added = credits?.credits_added ?? 3000;
   const used = Math.max(0, added - balance);
   const percentUsed = added > 0 ? Math.min(100, (used / added) * 100) : 0;
+  const percentRemaining = Math.max(0, 100 - percentUsed);
   
   const radius = (size / 2) - 2; // slightly smaller than half to fit stroke
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentUsed / 100) * circumference;
+  const strokeDashoffset = circumference - (percentRemaining / 100) * circumference;
+
+  // Calculate estimated WhatsApp marketing messages
+  const estMarketingMsgs = Math.floor(wccBalance / 1.09);
 
   return (
     <div className="relative font-sans" ref={dropdownRef}>
@@ -62,10 +76,10 @@ export default function CreditRingDropdown({ user, size = 36 }) {
         style={{ width: size, height: size }}
       >
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 transform -rotate-90 pointer-events-none">
-          <circle cx={size/2} cy={size/2} r={radius} stroke="rgba(255,255,255,0.15)" strokeWidth="2.5" fill="none" />
+          <circle cx={size/2} cy={size/2} r={radius} stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" fill="none" />
           <circle 
             cx={size/2} cy={size/2} r={radius} 
-            stroke={percentUsed > 90 ? "#ef4444" : "#D4D4D4"} 
+            stroke={percentRemaining < 15 ? "#ef4444" : "#814AC8"} 
             strokeWidth="2.5" fill="none" 
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
@@ -73,56 +87,85 @@ export default function CreditRingDropdown({ user, size = 36 }) {
           />
         </svg>
         {user ? (
-          <div className="rounded-full bg-orange-600 flex items-center justify-center text-white font-bold" style={{ width: size - 12, height: size - 12, fontSize: size * 0.35 }}>
+          <div className="rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold" style={{ width: size - 10, height: size - 10, fontSize: size * 0.35 }}>
             {user.email?.charAt(0).toUpperCase()}
           </div>
         ) : (
           <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center text-[#D4D4D4]">
-             {/* Fallback if no user */}
+             {/* Fallback */}
           </div>
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* ElevenLabs-style Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-[#1e1e1e] border border-[#333] rounded-xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans">
-          <div className="p-4 bg-[#252525]">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" className="transform -rotate-90">
-                  <circle cx="12" cy="12" r="9" stroke="rgba(255,255,255,0.2)" strokeWidth="2" fill="none" />
-                  <circle cx="12" cy="12" r="9" stroke="#D4D4D4" strokeWidth="2" fill="none" strokeDasharray={2*Math.PI*9} strokeDashoffset={(2*Math.PI*9)*(1 - percentUsed/100)} />
-                </svg>
-                <span className="font-medium text-sm text-[#E5E5E5]">Balance</span>
+        <div className="absolute right-0 mt-3.5 w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans">
+          
+          {/* Section 1: AI Model Messages Balance */}
+          <div className="p-5 bg-gradient-to-b from-purple-950/20 to-transparent">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2 text-purple-400">
+                <Sparkles size={14} />
+                <span className="font-bold text-xs uppercase tracking-wider">AI Models Usage</span>
+              </div>
+              <span className="text-[10px] text-zinc-500 font-bold bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                {percentRemaining.toFixed(0)}% Left
+              </span>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <span className="text-lg font-black text-white">{balance.toLocaleString()}</span>
+                <span className="text-zinc-500 text-xs font-semibold">/ {added.toLocaleString()} AI Messages</span>
+              </div>
+              
+              {/* ElevenLabs Progress Bar */}
+              <div className="h-1.5 w-full rounded-full bg-zinc-900 overflow-hidden">
+                <div 
+                  className="h-full rounded-full bg-purple-500 transition-all duration-500" 
+                  style={{ width: `${percentRemaining}%` }} 
+                />
+              </div>
+              <p className="text-[10px] text-zinc-500 font-medium">Used for LLMs (Sonnet, Groq, etc.)</p>
+            </div>
+          </div>
+
+          {/* Section 2: Meta WhatsApp Prepaid Balance */}
+          <div className="p-5 border-t border-white/5 bg-gradient-to-b from-emerald-950/20 to-transparent">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <Wallet size={14} />
+                <span className="font-bold text-xs uppercase tracking-wider">WhatsApp Wallet</span>
               </div>
               <button 
-                onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}
-                className="bg-white text-black px-3 py-1 rounded-md text-xs font-semibold hover:bg-gray-200 transition-colors"
+                onClick={() => { setIsOpen(false); router.push('/user/admin/credits?tab=wcc'); }}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-emerald-500/30 transition-colors"
               >
-                Upgrade
+                Recharge
               </button>
             </div>
-            <div className="space-y-2 text-[#A1A1AA]">
-              <div className="flex justify-between">
-                <span>Total</span>
-                <span className="text-[#E5E5E5] font-medium">{added.toLocaleString()} credits</span>
+            
+            <div className="space-y-1">
+              <div className="text-lg font-black text-white">
+                ₹{wccBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
-              <div className="flex justify-between">
-                <span>Remaining</span>
-                <span className="text-[#E5E5E5] font-medium">{balance.toLocaleString()}</span>
+              <div className="flex items-center gap-1.5 text-zinc-500 text-xs font-medium">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>≈ {estMarketingMsgs.toLocaleString()} Marketing messages</span>
               </div>
             </div>
           </div>
-          <div className="p-4 border-t border-[#333] bg-[#1e1e1e]">
-            <div className="text-[#A1A1AA] mb-2 text-[12px]">Current workspace</div>
-            <div className="flex items-center justify-between group cursor-pointer" onClick={() => setIsOpen(false)}>
-              <div>
-                <div className="font-medium text-sm text-[#E5E5E5]">{workspace?.name || 'My Workspace'}</div>
-                <div className="text-[#A1A1AA] text-xs mt-0.5">Free plan</div>
+
+          {/* Workspace Footer */}
+          <div className="p-4 border-t border-white/5 bg-[#12121c]/40 flex items-center justify-between group cursor-pointer" onClick={() => { setIsOpen(false); router.push('/user/admin/credits'); }}>
+            <div>
+              <div className="font-bold text-xs text-[#E5E5E5] flex items-center gap-1">
+                {workspace?.name || 'My Workspace'}
               </div>
-              <div className="w-7 h-7 rounded bg-[#2D2D2D] flex items-center justify-center text-[#A1A1AA] group-hover:text-white transition-colors">
-                <ArrowRightLeft size={14} />
-              </div>
+              <div className="text-zinc-500 text-[10px] mt-0.5 font-bold uppercase tracking-wider">Manage Credits & Wallet</div>
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-[#1a1a24] flex items-center justify-center text-zinc-400 group-hover:text-white border border-white/5 transition-colors">
+              <ArrowRightLeft size={13} />
             </div>
           </div>
         </div>

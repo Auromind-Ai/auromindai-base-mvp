@@ -8,6 +8,8 @@ import { authHeader } from "@/lib/auth"
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export default function AdminDashboard() {
+  const params = useParams()
+  const adminPath = params?.admin_path || 'x7k2-admin-9pqm'
   const [analytics, setAnalytics] = useState(null)
   const [users, setUsers] = useState({ total: 0, active: 0 })
   const [workspaces, setWorkspaces] = useState({ total: 0 })
