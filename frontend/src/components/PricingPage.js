@@ -157,7 +157,7 @@ export default function PricingPage({ currentPlan = "free", onUpgrade, settings 
     {
       key: "pro",
       name: settings.pro_plan_name || "Pro",
-      price: `₹${settings.pro_plan_price || 999}`,
+      price: `₹${settings.pro_plan_price || 6999}`,
       usage: `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description:
         settings.pro_plan_desc ||
@@ -174,6 +174,7 @@ export default function PricingPage({ currentPlan = "free", onUpgrade, settings 
     {
       key: "enterprise",
       name: settings.enterprise_plan_name || "Enterprise",
+      price: settings.enterprise_plan_price === 0 ? "Custom" : (settings.enterprise_plan_price ? `₹${settings.enterprise_plan_price}` : "Custom"),
       usage: "Custom credits and seats",
       description:
         settings.enterprise_plan_desc ||

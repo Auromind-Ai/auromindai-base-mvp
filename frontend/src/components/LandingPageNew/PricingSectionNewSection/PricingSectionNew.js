@@ -42,8 +42,8 @@ export default function PricingSectionNew() {
     {
       name: settings?.free_plan_name || 'Free',
       icon: "🚀",
-      monthlyPrice: settings?.free_plan_price === 0 ? 'Free' : `₹${settings?.free_plan_price || 399}`,
-      annualPrice: settings?.free_plan_price === 0 ? 'Free' : `₹${settings?.free_plan_price || 399}`,
+      monthlyPrice: settings ? (settings.free_plan_price === 0 ? 'Free' : `₹${settings.free_plan_price}`) : 'Free',
+      annualPrice: settings ? (settings.free_plan_price === 0 ? 'Free' : `₹${settings.free_plan_price}`) : 'Free',
       description: settings?.free_plan_desc || 'Try Auromind for free and see the ROI yourself.',
       features: settings?.free_plan_features || [
         `${Math.round((settings?.token_limit_per_plan?.free || 100000) / TOKENS_PER_CREDIT)} AI Replies`,
@@ -56,11 +56,11 @@ export default function PricingSectionNew() {
     {
       name: settings?.pro_plan_name || 'Professional',
       icon: "⚡",
-      monthlyPrice: `₹${settings?.pro_plan_price || 6999}`,
-      annualPrice: `₹${settings?.pro_plan_price || 6999}`,
+      monthlyPrice: `₹${settings ? settings.pro_plan_price : 6999}`,
+      annualPrice: `₹${Math.round((settings ? settings.pro_plan_price : 6999) * 0.8)}`,
       description: settings?.pro_plan_desc || 'Advanced features for growing teams and scalable workflows.',
       features: settings?.pro_plan_features || [
-        `${Math.round((settings?.token_limit_per_plan?.pro || 1000000) / TOKENS_PER_CREDIT)} AI Replies`,
+        `${Math.round((settings?.token_limit_per_plan?.pro || 10000000) / TOKENS_PER_CREDIT)} AI Replies`,
         'Advanced Workflows',
         'Priority Support',
         'Full Analytics',
@@ -71,8 +71,8 @@ export default function PricingSectionNew() {
     {
       name: settings?.enterprise_plan_name || 'Business',
       icon: "👑",
-      monthlyPrice: settings?.enterprise_plan_price === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 'Custom'}`,
-      annualPrice: settings?.enterprise_plan_price === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 'Custom'}`,
+      monthlyPrice: settings ? (settings.enterprise_plan_price === 0 ? 'Custom' : `₹${settings.enterprise_plan_price}`) : '₹24,999',
+      annualPrice: settings ? (settings.enterprise_plan_price === 0 ? 'Custom' : `₹${Math.round(settings.enterprise_plan_price * 0.8)}`) : '₹19,999',
       description: settings?.enterprise_plan_desc || 'Perfect for small businesses starting with AI automation.',
       features: settings?.enterprise_plan_features || [
         'Dedicated Manager',
@@ -193,10 +193,10 @@ export default function PricingSectionNew() {
                           className="flex items-end"
                         >
                           <span className="text-[40px] leading-none font-semibold tracking-[-0.04em] text-white">
-                            {plan.monthlyPrice}
+                            {billing === 'monthly' ? plan.monthlyPrice : plan.annualPrice}
                           </span>
                           <span className="ml-1 mb-[4px] text-[14px] text-white/60">
-                            /month
+                            /month{billing === 'annual' && plan.monthlyPrice !== 'Free' && plan.monthlyPrice !== 'Custom' ? ' (billed annually)' : ''}
                           </span>
                         </motion.div>
                       </AnimatePresence>
