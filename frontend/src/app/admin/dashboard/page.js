@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Users, MessageSquare, Zap, Building2, Activity, Clock } from "lucide-react"
-import { useParams } from "next/navigation"
 import { authHeader } from "@/lib/auth"
 
 const API_BASE = '/api'; // same-origin proxy
@@ -21,7 +20,7 @@ export default function AdminDashboard() {
     const fetchDashboard = async () => {
       try {
         setLoading(true)
-        const res = await fetch(`${API_BASE}/${adminPath}/dashboard`)
+        const res = await fetch(`${API_BASE}/admin/dashboard`)
 
         if (!res.ok) throw new Error("Failed to fetch dashboard")
 

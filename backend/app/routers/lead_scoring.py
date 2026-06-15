@@ -32,9 +32,11 @@ from app.schemas.lead_scoring import (
     ConvertLeadResponse,
     ManualLeadCreateRequest,
     ManualLeadCreateResponse,
+    UpdateLeadLabelsRequest,
+    UpdateLeadLabelsResponse,
 )
 from app.models.message import Message, SenderType, MessageStatus
-from app.models.conversation import ChannelType
+from app.models.conversation import ChannelType, ConversationStatus
 from app.services.inbox.conversation_service import ConversationService
 
 
@@ -103,6 +105,24 @@ async def recalculate_lead(
         lead, db, reason="manual_recalculation"
     )
 
+    # Realtime pubsub (Task 7)
+    from app.services.analytics.realtime_service import publish_to_workspace
+    publish_to_workspace(
+        workspace_id=str(wid),
+        event_type="lead.score.updated",
+        payload={
+            "type": "lead_score_updated",
+            "conversation_id": str(lead.conversation_id),
+            "lead_id": str(lead.id),
+            "score": lead.score,
+            "behavioral_score": lead.behavioral_score,
+            "semantic_intent_score": lead.semantic_intent_score,
+            "lead_tier": lead.lead_tier,
+            "breakdown": breakdown
+        },
+        conversation_id=str(lead.conversation_id),
+    )
+
     return LeadScoreResponse(
         lead_id=lead.id,
         name=lead.name,
@@ -113,6 +133,116 @@ async def recalculate_lead(
         breakdown=breakdown,
         previous_score=old_score,
     )
+
+
+@router.post(
+    "/leads/{lead_id}/labels",
+    response_model=UpdateLeadLabelsResponse,
+    summary="Update lead labels",
+    description="Updates the lead's labels, validates them, and recalculates the lead score.",
+)
+async def update_lead_labels(
+    lead_id: UUID,
+    body: UpdateLeadLabelsRequest,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = verify_workspace_access(current_user, db, workspace_id)
+
+    lead = (
+        db.query(Lead)
+        .filter(Lead.id == lead_id, Lead.workspace_id == wid)
+        .first()
+    )
+    if not lead:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lead not found in this workspace",
+        )
+
+    # Validate labels
+    ALLOWED_LABELS = {"Interested", "High Priority", "Premium Lead", "Follow Up"}
+    for label in body.labels:
+        if label not in ALLOWED_LABELS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid label: '{label}'. Allowed labels are {list(ALLOWED_LABELS)}",
+            )
+
+    # Track label changes for audit/timeline logging
+    old_labels = list(lead.labels or [])
+    new_labels = body.labels
+
+    # Save labels to Lead.labels (JSON column)
+    lead.labels = body.labels
+
+    # Recalculate score
+    old_score = lead.score or 0
+    breakdown = lead_scoring_service.recalculate_lead_score(
+        lead, db, reason="label_update", commit=False
+    )
+    new_score = lead.score or 0
+
+    # Log label events to LeadScoreHistory
+    from app.models.lead_scoring import LeadScoreHistory
+    added = set(new_labels) - set(old_labels)
+    removed = set(old_labels) - set(new_labels)
+
+    for label in added:
+        entry = LeadScoreHistory(
+            lead_id=lead.id,
+            score_before=old_score,
+            score_after=new_score,
+            behavioral_score_delta=0,
+            intent_score_delta=0,
+            reason=f"label_added:{label}",
+            event_type=f"label_added:{label}",
+        )
+        db.add(entry)
+
+    for label in removed:
+        entry = LeadScoreHistory(
+            lead_id=lead.id,
+            score_before=old_score,
+            score_after=new_score,
+            behavioral_score_delta=0,
+            intent_score_delta=0,
+            reason=f"label_removed:{label}",
+            event_type=f"label_removed:{label}",
+        )
+        db.add(entry)
+
+    db.commit()
+
+    # Realtime pubsub (Task 7)
+    from app.services.analytics.realtime_service import publish_to_workspace
+    publish_to_workspace(
+        workspace_id=str(wid),
+        event_type="lead.score.updated",
+        payload={
+            "type": "lead_score_updated",
+            "conversation_id": str(lead.conversation_id),
+            "lead_id": str(lead.id),
+            "score": lead.score,
+            "behavioral_score": lead.behavioral_score,
+            "semantic_intent_score": lead.semantic_intent_score,
+            "lead_tier": lead.lead_tier,
+            "breakdown": breakdown
+        },
+        conversation_id=str(lead.conversation_id),
+    )
+
+    return UpdateLeadLabelsResponse(
+        lead_id=lead.id,
+        labels=lead.labels,
+        score=lead.score or 0,
+        behavioral_score=lead.behavioral_score or 0,
+        semantic_intent_score=lead.semantic_intent_score or 0,
+        lead_tier=lead.lead_tier or "cold",
+        breakdown=breakdown,
+    )
+
 
 
 @router.post(
@@ -380,26 +510,10 @@ async def list_leads_with_scores(
 
 
 def _build_lead_detail_response(lead: Lead, db: Session) -> LeadDetailResponse:
-    # Score breakdown
-    days = lead_scoring_service._days_inactive(lead)
-    responses = lead_scoring_service._template_responses(lead.id, db)
-    intent_signals = getattr(lead, "intent_signals", None)
-    breakdown = lead_scoring_service.calculate_score_breakdown(
-        current_node=lead.current_node or 0,
-        total_nodes=lead.total_nodes or 0,
-        days_inactive=days,
-        template_responses=responses,
-        semantic_intent_score=lead.semantic_intent_score or 0,
-        intent_signals=intent_signals,
-        word_count=int(intent_signals.get("word_count", 0))
-                   if isinstance(intent_signals, dict) else 0,
+    # Recalculate lead score dynamically and commit to DB to avoid stale data display (Task 3)
+    breakdown = lead_scoring_service.recalculate_lead_score(
+        lead, db, reason="recalculation", commit=True
     )
-
-    # Override breakdown totals to match persisted values (single source of truth)
-    breakdown["total"] = lead.score or 0
-    breakdown["behavioral_score"] = lead.behavioral_score or 0
-    breakdown["semantic_intent_score"] = lead.semantic_intent_score or 0
-    breakdown["lead_tier"] = lead.lead_tier or "cold"
 
     # Conversation log
     conversation_log = []
@@ -464,6 +578,7 @@ def _build_lead_detail_response(lead: Lead, db: Session) -> LeadDetailResponse:
         converted_product=lead.converted_product,
         conversion_notes=lead.conversion_notes,
         is_favorite=lead.is_favorite,
+        labels=lead.labels or [],
     )
 
 
@@ -524,6 +639,20 @@ async def toggle_lead_favorite(
     db.commit()
     db.refresh(lead)
 
+    # Realtime pubsub (Task 7)
+    from app.services.analytics.realtime_service import publish_to_workspace
+    publish_to_workspace(
+        workspace_id=str(wid),
+        event_type="lead.updated",
+        payload={
+            "type": "lead_updated",
+            "conversation_id": str(lead.conversation_id),
+            "lead_id": str(lead.id),
+            "is_favorite": lead.is_favorite,
+        },
+        conversation_id=str(lead.conversation_id),
+    )
+
     return _build_lead_detail_response(lead, db)
 
 
@@ -564,6 +693,21 @@ async def convert_lead(
     # Recalculate lead score with reason "converted"
     lead_scoring_service.recalculate_lead_score(lead, db, reason="converted", commit=False)
     db.commit()
+
+    # Realtime pubsub (Task 7)
+    from app.services.analytics.realtime_service import publish_to_workspace
+    publish_to_workspace(
+        workspace_id=str(wid),
+        event_type="lead.converted",
+        payload={
+            "type": "lead_converted",
+            "conversation_id": str(lead.conversation_id),
+            "lead_id": str(lead.id),
+            "amount": float(lead.conversion_amount) if lead.conversion_amount is not None else None,
+            "product": lead.converted_product,
+        },
+        conversation_id=str(lead.conversation_id),
+    )
 
     return ConvertLeadResponse(
         lead_id=lead.id,
@@ -626,6 +770,8 @@ async def create_manual_lead(
             resolved_channel = ChannelType.WHATSAPP
         elif src_lower == "instagram":
             resolved_channel = ChannelType.INSTAGRAM
+        elif src_lower in ("twilio", "sms", "phone"):
+            resolved_channel = ChannelType.TWILIO
         elif src_lower == "web":
             resolved_channel = ChannelType.WEB
 
@@ -638,6 +784,10 @@ async def create_manual_lead(
         external_id=cleaned_phone,
         contact_name=body.name,
     )
+
+    # Reopen conversation if not OPEN, so it is visible in Omni Inbox immediately
+    if conv.status != ConversationStatus.OPEN:
+        conv.status = ConversationStatus.OPEN
 
     # 6. Check for duplicate lead for this conversation in workspace
     existing_lead = (

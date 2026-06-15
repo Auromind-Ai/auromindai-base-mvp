@@ -12,8 +12,8 @@ import {
   ZoomIn, ZoomOut, Upload, Timer, HelpCircle
 } from 'lucide-react';
 import api from '@/lib/api';
-import { getToken, getWorkspaceIdFromToken } from '@/lib/auth';
 import AskQuestionConfig from '@/components/AskQuestionConfig';
+
 
 const MAX_BUTTONS = 3;
 const DEFAULT_MESSAGE_TYPE = 'text';
@@ -236,6 +236,21 @@ const validateFlowGraph = (nodes = [], edges = []) => {
     }
   });
 
+  // Check for disconnected or unreachable nodes
+  nodes.forEach((node) => {
+    if (node.type === 'trigger') return;
+
+    const isConnected = edges.some(
+      (edge) => edge.source === node.id || edge.target === node.id
+    );
+
+    if (!isConnected) {
+      disconnectedNodeIds.push(node.id);
+    } else if (triggerNodes.length === 1 && !reachableNodeIds.has(node.id)) {
+      disconnectedNodeIds.push(node.id);
+    }
+  });
+
   const uniqueDisconnectedNodeIds = [...new Set(disconnectedNodeIds)];
   if (uniqueDisconnectedNodeIds.length > 0) {
     const pluralSuffix = uniqueDisconnectedNodeIds.length > 1 ? 's are' : ' is';
@@ -274,6 +289,19 @@ export default function AutomationCanvas() {
   const [previewNode, setPreviewNode] = useState(null);
   const [stepsOpen, setStepsOpen] = useState(false);
   const [salesManualText, setSalesManualText] = useState('');
+
+  // ─── MODAL & TOAST STATE ───
+  const [toasts, setToasts] = useState([]);
+  const [deleteWireModal, setDeleteWireModal] = useState({ open: false, item: null, isDeleting: false });
+  const [deleteStepModal, setDeleteStepModal] = useState({ open: false, nodeId: null });
+  const [createWireModal, setCreateWireModal] = useState(false);
+  const [createWireName, setCreateWireName] = useState('');
+
+  const showToast = useCallback((message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  }, []);
 
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -354,32 +382,54 @@ export default function AutomationCanvas() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
-  const fetchFlows = async () => {
-    const token = getToken();
-    if (!token) return;
-
-    const workspaceId = getWorkspaceIdFromToken();
-    if (!workspaceId) return;
-
-    try {
-      const data = await api.getFlows();
+    }, []);
+    const fetchFlows = async () => {
+      try {
+        const data = await api.getFlows();
+      console.log('fetchFlows received:', data?.length, data);
       if (Array.isArray(data)) {
         const sanitizedFlows = data.map(sanitizeFlowData);
         setAutomations(sanitizedFlows);
-        if (sanitizedFlows.length > 0 && !selectedItem) handleSelectAutomation(sanitizedFlows[0]);
+        
+        // Retrieve last selected flow ID from localStorage
+        const savedId = localStorage.getItem("selected_wire_id");
+        let itemToSelect = null;
+        if (savedId) {
+          itemToSelect = sanitizedFlows.find(a => a.id === savedId);
+        }
+        if (!itemToSelect && sanitizedFlows.length > 0) {
+          itemToSelect = sanitizedFlows[0];
+        }
+        
+        if (itemToSelect) {
+          handleSelectAutomation(itemToSelect);
+        }
       }
     } catch (e) { console.error(e); }
   };
 
-  const handleSelectAutomation = (item) => {
-    const sanitizedItem = sanitizeFlowData(item);
-    setSelectedItem(sanitizedItem);
-    setNodes(sanitizedItem.nodes || []);
-    setEdges(sanitizedItem.edges || []);
-    setActiveNodeId(null);
-    setCanvasOffset({ x: 0, y: 0 });
-    setZoom(1);
+  const handleSelectAutomation = async (item) => {
+    if (!item) return;
+    try {
+      const freshItem = await api.getFlowById(item.id);
+      const sanitizedItem = sanitizeFlowData(freshItem);
+      setSelectedItem(sanitizedItem);
+      setNodes(sanitizedItem.nodes || []);
+      setEdges(sanitizedItem.edges || []);
+      setActiveNodeId(null);
+      setCanvasOffset({ x: 0, y: 0 });
+      setZoom(1);
+      
+      // Persist selection across page refreshes
+      localStorage.setItem("selected_wire_id", item.id);
+    } catch (e) {
+      console.error("Failed to load flow config from API, falling back to local data:", e);
+      const sanitizedItem = sanitizeFlowData(item);
+      setSelectedItem(sanitizedItem);
+      setNodes(sanitizedItem.nodes || []);
+      setEdges(sanitizedItem.edges || []);
+      setActiveNodeId(null);
+    }
   };
 
   // Keep zoom in a ref so node drag closure always reads latest zoom
@@ -578,22 +628,35 @@ export default function AutomationCanvas() {
         }
         return node;
       });
-      const saved = await api.saveFlow({
-        id: selectedItem.id, name: selectedItem.name,
+      const payload = {
+        id: selectedItem.id,
+        name: selectedItem.name,
         trigger_type: selectedItem.trigger_type || 'msg_recv',
-        nodes: sanitizedNodes, edges, status: selectedItem.status || 'Active'
-      });
-      setAutomations(prev => prev.map(a => a.id === saved.id ? saved : a));
-      setSelectedItem(saved);
-      setNodes(sanitizedNodes);
-      alert("Wire synched and saved! 🚀");
+        nodes: sanitizedNodes,
+        edges,
+        status: selectedItem.status || 'Active'
+      };
+      console.log("Saving Wire Payload:", JSON.stringify(payload, null, 2));
+      const saved = await api.saveFlow(payload);
+      const sanitizedSaved = sanitizeFlowData(saved);
+      setAutomations(prev => prev.map(a => 
+        a.id === sanitizedSaved.id ? sanitizedSaved : a
+      ));
+      setSelectedItem(sanitizedSaved);
+      setNodes(sanitizedSaved.nodes || sanitizedNodes);
+      setEdges(sanitizedSaved.edges || edges);
+      showToast("Wire synced and saved! 🚀", "success");
     } catch (e) { console.error(e); setError('Save failed: ' + e.message); }
     finally { setIsSaving(false); }
   };
 
-  const handleCreateNew = async () => {
-    const name = prompt("Name your wire:");
-    if (!name) return;
+  const handleCreateNew = () => {
+    setCreateWireName('');
+    setCreateWireModal(true);
+  };
+
+  const handleCreateNewConfirm = async (name) => {
+    setCreateWireModal(false);
     try {
       const newFlow = await api.saveFlow({
         name, trigger_type: 'msg_recv',
@@ -603,7 +666,11 @@ export default function AutomationCanvas() {
       setAutomations([...automations, newFlow]);
       handleSelectAutomation(newFlow);
       setActiveNodeId('1');
-    } catch (e) { console.error(e); }
+      showToast(`Wire "${name}" created!`, 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to create wire', 'error');
+    }
   };
 
   const updateNode = (nodeId, updater) => {
@@ -1084,21 +1151,133 @@ export default function AutomationCanvas() {
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
               {automations.map(item => (
                 <motion.div
-                  key={item.id}
-                  whileHover={{ scale: 1.01 }}
-                  onClick={() => handleSelectAutomation(item)}
-                  className={`group px-4 py-3 rounded-xl cursor-pointer transition-all border ${selectedItem?.id === item.id ? 'bg-violet-500/10 border-violet-500/25 shadow-lg' : 'bg-white/[0.03] border-white/5 hover:border-white/10 hover:bg-white/5'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${selectedItem?.id === item.id ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-zinc-500'}`}>
-                      <Zap size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate ${selectedItem?.id === item.id ? 'text-white' : 'text-zinc-400'}`}>{item.name}</p>
-                      <p className="text-[10px] text-zinc-600 mt-0.5">Active Wire</p>
-                    </div>
-                  </div>
-                </motion.div>
+  key={item.id}
+  whileHover={{ scale: 1.01 }}
+  onClick={() => handleSelectAutomation(item)}
+  className={`group px-4 py-3 rounded-xl cursor-pointer transition-all border ${selectedItem?.id === item.id ? 'bg-violet-500/10 border-violet-500/25 shadow-lg' : 'bg-white/[0.03] border-white/5 hover:border-white/10 hover:bg-white/5'}`}
+>
+  {/* TOP ROW: icon + name + delete */}
+  <div className="flex items-center gap-3 mb-3">
+    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+      selectedItem?.id === item.id ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-zinc-500'
+    }`}>
+      <Zap size={16} />
+    </div>
+
+    <div className="flex-1 min-w-0">
+      <p className={`text-sm font-semibold truncate ${
+        selectedItem?.id === item.id ? 'text-white' : 'text-zinc-400'
+      }`}>
+        {item.name}
+      </p>
+      <p className="text-[10px] text-white/40 mt-0.5">Automation Wire</p>
+    </div>
+
+    {/* DELETE BUTTON */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setDeleteWireModal({ open: true, item: item, isDeleting: false });
+      }}
+      className="w-7 h-7 flex items-center justify-center rounded-lg bg-black/40 border border-rose-500/20 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition flex-shrink-0"
+    >
+      <Trash2 size={13} />
+    </button>
+  </div>
+
+  {/* SEGMENTED ACTIVE / INACTIVE TOGGLE */}
+  <div
+    className="flex items-center rounded-2xl p-[4px] w-full"
+    style={{
+      background: 'rgba(0,0,0,0.45)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)',
+    }}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* ACTIVE segment */}
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        if (item.status === 'Active') return;
+        const prevStatus = item.status;
+        setAutomations(prev =>
+          prev.map(a => a.id === item.id ? { ...a, status: 'Active' } : a)
+        );
+        try {
+          await api.updateFlowStatus(item.id, 'Active');
+        } catch (err) {
+          setAutomations(prev =>
+            prev.map(a => a.id === item.id ? { ...a, status: prevStatus } : a)
+          );
+          showToast('Failed to update status', 'error');
+        }
+      }}
+      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] text-[11px] font-bold transition-all duration-300"
+      style={item.status === 'Active' ? {
+        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+        boxShadow: '0 3px 12px rgba(16,185,129,0.4)',
+        color: 'white',
+      } : {
+        color: 'rgba(255,255,255,0.28)',
+      }}
+    >
+      <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
+        item.status === 'Active' ? 'bg-white/25' : 'bg-white/5'
+      }`}>
+        <CheckCircle2 size={11} style={{ color: item.status === 'Active' ? 'white' : 'rgba(255,255,255,0.3)' }} />
+      </div>
+      Active
+    </button>
+
+    {/* INACTIVE segment */}
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        if (item.status !== 'Active') return;
+        const prevStatus = item.status;
+        setAutomations(prev =>
+          prev.map(a => a.id === item.id ? { ...a, status: 'Inactive' } : a)
+        );
+        try {
+          await api.updateFlowStatus(item.id, 'Inactive');
+        } catch (err) {
+          setAutomations(prev =>
+            prev.map(a => a.id === item.id ? { ...a, status: prevStatus } : a)
+          );
+          showToast('Failed to update status', 'error');
+        }
+      }}
+      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] text-[11px] font-bold transition-all duration-300"
+      style={item.status !== 'Active' ? {
+        background: 'linear-gradient(135deg, #e11d48 0%, #f43f5e 100%)',
+        boxShadow: '0 3px 12px rgba(244,63,94,0.4)',
+        color: 'white',
+      } : {
+        color: 'rgba(255,255,255,0.28)',
+      }}
+    >
+      <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
+        item.status !== 'Active' ? 'bg-white/25' : 'bg-white/5'
+      }`}>
+        {/* Prohibition circle icon */}
+        <svg
+          width="11" height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          style={{ color: item.status !== 'Active' ? 'white' : 'rgba(255,255,255,0.3)' }}
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+      </div>
+      Inactive
+    </button>
+  </div>
+</motion.div>
               ))}
             </div>
           </motion.aside>
@@ -1112,7 +1291,7 @@ export default function AutomationCanvas() {
             initial={{ x: 450, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 450, opacity: 0 }}
-            className="absolute right-3 top-51 bottom-0 h-[820px] w-[360px] z-[120] bg-[#15161C] border border-[#22252D] rounded-[20px] shadow-2xl flex flex-col overflow-hidden"
+            className="absolute right-3 top-51 bottom-0 max-h-[85vh] w-[360px] z-[120] bg-[#15161C] border border-[#22252D] rounded-[20px] shadow-2xl flex flex-col overflow-hidden"
           >
             <div className="px-5 py-2 border-b border-white/5 flex items-center justify-between bg-[#13131a]">
               <div className="flex items-center gap-3">
@@ -1867,27 +2046,18 @@ export default function AutomationCanvas() {
               )}
             </div>
 
-            <div className="px-5 py-4 border-t border-white/5">
-              <button
-                onClick={() => {
-                  if (!confirm("Delete this step?")) return;
-                  setNodes(prev => prev.filter(n => n.id !== activeNodeId));
-                  setEdges(prev => prev.filter(e => e.source !== activeNodeId && e.target !== activeNodeId));
-                  setNodes(prev => prev.map(node => ({
-                    ...node,
-                    config: {
-                      ...node.config,
-                      buttons: normalizeButtons(node.config?.buttons || []).map(button => button.target === activeNodeId ? { ...button, target: null } : button),
-                      branches: (node.config?.branches || []).map(branch => branch.target === activeNodeId ? { ...branch, target: null } : branch),
-                    },
-                  })));
-                  setActiveNodeId(null);
-                }}
-                className="w-full py-3 bg-[#27101A] hover:bg-rose-500/20 text-[#ffffff] hover:text-rose-300 transition-all rounded-xl text-xs font-medium border border-[#501527] border-[0.2px]"
+            {activeNode.type !== 'trigger' && (
+              <div className="px-5 py-4 border-t border-white/5">
+                <button
+                  onClick={() => {
+                    setDeleteStepModal({ open: true, nodeId: activeNodeId });
+                  }}
+                  className="w-full py-3 bg-[#27101A] hover:bg-rose-500/20 text-[#ffffff] hover:text-rose-300 transition-all rounded-xl text-xs font-medium border border-[#501527] border-[0.2px]"
                 >
                   Delete step
                 </button>
               </div>
+            )}
           </motion.aside>
         )}
       </AnimatePresence>
@@ -2273,6 +2443,16 @@ export default function AutomationCanvas() {
                       </div>
                     )}
 
+                    {nodeButtons.length > 0 && (
+                      <button
+                        data-no-drag
+                        onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
+                        className="w-full rounded-xl border border-[#814AC8] bg-[#140D1F] px-3 py-2.5 text-xs font-semibold text-white text-center hover:bg-[#140D1F]/80 transition mb-4"
+                      >
+                        Preview
+                      </button>
+                    )}
+
                     {nodeBranches.length > 0 && (
                       <div className="mb-4 space-y-2">
                         {/* Condition summary */}
@@ -2515,6 +2695,206 @@ export default function AutomationCanvas() {
         }
  
       `}</style>
+
+      {/* ─── TOAST NOTIFICATIONS ─── */}
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map(toast => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className={`pointer-events-auto flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-xl shadow-2xl text-sm font-semibold ${
+                toast.type === 'success'
+                  ? 'bg-[#0c1c14]/95 border-emerald-500/30 text-emerald-300 shadow-emerald-500/10'
+                  : 'bg-[#1c0c0c]/95 border-rose-500/30 text-rose-300 shadow-rose-500/10'
+              }`}
+            >
+              {toast.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              {toast.message}
+              <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className="ml-2 opacity-50 hover:opacity-100 transition">
+                <X size={14} />
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* ─── DELETE WIRE CONFIRM MODAL ─── */}
+      <AnimatePresence>
+        {deleteWireModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !deleteWireModal.isDeleting && setDeleteWireModal({ open: false, item: null, isDeleting: false })} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative bg-[#0f0f18] border border-purple-500/30 rounded-3xl p-8 w-[420px] shadow-2xl shadow-purple-500/10"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-5">
+                <Trash2 size={24} className="text-rose-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-2">Delete Wire</h3>
+              <p className="text-sm text-zinc-400 text-center mb-1">
+                Delete <span className="text-white font-semibold">"{deleteWireModal.item?.name}"</span> wire?
+              </p>
+              <p className="text-xs text-zinc-500 text-center mb-8">This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteWireModal({ open: false, item: null, isDeleting: false })}
+                  disabled={deleteWireModal.isDeleting}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setDeleteWireModal(prev => ({ ...prev, isDeleting: true }));
+                    try {
+                      await api.deleteFlow(deleteWireModal.item.id);
+                      const deletedId = deleteWireModal.item.id;
+                      setAutomations(prev => prev.filter(a => a.id !== deletedId));
+                      if (selectedItem?.id === deletedId) {
+                        setSelectedItem(null);
+                        setNodes([]);
+                        setEdges([]);
+                      }
+                      showToast('Wire deleted successfully', 'success');
+                      setDeleteWireModal({ open: false, item: null, isDeleting: false });
+                    } catch (err) {
+                      console.error(err);
+                      showToast('Failed to delete wire', 'error');
+                      setDeleteWireModal(prev => ({ ...prev, isDeleting: false }));
+                    }
+                  }}
+                  disabled={deleteWireModal.isDeleting}
+                  className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition shadow-lg shadow-rose-600/30 disabled:opacity-70 flex items-center justify-center gap-2"
+                >
+                  {deleteWireModal.isDeleting && (
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  )}
+                  {deleteWireModal.isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── DELETE STEP CONFIRM MODAL ─── */}
+      <AnimatePresence>
+        {deleteStepModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteStepModal({ open: false, nodeId: null })} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative bg-[#0f0f18] border border-purple-500/30 rounded-3xl p-8 w-[380px] shadow-2xl shadow-purple-500/10"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
+                <Trash2 size={24} className="text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-2">Delete Step</h3>
+              <p className="text-sm text-zinc-400 text-center mb-8">Remove this step from the flow?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteStepModal({ open: false, nodeId: null })}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const nodeIdToDelete = deleteStepModal.nodeId;
+                    setNodes(prev => prev.filter(n => n.id !== nodeIdToDelete));
+                    setEdges(prev => prev.filter(e => e.source !== nodeIdToDelete && e.target !== nodeIdToDelete));
+                    setNodes(prev => prev.map(node => ({
+                      ...node,
+                      config: {
+                        ...node.config,
+                        buttons: normalizeButtons(node.config?.buttons || []).map(button => button.target === nodeIdToDelete ? { ...button, target: null } : button),
+                        branches: (node.config?.branches || []).map(branch => branch.target === nodeIdToDelete ? { ...branch, target: null } : branch),
+                      },
+                    })));
+                    setActiveNodeId(null);
+                    setDeleteStepModal({ open: false, nodeId: null });
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition shadow-lg shadow-rose-600/30"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── CREATE WIRE MODAL ─── */}
+      <AnimatePresence>
+        {createWireModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCreateWireModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative bg-[#0f0f18] border border-purple-500/30 rounded-3xl p-8 w-[420px] shadow-2xl shadow-purple-500/10"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-5">
+                <Zap size={24} className="text-violet-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-6">Create New Wire</h3>
+              <input
+                type="text"
+                value={createWireName}
+                onChange={(e) => setCreateWireName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && createWireName.trim()) handleCreateNewConfirm(createWireName.trim()); }}
+                placeholder="Enter wire name..."
+                autoFocus
+                className="w-full px-4 py-3.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition mb-6"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCreateWireModal(false)}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { if (createWireName.trim()) handleCreateNewConfirm(createWireName.trim()); }}
+                  disabled={!createWireName.trim()}
+                  className="flex-1 py-3 rounded-xl bg-[#814AC8] hover:bg-violet-500 text-white text-sm font-semibold transition shadow-lg shadow-violet-600/30 disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} />
+                  Create Wire
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

@@ -20,18 +20,17 @@ import {
 } from "lucide-react"
 
 import api from "@/lib/api"
-import { getWorkspaceIdFromToken } from "@/lib/auth"
+import { useAuth } from "@/context/AuthContext"
 
 export default function BillingHistoryPage() {
+  const { workspaceId } = useAuth()
   const [billing, setBilling] = useState(null)
   const [pricing, setPricing] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   useEffect(() => {
-    const id = getWorkspaceIdFromToken() || sessionStorage.getItem("workspace_id")
-
-    if (!id) {
+    if (!workspaceId) {
       setError("Workspace not found. Please sign in again.")
       setLoading(false)
       return
@@ -43,7 +42,7 @@ export default function BillingHistoryPage() {
         setError("")
 
         const [billingData, pricingData] = await Promise.all([
-          api.getBillingStatus(id),
+          api.getBillingStatus(),
           api.getPricing(),
         ])
 
@@ -65,7 +64,7 @@ export default function BillingHistoryPage() {
     }, 10000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [workspaceId])
 
   const usage = useMemo(() => {
     const used = Number(billing?.credits_used ?? 0)

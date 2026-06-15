@@ -1,22 +1,13 @@
 "use client"
 
-import { useParams, usePathname, useRouter } from "next/navigation"
-import { notFound } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 
 export default function AdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
-  const params = useParams()
-  const adminPath = params.admin_path
-  const adminConsolePath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || "x7k2-admin-9pqm"
 
-  // 404 if the path does not match the configured hidden path
-  if (adminPath !== adminConsolePath) {
-    notFound()
-  }
-
-  const isLoginPage = pathname === `/${adminPath}`
+  const isLoginPage = pathname === "/admin"
 
   // For admin login page - render without the sidebar/layout
   if (isLoginPage) {
@@ -25,12 +16,12 @@ export default function AdminLayout({ children }) {
 
   const handleSignOut = async () => {
     try {
-      await fetch(`/api/${adminPath}/logout`, { method: "POST" })
+      await fetch("/api/admin/logout", { method: "POST" })
     } catch (e) {
       console.error("Sign out failed", e)
     }
     // Redirect to the admin login page
-    router.push(`/${adminPath}`)
+    router.push("/admin")
   }
 
   return (

@@ -3,7 +3,7 @@ const BACKEND_URL = process.env.API_URL || 'http://backend:8000';
 
 const nextConfig = {
 
-    reactStrictMode: true,
+    reactStrictMode: false,
     eslint: {
         ignoreDuringBuilds: true,
     },
@@ -11,11 +11,10 @@ const nextConfig = {
         keepAlive: true,
     },
     async rewrites() {
-        const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
         return [
             {
                 source: '/api/admin/:path*',
-                destination: `${BACKEND_URL}/${adminPath}/:path*`,
+                destination: `${BACKEND_URL}/admin/:path*`,
             },
             {
                 source: '/api/:path*',
@@ -28,20 +27,6 @@ const nextConfig = {
             {
                 source: '/ws/:path*',
                 destination: `${BACKEND_URL}/ws/:path*`,
-            },
-        ];
-    },
-    async redirects() {
-        return [
-            {
-                source: '/user/admin/integrations',
-                destination: '/user/admin/channels',
-                permanent: true,
-            },
-            {
-                source: '/user/admin/integrations/:path*',
-                destination: '/user/admin/channels',
-                permanent: true,
             },
         ];
     },

@@ -17,8 +17,6 @@ class AgenticWiringServiceV2:
         if self.google_api_key:
             genai.configure(api_key=self.google_api_key)
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
-
-
     #  PUBLIC                                                              
  
 

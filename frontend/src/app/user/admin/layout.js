@@ -29,7 +29,7 @@ import {
     Mail
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { getUser, getWorkspace, logout, restoreAdminToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
@@ -67,31 +67,30 @@ export default function AdminLayout({ children }) {
 function AdminLayoutContent({ children }) {
     const router = useRouter();
     const pathname = usePathname();
-    const [user, setUser] = useState(null);
-    const [workspace, setWorkspace] = useState(null);
+    const { user, workspaces, workspaceId, loading, logout } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
-    const [isLoading, setIsLoading] = useState(true);
 
+    const workspace = workspaces.find(w => w.id === workspaceId) || null;
+
+    const handleStopImpersonation = async () => {
+        try {
+            await fetch('/api/auth/stop-impersonation', { method: 'POST', credentials: 'include' });
+            window.location.href = '/admin';
+        } catch (err) {
+            console.error("Stop impersonation failed:", err);
+        }
+    };
+
+    const handleLogout = async () => {
+        await logout();
+    };
 
     useEffect(() => {
-
-  const adminToken = localStorage.getItem("admin_backup_token")
-
-  if (!adminToken) return
-
-  try {
-    const payload = JSON.parse(atob(adminToken.split(".")[1]))
-
-    if (payload?.impersonated) {
-      console.log("❌ Invalid admin token → removing")
-      localStorage.removeItem("admin_backup_token")
-    }
-
-  } catch {
-    localStorage.removeItem("admin_backup_token")
-  }
-
-}, [])
+        if (!loading && !user) {
+            console.warn("🚫 No current user found, redirecting to login");
+            router.push('/login');
+        }
+    }, [user, loading, router]);
 
     // app/layout.js or _app.js
     useEffect(() => {
@@ -113,44 +112,6 @@ function AdminLayoutContent({ children }) {
             d.getElementsByTagName('head')[0].appendChild(js);
         })(document, 'script', 'facebook-jssdk');
     }, []);
-
-    useEffect(() => {
-        const checkAuth = () => {
-            const currentUser = getUser();
-            const currentWorkspace = getWorkspace();
-            const token = localStorage.getItem('token');
-
-            console.log("🛡️ Layout Auth Check:", { 
-                user: currentUser?.email, 
-                hasWorkspace: !!currentWorkspace,
-                hasToken: !!token,
-                isImpersonating: localStorage.getItem('is_impersonating') === 'true'
-            });
-
-            if (!currentUser) {
-                if (token) {
-                    console.warn("🚫 Found token without a valid user; clearing stale auth state and redirecting to login");
-                    removeToken();
-                } else {
-                    console.warn("🚫 No current user found, redirecting to login");
-                }
-                router.push('/login');
-                return;
-            }
-
-            setUser(currentUser);
-            setWorkspace(currentWorkspace);
-            setIsLoading(false);
-        };
-        // Defer to next tick to satisfy linter
-        const timeout = setTimeout(checkAuth, 0);
-        return () => clearTimeout(timeout);
-    }, [router]);
-
-    const handleLogout = () => {
-        logout();
-        router.push('/login');
-    };
 
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const isAIPage = pathname && (pathname === '/user/admin/ai' || pathname.includes('/admin/ai'));
@@ -186,18 +147,21 @@ function AdminLayoutContent({ children }) {
         );
     };
 
-    if (isLoading || !user) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-[#191919] p-6">
-                <div className="w-full max-w-sm space-y-4">
-                    <div className="h-4 w-3/4 rounded-full shimmer-container shimmer-bg mx-auto" />
-                    <div className="h-4 w-1/2 rounded-full shimmer-container shimmer-bg mx-auto" />
-                    <div className="h-4 w-2/3 rounded-full shimmer-container shimmer-bg mx-auto" />
-                </div>
-            </div>
-        );
-    }
 
+if (loading) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-[#191919] p-6">
+            <div className="w-full max-w-sm space-y-4">
+                <div className="h-4 w-3/4 rounded-full shimmer-container shimmer-bg mx-auto" />
+                <div className="h-4 w-1/2 rounded-full shimmer-container shimmer-bg mx-auto" />
+                <div className="h-4 w-2/3 rounded-full shimmer-container shimmer-bg mx-auto" />
+            </div>
+        </div>
+    );
+}
+if (!user) {
+    return null; 
+}
     const isFullScreenPage = pathname && (
         pathname === '/user/admin/ai' ||
         pathname.startsWith('/user/admin/ai/') ||
@@ -226,9 +190,9 @@ function AdminLayoutContent({ children }) {
                 {/* Profile Section */}
                 <div className="flex items-center gap-3 px-5 pt-6 pb-5">
                     <div className="w-11 h-11 rounded-full flex-shrink-0 overflow-hidden bg-orange-500 flex items-center justify-center text-sm text-white font-bold border-2 border-white/10">
-                        {user.email?.charAt(0).toUpperCase()}
+                        {user?.email?.charAt(0)?.toUpperCase()}
                     </div>
-                    <span className="font-semibold text-[17px] text-white truncate">{user.name || 'User'}</span>
+                    <span className="font-semibold text-[17px] text-white truncate">{user?.full_name || user?.name || 'User'}</span>
                 </div>
 
                 {/* Search */}
@@ -250,11 +214,10 @@ function AdminLayoutContent({ children }) {
                     </div>
                 </div>
 
-                {/* Bottom: Back to Admin (if impersonating) + Log out */}
                 <div className="p-4 border-t border-[var(--notion-border)] space-y-2">
-                    {typeof window !== 'undefined' && localStorage.getItem('admin_backup_token') && (
+                    {user?.impersonated && (
                         <button
-                            onClick={() => { restoreAdminToken(); window.location.href = '/admin'; }}
+                            onClick={handleStopImpersonation}
                             className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-sm transition-colors border border-indigo-500/20"
                         >
                             <Shield size={14} />
@@ -304,11 +267,11 @@ function AdminLayoutContent({ children }) {
                         <div className="p-3 border-t border-white/5 bg-[#141418]">
                             <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
                                 <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-xs text-white font-bold">
-                                    {user.email?.charAt(0).toUpperCase()}
+                                    {user?.email?.charAt(0)?.toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-[#D4D4D4] font-medium truncate">{user.name || 'User'}</p>
-                                    <p className="text-[10px] text-[#555] truncate">{user.email}</p>
+                                    <p className="text-sm text-[#D4D4D4] font-medium truncate">{user?.full_name || user?.name || 'User'}</p>
+                                    <p className="text-[10px] text-[#555] truncate">{user?.email}</p>
                                 </div>
                                 <button onClick={handleLogout} className="text-[#9b9b9b] hover:text-white transition-colors p-1">
                                     <LogOut size={16} />
@@ -322,17 +285,14 @@ function AdminLayoutContent({ children }) {
             {/* Main Content Area */}
             <main className="flex-1 min-w-0 flex flex-col min-h-screen relative overflow-hidden bg-[var(--notion-bg)]">
                 {/* Impersonation Banner */}
-                {typeof window !== 'undefined' && localStorage.getItem('admin_backup_token') && (
+                {user?.impersonated && (
                     <div className="bg-indigo-600 px-4 py-2 flex items-center justify-between text-white text-xs font-bold z-[60] shadow-lg animate-in slide-in-from-top duration-300">
                         <div className="flex items-center gap-2">
                             <Shield size={14} className="animate-pulse" />
-                            <span>SECRET LOGIN MODE: Impersonating {user?.name || user?.email}</span>
+                            <span>SECRET LOGIN MODE: Impersonating {user?.full_name || user?.name || user?.email}</span>
                         </div>
                         <button 
-                            onClick={() => {
-                                restoreAdminToken();
-                                window.location.href = '/admin';
-                            }}
+                            onClick={handleStopImpersonation}
                             className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md transition-colors border border-white/10"
                         >
                             Exit & Return to Admin
@@ -354,7 +314,7 @@ function AdminLayoutContent({ children }) {
                     
                     {/* Compact Profile Circle for Mobile Header */}
                     <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold border border-white/10">
-                        {user.email?.charAt(0).toUpperCase()}
+                        {user?.email?.charAt(0)?.toUpperCase()}
                     </div>
                 </div>
 

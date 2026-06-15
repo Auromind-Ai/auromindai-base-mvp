@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import Image from 'next/image';
 import { Instagram, Mail, Search,
          ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap } from 'lucide-react';
-import { getWorkspace, authHeader, getToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 const showToast = (message) => {
     if (typeof window === 'undefined') return;
@@ -38,7 +39,7 @@ const showToast = (message) => {
     }, 4000);
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api';
 
 const WhatsAppIcon = () => (
     <svg viewBox="0 0 48 48" width="62" height="62" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -76,6 +77,8 @@ const CHANNELS_DATA = [
     connectBtnClass: 'text-white',
     connectBtnStyle: { background: '#140D1F', border: '0.2px solid #49E967', boxShadow: '0 0 12px -5px #49E967' },
     icon: WhatsAppIcon,
+    type: 'channel',
+    category: 'messaging',
     },
     {
     id: 'instagram',
@@ -95,6 +98,8 @@ const CHANNELS_DATA = [
     connectBtnClass: 'text-white',
     connectBtnStyle: { background: '#140D1F', border: '0.2px solid #C7368D', boxShadow: '0 0 12px -5px #C7368D' },
     icon: Instagram,
+    type: 'channel',
+    category: 'social media',
     },
     {
     id: 'twilio',
@@ -114,6 +119,8 @@ const CHANNELS_DATA = [
     connectBtnClass: 'text-white',
     connectBtnStyle: { background: '#140D1F', border: '0.2px solid #C7368D', boxShadow: '0 0 12px -5px #C7368D' },
     icon: TwilioIcon,
+    type: 'channel',
+    category: 'sms',
     },
 ];
 
@@ -153,6 +160,8 @@ const INTEGRATIONS_DATA = [
         connectBtnClass: 'text-white',
         connectBtnStyle: { background: '#140D1F', border: '0.2px solid #FBBC05', boxShadow: '0 0 12px -5px #FBBC05' },
         icon: GmailIcon,
+        type: 'integration',
+        category: 'email',
     },
     {
         id: 'google_calendar',
@@ -169,19 +178,43 @@ const INTEGRATIONS_DATA = [
         connectBtnClass: 'text-white',
         connectBtnStyle: { background: '#140D1F', border: '0.2px solid #1A73E8', boxShadow: '0 0 12px -5px #1A73E8' },
         icon: GoogleCalendarIcon,
+        type: 'integration',
+        category: 'calendar',
     },
+];
+
+const ALL_ITEMS = [...CHANNELS_DATA, ...INTEGRATIONS_DATA];
+
+const SORT_OPTIONS = [
+    { value: 'default', label: 'Default' },
+    { value: 'name-az', label: 'Name A\u2013Z' },
+    { value: 'name-za', label: 'Name Z\u2013A' },
+    { value: 'connected', label: 'Connected first' },
+];
+
+const TYPE_OPTIONS = [
+    { value: 'all', label: 'All' },
+    { value: 'channel', label: 'Channel' },
+    { value: 'integration', label: 'Integration' },
+];
+
+const CATEGORY_OPTIONS = [
+    { value: 'all', label: 'All' },
+    { value: 'messaging', label: 'Messaging' },
+    { value: 'social media', label: 'Social media' },
+    { value: 'sms', label: 'SMS' },
+    { value: 'email', label: 'Email' },
+    { value: 'calendar', label: 'Calendar' },
 ];
 
 export default function ChannelsPage() {
     const FB_APP_ID  = process.env.NEXT_PUBLIC_FB_APP_ID;
     const WA_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID;
 
-    const [workspace, setWorkspace] = useState(null);
+    const { workspaces, workspaceId } = useAuth();
+    const workspace = workspaces.find((item) => item.id === workspaceId) || null;
 
     useEffect(() => {
-        const ws = getWorkspace();
-        setWorkspace(ws);
-
         // Load statuses from localStorage
         const waConnected = localStorage.getItem("whatsapp_connected") === "true";
         const waPhone = localStorage.getItem("whatsapp_phone");
@@ -204,11 +237,10 @@ export default function ChannelsPage() {
 
     const loadIntegrationStatus = useCallback(async () => {
         try {
-            const token = getToken();
-            if (!token || !workspace?.id) return;
+            if (!workspace?.id) return;
             const response = await fetch(
-                `${API}/integrations/status?workspace_id=${workspace.id}`,
-                { headers: { 'Authorization': `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' } }
+                `${API}/integrations/status`,
+                { credentials: 'include' }
             );
             if (response.ok) {
                 const data = await response.json();
@@ -265,6 +297,7 @@ export default function ChannelsPage() {
     const [statuses, setStatuses] = useState({
         whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false
     });
+    const [hoveredBtn, setHoveredBtn] = useState(null);
 
     const [connecting, setConnecting] = useState(null);
     const [showTwilioModal, setShowTwilioModal] = useState(false);
@@ -272,6 +305,75 @@ export default function ChannelsPage() {
     const [showAuthToken, setShowAuthToken] = useState(false);
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({});
+
+    // ─── Filter / Sort state ─
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState('default');
+    const [typeFilter, setTypeFilter] = useState('all');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [openDropdown, setOpenDropdown] = useState(null); // 'sort' | 'type' | 'category' | null
+
+    const sortRef = useRef(null);
+    const typeRef = useRef(null);
+    const categoryRef = useRef(null);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (
+                sortRef.current && !sortRef.current.contains(e.target) &&
+                typeRef.current && !typeRef.current.contains(e.target) &&
+                categoryRef.current && !categoryRef.current.contains(e.target)
+            ) {
+                setOpenDropdown(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // ─── Filtering + Sorting logic ─
+    const filteredItems = useMemo(() => {
+        let items = [...ALL_ITEMS];
+
+        // Search filter
+        if (searchQuery.trim()) {
+            const q = searchQuery.trim().toLowerCase();
+            items = items.filter(item =>
+                item.name.toLowerCase().includes(q) ||
+                item.description.toLowerCase().includes(q)
+            );
+        }
+
+        // Type filter
+        if (typeFilter !== 'all') {
+            items = items.filter(item => item.type === typeFilter);
+        }
+
+        // Category filter
+        if (categoryFilter !== 'all') {
+            items = items.filter(item => item.category === categoryFilter);
+        }
+
+        // Sort
+        if (sortBy === 'name-az') {
+            items.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (sortBy === 'name-za') {
+            items.sort((a, b) => b.name.localeCompare(a.name));
+        } else if (sortBy === 'connected') {
+            items.sort((a, b) => {
+                const aConn = statuses[a.id] ? 1 : 0;
+                const bConn = statuses[b.id] ? 1 : 0;
+                return bConn - aConn;
+            });
+        }
+        // 'default' keeps original order (no sort)
+
+        return items;
+    }, [searchQuery, sortBy, typeFilter, categoryFilter, statuses]);
+
+    const filteredChannels = useMemo(() => filteredItems.filter(i => i.type === 'channel'), [filteredItems]);
+    const filteredIntegrations = useMemo(() => filteredItems.filter(i => i.type === 'integration'), [filteredItems]);
 
     // ─── Listen for WhatsApp embedded signup messages ─
     useEffect(() => {
@@ -321,7 +423,8 @@ export default function ChannelsPage() {
         try {
             const res = await fetch(`/backend/api/whatsapp/connect`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...authHeader() },
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...payload, workspace_id: workspace?.id })
             });
             const text = await res.text();
@@ -346,12 +449,12 @@ export default function ChannelsPage() {
             alert("Workspace not loaded. Please wait...");
             return;
         }
-        localStorage.setItem("instagram_workspace_id", workspaceId);
         const REDIRECT_URI = `${window.location.origin}/instagram/callback`;
         const authUrl =
             `https://www.facebook.com/v19.0/dialog/oauth?` +
             `client_id=${process.env.NEXT_PUBLIC_FB_APP_ID}` +
             `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+            `&state=${encodeURIComponent(workspaceId)}` +
             `&scope=${encodeURIComponent('instagram_basic,instagram_manage_messages,instagram_manage_comments,pages_show_list,pages_messaging,pages_read_engagement,business_management')}` +
             `&response_type=code`;
         window.location.href = authUrl;
@@ -361,7 +464,8 @@ export default function ChannelsPage() {
         try {
             const res = await fetch(`/backend/api/instagram/connect`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, workspace_id: workspace?.id })
             });
             const text = await res.text();
@@ -381,11 +485,10 @@ export default function ChannelsPage() {
     const connectIntegration = async (integrationId) => {
     setConnecting(integrationId);
     try {
-        const token = getToken();
         const backendId = integrationId === 'google_calendar' ? 'calendar' : integrationId;
         const response = await fetch(
-            `${API}/integrations/google/auth/${backendId}?workspace_id=${workspace.id}`,
-            { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' } }
+            `${API}/integrations/google/auth/${backendId}`,
+            { credentials: 'include', headers: { 'Content-Type': 'application/json' } }
         );
         if (!response.ok) {
             const error = await response.json();
@@ -407,11 +510,10 @@ export default function ChannelsPage() {
 const disconnectIntegration = async (integrationId) => {
     if (!confirm(`Disconnect ${integrationId}?`)) return;
     try {
-        const token = localStorage.getItem('token');
         const backendId = integrationId === 'google_calendar' ? 'calendar' : integrationId;
         await fetch(
-            `${API}/integrations/disconnect/google_${backendId}?workspace_id=${workspace.id}`,
-            { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' } }
+            `${API}/integrations/disconnect/google_${backendId}`,
+            { method: 'DELETE', credentials: 'include' }
         );
         setStatuses(prev => ({ ...prev, [integrationId]: false }));
         setConnectedInfo(prev => ({ ...prev, [integrationId]: null }));
@@ -440,7 +542,8 @@ const disconnectIntegration = async (integrationId) => {
         try {
             const res = await fetch(`/backend/twilio/connect`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true', ...authHeader() },
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     sid: sid.trim(), 
                     token: token.trim(), 
@@ -501,10 +604,14 @@ const disconnectIntegration = async (integrationId) => {
                     </div>                                   
 
                     <div className="hidden md:flex items-center justify-center flex-shrink-0 pointer-events-none select-none">
-                        <img
-                            src="/images/ChannelImage.png"
+                        <Image
+                            src="/images/ChannelImage.webp"
                             alt="AI Assistant"
-                            className="h-72 w-auto object-contain drop-shadow-2xl"
+                            className="object-contain drop-shadow-2xl"
+                            width={432}
+                            height={288}
+                            quality={100}
+                            priority
                         />
                     </div>
                 </div>
@@ -514,24 +621,92 @@ const disconnectIntegration = async (integrationId) => {
                     <div className="relative flex-1 min-w-[220px]">
                         <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#444]" />
                         <input type="text" placeholder="Search Channels"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
                             className="w-full bg-[#070012] border border-[#1f1f1f] rounded-xl py-2.5 pl-10 pr-4 text-[14px] text-white placeholder:text-[#888] outline-none focus:border-[#333] transition-colors" />
                     </div>
-                    {[
-                        { label: 'Sort by', icon: ChevronDown },
-                        { label: 'Type', icon: ChevronDown },
-                        { label: 'Categories', icon: ChevronDown },
-                    ].map(btn => (
-                        <button key={btn.label}
+
+                    {/* Sort by dropdown */}
+                    <div className="relative" ref={sortRef}>
+                        <button
+                            onClick={() => setOpenDropdown(prev => prev === 'sort' ? null : 'sort')}
                             className="flex items-center gap-2 px-4 py-2.5 bg-[#070012] border border-[#1f1f1f] rounded-xl text-[13px] text-[#aaa] hover:border-[#333] hover:text-white transition-colors">
-                            {btn.label}
-                            <btn.icon size={13} className="text-[#555]" />
+                            {sortBy === 'default' ? 'Sort by' : SORT_OPTIONS.find(o => o.value === sortBy)?.label}
+                            <ChevronDown size={13} className="text-[#555]" />
                         </button>
-                    ))}
+                        {openDropdown === 'sort' && (
+                            <div className="absolute top-full mt-1 right-0 min-w-[160px] rounded-xl py-1 z-50" style={{ background: 'rgba(20, 20, 30, 0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)' }}>
+                                {SORT_OPTIONS.map(opt => (
+                                    <button key={opt.value}
+                                        onClick={() => { setSortBy(opt.value); setOpenDropdown(null); }}
+                                        className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${
+                                            sortBy === opt.value ? 'text-white bg-white/5' : 'text-[#aaa] hover:text-white hover:bg-white/5'
+                                        }`}>
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Type dropdown */}
+                    <div className="relative" ref={typeRef}>
+                        <button
+                            onClick={() => setOpenDropdown(prev => prev === 'type' ? null : 'type')}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-[#070012] border border-[#1f1f1f] rounded-xl text-[13px] text-[#aaa] hover:border-[#333] hover:text-white transition-colors">
+                            {typeFilter === 'all' ? 'Type' : TYPE_OPTIONS.find(o => o.value === typeFilter)?.label}
+                            <ChevronDown size={13} className="text-[#555]" />
+                        </button>
+                        {openDropdown === 'type' && (
+                            <div className="absolute top-full mt-1 right-0 min-w-[160px] rounded-xl py-1 z-50" style={{ background: 'rgba(20, 20, 30, 0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)' }}>
+                                {TYPE_OPTIONS.map(opt => (
+                                    <button key={opt.value}
+                                        onClick={() => { setTypeFilter(opt.value); setOpenDropdown(null); }}
+                                        className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${
+                                            typeFilter === opt.value ? 'text-white bg-white/5' : 'text-[#aaa] hover:text-white hover:bg-white/5'
+                                        }`}>
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Categories dropdown */}
+                    <div className="relative" ref={categoryRef}>
+                        <button
+                            onClick={() => setOpenDropdown(prev => prev === 'category' ? null : 'category')}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-[#070012] border border-[#1f1f1f] rounded-xl text-[13px] text-[#aaa] hover:border-[#333] hover:text-white transition-colors">
+                            {categoryFilter === 'all' ? 'Categories' : CATEGORY_OPTIONS.find(o => o.value === categoryFilter)?.label}
+                            <ChevronDown size={13} className="text-[#555]" />
+                        </button>
+                        {openDropdown === 'category' && (
+                            <div className="absolute top-full mt-1 right-0 min-w-[160px] rounded-xl py-1 z-50" style={{ background: 'rgba(20, 20, 30, 0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)' }}>
+                                {CATEGORY_OPTIONS.map(opt => (
+                                    <button key={opt.value}
+                                        onClick={() => { setCategoryFilter(opt.value); setOpenDropdown(null); }}
+                                        className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${
+                                            categoryFilter === opt.value ? 'text-white bg-white/5' : 'text-[#aaa] hover:text-white hover:bg-white/5'
+                                        }`}>
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
+                {/* ── Empty state ── */}
+                {filteredItems.length === 0 && (
+                    <div className="text-center py-20">
+                        <p className="text-white/40 text-[15px]">No channels or integrations match your filters.</p>
+                    </div>
+                )}
+
                 {/* ── Channel Cards ── */}
+                {filteredChannels.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {CHANNELS_DATA.map((item) => {
+                    {filteredChannels.map((item) => {
                         const isConnected  = statuses[item.id];
                         const isConnecting = connecting === item.id;
                         const Icon         = item.icon;
@@ -584,7 +759,7 @@ const disconnectIntegration = async (integrationId) => {
 
                                             {/* Connected info */}
                                             {isConnected && info && (
-                                                <p className="mt-2 text-[11px] text-[#666] font-mono">{info}</p>
+                                                <p className="mt-2 text-[11px] text-white/60 font-mono">{info}</p>
                                             )}
                                             {isConnecting && (
                                                 <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>
@@ -602,7 +777,7 @@ const disconnectIntegration = async (integrationId) => {
                                         ) : (
                                             <span className={`w-2 h-2 rounded-full ${item.categoryDot}`} />
                                         )}
-                                        <span className="text-[12px] text-[#888]">
+                                        <span className="text-[12px] text-white/60">
                                             {isConnected ? 'Connected' : item.categoryLabel}
                                         </span>
                                     </div>
@@ -610,10 +785,20 @@ const disconnectIntegration = async (integrationId) => {
                                     {/* Connect / Connected button */}
                                     {isConnected ? (
                                         <button
-                                            title="Connected"
-                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium cursor-default">
-                                            <Check size={14} />
-                                            Connected
+                                            onMouseEnter={() => setHoveredBtn(item.id)}
+                                            onMouseLeave={() => setHoveredBtn(null)}
+                                            onClick={() => disconnectIntegration(item.id)}
+                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
+                                            title="Click to disconnect">
+                                            {hoveredBtn === item.id ? (
+                                                <>
+                                                    <X size={14} /> Disconnect
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check size={14} /> Connected
+                                                </>
+                                            )}
                                         </button>
                                     ) : (
                                         <button
@@ -639,15 +824,17 @@ const disconnectIntegration = async (integrationId) => {
                         );
                     })}
                 </div>
+                )}
 
                 {/* ── Integration Section ── */}
+                {filteredIntegrations.length > 0 && (
                 <div className="mt-14">
                     <h2 className="text-3xl lg:text-4xl font-medium text-white tracking-tight mb-3">Integration</h2>
                     <p className="text-white/70 text-[15px] max-w-md leading-relaxed mb-8">
                         Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {INTEGRATIONS_DATA.map((item) => {
+                        {filteredIntegrations.map((item) => {
                             const isConnected  = statuses[item.id];
                             const isConnecting = connecting === item.id;
                             const Icon         = item.icon;
@@ -676,7 +863,7 @@ const disconnectIntegration = async (integrationId) => {
                                                     </span>
                                                 </div>
                                                 <p className="text-white/60 text-[12px] leading-relaxed">{item.description}</p>
-                                                {isConnected && info && <p className="mt-2 text-[11px] text-[#666] font-mono">{info}</p>}
+                                                {isConnected && info && <p className="mt-2 text-[11px] text-white/60 font-mono">{info}</p>}
                                                 {isConnecting && <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>}
                                             </div>
                                         </div>
@@ -686,14 +873,24 @@ const disconnectIntegration = async (integrationId) => {
                                             {isConnected
                                                 ? <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]" />
                                                 : <span className={`w-2 h-2 rounded-full ${item.categoryDot}`} />}
-                                            <span className="text-[12px] text-[#888]">{isConnected ? 'Connected' : item.categoryLabel}</span>
+                                            <span className="text-[12px] text-white/60">{isConnected ? 'Connected' : item.categoryLabel}</span>
                                         </div>
                                         {isConnected ? (
                                             <button
+                                                onMouseEnter={() => setHoveredBtn(item.id)}
+                                                onMouseLeave={() => setHoveredBtn(null)}
                                                 onClick={() => disconnectIntegration(item.id)}
                                                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
                                                 title="Click to disconnect">
-                                                <Check size={14} /> Connected
+                                                {hoveredBtn === item.id ? (
+                                                    <>
+                                                        <X size={14} /> Disconnect
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Check size={14} /> Connected
+                                                    </>
+                                                )}
                                             </button>
                                         ) : (
                                             <button
@@ -710,6 +907,7 @@ const disconnectIntegration = async (integrationId) => {
                         })}
                     </div>
                 </div>
+                )}
 
                 {/* ── Footer ── */}
                 <div className="mt-14 text-center text-white/50 text-[12px]">

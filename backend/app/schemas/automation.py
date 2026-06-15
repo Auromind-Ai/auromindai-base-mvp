@@ -33,6 +33,9 @@ class DeleteFlowResponse(BaseModel):
 class ApproveResponse(BaseModel):
     status: str
 
+class FlowStatusUpdateRequest(BaseModel):
+    status: str  # "Active" or "Inactive"
+
 class GenerateFlowResponse(BaseModel):
     nodes: list
     edges: list

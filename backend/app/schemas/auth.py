@@ -9,6 +9,8 @@ class UserResponse(BaseModel):
     id: str
     email: str
     full_name: str | None
+    workspace_id: str | None = None
+    impersonated: bool | None = False
 
 class WorkspaceResponse(BaseModel):
     id: str

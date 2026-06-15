@@ -17,8 +17,9 @@ export default function AnnouncementBanner() {
       setAnnouncement(data)
 
       if (!data.enabled) setDismissed(false)
-    } catch {
-      
+    } catch (err) {
+      // Ignore AbortError from StrictMode cleanup
+      if (err.name === 'AbortError') return;
     }
   }
 

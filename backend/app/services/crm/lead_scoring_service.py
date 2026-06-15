@@ -15,6 +15,14 @@ logger = logging.getLogger(__name__)
 
 from app.utils.scoring_config import get_scoring_config
 
+# Import standalone is_vague helper or define a fallback that delegates to detect_intent_signals
+try:
+    from app.utils.intent_detection import is_vague
+except ImportError:
+    from app.utils.intent_detection import detect_intent_signals
+    def is_vague(message: str) -> bool:
+        return detect_intent_signals(message)["signals"]["is_vague"]["value"]
+
 
 # Core formula (stateless, pure function)
 
@@ -27,9 +35,16 @@ def calculate_score(
     days_inactive: int,
     template_responses: list[str],
     semantic_intent_score: int = 0,
-) -> tuple[int, int, int, str]:
+    progress_score: float | None = None,
+    template_logs: list[TemplateLog] | None = None,
+    active_labels: list[str] | None = None,
+    label_score: int = 0,
+) -> tuple[int, int, int, int, str]:
     # --- 1. Flow progress (20 pts max) ---
-    if total_nodes > 0:
+    # CHANGE 1: AI Flow node progress logic or normal flow progress
+    if progress_score is not None:
+        progress = progress_score
+    elif total_nodes > 0:
         progress = (current_node / total_nodes) * 20
     else:
         progress = 0.0
@@ -45,23 +60,68 @@ def calculate_score(
         recency = 0
 
     # --- 3. Template engagement (20 pts max) ---
-    positive = sum(1 for r in template_responses if r in ("replied", "clicked"))
-    negative = sum(1 for r in template_responses if r == "ignored")
-    engagement = min((positive * 10) - (negative * 5), 20)
-    engagement = max(engagement, 0)
+    # CHANGE 2: Filter template engagement by 24h window
+    if template_logs is not None:
+        positive_replies = 0
+        ignored_templates = 0
+        now_utc = datetime.now(timezone.utc)
+        for template in template_logs:
+            sent_at = template.sent_at
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            age = now_utc - sent_at
+            # Skip templates still within 24h window (outcome not yet known)
+            if age.total_seconds() < 86400:
+                continue
+            is_replied = getattr(template, "replied", None)
+            if is_replied is None:
+                is_replied = template.response_type in ("replied", "clicked")
+            if is_replied:
+                positive_replies += 1
+            else:
+                ignored_templates += 1
+        engagement = (positive_replies * 10) - (ignored_templates * 5)
+        engagement = max(min(engagement, 20), 0)
+    else:
+        positive = sum(1 for r in template_responses if r in ("replied", "clicked"))
+        negative = sum(1 for r in template_responses if r == "ignored")
+        engagement = min((positive * 10) - (negative * 5), 20)
+        engagement = max(engagement, 0)
 
-    behavioral_score = round(progress + recency + engagement)
+    # Behavioral score purely from engagement, progress, recency, capped at 60
+    behavioral_score = max(min(round(progress + recency + engagement), 60), 0)
     cfg = get_scoring_config()
     intent_score = max(
         min(semantic_intent_score, cfg.get_cap("intent_max")),
         cfg.get_cap("intent_min")
     )
-    total_score = max(
+    
+    # Natural AI Score (behavioral + intent) capped at 100/0
+    natural_ai_score = max(
         min(behavioral_score + intent_score, cfg.get_cap("total_max")),
         cfg.get_cap("total_min")
     )
+    
+    # Calculate Agent Label Bonus
+    LABEL_BONUSES = {
+        "Interested": 10,
+        "High Priority": 15,
+        "Premium Lead": 20,
+        "Follow Up": 5,
+    }
+    agent_label_bonus = sum(LABEL_BONUSES.get(label, 0) for label in (active_labels or []))
+    if label_score > 0 and not active_labels:
+        # Fallback to legacy label_score for compatibility
+        agent_label_bonus = label_score
+        
+    # Final Score = Natural AI Score + Agent Label Bonus
+    total_score = max(
+        min(natural_ai_score + agent_label_bonus, cfg.get_cap("total_max")),
+        cfg.get_cap("total_min")
+    )
+    
     tier = get_lead_tier(total_score)
-    return total_score, behavioral_score, intent_score, tier
+    return total_score, behavioral_score, intent_score, agent_label_bonus, tier
 
 
 # Score breakdown (same math, structured output)
@@ -74,14 +134,29 @@ def calculate_score_breakdown(
     semantic_intent_score: int = 0,
     intent_signals: dict[str, Any] | None = None,
     word_count: int = 0,
+    progress_score: float | None = None,
+    template_logs: list[TemplateLog] | None = None,
+    active_labels: list[str] | None = None,
+    label_score: int = 0,
 ) -> dict[str, Any]:
     """Return the total score *plus* per-factor details."""
     
-    total, behavioral, intent, tier = calculate_score(
-        current_node, total_nodes, days_inactive, template_responses, semantic_intent_score
+    total, behavioral, intent, agent_label_bonus, tier = calculate_score(
+        current_node=current_node,
+        total_nodes=total_nodes,
+        days_inactive=days_inactive,
+        template_responses=template_responses,
+        semantic_intent_score=semantic_intent_score,
+        progress_score=progress_score,
+        template_logs=template_logs,
+        active_labels=active_labels,
+        label_score=label_score,
     )
 
-    progress = round((current_node / total_nodes) * 20, 1) if total_nodes > 0 else 0.0
+    if progress_score is not None:
+        progress = progress_score
+    else:
+        progress = round((current_node / total_nodes) * 20, 1) if total_nodes > 0 else 0.0
 
     if days_inactive == 0:
         recency = 20
@@ -92,10 +167,32 @@ def calculate_score_breakdown(
     else:
         recency = 0
 
-    positive = sum(1 for r in template_responses if r in ("replied", "clicked"))
-    negative = sum(1 for r in template_responses if r == "ignored")
-    engagement_raw = (positive * 10) - (negative * 5)
-    engagement = max(min(engagement_raw, 20), 0)
+    if template_logs is not None:
+        positive_replies = 0
+        ignored_templates = 0
+        now_utc = datetime.now(timezone.utc)
+        for template in template_logs:
+            sent_at = template.sent_at
+            if sent_at.tzinfo is None:
+                sent_at = sent_at.replace(tzinfo=timezone.utc)
+            age = now_utc - sent_at
+            if age.total_seconds() < 86400:
+                continue
+            is_replied = getattr(template, "replied", None)
+            if is_replied is None:
+                is_replied = template.response_type in ("replied", "clicked")
+            if is_replied:
+                positive_replies += 1
+            else:
+                ignored_templates += 1
+        engagement = max(min((positive_replies * 10) - (ignored_templates * 5), 20), 0)
+        positive_responses_count = positive_replies
+        negative_responses_count = ignored_templates
+    else:
+        positive_responses_count = sum(1 for r in template_responses if r in ("replied", "clicked"))
+        negative_responses_count = sum(1 for r in template_responses if r == "ignored")
+        engagement_raw = (positive_responses_count * 10) - (negative_responses_count * 5)
+        engagement = max(min(engagement_raw, 20), 0)
 
     signals = {
         "has_number": {"value": False, "snippet": "", "explanation": "Budget mentioned", "reasoning": ""},
@@ -134,14 +231,16 @@ def calculate_score_breakdown(
         "recency":  {"score": recency, "max": 20,
                      "days_inactive": days_inactive},
         "engagement": {"score": engagement, "max": 20,
-                       "positive_responses": positive,
-                       "negative_responses": negative},
+                       "positive_responses": positive_responses_count,
+                       "negative_responses": negative_responses_count},
         "intent": {
             "score": intent,
             "max": MAX_INTENT_SCORE,
             "signals": signals,
             "word_count": word_count,
         },
+        "label_score": agent_label_bonus,
+        "agent_label_bonus": agent_label_bonus,
     }
 
 
@@ -225,13 +324,44 @@ def recalculate_lead_score(
     commit: bool = True,
 ) -> dict[str, Any]:
     days = _days_inactive(lead)
-    responses = _template_responses(lead.id, db)
+    t_logs = db.query(TemplateLog).filter(TemplateLog.lead_id == lead.id).all()
+    responses = [t.response_type for t in t_logs if t.response_type]
+
+    # CHANGE 1: AI vs Normal Flow node progress detection
+    from app.models.flow_execution import FlowExecutionState
+    from app.models.automation import AutomationFlow
+    from app.models.message import Message, SenderType
+    
+    flow_type = None
+    state = db.query(FlowExecutionState).filter(FlowExecutionState.conversation_id == lead.conversation_id).first()
+    if state and state.active_flow_id:
+        flow = db.query(AutomationFlow).filter(AutomationFlow.id == state.active_flow_id).first()
+        if flow:
+            flow_type = getattr(flow, "type", None)
+            
+    progress_score = None
+    if flow_type == "ai":
+        messages = (
+            db.query(Message)
+            .filter(Message.conversation_id == lead.conversation_id)
+            .order_by(Message.timestamp.asc())
+            .all()
+        )
+        # Count customer messages that are not vague
+        meaningful_count = sum(
+            1 for msg in messages
+            if (msg.sender_type == SenderType.USER or getattr(msg, "sender", None) == "customer")
+            and not is_vague(msg.content or "")
+        )
+        progress_score = min(meaningful_count * 4, 20)
 
     current_node = lead.current_node or 0
     total_nodes = lead.total_nodes or 0
 
     intent_signals = getattr(lead, "intent_signals", None)
     semantic_intent_score = _resolve_semantic_intent_score(lead)
+    
+    active_labels = getattr(lead, "labels", None) or []
     
     breakdown = calculate_score_breakdown(
         current_node=current_node,
@@ -241,6 +371,9 @@ def recalculate_lead_score(
         semantic_intent_score=semantic_intent_score,
         intent_signals=intent_signals,
         word_count=int(intent_signals.get("word_count", 0)) if isinstance(intent_signals, dict) else 0,
+        progress_score=progress_score,
+        template_logs=t_logs,
+        active_labels=active_labels,
     )
 
     old_score = lead.score or 0
@@ -260,13 +393,14 @@ def recalculate_lead_score(
     lead.semantic_intent_score = new_i
     lead.lead_tier = breakdown["lead_tier"]
 
-    # FIX 3: Auto-update lead status based on new score
+    # Auto-update lead status based on new score
     update_lead_status(lead)
 
     if commit:
         db.commit()
 
     return breakdown
+
 
 
 def recalculate_workspace_scores(
@@ -376,6 +510,7 @@ def get_workspace_lead_scores(
             intent_signals=intent_signals,
             word_count=int(intent_signals.get("word_count", 0))
                        if isinstance(intent_signals, dict) else 0,
+            active_labels=lead.labels or [],
         )
 
         # Ensure breakdown.total matches persisted score (single source of truth)
@@ -399,6 +534,9 @@ def get_workspace_lead_scores(
             "behavioral_score": lead.behavioral_score or 0,
             "semantic_intent_score": lead.semantic_intent_score or 0,
             "lead_tier": lead.lead_tier or "cold",
+
+            # labels list (NEW)
+            "labels": lead.labels or [],
 
             # explainable breakdown
             "breakdown": breakdown,

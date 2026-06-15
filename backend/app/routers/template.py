@@ -25,7 +25,7 @@ class TemplateCreate(BaseModel):
     name: str
     type: str
     message: str
-    workspace_id: str
+    workspace_id: str | None = None
     category: str
     language: str
     header: str | None = None

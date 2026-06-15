@@ -18,7 +18,7 @@ class AdminConsoleMiddleware:
 
         request = Request(scope, receive=receive)
         path = request.url.path
-        admin_prefix = f"/{settings.ADMIN_CONSOLE_PATH}"
+        admin_prefix = "/admin"
         
         # Check if the request starts with the designated admin console path prefix
         if path.startswith(admin_prefix):

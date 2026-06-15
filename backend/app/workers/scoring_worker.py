@@ -129,3 +129,41 @@ def analyze_message_intent(self, conversation_id: str, message_text: str, messag
         raise self.retry(exc=exc, countdown=10)
     finally:
         db.close()
+
+
+@celery_app.task(
+    name="app.workers.scoring_worker.decay_inactive_lead_scores"
+)
+def decay_inactive_lead_scores():
+    db = SessionLocal()
+    try:
+        leads = db.query(Lead).filter(Lead.status.notin_(["converted", "lost"])).all()
+        logger.info(f"[decay_inactive_lead_scores] Recalculating score for {len(leads)} non-terminal leads.")
+        for lead in leads:
+            try:
+                breakdown = recalculate_lead_score(lead, db, reason="recency_decay", commit=False)
+                # Realtime pubsub (Task 7)
+                publish_to_workspace(
+                    workspace_id=str(lead.workspace_id),
+                    event_type="lead.score.updated",
+                    payload={
+                        "type": "lead_score_updated",
+                        "conversation_id": str(lead.conversation_id),
+                        "lead_id": str(lead.id),
+                        "score": lead.score,
+                        "behavioral_score": lead.behavioral_score,
+                        "semantic_intent_score": lead.semantic_intent_score,
+                        "lead_tier": lead.lead_tier,
+                        "breakdown": breakdown
+                    },
+                    conversation_id=str(lead.conversation_id),
+                )
+            except Exception as e:
+                logger.error(f"[decay_inactive_lead_scores] Error recalculating lead {lead.id}: {e}")
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.exception(f"[decay_inactive_lead_scores] Error running decay task: {exc}")
+    finally:
+        db.close()
+

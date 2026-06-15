@@ -67,6 +67,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.flow_execution.archive_old_conversations",
         "schedule": crontab(hour=3, minute=0),
     },
+    "daily-recency-decay": {
+        "task": "app.workers.scoring_worker.decay_inactive_lead_scores",
+        "schedule": crontab(hour=0, minute=0),
+    },
 }
 
 # @celery_app.on_after_finalize.connect

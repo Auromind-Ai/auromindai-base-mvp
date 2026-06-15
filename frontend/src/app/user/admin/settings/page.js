@@ -3,9 +3,10 @@
 import SettingsContent from '@/components/SettingsContent';
 
 export default function SettingsPage() {
-    return (
-        <div className="h-[calc(100vh-80px)] md:h-[calc(100vh-120px)] w-full rounded-xl border border-[#333] overflow-hidden shadow-2xl">
-            <SettingsContent />
-        </div>
-    );
+  return (
+    // Full-height black background wrapper; the inner card is rendered by SettingsContent
+    <div className="h-full w-full bg-black overflow-hidden">
+      <SettingsContent />
+    </div>
+  );
 }

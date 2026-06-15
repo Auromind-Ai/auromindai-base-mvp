@@ -18,7 +18,8 @@ async def connect_whatsapp(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    verify_workspace_access(current_user, db, data.get("workspace_id"))
+    workspace_id = verify_workspace_access(current_user, db, data.get("workspace_id"))
+    data["workspace_id"] = workspace_id
     try:
         return ChannelConnectionService.connect_meta_whatsapp(db, data)
     except HTTPException as e:

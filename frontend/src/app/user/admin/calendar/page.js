@@ -4,24 +4,26 @@ const API = '/api';
 
 import { useState, useEffect } from 'react';
 import { Calendar, ExternalLink, Settings, Plus } from 'lucide-react';
-import { getWorkspace } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CalendarPage() {
     const [connected, setConnected] = useState(false);
     const [loading, setLoading] = useState(true);
     const [calendarEmail, setCalendarEmail] = useState('');
-    const workspace = getWorkspace();
+    const { workspaces, workspaceId } = useAuth();
+    const workspace = workspaces.find((item) => item.id === workspaceId) || null;
 
     useEffect(() => {
-        checkConnection();
-    }, []);
+        if (workspace?.id) {
+            checkConnection();
+        }
+    }, [workspace?.id]);
 
     const checkConnection = async () => {
         try {
-            const token = localStorage.getItem("token");
             const response = await fetch(
-                `${API}/integrations/status?workspace_id=${workspace?.id}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+                `${API}/integrations/status`,
+                { credentials: 'include' }
             );
 
             if (response.ok) {
