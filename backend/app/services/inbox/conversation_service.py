@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app.models.conversation import ChannelType, Conversation
+from app.models.conversation import ChannelType, Conversation, ConversationStatus
 from app.models.workspace import Workspace
 
 
@@ -26,8 +26,11 @@ class ConversationService:
     def normalize_channel(channel: ChannelType | str) -> ChannelType:
         if isinstance(channel, ChannelType):
             return channel
+        val = str(channel).upper()
+        if val in ("SMS", "PHONE"):
+            return ChannelType.TWILIO
         try:
-            return ChannelType[str(channel).upper()]
+            return ChannelType[val]
         except KeyError as exc:
             raise HTTPException(status_code=400, detail=f"Unsupported channel: {channel}") from exc
 
@@ -97,6 +100,7 @@ class ConversationService:
         *,
         workspace_id: str,
         channel: str | ChannelType | None = None,
+        status: str | None = "OPEN",
         skip: int = 0,
         limit: int = 100,
     ):
@@ -105,6 +109,8 @@ class ConversationService:
             query = query.filter(
                 Conversation.channel == ConversationService.normalize_channel(channel)
             )
+        if status and status.upper() != "ALL":
+            query = query.filter(Conversation.status == status)
         conversations = (
             query.order_by(Conversation.updated_at.desc())
             .offset(skip)

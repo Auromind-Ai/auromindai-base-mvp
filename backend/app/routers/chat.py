@@ -148,4 +148,9 @@ async def stream_chat(
         )
     except Exception as e:
         logger.error(f"[STREAM CHAT] error: {e}")
+        if preflight and preflight.get("status") == "ok" and "reservation_id" in preflight:
+            try:
+                service._release_token_reservation(db, preflight["reservation_id"], f"router_error:{type(e).__name__}")
+            except Exception as release_err:
+                logger.error(f"Failed to defensively release reservation in router: {release_err}")
         raise HTTPException(status_code=500, detail=str(e))

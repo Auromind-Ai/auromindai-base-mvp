@@ -14,26 +14,23 @@ import {
     Search,
     Filter
 } from 'lucide-react';
-import { getWorkspace } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import EmptyState from '@/components/EmptyState';
 import styles from './ai-control.module.css';
 
 export default function AIControlPage() {
-    const [workspace, setWorkspace] = useState(null);
+    const { workspaceId } = useAuth();
     const [rules, setRules] = useState(null);
     const [actions, setActions] = useState([]);
     const [filter, setFilter] = useState('all');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const ws = getWorkspace();
-        setWorkspace(ws);
-
-        if (ws) {
-            loadData(ws.id);
+        if (workspaceId) {
+            loadData(workspaceId);
         }
-    }, [filter]);
+    }, [filter, workspaceId]);
 
     const loadData = async (workspaceId) => {
         setLoading(true);
@@ -54,7 +51,7 @@ export default function AIControlPage() {
     const handleOverride = async (actionId, approved) => {
         try {
             await api.overrideDecision(actionId, approved);
-            if (workspace) loadData(workspace.id);
+            if (workspaceId) loadData(workspaceId);
         } catch (error) {
             console.error('Failed to override decision:', error);
             alert('Failed to override decision');

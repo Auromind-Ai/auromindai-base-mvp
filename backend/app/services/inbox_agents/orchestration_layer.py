@@ -88,6 +88,12 @@ class AgentOrchestration:
     ) if self.memory else None
         # Lead fields from payload (set by flow config)
         lead_fields = payload.get("lead_fields", [])
+        if isinstance(lead_fields, str):
+            lead_fields = [
+                field.strip()
+                for field in lead_fields.split(",")
+                if field.strip()
+            ]
 
         state = (
             self.memory.get_conversation_state(

@@ -1,0 +1,136 @@
+"use client";
+
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import api from '@/lib/api';
+import { setUser, setWorkspace } from '@/lib/auth';
+
+const AuthContext = createContext({
+  user: null,
+  workspaceId: null,
+  workspaces: [],
+  loading: true,
+  setUser: () => {},
+  setWorkspaceId: () => {},
+  logout: async () => {},
+  refreshUser: async () => {}
+});
+
+export function AuthProvider({ children }) {
+  const [user, setUserState] = useState(null);
+  const [workspaces, setWorkspacesState] = useState([]);
+  const [workspaceId, setWorkspaceIdState] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const fetchingRef = useRef(false);
+
+  const refreshUser = async (signal) => {
+    setLoading(true);
+    try {
+      const userData = await api.getCurrentUser({ signal });
+      const profile = userData?.user || userData;
+      
+      if (!profile || !profile.email) {
+        throw new Error("No user profile returned");
+      }
+      
+      setUserState(profile);
+      setUser(profile);
+      
+      // Fetch workspaces list
+      const wsData = await api.get('/auth/workspaces', { signal });
+      const wsList = wsData?.workspaces || [];
+      setWorkspacesState(wsList);
+      
+      // Determine active workspace_id
+      let activeWs = null;
+
+      if (workspaceId) {
+        activeWs = wsList.find(w => w.id === workspaceId);
+      }
+      if (!activeWs && profile.workspace_id) {
+        activeWs = wsList.find(w => w.id === profile.workspace_id);
+      }
+      if (!activeWs && wsList.length > 0) {
+        activeWs = wsList[0];
+      }
+
+      let actId = null;
+      if (activeWs) {
+        actId = activeWs.id;
+        setWorkspaceIdState(activeWs.id);
+        setWorkspace(activeWs);
+      }
+
+    } catch (err) {
+      // StrictMode cleanup — ignore AbortError gracefully, do NOT set unauthenticated
+      if (err.name === 'AbortError') return;
+      
+      const isAuthError = err?.status === 401 || err?.response?.status === 401 || err?.status === 403 || err?.response?.status === 403;
+      if (!isAuthError) {
+        console.error('Auth check failed:', err);
+      } else {
+        setUser(null);
+        setWorkspace(null);
+      }
+      setUserState(null);
+      setWorkspacesState([]);
+      setWorkspaceIdState(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const checkAuth = async () => {
+      try {
+        await refreshUser(controller.signal);
+      } catch (err) {
+        // Errors already handled in refreshUser
+      }
+    };
+
+    checkAuth();
+    return () => controller.abort(); // cleanup on unmount
+  }, []);
+
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      console.error("Logout API call failed:", err);
+    } finally {
+      setUserState(null);
+      setWorkspaceIdState(null);
+      setWorkspacesState([]);
+      setUser(null);
+      setWorkspace(null);
+      window.location.replace('/login');
+    }
+  };
+
+  const setWorkspaceId = (id) => {
+    setWorkspaceIdState(id);
+    const matchedWs = workspaces.find(w => w.id === id);
+    if (matchedWs) {
+      setWorkspace(matchedWs);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      workspaceId,
+      workspaces,
+      loading,
+      setUser: setUserState,
+      setWorkspaceId,
+      logout,
+      refreshUser
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);

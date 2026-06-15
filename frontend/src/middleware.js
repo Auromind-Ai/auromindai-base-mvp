@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 export function middleware(request) {
   const { pathname } = request.nextUrl;
-  const adminPath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || 'x7k2-admin-9pqm';
 
   // 1. Handle API/Backend headers proxying (existing logic)
   if (pathname.startsWith('/api/') || pathname.startsWith('/backend/')) {
@@ -15,23 +14,9 @@ export function middleware(request) {
     });
   }
 
-  // 2. Handle Admin Console page routing and security checks
-  if (pathname.includes('/[admin_path]')) {
+  // 2. Handle Admin Console page routing
+  if (pathname.startsWith('/admin')) {
     return NextResponse.next();
-  }
-
-  if (pathname.startsWith(`/${adminPath}`)) {
-    // If accessing any admin sub-path (e.g. /dashboard, /users, etc.)
-    // but not the root login path (/[adminPath] itself)
-    if (pathname !== `/${adminPath}`) {
-      const token = request.cookies.get('admin_session')?.value;
-      if (!token) {
-        // Rewrite directly to the Next.js 404 page
-        const url = request.nextUrl.clone();
-        url.pathname = '/404';
-        return NextResponse.rewrite(url);
-      }
-    }
   }
 
   return NextResponse.next();

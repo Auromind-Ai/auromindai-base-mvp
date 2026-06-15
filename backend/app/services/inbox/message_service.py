@@ -251,6 +251,16 @@ class MessageService:
         external_id = ChannelService.send_message(conversation, message, enriched_metadata)
         stored_message.external_id = external_id
         MessageService._trigger_human_takeover(db, conversation)
+
+        # Trigger score update on Agent reply (Task 6)
+        from app.models.ai_action import Lead
+        from app.services.crm.lead_scoring_service import recalculate_lead_score
+        
+        lead = db.query(Lead).filter(Lead.conversation_id == conversation.id).first()
+        if lead:
+            lead.last_activity_at = datetime.utcnow()
+            recalculate_lead_score(lead, db, reason="agent_reply", commit=False)
+
         db.commit()
         db.refresh(stored_message)
         return {

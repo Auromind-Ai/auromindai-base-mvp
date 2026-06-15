@@ -1,25 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Shield, Lock, Loader2 } from "lucide-react"
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const params = useParams()
-  const adminPath = params.admin_path
-  const adminConsolePath = process.env.NEXT_PUBLIC_ADMIN_CONSOLE_PATH || "x7k2-admin-9pqm"
 
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-
-  // Security: redirect to 404 if the dynamic path parameter doesn't match the console path
-  useEffect(() => {
-    if (adminPath !== adminConsolePath) {
-      router.replace("/404")
-    }
-  }, [adminPath, adminConsolePath, router])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -27,7 +17,7 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const res = await fetch(`/api/${adminPath}/auth`, {
+      const res = await fetch("/api/admin/auth", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -41,17 +31,12 @@ export default function AdminLoginPage() {
 
       // Successfully authenticated! Backend set the httpOnly cookie.
       // Redirect to dynamic dashboard route.
-      router.push(`/${adminPath}/dashboard`)
+      router.push("/admin/dashboard")
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }
-
-  // Render blank if accessing invalid path
-  if (adminPath !== adminConsolePath) {
-    return null
   }
 
   return (

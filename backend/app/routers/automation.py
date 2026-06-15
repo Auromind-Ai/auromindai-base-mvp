@@ -13,7 +13,7 @@ from typing import List
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.security import verify_workspace_access
-from app.schemas.automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse
+from app.schemas.automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse, FlowStatusUpdateRequest
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 engine = AutomationEngine()
@@ -177,3 +177,29 @@ async def delete_flow(
     db.commit()
     
     return {"status": "deleted", "flow_id": flow_id}
+
+@router.patch("/flows/{flow_id}/status", response_model=FlowResponseModel)
+async def update_flow_status(
+    flow_id: UUID,
+    request: FlowStatusUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    workspace_id = verify_workspace_access(current_user, db)
+
+    flow = db.query(AutomationFlow).filter(
+        AutomationFlow.id == flow_id,
+        AutomationFlow.workspace_id == workspace_id
+    ).first()
+
+    if not flow:
+        raise HTTPException(
+            status_code=404,
+            detail="Flow not found or you do not have permission to update it"
+        )
+
+    flow.status = request.status
+    db.commit()
+    db.refresh(flow)
+
+    return flow

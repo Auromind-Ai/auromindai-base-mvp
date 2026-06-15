@@ -10,7 +10,7 @@ from app.services.email_automation.email_monitor_service import EmailMonitor
 
 GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
-REDIRECT_URI = settings.OAUTH_REDIRECT_URI
+REDIRECT_URI = settings.GOOGLE_INTEGRATION_REDIRECT_URI
 
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/calendar",
@@ -181,13 +181,56 @@ class IntegrationService:
 
     @staticmethod
     def disconnect_integration(db: Session, workspace_id: str, integration_type: str):
-        integration = db.query(Integration).filter(
-            Integration.workspace_id == workspace_id,
-            Integration.integration_type == integration_type
-        ).first()
+        from app.models.workspace import Workspace
         
-        if integration:
-            db.delete(integration)
-            db.commit()
-            return True
-        return False
+        norm_type = integration_type.lower()
+        
+        if norm_type in ["whatsapp", "google_whatsapp"]:
+            ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            if ws:
+                ws.meta_access_token = None
+                ws.meta_business_id = None
+                ws.meta_waba_id = None
+                ws.meta_phone_number_id = None
+                ws.meta_display_phone = None
+                db.commit()
+                return True
+            return False
+            
+        elif norm_type in ["instagram", "google_instagram"]:
+            ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            if ws:
+                ws.meta_ig_id = None
+                db.commit()
+                return True
+            return False
+            
+        elif norm_type in ["twilio", "google_twilio"]:
+            ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            if ws:
+                ws.twilio_account_sid = None
+                ws.twilio_auth_token = None
+                ws.twilio_phone_number = None
+                db.commit()
+                return True
+            return False
+            
+        else:
+            db_type = integration_type
+            if norm_type == "gmail":
+                db_type = "google_gmail"
+            elif norm_type == "calendar":
+                db_type = "google_calendar"
+            elif norm_type == "zoho":
+                db_type = "zoho_crm"
+                
+            integration = db.query(Integration).filter(
+                Integration.workspace_id == workspace_id,
+                Integration.integration_type == db_type
+            ).first()
+            
+            if integration:
+                db.delete(integration)
+                db.commit()
+                return True
+            return False

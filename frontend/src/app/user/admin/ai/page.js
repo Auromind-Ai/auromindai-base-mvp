@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '@/context/SettingsContext';
-import { getWorkspace, getToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import ChatSidebar from '@/components/ChatSidebar';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
@@ -135,7 +135,7 @@ const SOURCE_OPTIONS = [
 ];
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function AuromindAIPage() {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_URL = '/api';
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -166,8 +166,9 @@ export default function AuromindAIPage() {
     // ── NEW: Scroll-to-bottom state ──────────────────────────────────────────
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
-    const workspace = getWorkspace();
-    const workspaceId = workspace?.id;
+    const skipNextSessionFetchRef = useRef(false);
+    const { workspaces, workspaceId } = useAuth();
+    const workspace = workspaces?.find(w => w.id === workspaceId) || null;
     const router = useRouter();
     const [userPlan, setUserPlan] = useState("free");
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -209,10 +210,6 @@ export default function AuromindAIPage() {
     useEffect(() => {
         setTimeout(() => setMounted(true), 0);
         sessionStorage.setItem("ai_active", "true");
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('token');
-            if (!token) window.location.href = '/login';
-        }
         return () => { sessionStorage.removeItem("ai_active"); };
     }, []);
     useEffect(() => {
@@ -262,6 +259,10 @@ export default function AuromindAIPage() {
     // FIX 3: currentSessionId effect — only fetch if we deliberately selected one
     useEffect(() => {
         if (!currentSessionId) return;
+        if (skipNextSessionFetchRef.current) {
+            skipNextSessionFetchRef.current = false;
+            return;
+        }
         const fetchMessages = async () => {
             setIsInitializing(true);
             try {
@@ -361,6 +362,7 @@ export default function AuromindAIPage() {
                     const newTitle = userMsg.substring(0, 30) + (userMsg.length > 30 ? '...' : '');
                     const newSession = await api.createChatSession(newTitle || "New Chat", workspaceId);
                     setSessions(prev => [newSession, ...prev]);
+                    skipNextSessionFetchRef.current = true;
                     setCurrentSessionId(newSession.id);
                     sessionStorage.setItem("last_session_id", newSession.id);
                     activeSessionId = newSession.id;
@@ -372,14 +374,13 @@ export default function AuromindAIPage() {
                     handleUpdateSession(activeSessionId, newTitle);
                 }
             }
-            const token = getToken();
             const res = await fetch(`${API_URL}/chat/stream`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                 },
-                body: JSON.stringify({ message: userMsg, model: selectedModel, workspace_id: workspaceId, use_rag: true, document_id: lastUploadedId, chat_mode: chatMode, source: source, session_id: activeSessionId }),
+                body: JSON.stringify({ message: userMsg, model: selectedModel, use_rag: true, document_id: lastUploadedId, chat_mode: chatMode, source: source, session_id: activeSessionId }),
                 signal: abortControllerRef.current.signal
             });
             setAttachedFile(null);
@@ -494,14 +495,13 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
         try {
-            const editToken = getToken();
             const res = await fetch(`${API_URL}/chat/stream`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(editToken ? { 'Authorization': `Bearer ${editToken}` } : {})
                 },
-                body: JSON.stringify({ message: newContent, model: selectedModel, workspace_id: workspaceId }),
+                body: JSON.stringify({ message: newContent, model: selectedModel }),
                 signal: abortControllerRef.current.signal
             });
             const reader = res.body.getReader();
@@ -548,14 +548,13 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
         try {
-            const regenToken = getToken();
             const res = await fetch(`${API_URL}/chat/stream`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(regenToken ? { 'Authorization': `Bearer ${regenToken}` } : {})
                 },
-                body: JSON.stringify({ message: userMsg, model: selectedModel, workspace_id: workspaceId }),
+                body: JSON.stringify({ message: userMsg, model: selectedModel }),
                 signal: abortControllerRef.current.signal
             });
             const reader = res.body.getReader();
@@ -685,7 +684,7 @@ export default function AuromindAIPage() {
                                             transition={{ delay: 0.25, duration: 0.5 }}
                                             className="text-gray-400 text-base mb-10 text-center"
                                         >
-                                            Let's get things done. What would you like to accomplish today?
+                                            Let&apos;s get things done. What would you like to accomplish today?
                                         </motion.p>
                                         {/* Prompt Input */}
                                         <motion.div layoutId="chat-input-container" className="w-full max-w-4xl">

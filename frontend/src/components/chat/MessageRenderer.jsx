@@ -244,9 +244,10 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
   // ── 3. Structured button templates from metadata ─────────────────
 
   if (buttons && Array.isArray(buttons) && buttons.length > 0) {
+    const skipText = meta.type === 'interactive' || !!meta.buttons;
     return (
       <>
-        {content && (
+        {content && !skipText && (
           <p className="text-[13px] text-white leading-relaxed mb-3 whitespace-pre-wrap">{content}</p>
         )}
         <div className="flex flex-col gap-2">

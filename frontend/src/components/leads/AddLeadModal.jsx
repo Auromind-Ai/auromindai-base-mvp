@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import api from '@/lib/api';
-import { getWorkspaceIdFromToken } from '@/lib/auth';
 
 /**
  * Creates a floating toast notification using decoupled DOM insertion,
@@ -98,13 +97,8 @@ export default function AddLeadModal({ isOpen, onClose, onSuccess }) {
     setError('');
 
     try {
-      const workspaceId = getWorkspaceIdFromToken();
-      if (!workspaceId) {
-        throw new Error('Workspace session expired. Please log in again.');
-      }
-
       const res = await api.post(
-        `/lead-scoring/leads/manual?workspace_id=${workspaceId}`,
+        `/lead-scoring/leads/manual`,
         {
           name: name.trim(),
           phone: cleanPhone,

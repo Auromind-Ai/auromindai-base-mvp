@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import PricingPage from "@/components/PricingPage"
 import api from "@/lib/api"
-import { getWorkspaceIdFromToken } from "@/lib/auth"
+import { useAuth } from "@/context/AuthContext"
 
 const LOG_PREFIX = "[BILLING]"
 const FLOW_LOG_PREFIX = "[BILLING FLOW]"
@@ -17,18 +17,15 @@ function BillingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const source = searchParams.get('source') // URL-la irunthu 'chat' varutha nu paakuthu
+  const { workspaceId } = useAuth()
 
-  const [workspaceId, setWorkspaceId] = useState(null)
   const [currentPlan, setCurrentPlan] = useState("free")
   const [settings, setSettings] = useState(null)
 
   useEffect(() => {
-    const id = getWorkspaceIdFromToken() || sessionStorage.getItem("workspace_id")
+    console.log(LOG_PREFIX, "Workspace detected:", workspaceId)
 
-    console.log(LOG_PREFIX, "Workspace detected:", id)
-    setWorkspaceId(id)
-
-    if (!id) {
+    if (!workspaceId) {
       console.error(LOG_PREFIX, "Workspace not found. Please sign in again.")
       return
     }
@@ -37,7 +34,7 @@ function BillingContent() {
       try {
         //  BOTH CALLS
         const [billing, settingsData] = await Promise.all([
-          api.getBillingStatus(id),
+          api.getBillingStatus(),
           api.getPricing(), 
         ])
 
@@ -53,7 +50,7 @@ function BillingContent() {
     }
 
     loadData()
-  }, [])
+  }, [workspaceId])
 
   const logBillingFlow = (step, data) => {
     console.log(FLOW_LOG_PREFIX, step, data)

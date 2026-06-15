@@ -101,6 +101,7 @@ class ScoreBreakdown(BaseModel):
     recency: RecencyDetail
     engagement: EngagementDetail
     intent: IntentDetail
+    agent_label_bonus: int = 0
 
 
 class ScoreCalculateResponse(BaseModel):
@@ -186,6 +187,7 @@ class LeadScoreListItem(BaseModel):
     converted_product: Optional[str] = None
     conversion_notes: Optional[str] = None
     is_favorite: bool = False
+    labels: list[str] = Field(default_factory=list)
 
 
 
@@ -235,6 +237,7 @@ class LeadDetailResponse(BaseModel):
     converted_product: Optional[str] = None
     conversion_notes: Optional[str] = None
     is_favorite: bool = False
+    labels: list[str] = Field(default_factory=list)
 
 
 
@@ -280,5 +283,20 @@ class ManualLeadCreateResponse(BaseModel):
     semantic_intent_score: int
     lead_tier: str
     created_at: datetime
+
+
+class UpdateLeadLabelsRequest(BaseModel):
+    labels: list[str] = Field(..., description="List of labels to set on the lead (Interested, High Priority, Premium Lead, Follow Up)")
+
+
+class UpdateLeadLabelsResponse(BaseModel):
+    lead_id: UUID
+    labels: list[str]
+    score: int
+    behavioral_score: int
+    semantic_intent_score: int
+    lead_tier: str
+    breakdown: ScoreBreakdown
+
 
 

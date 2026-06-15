@@ -19,6 +19,7 @@ class ConversationStatus(str, enum.Enum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
     SNOOZED = "SNOOZED"
+    CONVERTED = "CONVERTED"
 
 
 class Conversation(Base):

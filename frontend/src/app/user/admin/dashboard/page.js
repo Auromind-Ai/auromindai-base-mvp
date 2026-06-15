@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
-import { getUser, restoreAdminToken, setToken, getAdminBackup } from '@/lib/auth';
+import { getUser, restoreAdminToken } from '@/lib/auth';
 import {
   Bell,
   Calendar,
@@ -37,8 +37,8 @@ const poppins = Poppins({
 
 const SecretLoginBanner = () => {
     const router = useRouter();
-    const isImpersonating = typeof window !== 'undefined' && localStorage.getItem('is_impersonating') === 'true';
     const user = getUser();
+    const isImpersonating = Boolean(user?.impersonated);
 
     if (!isImpersonating) return null;
 
@@ -163,7 +163,7 @@ function BentoMetricCard({ metric, i, rgb }) {
         <div className="mt-7">
           <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight flex items-baseline gap-2">
             {metric.value}
-            {metric.change && (metric.change !== '—' || metric.value !== '—') && (
+            {metric.change && metric.change !== '—' && (
               <span className={`text-sm ${metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-zinc-400'}`}>
                 {metric.change}
               </span>
@@ -774,10 +774,47 @@ function RecentActivityCard({ activities = [] }) {
               key={i}
               ref={(el) => (itemRefs.current[i] = el)}
               onMouseEnter={() => handleMouseEnter(i)}
-              className="activity-item flex items-center gap-3 py-[10px] border-b border-white/[0.04] last:border-0 cursor-default group"
+              className="
+                activity-item
+                flex items-center gap-3
+                py-[10px]
+                border-b border-white/[0.04]
+                last:border-0
+                cursor-default
+                group
+                transition-all duration-300
+                hover:translate-x-2
+                hover:bg-white/[0.03]
+                hover:rounded-lg
+                hover:px-3
+              "
             >
-              <span className="w-[9px] h-[9px] rounded-full border-2 border-white/20 flex-shrink-0" />
-              <span className="flex-1 text-sm text-white/70">{a.label}</span>
+              <span
+                className="
+                  w-[9px]
+                  h-[9px]
+                  rounded-full
+                  border-2
+                  border-white/20
+                  flex-shrink-0
+                  transition-all duration-300
+                  group-hover:border-purple-400
+                  group-hover:scale-125
+                  group-hover:shadow-[0_0_10px_rgba(168,85,247,0.8)]
+                "
+              />
+              <span
+                className="
+                  flex-1
+                  text-sm
+                  text-white/70
+                  transition-all duration-300
+                  group-hover:text-white
+                  group-hover:drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]
+                "
+              >
+                {a.label}
+              </span>
               <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
             </div>
           ))
@@ -1113,7 +1150,7 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
 // Main Dashboard 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
-  const [isImpersonated, setIsImpersonated] = useState(false);
+  const [isImpersonated] = useState(() => Boolean(getUser()?.impersonated));
   const [showAddLead, setShowAddLead] = useState(false);
 
   const [period, setPeriod] = useState('current_week');
@@ -1131,25 +1168,6 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    console.log("📊 DASHBOARD LOADED")
-    const token = localStorage.getItem("token")
-    console.log("Stored token:", token)
-    if (!token) {
-      console.log("⚠️ No token found")
-      setMounted(true)
-      return
-    }
-    const payload = decodeJwt(token)
-    console.log("TOKEN WORKSPACE:", payload.workspace_id)
-    console.log("LOCALSTORAGE WORKSPACE:", localStorage.getItem("workspace"))
-    console.log("LOCALSTORAGE WORKSPACE_ID:", localStorage.getItem("workspace_id"))
-    console.log("Decoded token payload:", payload)
-    console.log("Workspace ID from token:", payload?.workspace_id)
-    console.log("Impersonated:", payload?.impersonated)
-    if (payload?.impersonated) {
-      console.log("🟡 ADMIN IMPERSONATION MODE")
-      setIsImpersonated(true)
-    }
     setMounted(true)
   }, [])
 
@@ -1275,27 +1293,7 @@ export default function DashboardPage() {
   );
 }
 
-function decodeJwt(token) {
-  try {
-    const base64Url = token.split('.')[1]
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    )
-    return JSON.parse(jsonPayload)
-  } catch {
-    return null
-  }
-}
-
 const exitImpersonation = () => {
-  const ok = restoreAdminToken();
-  if (!ok) {
-    alert("No admin backup token found. Please log in again as admin.");
-    return;
-  }
+  restoreAdminToken();
   window.location.reload();
 };

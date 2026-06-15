@@ -22,7 +22,6 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: Optional[str] = None
     """Fernet encryption key for sensitive data (auto-generated if not set)"""
 
-    ADMIN_CONSOLE_PATH: str = "x7k2-admin-9pqm"
     # LLM & AI PROVIDERS
     
     GOOGLE_API_KEY: str = ""
@@ -49,7 +48,8 @@ class Settings(BaseSettings):
     # GOOGLE & OAUTH INTEGRATIONS
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
-    OAUTH_REDIRECT_URI: str = "http://localhost:3000/auth/google/callback"
+    OAUTH_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
+    GOOGLE_INTEGRATION_REDIRECT_URI: str = "http://localhost:8000/integrations/google/callback"
     
     # ADMIN & SECURITY
     OWNER_SECRET_KEY: Optional[str] = None
@@ -84,6 +84,19 @@ class Settings(BaseSettings):
     SCHEDULER_ENABLED: bool = True
     SYSTEM_METRICS_UPDATE_INTERVAL: int = 5
    
+
+    GMAIL_USER: Optional[str] = None
+    """Gmail address for sending OTP"""
+
+    GMAIL_APP_PASSWORD: Optional[str] = None
+    """Gmail App Password for SMTP"""
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: Optional[int] = None
+    SMTP_USER: Optional[str] = None
+    SMTP_PASS: Optional[str] = None
+    FROM_EMAIL: Optional[str] = None
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
     # BILLING
     BILLING_RESERVATION_TTL_SECONDS: int = 1800
     RAZORPAY_PRO_PLAN_ID: str | None = None
