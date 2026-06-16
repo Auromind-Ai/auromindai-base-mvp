@@ -133,7 +133,7 @@ const SOURCE_OPTIONS = [
     { value: "direct_storage", label: "Email", icon: Inbox },
     { value: "web_search", label: "Web Search", icon: Search },
 ];
-// ── Page ─────────────────────────────────────────────────────────────────────
+// ── Page ───
 export default function AuromindAIPage() {
     const API_URL = '/api';
     const [inputValue, setInputValue] = useState('');

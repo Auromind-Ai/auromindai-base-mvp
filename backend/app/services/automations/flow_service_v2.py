@@ -1133,6 +1133,17 @@ class FlowServiceV2:
                             "executed_nodes": executed,
                         },
                     )
+                    try:
+                        from app.services.notification_service import NotificationService
+                        NotificationService.notify_workspace(
+                            db=db,
+                            workspace_id=conversation.workspace_id,
+                            type="workflow_failed",
+                            title="Workflow Failed",
+                            message=f"Workflow '{flow.name}' failed on node '{node.get('label') or current_node_id}': {str(node_exc)}"
+                        )
+                    except Exception as notif_exc:
+                        logger.error(f"Failed to send workflow failure notification: {notif_exc}")
 
                     #  Check for an explicit "error" branch edge first
                     error_target = next(
@@ -1203,6 +1214,18 @@ class FlowServiceV2:
         if state.runtime_context is None:
             state.runtime_context = {}
         state.runtime_context["active_ai_session"] = False
+
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_workspace(
+                db=db,
+                workspace_id=conversation.workspace_id,
+                type="workflow_completed",
+                title="Workflow Completed",
+                message=f"Workflow '{flow.name}' completed successfully."
+            )
+        except Exception as notif_exc:
+            logger.error(f"Failed to send workflow completion notification: {notif_exc}")
 
 
     # ACTION DISPATCH

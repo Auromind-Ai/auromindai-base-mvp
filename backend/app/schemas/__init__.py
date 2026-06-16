@@ -1,14 +1,16 @@
-from .auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
+from .auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest, SendOTPRequest, VerifyOTPRequest
 from .automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, StatusResponse, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse
 from .brain import IngestTextRequest, IngestURLRequest, SearchRequest, QueryRequest, BrainEntryResponse, SearchResultItem, SearchResponse, SourceItem, QueryResponse, BrainStatsResponse, IngestionStatusResponse, ListEntriesResponse, CrawlWebsiteRequest, IngestResponse, CrawlResponse
 from .chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, UpdateSessionRequest, ChatStreamRequest, ChatQueryRequest
 from .dashboard import MetricResponse, AttentionItemResponse, AIInsightResponse, FlowStatResponse, ScheduleItemResponse
 from .email import EmailItem, InboxResponse, SendReplyResponse
 from .feedback import FeedbackRequest
-from .template import TemplateCreate, TemplateListResponse, TemplateRead, TemplateSendRequest, TemplateStatusResponse
+from .template import TemplateCreate, TemplateListResponse, TemplateRead, TemplateSendRequest, TemplateStatusResponse, GenerateRequest
 from .upload import UploadResponse
-from .admin import ModelConfigCreate, ModelConfigUpdate
-from .webhook import SendReply, AISuggest
+from .admin import ModelConfigCreate, ModelConfigUpdate, AdminAuthRequest
+from .webhook import SendReply, AISuggest, TwilioConnectRequest
+from .preferences import PreferencesUpdate
+from .security import SessionResponse, SecuritySummaryResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime

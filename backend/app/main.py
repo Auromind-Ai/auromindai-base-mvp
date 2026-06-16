@@ -22,7 +22,8 @@ from app.core.startup import ( init_schedulers,
 from app.routers import (
     auth, brain, dashboard, chat,
     integrations, gmail, email, automation, admin,
-    public, billing, upload
+    public, billing, upload, preferences, security,
+    notifications
 )
 from app.routers.feedback import router as feedback_router
 from app.routers.template import router as template_router
@@ -84,6 +85,9 @@ async def health_check():
 
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])                                         
+app.include_router(preferences.router, prefix="/users", tags=["preferences"])
+app.include_router(security.router, prefix="/user", tags=["security"])
+app.include_router(notifications.router)
 app.include_router(conversations.router)                                 
 app.include_router(twilio_webhook.router) 
 app.include_router(meta_what.router, prefix="/api")
