@@ -51,7 +51,7 @@ const CatItem = ({ iconKey, label, active, onClick }) => (
   </button>
 );
 
-// ── Input ─────────────────────────────────────────────────────────────────────
+// ── Input ───
 const Input = ({ label, hint, placeholder, value, onChange, className = '' }) => (
   <div className={className}>
     {label && <p className="text-white text-sm font-medium mb-1">{label}</p>}

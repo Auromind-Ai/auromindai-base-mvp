@@ -1,6 +1,5 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app import schemas
 from app.core.security import verify_workspace_access
@@ -20,16 +19,9 @@ router = APIRouter(
 )
 
 
-class TwilioConnectRequest(BaseModel):
-    sid: str
-    token: str
-    phone: str
-    workspace_id: str
-
-
 @router.post("/connect")
 def connect_twilio(
-    payload: TwilioConnectRequest,
+    payload: schemas.TwilioConnectRequest,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):

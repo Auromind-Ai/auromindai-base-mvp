@@ -44,6 +44,18 @@ class EscalationQueue:
                 self.db.commit()
                 self.db.refresh(escalation)
 
+                try:
+                    from app.services.notification_service import NotificationService
+                    NotificationService.notify_workspace(
+                        db=self.db,
+                        workspace_id=escalation_data["workspace_id"],
+                        type="ai_agent_event",
+                        title="Human Escalation Triggered",
+                        message=f"Conversation escalated. Reason: {escalation_data['reason']}"
+                    )
+                except Exception as notif_exc:
+                    self.logger.error(f"Failed to send escalation notification: {notif_exc}")
+
             else:
                 escalation = escalation_data
                 self.queue.append(escalation)

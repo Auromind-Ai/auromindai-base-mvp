@@ -4,11 +4,15 @@ from pydantic import BaseModel, Field
 
 class TemplateCreate(BaseModel):
     name: str
-    type: str = "TEXT"
+    type: str
     message: str
     workspace_id: str | None = None
-    category: str = "MARKETING"
-    language: str = "en"
+    category: str
+    language: str
+    header: str | None = None
+    footer: str | None = None
+    cta: str | None = None
+
 
 
 class TemplateRead(BaseModel):
@@ -37,3 +41,9 @@ class TemplateStatusResponse(BaseModel):
 class TemplateSendRequest(BaseModel):
     phone: str
     template_name: str = Field(min_length=1)
+
+
+class GenerateRequest(BaseModel):
+    prompt: str
+    tone: str
+    language: str

@@ -33,11 +33,11 @@ class TemplateCreate(BaseModel):
     cta: str | None = None
     cta_btn_title: str | None = None
 
-
 class GenerateRequest(BaseModel):
     prompt: str
-    tone: str
-    language: str
+    language: str | None = None
+    tone: str | None = None
+
 
 def map_language(lang):
     mapping = {"en_US": "English", "en_GB": "English", "ta": "Tamil", "hi": "Hindi"}

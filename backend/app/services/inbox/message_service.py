@@ -232,7 +232,14 @@ class MessageService:
             metadata=enriched_metadata,
             source="manual_reply",
         )
-        external_id = ChannelService.send_message(conversation, message, enriched_metadata)
+        try:
+            external_id = ChannelService.send_message(conversation, message, metadata)
+        except RuntimeError as e:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=503,
+                detail=f"This channel is not configured yet: {str(e)}"
+            )
         stored_message.external_id = external_id
         MessageService._trigger_human_takeover(db, conversation)
 

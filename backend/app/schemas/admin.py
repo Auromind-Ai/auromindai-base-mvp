@@ -27,3 +27,8 @@ class ModelConfigUpdate(BaseModel):
     is_active: Optional[bool] = None
     description: Optional[str] = None
     api_key_env: Optional[str] = None
+
+
+class AdminAuthRequest(BaseModel):
+    password: str
+
