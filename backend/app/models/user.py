@@ -21,6 +21,15 @@ class User(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    two_factor_enabled = Column(Boolean, default=False, nullable=False, server_default='false')
+    two_factor_secret = Column(String, nullable=True)
+
+    deletion_scheduled_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None
+    )
+
     conversations = relationship(
         "Conversation",
         back_populates="owner"

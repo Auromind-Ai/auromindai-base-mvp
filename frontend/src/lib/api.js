@@ -179,11 +179,43 @@ class APIClient {
   }
 
   async getWorkspaces() {
-    return this.get('/auth/workspaces');
-  }
+  return this.get('/auth/workspaces');
+}
 
-  // Pricing methods
-  async getPricing() {
+// ─── Two-Factor Authentication ────────────────────────────────────────────────
+
+async get2FAStatus() {
+  return this.get('/2fa/status');
+}
+
+async setup2FA() {
+  return this.post('/2fa/setup', {});
+}
+
+async verifySetup2FA(code) {
+  return this.post('/2fa/verify-setup', { code });
+}
+
+async verifyLogin2FA(pending_token, code) {
+  return this.post('/2fa/verify-login', { pending_token, code });
+}
+
+async disable2FA(code) {
+  return this.post('/2fa/disable', { code });
+}
+
+// ─── Account Lifecycle ────────────────────────────────────────────────────────
+
+async requestAccountDeletion() {
+  return this.post('/account/request-deletion', {});
+}
+
+async cancelAccountDeletion() {
+  return this.post('/account/cancel-deletion', {});
+}
+
+// Pricing methods
+async getPricing() {
     return this.get("/public/pricing")
   }
   // Billing methods

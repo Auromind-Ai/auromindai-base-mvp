@@ -64,16 +64,16 @@ export function AuthProvider({ children }) {
       // StrictMode cleanup — ignore AbortError gracefully, do NOT set unauthenticated
       if (err.name === 'AbortError') return;
       
-      const isAuthError = err?.status === 401 || err?.response?.status === 401 || err?.status === 403 || err?.response?.status === 403;
-      if (!isAuthError) {
-        console.error('Auth check failed:', err);
-      } else {
+      const isAuthError = err?.status === 401 || err?.status === 403;
+      if (isAuthError) {
+        setUserState(null);
+        setWorkspacesState([]);
+        setWorkspaceIdState(null);
         setUser(null);
         setWorkspace(null);
+      } else {
+        console.error('Auth check failed (non-auth error):', err);
       }
-      setUserState(null);
-      setWorkspacesState([]);
-      setWorkspaceIdState(null);
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+from datetime import datetime
 
 class EmailLoginRequest(BaseModel):
     email: EmailStr
@@ -11,6 +13,8 @@ class UserResponse(BaseModel):
     full_name: str | None
     workspace_id: str | None = None
     impersonated: bool | None = False
+    two_factor_enabled: bool = False
+    deletion_scheduled_at: Optional[datetime] = None
 
 class WorkspaceResponse(BaseModel):
     id: str

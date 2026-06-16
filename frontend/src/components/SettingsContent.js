@@ -1,6 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import api from '@/lib/api';
+import TwoFactorSetupModal    from '@/components/TwoFactorSetupModal';
+import TwoFactorDisableModal  from '@/components/TwoFactorDisableModal';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 import {
   User,
   Settings,
@@ -10,6 +15,7 @@ import {
   Shield,
   ChevronRight,
   Info,
+  AlertTriangle,
 } from 'lucide-react';
 
 // ─── Nav Config ───────────────────────────────────────────────────────────────
@@ -658,13 +664,55 @@ function MyAccountSection({
   userEmail,
   userInitial,
   twoFactorEnabled,
+  twoFactorLoading,
   handleTwoFactorToggle,
   handleChangeEmail,
   handleAddPassword,
   handleDeleteAccount,
+
+  deletionScheduledAt,
+  onCancelDeletion,
+  cancelDelLoading,
 }) {
   return (
     <div className="pb-6">
+
+      {/* ── Pending Deletion Banner ── */}
+        {deletionScheduledAt && (
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-xl border border-red-500/30 bg-red-950/20">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-300">Account scheduled for deletion</p>
+                <p className="mt-0.5 text-xs text-white/60">
+                  Your account will be permanently deleted on{' '}
+                  <span className="text-white/80 font-medium">
+                    {new Date(deletionScheduledAt).toLocaleDateString('en-US', {
+                      year: 'numeric', month: 'long', day: 'numeric',
+                    })}
+                  </span>
+                  . Log in and cancel before this date to restore your account.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelDeletion}
+              disabled={cancelDelLoading}
+              className="
+                shrink-0 h-9 px-4 rounded-xl text-xs font-semibold text-white
+                bg-red-600 hover:bg-red-500
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-all active:scale-95
+                flex items-center gap-2
+              "
+            >
+              {cancelDelLoading
+                ? <Loader2 size={13} className="animate-spin" />
+                : 'Cancel Deletion'}
+            </button>
+          </div>
+        )}
       {/* Page header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
@@ -772,48 +820,6 @@ function MyAccountSection({
               <p className="text-sm font-medium text-white">Email</p>
               <p className="mt-0.5 text-xs text-white/65">{userEmail}</p>
             </div>
-            <button
-              type="button"
-              onClick={handleChangeEmail}
-              className="
-                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
-                bg-white/5 border border-white/10
-                hover:bg-white/10 active:scale-95
-                transition-all duration-200
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
-              "
-            >
-              Change Email
-            </button>
-          </div>
-
-          {/* Password row */}
-          <div
-            className="
-              flex flex-col sm:flex-row sm:items-center justify-between
-              gap-4 px-5 py-4
-              border-b border-[rgba(157,157,157,0.43)]
-            "
-          >
-            <div>
-              <p className="text-sm font-medium text-white">Password</p>
-              <p className="mt-0.5 text-xs text-white/65">
-                Set a permanent password to login to your account
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleAddPassword}
-              className="
-                shrink-0 h-10 px-4 rounded-xl text-sm font-medium text-zinc-200
-                bg-white/5 border border-white/10
-                hover:bg-white/10 active:scale-95
-                transition-all duration-200
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500
-              "
-            >
-              Add Password
-            </button>
           </div>
 
           {/* Two-step verification row */}
@@ -836,6 +842,7 @@ function MyAccountSection({
               <Toggle
                 checked={twoFactorEnabled}
                 onChange={handleTwoFactorToggle}
+                disabled={twoFactorLoading}
               />
             </div>
           </div>
@@ -880,19 +887,90 @@ function MyAccountSection({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SettingsContent({ email }) {
+  const { user, logout } = useAuth();
+  console.log('=== SETTINGS DEBUG ===', { user, email });
   const [activeSection, setActiveSection] = useState('my-account');
   const [preferredName, setPreferredName] = useState('User');
+
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [showDisableModal, setShowDisableModal] = useState(false);
+  const [setupData, setSetupData] = useState(null);
+  const [settingsToast, setSettingsToast] = useState(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [cancelDelLoading, setCancelDelLoading] = useState(false);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const userEmail = 'dharun1108@gmail.com';
+  useEffect(() => {
+    if (user?.full_name) setPreferredName(user.full_name);
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.two_factor_enabled !== undefined) {
+      setTwoFactorEnabled(user.two_factor_enabled);
+    }
+  }, [user]);
+
   const userInitial = preferredName?.charAt(0)?.toUpperCase() ?? 'U';
 
   const handleNameChange = (e) => setPreferredName(e.target.value);
   const handleChangeEmail = () => {};
   const handleAddPassword = () => {};
-  const handleDeleteAccount = () => {};
-  const handleTwoFactorToggle = (val) => setTwoFactorEnabled(val);
+  const handleDeleteAccount = () => setShowDeleteModal(true);
+
+  const handleConfirmDelete = async () => {
+    setDeleteLoading(true);
+    try {
+      await api.requestAccountDeletion();
+      setShowDeleteModal(false);
+      // Cookie is cleared by backend; clear frontend state and redirect
+      showToast('success', 'Account scheduled for deletion. You have been logged out.');
+      setTimeout(() => {
+        logout();
+      }, 2000);
+    } catch (err) {
+      showToast('error', err.message || 'Failed to schedule deletion. Please try again.');
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleCancelDeletion = async () => {
+    setCancelDelLoading(true);
+    try {
+      await api.cancelAccountDeletion();
+      await refreshUser();
+      showToast('success', 'Account deletion cancelled. Your account is fully restored.');
+    } catch (err) {
+      showToast('error', err.message || 'Failed to cancel deletion. Please try again.');
+    } finally {
+      setCancelDelLoading(false);
+    }
+  };
+  const showToast = (type, msg) => {
+      setSettingsToast({ type, msg });
+      setTimeout(() => setSettingsToast(null), 4000);
+  };
+
+  const handleTwoFactorToggle = async (val) => {
+      if (val) {
+          setTwoFactorLoading(true);
+          try {
+              const data = await api.setup2FA();
+              setSetupData(data);
+              setShowSetupModal(true);
+          } catch (err) {
+              showToast('error', err.message || 'Failed to start setup. Please try again.');
+          } finally {
+              setTwoFactorLoading(false);
+          }
+      } else {
+          setShowDisableModal(true);
+      }
+  };
 
   const activeLabel =
     NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === activeSection)?.label ?? '';
@@ -902,15 +980,19 @@ export default function SettingsContent({ email }) {
       case 'my-account':
         return (
           <MyAccountSection
-            preferredName={preferredName}
-            handleNameChange={handleNameChange}
-            userEmail={userEmail}
-            userInitial={userInitial}
-            twoFactorEnabled={twoFactorEnabled}
-            handleTwoFactorToggle={handleTwoFactorToggle}
-            handleChangeEmail={handleChangeEmail}
-            handleAddPassword={handleAddPassword}
-            handleDeleteAccount={handleDeleteAccount}
+              preferredName={preferredName}
+              handleNameChange={handleNameChange}
+              userEmail={user?.email || ''}
+              userInitial={userInitial}
+              twoFactorEnabled={twoFactorEnabled}
+              handleTwoFactorToggle={handleTwoFactorToggle}
+              handleChangeEmail={handleChangeEmail}
+              handleAddPassword={handleAddPassword}
+              handleDeleteAccount={handleDeleteAccount}
+
+              deletionScheduledAt={user?.deletion_scheduled_at}
+              onCancelDeletion={handleCancelDeletion}
+              cancelDelLoading={cancelDelLoading}
           />
         );
       case 'preferences':
@@ -1043,6 +1125,59 @@ export default function SettingsContent({ email }) {
           </main>
         </div>
       </div>
+
+      {/* ── Toast ── */}
+      {settingsToast && (
+          <div className={`
+              fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-medium
+              shadow-lg border backdrop-blur-sm
+              ${settingsToast.type === 'success'
+                  ? 'bg-green-500/20 border-green-500/30 text-green-300'
+                  : 'bg-red-500/20  border-red-500/30  text-red-300'}
+          `}>
+              {settingsToast.msg}
+          </div>
+      )}
+
+      {/* ── Setup Modal ── */}
+      {showSetupModal && setupData && (
+          <TwoFactorSetupModal
+              setupData={setupData}
+              onSuccess={() => {
+                  setShowSetupModal(false);
+                  setSetupData(null);
+                  setTwoFactorEnabled(true);
+                  showToast('success', 'Two-step verification enabled.');
+              }}
+              onClose={() => {
+                  setShowSetupModal(false);
+                  setSetupData(null);
+              }}
+          />
+      )}
+
+      {/* ── Disable Modal ── */}
+      {showDisableModal && (
+          <TwoFactorDisableModal
+              onSuccess={() => {
+                  setShowDisableModal(false);
+                  setTwoFactorEnabled(false);
+                  showToast('success', 'Two-step verification disabled.');
+              }}
+              onClose={() => setShowDisableModal(false)}
+          />
+      )}
+
+      {showDeleteModal && (
+          <DeleteAccountModal
+              userEmail={user?.email || ''}
+              loading={deleteLoading}
+              onConfirm={handleConfirmDelete}
+              onClose={() => {
+                  if (!deleteLoading) setShowDeleteModal(false);
+              }}
+          />
+      )}
     </div>
   );
 }

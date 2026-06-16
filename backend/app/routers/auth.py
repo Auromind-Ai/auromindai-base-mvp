@@ -125,29 +125,28 @@ from fastapi import Response
 async def verify_otp(request: VerifyOTPRequest, response: Response, db: Session = Depends(get_db)):
     try:
         result = AuthService.verify_otp(
-            db,
-            request.email,
-            request.otp,
-            request.auth_type,
-            request.full_name,
-            request.workspace_name
+            db, request.email, request.otp, request.auth_type,
+            request.full_name, request.workspace_name
         )
-        
+
+        # ── 2FA gate — do NOT set cookie yet ──────────────────────────────
+        if result.get("requiresTwoFactor"):
+            return result          # {requiresTwoFactor: true, pending_token: "..."}
+        # ── END 2FA gate ──────────────────────────────────────────────────
+
         token = result["access_token"]
         from app.core.config import settings
         is_prod = settings.ENVIRONMENT.lower() == "production"
-        
         response.set_cookie(
-            key="auth_token",
-            value=token,
-            httponly=True,
+            key="auth_token", value=token, httponly=True,
             secure=is_prod,
             samesite="strict" if is_prod else "lax",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/",
         )
-        
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -329,7 +328,9 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
     return {
         "id": str(current_user.id),
         "email": current_user.email,
-        "full_name": current_user.full_name
+        "full_name": current_user.full_name,
+        "two_factor_enabled": current_user.user.two_factor_enabled,
+        "deletion_scheduled_at": current_user.user.deletion_scheduled_at,   # ← ADD
     }
 
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles, AlertTriangle } from 'lucide-react';
 import { setToken, setUser, setWorkspace, isAuthenticated, getUser } from '@/lib/auth';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -97,6 +97,11 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [resendTimer, setResendTimer] = useState(0);
     const [featureIndex, setFeatureIndex] = useState(0);
+    const [pendingToken, setPendingToken] = useState('');
+    const [totpCode, setTotpCode] = useState('');
+
+    const [deletionDate, setDeletionDate] = useState('');
+    const [cancelRestoreLoading, setCancelRestoreLoading] = useState(false);
 
     useEffect(() => {
         if (!authLoading && user) {
@@ -174,6 +179,41 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const data = await api.verifyOTP(email, otp, 'login');
+
+            // ── 2FA gate ─────────────────────────────────────
+            if (data?.requiresTwoFactor) {
+                setPendingToken(data.pending_token);
+                setTotpCode('');
+                setStep('2fa');
+                return;
+            }
+            // ── END 2FA gate ─────────────────────────────────
+
+            // ── Pending deletion gate ──────────────────────────
+            if (data?.user?.deletion_scheduled_at) {
+                const adminToken = localStorage.getItem('admin_backup_token');
+                localStorage.clear();
+
+                if (adminToken) {
+                    localStorage.setItem('admin_backup_token', adminToken);
+                }
+
+                setToken(data.access_token);
+                setUser(data.user);
+
+                if (data.workspaces?.length > 0) {
+                    setWorkspace(data.workspaces[0]);
+                    localStorage.setItem('workspace_id', data.workspaces[0].id);
+                }
+
+                setDeletionDate(data.user.deletion_scheduled_at);
+                setStep('restore');
+                return;
+            }
+            // ── END pending deletion gate ──────────────────────
+
+            if (!data?.access_token) throw new Error('Verification failed');
+
             if (!data?.access_token) throw new Error('Verification failed');
 
             const adminToken = localStorage.getItem('admin_backup_token');
@@ -217,7 +257,79 @@ export default function LoginPage() {
         }
     };
 
+    const handleRestoreAccount = async () => {
+        setCancelRestoreLoading(true);
+        setError('');
+        try {
+            await api.cancelAccountDeletion();      // if this throws → show error
+            try {
+                await refreshUser();                // if this throws → non-fatal, continue
+            } catch {
+                // refreshUser failure doesn't block redirect
+            }
+            router.push(redirectPath || '/user/admin/dashboard');
+        } catch (err) {
+            setError(getErrorMessage(err));
+        } finally {
+            setCancelRestoreLoading(false);
+        }
+    };
 
+    const handleVerify2FA = async (e) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            const data = await api.verifyLogin2FA(pendingToken, totpCode);
+
+            // ── Pending deletion gate ──────────────────────────
+            if (data?.user?.deletion_scheduled_at) {
+                const adminToken = localStorage.getItem('admin_backup_token');
+                localStorage.clear();
+
+                if (adminToken) {
+                    localStorage.setItem('admin_backup_token', adminToken);
+                }
+
+                setToken(data.access_token);
+                setUser(data.user);
+
+                if (data.workspaces?.length > 0) {
+                    setWorkspace(data.workspaces[0]);
+                    localStorage.setItem('workspace_id', data.workspaces[0].id);
+                }
+
+                setDeletionDate(data.user.deletion_scheduled_at);
+                setStep('restore');
+                return;
+            }
+            // ── END pending deletion gate ──────────────────────
+
+            if (!data?.access_token) throw new Error('Verification failed');
+
+            const adminToken = localStorage.getItem('admin_backup_token');
+            localStorage.clear();
+            if (adminToken) localStorage.setItem('admin_backup_token', adminToken);
+
+            setToken(data.access_token);
+            setUser(data.user);
+
+            if (data.user?.role === 'admin' || data.user?.is_platform_admin) {
+                localStorage.setItem('admin_backup_token', data.access_token);
+            }
+            if (data.workspaces?.length > 0) {
+                setWorkspace(data.workspaces[0]);
+                localStorage.setItem('workspace_id', data.workspaces[0].id);
+            }
+
+            await refreshUser();
+            router.push(redirectPath || '/user/admin/dashboard');
+        } catch (err) {
+            setError(getErrorMessage(err));
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fadeVariants = {
         hidden: { opacity: 0, x: -20 },
@@ -297,12 +409,20 @@ export default function LoginPage() {
                         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                     >
                         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white via-white/90 to-white/40 mb-4">
-                            {step === 'email' ? 'Welcome back' : 'Check inbox'}
+                            {step === 'email' ? 'Welcome back'
+                                : step === 'otp' ? 'Check inbox'
+                                : step === '2fa' ? 'Authenticator Code'
+                                : 'Account Scheduled for Deletion'}
                         </h1>
+
                         <p className="text-white/50 text-[15px] mb-10 leading-relaxed">
                             {step === 'email'
                                 ? 'Log in to access your intelligent workspace and continue your journey.'
-                                : `We've sent a highly secure verification code to ${email}`}
+                                : step === 'otp'
+                                ? `We've sent a highly secure verification code to ${email}`
+                                : step === '2fa'
+                                ? 'Enter the 6-digit code from your Google Authenticator app.'
+                                : 'Your account is currently scheduled for deletion. You can restore it now.'}
                         </p>
 
                         {error && (
@@ -324,7 +444,7 @@ export default function LoginPage() {
                         )}
 
                         <AnimatePresence mode="wait">
-                            {step === 'email' ? (
+                            {step === 'email' && (
                                 <motion.form
                                     key="email-form"
                                     variants={fadeVariants}
@@ -353,7 +473,6 @@ export default function LoginPage() {
                                             </div>
                                         </div>
                                     </div>
-
                                     <button
                                         type="submit"
                                         disabled={loading || !email}
@@ -362,20 +481,15 @@ export default function LoginPage() {
                                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-90 group-hover:opacity-100 transition-opacity" />
                                         <div className="relative flex items-center justify-center py-4 gap-2 text-white font-medium text-[15px]">
                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                                                <>
-                                                    Continue with Email
-                                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                                </>
+                                                <>Continue with Email <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>
                                             )}
                                         </div>
                                     </button>
-
                                     <div className="relative flex items-center py-4">
                                         <div className="flex-grow border-t border-white/5"></div>
                                         <span className="flex-shrink-0 mx-4 text-white/30 text-xs font-medium uppercase tracking-widest">or</span>
                                         <div className="flex-grow border-t border-white/5"></div>
                                     </div>
-
                                     <button
                                         type="button"
                                         onClick={() => api.googleLogin('login')}
@@ -390,7 +504,9 @@ export default function LoginPage() {
                                         Continue with Google
                                     </button>
                                 </motion.form>
-                            ) : (
+                            )}
+
+                            {step === 'otp' && (
                                 <motion.form
                                     key="otp-form"
                                     variants={fadeVariants}
@@ -421,7 +537,6 @@ export default function LoginPage() {
                                             </div>
                                         </div>
                                     </div>
-
                                     <button
                                         type="submit"
                                         disabled={loading || otp.length < 6}
@@ -430,32 +545,110 @@ export default function LoginPage() {
                                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-90 group-hover:opacity-100 transition-opacity" />
                                         <div className="relative flex items-center justify-center py-4 gap-2 text-white font-medium text-[15px]">
                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                                                <>
-                                                    Verify & Log In
-                                                    <Sparkles className="w-4 h-4" />
-                                                </>
+                                                <> Verify &amp; Log In <Sparkles className="w-4 h-4" /></>
                                             )}
                                         </div>
                                     </button>
-
                                     <div className="flex items-center justify-between mt-6">
-                                        <button
-                                            type="button"
-                                            onClick={() => { setStep('email'); setOtp(''); setError(''); }}
-                                            className="text-white/40 hover:text-white text-[13px] font-medium transition-colors"
-                                        >
+                                        <button type="button" onClick={() => { setStep('email'); setOtp(''); setError(''); }}
+                                            className="text-white/40 hover:text-white text-[13px] font-medium transition-colors">
                                             ← Use different email
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleResend}
-                                            disabled={resendTimer > 0 || loading}
-                                            className="text-indigo-400 hover:text-indigo-300 disabled:text-white/20 disabled:cursor-not-allowed text-[13px] font-medium transition-colors"
-                                        >
+                                        <button type="button" onClick={handleResend} disabled={resendTimer > 0 || loading}
+                                            className="text-indigo-400 hover:text-indigo-300 disabled:text-white/20 disabled:cursor-not-allowed text-[13px] font-medium transition-colors">
                                             {resendTimer > 0 ? `Resend available in ${resendTimer}s` : 'Resend code'}
                                         </button>
                                     </div>
                                 </motion.form>
+                            )}
+
+                            {step === '2fa' && (
+                                <motion.form
+                                    key="2fa-form"
+                                    variants={fadeVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    onSubmit={handleVerify2FA}
+                                    className="space-y-6"
+                                >
+                                    <div className="space-y-2">
+                                        <label className="text-[13px] font-medium text-white/60 ml-1 uppercase tracking-wider">Authenticator Code</label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/30 to-fuchsia-500/30 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500" />
+                                            <div className="relative bg-[#111] rounded-2xl flex items-center border border-white/5 overflow-hidden transition-all duration-300 group-focus-within:border-indigo-500/50 group-focus-within:bg-[#151515] group-hover:border-white/10">
+                                                <div className="pl-5 pr-2 text-white/30 group-focus-within:text-violet-400 transition-colors duration-300">
+                                                    <Shield size={20} strokeWidth={2} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    required
+                                                    maxLength={6}
+                                                    value={totpCode}
+                                                    onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
+                                                    className="w-full bg-transparent py-4 px-2 text-white placeholder:text-white/10 focus:outline-none text-2xl font-mono tracking-[0.3em]"
+                                                    placeholder="000000"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="submit" disabled={loading || totpCode.length < 6}
+                                        className="relative w-full rounded-2xl overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-90 group-hover:opacity-100 transition-opacity" />
+                                        <div className="relative flex items-center justify-center py-4 gap-2 text-white font-medium text-[15px]">
+                                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Shield className="w-4 h-4" /> Verify &amp; Log In</>}
+                                        </div>
+                                    </button>
+                                    <div className="flex items-center justify-between mt-6">
+                                        <button type="button" onClick={() => { setStep('email'); setOtp(''); setTotpCode(''); setError(''); }}
+                                            className="text-white/40 hover:text-white text-[13px] font-medium transition-colors">
+                                            ← Start over
+                                        </button>
+                                    </div>
+                                </motion.form>
+                            )}
+
+                            {step === 'restore' && (
+                                <motion.div
+                                    key="restore-screen"
+                                    variants={fadeVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    className="space-y-6"
+                                >
+                                    <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5">
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle className="text-red-400 shrink-0 mt-0.5" size={18} />
+                                            <div>
+                                                <p className="text-sm font-semibold text-red-300 mb-1">Deletion scheduled</p>
+                                                <p className="text-xs text-white/60 leading-relaxed">
+                                                    Your account is set for permanent deletion on{' '}
+                                                    <span className="text-white/90 font-medium">
+                                                        {new Date(deletionDate).toLocaleDateString('en-US', {
+                                                            year: 'numeric', month: 'long', day: 'numeric',
+                                                        })}
+                                                    </span>
+                                                    . After this date, all your data will be permanently removed.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="button" onClick={handleRestoreAccount} disabled={cancelRestoreLoading}
+                                        className="relative w-full rounded-2xl overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-90 group-hover:opacity-100 transition-opacity" />
+                                        <div className="relative flex items-center justify-center py-4 gap-2 text-white font-medium text-[15px]">
+                                            {cancelRestoreLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : '✦ Restore My Account'}
+                                        </div>
+                                    </button>
+                                    <button type="button"
+                                        onClick={async () => { await refreshUser(); router.push(redirectPath || '/user/admin/dashboard'); }}
+                                        className="w-full text-white/40 hover:text-white/70 text-[13px] font-medium transition-colors text-center py-2">
+                                        Continue to dashboard without restoring →
+                                    </button>
+                                </motion.div>
                             )}
                         </AnimatePresence>
                     </motion.div>
