@@ -368,3 +368,193 @@ class TokenService:
                 )
 
             return existing
+
+    def get_transaction_history(self, db: Session, workspace_id: str, page: int = 1, limit: int = 20):
+        """Get paginated token ledger entries for a workspace."""
+        offset = (page - 1) * limit
+        total = (
+            db.query(func.count(TokenLedger.id))
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status.in_(["posted", "released"]),
+            )
+            .scalar() or 0
+        )
+        entries = (
+            db.query(TokenLedger)
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status.in_(["posted", "released"]),
+            )
+            .order_by(TokenLedger.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "total": int(total),
+            "page": page,
+            "limit": limit,
+            "entries": [
+                {
+                    "id": str(e.id),
+                    "entry_type": e.entry_type,
+                    "status": e.status,
+                    "tokens_delta": e.tokens_delta,
+                    "credits_delta": round(e.tokens_delta / 1000, 2),
+                    "description": e.description,
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+                for e in entries
+            ],
+        }
+
+    def get_daily_usage(self, db: Session, workspace_id: str, days: int = 30):
+        """Get daily aggregated token usage for charts."""
+        from sqlalchemy import cast, Date
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        rows = (
+            db.query(
+                cast(TokenLedger.created_at, Date).label("day"),
+                func.sum(
+                    case(
+                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
+                        else_=0,
+                    )
+                ).label("tokens_used"),
+            )
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type.in_(["usage", "overage"]),
+                TokenLedger.created_at >= cutoff,
+            )
+            .group_by("day")
+            .order_by("day")
+            .all()
+        )
+        return [
+            {
+                "date": row.day.isoformat() if row.day else None,
+                "tokens_used": int(row.tokens_used or 0),
+                "credits_used": round(int(row.tokens_used or 0) / 1000, 2),
+            }
+            for row in rows
+        ]
+
+    def get_burn_rate(self, db: Session, workspace_id: str) -> float:
+        """Average daily credit consumption over last 7 days."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        total_used = (
+            db.query(
+                func.sum(
+                    case(
+                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
+                        else_=0,
+                    )
+                )
+            )
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type.in_(["usage", "overage"]),
+                TokenLedger.created_at >= cutoff,
+            )
+            .scalar() or 0
+        )
+        return round(float(total_used) / 1000 / 7, 2)
+
+    def get_transaction_history(self, db: Session, workspace_id: str, page: int = 1, limit: int = 20):
+        """Get paginated token ledger entries for a workspace."""
+        offset = (page - 1) * limit
+        total = (
+            db.query(func.count(TokenLedger.id))
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status.in_(["posted", "released"]),
+            )
+            .scalar() or 0
+        )
+        entries = (
+            db.query(TokenLedger)
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status.in_(["posted", "released"]),
+            )
+            .order_by(TokenLedger.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return {
+            "total": int(total),
+            "page": page,
+            "limit": limit,
+            "entries": [
+                {
+                    "id": str(e.id),
+                    "entry_type": e.entry_type,
+                    "status": e.status,
+                    "tokens_delta": e.tokens_delta,
+                    "credits_delta": round(e.tokens_delta / 1000, 2),
+                    "description": e.description,
+                    "created_at": e.created_at.isoformat() if e.created_at else None,
+                }
+                for e in entries
+            ],
+        }
+
+    def get_daily_usage(self, db: Session, workspace_id: str, days: int = 30):
+        """Get daily aggregated token usage for charts."""
+        from sqlalchemy import cast, Date
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        rows = (
+            db.query(
+                cast(TokenLedger.created_at, Date).label("day"),
+                func.sum(
+                    case(
+                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
+                        else_=0,
+                    )
+                ).label("tokens_used"),
+            )
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type.in_(["usage", "overage"]),
+                TokenLedger.created_at >= cutoff,
+            )
+            .group_by("day")
+            .order_by("day")
+            .all()
+        )
+        return [
+            {
+                "date": row.day.isoformat() if row.day else None,
+                "tokens_used": int(row.tokens_used or 0),
+                "credits_used": round(int(row.tokens_used or 0) / 1000, 2),
+            }
+            for row in rows
+        ]
+
+    def get_burn_rate(self, db: Session, workspace_id: str) -> float:
+        """Average daily credit consumption over last 7 days."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        total_used = (
+            db.query(
+                func.sum(
+                    case(
+                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
+                        else_=0,
+                    )
+                )
+            )
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type.in_(["usage", "overage"]),
+                TokenLedger.created_at >= cutoff,
+            )
+            .scalar() or 0
+        )
+        return round(float(total_used) / 1000 / 7, 2)

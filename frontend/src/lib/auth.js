@@ -18,8 +18,6 @@ export const removeToken = () => {
   memoryWorkspace = null;
 };
 
-/* ---------------- USER ---------------- */
-
 export const setUser = (user) => {
   memoryUser = user || null;
 };
@@ -27,8 +25,6 @@ export const setUser = (user) => {
 export const getUser = () => {
   return isBrowser ? memoryUser : null;
 };
-
-/* ---------------- WORKSPACE ---------------- */
 
 export const setWorkspace = (workspace) => {
   memoryWorkspace = workspace || null;
@@ -56,7 +52,15 @@ export const logout = () => {
   }
 };
 
-/* ---------------- ADMIN ---------------- */
+/* ---------- Admin backup helpers ---------- */
+export const setAdminBackup = (adminToken) => {
+  if (typeof window !== 'undefined' && adminToken) {
+    // only set if not already present (prevent overwriting)
+    if (!localStorage.getItem('admin_backup_token')) {
+      localStorage.setItem('admin_backup_token', adminToken);
+    }
+  }
+};
 
 export const getAdminBackup = () => {
   // admin backup tokens are handled as cookies, not accessible via JS
@@ -66,9 +70,6 @@ export const getAdminBackup = () => {
 export const clearAdminBackup = () => {
   // Handled on backend
 };
-
-/* ---------------- JWT HELPERS ---------------- */
-
 export const getWorkspaceIdFromToken = () => {
   if (!isBrowser) return null;
   return memoryWorkspace?.id || null;
@@ -76,16 +77,14 @@ export const getWorkspaceIdFromToken = () => {
 
 /* ---------------- HEADERS ---------------- */
 
+/* Use this for admin-only API calls (prefers admin backup token) */
 export const adminAuthHeader = () => {
   return {};
 };
-
 export const authHeader = () => {
   return {};
 };
-
-/* ---------------- IMPERSONATION ---------------- */
-
+/* Restore admin token as active token (exit impersonation) */
 export const backupAdminToken = () => {
   // Handled on the backend when starting the impersonation session
 };

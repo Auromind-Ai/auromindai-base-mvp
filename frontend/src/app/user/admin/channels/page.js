@@ -290,6 +290,31 @@ export default function ChannelsPage() {
         }
     }, [workspace?.id]);
 
+    const loadChannelsStatus = async () => {
+        try {
+            const token = getToken();
+            if (!token || !workspace?.id) return;
+            const response = await fetch(
+                `${API}/api/channels/status?workspace_id=${workspace.id}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setStatuses(prev => ({
+                    ...prev,
+                    whatsapp: data.whatsapp?.connected || false,
+                    instagram: data.instagram?.connected || false,
+                    twilio: data.twilio?.connected || false,
+                }));
+                if (data.whatsapp?.phone) setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone }));
+                if (data.instagram?.username) setConnectedInfo(prev => ({ ...prev, instagram: data.instagram.username }));
+                if (data.twilio?.phone) setConnectedInfo(prev => ({ ...prev, twilio: data.twilio.phone }));
+            }
+        } catch (err) {
+            console.error('Failed to load channels status:', err);
+        }
+    };
+
     useEffect(() => {
         if (workspace?.id) loadIntegrationStatus();
     }, [workspace?.id, loadIntegrationStatus]);
@@ -397,31 +422,9 @@ export default function ChannelsPage() {
         return () => window.removeEventListener('message', handleMessage);
     }, [workspace?.id]);
 
-    const startWhatsAppSignup = useCallback(() => {
-        setConnecting('whatsapp');
-        const workspaceId = workspace?.id;
-        if (!workspaceId) {
-            showToast("Workspace not loaded. Please wait...");
-            setConnecting(null);
-            return;
-        }
-        localStorage.setItem("whatsapp_workspace_id", workspaceId);
-
-        const REDIRECT_URI = `${window.location.origin}/whatsapp/callback`;
-        const authUrl =
-            `https://www.facebook.com/v19.0/dialog/oauth?` +
-            `client_id=${process.env.NEXT_PUBLIC_FB_APP_ID}` +
-            `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-            `&scope=${encodeURIComponent('business_management,whatsapp_business_management,whatsapp_business_messaging')}` +
-            `&response_type=code` +
-            `&config_id=${WA_CONFIG_ID}`;
-
-        window.location.href = authUrl;
-    }, [WA_CONFIG_ID, workspace?.id]);
-
     const connectWhatsAppToBackend = async (payload) => {
         try {
-            const res = await fetch(`/backend/api/whatsapp/connect`, {
+            const res = await fetch(`${API}/api/whatsapp/connect`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -440,6 +443,25 @@ export default function ChannelsPage() {
         } finally {
             setConnecting(null);
         }
+    };
+
+    const startWhatsAppSignup = () => {
+        setConnecting('whatsapp');
+        window.FB.login(
+            (response) => {
+                if (response.authResponse?.code) {
+                    connectWhatsAppToBackend({ code: response.authResponse.code });
+                } else {
+                    setConnecting(null);
+                }
+            },
+            {
+                config_id: WA_CONFIG_ID,
+                response_type: 'code',
+                override_default_response_type: true,
+                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
+            }
+        );
     };
 
     const startInstagramLogin = useCallback(() => {
@@ -462,7 +484,7 @@ export default function ChannelsPage() {
 
     const connectInstagramToBackend = async (code) => {
         try {
-            const res = await fetch(`/backend/api/instagram/connect`, {
+            const res = await fetch(`${API}/api/instagram/connect`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -497,7 +519,7 @@ export default function ChannelsPage() {
         }
         const data = await response.json();
         if (data.authorization_url) {
-            window.location.href = data.authorization_url;
+            window.location.assign(data.authorization_url);
         }
     } catch (err) {
         console.error('Integration connect error:', err);
@@ -522,6 +544,33 @@ const disconnectIntegration = async (integrationId) => {
     }
 };
 
+const disconnectChannel = async (channelId) => {
+    if (!confirm(`Disconnect ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'}?`)) return;
+    try {
+        const token = getToken();
+        const res = await fetch(
+            `${API}/api/channels/disconnect/${channelId}?workspace_id=${workspace.id}`,
+            { 
+                method: 'DELETE', 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            }
+        );
+        if (res.ok) {
+            setStatuses(prev => ({ ...prev, [channelId]: false }));
+            setConnectedInfo(prev => ({ ...prev, [channelId]: null }));
+            localStorage.removeItem(`${channelId}_connected`);
+            localStorage.removeItem(`${channelId}_phone`);
+            localStorage.removeItem(`${channelId}_username`);
+            showToast(`Disconnected ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'} successfully`);
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            alert("Failed to disconnect: " + (errData.detail || "Unknown error"));
+        }
+    } catch (err) {
+        console.error('Disconnect failed:', err);
+    }
+};
+
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
         
@@ -540,7 +589,7 @@ const disconnectIntegration = async (integrationId) => {
 
         setTwilioSubmitting(true);
         try {
-            const res = await fetch(`/backend/twilio/connect`, {
+            const res = await fetch(`${API}/twilio/connect`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -578,6 +627,17 @@ const disconnectIntegration = async (integrationId) => {
 
     const handleConnect = (id) => {
         if (statuses[id]) return;
+        triggerConnect(id);
+    };
+
+    // Reconnect bypasses the "already connected" guard
+    const handleReconnect = (id) => {
+        setStatuses(prev => ({ ...prev, [id]: false }));
+        setConnectedInfo(prev => ({ ...prev, [id]: null }));
+        triggerConnect(id);
+    };
+
+    const triggerConnect = (id) => {
         if (id === 'whatsapp')        startWhatsAppSignup();
         if (id === 'instagram')       startInstagramLogin();
         if (id === 'gmail')           connectIntegration('gmail');
@@ -782,7 +842,7 @@ const disconnectIntegration = async (integrationId) => {
                                         </span>
                                     </div>
 
-                                    {/* Connect / Connected button */}
+                                    {/* Connect / Connected / Reconnect buttons */}
                                     {isConnected ? (
                                         <button
                                             onMouseEnter={() => setHoveredBtn(item.id)}

@@ -512,6 +512,94 @@ class BillingService:
             estimated_overage_cost=overage_tokens * price_per_extra_token,
         )
 
+    def get_credit_summary(self, db: Session, workspace_id: str, user_id: str) -> dict[str, Any]:
+        """Return real-time credit balance, burn rate, and estimated days remaining."""
+        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        balance = self.token_service.get_token_balance(db, str(workspace.id))
+        burn_rate = self.token_service.get_burn_rate(db, str(workspace.id))
+        daily_usage = self.token_service.get_daily_usage(db, str(workspace.id), days=30)
+
+        credits_balance = round(float(balance.balance) / TOKENS_PER_CREDIT, 2)
+        credits_added = round(float(balance.tokens_added) / TOKENS_PER_CREDIT, 2)
+        credits_used = round(float(balance.tokens_used) / TOKENS_PER_CREDIT, 2)
+        credits_reserved = round(float(balance.tokens_reserved) / TOKENS_PER_CREDIT, 2)
+
+        days_remaining = round(credits_balance / burn_rate, 1) if burn_rate > 0 else -1
+
+        # Determine health status
+        if credits_added > 0:
+            usage_pct = round((credits_used / credits_added) * 100, 1)
+        else:
+            usage_pct = 0
+
+        if usage_pct >= 80:
+            health = "critical"
+        elif usage_pct >= 50:
+            health = "warning"
+        else:
+            health = "healthy"
+
+        return {
+            "credits_balance": credits_balance,
+            "credits_added": credits_added,
+            "credits_used": credits_used,
+            "credits_reserved": credits_reserved,
+            "burn_rate": burn_rate,
+            "days_remaining": days_remaining,
+            "usage_percent": usage_pct,
+            "health": health,
+            "daily_usage": daily_usage,
+        }
+
+    def get_credit_history(self, db: Session, workspace_id: str, user_id: str, page: int = 1, limit: int = 20) -> dict:
+        """Return paginated credit transaction history."""
+        self._get_workspace_for_user(db, workspace_id, user_id)
+        return self.token_service.get_transaction_history(db, workspace_id, page, limit)
+
+    def get_credit_summary(self, db: Session, workspace_id: str, user_id: str) -> dict[str, Any]:
+        """Return real-time credit balance, burn rate, and estimated days remaining."""
+        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        balance = self.token_service.get_token_balance(db, str(workspace.id))
+        burn_rate = self.token_service.get_burn_rate(db, str(workspace.id))
+        daily_usage = self.token_service.get_daily_usage(db, str(workspace.id), days=30)
+
+        credits_balance = round(float(balance.balance) / TOKENS_PER_CREDIT, 2)
+        credits_added = round(float(balance.tokens_added) / TOKENS_PER_CREDIT, 2)
+        credits_used = round(float(balance.tokens_used) / TOKENS_PER_CREDIT, 2)
+        credits_reserved = round(float(balance.tokens_reserved) / TOKENS_PER_CREDIT, 2)
+
+        days_remaining = round(credits_balance / burn_rate, 1) if burn_rate > 0 else -1
+
+        # Determine health status
+        if credits_added > 0:
+            usage_pct = round((credits_used / credits_added) * 100, 1)
+        else:
+            usage_pct = 0
+
+        if usage_pct >= 80:
+            health = "critical"
+        elif usage_pct >= 50:
+            health = "warning"
+        else:
+            health = "healthy"
+
+        return {
+            "credits_balance": credits_balance,
+            "credits_added": credits_added,
+            "credits_used": credits_used,
+            "credits_reserved": credits_reserved,
+            "burn_rate": burn_rate,
+            "days_remaining": days_remaining,
+            "usage_percent": usage_pct,
+            "health": health,
+            "daily_usage": daily_usage,
+        }
+
+    def get_credit_history(self, db: Session, workspace_id: str, user_id: str, page: int = 1, limit: int = 20) -> dict:
+        """Return paginated credit transaction history."""
+        self._get_workspace_for_user(db, workspace_id, user_id)
+        return self.token_service.get_transaction_history(db, workspace_id, page, limit)
+
     def _get_workspace_for_user(self, db: Session, workspace_id: str, user_id: str) -> Workspace:
         membership = (
             db.query(Workspace)

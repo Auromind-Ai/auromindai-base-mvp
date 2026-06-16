@@ -9,11 +9,8 @@ import {
   Calendar,
   ChevronDown,
   ArrowUpRight,
-  ArrowDownRight,
   Sparkles,
   AlertCircle,
-  MoreHorizontal,
-  CheckCircle2,
   ShieldAlert,
   ArrowRight,
   Zap,
@@ -28,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { Poppins } from 'next/font/google';
 import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
+import CreditRingDropdown from '@/components/CreditRingDropdown';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -1185,6 +1183,8 @@ export default function DashboardPage() {
   const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
   const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
+  const user = getUser();
+
   return (
     <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
       <SecretLoginBanner />
@@ -1229,6 +1229,9 @@ export default function DashboardPage() {
             <div className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
               <Bell size={18} className="text-zinc-400" />
               <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
+            </div>
+            <div className="relative z-50 ml-1">
+                <CreditRingDropdown user={user} size={36} />
             </div>
           </div>
         </header>

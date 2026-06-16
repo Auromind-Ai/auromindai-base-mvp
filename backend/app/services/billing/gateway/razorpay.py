@@ -18,9 +18,16 @@ class RazorpayGateway(PaymentGateway):
     @classmethod
     def from_env(cls) -> "RazorpayGateway":
         import razorpay
+        from app.database import SessionLocal
+        from app.services.platform_settings_service import get_setting
 
-        key = settings.RAZORPAY_KEY
-        secret = settings.RAZORPAY_SECRET
+        db = SessionLocal()
+        try:
+            key = get_setting(db, "razorpay_key") or settings.RAZORPAY_KEY
+            secret = get_setting(db, "razorpay_secret") or settings.RAZORPAY_SECRET
+        finally:
+            db.close()
+
         if not key or not secret:
             raise ValueError("Razorpay is not configured")
 

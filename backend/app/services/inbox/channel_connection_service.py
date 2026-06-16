@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import logging
+
 import requests
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+
 from app import models
 from app.core.config import settings
 
@@ -44,7 +47,7 @@ class ChannelConnectionService:
         access_token = fb_token or token_res.get("access_token")
         if not access_token:
             logger.error("Token error: %s", token_res)
-            raise HTTPException(status_code=400, detail="Failed to get access token")
+            raise HTTPException(status_code=400, detail=f"Failed to get access token: {token_res}")
 
         # Debug logging requested by the user to verify token permissions and Graph API responses
         waba_debug_data = None
@@ -212,6 +215,17 @@ class ChannelConnectionService:
         if not workspace:
             raise HTTPException(status_code=404, detail="Workspace not found")
 
+        # Programmatically subscribe the WABA to the App's webhooks
+        try:
+            sub_res = requests.post(
+                f"https://graph.facebook.com/v19.0/{waba_id}/subscribed_apps",
+                params={"access_token": access_token},
+                timeout=10,
+            ).json()
+            logger.info("Programmatic webhook subscription response: %s", sub_res)
+        except Exception as e:
+            logger.error("Failed to programmatically subscribe WABA to webhooks: %s", e)
+
         workspace.meta_access_token = access_token
         workspace.meta_business_id = business_id
         workspace.meta_waba_id = waba_id
@@ -266,10 +280,10 @@ class ChannelConnectionService:
             raise HTTPException(status_code=400, detail="Missing OAuth code")
         if not workspace_id:
             raise HTTPException(status_code=400, detail="Missing workspace_id")
-        logger.error("=== INSTAGRAM DEBUG ===")
-        logger.error("IG_APP_ID: %s", settings.IG_APP_ID)
-        logger.error("IG_REDIRECT_URI: %s", settings.IG_REDIRECT_URI)
-        logger.error("CODE (first 20): %s", code[:20])
+        print("IG_APP_ID:", settings.IG_APP_ID)
+        print("IG_APP_SECRET:", settings.IG_APP_SECRET)
+        print("IG_REDIRECT_URI:", settings.IG_REDIRECT_URI)
+        
 
         token_res = requests.get(
             "https://graph.facebook.com/v19.0/oauth/access_token",
@@ -281,9 +295,6 @@ class ChannelConnectionService:
             },
             timeout=10,
         ).json()
-
-        safe_res = {k: ("[REDACTED]" if k in ("access_token", "code", "refresh_token") else v) for k, v in token_res.items()}
-        logger.error("TOKEN RESPONSE: %s", safe_res)
         access_token = token_res.get("access_token")
         if not access_token:
             raise HTTPException(status_code=400, detail=f"Token exchange failed: {token_res}")
