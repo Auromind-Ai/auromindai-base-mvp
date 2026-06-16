@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
 from app.database import get_db
 from app.services.auth_service import AuthService
-from app.utils.auth import decode_access_token
+from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent
 import uuid
 from datetime import datetime, timezone
 from fastapi import Request
@@ -17,7 +17,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 logger = logging.getLogger(__name__)
 
 class CurrentUser:
-    def __init__(self, user, workspace_id, impersonated=False, admin_id=None):
+    def __init__(self, user, workspace_id, impersonated=False, admin_id=None, session_id=None):
         self.id = user.id
         self.email = user.email
         self.full_name = user.full_name
@@ -25,6 +25,7 @@ class CurrentUser:
         self.user = user
         self.impersonated = impersonated
         self.admin_id = admin_id
+        self.session_id = session_id
 
 
 # ---------- Dependency: get current user ----------
@@ -46,67 +47,77 @@ async def get_current_user(
     if not token:
         raise credentials_exception
    
-    def log_auth(msg):
-        try:
-            with open("/tmp/auth_debug.log", "a") as f:
-                f.write(f"{datetime.now(timezone.utc)}: {msg}\n")
-        except:
-            pass
-
-    log_auth(f"🔒 Authenticating token: {token[:10]}...")
+    logger.debug(f"🔒 Authenticating token: {token[:10]}...")
    
     try:
         payload = decode_access_token(token)
     except Exception:
-        log_auth("❌ Token decode failed")
+        logger.debug("❌ Token decode failed")
         raise credentials_exception
 
     if payload is None:
-        log_auth("❌ Token payload is None")
+        logger.debug("❌ Token payload is None")
         raise credentials_exception
    
     user_id: str = payload.get("sub")
     workspace_id: str = payload.get("workspace_id")
     impersonated = payload.get("impersonated", False)
     admin_id = payload.get("admin_id")
+    session_id: str = payload.get("session_id")
 
     if user_id is None:
-        log_auth("❌ Token missing sub")
+        logger.debug("❌ Token missing sub")
         raise credentials_exception
 
-    log_auth(f"👤 Token claims user_id: {user_id}")
+    logger.debug(f"👤 Token claims user_id: {user_id}")
     user = AuthService.get_user_by_id(db, user_id)
 
     if user is None:
-        log_auth(f"❌ User {user_id} not found in DB")
+        logger.debug(f"❌ User {user_id} not found in DB")
         raise credentials_exception
 
-    log_auth(f"Authenticated: {user.email}")
+    # Session check (skip if session_id is None for backward compatibility)
+    if session_id:
+        from app.models import UserSession
+        session_entry = db.query(UserSession).filter(UserSession.id == session_id).first()
+        if not session_entry:
+            logger.debug(f"❌ Session {session_id} not found in DB")
+            raise credentials_exception
+        if session_entry.is_blocked:
+            logger.debug(f"❌ Session {session_id} is blocked")
+            raise credentials_exception
+        if session_entry.revoked_at is not None:
+            logger.debug(f"❌ Session {session_id} is revoked")
+            raise credentials_exception
+        
+        # update last_activity_at only if more than 5 minutes have passed since the last update
+        now = datetime.now(timezone.utc)
+        if (
+            not session_entry.last_activity_at
+            or (now - session_entry.last_activity_at).total_seconds() > 300
+        ):
+            try:
+                session_entry.last_activity_at = now
+                db.commit()
+            except Exception as e:
+                logger.error(f"Failed to update session activity: {e}")
+                db.rollback()
+
+    logger.debug(f"Authenticated: {user.email}")
     logger.info(f"[AUTH HEADER] {request.headers.get('Authorization')}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,
         impersonated=impersonated,
-        admin_id=admin_id
+        admin_id=admin_id,
+        session_id=session_id
     )
 
 
 # ---------- Email Login & Signup (OTP) ----------
 
-from app.schemas.auth import EmailLoginRequest
-from pydantic import BaseModel
+from app.schemas.auth import EmailLoginRequest, SendOTPRequest, VerifyOTPRequest
 from typing import Optional
-
-class SendOTPRequest(BaseModel):
-    email: str
-    auth_type: str  # "login" or "signup"
-
-class VerifyOTPRequest(BaseModel):
-    email: str
-    otp: str
-    auth_type: str
-    full_name: Optional[str] = None
-    workspace_name: Optional[str] = None
 
 @router.post("/send-otp")
 async def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
@@ -122,15 +133,21 @@ async def send_otp(request: SendOTPRequest, db: Session = Depends(get_db)):
 from fastapi import Response
 
 @router.post("/verify-otp")
-async def verify_otp(request: VerifyOTPRequest, response: Response, db: Session = Depends(get_db)):
+async def verify_otp(request_obj: Request, request: VerifyOTPRequest, response: Response, db: Session = Depends(get_db)):
     try:
+        ip_address = get_client_ip(request_obj)
+        user_agent = request_obj.headers.get("user-agent", "unknown")
+        device_info = parse_user_agent(user_agent)
+        
         result = AuthService.verify_otp(
-            db,
-            request.email,
-            request.otp,
-            request.auth_type,
-            request.full_name,
-            request.workspace_name
+            db=db,
+            email=request.email,
+            otp=request.otp,
+            auth_type=request.auth_type,
+            full_name=request.full_name,
+            workspace_name=request.workspace_name,
+            ip_address=ip_address,
+            device_info=device_info
         )
         
         token = result["access_token"]
@@ -156,7 +173,7 @@ async def verify_otp(request: VerifyOTPRequest, response: Response, db: Session 
 
 # Kept for backward compatibility
 @router.post("/login")
-async def login(request: dict, db: Session = Depends(get_db)):
+async def login(request_obj: Request, request: dict, db: Session = Depends(get_db)):
     try:
         from app.models import User
         email = request.get('email')
@@ -166,7 +183,17 @@ async def login(request: dict, db: Session = Depends(get_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Your email is not registered. Please sign up first.",
             )
-        result = AuthService.email_login(db=db, email=email)
+        
+        ip_address = get_client_ip(request_obj)
+        user_agent = request_obj.headers.get("user-agent", "unknown")
+        device_info = parse_user_agent(user_agent)
+        
+        result = AuthService.email_login(
+            db=db,
+            email=email,
+            ip_address=ip_address,
+            device_info=device_info
+        )
         return result
     except ValueError as e:
         raise HTTPException(
@@ -199,10 +226,10 @@ async def google_login(request: Request, type: str = "login"):
         "access_type=offline&"
         f"state={state}"
     )
-    print(f"GOOGLE REDIRECT URI = {redirect_uri}")
-    print(f"FRONTEND URL = {settings.FRONTEND_URL}")
-    print("CLIENT ID =", settings.GOOGLE_CLIENT_ID)
-    print("CLIENT SECRET EXISTS =", bool(settings.GOOGLE_CLIENT_SECRET))
+    logger.debug(f"GOOGLE REDIRECT URI = {redirect_uri}")
+    logger.debug(f"FRONTEND URL = {settings.FRONTEND_URL}")
+    logger.debug(f"CLIENT ID = {settings.GOOGLE_CLIENT_ID}")
+    logger.debug(f"CLIENT SECRET EXISTS = {bool(settings.GOOGLE_CLIENT_SECRET)}")
 
     is_prod = settings.ENVIRONMENT.lower() == "production"
     response = RedirectResponse(url=auth_url)
@@ -271,7 +298,17 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             if not email:
                 raise ValueError("Google account has no associated email")
 
-        result = AuthService.google_auth(db, email, full_name, auth_type)
+        ip_address = get_client_ip(request)
+        user_agent = request.headers.get("user-agent", "unknown")
+        device_info = parse_user_agent(user_agent)
+        result = AuthService.google_auth(
+            db=db,
+            email=email,
+            full_name=full_name,
+            auth_type=auth_type,
+            ip_address=ip_address,
+            device_info=device_info
+        )
        
         jwt_token = result["access_token"]
         response = RedirectResponse(url=f"{frontend_url}/user/admin/dashboard")
@@ -304,6 +341,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
 
 @router.post("/login/secret")
 async def login_secret(
+    request_obj: Request,
     request: SecretLoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -319,7 +357,11 @@ async def login_secret(
     if not admin:
         raise HTTPException(status_code=404, detail="No users found in platform")
    
-    return AuthService.login(db, admin.email)
+    ip_address = get_client_ip(request_obj)
+    user_agent = request_obj.headers.get("user-agent", "unknown")
+    device_info = parse_user_agent(user_agent)
+    
+    return AuthService.login(db, admin.email, ip_address=ip_address, device_info=device_info)
 
 
 # ---------- Current user ----------

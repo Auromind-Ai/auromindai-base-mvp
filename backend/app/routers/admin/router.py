@@ -1,6 +1,6 @@
 import time
-from pydantic import BaseModel
 from fastapi import APIRouter, Request, Response, HTTPException, status
+from app.schemas.admin import AdminAuthRequest
 from app.core.config import settings
 from . import (
     ai_actions,
@@ -30,8 +30,7 @@ _ADMIN_AUTH_ATTEMPTS: dict[str, list[float]] = {}
 ADMIN_AUTH_WINDOW = 15 * 60  # 15 minutes
 ADMIN_AUTH_MAX_ATTEMPTS = 3
 
-class AdminAuthRequest(BaseModel):
-    password: str
+
 
 @router.post("/auth", include_in_schema=False)
 async def admin_auth(

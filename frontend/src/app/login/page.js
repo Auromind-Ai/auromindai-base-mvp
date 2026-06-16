@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles } from 'lucide-react';
@@ -84,7 +84,7 @@ const getErrorMessage = (err) => {
     return "Something went wrong. Please try again.";
 };
 
-export default function LoginPage() {
+function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirectPath = searchParams.get('redirect');
@@ -475,5 +475,20 @@ export default function LoginPage() {
             </div>
            
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-[#09090b] p-6">
+                <div className="w-full max-w-sm space-y-4">
+                    <div className="h-4 w-3/4 rounded-full shimmer-container shimmer-bg mx-auto" />
+                    <div className="h-4 w-1/2 rounded-full shimmer-container shimmer-bg mx-auto" />
+                </div>
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     );
 }
