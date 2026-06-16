@@ -29,7 +29,8 @@ from app.routers.template import router as template_router
 from app.routers.lead_scoring import router as lead_scoring_router
 from app.routers.inbox_chennal import meta_what, conversations, instagram, twilio_webhook
 from app.routers.realtime import router as realtime_router
-
+from app.routers.two_factor import router as two_factor_router
+from app.routers.account import router as account_router
 
 # Lifespan 
 @asynccontextmanager
@@ -83,7 +84,9 @@ async def health_check():
     return {"status": "healthy"}
 
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])                                         
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(account_router, prefix="/account", tags=["account"])
+app.include_router(two_factor_router, prefix="/2fa", tags=["2fa"])                                         
 app.include_router(conversations.router)                                 
 app.include_router(twilio_webhook.router) 
 app.include_router(meta_what.router, prefix="/api")

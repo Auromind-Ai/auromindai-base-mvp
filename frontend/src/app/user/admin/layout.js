@@ -40,6 +40,7 @@ const MAIN_NAV_ITEMS = [
     { label: 'AI Workspace', icon: Sparkles, href: '/user/admin/ai' },
     { label: 'Omni-Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
     { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
+    { label: 'Brain', icon: Brain, href: '/user/admin/brain' },
     { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
     { label: 'Templates', icon: FileText, href: '/user/admin/templates' },

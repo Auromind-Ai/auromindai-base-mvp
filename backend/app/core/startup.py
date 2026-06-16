@@ -1,3 +1,5 @@
+from sched import scheduler
+
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine
 from app.core.logger import logger
@@ -11,6 +13,7 @@ from app.core.redis_pubsub import RedisPubSubService
 import app.core.redis_pubsub as _pubsub_module
 from app.core.websockets import manager
 from app.core.metrics import init_metrics_redis, close_metrics_redis
+from app.core.deletion_scheduler import register_deletion_job
 
 def init_rag(app):
     import os
@@ -43,6 +46,8 @@ def init_schedulers(app):
     email_scheduler.start()
     app.state.email_scheduler = email_scheduler
     logger.info("Email Scheduler started")
+
+    register_deletion_job()
 
     cleanup_scheduler = ReservationCleanupSchedulerService(engine)
     cleanup_scheduler.start()
