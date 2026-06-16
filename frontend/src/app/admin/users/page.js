@@ -1,33 +1,50 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
+import { useRouter, useParams } from "next/navigation";
 import { Users, CheckCircle, Mail, ExternalLink, Loader2 } from "lucide-react";
 
-const API_BASE = '/api'; 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";
 
 export default function UsersPage() {
   const router = useRouter();
+  const params = useParams();
+  const adminPath = params?.admin_path || "x7k2-admin-9pqm";
+  
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [impersonating, setImpersonating] = useState(null);
 
   useEffect(() => {
+    const decodeJwt = (token) => {
+      try {
+        return JSON.parse(atob(token.split(".")[1]));
+      } catch {
+        return null;
+      }
+    };
+
+    const current = getToken();
+    try {
+      const payload = decodeJwt(current);
+      if (current && !payload?.impersonated) {
+        localStorage.setItem("admin_backup_token", current); // 🔥 ALWAYS overwrite
+      }
+    } catch (err) {
+      console.error("Could not set admin backup:", err);
+    }
+
     const fetchUsers = async () => {
       try {
         setLoading(true);
 
-        const res = await fetch(`${API_BASE}/admin/users`, {
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+        const res = await fetch(`${API_BASE}/admin/users`);
 
-        if (res.status === 401) {
-          window.location.href = "/admin";
+        if (res.status === 401 || res.status === 404) {
+          router.push(`/${adminPath}`);
           return;
         }
 
@@ -49,7 +66,10 @@ export default function UsersPage() {
     setImpersonating(userId);
 
     try {
-      const res = await fetch(`${API_BASE}/admin/impersonate/${userId}`, {
+      const adminToken = localStorage.getItem("admin_backup_token") || getToken();
+      console.log("🔑 Admin token:", adminToken);
+
+      const res = await fetch(`${API_BASE}/admin/switch-user/${userId}`, {
         method: "POST",
         credentials: "include",
         headers: {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Poppins } from 'next/font/google';
 import Link from 'next/link';
 import {
@@ -26,7 +27,8 @@ import {
     Wand2,
     Plug,
     Calendar as CalendarIcon,
-    Mail
+    Mail,
+    Coins
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
@@ -34,16 +36,19 @@ import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
+import CreditRingDropdown from '@/components/CreditRingDropdown';
 
 const MAIN_NAV_ITEMS = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
     { label: 'AI Workspace', icon: Sparkles, href: '/user/admin/ai' },
+    { label: 'Brain', icon: Brain, href: '/user/admin/brain' },
     { label: 'Omni-Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
     { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
     { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
     { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
-     { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
+    { label: 'Credits & Wallet', icon: Coins, href: '/user/admin/credits' },
+    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
 ];
 
 const SYSTEM_NAV_ITEMS = [
@@ -135,14 +140,22 @@ function AdminLayoutContent({ children }) {
                 key={item.href}
                 href={item.href}
                 onClick={handleClick}
-                className={`flex items-center gap-2.5 px-3 py-1 rounded-[4px] text-sm group select-none transition-colors duration-150
+                className={`relative flex items-center gap-2.5 px-3 py-[7px] rounded-[6px] text-sm group select-none
+                    transition-all duration-150 active:scale-[0.97] active:opacity-80
                     ${isActive
-                        ? 'bg-[var(--notion-active)] text-white font-medium'
-                        : 'text-[#9b9b9b] hover:bg-[var(--notion-hover)] hover:text-white'}
+                        ? 'bg-white/10 text-white font-medium shadow-sm'
+                        : 'text-[#9b9b9b] hover:bg-white/5 hover:text-white'}
                 `}
             >
-                <Icon size={16} strokeWidth={2} className={`${isActive ? 'text-white' : 'text-[#7e7e7e] group-hover:text-white'}`} />
-                {item.label}
+                {isActive && (
+                    <motion.span
+                        layoutId="sidebar-active-pill"
+                        className="absolute inset-0 rounded-[6px] bg-white/10 pointer-events-none"
+                        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                    />
+                )}
+                <Icon size={16} strokeWidth={2} className={`relative z-10 transition-colors duration-150 ${isActive ? 'text-white' : 'text-[#7e7e7e] group-hover:text-white'}`} />
+                <span className="relative z-10">{item.label}</span>
             </Link>
         );
     };
@@ -319,7 +332,18 @@ if (!user) {
                 </div>
 
                 <div className={`w-full flex-1 flex flex-col overflow-hidden ${isFullScreenPage ? '' : 'overflow-y-auto custom-scrollbar'}`}>
-                    {children}
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={pathname}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                            className="flex-1 flex flex-col h-full"
+                        >
+                            {children}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </main>
 

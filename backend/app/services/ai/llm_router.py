@@ -25,6 +25,22 @@ class LLMRouter:
         self._cache_ttl = 10   
 
     
+    def _get_api_key(self, env_name: str, db_key: str) -> str:
+        from app.services.platform_settings_service import get_setting
+        db = SessionLocal()
+        try:
+            key = get_setting(db, db_key)
+            if key and isinstance(key, str) and key.strip():
+                return key
+            
+            key = getattr(settings, env_name, None)
+            if key and isinstance(key, str) and key.strip():
+                return key
+                
+            raise Exception(f"{env_name} is not set in DB or .env")
+        finally:
+            db.close()
+
     def _get_config(self, model_name: str):
         current_time = time.time()  
 
@@ -118,7 +134,7 @@ class LLMRouter:
             api_key_env = config.get("api_key_env", "GOOGLE_API_KEY")
             if api_key_env == "GEMINI_API_KEY":
                 api_key_env = "GOOGLE_API_KEY"
-            api_key = getattr(settings, api_key_env)
+            api_key = self._get_api_key(api_key_env, "gemini_api_key")
             genai.configure(api_key=api_key)
 
             model = genai.GenerativeModel(config["model"])
@@ -151,7 +167,8 @@ class LLMRouter:
 
     async def _claude_call(self, prompt, config):
         try:
-            api_key = getattr(settings, config.get("api_key_env", "ANTHROPIC_API_KEY"))
+            api_key_env = config.get("api_key_env", "ANTHROPIC_API_KEY")
+            api_key = self._get_api_key(api_key_env, "anthropic_api_key")
             client = AsyncAnthropic(api_key=api_key)
 
             response = await client.messages.create(
@@ -181,9 +198,8 @@ class LLMRouter:
         
     async def _groq_call(self, prompt, config):
         try:
-            api_key = getattr(settings, config.get("api_key_env", "GROQ_API_KEY"), None)
-            if not api_key or not api_key.strip():
-              raise Exception("GROQ_API_KEY is not set or empty")
+            api_key_env = config.get("api_key_env", "GROQ_API_KEY")
+            api_key = self._get_api_key(api_key_env, "groq_api_key")
             client = Groq(api_key=api_key)
 
             response = await asyncio.to_thread(

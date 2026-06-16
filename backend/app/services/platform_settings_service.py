@@ -13,6 +13,7 @@ SENSITIVE_KEYS = {
     "gemini_api_key",
     "anthropic_api_key",
     "groq_api_key",
+    "smtp_password",
 }
 
 # Simple in-memory cache

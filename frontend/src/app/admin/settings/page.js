@@ -16,8 +16,10 @@ import {
   Database,
   Layers,
   Plus,
-  Trash2 
+  Trash2,
+  Mail
 } from "lucide-react"
+import { useParams } from "next/navigation"
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
 
@@ -102,6 +104,12 @@ export default function SettingsPage() {
     anthropic_api_key: "",
     groq_api_key: "",
 
+    // ---------------- Email (SMTP) ----------------
+    smtp_host: "",
+    smtp_port: "587",
+    smtp_user: "",
+    smtp_password: "",
+
     // ---------------- Payments ----------------
     razorpay_key: "",
     razorpay_secret: "",
@@ -115,7 +123,9 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
 
-  const API = '/api'; // same-origin proxy
+  const params = useParams()
+  const adminPath = params?.admin_path || 'x7k2-admin-9pqm'
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
   useEffect(() => {
     fetchSettings()
@@ -124,7 +134,9 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API}/admin/settings`)
+      const response = await fetch(`${API_BASE}/${adminPath}/settings`, {
+        credentials: "include"
+      })
       if (!response.ok) throw new Error("Failed to fetch settings")
       const data = await response.json()
       setSettings(prev => ({ ...prev, ...data }))
@@ -139,9 +151,10 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
-      const response = await fetch(`${API}/admin/settings`, {
+      const response = await fetch(`${API_BASE}/${adminPath}/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(settings)
       })
       if (!response.ok) throw new Error("Failed to save settings")
@@ -722,6 +735,60 @@ export default function SettingsPage() {
                         value={settings.twilio_from_number}
                         onChange={(e) => handleInputChange("twilio_from_number", e.target.value)}
                         placeholder="+1234567890"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <div className="flex items-center gap-3 mb-6 pt-4 border-t border-white/5">
+                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                      <Mail className="text-orange-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Email (SMTP) Integration</h3>
+                      <p className="text-xs text-gray-500">Configure outbound email delivery</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">SMTP Host</p>
+                       <input 
+                        type="text"
+                        value={settings.smtp_host || ""}
+                        onChange={(e) => handleInputChange("smtp_host", e.target.value)}
+                        placeholder="smtp.gmail.com"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">SMTP Port</p>
+                       <input 
+                        type="text"
+                        value={settings.smtp_port || ""}
+                        onChange={(e) => handleInputChange("smtp_port", e.target.value)}
+                        placeholder="587"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">SMTP Username</p>
+                       <input 
+                        type="text"
+                        value={settings.smtp_user || ""}
+                        onChange={(e) => handleInputChange("smtp_user", e.target.value)}
+                        placeholder="hello@auromind.ai"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">SMTP Password</p>
+                       <input 
+                        type="password"
+                        value={settings.smtp_password || ""}
+                        onChange={(e) => handleInputChange("smtp_password", e.target.value)}
+                        placeholder="••••••••••••••••"
                         className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
                       />
                     </div>
