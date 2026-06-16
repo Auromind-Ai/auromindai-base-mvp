@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 import requests
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from app.schemas.template import TemplateCreate, GenerateRequest
 from app.database import get_db
 from app.models.templates import Template
 from app.services.template import submit_to_meta
@@ -21,22 +21,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 router = APIRouter()
 
-class TemplateCreate(BaseModel):
-    name: str
-    type: str
-    message: str
-    workspace_id: str | None = None
-    category: str
-    language: str
-    header: str | None = None
-    footer: str | None = None
-    cta: str | None = None
 
-
-class GenerateRequest(BaseModel):
-    prompt: str
-    tone: str
-    language: str
 
 def map_language(lang):
     mapping = {"en_US": "English", "en_GB": "English", "ta": "Tamil", "hi": "Hindi"}

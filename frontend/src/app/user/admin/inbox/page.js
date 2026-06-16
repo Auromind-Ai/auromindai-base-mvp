@@ -37,6 +37,39 @@ const PROXY_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const CARD_BG = '#15161C';
 const CARD_BORDER = 'rgba(255,255,255,0.07)';
 
+const showToast = (message) => {
+    if (typeof window === 'undefined') return;
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'fixed bottom-5 right-5 z-[99999] flex flex-col gap-2 pointer-events-none';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'flex items-center gap-2 px-4 py-3 rounded-xl border border-white/10 bg-[#0d0d0d]/95 backdrop-blur-md shadow-2xl text-white text-sm font-semibold';
+    toast.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    toast.innerHTML = message;
+
+    container.appendChild(toast);
+
+    toast.offsetHeight; // trigger reflow
+
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 4000);
+};
+
 function getHeaders() {
     return {
         'Content-Type': 'application/json',
@@ -1392,7 +1425,15 @@ function InboxContent() {
               await api.post(`/api/send-reply`, { conversation_id: lead.id, message: msg });
               setMsg('');
               fetchMessages(lead.id);
-          } catch (e) { console.error('Send error:', e); }
+          } catch (e) {
+              console.error('Send error:', e);
+              if (e.status === 503) {
+                  showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
+              } else {
+                  showToast("Failed to send message. Please try again.");
+              }
+              return;
+          }
       }
 
       async function generateSuggestion() {

@@ -61,6 +61,19 @@ def upsert_lead(
         )
         db.add(lead)
         db.flush()
+
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_workspace(
+                db=db,
+                workspace_id=workspace_id,
+                type="lead_alert",
+                title="New Lead Captured",
+                message=f"A new lead was captured via {source.upper()} (Phone: {phone or 'N/A'})"
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send lead alert notification: {e}")
     else:
         lead.last_activity_at = datetime.now(timezone.utc)
         db.flush()

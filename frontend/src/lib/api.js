@@ -494,9 +494,51 @@ class APIClient {
       return null;
     }
   }
+
+  // ==== User Preferences Methods ====
+
+  async getPreferences() {
+    return this.get('/api/users/me/preferences');
+  }
+
+  async updatePreferences(data) {
+    return this.patch('/api/users/me/preferences', data);
+  }
+
+  // ==== Security & Sessions ====
+  async getSessions() {
+    return this.get('/api/user/sessions');
+  }
+
+  async revokeSession(sessionId) {
+    return this.delete(`/api/user/sessions/${sessionId}`);
+  }
+
+  async blockSession(sessionId) {
+    return this.post(`/api/user/sessions/${sessionId}/block`);
+  }
+
+  async getSecuritySummary() {
+    return this.get('/api/user/security-summary');
+  }
+
+  async unblockSession(sessionId) {
+    return this.post(`/api/user/sessions/${sessionId}/unblock`);
+  }
+
+  // ==== Notifications ====
+  async getNotifications(skip = 0, limit = 50) {
+    return this.get(`/api/notifications?skip=${skip}&limit=${limit}`);
+  }
+
+  async markNotificationRead(id) {
+    return this.patch(`/api/notifications/${id}/read`, {});
+  }
+
+  async markAllNotificationsRead() {
+    return this.post(`/api/notifications/read-all`, {});
+  }
 }
-
-
 
 
 export const api = new APIClient();

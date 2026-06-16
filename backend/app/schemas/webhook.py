@@ -8,3 +8,11 @@ class SendReply(BaseModel):
 class AISuggest(BaseModel):
     conversation_id: str
     message: str
+
+
+class TwilioConnectRequest(BaseModel):
+    sid: str
+    token: str
+    phone: str
+    workspace_id: str
+

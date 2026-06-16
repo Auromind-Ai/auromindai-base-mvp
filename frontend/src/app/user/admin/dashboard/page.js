@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
 import { getUser, restoreAdminToken } from '@/lib/auth';
+import NotificationBell from '@/components/NotificationBell';
 import {
-  Bell,
   Calendar,
   ChevronDown,
   ArrowUpRight,
@@ -1226,10 +1226,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3">
             <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
-            <div className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm">
-              <Bell size={18} className="text-zinc-400" />
-              <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
-            </div>
+            <NotificationBell />
           </div>
         </header>
 
