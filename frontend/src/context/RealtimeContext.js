@@ -29,11 +29,8 @@ const STALE_SOCKET_MS = 120000;
 
 function resolveWebSocketBaseUrl() {
   const explicit = process.env.NEXT_PUBLIC_WS_URL;
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  const source = explicit || apiBase;
-
-  if (source) {
-    return source
+  if (explicit) {
+    return explicit
       .replace(/^http:/, "ws:")
       .replace(/^https:/, "wss:")
       .replace(/\/$/, "");
@@ -259,7 +256,7 @@ export function RealtimeProvider({ user, workspace, children }) {
       }
 
       connect();
-    }, 0);
+    }, 100);
 
     return () => {
       clearTimeout(timer);

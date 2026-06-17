@@ -99,6 +99,7 @@ def send_reply(
         workspace_id=workspace_id,
         conversation_id=data.conversation_id,
         message=data.message,
+        metadata=data.metadata,
     )
 
 

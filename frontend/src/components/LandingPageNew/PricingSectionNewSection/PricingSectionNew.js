@@ -148,7 +148,7 @@ export default function PricingSectionNew() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
-          className="mt-16 md:mt-20 grid md:grid-cols-3 gap-6 xl:gap-8"
+          className="relative mt-16 md:mt-20 grid md:grid-cols-3 gap-6 xl:gap-8"
         >
           {plans.map((plan, index) => {
             const isFeatured = plan.featured;

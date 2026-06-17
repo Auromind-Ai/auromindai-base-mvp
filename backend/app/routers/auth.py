@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
 
@@ -9,12 +9,38 @@ from app.services.auth_service import AuthService
 from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent
 import uuid
 from datetime import datetime, timezone
-from fastapi import Request
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 logger = logging.getLogger(__name__)
+
+def set_auth_cookie(response: Response, request: Request, key: str, value: str, max_age: int = None):
+    is_https = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+    response.set_cookie(
+        key=key,
+        value=value,
+        httponly=True,
+        secure=is_https,
+        samesite="none" if is_https else "lax",
+        max_age=max_age,
+        path="/",
+    )
+
+def delete_auth_cookie(response: Response, request: Request, key: str, path: str = "/"):
+    is_https = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+    response.delete_cookie(
+        key=key,
+        path=path,
+        secure=is_https,
+        samesite="none" if is_https else "lax",
+    )
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None, session_id=None):
@@ -149,22 +175,25 @@ async def verify_otp(request_obj: Request, request: VerifyOTPRequest, response: 
             ip_address=ip_address,
             device_info=device_info
         )
-        
+
+        # ── 2FA gate — do NOT set cookie yet ──────────────────────────────
+        if result.get("requiresTwoFactor"):
+            return result          # {requiresTwoFactor: true, pending_token: "..."}
+        # ── END 2FA gate ──────────────────────────────────────────────────
+
         token = result["access_token"]
         from app.core.config import settings
-        is_prod = settings.ENVIRONMENT.lower() == "production"
         
-        response.set_cookie(
+        set_auth_cookie(
+            response=response,
+            request=request_obj,
             key="auth_token",
             value=token,
-            httponly=True,
-            secure=is_prod,
-            samesite="strict" if is_prod else "lax",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            path="/",
         )
-        
         return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -231,16 +260,13 @@ async def google_login(request: Request, type: str = "login"):
     logger.debug(f"CLIENT ID = {settings.GOOGLE_CLIENT_ID}")
     logger.debug(f"CLIENT SECRET EXISTS = {bool(settings.GOOGLE_CLIENT_SECRET)}")
 
-    is_prod = settings.ENVIRONMENT.lower() == "production"
     response = RedirectResponse(url=auth_url)
-    response.set_cookie(
+    set_auth_cookie(
+        response=response,
+        request=request,
         key="oauth_state",
         value=state_token,
-        httponly=True,
-        secure=is_prod,
-        samesite="lax",
         max_age=300,
-        path="/",
     )
     return response
 
@@ -253,7 +279,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
     cookie_state = request.cookies.get("oauth_state")
     if not cookie_state or not state.startswith(cookie_state + ":"):
         response = RedirectResponse(url=f"{frontend_url}/login?error=State+verification+failed")
-        response.delete_cookie("oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response
 
     try:
@@ -263,7 +289,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
 
     if not code:
         response = RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
-        response.delete_cookie("oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response
 
     redirect_uri = settings.OAUTH_REDIRECT_URI
@@ -313,29 +339,22 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         jwt_token = result["access_token"]
         response = RedirectResponse(url=f"{frontend_url}/user/admin/dashboard")
         
-        # NOTE FOR PRODUCTION COOKIE SAMESITE POLICY:
-        # - If frontend and backend end up on different domains in production (e.g. Vercel + Render), 
-        #   samesite must be set to "none" with secure=True to allow cross-site cookie transmission.
-        # - If same-site subdomains (e.g. app.domain.com and api.domain.com), use "lax" not "strict" 
-        #   (strict breaks authentication/session on navigation from external links).
-        response.set_cookie(
+        set_auth_cookie(
+            response=response,
+            request=request,
             key="auth_token",
             value=jwt_token,
-            httponly=True,
-            secure=is_prod,
-            samesite="strict" if is_prod else "lax",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            path="/",
         )
-        response.delete_cookie("oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response
     except ValueError as e:
         response = RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote(str(e))}")
-        response.delete_cookie("oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response
     except Exception as e:
         response = RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote('Internal Server Error')}")
-        response.delete_cookie("oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response
 
 
@@ -371,7 +390,9 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
     return {
         "id": str(current_user.id),
         "email": current_user.email,
-        "full_name": current_user.full_name
+        "full_name": current_user.full_name,
+        "two_factor_enabled": current_user.user.two_factor_enabled,
+        "deletion_scheduled_at": current_user.user.deletion_scheduled_at,   # ← ADD
     }
 
 
@@ -387,13 +408,6 @@ async def get_workspaces(
     return {"workspaces": workspaces}
 
 @router.post("/logout")
-async def logout(response: Response):
-    from app.core.config import settings
-    is_prod = settings.ENVIRONMENT.lower() == "production"
-    
-    response.delete_cookie(
-        key="auth_token",
-        path="/",
-        samesite="strict" if is_prod else "lax",
-    )
+async def logout(request: Request, response: Response):
+    delete_auth_cookie(response=response, request=request, key="auth_token", path="/")
     return {"status": "success", "message": "Logged out"}

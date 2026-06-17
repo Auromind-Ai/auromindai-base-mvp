@@ -106,19 +106,6 @@ export function AnimatedChat() {
   const bodyRef = useRef(null);
   const timerRef = useRef(null);
 
-  useEffect(() => {
-    scheduleNext(0, []);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-    }
-  }, [visibleMessages, typingVisible]);
-
   function scheduleNext(idx, msgs) {
     if (idx >= MESSAGES.length) {
       timerRef.current = setTimeout(() => {
@@ -141,6 +128,19 @@ export function AnimatedChat() {
       }, TYPING_DURATIONS[idx]);
     }, delay);
   }
+
+  useEffect(() => {
+    scheduleNext(0, []);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }
+  }, [visibleMessages, typingVisible]);
 
   return (
     <div className={styles.waBody} ref={bodyRef}>

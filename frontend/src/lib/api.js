@@ -1,14 +1,12 @@
 console.log("API CLIENT VERSION: 1.1.21");
+import { getToken, getWorkspaceIdFromToken, logout } from "@/lib/auth"
 
-// Always use the backend URL directly. CORS is configured to allow it.
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = '/api';
 
-console.log("Selected API_BASE_URL:", API_BASE_URL);
 
 class APIClient {
   constructor(baseURL = API_BASE_URL) {
     this.baseURL = baseURL;
-    console.log("APIClient initialized with baseURL:", this.baseURL);
   }
 
   async request(endpoint, options = {}, isRetryAttempt = false) {
@@ -19,10 +17,9 @@ class APIClient {
     const { signal: optSignal, ...restOptions } = options;
     const config = {
       ...restOptions,
-      credentials: 'include',
       headers: {
-        ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
         'ngrok-skip-browser-warning': 'true',
+        ...(isPostOrPut ? { 'Content-Type': 'application/json' } : {}),
         ...options.headers,
       },
     };
@@ -73,6 +70,10 @@ class APIClient {
       }
         return data;
       } else {
+        // For non-JSON success responses (e.g. 204 No Content), return empty
+        if (response.ok) {
+          return {};
+        }
         const text = await response.text();
         console.error("Non-JSON response:", text);
         const errorObj = new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`);
@@ -105,7 +106,10 @@ class APIClient {
       }
 
       if (isClientError || isFetchNetworkError) {
-        console.warn('API Client/Network Error:', error, 'URL:', url);
+        const isExpectedAuthMeError = (error?.status === 401 || error?.status === 403) && endpoint.includes('/auth/me');
+        if (!isExpectedAuthMeError) {
+          console.warn('API Client/Network Error:', error, 'URL:', url);
+        }
       } else {
         console.error('API Error:', error, 'URL:', url);
       }
@@ -132,12 +136,14 @@ class APIClient {
       body: JSON.stringify(body),
     });
   }
+
   async patch(endpoint, body) {
     return this.request(endpoint, {
       method: "PATCH",
       body: JSON.stringify(body),
     });
   }
+
   async delete(endpoint) {
     return this.request(endpoint, { method: 'DELETE' });
   }
@@ -166,8 +172,9 @@ class APIClient {
     });
   }
 
+  // login = OTP அனுப்பு (step 1)
   async login(email) {
-    return this.post('/auth/login', { email });
+    return this.post('/auth/send-otp', { email });
   }
 
   googleLogin(type = 'login') {
@@ -179,14 +186,98 @@ class APIClient {
   }
 
   async getWorkspaces() {
-    return this.get('/auth/workspaces');
-  }
+  return this.get('/auth/workspaces');
+}
 
-  // Pricing methods
-  async getPricing() {
+// ─── Two-Factor Authentication ────────────────────────────────────────────────
+
+async get2FAStatus() {
+  return this.get('/2fa/status');
+}
+
+async setup2FA() {
+  return this.post('/2fa/setup', {});
+}
+
+async verifySetup2FA(code) {
+  return this.post('/2fa/verify-setup', { code });
+}
+
+async verifyLogin2FA(pending_token, code) {
+  return this.post('/2fa/verify-login', { pending_token, code });
+}
+
+async disable2FA(code) {
+  return this.post('/2fa/disable', { code });
+}
+
+// ─── Account Lifecycle ────────────────────────────────────────────────────────
+
+async requestAccountDeletion() {
+  return this.post('/account/request-deletion', {});
+}
+
+async cancelAccountDeletion() {
+  return this.post('/account/cancel-deletion', {});
+}
+
+// Pricing methods
+async getPricing() {
     return this.get("/public/pricing")
   }
-  // Billing methods
+
+  // OTP verify + access token பெறு (step 2)
+  async verifyOTP(email, otp, auth_type = 'login', full_name = null, workspace_name = null) {
+    return this.post('/auth/verify-otp', { email, otp, auth_type, full_name, workspace_name });
+  }
+
+  googleLogin(auth_type = 'login') {
+    window.location.href = `${this.baseURL}/auth/google/login?type=${auth_type}`;
+  }
+
+  // Refresh token cookie வழியா புதுசா access token பெறு
+  async refreshToken() {
+    return this.post('/auth/refresh', {});
+  }
+
+  // Logout — cookie clear
+  async logout() {
+    return this.post('/auth/logout', {});
+  }
+
+  // ============== Pricing Methods ==============
+
+  async getPricing() {
+    return this.get("/public/pricing");
+  }
+
+  // ============== Dashboard Methods ==============
+
+  async getDashboardOverview(workspace_id, start_date = null, end_date = null, options = {}) {
+    let url = `/dashboard/overview?workspace_id=${workspace_id}`;
+    if (start_date) url += `&start_date=${start_date}`;
+    if (end_date) url += `&end_date=${end_date}`;
+    return this.get(url, options);
+  }
+
+  async getDashboardMetrics(workspace_id, options = {}) {
+    return this.get(`/dashboard/metrics?workspace_id=${workspace_id}`, options);
+  }
+
+  async getDashboardRevenue(workspace_id, options = {}) {
+    return this.get(`/dashboard/revenue?workspace_id=${workspace_id}`, options);
+  }
+
+  async getDashboardActivities(workspace_id, options = {}) {
+    return this.get(`/dashboard/activities?workspace_id=${workspace_id}`, options);
+  }
+
+  async getDashboardInsights(workspace_id, options = {}) {
+    return this.get(`/dashboard/insights?workspace_id=${workspace_id}`, options);
+  }
+
+  // ============== Billing Methods ==============
+
   async getBillingStatus(workspace_id) {
     return this.get('/billing/status');
   }
@@ -199,6 +290,14 @@ class APIClient {
     return this.get('/billing/usage', options);
   }
 
+  async getCreditSummary(workspace_id, options = {}) {
+    return this.get(`/billing/credits/summary?workspace_id=${workspace_id}`, options);
+  }
+
+  async getCreditHistory(workspace_id, page = 1, options = {}) {
+    return this.get(`/billing/credits/history?workspace_id=${workspace_id}&page=${page}`, options);
+  }
+
   async createBillingSubscription(workspace_id, plan, provider = "razorpay", options = {}) {
     return this.post('/billing/create-subscription', {
       workspace_id,
@@ -206,15 +305,16 @@ class APIClient {
       provider,
     }, options);
   }
+
   async getPlatformSettings() {
     return this.get('/api/admin/settings');
   }
+
   async verifyBillingPayment(payload, options = {}) {
     return this.post('/billing/verify-payment', payload, options);
   }
-// ==== Automation Methods ====
 
-
+  // ============== Automation Methods ==============
 
   async getFlows() {
     return this.get('/api/automation/flows');
@@ -241,7 +341,9 @@ class APIClient {
       prompt: prompt,
     });
   }
-  // MCP methods
+
+  // ============== MCP Methods ==============
+
   async evaluateAction(actionData) {
     return this.post('/mcp/evaluate', actionData);
   }
@@ -259,7 +361,7 @@ class APIClient {
     return this.get(`/mcp/rules?workspace_id=${workspace_id}`);
   }
 
-  // ==== Chat History Methods ====
+  // ============== Chat History Methods ==============
 
   async getChatSessions(workspace_id) {
     return this.get('/chat/sessions');
@@ -280,16 +382,17 @@ class APIClient {
   async updateChatSession(session_id, title) {
     return this.request(`/chat/sessions/${session_id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ title })
+      body: JSON.stringify({ title }),
     });
   }
-  //  Admin AI Activity 
+
+  // ============== Admin AI Activity ==============
 
   async getAIActivity() {
     return this.get('/api/admin/ai_actions');
   }
 
-  //  Admin Token Methods 
+  // ============== Admin Token Methods ==============
 
   async getAdminTokens() {
     return this.get('/api/admin/tokens')
@@ -298,8 +401,8 @@ class APIClient {
   async updateTokenLimit(workspace_id, custom_token_limit) {
     return this.request(`/api/admin/tokens/${workspace_id}/limit`, {
       method: "PATCH",
-      body: JSON.stringify({ custom_token_limit })
-    })
+      body: JSON.stringify({ custom_token_limit }),
+    });
   }
 
   async getAdminLogs() {
@@ -310,15 +413,67 @@ class APIClient {
   /**
    * Upload a document to the Brain (PDF, DOCX, TXT)
    */
-  async uploadDocument(file, workspace_id) {
+  async uploadDocument(file, workspace_id, collection = null) {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('workspace_id', workspace_id);
+    if (collection) formData.append('collection', collection);
+
+    const token = typeof window !== 'undefined' ? getToken() : null;
 
     const response = await fetch(`${this.baseURL}/brain/ingest/document`, {
       method: 'POST',
       credentials: 'include',
       headers: {
         'ngrok-skip-browser-warning': 'true',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || 'Upload failed');
+    }
+    return data;
+  }
+
+  async uploadSalesDocument(file, workspace_id) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = typeof window !== 'undefined' ? getToken() : null;
+
+    const response = await fetch(`${this.baseURL}/brain/ingest/sales_document`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || 'Upload failed');
+    }
+    return data;
+  }
+
+  async uploadSupportDocument(file, workspace_id) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('workspace_id', workspace_id);
+
+    const token = typeof window !== 'undefined' ? getToken() : null;
+
+    const response = await fetch(`${this.baseURL}/brain/ingest/support_document`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
       body: formData,
     });
@@ -343,16 +498,13 @@ class APIClient {
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(data.detail || 'Upload failed');
     }
-
     return data;
   }
 
-
-  //  Admin Workspace Methods 
+  // ============== Admin Workspace Methods ==============
 
   async getAdminWorkspaces() {
     return this.get('/api/admin/workspaces');
@@ -361,7 +513,7 @@ class APIClient {
   async editWorkspacePlan(workspace_id, plan_type) {
     return this.request(`/api/admin/workspaces/${workspace_id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ plan_type })
+      body: JSON.stringify({ plan_type }),
     });
   }
 
@@ -393,30 +545,18 @@ class APIClient {
     return this.get('/brain/entries');
   }
 
-  /**
-   * Delete a Brain entry
-   */
   async deleteBrainEntry(entry_id, workspace_id) {
     return this.delete(`/brain/entries/${entry_id}`);
   }
 
-  /**
-   * Semantic search across the Brain
-   */
   async searchBrain(query, workspace_id, top_k = 5) {
     return this.post('/brain/search', { query, top_k });
   }
 
-  /**
-   * Ask a question and get a RAG-powered answer
-   */
   async queryBrain(question, workspace_id, top_k = 5, include_sources = true) {
     return this.post('/brain/query', { question, top_k, include_sources });
   }
 
-  /**
-   * Get Brain statistics
-   */
   async getBrainStats(workspace_id) {
     return this.get('/brain/stats');
   }
@@ -539,7 +679,6 @@ class APIClient {
     return this.post(`/api/notifications/read-all`, {});
   }
 }
-
 
 export const api = new APIClient();
 export default api;

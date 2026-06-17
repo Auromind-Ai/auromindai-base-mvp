@@ -178,7 +178,7 @@ class ModelConfigService:
                 'name': 'groq',
                 'display_name': 'Groq Llama 3.1',
                 'provider': 'groq',
-                'model': 'llama-3.1-8b-instant',
+                'model': 'llama-3.3-70b-versatile',
                 'temperature': 0.8,
                 'max_tokens': 500,
                 'description': 'Fast inference with Groq',

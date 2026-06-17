@@ -9,11 +9,8 @@ import {
   Calendar,
   ChevronDown,
   ArrowUpRight,
-  ArrowDownRight,
   Sparkles,
   AlertCircle,
-  MoreHorizontal,
-  CheckCircle2,
   ShieldAlert,
   ArrowRight,
   Zap,
@@ -23,11 +20,13 @@ import {
   Mail,
   Flame,
   Bot,
+  Bell,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Poppins } from 'next/font/google';
 import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
+import CreditRingDropdown from '@/components/CreditRingDropdown';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -1185,6 +1184,8 @@ export default function DashboardPage() {
   const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
   const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
+  const user = getUser();
+
   return (
     <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
       <SecretLoginBanner />
@@ -1227,6 +1228,9 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
             <NotificationBell />
+            <div className="relative z-50 ml-1">
+                <CreditRingDropdown user={user} size={36} />
+            </div>
           </div>
         </header>
 

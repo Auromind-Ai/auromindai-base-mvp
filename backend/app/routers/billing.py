@@ -186,3 +186,57 @@ def get_plan(
         "token_limit": status["token_limit"],
         "tokens_remaining": status["tokens_remaining"],
     }
+
+
+@router.get("/credits/summary")
+def get_credit_summary(
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        workspace_id = verify_workspace_access(current_user, db)
+        service = get_billing_service()
+        return service.get_credit_summary(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=str(current_user.id),
+        )
+    except ValueError as exc:
+        logger.error(f"[CREDITS SUMMARY ERROR] {str(exc)}")
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/credits/history")
+def get_credit_history(
+    page: int = 1,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        workspace_id = verify_workspace_access(current_user, db)
+        service = get_billing_service()
+        return service.get_credit_history(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=str(current_user.id),
+            page=page,
+            limit=limit,
+        )
+    except ValueError as exc:
+        logger.error(f"[CREDITS HISTORY ERROR] {str(exc)}")
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/credits/daily-usage")
+def get_daily_usage(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        workspace_id = verify_workspace_access(current_user, db)
+        service = get_billing_service()
+        return service.token_service.get_daily_usage(db, workspace_id, days)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

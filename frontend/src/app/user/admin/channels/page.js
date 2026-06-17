@@ -39,7 +39,7 @@ const showToast = (message) => {
     }, 4000);
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API = '/api';
 
 const WhatsAppIcon = () => (
     <svg viewBox="0 0 48 48" width="62" height="62" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -235,7 +235,7 @@ export default function ChannelsPage() {
         if (twPhone) setConnectedInfo(prev => ({ ...prev, twilio: twPhone }));
     }, []);
 
-    const loadIntegrationStatus = async () => {
+    const loadIntegrationStatus = useCallback(async () => {
         try {
             if (!workspace?.id) return;
             const response = await fetch(
@@ -248,22 +248,81 @@ export default function ChannelsPage() {
                     ...prev,
                     gmail: data.gmail?.connected || false,
                     google_calendar: data.calendar?.connected || false,
+                    whatsapp: data.whatsapp?.connected || false,
+                    instagram: data.instagram?.connected || false,
+                    twilio: data.twilio?.connected || false,
                 }));
                 if (data.gmail?.email) setConnectedInfo(prev => ({ ...prev, gmail: data.gmail.email }));
                 if (data.calendar?.email) setConnectedInfo(prev => ({ ...prev, google_calendar: data.calendar.email }));
+                
+                // Sync WhatsApp Status and Info
+                if (data.whatsapp?.connected) {
+                    setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone || "Connected" }));
+                    localStorage.setItem("whatsapp_connected", "true");
+                    if (data.whatsapp.phone) localStorage.setItem("whatsapp_phone", data.whatsapp.phone);
+                } else {
+                    localStorage.removeItem("whatsapp_connected");
+                    localStorage.removeItem("whatsapp_phone");
+                }
+
+                // Sync Instagram Status and Info
+                if (data.instagram?.connected) {
+                    setConnectedInfo(prev => ({ ...prev, instagram: data.instagram.username || "Connected" }));
+                    localStorage.setItem("instagram_connected", "true");
+                    if (data.instagram.username) localStorage.setItem("instagram_username", data.instagram.username);
+                } else {
+                    localStorage.removeItem("instagram_connected");
+                    localStorage.removeItem("instagram_username");
+                }
+
+                // Sync Twilio Status and Info
+                if (data.twilio?.connected) {
+                    setConnectedInfo(prev => ({ ...prev, twilio: data.twilio.phone || "Connected" }));
+                    localStorage.setItem("twilio_connected", "true");
+                    if (data.twilio.phone) localStorage.setItem("twilio_phone", data.twilio.phone);
+                } else {
+                    localStorage.removeItem("twilio_connected");
+                    localStorage.removeItem("twilio_phone");
+                }
             }
         } catch (err) {
             console.error('Failed to load integration status:', err);
+        }
+    }, [workspace?.id]);
+
+    const loadChannelsStatus = async () => {
+        try {
+            const token = getToken();
+            if (!token || !workspace?.id) return;
+            const response = await fetch(
+                `${API}/api/channels/status?workspace_id=${workspace.id}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setStatuses(prev => ({
+                    ...prev,
+                    whatsapp: data.whatsapp?.connected || false,
+                    instagram: data.instagram?.connected || false,
+                    twilio: data.twilio?.connected || false,
+                }));
+                if (data.whatsapp?.phone) setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone }));
+                if (data.instagram?.username) setConnectedInfo(prev => ({ ...prev, instagram: data.instagram.username }));
+                if (data.twilio?.phone) setConnectedInfo(prev => ({ ...prev, twilio: data.twilio.phone }));
+            }
+        } catch (err) {
+            console.error('Failed to load channels status:', err);
         }
     };
 
     useEffect(() => {
         if (workspace?.id) loadIntegrationStatus();
-    }, [workspace?.id]);
+    }, [workspace?.id, loadIntegrationStatus]);
 
     const [statuses, setStatuses] = useState({
         whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false
     });
+    const [hoveredBtn, setHoveredBtn] = useState(null);
 
     const [connecting, setConnecting] = useState(null);
     const [showTwilioModal, setShowTwilioModal] = useState(false);
@@ -363,28 +422,9 @@ export default function ChannelsPage() {
         return () => window.removeEventListener('message', handleMessage);
     }, [workspace?.id]);
 
-    const startWhatsAppSignup = useCallback(() => {
-        setConnecting('whatsapp');
-        window.FB.login(
-            (response) => {
-                if (response.authResponse?.code) {
-                    connectWhatsAppToBackend({ code: response.authResponse.code });
-                } else {
-                    setConnecting(null);
-                }
-            },
-            {
-                config_id: WA_CONFIG_ID,
-                response_type: 'code',
-                override_default_response_type: true,
-                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
-            }
-        );
-    }, [WA_CONFIG_ID]);
-
     const connectWhatsAppToBackend = async (payload) => {
         try {
-            const res = await fetch(`/backend/api/whatsapp/connect`, {
+            const res = await fetch(`${API}/api/whatsapp/connect`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -403,6 +443,25 @@ export default function ChannelsPage() {
         } finally {
             setConnecting(null);
         }
+    };
+
+    const startWhatsAppSignup = () => {
+        setConnecting('whatsapp');
+        window.FB.login(
+            (response) => {
+                if (response.authResponse?.code) {
+                    connectWhatsAppToBackend({ code: response.authResponse.code });
+                } else {
+                    setConnecting(null);
+                }
+            },
+            {
+                config_id: WA_CONFIG_ID,
+                response_type: 'code',
+                override_default_response_type: true,
+                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
+            }
+        );
     };
 
     const startInstagramLogin = useCallback(() => {
@@ -425,7 +484,7 @@ export default function ChannelsPage() {
 
     const connectInstagramToBackend = async (code) => {
         try {
-            const res = await fetch(`/backend/api/instagram/connect`, {
+            const res = await fetch(`${API}/api/instagram/connect`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -460,7 +519,7 @@ export default function ChannelsPage() {
         }
         const data = await response.json();
         if (data.authorization_url) {
-            window.location.href = data.authorization_url;
+            window.location.assign(data.authorization_url);
         }
     } catch (err) {
         console.error('Integration connect error:', err);
@@ -485,6 +544,33 @@ const disconnectIntegration = async (integrationId) => {
     }
 };
 
+const disconnectChannel = async (channelId) => {
+    if (!confirm(`Disconnect ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'}?`)) return;
+    try {
+        const token = getToken();
+        const res = await fetch(
+            `${API}/api/channels/disconnect/${channelId}?workspace_id=${workspace.id}`,
+            { 
+                method: 'DELETE', 
+                headers: { 'Authorization': `Bearer ${token}` } 
+            }
+        );
+        if (res.ok) {
+            setStatuses(prev => ({ ...prev, [channelId]: false }));
+            setConnectedInfo(prev => ({ ...prev, [channelId]: null }));
+            localStorage.removeItem(`${channelId}_connected`);
+            localStorage.removeItem(`${channelId}_phone`);
+            localStorage.removeItem(`${channelId}_username`);
+            showToast(`Disconnected ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'} successfully`);
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            alert("Failed to disconnect: " + (errData.detail || "Unknown error"));
+        }
+    } catch (err) {
+        console.error('Disconnect failed:', err);
+    }
+};
+
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
         
@@ -503,7 +589,7 @@ const disconnectIntegration = async (integrationId) => {
 
         setTwilioSubmitting(true);
         try {
-            const res = await fetch(`/backend/twilio/connect`, {
+            const res = await fetch(`${API}/twilio/connect`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -541,6 +627,17 @@ const disconnectIntegration = async (integrationId) => {
 
     const handleConnect = (id) => {
         if (statuses[id]) return;
+        triggerConnect(id);
+    };
+
+    // Reconnect bypasses the "already connected" guard
+    const handleReconnect = (id) => {
+        setStatuses(prev => ({ ...prev, [id]: false }));
+        setConnectedInfo(prev => ({ ...prev, [id]: null }));
+        triggerConnect(id);
+    };
+
+    const triggerConnect = (id) => {
         if (id === 'whatsapp')        startWhatsAppSignup();
         if (id === 'instagram')       startInstagramLogin();
         if (id === 'gmail')           connectIntegration('gmail');
@@ -722,7 +819,7 @@ const disconnectIntegration = async (integrationId) => {
 
                                             {/* Connected info */}
                                             {isConnected && info && (
-                                                <p className="mt-2 text-[11px] text-[#666] font-mono">{info}</p>
+                                                <p className="mt-2 text-[11px] text-white/60 font-mono">{info}</p>
                                             )}
                                             {isConnecting && (
                                                 <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>
@@ -745,13 +842,23 @@ const disconnectIntegration = async (integrationId) => {
                                         </span>
                                     </div>
 
-                                    {/* Connect / Connected button */}
+                                    {/* Connect / Connected / Reconnect buttons */}
                                     {isConnected ? (
                                         <button
-                                            title="Connected"
-                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium cursor-default">
-                                            <Check size={14} />
-                                            Connected
+                                            onMouseEnter={() => setHoveredBtn(item.id)}
+                                            onMouseLeave={() => setHoveredBtn(null)}
+                                            onClick={() => disconnectIntegration(item.id)}
+                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
+                                            title="Click to disconnect">
+                                            {hoveredBtn === item.id ? (
+                                                <>
+                                                    <X size={14} /> Disconnect
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check size={14} /> Connected
+                                                </>
+                                            )}
                                         </button>
                                     ) : (
                                         <button
@@ -816,7 +923,7 @@ const disconnectIntegration = async (integrationId) => {
                                                     </span>
                                                 </div>
                                                 <p className="text-white/60 text-[12px] leading-relaxed">{item.description}</p>
-                                                {isConnected && info && <p className="mt-2 text-[11px] text-[#666] font-mono">{info}</p>}
+                                                {isConnected && info && <p className="mt-2 text-[11px] text-white/60 font-mono">{info}</p>}
                                                 {isConnecting && <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>}
                                             </div>
                                         </div>
@@ -830,10 +937,20 @@ const disconnectIntegration = async (integrationId) => {
                                         </div>
                                         {isConnected ? (
                                             <button
+                                                onMouseEnter={() => setHoveredBtn(item.id)}
+                                                onMouseLeave={() => setHoveredBtn(null)}
                                                 onClick={() => disconnectIntegration(item.id)}
                                                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
                                                 title="Click to disconnect">
-                                                <Check size={14} /> Connected
+                                                {hoveredBtn === item.id ? (
+                                                    <>
+                                                        <X size={14} /> Disconnect
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Check size={14} /> Connected
+                                                    </>
+                                                )}
                                             </button>
                                         ) : (
                                             <button

@@ -20,6 +20,11 @@ class AdminConsoleMiddleware:
         path = request.url.path
         admin_prefix = "/admin"
         
+        # Rewrite legacy/typo `/admin` path to the dynamic security prefix
+        if path == "/admin" or path.startswith("/admin/"):
+            path = path.replace("/admin", admin_prefix, 1)
+            scope["path"] = path
+
         # Check if the request starts with the designated admin console path prefix
         if path.startswith(admin_prefix):
             if path == f"{admin_prefix}/auth":

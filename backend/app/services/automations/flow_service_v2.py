@@ -1295,7 +1295,7 @@ class FlowServiceV2:
                 # Integrations
                 "calendar_enabled": config.get(
                     "calendar_enabled",
-                    config.get("enable_demo_booking", False)
+                    config.get('enable_demo_booking', False)
                 ),
 
                 "payment_enabled": config.get(
@@ -1785,10 +1785,13 @@ class FlowServiceV2:
        
         _trigger_send_next(conversation.id, countdown=1)
         return True
-
+    
     def _is_reset_command(self, text: str) -> bool:
-        if not text or not isinstance(text, str):
-            return False
-        normalized = text.strip().lower()
-        return normalized in {"/reset", "reset", "clear", "restart", "start over"}
 
+            if not text or not isinstance(text, str):
+
+                return False
+
+            normalized = text.strip().lower()
+
+            return normalized in {"/reset", "reset", "clear", "restart", "start ov"}

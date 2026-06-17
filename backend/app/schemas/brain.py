@@ -9,12 +9,14 @@ class IngestTextRequest(BaseModel):
     region: Optional[str] = None
     language: Optional[str] = None
     cultural_context: Optional[str] = None
+    collection: Optional[str] = None
 
 class IngestURLRequest(BaseModel):
     url: str
     region: Optional[str] = None
     language: Optional[str] = None
     cultural_context: Optional[str] = None
+    collection: Optional[str] = None
 
 class SearchRequest(BaseModel):
     query: str
@@ -82,6 +84,7 @@ class CrawlWebsiteRequest(BaseModel):
     region: Optional[str] = None
     language: Optional[str] = None
     cultural_context: Optional[str] = None
+    collection: Optional[str] = None
 
 class IngestResponse(BaseModel):
     status: str

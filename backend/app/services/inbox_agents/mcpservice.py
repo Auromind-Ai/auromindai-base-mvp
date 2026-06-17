@@ -59,8 +59,8 @@ class MCPService:
 
           
             rule_results.append(self.check_confidence(rules, confidence))
-            rule_results.append(self.check_blocked_keywords(rules, intent))
-            rule_results.append(self.check_followup_limit(rules, metadata or {}))
+            rule_results.append(self.check_blocked_keywords(rules, context, metadata or {}))
+            rule_results.append(self.check_followup_limit(rules, context, metadata or {}))
             rule_results.append(self.check_sensitive_intent(rules, intent))
             rule_results.append(self.check_high_value_lead(rules, metadata or {}))
 
@@ -243,9 +243,12 @@ class MCPService:
             }
 
     # BLOCKED KEYWORDS RULE
-    def check_blocked_keywords(self, rules, intent):
+    def check_blocked_keywords(self, rules, context, metadata):
         try:
-            text = (intent or "").lower()
+            message = context.get("message", "").lower() if isinstance(context, dict) else ""
+            response = metadata.get("response", "").lower() if isinstance(metadata, dict) else ""
+            text = f"{message} {response}"
+            
             blocked = rules.get("blocked_keywords") or []
 
             matched = []
@@ -260,7 +263,7 @@ class MCPService:
                 result = {
                     "rule": "blocked_keywords",
                     "status": "FAIL",
-                    "outcome": "BLOCK",
+                    "outcome": "ESCALATE",
                     "reason": f"Blocked keywords detected: {matched}",
                     "details": {
                         "matched_keywords": matched
@@ -304,11 +307,13 @@ class MCPService:
 
    
     # FOLLOW-UP LIMIT RULE
-    def check_followup_limit(self, rules, metadata):
+    def check_followup_limit(self, rules, context, metadata):
         try:
             meta = metadata or {}
-            followup_count = int(meta.get("followup_count", 0))
-            limit = int(rules.get("followup_limit"))
+            ctx = context or {}
+            
+            followup_count = int(meta.get("followup_count") or ctx.get("followup_count") or 0)
+            limit = int(rules.get("followup_limit", 3))
 
             status = "PASS"
             outcome = "ALLOW"
@@ -316,7 +321,7 @@ class MCPService:
 
             if followup_count >= limit:
                 status = "FAIL"
-                outcome = "BLOCK"
+                outcome = "ESCALATE"
                 reason = f"Follow-up limit exceeded ({followup_count} >= {limit})"
 
             result = {

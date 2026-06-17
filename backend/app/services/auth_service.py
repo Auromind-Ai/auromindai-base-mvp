@@ -136,6 +136,10 @@ class AuthService:
 
         user = db.query(User).filter(User.email == email).first()
 
+        # NEW BLOCK
+        if user and not user.is_active:
+            raise ValueError("This account no longer exists.")
+
         # If user doesn't exist → auto create
         if not user:
 
@@ -216,7 +220,11 @@ class AuthService:
             "user": {
                 "id": str(user.id),
                 "email": user.email,
-                "full_name": user.full_name
+                "full_name": user.full_name,
+                "deletion_scheduled_at": (
+                    user.deletion_scheduled_at.isoformat()
+                    if user.deletion_scheduled_at else None
+                ),
             },
             "workspaces": [
                 {
@@ -252,11 +260,16 @@ class AuthService:
             # Fallback for local
             pass
            
-        EmailService.send_email(
-            to_email=email,
-            subject=f"Your {auth_type.title()} Verification Code",
-            body=f"Your verification code is {otp}. It will expire in 5 minutes."
-        )
+        try:
+            EmailService.send_email(
+                to_email=email,
+                subject=f"Your {auth_type.title()} Verification Code",
+                body=f"Your verification code is {otp}. It will expire in 5 minutes."
+            )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("auromind")
+            logger.error(f"Failed to send verification email via SMTP: {str(e)}. Falling back to console logging.")
         # Log to console for local testing since we don't have real SMTP
         print(f"=============================\nOTP for {email}: {otp}\n=============================")
         return True
@@ -285,6 +298,21 @@ class AuthService:
             user = db.query(User).filter(User.email == email).first()
             if not user:
                 raise ValueError("Your email is not registered. Please sign up first.")
+            
+
+            # ── 2FA CHECK — only addition to this method ──────────────────────────
+            if user.two_factor_enabled:
+                import uuid as _uuid
+                import redis as _redis
+                pending_token = str(_uuid.uuid4())
+                try:
+                    r = _redis.from_url(settings.REDIS_URL, decode_responses=True)
+                    r.setex(f"pending_2fa:{pending_token}", 300, email)   # 5 min TTL
+                except Exception:
+                    raise ValueError("Authentication service temporarily unavailable. Please try again.")
+                return {"requiresTwoFactor": True, "pending_token": pending_token}
+            # ── END 2FA CHECK ─────────────────────────────────────────────────────
+
             return AuthService.email_login(db, email, None, "My Workspace", ip_address, device_info)
         else:
             raise ValueError("Invalid auth type")

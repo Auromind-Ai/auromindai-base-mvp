@@ -47,16 +47,16 @@ async def websocket_endpoint(
 
     payload = decode_access_token(actual_token) if actual_token else None
     if payload is None:
-        await websocket.close(code=4001, reason="Invalid or expired token")
+        logger.error(f"WebSocket auth error for user {user_id}: payload is None")
         return
 
     token_user_id: str = payload.get("sub", "")
     if token_user_id != user_id:
-        await websocket.close(code=4003, reason="Token subject mismatch")
+        logger.error(f"WebSocket auth error: token subject ({token_user_id}) mismatch for user {user_id}")
         return
     workspace_id: str | None = payload.get("workspace_id")
     if not workspace_id:
-        await websocket.close(code=4003, reason="Workspace context missing")
+        logger.error(f"WebSocket auth error: Workspace context missing for user {user_id}")
         return
 
     #  2. Register connection 

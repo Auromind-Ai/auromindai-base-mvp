@@ -28,7 +28,7 @@ class OrchestratorLayer:
 
 
     #Reasoning Engine   
-    async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None):
+    async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None):
 
         website_names = []  
 
@@ -308,8 +308,8 @@ class OrchestratorLayer:
         if tool == "vector_db":
 
             
-            entry_ids = [document_id] if document_id else None
-            result = await self.iterative_retrieval(db, workspace_id, rewritten_query, model=model, entry_ids=entry_ids)
+            final_entry_ids = entry_ids if entry_ids is not None else ([document_id] if document_id else None)
+            result = await self.iterative_retrieval(db, workspace_id, rewritten_query, model=model, entry_ids=final_entry_ids, collection=collection)
 
             context = result.get("context", "")
             retrieved_docs = result.get("docs", [])
@@ -642,7 +642,7 @@ class OrchestratorLayer:
         for i in range(max_iterations):
 
             #Retrieve
-            result = self.retrieval.retrieve_context(db, workspace_id, current_query, entry_ids=entry_ids)
+            result = self.retrieval.retrieve_context(db, workspace_id, current_query, entry_ids=entry_ids, collection=collection)
 
             context = result.get("context", "")
             docs = result.get("docs", [])
