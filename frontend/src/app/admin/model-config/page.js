@@ -15,7 +15,8 @@ import {
 
 const API_KEY_OPTIONS = ['GROQ_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY'];
 const PROVIDER_OPTIONS = ['claude', 'groq', 'gemini', 'openai'];
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+import api from '@/lib/api';
 
 const getEmptyForm = () => ({
   name: '',
@@ -51,8 +52,7 @@ const ModelConfigAdmin = () => {
   const fetchConfigs = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API}/admin/model-configs/`);
-      const data = await response.json();
+      const data = await api.getModelConfigs();
 
       if (data.success) {
         setConfigs(data.data);
@@ -62,7 +62,7 @@ const ModelConfigAdmin = () => {
       }
     } catch (err) {
       console.error(err);
-      setError('Error connecting to server.');
+      setError(err.message || 'Error connecting to server.');
     } finally {
       setLoading(false);
     }
@@ -161,16 +161,9 @@ const ModelConfigAdmin = () => {
     setError('');
 
     try {
-      const url = editingConfig
-  ? `${API}/admin/model-configs/${editingConfig.id}`
-  : `${API}/admin/model-configs/`;
-      const method = editingConfig ? 'PUT' : 'POST';
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPayload()),
-      });
-      const data = await response.json();
+      const data = editingConfig
+        ? await api.updateModelConfig(editingConfig.id, buildPayload())
+        : await api.createModelConfig(buildPayload());
 
       if (data.success) {
         setSuccessMessage(data.message || 'Configuration saved successfully.');
@@ -182,7 +175,7 @@ const ModelConfigAdmin = () => {
       }
     } catch (err) {
       console.error(err);
-      setError('Error saving configuration.');
+      setError(err.message || 'Error saving configuration.');
     } finally {
       setSaveLoading(false);
     }
@@ -194,10 +187,7 @@ const ModelConfigAdmin = () => {
     }
 
     try {
-      const response = await fetch(`${API}/admin/model-configs/${id}`, {
-  method: 'DELETE',
-});
-      const data = await response.json();
+      const data = await api.deleteModelConfig(id);
 
       if (data.success) {
         setSuccessMessage(data.message || 'Configuration deleted.');
@@ -208,16 +198,13 @@ const ModelConfigAdmin = () => {
       }
     } catch (err) {
       console.error(err);
-      setError('Error deleting configuration.');
+      setError(err.message || 'Error deleting configuration.');
     }
   };
 
   const handleToggleStatus = async (id) => {
     try {
-      const response = await fetch(`${API}/admin/model-configs/${id}/toggle`, {
-  method: 'PATCH',
-});
-      const data = await response.json();
+      const data = await api.toggleModelConfig(id);
 
       if (data.success) {
         setSuccessMessage(data.message || 'Configuration status updated.');
@@ -228,16 +215,13 @@ const ModelConfigAdmin = () => {
       }
     } catch (err) {
       console.error(err);
-      setError('Error toggling status.');
+      setError(err.message || 'Error toggling status.');
     }
   };
 
   const handleSeedDefaults = async () => {
     try {
-      const response = await fetch(`${API}/admin/model-configs/seed`, {
-  method: 'POST',
-});
-      const data = await response.json();
+      const data = await api.seedModelConfigs();
 
       if (data.success) {
         setSuccessMessage(data.message || 'Default configurations seeded.');
@@ -248,7 +232,7 @@ const ModelConfigAdmin = () => {
       }
     } catch (err) {
       console.error(err);
-      setError('Error seeding configurations.');
+      setError(err.message || 'Error seeding configurations.');
     }
   };
 

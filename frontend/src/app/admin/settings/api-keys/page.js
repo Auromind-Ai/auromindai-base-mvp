@@ -15,9 +15,7 @@ import {
   Activity,
   Shield
 } from "lucide-react"
-import { authHeader } from "@/lib/auth"
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import api from "@/lib/api"
 
 export default function ApiKeysPage() {
   const [settings, setSettings] = useState({})
@@ -30,11 +28,7 @@ export default function ApiKeysPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const res = await fetch(`${API_BASE}/admin/settings`, {
-        headers: { ...authHeader() }
-      })
-      if (!res.ok) throw new Error("Failed to fetch settings")
-      const data = await res.json()
+      const data = await api.getPlatformSettings()
       setSettings(data)
     } catch (err) {
       setError(err.message)
@@ -57,17 +51,8 @@ export default function ApiKeysPage() {
       setError(null)
       setSuccess(null)
       
-      const res = await fetch(`${API_BASE}/admin/settings`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...authHeader() 
-        },
-        body: JSON.stringify(settings)
-      })
+      await api.updatePlatformSettings(settings)
 
-      if (!res.ok) throw new Error("Failed to save settings")
-      
       setSuccess("Configuration updated successfully")
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {

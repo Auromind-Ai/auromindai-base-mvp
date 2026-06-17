@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { MessageSquare, Users, Clock, BarChart3 } from "lucide-react"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import api from "@/lib/api"
 
 export default function ConversationsPage() {
   const [conversations, setConversations] = useState([])
@@ -14,9 +14,7 @@ export default function ConversationsPage() {
     const fetchConversations = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`${API_BASE}/admin/conversations`)
-        if (!response.ok) throw new Error("Failed to fetch conversations")
-        const data = await response.json()
+        const data = await api.getPlatformConversations()
           console.log("API Response:", data)
         setConversations(Array.isArray(data) ? data : data.conversations || [])
         setError(null)

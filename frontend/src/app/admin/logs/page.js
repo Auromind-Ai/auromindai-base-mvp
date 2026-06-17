@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { AlertCircle, CheckCircle, Clock } from "lucide-react"
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import api from "@/lib/api"
 
 export default function LogsPage() {
 
@@ -22,11 +21,7 @@ export default function LogsPage() {
 
         setLoading(true)
 
-        const response = await fetch(`${API_BASE}/admin/logs`)
-
-        if (!response.ok) throw new Error("Failed to fetch logs")
-
-        const data = await response.json()
+        const data = await api.getAdminLogs()
 
         setLogs(Array.isArray(data) ? data : data.logs || [])
 

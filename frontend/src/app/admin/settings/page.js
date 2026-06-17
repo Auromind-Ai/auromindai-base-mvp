@@ -19,10 +19,10 @@ import {
   Trash2,
   Mail
 } from "lucide-react"
-import { useParams } from "next/navigation"
+import api from "@/lib/api"
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
-
     // ---------------- Pricing ----------------
     free_plan_price: 0.0,
     pro_plan_price: 1000.0,
@@ -31,7 +31,6 @@ export default function SettingsPage() {
     free_plan_name: "Free",
     pro_plan_name: "Pro",
     enterprise_plan_name: "Business",
-
 
     free_plan_desc: "Try Auromind for free and see the ROI yourself.",
     pro_plan_desc: "Everything you need to automate and scale.",
@@ -123,10 +122,6 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
 
-  const params = useParams()
-  const adminPath = params?.admin_path || 'x7k2-admin-9pqm'
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-
   useEffect(() => {
     fetchSettings()
   }, [])
@@ -134,11 +129,7 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_BASE}/${adminPath}/settings`, {
-        credentials: "include"
-      })
-      if (!response.ok) throw new Error("Failed to fetch settings")
-      const data = await response.json()
+      const data = await api.getPlatformSettings()
       setSettings(prev => ({ ...prev, ...data }))
       setError(null)
     } catch (err) {
@@ -151,15 +142,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
-      const response = await fetch(`${API_BASE}/${adminPath}/settings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(settings)
-      })
-      if (!response.ok) throw new Error("Failed to save settings")
-      
-      const updatedSettings = await response.json()
+      const updatedSettings = await api.updatePlatformSettings(settings)
       setSettings(updatedSettings)
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Poppins } from 'next/font/google';
 import Link from 'next/link';
+import api from '@/lib/api';
 import {
     Sparkles,
     LayoutDashboard,
@@ -79,7 +80,7 @@ function AdminLayoutContent({ children }) {
 
     const handleStopImpersonation = async () => {
         try {
-            await fetch('/api/auth/stop-impersonation', { method: 'POST', credentials: 'include' });
+            await api.stopImpersonation();
             window.location.href = '/admin';
         } catch (err) {
             console.error("Stop impersonation failed:", err);

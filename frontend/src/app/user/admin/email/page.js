@@ -1,10 +1,9 @@
 'use client';
 
-const API = '/api';
-
 import { useState, useEffect } from "react";
 import { Inbox, RefreshCw, ExternalLink } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
 
 export default function EmailPage() {
   const { workspaces, workspaceId } = useAuth();
@@ -32,26 +31,19 @@ export default function EmailPage() {
   ---------------------------- */
 
   async function checkConnection() {
-    const res = await fetch(
-      `${API}/integrations/status`,
-      { credentials: 'include' }
-    );
-
-    const text = await res.text();
-    let data;
     try {
-        data = JSON.parse(text);
-    } catch (err) {
-        console.error("Status JSON parse failed:", text);
-        return;
-    }
-    const isConnected = data.gmail?.connected || false;
+      const data = await api.getIntegrationStatus();
+      const isConnected = data.gmail?.connected || false;
 
-    setConnected(isConnected);
-    if (isConnected) {
-      await loadMessages();
+      setConnected(isConnected);
+      if (isConnected) {
+        await loadMessages();
+      }
+    } catch (err) {
+      console.error("Status check failed:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   /* ---------------------------
@@ -59,20 +51,12 @@ export default function EmailPage() {
   ---------------------------- */
 
   async function loadMessages() {
-    const res = await fetch(
-      `${API}/email/inbox`,
-      { credentials: 'include' }
-    );
-
-    const text = await res.text();
-    let data;
     try {
-        data = JSON.parse(text);
+      const data = await api.getEmailInbox();
+      setMessages(data.emails || []);
     } catch (err) {
-        console.error("Inbox JSON parse failed:", text);
-        return;
+      console.error("Inbox load failed:", err);
     }
-    setMessages(data.emails || []);
   }
 
   /* ---------------------------
@@ -101,15 +85,13 @@ export default function EmailPage() {
   ---------------------------- */
 
   const approveAction = async () => {
-    await fetch(
-      `${API}/automation/approve?decision_id=${aiData.id}`,
-      {
-        method: "POST",
-        credentials: 'include'
-      }
-    );
-
-    alert("Automation executed");
+    try {
+      await api.approveAutomation(aiData.id);
+      alert("Automation executed");
+    } catch (err) {
+      console.error("Approve action failed:", err);
+      alert("Approve action failed: " + err.message);
+    }
   };
 
   /* ---------------------------
@@ -117,15 +99,13 @@ export default function EmailPage() {
   ---------------------------- */
 
   const rejectAction = async () => {
-    await fetch(
-      `${API}/automation/reject?decision_id=${aiData.id}`,
-      {
-        method: "POST",
-        credentials: 'include'
-      }
-    );
-
-    alert("Automation rejected");
+    try {
+      await api.rejectAutomation(aiData.id);
+      alert("Automation rejected");
+    } catch (err) {
+      console.error("Reject action failed:", err);
+      alert("Reject action failed: " + err.message);
+    }
   };
 
   /* ---------------------------
@@ -139,27 +119,21 @@ export default function EmailPage() {
     }
 
     setSendingReply(true);
-
-    await fetch(
-      `${API}/email/send-reply`,
-      {
-        method: "POST",
-        credentials: 'include',
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message_id: selectedEmail.id,
-          thread_id: selectedEmail.thread_id,
-          to_email: selectedEmail.from,
-          subject: selectedEmail.subject,
-          reply_text: editedReply
-        })
-      }
-    );
-
-    setSendingReply(false);
-    alert("Reply sent successfully");
+    try {
+      await api.sendEmailReply({
+        message_id: selectedEmail.id,
+        thread_id: selectedEmail.thread_id,
+        to_email: selectedEmail.from,
+        subject: selectedEmail.subject,
+        reply_text: editedReply
+      });
+      alert("Reply sent successfully");
+    } catch (err) {
+      console.error("Failed to send reply:", err);
+      alert("Failed to send reply: " + err.message);
+    } finally {
+      setSendingReply(false);
+    }
   };
 
   /* ---------------------------
@@ -196,20 +170,15 @@ export default function EmailPage() {
    */
 
   return (
-
     <div className="min-h-screen bg-[#050505] text-white p-6">
-
       {/* HEADER */}
-
       <div className="flex justify-between items-center mb-6">
-
         <div>
           <h1 className="text-3xl font-bold">Email</h1>
           <p className="text-gray-400">Manage your Gmail inbox</p>
         </div>
 
         <div className="flex gap-3">
-
           <button
             onClick={loadMessages}
             className="px-4 py-2 bg-white/10 rounded-lg flex items-center gap-2 hover:bg-white/20"
@@ -224,33 +193,24 @@ export default function EmailPage() {
           >
             <ExternalLink size={16} /> Open Gmail
           </a>
-
         </div>
-
       </div>
 
       {/* MAIN GRID */}
-
       <div className="grid grid-cols-12 gap-6">
-
         {/* LEFT PANEL */}
-
         <div className="col-span-3 bg-[#111] rounded-xl border border-white/10">
-
           <div className="p-4 border-b border-white/10 flex items-center gap-2">
             <Inbox size={18} /> Inbox ({messages.length})
           </div>
 
           <div className="divide-y divide-white/10 max-h-[700px] overflow-y-auto">
-
             {messages.map((msg) => (
-
               <div
                 key={msg.id}
                 onClick={() => openEmail(msg)}
                 className="p-4 cursor-pointer hover:bg-white/5"
               >
-
                 <div className="text-sm font-medium">
                   {msg.from}
                 </div>
@@ -260,7 +220,6 @@ export default function EmailPage() {
                 </div>
 
                 <div className="flex gap-2 mt-2 text-xs">
-
                   <span className={`px-2 py-0.5 rounded
                     ${msg.priority === "high"
                       ? "bg-red-600"
@@ -277,25 +236,18 @@ export default function EmailPage() {
                   <span className="text-gray-400">
                     {Math.round(msg.confidence * 100)}%
                   </span>
-
                 </div>
 
                 <div className="text-xs text-gray-500 truncate mt-2">
                   {msg.summary || "AI summary loading..."}
                 </div>
-
               </div>
-
             ))}
-
           </div>
-
         </div>
 
         {/* CENTER PANEL */}
-
         <div className="col-span-6 bg-[#111] rounded-xl border border-white/10 p-6">
-
           {!selectedEmail && (
             <div className="text-gray-400">
               Select email to view
@@ -303,9 +255,7 @@ export default function EmailPage() {
           )}
 
           {selectedEmail && (
-
             <div>
-
               <h2 className="text-xl font-semibold mb-2">
                 {selectedEmail.subject}
               </h2>
@@ -339,32 +289,25 @@ export default function EmailPage() {
               </div>
 
               {aiData?.suggested_reply && (
-
                 <div className="bg-black/40 p-4 rounded-lg">
-
                   <div className="text-sm text-gray-400 mb-2">
                     Suggested Reply
                   </div>
 
                   {editingReply ? (
-
                     <textarea
                       value={editedReply}
                       onChange={(e) => setEditedReply(e.target.value)}
                       className="w-full bg-black border border-white/20 rounded-lg p-3 text-sm"
                       rows={6}
                     />
-
                   ) : (
-
                     <p className="text-sm whitespace-pre-line">
                       {editedReply}
                     </p>
-
                   )}
 
                   <div className="flex gap-3 mt-4">
-
                     <button
                       onClick={() => setEditingReply(!editingReply)}
                       className="bg-yellow-500 px-4 py-2 rounded-lg hover:bg-yellow-600"
@@ -379,48 +322,34 @@ export default function EmailPage() {
                     >
                       {sendingReply ? "Sending..." : "Send Reply"}
                     </button>
-
                   </div>
-
                 </div>
-
               )}
-
             </div>
-
           )}
-
         </div>
 
         {/* RIGHT PANEL */}
-
         <div className="col-span-3 bg-[#111] rounded-xl border border-white/10 p-6">
-
           <h2 className="font-semibold mb-4">
             AI Automation
           </h2>
 
           {aiData && isMeetingAction && (
-
             <div className="space-y-4">
-
               <div className="bg-black/40 p-4 rounded-lg">
-
                 <div className="text-sm text-gray-400 mb-2">
                   Planned Actions
                 </div>
 
                 {aiData.actions.map((action, index) => (
-
                   <div
                     key={index}
                     className="text-sm text-green-400"
                   >
                     • {action?.type?.replaceAll("_", " ")}
                   </div>
-
                 ))}
-
               </div>
 
               <div className="text-xs text-gray-400">
@@ -428,7 +357,6 @@ export default function EmailPage() {
               </div>
 
               <div className="flex gap-3">
-
                 <button
                   onClick={approveAction}
                   className="flex-1 bg-indigo-500 py-2 rounded-lg hover:bg-indigo-600"
@@ -442,11 +370,8 @@ export default function EmailPage() {
                 >
                   Reject
                 </button>
-
               </div>
-
             </div>
-
           )}
 
           {aiData && !isMeetingAction && (
@@ -454,13 +379,8 @@ export default function EmailPage() {
               No automation required
             </div>
           )}
-
         </div>
-
       </div>
-
     </div>
-
   );
-
 }
