@@ -18,7 +18,11 @@ import {
   ChevronLeft,
   Info,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Smartphone,
+  Monitor,
+  Lock,
+  MapPin
 } from 'lucide-react';
 
 // ─── Nav Config ───────────────────────────────────────────────────────────────
