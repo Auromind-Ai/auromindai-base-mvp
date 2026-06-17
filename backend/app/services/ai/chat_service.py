@@ -321,18 +321,26 @@ class ChatService:
             rag_answered = False
             if use_rag:
                 try:
-                    with SessionLocal() as rag_db:
-                        answer_data = await asyncio.wait_for(
-                            self._get_rag_answer(
-                                db=rag_db,
-                                workspace_id=workspace_id,
-                                query=safe_query,
-                                model=model,
-                                source=source,
-                                document_id=document_id,
-                            ),
-                            timeout=60,
-                        )
+                    def sync_rag_call():
+                        with SessionLocal() as rag_db:
+                            return asyncio.run(
+                                asyncio.wait_for(
+                                    self._get_rag_answer(
+                                        db=rag_db,
+                                        workspace_id=workspace_id,
+                                        query=safe_query,
+                                        model=model,
+                                        source=source,
+                                        document_id=document_id,
+                                    ),
+                                    timeout=60,
+                                )
+                            )
+
+                    answer_data = await asyncio.wait_for(
+                        asyncio.to_thread(sync_rag_call),
+                        timeout=65,
+                    )
 
                     if answer_data:
                         
@@ -390,38 +398,41 @@ class ChatService:
       
         finally:
             if reservation_id:
-                with SessionLocal() as cleanup_db:
-                    try:
-                        if chunks_successfully_sent and full_response:
-                            # 1. Finalize Billing
-                            self._finalize_billing(cleanup_db, reservation_id, message, full_response)
+                def run_cleanup_sync():
+                    with SessionLocal() as cleanup_db:
+                        try:
+                            if chunks_successfully_sent and full_response:
+                                # 1. Finalize Billing
+                                self._finalize_billing(cleanup_db, reservation_id, message, full_response)
 
-                            # 2. Save AI Response & Update Session
-                            if session_id:
-                                ai_msg = ChatMessage(
-                                    id=str(uuid.uuid4()),
-                                    session_id=session_id,
-                                    role="assistant",
-                                    content=full_response,
-                                )
-                                cleanup_db.add(ai_msg)
+                                # 2. Save AI Response & Update Session
+                                if session_id:
+                                    ai_msg = ChatMessage(
+                                        id=str(uuid.uuid4()),
+                                        session_id=session_id,
+                                        role="assistant",
+                                        content=full_response,
+                                    )
+                                    cleanup_db.add(ai_msg)
 
-                                session = cleanup_db.query(ChatSession).filter(
-                                    ChatSession.id == session_id
-                                ).first()
-                                if session:
-                                    session.updated_at = datetime.utcnow()
+                                    session = cleanup_db.query(ChatSession).filter(
+                                        ChatSession.id == session_id
+                                    ).first()
+                                    if session:
+                                        session.updated_at = datetime.utcnow()
 
-                            cleanup_db.commit()
-                        else:
-                            self._force_release_reservation(cleanup_db, reservation_id, final_billing_reason)
-                            cleanup_db.commit()
+                                cleanup_db.commit()
+                            else:
+                                self._force_release_reservation(cleanup_db, reservation_id, final_billing_reason)
+                                cleanup_db.commit()
 
-                    except Exception as billing_cleanup_error:
-                        cleanup_db.rollback()
-                        logger.critical(
-                            "CRITICAL: Failed to finalize billing/save message for "
-                            "reservation %s: %s",
-                            reservation_id,
-                            billing_cleanup_error,
-                        )
+                        except Exception as billing_cleanup_error:
+                            cleanup_db.rollback()
+                            logger.critical(
+                                "CRITICAL: Failed to finalize billing/save message for "
+                                "reservation %s: %s",
+                                reservation_id,
+                                billing_cleanup_error,
+                            )
+
+                await asyncio.to_thread(run_cleanup_sync)

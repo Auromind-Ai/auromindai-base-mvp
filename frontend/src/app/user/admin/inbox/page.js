@@ -7,7 +7,7 @@ import {
     Zap, Sparkles, Send, Clock, User, Star, Calendar,
     ArrowRight, ChevronRight, MoreHorizontal, Info,
     ArrowLeft, SlidersHorizontal, Camera, FileText,
-    PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, Check,
+    XCircle, ChevronDown, Check,
     Inbox
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -580,18 +580,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                     <div>
                         <p className="text-[16px] font-regular text-white/90 tracking-wider mb-4 mt-10">Quick Actions</p>
                         <div className="space-y-2">
-                            {[
-                                { icon: PenLine, text: 'Add Note' },
-                                { icon: CheckSquare, text: 'Create Task' },
-                                { icon: UserCheck, text: 'Assign Agent' },
-                            ].map((a) => (
-                                <button key={a.text}
-                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-[13px] text-white hover:border-white/10 transition-colors"
-                                    style={{ backgroundColor: '#1a1a1a', borderColor: 'rgba(255,255,255,0.05)' }}>
-                                    <a.icon size={15} strokeWidth={2} className="text-[#666]" />
-                                    {a.text}
-                                </button>
-                            ))}
                             <button
                                 onClick={onConvertClick}
                                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] border text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10 cursor-pointer transition-colors"
