@@ -9,7 +9,7 @@ from app.services.agentic_rag.rag_service import get_rag_service
 
 router = APIRouter()
 
-@router.get("/ai-learning")
+@router.get("/learning-events")
 async def get_learning_events(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
    
     try:
@@ -62,7 +62,7 @@ async def get_learning_events(db: Session = Depends(get_db)) -> List[Dict[str, A
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching learning events: {str(e)}")
 
-@router.post("/ai-learning/{event_id}/promote")
+@router.post("/learning-events/{event_id}/promote")
 async def promote_to_rule(
     event_id: str,
     db: Session = Depends(get_db)

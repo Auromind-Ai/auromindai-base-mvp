@@ -1,6 +1,5 @@
 
-const isLocal = true;
-const BACKEND_URL = process.env.BACKEND_URL || process.env.BACKEND_INTERNAL_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 const nextConfig = {
 
