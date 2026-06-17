@@ -2,6 +2,8 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, Suspense } from "react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
+import api from "@/lib/api";
 
 function InstagramCallbackContent() {
     const searchParams = useSearchParams();
@@ -46,33 +48,11 @@ function InstagramCallbackContent() {
 
         const connectInstagram = async () => {
             try {
-                const res = await fetch(`/backend/api/instagram/connect`, {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "ngrok-skip-browser-warning": "true",
-                    },
-                    body: JSON.stringify({
-                        code,
-                        workspace_id,
-                    }),
+                const data = await api.connectInstagram({
+                    code,
+                    workspace_id,
                 });
-
-                const text = await res.text();
-                let data;
-                try {
-                    data = JSON.parse(text);
-                } catch (err) {
-                    console.error("Failed to parse JSON. Raw response:", text);
-                    if (!res.ok) throw new Error(`API Error ${res.status}: ${text}`);
-                    return;
-                }
                 console.log("FULL RESPONSE:", data);
-
-                if (!res.ok) {
-                    throw data;
-                }
 
                 setStatus("Connected! Redirecting...");
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { BrainCircuit, Settings, Toggle2 } from "lucide-react"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import api from "@/lib/api"
 
 export default function AISettingsPage() {
   const [config, setConfig] = useState(null)
@@ -15,9 +15,7 @@ export default function AISettingsPage() {
     const fetchConfig = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`${API_BASE}/admin/ai-config`)
-        if (!response.ok) throw new Error("Failed to fetch AI configuration")
-        const data = await response.json()
+        const data = await api.getAIConfig()
         setConfig(data)
         setError(null)
       } catch (err) {
@@ -48,14 +46,7 @@ export default function AISettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true)
-      const response = await fetch(`${API_BASE}/admin/ai-config`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(config),
-      })
-      if (!response.ok) throw new Error("Failed to save configuration")
+      await api.saveAIConfig(config)
       setError(null)
       // Show success message
       setTimeout(() => {

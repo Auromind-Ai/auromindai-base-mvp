@@ -4,6 +4,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Shield, Lock, Loader2 } from "lucide-react"
 
+import api from "@/lib/api"
+
 export default function AdminLoginPage() {
   const router = useRouter()
 
@@ -17,23 +19,13 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const res = await fetch("/api/admin/auth", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ password })
-      })
-
-      if (!res.ok) {
-        throw new Error("Invalid Access Key")
-      }
+      await api.adminAuth(password)
 
       // Successfully authenticated! Backend set the httpOnly cookie.
       // Redirect to dynamic dashboard route.
       router.push("/admin/dashboard")
     } catch (err) {
-      setError(err.message)
+      setError(err.message === "Forbidden" ? "Invalid Access Key" : err.message)
     } finally {
       setLoading(false)
     }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { CreditCard, DollarSign, TrendingUp, AlertCircle } from "lucide-react"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import api from "@/lib/api"
 
 export default function BillingPage() {
   const [billing, setBilling] = useState(null)
@@ -14,9 +14,7 @@ export default function BillingPage() {
     const fetchBilling = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`${API_BASE}/admin/billing`)
-        if (!response.ok) throw new Error("Failed to fetch billing data")
-        const data = await response.json()
+        const data = await api.getPlatformBilling()
         setBilling(data)
         setError(null)
       } catch (err) {

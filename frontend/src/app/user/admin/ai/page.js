@@ -135,7 +135,6 @@ const SOURCE_OPTIONS = [
 ];
 // ── Page ───
 export default function AuromindAIPage() {
-    const API_URL = '/api';
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -374,15 +373,15 @@ export default function AuromindAIPage() {
                     handleUpdateSession(activeSessionId, newTitle);
                 }
             }
-            const res = await fetch(`${API_URL}/chat/stream`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: userMsg, model: selectedModel, use_rag: true, document_id: lastUploadedId, chat_mode: chatMode, source: source, session_id: activeSessionId }),
-                signal: abortControllerRef.current.signal
-            });
+            const res = await api.streamChat({
+                message: userMsg,
+                model: selectedModel,
+                use_rag: true,
+                document_id: lastUploadedId,
+                chat_mode: chatMode,
+                source: source,
+                session_id: activeSessionId
+            }, abortControllerRef.current.signal);
             setAttachedFile(null);
             setLastUploadedId(null);
             const reader = res.body.getReader();
@@ -495,15 +494,10 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
         try {
-            const res = await fetch(`${API_URL}/chat/stream`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: newContent, model: selectedModel }),
-                signal: abortControllerRef.current.signal
-            });
+            const res = await api.streamChat({
+                message: newContent,
+                model: selectedModel
+            }, abortControllerRef.current.signal);
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -548,15 +542,10 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         abortControllerRef.current = new AbortController();
         try {
-            const res = await fetch(`${API_URL}/chat/stream`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: userMsg, model: selectedModel }),
-                signal: abortControllerRef.current.signal
-            });
+            const res = await api.streamChat({
+                message: userMsg,
+                model: selectedModel
+            }, abortControllerRef.current.signal);
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
