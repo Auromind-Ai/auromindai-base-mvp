@@ -42,6 +42,7 @@ class RedisPubSubService:
         self._task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
         self._subscribed_channels: set[str] = set()
+        self._command_queue: asyncio.Queue = asyncio.Queue()
 
     #  Lifecycle
 
@@ -81,15 +82,15 @@ class RedisPubSubService:
         if channel in self._subscribed_channels:
             return
         self._subscribed_channels.add(channel)
-        if self._pubsub:
-            await self._pubsub.subscribe(channel)
-            logger.debug("PubSub subscribed | channel=%s", channel)
+        await self._command_queue.put(("subscribe", channel))
+        logger.debug("Queued subscribe | channel=%s", channel)
 
     async def unsubscribe(self, channel: str) -> None:
+        if channel not in self._subscribed_channels:
+            return
         self._subscribed_channels.discard(channel)
-        if self._pubsub:
-            await self._pubsub.unsubscribe(channel)
-            logger.debug("PubSub unsubscribed | channel=%s", channel)
+        await self._command_queue.put(("unsubscribe", channel))
+        logger.debug("Queued unsubscribe | channel=%s", channel)
 
     #  Internal listener
 
@@ -138,22 +139,37 @@ class RedisPubSubService:
                     continue
 
             # ── Step 2: stream messages ────────────────────────────────────
+            # Process any queued subscribe/unsubscribe commands first
+            if not self._command_queue.empty():
+                try:
+                    while not self._command_queue.empty():
+                        cmd, chan = self._command_queue.get_nowait()
+                        if self._pubsub:
+                            if cmd == "subscribe":
+                                await self._pubsub.subscribe(chan)
+                                logger.debug("PubSub subscribed | channel=%s", chan)
+                            elif cmd == "unsubscribe":
+                                await self._pubsub.unsubscribe(chan)
+                                logger.debug("PubSub unsubscribed | channel=%s", chan)
+                        self._command_queue.task_done()
+                except Exception as exc:
+                    logger.error("Error processing queued PubSub commands: %s", exc)
+                    await self._teardown_client()
+                    await asyncio.sleep(reconnect_delay)
+                    continue
+
             if not self._subscribed_channels:
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.1)
                 continue
 
             try:
-                async for message in self._pubsub.listen():
-                    if self._stop_event.is_set():
-                        break
-                    if message is None:
-                        continue
-                    channel: str = message.get("channel", "")
-                    raw_data: str = message.get("data", "")
-                    await self._dispatch(channel, raw_data)
-
-                # listen() exhausted without error → treat as disconnect.
-                reconnect_delay = 1.0
+                if self._pubsub:
+                    message = await self._pubsub.get_message(ignore_subscribe_messages=True, timeout=0.2)
+                    if message:
+                        channel: str = message.get("channel", "")
+                        raw_data: str = message.get("data", "")
+                        if channel and raw_data:
+                            await self._dispatch(channel, raw_data)
 
             except asyncio.CancelledError:
                 break

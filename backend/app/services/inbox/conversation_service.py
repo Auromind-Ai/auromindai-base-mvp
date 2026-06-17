@@ -35,7 +35,7 @@ class ConversationService:
             raise HTTPException(status_code=400, detail=f"Unsupported channel: {channel}") from exc
 
     @staticmethod
-    def get_workspace_for_twilio_number(db: Session, to_number: str) -> Workspace:
+    def get_workspace_for_twilio_number(db: Session, to_number: str) -> Workspace | None:
         clean_number = (to_number or "").replace("whatsapp:", "").strip()
         workspaces = (
             db.query(Workspace)
@@ -44,10 +44,7 @@ class ConversationService:
             .all()
         )
         if not workspaces:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No workspace mapped for Twilio number {clean_number}",
-            )
+            return None
         if len(workspaces) > 1:
             raise HTTPException(
                 status_code=409,
@@ -59,24 +56,21 @@ class ConversationService:
     def get_workspace_for_meta_whatsapp_phone_number_id(
         db: Session,
         phone_number_id: str,
-    ) -> Workspace:
+    ) -> Workspace | None:
         workspace = (
             db.query(Workspace)
             .filter(Workspace.meta_phone_number_id == phone_number_id)
             .first()
         )
         if not workspace:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No workspace mapped for Meta WhatsApp phone number {phone_number_id}",
-            )
+            return None
         return workspace
 
     @staticmethod
     def get_workspace_for_instagram_account(
         db: Session,
         instagram_account_id: str,
-    ) -> Workspace:
+    ) -> Workspace | None:
         workspace = (
             db.query(Workspace)
             .filter(
@@ -88,10 +82,7 @@ class ConversationService:
             .first()
         )
         if not workspace:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No workspace mapped for Instagram account {instagram_account_id}",
-            )
+            return None
         return workspace
 
     @staticmethod

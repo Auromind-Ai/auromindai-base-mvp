@@ -19,14 +19,8 @@ export default function AnnouncementBanner() {
       setAnnouncement(data)
       // If admin disables remotely, reset dismiss so it shows again when re-enabled
       if (!data.enabled) setDismissed(false)
-<<<<<<< HEAD
     } catch (err) {
-      // Ignore AbortError from StrictMode cleanup
-      if (err.name === 'AbortError') return;
-=======
-    } catch {
-      // Silently fail — don't break the app if endpoint is down
->>>>>>> 1f9c58df4877f33517dda823e32d685d34493bd0
+      // Ignore AbortError from StrictMode cleanup or silently fail
     }
   }
 

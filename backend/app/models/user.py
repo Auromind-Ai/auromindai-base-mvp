@@ -23,6 +23,14 @@ class User(Base):
     # JSONB column for user preferences (timezone, timezone_auto, etc.)
     # DB column already exists from migration 5b3aa6f37310
     preferences = Column(JSONB, server_default='{}', nullable=True)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False, server_default='false')
+    two_factor_secret = Column(String, nullable=True)
+
+    deletion_scheduled_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None
+    )
 
     conversations = relationship(
         "Conversation",

@@ -1,9 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { Plug, RefreshCw } from 'lucide-react'
 
 export default function IntegrationsPage() {
+  const params = useParams()
+  const adminPath = params?.admin_path || 'x7k2-admin-9pqm'
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
