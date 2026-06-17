@@ -186,14 +186,44 @@ class APIClient {
   }
 
   async getWorkspaces() {
-    return this.get('/auth/workspaces');
-  }
+  return this.get('/auth/workspaces');
+}
 
-  // ============== OTP & Auth Methods ==============
+// ─── Two-Factor Authentication ────────────────────────────────────────────────
 
-  // OTP அனுப்பு (login-ஓட alias — நேரடியாவும் call பண்ணலாம்)
-  async sendOTP(email, auth_type = 'login') {
-    return this.post('/auth/send-otp', { email, auth_type });
+async get2FAStatus() {
+  return this.get('/2fa/status');
+}
+
+async setup2FA() {
+  return this.post('/2fa/setup', {});
+}
+
+async verifySetup2FA(code) {
+  return this.post('/2fa/verify-setup', { code });
+}
+
+async verifyLogin2FA(pending_token, code) {
+  return this.post('/2fa/verify-login', { pending_token, code });
+}
+
+async disable2FA(code) {
+  return this.post('/2fa/disable', { code });
+}
+
+// ─── Account Lifecycle ────────────────────────────────────────────────────────
+
+async requestAccountDeletion() {
+  return this.post('/account/request-deletion', {});
+}
+
+async cancelAccountDeletion() {
+  return this.post('/account/cancel-deletion', {});
+}
+
+// Pricing methods
+async getPricing() {
+    return this.get("/public/pricing")
   }
 
   // OTP verify + access token பெறு (step 2)
@@ -393,7 +423,11 @@ class APIClient {
 
     const response = await fetch(`${this.baseURL}/brain/ingest/document`, {
       method: 'POST',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
       body: formData,
     });
 
@@ -408,9 +442,15 @@ class APIClient {
     const formData = new FormData();
     formData.append('file', file);
 
+    const token = typeof window !== 'undefined' ? getToken() : null;
+
     const response = await fetch(`${this.baseURL}/brain/ingest/sales_document`, {
       method: 'POST',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      credentials: 'include',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
       body: formData,
     });
 
@@ -433,6 +473,7 @@ class APIClient {
       credentials: 'include',
       headers: {
         'ngrok-skip-browser-warning': 'true',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
       body: formData,
     });

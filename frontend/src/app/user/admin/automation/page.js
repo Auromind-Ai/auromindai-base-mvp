@@ -15,6 +15,7 @@ import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken, getUser } from '@/lib/auth';
 import AskQuestionConfig from '@/components/AskQuestionConfig';
 
+
 const MAX_BUTTONS = 3;
 const DEFAULT_MESSAGE_TYPE = 'text';
 const MAX_KEYWORDS = 10;
@@ -236,6 +237,21 @@ const validateFlowGraph = (nodes = [], edges = []) => {
     }
   });
 
+  // Check for disconnected or unreachable nodes
+  nodes.forEach((node) => {
+    if (node.type === 'trigger') return;
+
+    const isConnected = edges.some(
+      (edge) => edge.source === node.id || edge.target === node.id
+    );
+
+    if (!isConnected) {
+      disconnectedNodeIds.push(node.id);
+    } else if (triggerNodes.length === 1 && !reachableNodeIds.has(node.id)) {
+      disconnectedNodeIds.push(node.id);
+    }
+  });
+
   const uniqueDisconnectedNodeIds = [...new Set(disconnectedNodeIds)];
   if (uniqueDisconnectedNodeIds.length > 0) {
     const pluralSuffix = uniqueDisconnectedNodeIds.length > 1 ? 's are' : ' is';
@@ -273,17 +289,52 @@ export default function AutomationCanvas() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewNode, setPreviewNode] = useState(null);
   const [stepsOpen, setStepsOpen] = useState(false);
-  
+  const [salesManualText, setSalesManualText] = useState('');
   const [currentView, setCurrentView] = useState('dashboard');
+  const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
-  const [search, setSearch] = useState('');
+
+  // ─── MODAL & TOAST STATE ───
+  const [toasts, setToasts] = useState([]);
+  const [deleteWireModal, setDeleteWireModal] = useState({ open: false, item: null, isDeleting: false });
+  const [deleteStepModal, setDeleteStepModal] = useState({ open: false, nodeId: null });
+  const [createWireModal, setCreateWireModal] = useState(false);
+  const [createWireName, setCreateWireName] = useState('');
+
+  const showToast = useCallback((message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+  }, []);
 
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
   const edgesRef = useRef(edges);
+  useEffect(() => { edgesRef.current = edges; }, [edges]);
+
+  const nodesRef = useRef(nodes);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+
+  const canvasOffsetRef = useRef(canvasOffset);
+  useEffect(() => { canvasOffsetRef.current = canvasOffset; }, [canvasOffset]);
+
+  const [wiringPreview, setWiringPreview] = useState(null);
+  const wiringRef = useRef(null);
+  const wireMoveListenerRef = useRef(null);
+  const wireUpListenerRef = useRef(null);
+
+  useEffect(() => () => {
+    if (wireMoveListenerRef.current) {
+      window.removeEventListener('pointermove', wireMoveListenerRef.current);
+    }
+    if (wireUpListenerRef.current) {
+      window.removeEventListener('pointerup', wireUpListenerRef.current);
+    }
+    wiringRef.current = null;
+  }, []);
 
   const canvasRef = useRef(null);
   const gridRef = useRef(null);
@@ -336,33 +387,58 @@ export default function AutomationCanvas() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
-useEffect(() => { edgesRef.current = edges; }, [edges]);
-  const fetchFlows = async () => {
-    const token = getToken();
-    if (!token) return;
-
-    const workspaceId = getWorkspaceIdFromToken();
-    if (!workspaceId) return;
-
-    try {
-      const data = await api.getFlows();
+    }, []);
+    const fetchFlows = async () => {
+      try {
+        const data = await api.getFlows();
+      console.log('fetchFlows received:', data?.length, data);
       if (Array.isArray(data)) {
         const sanitizedFlows = data.map(sanitizeFlowData);
         setAutomations(sanitizedFlows);
+        
+        // Retrieve last selected flow ID from localStorage
+        const savedId = localStorage.getItem("selected_wire_id");
+        let itemToSelect = null;
+        if (savedId) {
+          itemToSelect = sanitizedFlows.find(a => a.id === savedId);
+        }
+        if (!itemToSelect && sanitizedFlows.length > 0) {
+          itemToSelect = sanitizedFlows[0];
+        }
+        
+        if (itemToSelect) {
+          handleSelectAutomation(itemToSelect);
+        }
       }
     } catch (e) { console.error(e); }
   };
 
-  const handleSelectAutomation = (item) => {
-    const sanitizedItem = sanitizeFlowData(item);
-    setSelectedItem(sanitizedItem);
-    setNodes(sanitizedItem.nodes || []);
-    setEdges(sanitizedItem.edges || []);
-    setActiveNodeId(null);
-    setCanvasOffset({ x: 0, y: 0 });
-    setZoom(1);
-    setCurrentView('canvas');
+  const handleSelectAutomation = async (item) => {
+    if (!item) return;
+    try {
+      const freshItem = await api.getFlowById(item.id);
+      const sanitizedItem = sanitizeFlowData(freshItem);
+      setSelectedItem(sanitizedItem);
+      setNodes(sanitizedItem.nodes || []);
+      setEdges(sanitizedItem.edges || []);
+      setActiveNodeId(null);
+      setCanvasOffset({ x: 0, y: 0 });
+      setZoom(1);
+      setCurrentView('canvas');
+      
+      // Persist selection across page refreshes
+      localStorage.setItem("selected_wire_id", item.id);
+    } catch (e) {
+      console.error("Failed to load flow config from API, falling back to local data:", e);
+      const sanitizedItem = sanitizeFlowData(item);
+      setSelectedItem(sanitizedItem);
+      setNodes(sanitizedItem.nodes || []);
+      setEdges(sanitizedItem.edges || []);
+      setActiveNodeId(null);
+      setCanvasOffset({ x: 0, y: 0 });
+      setZoom(1);
+      setCurrentView('canvas');
+    }
   };
 
   const handleToggleStatus = async (flow) => {
@@ -557,6 +633,79 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
   const handleFileSelect = (e) => { const file = e.target.files[0]; if (file) handleFileUpload(file); };
   const clearUpload = () => { setPreviewUrl(null); setUploadError(null); updateNodeConfig(activeNodeId, { media_url: null }); };
 
+  const handleSalesFileUpload = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const workspace_id = getWorkspaceIdFromToken();
+      const agentType = activeNode?.config?.agent_type || 'sales_agent';
+      let data;
+      if (agentType === 'sales_agent') {
+        data = await api.uploadSalesDocument(file, workspace_id);
+      } else if (agentType === 'support_agent') {
+        data = await api.uploadSupportDocument(file, workspace_id);
+      } else {
+        data = await api.uploadDocument(file, workspace_id, 'general');
+      }
+      const newEntryId = data.entry_id;
+      if (newEntryId && activeNodeId) {
+         updateNodeConfig(activeNodeId, (config) => ({
+            ...config,
+            entry_ids: [...(config.entry_ids || []), newEntryId]
+         }));
+      }
+    } catch (err) {
+      console.error(err);
+      setUploadError(err.message || 'File upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSalesFileSelect = (e) => { const file = e.target.files[0]; if (file) handleSalesFileUpload(file); };
+  const handleSalesDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleSalesFileUpload(file);
+  };
+  
+  const handleSalesManualSave = async () => {
+    if (!salesManualText.trim()) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const workspace_id = getWorkspaceIdFromToken();
+      const agentType = activeNode?.config?.agent_type || 'sales_agent';
+      let collection = 'general';
+      if (agentType === 'sales_agent') collection = 'sales';
+      else if (agentType === 'support_agent') collection = 'support';
+      const data = await api.addTextKnowledge(`Sales Note - ${new Date().toLocaleString()}`, salesManualText, workspace_id, collection);
+      const newEntryId = data.entry_id;
+      if (newEntryId && activeNodeId) {
+         updateNodeConfig(activeNodeId, (config) => ({
+            ...config,
+            entry_ids: [...(config.entry_ids || []), newEntryId]
+         }));
+         setSalesManualText(''); 
+      }
+    } catch (err) {
+      console.error(err);
+      setUploadError('Text save failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeSalesEntry = (idToRemove) => {
+     if (!activeNodeId) return;
+     updateNodeConfig(activeNodeId, (config) => ({
+        ...config,
+        entry_ids: (config.entry_ids || []).filter(id => id !== idToRemove)
+     }));
+  };
+
   const handleSave = async () => {
     if (!selectedItem) return;
     const validation = validateFlowGraph(nodes, edges);
@@ -569,22 +718,35 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
         }
         return node;
       });
-      const saved = await api.saveFlow({
-        id: selectedItem.id, name: selectedItem.name,
+      const payload = {
+        id: selectedItem.id,
+        name: selectedItem.name,
         trigger_type: selectedItem.trigger_type || 'msg_recv',
-        nodes: sanitizedNodes, edges, status: selectedItem.status || 'Active'
-      });
-      setAutomations(prev => prev.map(a => a.id === saved.id ? saved : a));
-      setSelectedItem(saved);
-      setNodes(sanitizedNodes);
-      alert("Wire synched and saved! 🚀");
+        nodes: sanitizedNodes,
+        edges,
+        status: selectedItem.status || 'Active'
+      };
+      console.log("Saving Wire Payload:", JSON.stringify(payload, null, 2));
+      const saved = await api.saveFlow(payload);
+      const sanitizedSaved = sanitizeFlowData(saved);
+      setAutomations(prev => prev.map(a => 
+        a.id === sanitizedSaved.id ? sanitizedSaved : a
+      ));
+      setSelectedItem(sanitizedSaved);
+      setNodes(sanitizedSaved.nodes || sanitizedNodes);
+      setEdges(sanitizedSaved.edges || edges);
+      showToast("Wire synced and saved! 🚀", "success");
     } catch (e) { console.error(e); setError('Save failed: ' + e.message); }
     finally { setIsSaving(false); }
   };
 
-  const handleCreateNew = async () => {
-    const name = prompt("Name your wire:");
-    if (!name) return;
+  const handleCreateNew = () => {
+    setCreateWireName('');
+    setCreateWireModal(true);
+  };
+
+  const handleCreateNewConfirm = async (name) => {
+    setCreateWireModal(false);
     try {
       const newFlow = await api.saveFlow({
         name, trigger_type: 'msg_recv',
@@ -594,7 +756,11 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
       setAutomations([...automations, newFlow]);
       handleSelectAutomation(newFlow);
       setActiveNodeId('1');
-    } catch (e) { console.error(e); }
+      showToast(`Wire "${name}" created!`, 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to create wire', 'error');
+    }
   };
 
   const updateNode = (nodeId, updater) => {
@@ -727,32 +893,205 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
     }
   };
 
-  const handlePortClick = (e, sourceId, sourceHandle = null, targetOffsetY = 0) => {
-    e.stopPropagation();
-    const existingEdge = edges.find(edge => edge.source === sourceId && (edge.sourceHandle || null) === (sourceHandle || null));
-    if (existingEdge) { setError('This output is already connected. Remove the existing path before adding another.'); return; }
-    const id = Math.random().toString(36).substr(2, 9);
-    const sourceNode = nodes.find(n => n.id === sourceId);
-    if (!sourceNode) { setError('Unable to create the next step from this node.'); return; }
-    const newNode = {
-      id, type: 'action', label: 'New Step',
-      position: { x: sourceNode.position.x + 350, y: sourceNode.position.y + targetOffsetY },
-      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', delay_amount: 0, delay_unit: 'minutes' }
+  const getCanvasPointFromClient = useCallback((clientX, clientY) => {
+    if (!canvasRef.current) return null;
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) / zoomRef.current - canvasOffsetRef.current.x,
+      y: (clientY - rect.top) / zoomRef.current - canvasOffsetRef.current.y,
     };
-    setNodes([...nodes, newNode]);
-    setEdges([...edges, { id: `e-${sourceId}-${sourceHandle || 'default'}-${id}`, source: sourceId, sourceHandle, target: id }]);
+  }, []);
+
+  const getPortAnchorPoint = useCallback((sourceId, sourceHandle = null) => {
+    if (!gridRef.current) return null;
+    const sourceEl = gridRef.current.querySelector(`[data-node-id="${sourceId}"]`);
+    if (!sourceEl) return null;
+
+    const gridRect = gridRef.current.getBoundingClientRect();
+    const sourceRect = sourceEl.getBoundingClientRect();
+    let x = (sourceRect.right - gridRect.left) / zoomRef.current;
+    let y = (sourceRect.top + sourceRect.height / 2 - gridRect.top) / zoomRef.current;
+
+    if (sourceHandle) {
+      const handleEl =
+        sourceEl.querySelector(`[data-button-id="${sourceHandle}"]`) ||
+        sourceEl.querySelector(`[data-branch-id="${sourceHandle}"]`);
+      if (handleEl) {
+        const handleRect = handleEl.getBoundingClientRect();
+        y = (handleRect.top + handleRect.height / 2 - gridRect.top) / zoomRef.current;
+      }
+    }
+
+    return { x, y };
+  }, []);
+
+  const createNodeFromPort = useCallback((sourceId, sourceHandle = null, targetOffsetY = 0, position = null) => {
+    const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
+    if (!sourceNode) {
+      setError('Unable to create the next step from this node.');
+      return;
+    }
+
+    const id = Math.random().toString(36).substr(2, 9);
+    const newNode = {
+      id,
+      type: 'action',
+      label: 'New Step',
+      position: position || { x: sourceNode.position.x + 350, y: sourceNode.position.y + targetOffsetY },
+      config: { type: 'send_msg', message_type: 'text', text: '', mode: 'manual', delay_amount: 0, delay_unit: 'minutes' },
+    };
+
+    setNodes((prev) => [...prev, newNode]);
+    setEdges((prev) => [...prev, {
+      id: `e-${sourceId}-${sourceHandle || 'default'}-${id}`,
+      source: sourceId,
+      sourceHandle,
+      target: id,
+    }]);
+
     if (sourceHandle) {
       if (isConditionNode(sourceNode)) {
         updateNodeConfig(sourceId, (config) => ({
           ...config,
-          branches: (config.branches || []).map(b => b.value === sourceHandle ? { ...b, target: id } : b),
+          branches: (config.branches || []).map((branch) =>
+            branch.value === sourceHandle ? { ...branch, target: id } : branch
+          ),
         }));
       } else {
         syncButtonTarget(sourceId, sourceHandle, id);
       }
     }
+
     setActiveNodeId(id);
-  };
+  }, []);
+
+  const connectPortToNode = useCallback((sourceId, sourceHandle = null, targetId) => {
+    if (sourceId === targetId) {
+      setError('A node cannot connect to itself.');
+      return false;
+    }
+
+    const targetNode = nodesRef.current.find((node) => node.id === targetId);
+    if (!targetNode || targetNode.type === 'trigger') {
+      setError('Connect this output to a valid action node.');
+      return false;
+    }
+
+    if (wouldCreateCycle(sourceId, targetId, edgesRef.current)) {
+      setError('This connection would create a loop in the flow.');
+      return false;
+    }
+
+    setEdges((prev) => {
+      const nextEdges = prev.filter(
+        (edge) => !(edge.source === sourceId && (edge.sourceHandle || null) === (sourceHandle || null))
+      );
+      return [...nextEdges, {
+        id: `e-${sourceId}-${sourceHandle || 'default'}-${targetId}`,
+        source: sourceId,
+        sourceHandle,
+        target: targetId,
+      }];
+    });
+
+    const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
+    if (sourceHandle) {
+      if (isConditionNode(sourceNode)) {
+        updateNodeConfig(sourceId, (config) => ({
+          ...config,
+          branches: (config.branches || []).map((branch) =>
+            branch.value === sourceHandle ? { ...branch, target: targetId } : branch
+          ),
+        }));
+      } else {
+        syncButtonTarget(sourceId, sourceHandle, targetId);
+      }
+    }
+
+    setActiveNodeId(targetId);
+    return true;
+  }, []);
+
+  const handlePortPointerDown = useCallback((e, sourceId, sourceHandle = null, targetOffsetY = 0) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const existingEdge = edgesRef.current.find(
+      (edge) => edge.source === sourceId && (edge.sourceHandle || null) === (sourceHandle || null)
+    );
+    if (existingEdge) {
+      setError('This output is already connected. Remove the existing path before adding another.');
+      return;
+    }
+
+    const startPoint = getPortAnchorPoint(sourceId, sourceHandle) || getCanvasPointFromClient(e.clientX, e.clientY);
+    if (!startPoint) {
+      setError('Unable to start wiring from this port.');
+      return;
+    }
+
+    const nextWire = {
+      sourceId,
+      sourceHandle,
+      targetOffsetY,
+      startPoint,
+      currentPoint: startPoint,
+      hasMoved: false,
+    };
+
+    wiringRef.current = nextWire;
+    setWiringPreview(nextWire);
+    setActiveNodeId(sourceId);
+
+    if (wireMoveListenerRef.current) {
+      window.removeEventListener('pointermove', wireMoveListenerRef.current);
+    }
+    if (wireUpListenerRef.current) {
+      window.removeEventListener('pointerup', wireUpListenerRef.current);
+    }
+
+    const handleWireMove = (moveEvent) => {
+      if (!wiringRef.current) return;
+      const point = getCanvasPointFromClient(moveEvent.clientX, moveEvent.clientY);
+      if (!point) return;
+      const updatedWire = { ...wiringRef.current, currentPoint: point, hasMoved: true };
+      wiringRef.current = updatedWire;
+      setWiringPreview(updatedWire);
+    };
+
+    const handleWireUp = (upEvent) => {
+      if (!wiringRef.current) return;
+
+      const wire = wiringRef.current;
+      wiringRef.current = null;
+      setWiringPreview(null);
+      window.removeEventListener('pointermove', handleWireMove);
+      window.removeEventListener('pointerup', handleWireUp);
+      wireMoveListenerRef.current = null;
+      wireUpListenerRef.current = null;
+
+      const dropTarget = document.elementFromPoint(upEvent.clientX, upEvent.clientY)?.closest?.('[data-node-id]');
+      const targetId = dropTarget?.getAttribute('data-node-id');
+      if (targetId && targetId !== wire.sourceId) {
+        if (connectPortToNode(wire.sourceId, wire.sourceHandle, targetId)) {
+          return;
+        }
+      }
+
+      const dropPoint = getCanvasPointFromClient(upEvent.clientX, upEvent.clientY);
+      createNodeFromPort(
+        wire.sourceId,
+        wire.sourceHandle,
+        wire.targetOffsetY,
+        wire.hasMoved && dropPoint ? dropPoint : null
+      );
+    };
+
+    wireMoveListenerRef.current = handleWireMove;
+    wireUpListenerRef.current = handleWireUp;
+    window.addEventListener('pointermove', handleWireMove);
+    window.addEventListener('pointerup', handleWireUp);
+  }, [connectPortToNode, createNodeFromPort, getCanvasPointFromClient, getPortAnchorPoint]);
 
   const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
     const visited = new Set();
@@ -1173,21 +1512,133 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
               {automations.map(item => (
                 <motion.div
-                  key={item.id}
-                  whileHover={{ scale: 1.01 }}
-                  onClick={() => handleSelectAutomation(item)}
-                  className={`group px-4 py-3 rounded-xl cursor-pointer transition-all border ${selectedItem?.id === item.id ? 'bg-violet-500/10 border-violet-500/25 shadow-lg' : 'bg-white/[0.03] border-white/5 hover:border-white/10 hover:bg-white/5'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${selectedItem?.id === item.id ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-zinc-500'}`}>
-                      <Zap size={16} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate ${selectedItem?.id === item.id ? 'text-white' : 'text-zinc-400'}`}>{item.name}</p>
-                      <p className="text-[10px] text-zinc-600 mt-0.5">Active Wire</p>
-                    </div>
-                  </div>
-                </motion.div>
+  key={item.id}
+  whileHover={{ scale: 1.01 }}
+  onClick={() => handleSelectAutomation(item)}
+  className={`group px-4 py-3 rounded-xl cursor-pointer transition-all border ${selectedItem?.id === item.id ? 'bg-violet-500/10 border-violet-500/25 shadow-lg' : 'bg-white/[0.03] border-white/5 hover:border-white/10 hover:bg-white/5'}`}
+>
+  {/* TOP ROW: icon + name + delete */}
+  <div className="flex items-center gap-3 mb-3">
+    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+      selectedItem?.id === item.id ? 'bg-violet-500/20 text-violet-300' : 'bg-white/5 text-zinc-500'
+    }`}>
+      <Zap size={16} />
+    </div>
+
+    <div className="flex-1 min-w-0">
+      <p className={`text-sm font-semibold truncate ${
+        selectedItem?.id === item.id ? 'text-white' : 'text-zinc-400'
+      }`}>
+        {item.name}
+      </p>
+      <p className="text-[10px] text-white/40 mt-0.5">Automation Wire</p>
+    </div>
+
+    {/* DELETE BUTTON */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setDeleteWireModal({ open: true, item: item, isDeleting: false });
+      }}
+      className="w-7 h-7 flex items-center justify-center rounded-lg bg-black/40 border border-rose-500/20 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition flex-shrink-0"
+    >
+      <Trash2 size={13} />
+    </button>
+  </div>
+
+  {/* SEGMENTED ACTIVE / INACTIVE TOGGLE */}
+  <div
+    className="flex items-center rounded-2xl p-[4px] w-full"
+    style={{
+      background: 'rgba(0,0,0,0.45)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)',
+    }}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* ACTIVE segment */}
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        if (item.status === 'Active') return;
+        const prevStatus = item.status;
+        setAutomations(prev =>
+          prev.map(a => a.id === item.id ? { ...a, status: 'Active' } : a)
+        );
+        try {
+          await api.updateFlowStatus(item.id, 'Active');
+        } catch (err) {
+          setAutomations(prev =>
+            prev.map(a => a.id === item.id ? { ...a, status: prevStatus } : a)
+          );
+          showToast('Failed to update status', 'error');
+        }
+      }}
+      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] text-[11px] font-bold transition-all duration-300"
+      style={item.status === 'Active' ? {
+        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+        boxShadow: '0 3px 12px rgba(16,185,129,0.4)',
+        color: 'white',
+      } : {
+        color: 'rgba(255,255,255,0.28)',
+      }}
+    >
+      <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
+        item.status === 'Active' ? 'bg-white/25' : 'bg-white/5'
+      }`}>
+        <CheckCircle2 size={11} style={{ color: item.status === 'Active' ? 'white' : 'rgba(255,255,255,0.3)' }} />
+      </div>
+      Active
+    </button>
+
+    {/* INACTIVE segment */}
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        if (item.status !== 'Active') return;
+        const prevStatus = item.status;
+        setAutomations(prev =>
+          prev.map(a => a.id === item.id ? { ...a, status: 'Inactive' } : a)
+        );
+        try {
+          await api.updateFlowStatus(item.id, 'Inactive');
+        } catch (err) {
+          setAutomations(prev =>
+            prev.map(a => a.id === item.id ? { ...a, status: prevStatus } : a)
+          );
+          showToast('Failed to update status', 'error');
+        }
+      }}
+      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] text-[11px] font-bold transition-all duration-300"
+      style={item.status !== 'Active' ? {
+        background: 'linear-gradient(135deg, #e11d48 0%, #f43f5e 100%)',
+        boxShadow: '0 3px 12px rgba(244,63,94,0.4)',
+        color: 'white',
+      } : {
+        color: 'rgba(255,255,255,0.28)',
+      }}
+    >
+      <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
+        item.status !== 'Active' ? 'bg-white/25' : 'bg-white/5'
+      }`}>
+        {/* Prohibition circle icon */}
+        <svg
+          width="11" height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          style={{ color: item.status !== 'Active' ? 'white' : 'rgba(255,255,255,0.3)' }}
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+      </div>
+      Inactive
+    </button>
+  </div>
+</motion.div>
               ))}
             </div>
           </motion.aside>
@@ -1201,7 +1652,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
             initial={{ x: 450, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 450, opacity: 0 }}
-            className="absolute right-3 top-51 bottom-0 h-[820px] w-[360px] z-[120] bg-[#15161C] border border-[#22252D] rounded-[20px] shadow-2xl flex flex-col overflow-hidden"
+            className="absolute right-3 top-51 bottom-0 max-h-[85vh] w-[360px] z-[120] bg-[#15161C] border border-[#22252D] rounded-[20px] shadow-2xl flex flex-col overflow-hidden"
           >
             <div className="px-5 py-2 border-b border-white/5 flex items-center justify-between bg-[#13131a]">
               <div className="flex items-center gap-3">
@@ -1585,7 +2036,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         <div className="grid grid-cols-3 gap-2">
                           {[
                             { value: 'lead_agent',    label: 'Lead',    emoji: '🎯', comingSoon: false },
-                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: true  },
+                            { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: false  },
                             { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: true  },
                           ].map(({ value, label, emoji, comingSoon }) => {
                             const isSelected = (activeNode.config?.agent_type || 'lead_agent') === value;
@@ -1622,16 +2073,18 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         </p>
                       </section>
 
-                      <section>
-                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
-                        <textarea
-                          value={activeNode.config?.prompt || ''}
-                          onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
-                          placeholder="Override AI behavior for this step..."
-                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white"
-                          rows={3}
-                        />
-                      </section>
+                      {activeNode.config?.agent_type !== 'sales_agent' && (
+                        <section>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
+                          <textarea
+                            value={activeNode.config?.prompt || ''}
+                            onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
+                            placeholder="Override AI behavior for this step..."
+                            className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white"
+                            rows={3}
+                          />
+                        </section>
+                      )}
                       <section>
                         <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
                         <select
@@ -1650,46 +2103,127 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                         </select>
                       </section>
 
-                      <section>
-                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
-                        <textarea
-                          value={activeNode.config?.lead_fields || ''}
-                          onChange={(e) => updateNodeConfig(activeNodeId, { lead_fields: e.target.value })}
-                          placeholder="name, email, phone, budget"
-                          rows={3}
-                          className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50 transition shadow-inner placeholder:text-zinc-600"
-                        />
-                      </section>
+                      {activeNode.config?.agent_type !== 'sales_agent' && (
+                        <section>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
+                          <textarea
+                            value={activeNode.config?.lead_fields || ''}
+                            onChange={(e) => updateNodeConfig(activeNodeId, { lead_fields: e.target.value })}
+                            placeholder="name, email, phone, budget"
+                            rows={3}
+                            className="w-full resize-none bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50 transition shadow-inner placeholder:text-zinc-600"
+                          />
+                        </section>
+                      )}
 
                       <section className="space-y-3">
                         <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
                         {[
                           { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
+                          ...(activeNode.config?.agent_type === 'sales_agent' ? [{ key: 'payment_enabled', label: 'Enable Payment' }] : [])
                         ].map(({ key, label }) => (
-                          <label key={key} className="flex items-center gap-3 cursor-pointer group" data-no-drag>
-                            <div
-                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                              className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
-                                activeNode.config?.[key]
-                                  ? 'bg-indigo-500 border-indigo-500'
-                                  : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
-                              }`}
-                            >
-                              {activeNode.config?.[key] && (
-                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              )}
-                            </div>
-                            <span
-                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                              className="text-sm text-white/80 group-hover:text-white transition"
-                            >
-                              {label}
-                            </span>
-                          </label>
+                          <div key={key} className="space-y-3">
+                            <label className="flex items-center gap-3 cursor-pointer group" data-no-drag>
+                              <div
+                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
+                                  activeNode.config?.[key]
+                                    ? 'bg-indigo-500 border-indigo-500'
+                                    : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
+                                }`}
+                              >
+                                {activeNode.config?.[key] && (
+                                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <span
+                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                className="text-sm text-white/80 group-hover:text-white transition"
+                              >
+                                {label}
+                              </span>
+                            </label>
+                            {key === 'payment_enabled' && activeNode.config?.[key] && (
+                              <div className="pl-8" data-no-drag>
+                                <input
+                                  type="text"
+                                  value={activeNode.config?.payment_link || ''}
+                                  onChange={(e) => updateNodeConfig(activeNodeId, { payment_link: e.target.value })}
+                                  placeholder="Paste payment link here"
+                                  className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500/50 outline-none placeholder:text-zinc-600"
+                                />
+                              </div>
+                            )}
+                          </div>
                         ))}
                       </section>
+                      {activeNode.config?.agent_type === 'sales_agent' && (
+                        <section className="space-y-4 pt-4 border-t border-white/5">
+                          <label className="text-[12px] font-semibold text-white tracking-wider block">Product Details & Knowledge</label>
+                          <p className="text-[10px] text-zinc-500 mb-2">Upload documents or manually add details. The AI will strictly answer from this context.</p>
+                          
+                          {/* File Upload Zone */}
+                          <div
+                            className={`relative border-2 border-dashed rounded-2xl p-6 transition-colors ${isDragOver ? 'border-indigo-400 bg-indigo-400/10' : 'border-white/20 hover:border-white/40'} ${uploading ? 'pointer-events-none opacity-50' : ''}`}
+                            onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleSalesDrop}
+                          >
+                             <div className="text-center space-y-4">
+                                <div className="flex flex-col items-center gap-2">
+                                  <Upload size={24} className="text-white/40" />
+                                  <div>
+                                    <p className="text-xs text-white/80">{isDragOver ? 'Drop your file here' : 'Drag & drop document'}</p>
+                                  </div>
+                                </div>
+                                <input type="file" accept=".pdf,.txt,.docx,.md" onChange={handleSalesFileSelect} className="hidden" id="sales-file-upload" disabled={uploading} />
+                                <label htmlFor="sales-file-upload" className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer transition-colors text-xs">
+                                  <Upload size={14} /> Browse
+                                </label>
+                              </div>
+                              {uploading && (
+                                  <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
+                                    <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                  </div>
+                              )}
+                          </div>
+
+                          {/* Manual Text Entry */}
+                          <div>
+                             <textarea
+                               value={salesManualText}
+                               onChange={(e) => setSalesManualText(e.target.value)}
+                               placeholder="Or manually type product details, features, and pricing here..."
+                               className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500/50 outline-none resize-none h-24"
+                             />
+                             <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={handleSalesManualSave}
+                                  disabled={uploading || !salesManualText.trim()}
+                                  className="px-4 py-2 bg-indigo-500/20 text-indigo-300 rounded-lg text-xs font-semibold hover:bg-indigo-500/30 transition disabled:opacity-50"
+                                >
+                                  {uploading ? 'Saving...' : 'Save Text'}
+                                </button>
+                             </div>
+                          </div>
+
+                          {/* Render attached entry IDs if any */}
+                          {(activeNode.config?.entry_ids || []).length > 0 && (
+                            <div className="space-y-2 mt-4">
+                               <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Attached Knowledge</label>
+                               {(activeNode.config?.entry_ids || []).map((id, index) => (
+                                  <div key={id} className="flex items-center justify-between px-3 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+                                     <span className="text-xs text-indigo-300 font-mono truncate max-w-[200px]">Doc {id.substring(0,8)}</span>
+                                     <button onClick={() => removeSalesEntry(id)} className="text-rose-400 hover:text-rose-300 p-1">
+                                        <X size={14} />
+                                     </button>
+                                  </div>
+                               ))}
+                            </div>
+                          )}
+
+                        </section>
+                      )}
                     </>
                   )}
 
@@ -1873,27 +2407,18 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
               )}
             </div>
 
-            <div className="px-5 py-4 border-t border-white/5">
-              <button
-                onClick={() => {
-                  if (!confirm("Delete this step?")) return;
-                  setNodes(prev => prev.filter(n => n.id !== activeNodeId));
-                  setEdges(prev => prev.filter(e => e.source !== activeNodeId && e.target !== activeNodeId));
-                  setNodes(prev => prev.map(node => ({
-                    ...node,
-                    config: {
-                      ...node.config,
-                      buttons: normalizeButtons(node.config?.buttons || []).map(button => button.target === activeNodeId ? { ...button, target: null } : button),
-                      branches: (node.config?.branches || []).map(branch => branch.target === activeNodeId ? { ...branch, target: null } : branch),
-                    },
-                  })));
-                  setActiveNodeId(null);
-                }}
-                className="w-full py-3 bg-[#27101A] hover:bg-rose-500/20 text-[#ffffff] hover:text-rose-300 transition-all rounded-xl text-xs font-medium border border-[#501527] border-[0.2px]"
+            {activeNode.type !== 'trigger' && (
+              <div className="px-5 py-4 border-t border-white/5">
+                <button
+                  onClick={() => {
+                    setDeleteStepModal({ open: true, nodeId: activeNodeId });
+                  }}
+                  className="w-full py-3 bg-[#27101A] hover:bg-rose-500/20 text-[#ffffff] hover:text-rose-300 transition-all rounded-xl text-xs font-medium border border-[#501527] border-[0.2px]"
                 >
                   Delete step
                 </button>
               </div>
+            )}
           </motion.aside>
         )}
       </AnimatePresence>
@@ -2123,6 +2648,17 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
         </g>
       );
     })}
+    {wiringPreview && (() => {
+      const { startPoint, currentPoint } = wiringPreview;
+      const curve = Math.min(Math.abs(currentPoint.x - startPoint.x) * 0.5, 150);
+      const d = `M ${startPoint.x} ${startPoint.y} C ${startPoint.x + curve} ${startPoint.y}, ${currentPoint.x - curve} ${currentPoint.y}, ${currentPoint.x} ${currentPoint.y}`;
+      return (
+        <g key="wiring-preview">
+          <path d={d} fill="none" stroke="#a78bfa" strokeWidth="2" strokeDasharray="6 4" strokeOpacity="0.95" markerEnd="url(#arrow)" />
+          <circle cx={currentPoint.x} cy={currentPoint.y} r="4" fill="#c4b5fd" />
+        </g>
+      );
+    })()}
   </g>
 </svg>
 
@@ -2150,7 +2686,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                       top: node.position.y,
                     }}
                     animate={{ scale: isActive ? 1.05 : 1, zIndex: isActive ? 100 : 10 }}
-                    className={`w-52 pointer-events-auto bg-[#0f0f18] backdrop-blur-xl border rounded-2xl p-5 shadow-2xl cursor-grab active:cursor-grabbing transition-all duration-200 ${isActive ? 'border-violet-500/60 shadow-[0_0_30px_rgba(139,92,246,0.15)]' : isDisconnectedNode ? 'border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : node.type === 'trigger'
+                    className={`w-52 pointer-events-auto bg-[#0f0f18] backdrop-blur-xl border rounded-2xl p-5 shadow-2xl cursor-grab active:cursor-grabbing transition-colors duration-300 ${isActive ? 'border-violet-500/60 shadow-[0_0_30px_rgba(139,92,246,0.15)]' : isDisconnectedNode ? 'border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : node.type === 'trigger'
                       ? 'border-[#71D7A3] shadow-[2px_2px_14px_-4px_#71D7A3]'
                       : 'border-[#814AC8] shadow-[2px_2px_15px_-2px_#814AC8]'}`}
                   >
@@ -2257,7 +2793,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                               <motion.div
                                 whileHover={{ scale: 1.3, rotate: 90 }}
                                 data-no-drag
-                                onClick={(e) => handlePortClick(e, node.id, getHandleIdForButton(button, index), (index + 1) * 80)}
+                                onPointerDown={(e) => handlePortPointerDown(e, node.id, getHandleIdForButton(button, index), (index + 1) * 80)}
                                 className="w-5 h-5 bg-indigo-500 rounded-full border-[3px] border-[#020408] shadow-[0_0_14px_rgba(99,102,241,0.55)] cursor-crosshair flex items-center justify-center"
                               >
                                 <Plus size={9} className="text-white" />
@@ -2266,6 +2802,16 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                           </div>
                         ))}
                       </div>
+                    )}
+
+                    {nodeButtons.length > 0 && (
+                      <button
+                        data-no-drag
+                        onClick={(e) => { e.stopPropagation(); setPreviewNode(node); }}
+                        className="w-full rounded-xl border border-[#814AC8] bg-[#140D1F] px-3 py-2.5 text-xs font-semibold text-white text-center hover:bg-[#140D1F]/80 transition mb-4"
+                      >
+                        Preview
+                      </button>
                     )}
 
                     {nodeBranches.length > 0 && (
@@ -2291,7 +2837,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                               <motion.div
                                 whileHover={{ scale: 1.3, rotate: 90 }}
                                 data-no-drag
-                                onClick={(e) => handlePortClick(e, node.id, branch.value, (index + 1) * 80)}
+                                onPointerDown={(e) => handlePortPointerDown(e, node.id, branch.value, (index + 1) * 80)}
                                 className={`w-5 h-5 rounded-full border-[3px] border-[#020408] cursor-crosshair flex items-center justify-center ${branch.value === 'true' ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.55)]' : 'bg-rose-500 shadow-[0_0_14px_rgba(244,63,94,0.55)]'}`}
                               >
                                 <Plus size={9} className="text-white" />
@@ -2317,7 +2863,7 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
                       <motion.div
                         whileHover={{ scale: 1.6, rotate: 90 }}
                         data-no-drag
-                        onClick={(e) => handlePortClick(e, node.id)}
+                        onPointerDown={(e) => handlePortPointerDown(e, node.id)}
                         className={`absolute -right-2 top-1/2 -translate-y-1/2 w-5 h-5 bg-violet-500 rounded-full border-[3px] border-[#0d0d12] shadow-[0_0_12px_rgba(139,92,246,0.5)] cursor-crosshair z-20 flex items-center justify-center group/port ${isActive ? 'scale-125' : ''}`}
                       >
                         <Plus size={10} className="text-white opacity-0 group-hover/port:opacity-100 transition-opacity" />
@@ -2510,6 +3056,206 @@ useEffect(() => { edgesRef.current = edges; }, [edges]);
         }
  
       `}</style>
+
+      {/* ─── TOAST NOTIFICATIONS ─── */}
+      <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map(toast => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className={`pointer-events-auto flex items-center gap-3 px-5 py-3.5 rounded-2xl border backdrop-blur-xl shadow-2xl text-sm font-semibold ${
+                toast.type === 'success'
+                  ? 'bg-[#0c1c14]/95 border-emerald-500/30 text-emerald-300 shadow-emerald-500/10'
+                  : 'bg-[#1c0c0c]/95 border-rose-500/30 text-rose-300 shadow-rose-500/10'
+              }`}
+            >
+              {toast.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              {toast.message}
+              <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className="ml-2 opacity-50 hover:opacity-100 transition">
+                <X size={14} />
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* ─── DELETE WIRE CONFIRM MODAL ─── */}
+      <AnimatePresence>
+        {deleteWireModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !deleteWireModal.isDeleting && setDeleteWireModal({ open: false, item: null, isDeleting: false })} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative bg-[#0f0f18] border border-purple-500/30 rounded-3xl p-8 w-[420px] shadow-2xl shadow-purple-500/10"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-5">
+                <Trash2 size={24} className="text-rose-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-2">Delete Wire</h3>
+              <p className="text-sm text-zinc-400 text-center mb-1">
+                Delete <span className="text-white font-semibold">"{deleteWireModal.item?.name}"</span> wire?
+              </p>
+              <p className="text-xs text-zinc-500 text-center mb-8">This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteWireModal({ open: false, item: null, isDeleting: false })}
+                  disabled={deleteWireModal.isDeleting}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setDeleteWireModal(prev => ({ ...prev, isDeleting: true }));
+                    try {
+                      await api.deleteFlow(deleteWireModal.item.id);
+                      const deletedId = deleteWireModal.item.id;
+                      setAutomations(prev => prev.filter(a => a.id !== deletedId));
+                      if (selectedItem?.id === deletedId) {
+                        setSelectedItem(null);
+                        setNodes([]);
+                        setEdges([]);
+                      }
+                      showToast('Wire deleted successfully', 'success');
+                      setDeleteWireModal({ open: false, item: null, isDeleting: false });
+                    } catch (err) {
+                      console.error(err);
+                      showToast('Failed to delete wire', 'error');
+                      setDeleteWireModal(prev => ({ ...prev, isDeleting: false }));
+                    }
+                  }}
+                  disabled={deleteWireModal.isDeleting}
+                  className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition shadow-lg shadow-rose-600/30 disabled:opacity-70 flex items-center justify-center gap-2"
+                >
+                  {deleteWireModal.isDeleting && (
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                  )}
+                  {deleteWireModal.isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── DELETE STEP CONFIRM MODAL ─── */}
+      <AnimatePresence>
+        {deleteStepModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteStepModal({ open: false, nodeId: null })} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative bg-[#0f0f18] border border-purple-500/30 rounded-3xl p-8 w-[380px] shadow-2xl shadow-purple-500/10"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-5">
+                <Trash2 size={24} className="text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-2">Delete Step</h3>
+              <p className="text-sm text-zinc-400 text-center mb-8">Remove this step from the flow?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteStepModal({ open: false, nodeId: null })}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const nodeIdToDelete = deleteStepModal.nodeId;
+                    setNodes(prev => prev.filter(n => n.id !== nodeIdToDelete));
+                    setEdges(prev => prev.filter(e => e.source !== nodeIdToDelete && e.target !== nodeIdToDelete));
+                    setNodes(prev => prev.map(node => ({
+                      ...node,
+                      config: {
+                        ...node.config,
+                        buttons: normalizeButtons(node.config?.buttons || []).map(button => button.target === nodeIdToDelete ? { ...button, target: null } : button),
+                        branches: (node.config?.branches || []).map(branch => branch.target === nodeIdToDelete ? { ...branch, target: null } : branch),
+                      },
+                    })));
+                    setActiveNodeId(null);
+                    setDeleteStepModal({ open: false, nodeId: null });
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition shadow-lg shadow-rose-600/30"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── CREATE WIRE MODAL ─── */}
+      <AnimatePresence>
+        {createWireModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCreateWireModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 20 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative bg-[#0f0f18] border border-purple-500/30 rounded-3xl p-8 w-[420px] shadow-2xl shadow-purple-500/10"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-5">
+                <Zap size={24} className="text-violet-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white text-center mb-6">Create New Wire</h3>
+              <input
+                type="text"
+                value={createWireName}
+                onChange={(e) => setCreateWireName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && createWireName.trim()) handleCreateNewConfirm(createWireName.trim()); }}
+                placeholder="Enter wire name..."
+                autoFocus
+                className="w-full px-4 py-3.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition mb-6"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCreateWireModal(false)}
+                  className="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 text-zinc-300 text-sm font-medium hover:bg-white/10 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { if (createWireName.trim()) handleCreateNewConfirm(createWireName.trim()); }}
+                  disabled={!createWireName.trim()}
+                  className="flex-1 py-3 rounded-xl bg-[#814AC8] hover:bg-violet-500 text-white text-sm font-semibold transition shadow-lg shadow-violet-600/30 disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} />
+                  Create Wire
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
