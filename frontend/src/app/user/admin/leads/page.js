@@ -820,6 +820,12 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onTog
 // ─── RIGHT PANEL ──────────────────────────────────────────────────────────────
 
 function RightPanel({ lead, details, history, loadingHistory, onToggleLabel }) {
+    const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+
+    useEffect(() => {
+        setIsTimelineExpanded(false);
+    }, [lead?.id]);
+
     if (!lead) {
         return (
             <div className="hidden xl:flex w-[380px] flex-shrink-0 flex-col bg-[#0D0D17] border-l border-white/[0.06] items-center justify-center text-zinc-500 text-sm p-6 text-center">
@@ -1142,7 +1148,7 @@ function RightPanel({ lead, details, history, loadingHistory, onToggleLabel }) {
                     </div>
                 ) : (
                     <div className="space-y-5">
-                        {timelineEvents.map((t, i) => {
+                        {(isTimelineExpanded ? timelineEvents : timelineEvents.slice(0, 3)).map((t, i) => {
                             const Icon = t.icon;
                             return (
                                 <div key={i} className="flex items-start gap-3">
@@ -1158,9 +1164,14 @@ function RightPanel({ lead, details, history, loadingHistory, onToggleLabel }) {
                         })}
                     </div>
                 )}
-                <button className="w-full mt-6 py-3 rounded-xl bg-[#111119] border border-white/[0.08] text-xs text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all font-medium">
-                    View full timeline
-                </button>
+                {timelineEvents.length > 3 && (
+                    <button 
+                        onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
+                        className="w-full mt-6 py-3 rounded-xl bg-[#111119] border border-white/[0.08] text-xs text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-all font-medium cursor-pointer"
+                    >
+                        {isTimelineExpanded ? 'Collapse timeline' : 'View full timeline'}
+                    </button>
+                )}
             </div>
         </div>
     );
