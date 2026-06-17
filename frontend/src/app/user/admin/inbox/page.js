@@ -7,8 +7,8 @@ import {
     Zap, Sparkles, Send, Clock, User, Star, Calendar,
     ArrowRight, ChevronRight, MoreHorizontal, Info,
     ArrowLeft, SlidersHorizontal, Camera, FileText,
-    XCircle, ChevronDown, Check,
-    Inbox
+    PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, Check,
+    Inbox, X
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -31,7 +31,7 @@ const CHANNELS = [
 
 const STATUS_FILTERS = ['Open', 'Converted', 'Closed', 'All'];
 
-const PROXY_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const PROXY_BASE = '/api';
 
 // Shared card style for all three panels
 const CARD_BG = '#15161C';
@@ -167,7 +167,6 @@ function formatActiveTime(dateInput) {
 }
 
 function getLastUserActivity(lead, messages) {
-    // Scan messages (newest first) for the latest inbound customer message (sender_type === 'user')
     if (messages && messages.length > 0) {
         for (let i = messages.length - 1; i >= 0; i--) {
             const m = messages[i];
@@ -181,7 +180,6 @@ function getLastUserActivity(lead, messages) {
             }
         }
     }
-
     return null;
 }
 
@@ -203,9 +201,9 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
         if (!dateStr) return '';
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return '';
-        const today = new Date(); today.setHours(0,0,0,0);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-        const msgDay = new Date(d); msgDay.setHours(0,0,0,0);
+        const msgDay = new Date(d); msgDay.setHours(0, 0, 0, 0);
         if (msgDay.getTime() === today.getTime()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         if (msgDay.getTime() === yesterday.getTime()) return 'Yesterday';
         const diffDays = Math.round((today - msgDay) / (1000 * 60 * 60 * 24));
@@ -291,7 +289,7 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                         </p>
                     </div>
                 )}
-                {filtered.map((l, idx) => {
+                {filtered.map((l) => {
                     const sel = lead?.id === l.id;
                     const displayName = getDisplayName(l, ch.id);
                     const avatarText = getAvatarText(l, ch.id);
@@ -366,21 +364,15 @@ function getConversationStats(conversation, messages) {
         if (!dateStr) return '';
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return '';
-        const today = new Date(); today.setHours(0,0,0,0);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-        const msgDay = new Date(d); msgDay.setHours(0,0,0,0);
-        
+        const msgDay = new Date(d); msgDay.setHours(0, 0, 0, 0);
+
         const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        if (msgDay.getTime() === today.getTime()) {
-            return `Today, ${timeStr}`;
-        }
-        if (msgDay.getTime() === yesterday.getTime()) {
-            return `Yesterday, ${timeStr}`;
-        }
+        if (msgDay.getTime() === today.getTime()) return `Today, ${timeStr}`;
+        if (msgDay.getTime() === yesterday.getTime()) return `Yesterday, ${timeStr}`;
         const diffDays = Math.round((today - msgDay) / (1000 * 60 * 60 * 24));
-        if (diffDays < 7) {
-            return `${diffDays} days ago, ${timeStr}`;
-        }
+        if (diffDays < 7) return `${diffDays} days ago, ${timeStr}`;
         const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         return `${datePart} ${timeStr}`;
     }
@@ -398,15 +390,13 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
     const isInstagram = ch.id === 'instagram';
     const stats = getConversationStats(lead, messages);
 
-    // Add toggle handler function inside InfoPanel
     const handleLabelClick = async (leadId, label) => {
         if (!leadId) return;
         const currentLabels = leadDetail?.labels || [];
         const isActive = currentLabels.includes(label);
         const action = isActive ? "remove" : "add";
-        
+
         try {
-            // Call API to save label and trigger score recalculation
             const res = await api.updateLeadLabels(leadId, label, action);
             if (setLeadDetail) {
                 setLeadDetail(prev => ({
@@ -504,61 +494,24 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                     <div className="mb-6">
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">Agent Labels</p>
                         <div className="flex flex-wrap gap-2">
-                            <button
-                                onClick={() => {
-                                    const leadId = resolvedLeadId || lead?.id;
-                                    handleLabelClick(leadId, "Premium Lead");
-                                }}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
-                                    ${activeLabels.includes("Premium Lead")
-                                        ? "bg-[#4B2580] border-[#6D39BD] text-white shadow-lg shadow-[#4B2580]/20"
-                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
-                                    }`}
-                            >
-                                👑 Premium Lead
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    const leadId = resolvedLeadId || lead?.id;
-                                    handleLabelClick(leadId, "High Priority");
-                                }}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
-                                    ${activeLabels.includes("High Priority")
-                                        ? "bg-[#7B1A2E] border-[#A82B44] text-white shadow-lg shadow-[#7B1A2E]/20"
-                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
-                                    }`}
-                            >
-                                🔥 High Priority
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    const leadId = resolvedLeadId || lead?.id;
-                                    handleLabelClick(leadId, "Interested");
-                                }}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
-                                    ${activeLabels.includes("Interested")
-                                        ? "bg-[#145A32] border-[#208A4E] text-white shadow-lg shadow-[#145A32]/20"
-                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
-                                    }`}
-                            >
-                                ⚡ Interested
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    const leadId = resolvedLeadId || lead?.id;
-                                    handleLabelClick(leadId, "Follow Up");
-                                }}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
-                                    ${activeLabels.includes("Follow Up")
-                                        ? "bg-[#0F4C81] border-[#1A73C2] text-white shadow-lg shadow-[#0F4C81]/20"
-                                        : "bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
-                                    }`}
-                            >
-                                📅 Follow Up
-                            </button>
+                            {[
+                                { label: 'Premium Lead', emoji: '👑', active: 'bg-[#4B2580] border-[#6D39BD]' },
+                                { label: 'High Priority', emoji: '🔥', active: 'bg-[#7B1A2E] border-[#A82B44]' },
+                                { label: 'Interested', emoji: '⚡', active: 'bg-[#145A32] border-[#208A4E]' },
+                                { label: 'Follow Up', emoji: '📅', active: 'bg-[#0F4C81] border-[#1A73C2]' },
+                            ].map(({ label, emoji, active }) => (
+                                <button
+                                    key={label}
+                                    onClick={() => handleLabelClick(resolvedLeadId || lead?.id, label)}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
+                                        ${activeLabels.includes(label)
+                                            ? `${active} text-white shadow-lg`
+                                            : 'bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'
+                                        }`}
+                                >
+                                    {emoji} {label}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -618,9 +571,7 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                 const list = data.templates || [];
                 const approved = list.filter(t => t.status === 'approved');
                 setTemplates(approved);
-                if (approved.length > 0) {
-                    setSelectedTemplate(approved[0]);
-                }
+                if (approved.length > 0) setSelectedTemplate(approved[0]);
             } catch (e) {
                 console.error("Failed to fetch templates:", e);
             } finally {
@@ -631,10 +582,7 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
     }, [isOpen, workspace?.id]);
 
     useEffect(() => {
-        if (!selectedTemplate) {
-            setVariables({});
-            return;
-        }
+        if (!selectedTemplate) { setVariables({}); return; }
         const matches = selectedTemplate.content.match(/\{\{(\d+)\}\}/g) || [];
         const uniqueVars = {};
         matches.forEach(m => {
@@ -670,8 +618,7 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                 template_name: selectedTemplate.name,
                 variables: varArray
             });
-            const preview = getPreviewContent();
-            onSuccess(preview);
+            onSuccess(getPreviewContent());
             onClose();
         } catch (e) {
             console.error("Send template error:", e);
@@ -745,10 +692,7 @@ function SendTemplateModal({ isOpen, onClose, workspace, lead, onSuccess }) {
                 </div>
 
                 <div className="p-4 border-t border-white/5 bg-[#181820] flex items-center justify-end gap-2 shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 rounded-xl text-[12px] font-semibold text-zinc-400 hover:text-white transition-colors"
-                    >
+                    <button onClick={onClose} className="px-4 py-2 rounded-xl text-[12px] font-semibold text-zinc-400 hover:text-white transition-colors">
                         Cancel
                     </button>
                     {templates.length > 0 && (
@@ -772,6 +716,14 @@ function ChatArea({
     previewMedia, setPreviewMedia,
     showMobileBackButton = false,
     infoActive = false,
+    templateName,
+    setTemplateName,
+    setTemplateVariables,
+    setTemplateLanguage,
+    fetchInboxTemplates,
+    setSelectedInboxTemplate,
+    setTemplateSearchQuery,
+    setShowTemplateSelect,
     workspace,
     onSendTemplateSuccess,
 }) {
@@ -807,31 +759,15 @@ function ChatArea({
 
     useEffect(() => {
         if (ch.id !== 'whatsapp' || !lastUserActivity) return;
-
-        const timeout = setTimeout(() => {
-            setNow(Date.now());
-        }, 0);
-
-        const interval = setInterval(() => {
-            setNow(Date.now());
-        }, 30000);
-
-        return () => {
-            clearTimeout(timeout);
-            clearInterval(interval);
-        };
+        const timeout = setTimeout(() => setNow(Date.now()), 0);
+        const interval = setInterval(() => setNow(Date.now()), 30000);
+        return () => { clearTimeout(timeout); clearInterval(interval); };
     }, [ch.id, lastUserActivity]);
 
     const { whatsAppWindowState, whatsAppWindowRemaining } = useMemo(() => {
-        if (ch.id !== 'whatsapp') {
-            return { whatsAppWindowState: 'window_open', whatsAppWindowRemaining: '' };
-        }
-        if (!hasIncomingMessage) {
-            return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
-        }
-        if (!lastUserActivity) {
-            return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
-        }
+        if (ch.id !== 'whatsapp') return { whatsAppWindowState: 'window_open', whatsAppWindowRemaining: '' };
+        if (!hasIncomingMessage) return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
+        if (!lastUserActivity) return { whatsAppWindowState: 'awaiting_reply', whatsAppWindowRemaining: '' };
         const diffMs = 24 * 60 * 60 * 1000 - (now - lastUserActivity.getTime());
         if (diffMs > 0) {
             const diffHrs = Math.floor(diffMs / (60 * 60 * 1000));
@@ -858,14 +794,12 @@ function ChatArea({
 
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: CARD_BG }}>
+            {/* Header */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b shrink-0"
                 style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                 <div className="flex items-center gap-3">
                     {showMobileBackButton && (
-                        <button
-                            onClick={onBackToList}
-                            className="p-1.5 rounded-lg text-[#666] hover:text-white"
-                        >
+                        <button onClick={onBackToList} className="p-1.5 rounded-lg text-[#666] hover:text-white">
                             <ArrowLeft size={18} />
                         </button>
                     )}
@@ -917,15 +851,13 @@ function ChatArea({
                     >
                         <Info size={17} strokeWidth={2} />
                     </button>
-                    <button
-                        className="p-2 rounded-lg text-[#777] hidden lg:flex"
-                        style={{ color: '#777' }}
-                    >
+                    <button className="p-2 rounded-lg text-[#777] hidden lg:flex" style={{ color: '#777' }}>
                         <Info size={17} strokeWidth={2} />
                     </button>
                 </div>
             </div>
 
+            {/* Messages */}
             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
                 <div className="max-w-2xl mx-auto space-y-2">
                     {messagesWithSeparators.map((item) => {
@@ -966,8 +898,8 @@ function ChatArea({
                                 ) : (
                                     <div
                                         className={`max-w-[72%] px-4 py-3 ${isUser ? 'rounded-[20px_20px_20px_6px]' : 'rounded-[20px_20px_6px_20px]'}`}
-                                        style={isUser 
-                                            ? { backgroundColor: '#252525', borderBottomLeftRadius: '6px' } 
+                                        style={isUser
+                                            ? { backgroundColor: '#252525', borderBottomLeftRadius: '6px' }
                                             : { ...getOutgoingStyle(), borderBottomRightRadius: '6px' }
                                         }
                                     >
@@ -1001,6 +933,7 @@ function ChatArea({
                 )}
             </div>
 
+            {/* AI Suggestion bar */}
             <AnimatePresence>
                 {aiSuggestion && (
                     <motion.div
@@ -1021,9 +954,11 @@ function ChatArea({
                 )}
             </AnimatePresence>
 
+            {/* Input area */}
             <div className="px-4 pb-4 pt-2 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="max-w-2xl mx-auto">
                     {ch.id === 'whatsapp' && whatsAppWindowState === 'window_closed' ? (
+                        /* Window Closed — template-only mode */
                         <div className="p-5 rounded-2xl border border-red-500/20 bg-red-500/5 flex flex-col items-center text-center gap-3">
                             <div className="text-[#eee] text-[13px] font-medium leading-relaxed">
                                 🔒 WhatsApp 24-hour window has expired.<br />Only approved template messages can be sent.
@@ -1037,22 +972,63 @@ function ChatArea({
                         </div>
                     ) : (
                         <>
-                            <div className="flex items-center gap-2 mb-2">
+                            {/* Toolbar row */}
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
                                 <button
                                     onClick={generateSuggestion}
-                                    className="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+                                    className="text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
                                     style={{ backgroundColor: `${ch.color}15`, color: ch.color }}
                                 >
                                     <Sparkles size={11} />
                                     Suggest Reply
                                 </button>
+                                {templateName && (
+                                    <div
+                                        className="text-[11px] font-medium px-3 py-1.5 rounded-lg flex items-center gap-2 border border-purple-500/30 shrink-0"
+                                        style={{ backgroundColor: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}
+                                    >
+                                        <FileText size={11} />
+                                        <span>Active Template: <strong>{templateName}</strong></span>
+                                        <button
+                                            onClick={() => {
+                                                setTemplateName(null);
+                                                setTemplateVariables([]);
+                                                setTemplateLanguage('en_US');
+                                                setMsg('');
+                                            }}
+                                            className="hover:text-white transition-colors ml-1"
+                                            title="Clear template"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Input bar */}
                             <div className="flex items-center gap-2 px-2 py-2 rounded-full border"
                                 style={{ backgroundColor: '#1e1e1e', borderColor: 'rgba(255,255,255,0.07)' }}>
-                                <button className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-                                    style={{ backgroundColor: `${ch.color}20` }}>
+                                <button
+                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0"
+                                    style={{ backgroundColor: `${ch.color}20` }}
+                                >
                                     <Camera size={16} style={{ color: ch.color }} strokeWidth={2} />
                                 </button>
+                                {ch.id === 'whatsapp' && (
+                                    <button
+                                        onClick={() => {
+                                            fetchInboxTemplates();
+                                            setSelectedInboxTemplate(null);
+                                            setTemplateSearchQuery('');
+                                            setShowTemplateSelect(true);
+                                        }}
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0"
+                                        style={{ backgroundColor: `${ch.color}20` }}
+                                        title="Use Template"
+                                    >
+                                        <FileText size={16} style={{ color: ch.color }} strokeWidth={2} />
+                                    </button>
+                                )}
                                 <input
                                     value={msg}
                                     onChange={(e) => setMsg(e.target.value)}
@@ -1118,31 +1094,24 @@ function ChannelTabs({ ch, setCh }) {
     );
 }
 
-// Shared card wrapper
 function PanelCard({ children, className = '', style = {} }) {
     return (
         <div
             className={`rounded-2xl overflow-hidden border flex flex-col ${className}`}
-            style={{
-                backgroundColor: CARD_BG,
-                borderColor: CARD_BORDER,
-                ...style,
-            }}
+            style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER, ...style }}
         >
             {children}
         </div>
     );
 }
 
-// ─── Main Page ──────────────────
+// ─── Main Page Content ───────────────────────────────────────────────────────
 function InboxContent() {
     const { workspaces, workspaceId } = useAuth();
-    const workspace = workspaces.find((item) => item.id === workspaceId) || null;
-    const {
-        subscribe,
-        subscribeConversation,
-        unsubscribeConversation,
-    } = useRealtime();
+    const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
+
+    const { subscribe, subscribeConversation, unsubscribeConversation } = useRealtime();
+
     const [ch, setCh] = useState(CHANNELS[0]);
     const [activeFilter, setActiveFilter] = useState(3);
     const [conversations, setConversations] = useState([]);
@@ -1153,46 +1122,123 @@ function InboxContent() {
     const [msg, setMsg] = useState('');
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [previewMedia, setPreviewMedia] = useState(null);
+
+    // Template state (from HEAD)
+    const [templateName, setTemplateName] = useState(null);
+    const [templateVariables, setTemplateVariables] = useState([]);
+    const [templateLanguage, setTemplateLanguage] = useState('en_US');
+    const [showTemplateSelect, setShowTemplateSelect] = useState(false);
+    const [inboxTemplates, setInboxTemplates] = useState([]);
+    const [selectedInboxTemplate, setSelectedInboxTemplate] = useState(null);
+    const [inboxTemplateVariables, setInboxTemplateVariables] = useState({});
+    const [templateSearchQuery, setTemplateSearchQuery] = useState('');
+
+    // Modal state (from branch)
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [showCloseModal, setShowCloseModal] = useState(false);
     const [closeTargetId, setCloseTargetId] = useState(null);
     const [closingConversation, setClosingConversation] = useState(false);
+
     const messagesContainerRef = useRef(null);
     const leadRef = useRef(null);
+    const lastProcessedIdRef = useRef(null);
 
     const router = useRouter();
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const urlConversationId = searchParams.get('conversationId') || searchParams.get('conversation');
-    const lastProcessedIdRef = useRef(null);
 
+    // Tablet / mobile view state
     const [tabletRight, setTabletRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
 
-    useEffect(() => {
-        leadRef.current = lead;
-    }, [lead]);
+    // ── Template helpers ──────────────────────────────────────────────────────
+    const fetchInboxTemplates = useCallback(async () => {
+        try {
+            const workspace_id = workspace?.id;
+            if (!workspace_id) return;
+            await api.getTemplatesStatus(workspace_id);
+            const data = await api.getTemplates();
+            const approved = (data.templates || []).filter(t => t.status === 'approved');
+            setInboxTemplates(approved);
+        } catch (e) {
+            console.error("Failed to fetch templates in inbox:", e);
+        }
+    }, [workspace?.id]);
 
     useEffect(() => {
-        if (!resolvedLeadId) {
-            setLeadDetail(null);
-            return;
-        }
-        let active = true;
-        const fetchDetail = async () => {
-            try {
-                const data = await api.get(`/lead-scoring/leads/${resolvedLeadId}/detail`);
-                if (active) {
-                    setLeadDetail(data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch lead detail in inbox:", err);
+        if (selectedInboxTemplate?.content) {
+            const regex = /(?:\{\{|\{)(\d+)(?:\}\}|\})/g;
+            let match;
+            const vars = {};
+            while ((match = regex.exec(selectedInboxTemplate.content)) !== null) {
+                vars[match[1]] = '';
             }
-        };
-        fetchDetail();
+            setInboxTemplateVariables(vars);
+        } else {
+            setInboxTemplateVariables({});
+        }
+    }, [selectedInboxTemplate]);
+
+    const getInboxTemplatePreviewText = () => {
+        if (!selectedInboxTemplate?.content) return '';
+        return selectedInboxTemplate.content.replace(/(?:\{\{|\{)(\d+)(?:\}\}|\})/g, (_, num) => {
+            return inboxTemplateVariables[num] || `{{${num}}}`;
+        });
+    };
+
+    const handleApplyInboxTemplate = () => {
+        if (!selectedInboxTemplate) return;
+        const finalMsg = getInboxTemplatePreviewText();
+        const varKeys = Object.keys(inboxTemplateVariables).sort((a, b) => Number(a) - Number(b));
+        setMsg(finalMsg);
+        setTemplateName(selectedInboxTemplate.name);
+        setTemplateVariables(varKeys.map(k => inboxTemplateVariables[k]));
+        setTemplateLanguage(selectedInboxTemplate.language || 'en_US');
+        setShowTemplateSelect(false);
+    };
+
+    const filteredInboxTemplates = inboxTemplates.filter(t =>
+        t.name.toLowerCase().includes(templateSearchQuery.toLowerCase()) ||
+        (t.content || '').toLowerCase().includes(templateSearchQuery.toLowerCase())
+    );
+
+    // ── URL param hydration ───────────────────────────────────────────────────
+    useEffect(() => {
+        const msgParam = searchParams.get('msg');
+        const channelParam = searchParams.get('channel');
+        const tplNameParam = searchParams.get('template_name');
+        const tplVarsParam = searchParams.get('variables');
+        const tplLangParam = searchParams.get('language');
+
+        const timer = setTimeout(() => {
+            if (msgParam) setMsg(msgParam);
+            if (channelParam) {
+                const matchedCh = CHANNELS.find(c => c.id === channelParam);
+                if (matchedCh) setCh(matchedCh);
+            }
+            if (tplNameParam) setTemplateName(tplNameParam);
+            if (tplVarsParam) {
+                try { setTemplateVariables(JSON.parse(tplVarsParam)); } catch { }
+            }
+            if (tplLangParam) setTemplateLanguage(tplLangParam);
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [searchParams]);
+
+    useEffect(() => { leadRef.current = lead; }, [lead]);
+
+    // ── Lead detail fetch ─────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!resolvedLeadId) { setLeadDetail(null); return; }
+        let active = true;
+        api.get(`/lead-scoring/leads/${resolvedLeadId}/detail`)
+            .then(data => { if (active) setLeadDetail(data); })
+            .catch(err => console.error("Failed to fetch lead detail:", err));
         return () => { active = false; };
     }, [resolvedLeadId]);
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
         if (!conversationId || !workspace?.id) return null;
         try {
@@ -1200,153 +1246,106 @@ function InboxContent() {
             const items = data.items || data || [];
             const match = items.find(l => l.conversation_id === conversationId);
             return match?.lead_id || match?.id || null;
-        } catch {
-            return null;
-        }
+        } catch { return null; }
     }, [workspace?.id]);
 
     const fetchMessages = useCallback(async (id) => {
         if (!id) return;
-
         try {
             const data = await api.get(`/api/messages/${id}`);
-
-            if (!Array.isArray(data)) {
-                console.warn("Messages API returned a non-array payload:", data);
-                return;
-            }
-
-            setMessages(
-                data.filter((m) => {
-                    const status = m.status?.toLowerCase();
-                    const senderType = m.sender_type?.toLowerCase();
-                    return (
-                        status === 'sent' ||
-                        status === 'delivered' ||
-                        status === 'received' ||
-                        senderType === 'user' ||
-                        senderType === 'agent' ||
-                        senderType === 'ai'
-                    );
-                })
-            );
-        } catch (e) {
-            console.error('Message fetch error:', e);
-        }
+            if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
+            setMessages(data.filter(m => {
+                const status = m.status?.toLowerCase();
+                const senderType = m.sender_type?.toLowerCase();
+                return status === 'sent' || status === 'delivered' || status === 'received'
+                    || senderType === 'user' || senderType === 'agent' || senderType === 'ai';
+            }));
+        } catch (e) { console.error('Message fetch error:', e); }
     }, []);
 
     const getStatusParam = useCallback((filterIdx) => {
-        const map = { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' };
-        return map[filterIdx] || 'OPEN';
+        return { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' }[filterIdx] || 'OPEN';
     }, []);
 
     const fetchConversations = useCallback(async ({ selectFirst = false, statusOverride = null } = {}) => {
         if (!workspace?.id) return;
-
         const statusParam = statusOverride || getStatusParam(activeFilter);
-
         try {
             const data = await api.get(`/api/conversations?channel=${ch.id}&status=${statusParam}`);
-
-            if (!Array.isArray(data)) {
-                console.warn("Conversations API returned a non-array payload:", data);
-                return;
-            }
-
+            if (!Array.isArray(data)) { console.warn("Conversations API non-array:", data); return; }
             setConversations(data);
 
             if (data.length === 0) {
-                setLead(null);
-                setResolvedLeadId(null);
-                setMessages([]);
+                setLead(null); setResolvedLeadId(null); setMessages([]);
                 return;
             }
 
-            let urlConversationIdLocal = null;
+            let urlConvId = null;
             if (typeof window !== 'undefined') {
                 const params = new URLSearchParams(window.location.search);
-                urlConversationIdLocal = params.get('conversationId') || params.get('conversation');
+                urlConvId = params.get('conversationId') || params.get('conversation');
             }
 
             let nextLead = null;
-            if (urlConversationIdLocal && data.some((item) => item.id === urlConversationIdLocal)) {
-                nextLead = data.find((item) => item.id === urlConversationIdLocal);
+            if (urlConvId && data.some(item => item.id === urlConvId)) {
+                nextLead = data.find(item => item.id === urlConvId);
                 if (typeof window !== 'undefined') {
                     const newParams = new URLSearchParams(searchParams.toString());
-                    newParams.delete('conversationId');
-                    newParams.delete('conversation');
+                    newParams.delete('conversationId'); newParams.delete('conversation');
                     router.replace(`${pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`, { scroll: false });
                 }
             } else {
                 const currentLeadId = leadRef.current?.id;
-                nextLead = selectFirst
-                    ? data[0]
-                    : data.find((item) => item.id === currentLeadId) || data[0];
+                nextLead = selectFirst ? data[0] : (data.find(item => item.id === currentLeadId) || data[0]);
             }
 
             setLead(nextLead);
             fetchMessages(nextLead.id);
-            if (nextLead) {
-                fetchLeadIdForConversation(nextLead.id).then(id => setResolvedLeadId(id));
-            }
-        } catch (e) {
-            console.error('Conversation fetch error:', e);
-        }
+            if (nextLead) fetchLeadIdForConversation(nextLead.id).then(id => setResolvedLeadId(id));
+        } catch (e) { console.error('Conversation fetch error:', e); }
     }, [workspace?.id, ch.id, activeFilter, fetchMessages, fetchLeadIdForConversation, getStatusParam, pathname, router, searchParams]);
 
+    // ── URL-driven conversation selection ─────────────────────────────────────
     useEffect(() => {
         if (!workspace?.id || !urlConversationId) {
-            if (!urlConversationId) {
-                lastProcessedIdRef.current = null;
-            }
+            if (!urlConversationId) lastProcessedIdRef.current = null;
             return;
         }
-
         if (urlConversationId === lastProcessedIdRef.current) return;
         lastProcessedIdRef.current = urlConversationId;
 
-        const checkConversation = async () => {
-            try {
-                const data = await api.get(`/api/conversations/${urlConversationId}`);
-                if (data && data.channel) {
-                    const targetChannel = CHANNELS.find(c => c.id === data.channel);
-                    if (targetChannel) {
-                        setCh(targetChannel);
-                        setActiveFilter(3);
-                        fetchConversations({ selectFirst: true, statusOverride: 'ALL' });
-                    }
+        api.get(`/api/conversations/${urlConversationId}`).then(data => {
+            if (data?.channel) {
+                const targetChannel = CHANNELS.find(c => c.id === data.channel);
+                if (targetChannel) {
+                    setCh(targetChannel);
+                    setActiveFilter(3);
+                    fetchConversations({ selectFirst: true, statusOverride: 'ALL' });
                 }
-            } catch (e) {
-                console.error('Failed to look up conversation details:', e);
             }
-        };
-        checkConversation();
+        }).catch(e => console.error('Failed to look up conversation:', e));
     }, [workspace?.id, urlConversationId, fetchConversations]);
 
+    // ── Channel / filter changes ──────────────────────────────────────────────
     useEffect(() => {
         const timer = setTimeout(() => {
-            setLead(null);
-            setResolvedLeadId(null);
-            leadRef.current = null;
-            setMessages([]);
-            setConversations([]);
+            setLead(null); setResolvedLeadId(null);
+            leadRef.current = null; setMessages([]); setConversations([]);
             fetchConversations({ selectFirst: true });
         }, 0);
-
         return () => clearTimeout(timer);
     }, [ch.id, fetchConversations]);
 
+    // ── Polling ───────────────────────────────────────────────────────────────
     useEffect(() => {
-        const activeLeadId = lead?.id;
-        if (!activeLeadId) return;
-
-        const interval = setInterval(() => fetchMessages(activeLeadId), 30000);
+        if (!lead?.id) return;
+        const interval = setInterval(() => fetchMessages(lead.id), 30000);
         return () => clearInterval(interval);
     }, [lead?.id, fetchMessages]);
 
+    // ── Realtime ──────────────────────────────────────────────────────────────
     useEffect(() => {
         if (!lead?.id) return;
-
         subscribeConversation(lead.id);
         return () => unsubscribeConversation(lead.id);
     }, [lead?.id, subscribeConversation, unsubscribeConversation]);
@@ -1354,59 +1353,97 @@ function InboxContent() {
     useEffect(() => {
         return subscribe((event) => {
             const eventWorkspaceId = event.workspace_id || event.payload?.workspace_id;
-            if (eventWorkspaceId && workspace?.id && eventWorkspaceId !== workspace.id) {
-                return;
-            }
+            if (eventWorkspaceId && workspace?.id && eventWorkspaceId !== workspace.id) return;
 
-            const eventConversationId =
-                event.conversation_id || event.payload?.conversation_id;
+            const eventConversationId = event.conversation_id || event.payload?.conversation_id;
 
             switch (event.event_type) {
-                case "new_message":
-                case "conversation_updated":
+                case 'new_message':
+                case 'conversation_updated':
                     fetchConversations();
                     if (eventConversationId && leadRef.current?.id === eventConversationId) {
                         fetchMessages(eventConversationId);
-                      }
-                      break;
-                  case "message_status_updated":
-                  case "ai_response_ready":
-                  case "ai_thinking":
-                      if (eventConversationId && leadRef.current?.id === eventConversationId) {
-                          fetchMessages(eventConversationId);
-                      }
-                      break;
-                  case "lead.score.updated":
-                  case "lead.updated":
-                      fetchConversations();
-                      const targetLeadId = event.payload?.lead_id || resolvedLeadId;
-                      if (targetLeadId && (event.payload?.conversation_id === leadRef.current?.id || event.payload?.lead_id === resolvedLeadId)) {
-                          api.get(`/lead-scoring/leads/${targetLeadId}/detail`).then((data) => {
-                              setLeadDetail(data);
-                          }).catch((err) => {
-                              console.error("Failed to fetch updated lead details:", err);
-                          });
-                      }
-                      break;
-                  default:
-                      break;
-              }
-          });
-      }, [fetchConversations, fetchMessages, subscribe, workspace?.id]);
+                    }
+                    break;
+                case 'message_status_updated':
+                case 'ai_response_ready':
+                case 'ai_thinking':
+                    if (eventConversationId && leadRef.current?.id === eventConversationId) {
+                        fetchMessages(eventConversationId);
+                    }
+                    break;
+                case 'lead.score.updated':
+                case 'lead.updated':
+                    fetchConversations();
+                    const targetLeadId = event.payload?.lead_id || resolvedLeadId;
+                    if (targetLeadId && (event.payload?.conversation_id === leadRef.current?.id || event.payload?.lead_id === resolvedLeadId)) {
+                        api.get(`/lead-scoring/leads/${targetLeadId}/detail`)
+                            .then(data => setLeadDetail(data))
+                            .catch(err => console.error("Failed to refresh lead detail:", err));
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+    }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId]);
 
-      useEffect(() => {
-          const container = messagesContainerRef.current;
+    // ── Actions ───────────────────────────────────────────────────────────────
+    async function sendMessage() {
+        if (!msg.trim() || !lead) return;
+        try {
+            const payload = { conversation_id: lead.id, message: msg };
+            if (templateName) {
+                payload.metadata = {
+                    template_name: templateName,
+                    variables: templateVariables,
+                    language: templateLanguage,
+                };
+            }
+            await api.post('/api/send-reply', payload);
+            setMsg('');
+            setTemplateName(null);
+            setTemplateVariables([]);
+            setTemplateLanguage('en_US');
+            fetchMessages(lead.id);
+        } catch (e) { console.error('Send error:', e); }
+    }
 
-          if (!container) return;
+    async function generateSuggestion() {
+        if (!lead) return;
+        try {
+            const data = await api.post('/api/ai-suggest', {
+                conversation_id: lead.id,
+                message: messages[messages.length - 1]?.content || '',
+            });
+            setAiSuggestion(data.suggestion);
+        } catch (e) { console.error(e); }
+    }
 
-          const isNearBottom =
-              container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+    function useSuggestion() { setMsg(aiSuggestion); setAiSuggestion(''); }
 
-          if (isNearBottom) {
-              ref.current?.scrollIntoView({ behavior: 'smooth' });
-          }
-      }, [messages]);
+    function removeConversationFromList(conversationId) {
+        setConversations(prev => {
+            const updated = prev.filter(c => c.id !== conversationId);
+            if (lead?.id === conversationId) {
+                if (updated.length > 0) {
+                    const next = updated[0];
+                    setLead(next);
+                    fetchMessages(next.id);
+                    fetchLeadIdForConversation(next.id).then(id => setResolvedLeadId(id));
+                } else {
+                    setLead(null); setResolvedLeadId(null); setMessages([]);
+                }
+            }
+            return updated;
+        });
+    }
 
+    function promptCloseConversation(conversationId) {
+        if (!conversationId) return;
+        setCloseTargetId(conversationId);
+        setShowCloseModal(true);
+    }
       async function sendMessage() {
           if (!msg.trim() || !lead) return;
           try {
@@ -1424,333 +1461,332 @@ function InboxContent() {
           }
       }
 
-      async function generateSuggestion() {
-          if (!lead) return;
-          try {
-              const data = await api.post(`/api/ai-suggest`, {
-                  conversation_id: lead.id,
-                  message: messages[messages.length - 1]?.content || '',
-              });
-              setAiSuggestion(data.suggestion);
-          } catch (e) { console.error(e); }
-      }
+    async function handleConfirmClose() {
+        if (!closeTargetId) return;
+        setClosingConversation(true);
+        try {
+            await api.post(`/api/conversations/${closeTargetId}/close`);
+            removeConversationFromList(closeTargetId);
+            setShowCloseModal(false);
+            setCloseTargetId(null);
+        } catch (e) {
+            console.error('Failed to close conversation:', e);
+        } finally {
+            setClosingConversation(false);
+        }
+    }
 
-      function useSuggestion() {
-          setMsg(aiSuggestion);
-          setAiSuggestion('');
-      }
+    function handleConvertSuccess() {
+        if (!lead?.id) return;
+        removeConversationFromList(lead.id);
+    }
 
-      function removeConversationFromList(conversationId) {
-          setConversations(prev => {
-              const updated = prev.filter(c => c.id !== conversationId);
-              if (lead?.id === conversationId) {
-                  if (updated.length > 0) {
-                      const next = updated[0];
-                      setLead(next);
-                      fetchMessages(next.id);
-                      fetchLeadIdForConversation(next.id).then(id => setResolvedLeadId(id));
-                  } else {
-                      setLead(null);
-                      setResolvedLeadId(null);
-                      setMessages([]);
-                  }
-              }
-              return updated;
-          });
-      }
+    function handleLeadSelectTablet(l) {
+        setLead(l); fetchMessages(l.id);
+        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        setTabletRight('chat');
+    }
 
-      function promptCloseConversation(conversationId) {
-          if (!conversationId) return;
-          setCloseTargetId(conversationId);
-          setShowCloseModal(true);
-      }
+    function handleLeadSelectMobile(l) {
+        setLead(l); fetchMessages(l.id);
+        fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+        setMobileView('chat');
+    }
 
-      async function handleConfirmClose() {
-          if (!closeTargetId) return;
-          setClosingConversation(true);
-          try {
-              await api.post(`/api/conversations/${closeTargetId}/close`);
-              removeConversationFromList(closeTargetId);
-              setShowCloseModal(false);
-              setCloseTargetId(null);
-          } catch (e) {
-              console.error('Failed to close conversation:', e);
-          } finally {
-              setClosingConversation(false);
-          }
-      }
+    // ── Shared ChatArea props ─────────────────────────────────────────────────
+    const chatAreaProps = {
+        ch, lead, messages, msg, setMsg,
+        aiSuggestion, sendMessage, generateSuggestion, useSuggestion,
+        previewMedia, setPreviewMedia,
+        templateName, setTemplateName, setTemplateVariables, setTemplateLanguage,
+        fetchInboxTemplates, setSelectedInboxTemplate,
+        setTemplateSearchQuery, setShowTemplateSelect,
+        workspace,
+        onSendTemplateSuccess: (formattedContent) => {
+            fetchMessages(lead.id);
+            setMessages(prev => [...prev, {
+                id: 'temp-' + Date.now(),
+                sender_type: 'agent',
+                content: formattedContent,
+                timestamp: new Date().toISOString(),
+                status: 'sent',
+            }]);
+        },
+    };
 
-      function handleConvertSuccess(convertRes) {
-          if (!lead?.id) return;
-          removeConversationFromList(lead.id);
-      }
+    const infoPanelProps = {
+        ch, lead,
+        resolvedLeadId, messages,
+        onCloseConversation: promptCloseConversation,
+        onConvertClick: () => setShowConvertModal(true),
+        leadDetail, setLeadDetail,
+    };
 
-      function handleLeadSelectTablet(l) {
-          setLead(l);
-          fetchMessages(l.id);
-          fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
-          setTabletRight('chat');
-      }
+    // ── Render ────────────────────────────────────────────────────────────────
+    return (
+        <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
-      function handleLeadSelectMobile(l) {
-          setLead(l);
-          fetchMessages(l.id);
-          fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
-          setMobileView('chat');
-      }
+            {/* ── DESKTOP (≥1024px) ── */}
+            <div className="hidden lg:flex flex-1 overflow-hidden p-3 gap-3">
+                <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
+                    <ChannelTabs ch={ch} setCh={setCh} />
+                    <PanelCard className="flex-1">
+                        <ConversationSidebar
+                            ch={ch} conversations={conversations} lead={lead}
+                            activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                            onLeadSelect={(l) => {
+                                setLead(l); fetchMessages(l.id);
+                                fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                            }}
+                        />
+                    </PanelCard>
+                </div>
 
-      const chatAreaProps = {
-          ch,
-          lead,
-          messages,
-          msg,
-          setMsg,
-          aiSuggestion,
-          sendMessage,
-          generateSuggestion,
-          useSuggestion,
-          previewMedia,
-          setPreviewMedia,
-          workspace,
-          onSendTemplateSuccess: (formattedContent) => {
-              fetchMessages(lead.id);
-              const localMsg = {
-                  id: 'temp-' + Date.now(),
-                  sender_type: 'agent',
-                  content: formattedContent,
-                  timestamp: new Date().toISOString(),
-                  status: 'sent'
-              };
-              setMessages(prev => [...prev, localMsg]);
-          }
-      };
+                <div className="flex flex-col gap-3 flex-1" style={{ minWidth: 0 }}>
+                    <div className="shrink-0" style={{ height: 40 }} />
+                    <PanelCard className="flex-1">
+                        <ChatArea {...chatAreaProps} onInfoClick={() => {}} infoActive={false} showMobileBackButton={false} />
+                    </PanelCard>
+                </div>
 
-      return (
-          <div
-              className="h-screen flex flex-col overflow-hidden"
-              style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}
-          >
-              {/* DESKTOP LAYOUT (≥1024px) */}
-              <div className="hidden lg:flex flex-1 overflow-hidden p-3 gap-3">
-                  <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
-                      <ChannelTabs ch={ch} setCh={setCh} />
-                      <PanelCard className="flex-1">
-                          <ConversationSidebar
-                              ch={ch}
-                              conversations={conversations}
-                              lead={lead}
-                              activeFilter={activeFilter}
-                              onFilterChange={setActiveFilter}
-                              onLeadSelect={(l) => {
-                                  setLead(l);
-                                  fetchMessages(l.id);
-                                  fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
-                              }}
-                          />
-                      </PanelCard>
-                  </div>
+                <div className="flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
+                    <div className="shrink-0" style={{ height: 40 }} />
+                    <PanelCard className="flex-1">
+                        <InfoPanel {...infoPanelProps} showBackButton={false} />
+                    </PanelCard>
+                </div>
+            </div>
 
-                  <div className="flex flex-col gap-3 flex-1" style={{ minWidth: 0 }}>
-                      <div className="shrink-0" style={{ height: 40 }} />
-                      <PanelCard className="flex-1">
-                          <ChatArea
-                              {...chatAreaProps}
-                              onInfoClick={() => {}}
-                              infoActive={false}
-                              showMobileBackButton={false}
-                          />
-                      </PanelCard>
-                  </div>
+            {/* ── TABLET (768px–1023px) ── */}
+            <div className="hidden md:flex lg:hidden flex-col flex-1 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
+                    <ChannelTabs ch={ch} setCh={setCh} />
+                </div>
+                <div className="flex flex-1 overflow-hidden px-3 pb-3 gap-3">
+                    <PanelCard style={{ width: 260, minWidth: 240 }}>
+                        <ConversationSidebar
+                            ch={ch} conversations={conversations} lead={lead}
+                            activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                            onLeadSelect={handleLeadSelectTablet}
+                        />
+                    </PanelCard>
+                    <div className="flex-1 relative overflow-hidden">
+                        <AnimatePresence mode="wait">
+                            {tabletRight === 'chat' ? (
+                                <motion.div key="tablet-chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
+                                    className="absolute inset-0 rounded-2xl overflow-hidden border"
+                                    style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}>
+                                    <ChatArea {...chatAreaProps} onInfoClick={() => setTabletRight('info')} infoActive={false} showMobileBackButton={false} />
+                                </motion.div>
+                            ) : (
+                                <motion.div key="tablet-info" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}
+                                    className="absolute inset-0 rounded-2xl overflow-hidden border overflow-y-auto"
+                                    style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}>
+                                    <InfoPanel {...infoPanelProps} showBackButton={true} onBack={() => setTabletRight('chat')} />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+            </div>
 
-                  <div className="flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
-                      <div className="shrink-0" style={{ height: 40 }} />
-                      <PanelCard className="flex-1">
-                          <InfoPanel
-                              ch={ch}
-                              lead={lead}
-                              showBackButton={false}
-                              resolvedLeadId={resolvedLeadId}
-                              messages={messages}
-                              onCloseConversation={promptCloseConversation}
-                              onConvertClick={() => setShowConvertModal(true)}
-                              leadDetail={leadDetail}
-                              setLeadDetail={setLeadDetail}
-                          />
-                      </PanelCard>
-                  </div>
-              </div>
+            {/* ── MOBILE (<768px) ── */}
+            <div className="flex md:hidden flex-col flex-1 overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
+                    <ChannelTabs ch={ch} setCh={setCh} />
+                </div>
+                <div className="flex flex-1 overflow-hidden relative">
+                    <AnimatePresence mode="wait">
+                        {mobileView === 'list' && (
+                            <motion.div key="mobile-list" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
+                                className="absolute inset-0" style={{ backgroundColor: CARD_BG }}>
+                                <ConversationSidebar
+                                    ch={ch} conversations={conversations} lead={lead}
+                                    activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                                    onLeadSelect={handleLeadSelectMobile}
+                                />
+                            </motion.div>
+                        )}
+                        {mobileView === 'chat' && (
+                            <motion.div key="mobile-chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}
+                                className="absolute inset-0 flex flex-col" style={{ backgroundColor: CARD_BG }}>
+                                <ChatArea {...chatAreaProps} onInfoClick={() => setMobileView('info')} infoActive={false} showMobileBackButton={true} onBackToList={() => setMobileView('list')} />
+                            </motion.div>
+                        )}
+                        {mobileView === 'info' && lead && (
+                            <motion.div key="mobile-info" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}
+                                className="absolute inset-0 overflow-y-auto" style={{ backgroundColor: CARD_BG }}>
+                                <InfoPanel {...infoPanelProps} showBackButton={true} onBack={() => setMobileView('chat')} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
 
-              {/* TABLET LAYOUT (≥768px and <1024px) */}
-              <div className="hidden md:flex lg:hidden flex-col flex-1 overflow-hidden">
-                  <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
-                      <ChannelTabs ch={ch} setCh={setCh} />
-                  </div>
+            {/* ── Template Selector Modal ── */}
+            {showTemplateSelect && (
+                <>
+                    <div onClick={() => setShowTemplateSelect(false)} className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]" />
+                    <div className="fixed z-[101] flex flex-col"
+                        style={{
+                            top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                            width: 800, height: 600, maxWidth: '95vw', maxHeight: '90vh',
+                            background: 'linear-gradient(160deg, #16112c 0%, #0d0820 100%)',
+                            borderRadius: 24, border: '1px solid #2a1f4a',
+                            boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.15)',
+                            fontFamily: "'Poppins', sans-serif", overflow: 'hidden',
+                        }}>
 
-                  <div className="flex flex-1 overflow-hidden px-3 pb-3 gap-3">
-                      <PanelCard style={{ width: 260, minWidth: 240 }}>
-                          <ConversationSidebar
-                              ch={ch}
-                              conversations={conversations}
-                              lead={lead}
-                              activeFilter={activeFilter}
-                              onFilterChange={setActiveFilter}
-                              onLeadSelect={handleLeadSelectTablet}
-                          />
-                      </PanelCard>
+                        {/* Header */}
+                        <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-[#2a1f4a]/50">
+                            <h2 className="m-0 text-[18px] font-bold text-[#f0f0ff] tracking-tight flex items-center gap-2">
+                                <FileText size={18} className="text-purple-400" />
+                                Select WhatsApp Template
+                            </h2>
+                            <button onClick={() => setShowTemplateSelect(false)}
+                                className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-all border border-[#2a2a4a] bg-white/5 text-white hover:bg-white/10">
+                                <X size={14} />
+                            </button>
+                        </div>
 
-                      <div className="flex-1 relative overflow-hidden">
-                          <AnimatePresence mode="wait">
-                              {tabletRight === 'chat' ? (
-                                  <motion.div
-                                      key="tablet-chat"
-                                      initial={{ opacity: 0, x: 20 }}
-                                      animate={{ opacity: 1, x: 0 }}
-                                      exit={{ opacity: 0, x: -20 }}
-                                      transition={{ duration: 0.2 }}
-                                      className="absolute inset-0 rounded-2xl overflow-hidden border"
-                                      style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}
-                                  >
-                                      <ChatArea
-                                          {...chatAreaProps}
-                                          onInfoClick={() => setTabletRight('info')}
-                                          infoActive={false}
-                                          showMobileBackButton={false}
-                                      />
-                                  </motion.div>
-                              ) : (
-                                  <motion.div
-                                      key="tablet-info"
-                                      initial={{ opacity: 0, x: 20 }}
-                                      animate={{ opacity: 1, x: 0 }}
-                                      exit={{ opacity: 0, x: 20 }}
-                                      transition={{ duration: 0.2 }}
-                                      className="absolute inset-0 rounded-2xl overflow-hidden border overflow-y-auto"
-                                      style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}
-                                  >
-                                      <InfoPanel
-                                          ch={ch}
-                                          lead={lead}
-                                          showBackButton={true}
-                                          onBack={() => setTabletRight('chat')}
-                                          resolvedLeadId={resolvedLeadId}
-                                          messages={messages}
-                                          onCloseConversation={promptCloseConversation}
-                                          onConvertClick={() => setShowConvertModal(true)}
-                                          leadDetail={leadDetail}
-                                          setLeadDetail={setLeadDetail}
-                                      />
-                                  </motion.div>
-                              )}
-                          </AnimatePresence>
-                      </div>
-                  </div>
-              </div>
+                        {/* Split body */}
+                        <div className="flex flex-1 overflow-hidden">
+                            {/* Left list */}
+                            <div className="w-[320px] border-r border-[#2a1f4a]/30 flex flex-col bg-[#0b0717]/40">
+                                <div className="p-3">
+                                    <div className="flex items-center gap-2 bg-[#120d22] border border-[#2a1f4a] rounded-xl px-3 py-2">
+                                        <Search size={14} className="text-gray-400 shrink-0" />
+                                        <input
+                                            type="text" value={templateSearchQuery}
+                                            onChange={e => setTemplateSearchQuery(e.target.value)}
+                                            placeholder="Search templates..."
+                                            className="bg-transparent border-none outline-none text-white text-[12px] w-full placeholder:text-gray-500"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-1.5">
+                                    {filteredInboxTemplates.length > 0 ? filteredInboxTemplates.map(t => {
+                                        const isSelected = selectedInboxTemplate?.id === t.id;
+                                        return (
+                                            <button key={t.id} onClick={() => setSelectedInboxTemplate(t)}
+                                                className="w-full text-left p-3 rounded-xl transition-all border outline-none"
+                                                style={{ backgroundColor: isSelected ? 'rgba(124,58,237,0.12)' : 'transparent', borderColor: isSelected ? '#7c3aed' : 'transparent' }}>
+                                                <div className="font-semibold text-white text-[13px] truncate">{t.name}</div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="text-[10px] text-purple-300 bg-purple-500/15 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">{t.category}</span>
+                                                    <span className="text-[10px] text-gray-400">{t.language}</span>
+                                                </div>
+                                            </button>
+                                        );
+                                    }) : (
+                                        <div className="text-center py-8 text-gray-500 text-[12px]">No approved templates found.</div>
+                                    )}
+                                </div>
+                            </div>
 
-              {/* MOBILE LAYOUT (<768px) */}
-              <div className="flex md:hidden flex-col flex-1 overflow-hidden">
-                  <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
-                      <ChannelTabs ch={ch} setCh={setCh} />
-                  </div>
+                            {/* Right preview */}
+                            <div className="flex-1 flex flex-col bg-[#0b081c]/10 overflow-y-auto p-6">
+                                {selectedInboxTemplate ? (
+                                    <div className="flex-1 flex flex-col gap-5">
+                                        <div className="flex justify-between items-center bg-[#150f28] border border-[#2a1f4a]/50 p-3 rounded-xl">
+                                            <div>
+                                                <div className="text-xs text-gray-400">Template Name</div>
+                                                <div className="text-sm font-semibold text-white">{selectedInboxTemplate.name}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-xs text-gray-400">Language</div>
+                                                <div className="text-sm font-semibold text-purple-300">{selectedInboxTemplate.language}</div>
+                                            </div>
+                                        </div>
 
-                  <div className="flex flex-1 overflow-hidden relative">
-                      <AnimatePresence mode="wait">
-                          {mobileView === 'list' && (
-                              <motion.div
-                                  key="mobile-list"
-                                  initial={{ opacity: 0, x: -20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  exit={{ opacity: 0, x: -20 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="absolute inset-0"
-                                  style={{ backgroundColor: CARD_BG }}
-                              >
-                                  <ConversationSidebar
-                                      ch={ch}
-                                      conversations={conversations}
-                                      lead={lead}
-                                      activeFilter={activeFilter}
-                                      onFilterChange={setActiveFilter}
-                                      onLeadSelect={handleLeadSelectMobile}
-                                  />
-                              </motion.div>
-                          )}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Preview</div>
+                                            <div className="bg-[#100b21] border border-[#251d3b] p-4 rounded-2xl max-w-md">
+                                                {selectedInboxTemplate.header && (
+                                                    <div className="font-bold text-white text-[13px] mb-1">{selectedInboxTemplate.header}</div>
+                                                )}
+                                                <div className="text-[13px] text-white/90 whitespace-pre-wrap leading-relaxed">
+                                                    {getInboxTemplatePreviewText()}
+                                                </div>
+                                                {selectedInboxTemplate.footer && (
+                                                    <div className="text-[11px] text-gray-400 mt-2">{selectedInboxTemplate.footer}</div>
+                                                )}
+                                            </div>
+                                        </div>
 
-                          {mobileView === 'chat' && (
-                              <motion.div
-                                  key="mobile-chat"
-                                  initial={{ opacity: 0, x: 20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  exit={{ opacity: 0, x: 20 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="absolute inset-0 flex flex-col"
-                                  style={{ backgroundColor: CARD_BG }}
-                              >
-                                  <ChatArea
-                                      {...chatAreaProps}
-                                      onInfoClick={() => setMobileView('info')}
-                                      infoActive={false}
-                                      showMobileBackButton={true}
-                                      onBackToList={() => setMobileView('list')}
-                                  />
-                              </motion.div>
-                          )}
+                                        {Object.keys(inboxTemplateVariables).length > 0 && (
+                                            <div className="flex flex-col gap-3">
+                                                <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Variables</div>
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {Object.keys(inboxTemplateVariables).sort((a, b) => Number(a) - Number(b)).map(key => (
+                                                        <div key={key} className="flex flex-col gap-1">
+                                                            <label className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">Variable {`{{${key}}}`}</label>
+                                                            <input
+                                                                type="text" value={inboxTemplateVariables[key]}
+                                                                onChange={e => setInboxTemplateVariables(prev => ({ ...prev, [key]: e.target.value }))}
+                                                                placeholder={`Enter value for {{${key}}}`}
+                                                                className="w-full px-3 py-2 rounded-lg border border-[#2a1f4a] bg-[#120d22] text-white text-[13px] outline-none focus:border-[#7c3aed]"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-center text-gray-500">
+                                        <FileText size={42} className="text-gray-600 mb-3" />
+                                        <p className="text-[13px]">Select a template from the list to preview and configure.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
-                          {mobileView === 'info' && lead && (
-                              <motion.div
-                                  key="mobile-info"
-                                  initial={{ opacity: 0, x: 20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  exit={{ opacity: 0, x: 20 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="absolute inset-0 overflow-y-auto"
-                                  style={{ backgroundColor: CARD_BG }}
-                              >
-                                  <InfoPanel
-                                      ch={ch}
-                                      lead={lead}
-                                      showBackButton={true}
-                                      onBack={() => setMobileView('chat')}
-                                      resolvedLeadId={resolvedLeadId}
-                                      messages={messages}
-                                      onCloseConversation={promptCloseConversation}
-                                      onConvertClick={() => setShowConvertModal(true)}
-                                      leadDetail={leadDetail}
-                                      setLeadDetail={setLeadDetail}
-                                  />
-                              </motion.div>
-                          )}
-                      </AnimatePresence>
-                  </div>
-              </div>
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-[#2a1f4a]/50 flex justify-end gap-3 bg-[#0d091e]">
+                            <button onClick={() => setShowTemplateSelect(false)}
+                                className="px-5 py-2.5 rounded-xl border border-[#2a1f4a] bg-transparent text-white text-[13px] font-semibold hover:bg-white/5">
+                                Cancel
+                            </button>
+                            <button onClick={handleApplyInboxTemplate} disabled={!selectedInboxTemplate}
+                                className="px-5 py-2.5 rounded-xl border-none text-white text-[13px] font-bold transition-all disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', boxShadow: selectedInboxTemplate ? '0 2px 14px rgba(129,74,200,0.45)' : 'none' }}>
+                                Apply Template
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
 
-              {showConvertModal && (
-                  <ConvertLeadModal
-                      isOpen={showConvertModal}
-                      onClose={() => setShowConvertModal(false)}
-                      conversation={lead}
-                      onSuccess={handleConvertSuccess}
-                  />
-              )}
+            {/* ── Modals ── */}
+            {showConvertModal && (
+                <ConvertLeadModal
+                    isOpen={showConvertModal}
+                    onClose={() => setShowConvertModal(false)}
+                    conversation={lead}
+                    onSuccess={handleConvertSuccess}
+                />
+            )}
 
-              <CloseConversationModal
-                  isOpen={showCloseModal}
-                  onClose={() => { setShowCloseModal(false); setCloseTargetId(null); }}
-                  onConfirm={handleConfirmClose}
-                  loading={closingConversation}
-              />
+            <CloseConversationModal
+                isOpen={showCloseModal}
+                onClose={() => { setShowCloseModal(false); setCloseTargetId(null); }}
+                onConfirm={handleConfirmClose}
+                loading={closingConversation}
+            />
 
-              <style>{`
-                  .no-scrollbar::-webkit-scrollbar { display: none; }
-                  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-              `}</style>
-          </div>
-      );
-  }
+            <style>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+        </div>
+    );
+}
 
-  export default function InboxPage() {
-      return (
-          <Suspense fallback={<div className="h-screen flex items-center justify-center text-zinc-500">Loading Inbox...</div>}>
-              <InboxContent />
-          </Suspense>
-      );
-  }
+export default function InboxPage() {
+    return (
+        <Suspense fallback={<div className="h-screen bg-[#0d0d0d] flex items-center justify-center text-white/70">Loading Inbox...</div>}>
+            <InboxContent />
+        </Suspense>
+    );
+}

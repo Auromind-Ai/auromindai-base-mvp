@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { Poppins } from "next/font/google";
 import { Zap, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { isAuthenticated } from '@/lib/auth';
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -13,6 +14,12 @@ const poppins = Poppins({
 const NavigationSection = () => {
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isLogged, setIsLogged] = useState(false);
+
+  useEffect(() => {
+    setIsLogged(isAuthenticated());
+  }, []);
+
   return (
     <nav
       className={`${poppins.className} fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-md border-b border-white/10 py-3 sm:py-4 px-4 sm:px-6`}
@@ -39,7 +46,7 @@ const NavigationSection = () => {
             <div className="absolute left-0 top-[calc(100%+18px)] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[420px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
               <div className="grid grid-cols-2 gap-3">
                 <Link
-                  href="#ai-brain"
+                  href="/product/ai-brain"
                   className="rounded-2xl p-4 hover:bg-white/5 transition"
                 >
                   <p className="text-white font-semibold text-sm">AI Brain</p>
@@ -49,7 +56,7 @@ const NavigationSection = () => {
                 </Link>
 
                 <Link
-                  href="#wires"
+                  href="/product/wires"
                   className="rounded-2xl p-4 hover:bg-white/5 transition"
                 >
                   <p className="text-white font-semibold text-sm">Wires</p>
@@ -59,7 +66,7 @@ const NavigationSection = () => {
                 </Link>
 
                 <Link
-                  href="#inbox"
+                  href="/product/inbox"
                   className="rounded-2xl p-4 hover:bg-white/5 transition"
                 >
                   <p className="text-white font-semibold text-sm">
@@ -71,7 +78,7 @@ const NavigationSection = () => {
                 </Link>
 
                 <Link
-                  href="#whatsapp"
+                  href="/product/whatsapp"
                   className="rounded-2xl p-4 hover:bg-white/5 transition"
                 >
                   <p className="text-white font-semibold text-sm">
@@ -91,7 +98,7 @@ const NavigationSection = () => {
               Solutions
             </button>
 
-            <div className="absolute left-1/2 top-[calc(100%+18px)] -translate-x-1/2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[700px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+            <div className="absolute left-[-180px] top-[calc(100%+18px)] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[700px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
               <div className="grid grid-cols-3 gap-6">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-white/40 mb-4">
@@ -100,7 +107,7 @@ const NavigationSection = () => {
 
                   <div className="space-y-2">
                     <Link
-                      href="#lead-qualification"
+                      href="/solutions/lead-qualification"
                       className="block rounded-2xl p-3 hover:bg-white/5 transition"
                     >
                       <p className="text-sm font-medium text-white">
@@ -112,7 +119,7 @@ const NavigationSection = () => {
                     </Link>
 
                     <Link
-                      href="#sales-automation"
+                      href="/solutions/sales-automation"
                       className="block rounded-2xl p-3 hover:bg-white/5 transition"
                     >
                       <p className="text-sm font-medium text-white">
@@ -124,7 +131,7 @@ const NavigationSection = () => {
                     </Link>
 
                     <Link
-                      href="#high-ticket"
+                      href="/solutions/high-ticket"
                       className="block rounded-2xl p-3 hover:bg-white/5 transition"
                     >
                       <p className="text-sm font-medium text-white">
@@ -144,28 +151,28 @@ const NavigationSection = () => {
 
                   <div className="space-y-2">
                     <Link
-                      href="#real-estate"
+                      href="/solutions/real-estate"
                       className="block rounded-2xl p-3 hover:bg-white/5 transition text-sm text-white"
                     >
                       Real Estate
                     </Link>
 
                     <Link
-                      href="#education"
+                      href="/solutions/education"
                       className="block rounded-2xl p-3 hover:bg-white/5 transition text-sm text-white"
                     >
                       Education
                     </Link>
 
                     <Link
-                      href="#ecommerce"
+                      href="/solutions/ecommerce"
                       className="block rounded-2xl p-3 hover:bg-white/5 transition text-sm text-white"
                     >
                       Ecommerce
                     </Link>
 
                     <Link
-                      href="#saas"
+                      href="/solutions/saas"
                       className="block rounded-2xl p-3 hover:bg-white/5 transition text-sm text-white"
                     >
                       SaaS
@@ -214,44 +221,42 @@ const NavigationSection = () => {
               Resources
             </button>
 
-            <div className="absolute left-1/2 top-[calc(100%+18px)] -translate-x-1/2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[340px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-              <div className="space-y-1">
-               
-
-                <button className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
+            <div className="absolute left-[-100px] top-[calc(100%+18px)] invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 w-[340px] rounded-3xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl p-3 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+              <div className="space-y-1 text-left">
+                <Link href="/resources/case-studies" className="block w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
                   <p className="text-sm font-medium text-white">Case Studies</p>
                   <p className="text-xs text-white/50 mt-1">
                     Real business success stories
                   </p>
-                </button>
+                </Link>
 
-                <button className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
+                <Link href="/resources/demo-videos" className="block w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
                   <p className="text-sm font-medium text-white">Demo Videos</p>
                   <p className="text-xs text-white/50 mt-1">
                     Product walkthroughs & tutorials
                   </p>
-                </button>
+                </Link>
 
-                <button className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
+                <Link href="/resources/blog" className="block w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
                   <p className="text-sm font-medium text-white">Blog</p>
                   <p className="text-xs text-white/50 mt-1">
                     AI sales & WhatsApp marketing tips
                   </p>
-                </button>
+                </Link>
 
-                <button className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
+                <Link href="/resources/docs" className="block w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
                   <p className="text-sm font-medium text-white">Documentation</p>
                   <p className="text-xs text-white/50 mt-1">
                     API docs & setup guides
                   </p>
-                </button>
+                </Link>
 
-                <button className="w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
+                <Link href="/resources/help" className="block w-full rounded-2xl px-4 py-3 text-left hover:bg-white/5 transition">
                   <p className="text-sm font-medium text-white">Help Center</p>
                   <p className="text-xs text-white/50 mt-1">
                     FAQs & troubleshooting
                   </p>
-                </button>
+                </Link>
               </div>
             </div>
           </div>
@@ -260,28 +265,39 @@ const NavigationSection = () => {
 
         <div className="flex items-center gap-3 sm:gap-6">
           
-          <Link
-            href="/login"
-            className="text-[15px] font-medium text-white/90 transition-colors hover:text-white"
-          >  
-            Sign In
-          </Link>
+          {isLogged ? (
+            <Link
+              href="/user/admin/dashboard"
+              className="group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="text-[15px] font-medium text-white/90 transition-colors hover:text-white"
+              >  
+                Log In
+              </Link>
 
-          <button className="group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
-  <span className="flex items-center justify-center gap-2">
-    
-    {/* Text slide */}
-    <span className="relative overflow-hidden h-[1.2em] flex items-center">
-      <span className="block translate-y-0 group-hover:-translate-y-full transition-transform duration-300 ease-in-out">
-        Get Started
-      </span>
-      <span className="absolute inset-0 flex items-center translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
-        Get Started
-      </span>
-    </span>
+              <Link href="/signup" className="group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
+                <span className="flex items-center justify-center gap-2">
+                  
+                  {/* Text slide */}
+                  <span className="relative overflow-hidden h-[1.2em] flex items-center">
+                    <span className="block translate-y-0 group-hover:-translate-y-full transition-transform duration-300 ease-in-out">
+                      Get Started Free
+                    </span>
+                    <span className="absolute inset-0 flex items-center translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
+                      Get Started Free
+                    </span>
+                  </span>
 
-  </span>
-</button>
+                </span>
+              </Link>
+            </>
+          )}
 
           <button
             onClick={() => setMenuOpen(!menuOpen)}

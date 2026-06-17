@@ -50,3 +50,5 @@ timezonefinder==8.2.1
 torch
 twilio==9.10.2
 uvicorn[standard]==0.34.0
+pyotp
+qrcode[pil]

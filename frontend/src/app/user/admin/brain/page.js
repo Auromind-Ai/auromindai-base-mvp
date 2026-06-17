@@ -155,7 +155,7 @@ export default function BrainPage() {
 
     if (!workspaceId) {
         return (
-            <div className="max-w-5xl mx-auto p-8 text-center">
+            <div className="max-w-5xl mx-auto p-8 text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
                 <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
                 <h2 className="text-xl font-bold text-[#D4D4D4] mb-2">No Workspace Selected</h2>
                 <p className="text-[#9b9b9b]">Please log in to access the Brain.</p>
@@ -164,7 +164,13 @@ export default function BrainPage() {
     }
 
     return (
-        <div className="w-full bg-[#07070a] min-h-screen pt-6 md:pt-10 lg:pt-12 pb-6">
+        <>
+            {/* ── 1. Poppins font import ── */}
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+            `}</style>
+
+        <div className="w-full bg-[#07070a] min-h-screen pt-6 md:pt-10 lg:pt-12 pb-6" style={{ fontFamily: "'Poppins', sans-serif" }}>
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-8 space-y-6">
             {/* Notifications */}
             {success && (
@@ -280,107 +286,129 @@ export default function BrainPage() {
 
             {/* Upload Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-                {/* Document Upload */}
-                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#0b0b0b] hover:border-indigo-500/50">
 
-            {/* Blue corner glow */}
-            <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                    background: "radial-gradient(400px circle at 100% 0%, rgba(59,130,246,0.25), transparent 60%)"
-                }}
-            />
+                {/* ── Document Upload card — gradient changed to #814AC8 ── */}
+                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#0b0b0b] hover:border-[#814AC8]/50">
 
-            <div className="relative">
-                    {currentEntryId && (
-                    <div className="mb-4 flex justify-center">
-                      <FileProgress 
-                      entryId={currentEntryId} 
-                      onDone={() => setCurrentEntryId(null)}
-                      />
-                     </div>
-                        )}
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.csv"
-                        className="hidden"
-                        disabled={uploading}
+                    {/* ── 3. Purple corner glow ── */}
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            background: "radial-gradient(400px circle at 100% 0%, rgba(129,74,200,0.30), transparent 60%)"
+                        }}
                     />
-                    <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 mx-auto mb-3 border border-indigo-500/20 group-hover:scale-110 transition-transform">
-                        {uploading ? <Loader2 size={24} className="animate-spin" /> : <Upload size={24} />}
+
+                    <div className="relative">
+                        {currentEntryId && (
+                        <div className="mb-4 flex justify-center">
+                          <FileProgress 
+                          entryId={currentEntryId} 
+                          onDone={() => setCurrentEntryId(null)}
+                          />
+                         </div>
+                        )}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileUpload}
+                            accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.csv"
+                            className="hidden"
+                            disabled={uploading}
+                        />
+                        <div className="w-12 h-12 rounded-full bg-[#814AC8]/10 flex items-center justify-center text-[#814AC8] mx-auto mb-3 border border-[#814AC8]/20 group-hover:scale-110 transition-transform">
+                            {uploading ? <Loader2 size={24} className="animate-spin" /> : <Upload size={24} />}
+                        </div>
+                        <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Upload Documents</h3>
+                        <p className="text-sm text-[#787878] font-medium mb-4">PDF, Excel, CSV, DOCX, or TXT (max 10MB)</p>
+
+                        {/* ── 2. Button bg → #814AC8 ── */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="px-6 py-2 text-white text-xs font-regular rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                            style={{
+                                backgroundColor: '#814AC8',
+                                boxShadow: '0 4px 14px rgba(129,74,200,0.30)',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#9B6ED8'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#814AC8'}
+                        >
+                            {uploading ? 'Uploading...' : 'Browse Files'}
+                        </button>
                     </div>
-                    <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Upload Documents</h3>
-                    <p className="text-sm text-[#787878] font-medium mb-4">PDF, Excel, CSV, DOCX, or TXT (max 10MB)</p>
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50"
-                    >
-                        {uploading ? 'Uploading...' : 'Browse Files'}
-                    </button>
-                </div>
                 </div>
 
-                {/* Website Sync */}
+                {/* ── Website Sync card — gradient changed to #814AC8 ── */}
                 <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#0b0b0b]">
 
-                <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                        background: "radial-gradient(400px circle at 100% 0%, rgba(59,130,246,0.25), transparent 60%)"
-                    }}
-                />
+                    {/* ── 3. Purple corner glow ── */}
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            background: "radial-gradient(400px circle at 100% 0%, rgba(129,74,200,0.30), transparent 60%)"
+                        }}
+                    />
 
-                <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 mx-auto mb-3 border border-emerald-500/20 group-hover:scale-110 transition-transform">
-                        {(syncing || crawling) ? <Loader2 size={24} className="animate-spin" /> : <Globe size={24} />}
-                    </div>
-                    <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Sync Your Website</h3>
-                    <p className="text-sm text-[#787878] font-medium mb-4">Index your entire website into the AI Brain</p>
-                    <div className="flex flex-col gap-3 max-w-sm mx-auto">
-                        <input
-                            type="text"
-                            placeholder="https://yourcompany.com"
-                            value={urlInput}
-                            onChange={(e) => setUrlInput(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all font-medium"
-                            disabled={syncing || crawling}
-                        />
-                        <div className="flex flex-col lg:flex-row gap-2">
-                            <button
-                                onClick={handleUrlSync}
-                                disabled={syncing || crawling || !urlInput.trim()}
-                                className="flex-1 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-[#D4D4D4] text-xs font-bold rounded-xl transition-all border border-[#3f3f3f] active:scale-95 disabled:opacity-50"
-                                title="Sync single page only"
-                            >
-                                {syncing ? 'Syncing...' : 'Single Page'}
-                            </button>
-                            <button
-                                onClick={handleWebsiteCrawl}
-                                disabled={syncing || crawling || !urlInput.trim()}
-                                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {crawling ? (
-                                    <>
-                                        <Loader2 size={12} className="animate-spin" />
-                                        Crawling...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Globe size={12} />
-                                        Entire Website
-                                    </>
-                                )}
-                            </button>
+                    <div className="relative">
+                        <div className="w-12 h-12 rounded-full bg-[#814AC8]/10 flex items-center justify-center text-[#814AC8] mx-auto mb-3 border border-[#814AC8]/20 group-hover:scale-110 transition-transform">
+                            {(syncing || crawling) ? <Loader2 size={24} className="animate-spin" /> : <Globe size={24} />}
                         </div>
-                        <p className="text-[10px] text-[#565656]">
-                            &quot;Entire Website&quot; crawls all pages (blogs, products, FAQs, etc.)
-                        </p>
+                        <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Sync Your Website</h3>
+                        <p className="text-sm text-[#787878] font-medium mb-4">Index your entire website into the AI Brain</p>
+                        <div className="flex flex-col gap-3 max-w-sm mx-auto">
+                            <input
+                                type="text"
+                                placeholder="https://yourcompany.com"
+                                value={urlInput}
+                                onChange={(e) => setUrlInput(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none transition-all font-medium"
+                                style={{ '--tw-ring-color': 'rgba(129,74,200,0.5)' }}
+                                onFocus={e => e.currentTarget.style.borderColor = 'rgba(129,74,200,0.5)'}
+                                onBlur={e => e.currentTarget.style.borderColor = ''}
+                                disabled={syncing || crawling}
+                            />
+                            <div className="flex flex-col lg:flex-row gap-2">
+                                {/* Single Page — kept as subtle dark button */}
+                                <button
+                                    onClick={handleUrlSync}
+                                    disabled={syncing || crawling || !urlInput.trim()}
+                                    className="flex-1 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-[#D4D4D4] text-xs font-regular rounded-xl transition-all border border-[#3f3f3f] active:scale-95 disabled:opacity-50"
+                                    title="Sync single page only"
+                                >
+                                    {syncing ? 'Syncing...' : 'Single Page'}
+                                </button>
+
+                                {/* ── 2. Entire Website button → #814AC8 ── */}
+                                <button
+                                    onClick={handleWebsiteCrawl}
+                                    disabled={syncing || crawling || !urlInput.trim()}
+                                    className="flex-1 px-4 py-2 text-white text-xs font-regular rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    style={{
+                                        backgroundColor: '#814AC8',
+                                        boxShadow: '0 4px 14px rgba(129,74,200,0.30)',
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#9B6ED8'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#814AC8'}
+                                >
+                                    {crawling ? (
+                                        <>
+                                            <Loader2 size={12} className="animate-spin" />
+                                            Crawling...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Globe size={12} />
+                                            Entire Website
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-white/60">
+                                &quot;Entire Website&quot; crawls all pages (blogs, products, FAQs, etc.)
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
             </div>
 
 
@@ -397,13 +425,24 @@ export default function BrainPage() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="w-full pl-10 pr-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-medium"
+                            className="w-full pl-10 pr-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none transition-all font-medium"
+                            onFocus={e => e.currentTarget.style.borderColor = 'rgba(129,74,200,0.5)'}
+                            onBlur={e => e.currentTarget.style.borderColor = ''}
                         />
                     </div>
+
+                    {/* ── 2. Search button → #814AC8 ── */}
                     <button
                         onClick={handleSearch}
                         disabled={searching || !searchQuery.trim()}
-                        className="w-full lg:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
+                        className="w-full lg:w-auto px-6 py-2.5 text-white text-xs font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                        style={{
+                            backgroundColor: '#814AC8',
+                            boxShadow: '0 4px 14px rgba(129,74,200,0.30)',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#9B6ED8'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#814AC8'}
+                    >
                         {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                         Search
                     </button>
@@ -427,7 +466,7 @@ export default function BrainPage() {
                             {searchResults.results?.map((result, i) => (
                                 <div key={result.id || i} className="bg-[#191919] rounded-lg p-3 border border-[var(--notion-border)]">
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-bold text-indigo-400">{result.title}</span>
+                                        <span className="text-xs font-bold text-[#814AC8]">{result.title}</span>
                                         <span className="text-[10px] font-bold text-[#565656] bg-[#252525] px-2 py-0.5 rounded">
                                             {(result.score * 100).toFixed(0)}% match
                                         </span>
@@ -453,21 +492,21 @@ export default function BrainPage() {
 
                 {loading ? (
                     <div className="p-8 text-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mx-auto mb-2" />
+                        <Loader2 className="w-8 h-8 animate-spin text-[#814AC8] mx-auto mb-2" />
                         <p className="text-sm text-[#787878]">Loading knowledge base...</p>
                     </div>
                 ) : entries.length === 0 ? (
                     <div className="p-8 text-center">
                         <Brain className="w-12 h-12 text-[#3f3f3f] mx-auto mb-3" />
                         <p className="text-sm text-[#787878] font-medium">No knowledge indexed yet.</p>
-                        <p className="text-xs text-[#565656] mt-1">Upload documents or sync URLs to get started.</p>
+                        <p className="text-xs text-white/60 mt-1">Upload documents or sync URLs to get started.</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-[#2f2f2f]">
                         {entries.map((item) => (
                             <div key={item.id} className="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 hover:bg-[#252525] transition-all group">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-[#2c2c2c] border border-[#3f3f3f] flex items-center justify-center text-[#787878] group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all shadow-sm">
+                                    <div className="w-10 h-10 rounded-xl bg-[#2c2c2c] border border-[#3f3f3f] flex items-center justify-center text-[#787878] group-hover:text-[#814AC8] group-hover:border-[#814AC8]/30 transition-all shadow-sm">
                                         {item.content_type === 'url' ? <Link size={18} /> : <FileText size={18} />}
                                     </div>
                                     <div>
@@ -497,5 +536,6 @@ export default function BrainPage() {
             </div>
         </div>
         </div>
+        </>
     );
 }

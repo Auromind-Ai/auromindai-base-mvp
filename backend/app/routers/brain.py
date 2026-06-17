@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from app.routers.auth import get_current_user
 from sqlalchemy.orm import Session
@@ -29,6 +30,7 @@ async def ingest_document(
     region: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
     cultural_context: Optional[str] = Form(None),
+    collection: Optional[str] = Form("general"),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -60,6 +62,12 @@ async def ingest_document(
 
         file_size = os.path.getsize(temp_file_path)
 
+        metadata_for_worker = {}
+        if region: metadata_for_worker["region"] = region
+        if language: metadata_for_worker["language"] = language
+        if cultural_context: metadata_for_worker["cultural_context"] = cultural_context
+        metadata_for_worker["collection"] = collection or "general"
+
         new_entry = BrainEntry(
             id=entry_id,
             workspace_id=workspace_id,
@@ -67,15 +75,159 @@ async def ingest_document(
             content="Processing...",
             content_type=file_ext.replace(".", ""),
             status="pending",
-            embedding=None
+            embedding=None,
+            metadata_json=json.dumps(metadata_for_worker)
         )
         db.add(new_entry)
         db.commit()
 
-        metadata_for_worker = {}
-        if region: metadata_for_worker["region"] = region
-        if language: metadata_for_worker["language"] = language
-        if cultural_context: metadata_for_worker["cultural_context"] = cultural_context
+        
+
+        background_tasks.add_task(
+            process_document_background,
+            entry_id=entry_id,
+            workspace_id=workspace_id,
+            file_path=temp_file_path,
+            original_filename=file.filename,
+            content_type=file_ext.replace(".", ""),
+            file_size=file_size,
+            metadata=metadata_for_worker
+        )
+
+        return {
+            "status": "pending",
+            "entry_id": entry_id,
+            "title": file.filename,
+            "message": "File upload accepted. Processing in background.",
+            "original_filename": file.filename,
+            "chunks_created": 0
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Document ingestion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+@router.post("/ingest/sales_document", response_model=IngestResponse)
+async def ingest_sales_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    workspace_id = verify_workspace_access(current_user, db)
+
+    try:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
+        allowed_extensions = {".pdf", ".docx", ".doc", ".txt", ".md", ".png", ".jpg", ".jpeg", ".webp", ".xlsx", ".xls", ".csv"}
+        file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+
+        entry_id = str(uuid.uuid4())
+        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
+
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        file_size = os.path.getsize(temp_file_path)
+
+        metadata_for_worker = {"collection": "sales"}
+
+        new_entry = BrainEntry(
+            id=entry_id,
+            workspace_id=workspace_id,
+            title=file.filename,
+            content="Processing...",
+            content_type=file_ext.replace(".", ""),
+            status="pending",
+            embedding=None,
+            metadata_json=json.dumps(metadata_for_worker)
+        )
+        db.add(new_entry)
+        db.commit()
+
+        background_tasks.add_task(
+            process_document_background,
+            entry_id=entry_id,
+            workspace_id=workspace_id,
+            file_path=temp_file_path,
+            original_filename=file.filename,
+            content_type=file_ext.replace(".", ""),
+            file_size=file_size,
+            metadata=metadata_for_worker
+        )
+
+        return {
+            "status": "pending",
+            "entry_id": entry_id,
+            "title": file.filename,
+            "message": "File upload accepted. Processing in background.",
+            "original_filename": file.filename,
+            "chunks_created": 0
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Document ingestion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+@router.post("/ingest/support_document", response_model=IngestResponse)
+async def ingest_support_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    workspace_id = verify_workspace_access(current_user, db)
+
+    try:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
+        allowed_extensions = {".pdf", ".docx", ".doc", ".txt", ".md", ".png", ".jpg", ".jpeg", ".webp", ".xlsx", ".xls", ".csv"}
+        file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+
+        entry_id = str(uuid.uuid4())
+        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
+
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        file_size = os.path.getsize(temp_file_path)
+
+        metadata_for_worker = {"collection": "support"}
+
+        new_entry = BrainEntry(
+            id=entry_id,
+            workspace_id=workspace_id,
+            title=file.filename,
+            content="Processing...",
+            content_type=file_ext.replace(".", ""),
+            status="pending",
+            embedding=None,
+            metadata_json=json.dumps(metadata_for_worker)
+        )
+        db.add(new_entry)
+        db.commit()
 
         background_tasks.add_task(
             process_document_background,
@@ -104,6 +256,7 @@ async def ingest_document(
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
+
 @router.post("/ingest/url", response_model=IngestResponse)
 async def ingest_url(
     request: IngestURLRequest,
@@ -122,6 +275,7 @@ async def ingest_url(
         if request.region: ingestion_metadata["region"] = request.region
         if request.language: ingestion_metadata["language"] = request.language
         if request.cultural_context: ingestion_metadata["cultural_context"] = request.cultural_context
+        ingestion_metadata["collection"] = request.collection or "general"
 
         rag = get_rag_service()
         result = rag.ingest_document(
@@ -185,6 +339,7 @@ async def ingest_text(
         if request.region: ingestion_metadata["region"] = request.region
         if request.language: ingestion_metadata["language"] = request.language
         if request.cultural_context: ingestion_metadata["cultural_context"] = request.cultural_context
+        ingestion_metadata["collection"] = request.collection or "general"
 
         rag = get_rag_service()
         result = rag.ingest_document(
@@ -237,6 +392,7 @@ async def crawl_website(
         if request.region: base_metadata["region"] = request.region
         if request.language: base_metadata["language"] = request.language
         if request.cultural_context: base_metadata["cultural_context"] = request.cultural_context
+        base_metadata["collection"] = request.collection or "general"
 
         for page in pages:
             try:

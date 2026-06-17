@@ -1,5 +1,12 @@
+// particlePhysics.js
+// Per-frame update for a single particle:
+//   1. Compute depth-based radius and opacity from warped Z position
+//   2. Apply mouse repulsion impulse
+//   3. Spring the screen position toward the projected target
+//
+// All positional arguments are in screen pixels unless noted.
 
-//  Physics constants ─
+// ── Physics constants ─────────────────────────────────────────────────────
 const REPEL_R   = 92;   // mouse repulsion radius in px
 const REPEL_STR = 12;   // repulsion force magnitude
 const SPRING_K  = 0.13; // spring constant: fraction of gap closed per frame
@@ -25,7 +32,7 @@ export function computeVisuals(wz, warpAmt, baseR, radius) {
 }
 
 export function updateParticle(p, targetX, targetY, mouse) {
-  //  Mouse repulsion 
+  // ── Mouse repulsion ──────────────────────────────────────────────────────
   if (mouse.on) {
     const dxM   = p.sx - mouse.x;
     const dyM   = p.sy - mouse.y;
@@ -37,15 +44,15 @@ export function updateParticle(p, targetX, targetY, mouse) {
     }
   }
 
-  //  Spring toward projected target 
+  // ── Spring toward projected target ──────────────────────────────────────
   p.vx += (targetX - p.sx) * SPRING_K;
   p.vy += (targetY - p.sy) * SPRING_K;
 
-  //  Damping─
+  // ── Damping ──────────────────────────────────────────────────────────────
   p.vx *= DAMPING;
   p.vy *= DAMPING;
 
-  //  Integrate 
+  // ── Integrate ────────────────────────────────────────────────────────────
   p.sx += p.vx;
   p.sy += p.vy;
 }

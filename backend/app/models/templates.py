@@ -27,6 +27,10 @@ class Template(Base):
     language = Column(String, default="en")
 
     content = Column(Text, nullable=False)  # main message body
+    header = Column(String, nullable=True)
+    footer = Column(String, nullable=True)
+    cta = Column(String, nullable=True)
+    cta_btn_title = Column(String, nullable=True)
 
     status = Column(String, default="draft")  
     # draft / pending / approved / rejected

@@ -135,7 +135,7 @@ const SOURCE_OPTIONS = [
 ];
 // ── Page ───
 export default function AuromindAIPage() {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const API_URL = '/api';
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);

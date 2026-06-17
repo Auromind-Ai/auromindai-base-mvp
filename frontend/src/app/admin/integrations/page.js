@@ -1,31 +1,38 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { Plug, RefreshCw } from 'lucide-react'
 
 export default function IntegrationsPage() {
+  const params = useParams()
+  const adminPath = params?.admin_path || 'x7k2-admin-9pqm'
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   const fetchData = useCallback(async () => {
-  try {
-    setLoading(true)
-    const response = await fetch('/api/admin/integrations')
-    if (!response.ok) throw new Error('Failed to fetch integrations')
-    const result = await response.json()
-    setData(result)
-  } catch (err) {
-    setError(err.message)
-  } finally {
-    setLoading(false)
-  }
-}, [])
+    try {
+      const response = await fetch(`/api/${adminPath}/integrations`)
+      if (!response.ok) throw new Error('Failed to fetch integrations')
+      const result = await response.json()
+      setData(result)
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [adminPath])
 
-useEffect(() => {
-  fetchData()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [fetchData])
+  const handleRefresh = () => {
+    setLoading(true)
+    fetchData()
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   if (loading) {
     return (
@@ -42,7 +49,7 @@ useEffect(() => {
     return (
       <div className="min-h-screen bg-[#050505] text-white p-6">
         <div className="text-red-500">Error: {error}</div>
-        <button onClick={fetchData} className="mt-4 px-4 py-2 bg-indigo-600 rounded">
+        <button onClick={handleRefresh} className="mt-4 px-4 py-2 bg-indigo-600 rounded">
           Retry
         </button>
       </div>

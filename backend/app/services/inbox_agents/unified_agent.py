@@ -49,6 +49,7 @@ class UnifiedAgent:
                 conversation_id=conversation_id
             ) if self.memory else None
             lead_fields = context.get("lead_fields", [])
+            
             if isinstance(lead_fields, str):
                 lead_fields = [
                     field.strip()
@@ -59,6 +60,7 @@ class UnifiedAgent:
                 f"lead_fields={lead_fields} "
                 f"type={type(lead_fields)}"
             )
+            
             calendar_enabled = context.get("calendar_enabled", False)
             payment_enabled = context.get("payment_enabled", False)
 
@@ -92,10 +94,17 @@ class UnifiedAgent:
             rag_answer = ""
             if agent_type in ["sales_agent", "support_agent"]:
                 try:
+                    entry_ids = context.get("entry_ids", [])
+                    source = "vector_db" if agent_type == "sales_agent" else "internal_web"
+                    collection_name = "support" if agent_type == "support_agent" else "general"
+
                     rag_response = await self.rag.agent_loop(
                         db=db,
                         workspace_id=workspace_id,
-                        query=message
+                        query=message,
+                        source=source,
+                        entry_ids=entry_ids if entry_ids else None,
+                        collection=collection_name
                     )
                     if (
                         rag_response and
@@ -155,15 +164,6 @@ class UnifiedAgent:
                     calendar_enabled=calendar_enabled,
                 )
 
-            elif agent_type == "sales_agent":
-                prompt = self._build_sales_prompt(
-                    message=message,
-                    rag_answer=rag_answer,
-                    history_text=history_text,
-                    business_type=context.get("business_type", "general"),
-                    payment_enabled=payment_enabled,
-                )
-
             elif agent_type == "support_agent":
                 prompt = self._build_support_prompt(
                     message=message,
@@ -213,15 +213,14 @@ class UnifiedAgent:
 
             # Determine if we should send the deterministic thank you message and escalate immediately
             should_override_thankyou = False
-            if is_completed_now:
-                if not calendar_enabled:
-                    
-                    should_override_thankyou = True
-                else:
-                    #
-                    llm_action = result.get("action") if result else None
-                    if llm_action == "lead_complete":
+            if agent_type in ["lead_agent", "greeting_agent"]:
+                if is_completed_now:
+                    if not calendar_enabled:
                         should_override_thankyou = True
+                    else:
+                        llm_action = result.get("action") if result else None
+                        if llm_action == "lead_complete":
+                            should_override_thankyou = True
 
             if should_override_thankyou:
                 result = {
@@ -238,6 +237,11 @@ class UnifiedAgent:
                     "escalate": True
                 }
                 self.logger.info("Deterministic completion override triggered.")
+
+            if payment_enabled and result.get("action") in ["book_demo", "lead_complete"]:
+                payment_link = context.get("payment_link")
+                if payment_link:
+                    result["response"] = f'{result.get("response", "")}\n\nYou can proceed with your payment here: {payment_link}'
 
             self.logger.info("UnifiedAgent generated response successfully", extra={"stage": result.get("stage")})
             return result
@@ -292,6 +296,7 @@ class UnifiedAgent:
             2. If the user agrees to the demo or is scheduling it:
             - Check if they provided the meeting_date, meeting_time, or timezone.
             - If any of these are missing, ask for them one at a time.
+            - When asking for the timezone, ALWAYS suggest a few common options to the user (e.g., "What is your timezone? For example: IST, EST, UTC, PST").
             - Once meeting_date, meeting_time, and timezone are all collected, set "action" to "book_demo", "close" to true, and "escalate" to true.
 
             RETURN STRICT JSON ONLY — no markdown, no explanation:
@@ -333,6 +338,7 @@ class UnifiedAgent:
     DEMO BOOKING (only after ALL lead fields are collected):
     - Ask the user if they would like to schedule a demo/meeting.
     - If yes, collect: meeting_date, meeting_time, timezone (one at a time).
+    - When asking for the timezone, ALWAYS suggest a few common options (e.g., "For example: IST, EST, UTC").
     - Once all three are collected, set action = "book_demo" and close = true.
     - If user declines demo, set action = "lead_complete" and escalate = true.
     """
@@ -375,8 +381,9 @@ class UnifiedAgent:
         3. Extract any values from the user's message and store them in the "collect" dictionary.
         4. Keep replies short, warm, and conversational. No markdown, no lists.
         5. Never repeat a question that was just answered or already collected.
-        6. NEVER use generic or open-ended greeting/assistance phrases such as "How can I assist you today?", "How can I help you?", "What can I do for you?", or similar.
-        7. Always greet the user with a simple, friendly "Hi" (or "Hi [Name]" if the user's name is known from ALREADY COLLECTED or the conversation history) and then immediately and directly ask the question to collect the "NEXT FIELD TO ASK". Keep the focus entirely on asking that specific field question.
+        6. NEVER use generic or open-ended greeting/assistance phrases such as "Hello! How can I help you today?", "How can I assist you?", or similar. Instead, if this is the very first message, naturally introduce yourself as "Veera, Sales Executive" in a conversational, human-like way.
+        7. DO NOT repeatedly use the user's name in every single response. Once you know their name, just acknowledge their input naturally (e.g., say "Thanks for sharing that" instead of "Thanks for sharing your email, [Name]").
+        IMPORTANT: Greet the user and introduce yourself only once at the beginning of a new conversation. If conversation history already exists, NEVER start responses with "Hi", "Hello", or any greeting. Instead, naturally acknowledge the user's latest input and continue by asking only the next required question.
 
 
         {demo_instructions}
@@ -405,70 +412,6 @@ class UnifiedAgent:
         - Use "lead_complete" + escalate=true when all fields done and no demo or demo declined.
         - Use "book_demo" + close=true when meeting_date, meeting_time, timezone are all collected.
         - Keep action null while still collecting fields or demo details.
-        """
-
-    def _build_sales_prompt(
-        self,
-        message,
-        rag_answer,
-        history_text,
-        business_type="general",
-        payment_enabled=False
-    ):
-        return f"""
-        You are an elite AI Sales Executive.
-
-        BUSINESS TYPE: {business_type}
-
-        CONVERSATION HISTORY:
-        {history_text}
-
-        CUSTOMER MESSAGE:
-        {message}
-
-        KNOWLEDGE BASE:
-        {rag_answer}
-
-        GOALS:
-        1. Convert the customer professionally
-        2. Explain product/services clearly using ONLY the knowledge base
-        3. Handle objections naturally
-        4. Push toward booking/demo/payment
-        5. Keep replies concise and persuasive
-
-        IMPORTANT:
-        - Never hallucinate features or pricing
-        - Never invent offers
-        - If knowledge base is empty: say "Our team will contact you shortly." and set escalate=true
-
-        DEMO RULES:
-        1. If customer asks for a demo/consultation/call/meeting, you MUST collect three details: meeting_date, meeting_time, and timezone.
-        2. Check if they have provided all three. If any are missing, politely ask for the missing details one at a time and keep action = null.
-        3. Once meeting_date, meeting_time, and timezone are all collected, set action = "book_demo".
-
-        PAYMENT RULES:
-        If customer shows strong buying intent AND payment_enabled={payment_enabled}:
-        set action = "send_payment_link"
-
-        RETURN STRICT JSON ONLY:
-        {{
-            "stage": "sales",
-            "response": "your reply",
-            "action": null,
-            "lead_score": "hot",
-            "confidence_score": 0.95,
-            "intent": "pricing_inquiry",
-            "objection_detected": false,
-            "payment_required": false,
-            "meeting_required": false,
-            "meeting_date": null,
-            "meeting_time": null,
-            "timezone": null,
-            "close": false,
-            "escalate": false
-        }}
-
-        VALID ACTIONS: null | "book_demo" | "send_payment_link"
         """
 
     def _build_support_prompt(

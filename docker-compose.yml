@@ -110,6 +110,9 @@ services:
     container_name: auromind_frontend
     restart: unless-stopped
     command: npm run dev
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - BACKEND_INTERNAL_URL=http://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules

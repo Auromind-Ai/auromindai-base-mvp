@@ -73,15 +73,19 @@ async def admin_auth(
         expires_delta=timedelta(hours=2)
     )
     
-    is_prod = settings.ENVIRONMENT.lower() == "production"
+    is_https = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+    cookie_samesite = "none" if is_https else "lax"
     
     # Set secure httpOnly cookie
     response.set_cookie(
         key="admin_session",
         value=token,
         httponly=True,
-        secure=is_prod,
-        samesite="strict" if is_prod else "lax",
+        secure=is_https,
+        samesite=cookie_samesite,
         max_age=7200,
         path="/api/admin",
     )
@@ -89,12 +93,17 @@ async def admin_auth(
     return {"status": "success", "message": "Authenticated"}
 
 @router.post("/logout", include_in_schema=False)
-async def admin_logout(response: Response):
-    is_prod = settings.ENVIRONMENT.lower() == "production"
+async def admin_logout(request: Request, response: Response):
+    is_https = (
+        request.url.scheme == "https"
+        or request.headers.get("x-forwarded-proto") == "https"
+    )
+    cookie_samesite = "none" if is_https else "lax"
     response.delete_cookie(
         key="admin_session",
         path="/api/admin",
-        samesite="strict" if is_prod else "lax",
+        secure=is_https,
+        samesite=cookie_samesite,
     )
     return {"status": "success", "message": "Logged out"}
 
