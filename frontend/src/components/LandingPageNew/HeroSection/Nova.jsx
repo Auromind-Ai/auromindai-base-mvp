@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 
 export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = true }) {
   const ctnDom = useRef(null);
+  const canvasRef = useRef(null);
 
   const vert = /* glsl */ `
     precision highp float;
@@ -196,7 +197,8 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
 
     const initWebGL = () => {
       try {
-        const canvas = document.createElement("canvas");
+        const canvas = canvasRef.current;
+        if (!canvas) return;
         const gl = canvas.getContext("webgl", {
           alpha: true,
           premultipliedAlpha: false,
@@ -207,8 +209,6 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
         }
 
         gl.clearColor(0, 0, 0, 0);
-        container.appendChild(canvas);
-        canvas.style.filter = "blur(12px)";
 
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, vert);
         const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, frag);
@@ -338,9 +338,6 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
           resizeObserver.disconnect();
           container.removeEventListener("mousemove", handleMouseMove);
           container.removeEventListener("mouseleave", handleMouseLeave);
-          if (container.contains(canvas)) {
-            container.removeChild(canvas);
-          }
           gl.getExtension("WEBGL_lose_context")?.loseContext();
         };
       } catch (error) {
@@ -364,6 +361,19 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
         position: "relative",
         overflow: "hidden",
       }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          filter: "blur(12px)",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
   );
 }
