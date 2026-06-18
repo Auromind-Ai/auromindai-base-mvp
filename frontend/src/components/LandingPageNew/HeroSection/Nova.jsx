@@ -53,7 +53,7 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
 
     vec3 hash33(vec3 p3) {
       p3 = fract(p3 * vec3(0.1031, 0.11369, 0.13787));
-      p3 += dot(p3, p3.yxz + vec3(19.19, 19.19, 19.19));
+      p3 += vec3(dot(p3, p3.yxz + vec3(19.19, 19.19, 19.19)));
       return vec3(-1.0, -1.0, -1.0) + vec3(2.0, 2.0, 2.0) * fract(vec3(
         p3.x + p3.y,
         p3.x + p3.z,
