@@ -37,6 +37,10 @@ from app.models.workspace import *
 from app.models.lead_scoring import *
 from app.models.user_session import *
 from app.models.notification import *
+from app.models.plan_entitlement import *
+from app.models.feature_billing_rule import *
+
+
 
 config = context.config
 

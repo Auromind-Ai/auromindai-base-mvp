@@ -71,6 +71,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.scoring_worker.decay_inactive_lead_scores",
         "schedule": crontab(hour=0, minute=0),
     },
+    "wcc-daily-reconciliation": {
+        "task": "app.workers.scoring_worker.wcc_daily_reconciliation",
+        "schedule": crontab(hour=1, minute=0),
+    },
 }
 
 # @celery_app.on_after_finalize.connect

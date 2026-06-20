@@ -1,8 +1,9 @@
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
-from sqlalchemy import case, func
+from decimal import Decimal
+from sqlalchemy import case, func, cast, Date
 from sqlalchemy.orm import Session
 from app.models.plan import Plan
 from app.models.subscription import Subscription
@@ -11,24 +12,24 @@ from app.models.usage import Usage
 from app.services.billing.gateway.base import TokenBalance
 from app.models.billing import Payment
 
-from .gateway.base import RESERVATION_MAX_PER_WORKSPACE, RESERVATION_TTL_MINUTES
+from .gateway.base import RESERVATION_MAX_PER_WORKSPACE, RESERVATION_TTL_MINUTES, TOKENS_PER_CREDIT
 
 
 class TokenService:
     def __init__(self, usage_service):
         self.usage_service = usage_service
-    def reserve_tokens(
+
+    def reserve_credits(
         self,
         db: Session,
         workspace_id: str,
-        amount: int,
+        credits: float,
         reference_key: str,
         description: str,
     ) -> TokenLedger:
-       
         try:
-            if amount <= 0:
-                raise ValueError("Token reservation amount must be positive")
+            if credits <= 0:
+                raise ValueError("Credit reservation amount must be positive")
 
             self._lock_workspace(db, workspace_id)
 
@@ -39,10 +40,8 @@ class TokenService:
                     TokenLedger.workspace_id == workspace_id,
                     TokenLedger.status == "reserved",
                 )
-                .scalar()
+                .scalar() or 0
             )
-            if active_count is None:
-                active_count = 0
             if int(active_count) >= RESERVATION_MAX_PER_WORKSPACE:
                 raise ValueError("Too many concurrent pending operations for workspace")
 
@@ -59,7 +58,7 @@ class TokenService:
                 raise ValueError("Reference key has already been finalized")
 
             from app.services.billing.billing_service import enforce_execution_policy
-            if not enforce_execution_policy(db, workspace_id):
+            if not enforce_execution_policy(db, workspace_id, amount=credits):
                 raise ValueError("Insufficient quota. Please upgrade your plan or enable overages.")
 
             active_subscription = self._get_active_subscription(db, workspace_id)
@@ -69,7 +68,8 @@ class TokenService:
                 subscription_id=active_subscription.id if active_subscription else None,
                 entry_type="usage_reservation",
                 status="reserved",
-                tokens_delta=-amount,
+                tokens_delta=0,
+                credits_delta=-Decimal(str(credits)),
                 reference_key=reference_key,
                 description=description,
                 expires_at=datetime.now(timezone.utc) + timedelta(minutes=RESERVATION_TTL_MINUTES),
@@ -82,11 +82,23 @@ class TokenService:
             db.rollback()
             raise
 
-    def finalize_token_usage(
+    def reserve_tokens(
+        self,
+        db: Session,
+        workspace_id: str,
+        amount: int,
+        reference_key: str,
+        description: str,
+    ) -> TokenLedger:
+        credits = float(amount) / TOKENS_PER_CREDIT
+        return self.reserve_credits(db, workspace_id, credits, reference_key, description)
+
+    def finalize_credits(
         self,
         db: Session,
         reservation_id: str | uuid.UUID,
-        tokens_used: int = 0,
+        credits_used: float,
+        tokens_used: int | None = None,
     ) -> TokenLedger:
         try:
             reservation = (
@@ -103,21 +115,138 @@ class TokenService:
             if reservation.status != "reserved":
                 raise ValueError("Billing reservation is not active")
 
-            reservation.status = "posted"
-            reservation.entry_type = "usage"
-            reservation.description = reservation.description or "AI usage"
-            actual_tokens = tokens_used if tokens_used > 0 else abs(reservation.tokens_delta)
-            reservation.tokens_delta = -actual_tokens
-            usage = self.usage_service._record_usage_snapshot(
-                db=db,
-                workspace_id=reservation.workspace_id,
-                subscription_id=reservation.subscription_id,
-                tokens_used=actual_tokens,
-            )
-            self._apply_token_overage(db=db, reservation=reservation, usage=usage)
+            workspace_id = str(reservation.workspace_id)
+            
+            # 1. Calculate pool balances excluding this reservation
+            included_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status == "posted",
+                TokenLedger.balance_source == "INCLUDED"
+            ).scalar() or Decimal("0.0000")
+            
+            purchased_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status == "posted",
+                TokenLedger.balance_source == "PURCHASED"
+            ).scalar() or Decimal("0.0000")
+            
+            other_reservations_sum = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
+                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.status == "reserved",
+                TokenLedger.id != reservation.id
+            ).scalar() or Decimal("0.0000")
+            
+            other_reserved_abs = abs(Decimal(str(other_reservations_sum)))
+            
+            # Allocate other reservations against the pools in sequential priority
+            included_available = max(Decimal(str(included_pool)) - other_reserved_abs, Decimal("0.0000"))
+            rem_other = max(other_reserved_abs - Decimal(str(included_pool)), Decimal("0.0000"))
+            purchased_available = max(Decimal(str(purchased_pool)) - rem_other, Decimal("0.0000"))
+            
+            credits_used_dec = Decimal(str(credits_used))
+            
+            # Determine how much is drawn from each pool
+            drawn_included = min(credits_used_dec, included_available)
+            rem_credits = credits_used_dec - drawn_included
+            
+            drawn_purchased = min(rem_credits, purchased_available)
+            drawn_overage = rem_credits - drawn_purchased
+            
+            # Build list of non-zero draws
+            draws = []
+            if drawn_included > 0:
+                draws.append(("INCLUDED", drawn_included))
+            if drawn_purchased > 0:
+                draws.append(("PURCHASED", drawn_purchased))
+            if drawn_overage > 0:
+                draws.append(("OVERAGE", drawn_overage))
+                
+            orig_ref = reservation.reference_key
+            
+            if not draws:
+                # 0 credits consumed
+                reservation.status = "posted"
+                reservation.entry_type = "usage"
+                reservation.credits_delta = Decimal("0.0000")
+                reservation.tokens_delta = 0
+                reservation.tokens_used = tokens_used or 0
+                reservation.balance_source = "INCLUDED"
+            else:
+                # Update the original reservation row to be the first draw
+                first_source, first_amount = draws[0]
+                
+                first_tokens = None
+                if tokens_used is not None:
+                    first_tokens = int(round(tokens_used * float(first_amount / credits_used_dec)))
+                
+                reservation.status = "posted"
+                reservation.entry_type = "usage"
+                reservation.credits_delta = -first_amount
+                reservation.tokens_delta = 0
+                reservation.balance_source = first_source
+                reservation.reference_key = f"{orig_ref}:{first_source}"
+                reservation.tokens_used = first_tokens
+                
+                # For remaining draws, insert new rows
+                for source, amount in draws[1:]:
+                    other_tokens = None
+                    if tokens_used is not None:
+                        other_tokens = int(round(tokens_used * float(amount / credits_used_dec)))
+                        
+                    split_entry = TokenLedger(
+                        id=uuid.uuid4(),
+                        workspace_id=reservation.workspace_id,
+                        subscription_id=reservation.subscription_id,
+                        entry_type="usage",
+                        status="posted",
+                        tokens_delta=0,
+                        credits_delta=-amount,
+                        balance_source=source,
+                        reference_key=f"{orig_ref}:{source}",
+                        description=reservation.description,
+                        tokens_used=other_tokens,
+                    )
+                    db.add(split_entry)
+                    
+            # Update usage overage snapshot
+            if tokens_used is not None:
+                self.usage_service._record_usage_snapshot(
+                    db=db,
+                    workspace_id=reservation.workspace_id,
+                    subscription_id=reservation.subscription_id,
+                    tokens_used=tokens_used,
+                )
+            if drawn_overage > 0:
+                self._update_usage_overage_snapshot(db, reservation, float(drawn_overage))
+                
             db.flush()
             db.commit()
             return reservation
+        except Exception:
+            db.rollback()
+            raise
+
+    def finalize_token_usage(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        tokens_used: int = 0,
+    ) -> TokenLedger:
+        # Determine credits consumed based on tokens_used
+        try:
+            reservation = db.query(TokenLedger).filter(TokenLedger.id == reservation_id).first()
+            if not reservation:
+                raise ValueError("Billing reservation not found")
+            
+            # If tokens_used is not specified, fall back to reservation amount
+            if tokens_used > 0:
+                credits_used = float(tokens_used) / TOKENS_PER_CREDIT
+                actual_tokens = tokens_used
+            else:
+                credits_used = float(abs(reservation.credits_delta))
+                actual_tokens = int(credits_used * TOKENS_PER_CREDIT)
+                
+            return self.finalize_credits(db, reservation_id, credits_used, tokens_used=actual_tokens)
         except Exception:
             db.rollback()
             raise
@@ -160,7 +289,7 @@ class TokenService:
                 case(
                     (
                         TokenLedger.status == "posted",
-                        case((TokenLedger.tokens_delta > 0, TokenLedger.tokens_delta), else_=0),
+                        case((TokenLedger.credits_delta > 0, TokenLedger.credits_delta), else_=0),
                     ),
                     else_=0,
                 )
@@ -172,7 +301,7 @@ class TokenService:
                 case(
                     (
                         TokenLedger.status == "posted",
-                        case((TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta), else_=0),
+                        case((TokenLedger.credits_delta < 0, -TokenLedger.credits_delta), else_=0),
                     ),
                     else_=0,
                 )
@@ -184,7 +313,7 @@ class TokenService:
                 case(
                     (
                         TokenLedger.status == "reserved",
-                        case((TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta), else_=0),
+                        case((TokenLedger.credits_delta < 0, -TokenLedger.credits_delta), else_=0),
                     ),
                     else_=0,
                 )
@@ -194,7 +323,7 @@ class TokenService:
         net_expr = func.coalesce(
             func.sum(
                 case(
-                    (TokenLedger.status.in_(["posted", "reserved"]), TokenLedger.tokens_delta),
+                    (TokenLedger.status.in_(["posted", "reserved"]), TokenLedger.credits_delta),
                     else_=0,
                 )
             ),
@@ -202,14 +331,16 @@ class TokenService:
         )
         added, used, reserved, net = (
             db.query(added_expr, used_expr, reserved_expr, net_expr)
-            .filter(TokenLedger.workspace_id == workspace_id)
+            .filter(
+                TokenLedger.workspace_id == workspace_id,
+            )
             .one()
         )
         return TokenBalance(
-            tokens_added=int(added or 0),
-            tokens_used=int(used or 0),
-            tokens_reserved=int(reserved or 0),
-            balance=int(net or 0),
+            tokens_added=float(added or 0),
+            tokens_used=float(used or 0),
+            tokens_reserved=float(reserved or 0),
+            balance=float(net or 0),
         )
 
     def _lock_workspace(self, db: Session, workspace_id: str, nowait: bool = False):
@@ -237,82 +368,23 @@ class TokenService:
             .first()
         )
 
-   
-
-    def _apply_token_overage(
-        self,
-        db: Session,
-        reservation: TokenLedger,
-        usage: Usage | None,
-    ) -> TokenLedger | None:
-        if usage is None or reservation.subscription_id is None:
-            return None
-
+    def _update_usage_overage_snapshot(self, db: Session, reservation: TokenLedger, overage_credits: float) -> None:
+        if reservation.subscription_id is None:
+            return
         subscription = (
             db.query(Subscription)
             .filter(Subscription.id == reservation.subscription_id)
-            .with_for_update()
             .first()
         )
-        if subscription is None or subscription.plan_id is None:
-            return None
-
-        plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
-        if plan is None:
-            return None
-
-        token_limit = plan.token_limit
-        price_per_extra_token = int(plan.price_per_extra_token or 0)
-        current_tokens_used = int(usage.tokens_used or 0)
-        if token_limit is None:
-            total_overage_tokens = 0
-        else:
-            token_limit = int(token_limit)
-            total_overage_tokens = max(current_tokens_used - token_limit, 0)
-        
-        previously_billed_overage = int(usage.overage_tokens or 0)
-        incremental_overage_tokens = max(total_overage_tokens - previously_billed_overage, 0)
-
-        usage.overage_tokens = total_overage_tokens
-        if incremental_overage_tokens <= 0 or price_per_extra_token <= 0:
-            db.flush()
-            return None
-
-        overage_cost = incremental_overage_tokens * price_per_extra_token
-        period_start_ts = int(usage.period_start.timestamp()) if usage.period_start is not None else 0
-        reference_key = f"overage:{period_start_ts}:{reservation.reference_key}"
-        existing = (
-            db.query(TokenLedger)
-            .filter(TokenLedger.reference_key == reference_key)
-            .with_for_update()
-            .first()
-        )
-        if existing:
-            return existing
-
-        overage_entry = TokenLedger(
-            id=uuid.uuid4(),
+        if not subscription:
+            return
+        usage = self.usage_service._get_or_create_period_usage(
+            db=db,
             workspace_id=reservation.workspace_id,
-            subscription_id=reservation.subscription_id,
-            payment_id=reservation.payment_id,
-            entry_type="overage",
-            status="posted",
-            tokens_delta=-incremental_overage_tokens,
-            reference_key=reference_key,
-            description="Token overage charge",
-            metadata_json=json.dumps(
-                {
-                    "reservation_reference_key": reservation.reference_key,
-                    "incremental_overage_tokens": incremental_overage_tokens,
-                    "total_overage_tokens": total_overage_tokens,
-                    "price_per_extra_token": price_per_extra_token,
-                    "overage_cost": overage_cost,
-                }
-            ),
+            subscription=subscription,
         )
-        db.add(overage_entry)
-        db.flush()
-        return overage_entry
+        usage.overage_tokens = (usage.overage_tokens or 0) + int(overage_credits * 1000)
+
     def grant_plan_tokens(
         self,
         db: Session,
@@ -321,11 +393,8 @@ class TokenService:
         payment: Payment,
         plan_config: Any,
     ) -> Any:
-        from app.models.token_ledger import TokenLedger
-        import uuid
         reference_key = f"token_grant:{payment.provider}:{payment.provider_payment_id}"
 
-        #  TRY FETCH WITH LOCK
         existing = (
             db.query(TokenLedger)
             .filter(TokenLedger.reference_key == reference_key)
@@ -335,9 +404,9 @@ class TokenService:
         if existing:
             return existing
 
-        #  TRY INSERT
         try:
             with db.begin_nested():
+                credits = float(plan_config.tokens) / TOKENS_PER_CREDIT
                 entry = TokenLedger(
                     id=uuid.uuid4(),
                     workspace_id=workspace_id,
@@ -345,18 +414,17 @@ class TokenService:
                     payment_id=payment.id,
                     entry_type="token_grant",
                     status="posted",
-                    tokens_delta=plan_config.tokens,
+                    tokens_delta=0,
+                    credits_delta=Decimal(str(credits)),
+                    balance_source="INCLUDED",
                     reference_key=reference_key,
-                    description=f"{plan_config.label} subscription tokens"
+                    description=f"{plan_config.label} subscription credits"
                 )
                 db.add(entry)
                 db.flush()
             return entry
 
-        # HANDLE RACE CONDITION (CRITICAL)
         except Exception:
-            from sqlalchemy.exc import IntegrityError
-            #  RE-FETCH (another thread inserted already)
             existing = (
                 db.query(TokenLedger)
                 .filter(TokenLedger.reference_key == reference_key)
@@ -366,11 +434,9 @@ class TokenService:
                 raise RuntimeError(
                     f"Token grant failed after integrity conflict for {reference_key}"
                 )
-
             return existing
 
     def get_transaction_history(self, db: Session, workspace_id: str, page: int = 1, limit: int = 20):
-        """Get paginated token ledger entries for a workspace."""
         offset = (page - 1) * limit
         total = (
             db.query(func.count(TokenLedger.id))
@@ -400,8 +466,8 @@ class TokenService:
                     "id": str(e.id),
                     "entry_type": e.entry_type,
                     "status": e.status,
-                    "tokens_delta": e.tokens_delta,
-                    "credits_delta": round(e.tokens_delta / 1000, 2),
+                    "tokens_delta": int(float(e.credits_delta) * 1000),
+                    "credits_delta": round(float(e.credits_delta), 2),
                     "description": e.description,
                     "created_at": e.created_at.isoformat() if e.created_at else None,
                 }
@@ -410,23 +476,21 @@ class TokenService:
         }
 
     def get_daily_usage(self, db: Session, workspace_id: str, days: int = 30):
-        """Get daily aggregated token usage for charts."""
-        from sqlalchemy import cast, Date
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         rows = (
             db.query(
                 cast(TokenLedger.created_at, Date).label("day"),
                 func.sum(
                     case(
-                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
+                        (TokenLedger.credits_delta < 0, -TokenLedger.credits_delta),
                         else_=0,
                     )
-                ).label("tokens_used"),
+                ).label("credits_used"),
             )
             .filter(
                 TokenLedger.workspace_id == workspace_id,
                 TokenLedger.status == "posted",
-                TokenLedger.entry_type.in_(["usage", "overage"]),
+                TokenLedger.entry_type == "usage",
                 TokenLedger.created_at >= cutoff,
             )
             .group_by("day")
@@ -436,20 +500,19 @@ class TokenService:
         return [
             {
                 "date": row.day.isoformat() if row.day else None,
-                "tokens_used": int(row.tokens_used or 0),
-                "credits_used": round(int(row.tokens_used or 0) / 1000, 2),
+                "tokens_used": int(float(row.credits_used or 0) * 1000),
+                "credits_used": round(float(row.credits_used or 0), 2),
             }
             for row in rows
         ]
 
     def get_burn_rate(self, db: Session, workspace_id: str) -> float:
-        """Average daily credit consumption over last 7 days."""
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         total_used = (
             db.query(
                 func.sum(
                     case(
-                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
+                        (TokenLedger.credits_delta < 0, -TokenLedger.credits_delta),
                         else_=0,
                     )
                 )
@@ -457,104 +520,184 @@ class TokenService:
             .filter(
                 TokenLedger.workspace_id == workspace_id,
                 TokenLedger.status == "posted",
-                TokenLedger.entry_type.in_(["usage", "overage"]),
+                TokenLedger.entry_type == "usage",
                 TokenLedger.created_at >= cutoff,
             )
             .scalar() or 0
         )
-        return round(float(total_used) / 1000 / 7, 2)
+        return round(float(total_used) / 7, 2)
 
-    def get_transaction_history(self, db: Session, workspace_id: str, page: int = 1, limit: int = 20):
-        """Get paginated token ledger entries for a workspace."""
-        offset = (page - 1) * limit
-        total = (
-            db.query(func.count(TokenLedger.id))
-            .filter(
-                TokenLedger.workspace_id == workspace_id,
-                TokenLedger.status.in_(["posted", "released"]),
+    def reserve_feature_credits(
+        self,
+        db: Session,
+        workspace_id: str,
+        feature_key: str,
+        unit_amount: float,
+        reference_key: str,
+        description: str,
+    ) -> TokenLedger:
+        try:
+            if unit_amount <= 0:
+                raise ValueError("Feature usage unit amount must be positive")
+
+            self._lock_workspace(db, workspace_id)
+
+            active_count = (
+                db.query(func.count(TokenLedger.id))
+                .filter(
+                    TokenLedger.workspace_id == workspace_id,
+                    TokenLedger.status == "reserved",
+                )
+                .scalar() or 0
             )
-            .scalar() or 0
-        )
-        entries = (
+            if int(active_count) >= RESERVATION_MAX_PER_WORKSPACE:
+                raise ValueError("Too many concurrent pending operations for workspace")
+
+            existing = (
+                db.query(TokenLedger)
+                .filter(TokenLedger.reference_key == reference_key)
+                .with_for_update()
+                .first()
+            )
+            if existing:
+                if existing.status == "reserved":
+                    db.commit()
+                    return existing
+                raise ValueError("Reference key has already been finalized")
+
+            from app.services.billing.feature_billing_service import FeatureBillingService
+            credits_cost = FeatureBillingService.calculate_cost(db, feature_key, unit_amount)
+
+            from app.services.billing.billing_service import enforce_execution_policy
+            if not enforce_execution_policy(db, workspace_id, amount=float(credits_cost)):
+                raise ValueError("Insufficient quota. Please upgrade your plan or enable overages.")
+
+            active_subscription = self._get_active_subscription(db, workspace_id)
+            reservation = TokenLedger(
+                id=uuid.uuid4(),
+                workspace_id=workspace_id,
+                subscription_id=active_subscription.id if active_subscription else None,
+                entry_type="usage_reservation",
+                status="reserved",
+                tokens_delta=0,
+                credits_delta=-Decimal(str(credits_cost)),
+                reference_key=reference_key,
+                description=description,
+                expires_at=datetime.now(timezone.utc) + timedelta(minutes=RESERVATION_TTL_MINUTES),
+                metadata_json=json.dumps({
+                    "feature_key": feature_key,
+                    "unit_amount": unit_amount
+                })
+            )
+            db.add(reservation)
+            db.flush()
+            db.commit()
+            return reservation
+        except Exception:
+            db.rollback()
+            raise
+
+    def finalize_feature_credits(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        actual_units: float = 0.0,
+    ) -> TokenLedger:
+        try:
+            reservation = (
+                db.query(TokenLedger)
+                .filter(TokenLedger.id == reservation_id)
+                .with_for_update()
+                .first()
+            )
+            if not reservation:
+                raise ValueError("Billing reservation not found")
+            if reservation.status == "posted":
+                db.commit()
+                return reservation
+            if reservation.status != "reserved":
+                raise ValueError("Billing reservation is not active")
+
+            feature_key = None
+            orig_units = 1.0
+            if reservation.metadata_json:
+                try:
+                    meta = json.loads(reservation.metadata_json)
+                    feature_key = meta.get("feature_key")
+                    orig_units = float(meta.get("unit_amount", 1.0))
+                except Exception:
+                    pass
+
+            if not feature_key:
+                raise ValueError("Feature key metadata missing from reservation")
+
+            units = actual_units if actual_units > 0 else orig_units
+
+            from app.services.billing.feature_billing_service import FeatureBillingService
+            credits_cost = FeatureBillingService.calculate_cost(db, feature_key, units)
+
+            tokens_used = int(float(credits_cost) * TOKENS_PER_CREDIT)
+            return self.finalize_credits(db, reservation_id, float(credits_cost), tokens_used=tokens_used)
+        except Exception:
+            db.rollback()
+            raise
+
+    def release_feature_reservation(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        reason: str,
+    ) -> TokenLedger | None:
+        return self.release_token_reservation(db, reservation_id, reason)
+
+    def grant_purchased_credits(
+        self,
+        db: Session,
+        workspace_id: str,
+        credits: float,
+        payment_id: str,
+        gateway_order_id: str,
+        description: str = "Purchased AI Credit Pack",
+    ) -> TokenLedger:
+        reference_key = f"purchase:{workspace_id}:{payment_id}"
+        existing = (
             db.query(TokenLedger)
-            .filter(
-                TokenLedger.workspace_id == workspace_id,
-                TokenLedger.status.in_(["posted", "released"]),
-            )
-            .order_by(TokenLedger.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
+            .filter(TokenLedger.reference_key == reference_key)
+            .with_for_update()
+            .first()
         )
-        return {
-            "total": int(total),
-            "page": page,
-            "limit": limit,
-            "entries": [
-                {
-                    "id": str(e.id),
-                    "entry_type": e.entry_type,
-                    "status": e.status,
-                    "tokens_delta": e.tokens_delta,
-                    "credits_delta": round(e.tokens_delta / 1000, 2),
-                    "description": e.description,
-                    "created_at": e.created_at.isoformat() if e.created_at else None,
-                }
-                for e in entries
-            ],
-        }
+        if existing:
+            return existing
 
-    def get_daily_usage(self, db: Session, workspace_id: str, days: int = 30):
-        """Get daily aggregated token usage for charts."""
-        from sqlalchemy import cast, Date
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-        rows = (
-            db.query(
-                cast(TokenLedger.created_at, Date).label("day"),
-                func.sum(
-                    case(
-                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
-                        else_=0,
-                    )
-                ).label("tokens_used"),
-            )
-            .filter(
-                TokenLedger.workspace_id == workspace_id,
-                TokenLedger.status == "posted",
-                TokenLedger.entry_type.in_(["usage", "overage"]),
-                TokenLedger.created_at >= cutoff,
-            )
-            .group_by("day")
-            .order_by("day")
-            .all()
-        )
-        return [
-            {
-                "date": row.day.isoformat() if row.day else None,
-                "tokens_used": int(row.tokens_used or 0),
-                "credits_used": round(int(row.tokens_used or 0) / 1000, 2),
-            }
-            for row in rows
-        ]
-
-    def get_burn_rate(self, db: Session, workspace_id: str) -> float:
-        """Average daily credit consumption over last 7 days."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
-        total_used = (
-            db.query(
-                func.sum(
-                    case(
-                        (TokenLedger.tokens_delta < 0, -TokenLedger.tokens_delta),
-                        else_=0,
-                    )
+        try:
+            with db.begin_nested():
+                entry = TokenLedger(
+                    id=uuid.uuid4(),
+                    workspace_id=workspace_id,
+                    entry_type="purchase",
+                    status="posted",
+                    tokens_delta=0,
+                    credits_delta=Decimal(str(credits)),
+                    balance_source="PURCHASED",
+                    reference_key=reference_key,
+                    description=description,
+                    metadata_json=json.dumps({
+                        "payment_id": payment_id,
+                        "gateway_order_id": gateway_order_id,
+                        "credits": credits
+                    })
                 )
+                db.add(entry)
+                db.flush()
+            db.commit()
+            return entry
+        except Exception:
+            db.rollback()
+            existing = (
+                db.query(TokenLedger)
+                .filter(TokenLedger.reference_key == reference_key)
+                .first()
             )
-            .filter(
-                TokenLedger.workspace_id == workspace_id,
-                TokenLedger.status == "posted",
-                TokenLedger.entry_type.in_(["usage", "overage"]),
-                TokenLedger.created_at >= cutoff,
-            )
-            .scalar() or 0
-        )
-        return round(float(total_used) / 1000 / 7, 2)
+            if existing:
+                return existing
+            raise

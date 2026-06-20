@@ -18,7 +18,9 @@ from app.services.inbox.message_service import MessageService
 from app.utils.intent_detection import detect_intent_signals
 from app.services.crm.lead_scoring_service import recalculate_lead_score
 from app.workers.scoring_worker import analyze_message_intent
-
+from decimal import Decimal
+from app.services.wcc_service import WCCService
+from app.models.wcc import WCCRateCard
 logger = logging.getLogger(__name__)
 
 
@@ -238,10 +240,51 @@ class WebhookService:
                                     msg = db.query(Message).filter(Message.external_id == wamid).first()
                                     if msg:
                                         msg.status = mapped_status
-                                        db.commit()
+                                        db.flush()
                                         logger.info(f"Updated message status for {wamid} to {status_str}")
                                 except Exception as exc:
                                     logger.error(f"Failed to update message status for {wamid}: {exc}")
+
+                            # WCC Wallet Debit Integration
+                            pricing = status_update.get("pricing")
+                            conversation = status_update.get("conversation")
+                            if pricing and conversation:
+                                try:
+                                   
+                                    
+                                    billable = pricing.get("billable", False)
+                                    category = pricing.get("category", "service").lower()
+                                    meta_session_id = conversation.get("id")
+                                    
+                                    rate_applied = Decimal("0.00")
+                                    if billable:
+                                        rate_card = db.query(WCCRateCard).filter(
+                                            WCCRateCard.category == category,
+                                            WCCRateCard.is_active == True
+                                        ).first()
+                                        if rate_card:
+                                            rate_applied = rate_card.rate_per_message
+                                        else:
+                                            logger.warning(f"No active WCC rate card found for category '{category}' during webhook debit.")
+
+                                    # Perform the atomic debit
+                                    WCCService.debit_conversation_charge(
+                                        db=db,
+                                        workspace_id=workspace.id,
+                                        meta_session_id=meta_session_id,
+                                        category=category,
+                                        rate_applied=rate_applied,
+                                        raw_payload=status_update
+                                    )
+                                except Exception as debit_exc:
+                                    logger.error(f"Error debiting WCC wallet for workspace {workspace.id}: {debit_exc}")
+
+                            # Perform a single database commit at the end of processing this status update
+                            try:
+                                db.commit()
+                            except Exception as commit_exc:
+                                db.rollback()
+                                logger.error(f"Failed to commit database updates for status {wamid}: {commit_exc}")
 
                 messages = value.get("messages") or []
                 if not messages:

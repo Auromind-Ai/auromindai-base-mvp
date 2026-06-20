@@ -19,6 +19,7 @@ import { insertDateSeparators } from '@/lib/dateUtils';
 import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
 import CloseConversationModal from '@/components/inbox/CloseConversationModal';
 import api from '@/lib/api';
+import { SYSTEM_TIERS, AGENT_LABELS } from '@/lib/labelStyles';
 
 const CHANNELS = [
     { id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#28C661', gradient: null },
@@ -394,6 +395,13 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
         if (!leadId) return;
         const currentLabels = leadDetail?.labels || [];
         const isActive = currentLabels.includes(label);
+        
+        // Optimistic UI update for single selection
+        const nextLabels = isActive ? [] : [label];
+        if (setLeadDetail) {
+            setLeadDetail(prev => prev ? { ...prev, labels: nextLabels } : null);
+        }
+
         const action = isActive ? "remove" : "add";
 
         try {
@@ -407,10 +415,14 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
             }
         } catch (err) {
             console.error("Failed to update label:", err);
+            if (setLeadDetail) {
+                setLeadDetail(prev => prev ? { ...prev, labels: currentLabels } : null);
+            }
         }
     };
 
     const activeLabels = leadDetail?.labels || [];
+    const activeLabel = activeLabels.find(l => ['Premium Lead', 'High Priority', 'Interested', 'Follow Up'].includes(l)) || null;
     const tier = leadDetail?.lead_tier || 'cold';
     const score = leadDetail?.score || 0;
 
@@ -459,33 +471,20 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         </div>
                     </div>
 
-                    <div className="mb-6">
-                        <p className="text-[16px] font-regular text-white/90 tracking-wider mb-3 mt-10">About</p>
-                        <p className="text-[14px] text-white/70 leading-relaxed">
-                            Interested in premium plans<br />Frequently asks about pricing
-                        </p>
-                        <button className="text-[13px] mt-1 font-medium" style={{ color: ch.color }}>View more</button>
-                    </div>
+
 
                     {/* SECTION A: System Tier */}
                     <div className="mb-6 border-b border-white/[0.06] pb-6">
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">System Tier</p>
                         <div className="flex items-center gap-2">
-                            {tier.toLowerCase() === 'hot' && (
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-rose-500/10 border border-rose-500/25 text-rose-400">
-                                    🔥 Hot
-                                </span>
-                            )}
-                            {tier.toLowerCase() === 'warm' && (
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/25 text-amber-400">
-                                    🟡 Warm
-                                </span>
-                            )}
-                            {tier.toLowerCase() === 'cold' && (
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-500/10 border border-zinc-500/25 text-zinc-400">
-                                    ❄️ Cold
-                                </span>
-                            )}
+                            {(() => {
+                                const t = SYSTEM_TIERS[tier.toLowerCase()] || SYSTEM_TIERS.cold;
+                                return (
+                                    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border ${t.bg} ${t.border} ${t.textCls}`}>
+                                        {t.text}
+                                    </span>
+                                );
+                            })()}
                             <span className="text-[11px] text-zinc-500 font-medium italic">Calculated automatically ({score || 0})</span>
                         </div>
                     </div>
@@ -494,24 +493,23 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                     <div className="mb-6">
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">Agent Labels</p>
                         <div className="flex flex-wrap gap-2">
-                            {[
-                                { label: 'Premium Lead', emoji: '👑', active: 'bg-[#4B2580] border-[#6D39BD]' },
-                                { label: 'High Priority', emoji: '🔥', active: 'bg-[#7B1A2E] border-[#A82B44]' },
-                                { label: 'Interested', emoji: '⚡', active: 'bg-[#145A32] border-[#208A4E]' },
-                                { label: 'Follow Up', emoji: '📅', active: 'bg-[#0F4C81] border-[#1A73C2]' },
-                            ].map(({ label, emoji, active }) => (
-                                <button
-                                    key={label}
-                                    onClick={() => handleLabelClick(resolvedLeadId || lead?.id, label)}
-                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5
-                                        ${activeLabels.includes(label)
-                                            ? `${active} text-white shadow-lg`
-                                            : 'bg-transparent border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'
-                                        }`}
-                                >
-                                    {emoji} {label}
-                                </button>
-                            ))}
+                            {Object.keys(AGENT_LABELS).map(lblKey => {
+                                const config = AGENT_LABELS[lblKey];
+                                const isSelected = activeLabel === lblKey;
+                                return (
+                                    <button
+                                        key={lblKey}
+                                        onClick={() => handleLabelClick(resolvedLeadId || lead?.id, lblKey)}
+                                        className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-300
+                                            ${isSelected 
+                                                ? `${config.activeBg} ${config.textCls} shadow-lg` 
+                                                : config.bgOpacity
+                                            }`}
+                                    >
+                                        {config.emoji} {lblKey}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -538,7 +536,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[13px] border text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10 cursor-pointer transition-colors"
                                 style={{ backgroundColor: 'rgba(16,185,129,0.05)' }}>
                                 <Check size={15} strokeWidth={2} />
-                                Convert Lead
+                                Convert Conversation
                             </button>
                             <button
                                 onClick={() => onCloseConversation(lead?.id)}
@@ -548,8 +546,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                 Close Conversation
                             </button>
                         </div>
-                    </div>
-                </>
+                    </div>                </>
             )}
         </div>
     );

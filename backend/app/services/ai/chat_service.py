@@ -59,10 +59,11 @@ class ChatService:
         description: str = "chat operation",
     ) -> Any:
         try:
-            reservation = self.billing_service.reserve_tokens(
+            reservation = self.billing_service.token_service.reserve_feature_credits(
                 db=db,
                 workspace_id=workspace_id,
-                amount=amount,
+                feature_key="ai_chat",
+                unit_amount=float(amount),
                 reference_key=reference_key,
                 description=description,
             )
@@ -73,6 +74,7 @@ class ChatService:
             raise
         except Exception as e:
             raise BillingError(f"Token reservation failed: {str(e)}")
+
 
     async def _check_guardrails(self, message: str) -> Dict[str, Any]:
         try:
@@ -127,14 +129,15 @@ class ChatService:
             actual_tokens_used = self.billing_service.estimate_tokens(
                 request_message, response_text
             )
-            self.billing_service.finalize_token_usage(
+            self.billing_service.token_service.finalize_feature_credits(
                 db=db,
                 reservation_id=reservation_id,
-                tokens_used=actual_tokens_used,
+                actual_units=float(actual_tokens_used),
             )
         except Exception as e:
             logger.error(f"Failed to finalize billing: {e}")
             raise BillingError(f"Billing finalization failed: {str(e)}")
+
 
     def _release_token_reservation(
         self, db: Session, reservation_id: str, reason: str

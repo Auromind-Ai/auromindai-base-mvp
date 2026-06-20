@@ -3,12 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowRightLeft, Sparkles, Wallet, Coins } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function CreditRingDropdown({ user, size = 36 }) {
+  const { workspaceId, user: authUser, workspaces } = useAuth();
+  const currentUser = user || authUser;
+
   const [credits, setCredits] = useState(null);
   const [workspace, setWorkspace] = useState(null);
-  const [wccBalance, setWccBalance] = useState(1245.50);
+  const [wccBalance, setWccBalance] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const router = useRouter();
@@ -16,33 +20,38 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   // Fetch AI credits summary
   useEffect(() => {
     async function fetchCredits() {
+      if (!workspaceId || workspaceId === 'undefined' || workspaceId === 'null') return;
       try {
-        const workspaceId = localStorage.getItem('workspace_id');
-        if (!workspaceId) return;
-        
-        try {
-            const storedWs = localStorage.getItem('workspace');
-            if(storedWs) setWorkspace(JSON.parse(storedWs));
-        } catch(e) {}
-
         const res = await api.getCreditSummary(workspaceId);
-        setCredits(res);
+        setCredits(res.data ?? res ?? null);
+
+        // Set workspace object matching active workspaceId
+        if (workspaces && workspaces.length > 0) {
+          const activeWs = workspaces.find(w => w.id === workspaceId);
+          if (activeWs) setWorkspace(activeWs);
+        }
       } catch (err) {
         console.error("Failed to fetch credits", err);
       }
     }
     fetchCredits();
-  }, []);
+  }, [workspaceId, workspaces]);
 
-  // Fetch WCC wallet balance from localStorage whenever opened
+  // Fetch WCC balance from backend when dropdown is open
   useEffect(() => {
-    if (isOpen) {
-      const storedWcc = localStorage.getItem('wcc_balance');
-      if (storedWcc) {
-        setWccBalance(parseFloat(storedWcc));
+    async function fetchWcc() {
+      if (!workspaceId || workspaceId === 'undefined' || workspaceId === 'null') return;
+      try {
+        const res = await api.getWccBalance(workspaceId);
+        setWccBalance(parseFloat(res.balance ?? res.data?.balance ?? 0));
+      } catch (err) {
+        console.error("Failed to fetch WCC balance", err);
       }
     }
-  }, [isOpen]);
+    if (isOpen) {
+      fetchWcc();
+    }
+  }, [isOpen, workspaceId]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -86,9 +95,9 @@ export default function CreditRingDropdown({ user, size = 36 }) {
             strokeLinecap="round"
           />
         </svg>
-        {user ? (
+        {currentUser ? (
           <div className="rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold" style={{ width: size - 10, height: size - 10, fontSize: size * 0.35 }}>
-            {user.email?.charAt(0).toUpperCase()}
+            {currentUser.email?.charAt(0).toUpperCase()}
           </div>
         ) : (
           <div className="w-full h-full rounded-full bg-white/5 flex items-center justify-center text-[#D4D4D4]">
