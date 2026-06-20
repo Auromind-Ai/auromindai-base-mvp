@@ -185,6 +185,10 @@ class APIClient {
     return this.get('/auth/me', options);
   }
 
+  async updateProfile(data) {
+    return this.patch('/auth/me', data);
+  }
+
   async getWorkspaces() {
   return this.get('/auth/workspaces');
 }
@@ -308,6 +312,10 @@ async getPricing() {
 
   async getPlatformSettings() {
     return this.get('/api/admin/settings');
+  }
+
+  async getAboutSettings() {
+    return this.get('/public/about');
   }
 
   async verifyBillingPayment(payload, options = {}) {

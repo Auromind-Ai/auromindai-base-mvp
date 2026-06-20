@@ -21,6 +21,7 @@ function BillingContent() {
 
   const [currentPlan, setCurrentPlan] = useState("free")
   const [settings, setSettings] = useState(null)
+  const [plans, setPlans] = useState([])
 
   useEffect(() => {
     console.log(LOG_PREFIX, "Workspace detected:", workspaceId)
@@ -43,6 +44,9 @@ function BillingContent() {
 
         setCurrentPlan(billing?.current_plan || "free")
         setSettings(settingsData)
+        if (billing?.plans) {
+          setPlans(billing.plans)
+        }
       } catch (error) {
         console.error(LOG_PREFIX, "Load error:", error)
         setCurrentPlan("free")
@@ -128,6 +132,7 @@ function BillingContent() {
       currentPlan={currentPlan}
       onUpgrade={handleUpgrade}
       settings={settings} 
+      dbPlans={plans}
     />
   )
 }

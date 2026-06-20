@@ -180,7 +180,7 @@ class ConversationService:
         user_id: str | None = None,
     ) -> Conversation:
         normalized_channel = ConversationService.normalize_channel(channel)
-        delivery_target = phone or (external_id if normalized_channel == ChannelType.INSTAGRAM else None)
+        delivery_target = phone
         resolved_user_id = ConversationService._maybe_uuid(user_id)
 
         filters = ConversationService._build_lookup_filters(

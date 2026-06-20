@@ -19,9 +19,8 @@ export default function BrainPage() {
     const [success, setSuccess] = useState(null);
     const [urlInput, setUrlInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState(null);
-    const [searching, setSearching] = useState(false);
     const [currentEntryId, setCurrentEntryId] = useState(null);
+    const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, entryId: null });
     const fileInputRef = useRef(null);
 
     const { workspaceId } = useAuth();
@@ -37,7 +36,11 @@ export default function BrainPage() {
                 api.getBrainStats(workspaceId)
             ]);
             setEntries(entriesRes.entries || []);
-            setStats(statsRes);
+            setStats({
+                knowledge_entries: statsRes.knowledge_entries,
+                indexed_chunks: entriesRes.indexed_chunks,
+                status: entriesRes.status
+            });
         } catch (err) {
             console.error('Failed to fetch brain data:', err);
             setError('Failed to load knowledge base');
@@ -110,8 +113,9 @@ export default function BrainPage() {
 
 
     // Handle delete
-    const handleDelete = async (entryId) => {
-        if (!workspaceId) return;
+    const handleDelete = async () => {
+        const entryId = deleteConfirmation.entryId;
+        if (!workspaceId || !entryId) return;
 
         try {
             await api.deleteBrainEntry(entryId, workspaceId);
@@ -119,24 +123,12 @@ export default function BrainPage() {
             await fetchData();
         } catch (err) {
             setError(err.message || 'Delete failed');
-        }
-    };
-
-    // Handle search
-    const handleSearch = async () => {
-        if (!searchQuery.trim() || !workspaceId) return;
-
-        try {
-            setSearching(true);
-            setError(null);
-            const result = await api.searchBrain(searchQuery.trim(), workspaceId);
-            setSearchResults(result);
-        } catch (err) {
-            setError(err.message || 'Search failed');
         } finally {
-            setSearching(false);
+            setDeleteConfirmation({ isOpen: false, entryId: null });
         }
     };
+
+
 
     // Clear notifications after 5 seconds
     useEffect(() => {
@@ -152,6 +144,11 @@ export default function BrainPage() {
             return () => clearTimeout(timer);
         }
     }, [error]);
+
+    const filteredEntries = entries.filter(item => 
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        item.content_type?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     if (!workspaceId) {
         return (
@@ -270,8 +267,8 @@ export default function BrainPage() {
                 </div>
 
                 <div>
-                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
-                    {loading ? '-' : stats.status === 'active' ? 'Active' : 'Empty'}
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-white capitalize">
+                    {loading ? '-' : stats.status || 'Empty'}
                     </div>
 
                     <div className="text-xs uppercase tracking-widest text-zinc-500">
@@ -421,62 +418,15 @@ export default function BrainPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#565656]" />
                         <input
                             type="text"
-                            placeholder="Search your knowledge base..."
+                            placeholder="Filter knowledge base by document name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                             className="w-full pl-10 pr-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none transition-all font-medium"
                             onFocus={e => e.currentTarget.style.borderColor = 'rgba(129,74,200,0.5)'}
                             onBlur={e => e.currentTarget.style.borderColor = ''}
                         />
                     </div>
-
-                    {/* ── 2. Search button → #814AC8 ── */}
-                    <button
-                        onClick={handleSearch}
-                        disabled={searching || !searchQuery.trim()}
-                        className="w-full lg:w-auto px-6 py-2.5 text-white text-xs font-bold rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                        style={{
-                            backgroundColor: '#814AC8',
-                            boxShadow: '0 4px 14px rgba(129,74,200,0.30)',
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#9B6ED8'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#814AC8'}
-                    >
-                        {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                        Search
-                    </button>
                 </div>
-
-                {/* Search Results */}
-                {searchResults && (
-                    <div className="mt-4 pt-4 border-t border-[var(--notion-border)]">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-bold text-[#D4D4D4]">
-                                {searchResults.results?.length || 0} results for &quot;{searchResults.query}&quot;
-                            </h3>
-                            <button
-                                onClick={() => setSearchResults(null)}
-                                className="text-[#787878] hover:text-[#D4D4D4] text-xs"
-                            >
-                                Clear
-                            </button>
-                        </div>
-                        <div className="space-y-3">
-                            {searchResults.results?.map((result, i) => (
-                                <div key={result.id || i} className="bg-[#191919] rounded-lg p-3 border border-[var(--notion-border)]">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-bold text-[#814AC8]">{result.title}</span>
-                                        <span className="text-[10px] font-bold text-[#565656] bg-[#252525] px-2 py-0.5 rounded">
-                                            {(result.score * 100).toFixed(0)}% match
-                                        </span>
-                                    </div>
-                                    <p className="text-xs sm:text-sm text-[#9b9b9b] line-clamp-2">{result.content}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Knowledge List */}
@@ -486,7 +436,7 @@ export default function BrainPage() {
                 <div className="p-4 border-b border-[var(--notion-border)] bg-[#252525]/50 flex items-center justify-between">
                     <h2 className="font-bold text-[#D4D4D4] tracking-tight">Indexed Knowledge</h2>
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#565656]">
-                        {loading ? 'Loading...' : `${entries.length} items`}
+                        {loading ? 'Loading...' : `${filteredEntries.length} items`}
                     </span>
                 </div>
 
@@ -495,15 +445,15 @@ export default function BrainPage() {
                         <Loader2 className="w-8 h-8 animate-spin text-[#814AC8] mx-auto mb-2" />
                         <p className="text-sm text-[#787878]">Loading knowledge base...</p>
                     </div>
-                ) : entries.length === 0 ? (
+                ) : filteredEntries.length === 0 ? (
                     <div className="p-8 text-center">
                         <Brain className="w-12 h-12 text-[#3f3f3f] mx-auto mb-3" />
-                        <p className="text-sm text-[#787878] font-medium">No knowledge indexed yet.</p>
-                        <p className="text-xs text-white/60 mt-1">Upload documents or sync URLs to get started.</p>
+                        <p className="text-sm text-[#787878] font-medium">No knowledge found.</p>
+                        <p className="text-xs text-white/60 mt-1">Try a different search term or upload documents.</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-[#2f2f2f]">
-                        {entries.map((item) => (
+                        {filteredEntries.map((item) => (
                             <div key={item.id} className="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 hover:bg-[#252525] transition-all group">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-xl bg-[#2c2c2c] border border-[#3f3f3f] flex items-center justify-center text-[#787878] group-hover:text-[#814AC8] group-hover:border-[#814AC8]/30 transition-all shadow-sm">
@@ -522,7 +472,7 @@ export default function BrainPage() {
                                         {item.status || 'indexed'}
                                     </span>
                                     <button
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={() => setDeleteConfirmation({ isOpen: true, entryId: item.id })}
                                         className="p-2 text-[#565656] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                         title="Delete entry"
                                     >
@@ -536,6 +486,35 @@ export default function BrainPage() {
             </div>
         </div>
         </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmation.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                    <div className="bg-[#111] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4 mx-auto">
+                            <AlertCircle size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold text-white text-center mb-2">Delete Knowledge Entry?</h3>
+                        <p className="text-sm text-[#787878] text-center mb-6">
+                            This action cannot be undone. The indexed chunks will be removed from your AI's brain.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteConfirmation({ isOpen: false, entryId: null })}
+                                className="flex-1 px-4 py-2.5 bg-[#252525] hover:bg-[#2f2f2f] text-white text-sm font-medium rounded-xl transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="flex-1 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded-xl transition-all shadow-[0_4px_14px_rgba(244,63,94,0.3)]"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

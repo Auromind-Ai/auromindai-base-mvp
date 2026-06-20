@@ -503,42 +503,42 @@ async def list_entries(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# @router.delete("/entries/{entry_id:uuid}")
-# async def delete_entry(
-#     entry_id: uuid.UUID,
-#     db: Session = Depends(get_db),
-#     current_user = Depends(get_current_user)
-# ):
+@router.delete("/entries/{entry_id:uuid}")
+async def delete_entry(
+    entry_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
     
-#     workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db)
 
-#     try:
-#         logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
-#         entry = db.query(BrainEntry).filter(
-#             BrainEntry.id == str(entry_id),
-#             BrainEntry.workspace_id == workspace_id
-#         ).first()
+    try:
+        logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
+        entry = db.query(BrainEntry).filter(
+            BrainEntry.id == str(entry_id),
+            BrainEntry.workspace_id == workspace_id
+        ).first()
 
-#         if not entry:
-#             raise HTTPException(status_code=404, detail="Entry not found in this workspace")
+        if not entry:
+            raise HTTPException(status_code=404, detail="Entry not found in this workspace")
 
-#         rag = get_rag_service()
-#         success = await rag.delete_entry(
-#                     db,
-#                     workspace_id,
-#                     str(entry_id)
-#                 )
+        rag = get_rag_service()
+        success = await rag.delete_entry(
+                    db,
+                    workspace_id,
+                    str(entry_id)
+                )
 
-#         if success:
-#             return {"status": "success", "message": "Entry deleted"}
-#         else:
-#             raise HTTPException(status_code=500, detail="Failed to delete from vector store")
+        if success:
+            return {"status": "success", "message": "Entry deleted"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete from vector store")
 
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Failed to delete entry: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete entry: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/search", response_model=SearchResponse)
@@ -569,7 +569,7 @@ async def search_knowledge(
             "query": request.query,
             "results": [
                 {
-                    "id": r["id"],
+                    "id": str(r["id"]),
                     "content": r.get("text", ""),
                     "title": r["metadata"].get("title", "Unknown"),
                     "score": round(r["score"], 3)

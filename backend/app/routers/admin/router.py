@@ -20,7 +20,8 @@ from . import (
     settings as admin_settings,
     impersonate,
     rag_analytics,
-    model_configs
+    model_configs,
+    templates
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -126,3 +127,4 @@ router.include_router(admin_settings.router)
 router.include_router(impersonate.router)
 router.include_router(rag_analytics.router)
 router.include_router(model_configs.router)
+router.include_router(templates.router)

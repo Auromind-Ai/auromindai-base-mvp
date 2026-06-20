@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
 
@@ -54,7 +55,7 @@ class CurrentUser:
         self.session_id = session_id
 
 
-# ---------- Dependency: get current user ----------
+#Dependency: get current user ----------
 
 async def get_current_user(
     request: Request,
@@ -140,7 +141,7 @@ async def get_current_user(
     )
 
 
-# ---------- Email Login & Signup (OTP) ----------
+#Email Login & Signup (OTP) ----------
 
 from app.schemas.auth import EmailLoginRequest, SendOTPRequest, VerifyOTPRequest
 from typing import Optional
@@ -230,7 +231,7 @@ async def login(request_obj: Request, request: dict, db: Session = Depends(get_d
             detail=str(e),
         )
 
-# ---------- Google Auth ----------
+#Google Auth ----------
 
 from fastapi.responses import RedirectResponse
 import urllib.parse
@@ -383,7 +384,7 @@ async def login_secret(
     return AuthService.login(db, admin.email, ip_address=ip_address, device_info=device_info)
 
 
-# ---------- Current user ----------
+#Current user ----------
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: CurrentUser = Depends(get_current_user)):
@@ -395,8 +396,28 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
         "deletion_scheduled_at": current_user.user.deletion_scheduled_at,   # ← ADD
     }
 
+class UserUpdate(BaseModel):
+    full_name: str
 
-# ---------- Workspaces ----------
+@router.patch("/me", response_model=UserResponse)
+async def update_current_user_info(
+    request: UserUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    current_user.user.full_name = request.full_name
+    db.commit()
+    db.refresh(current_user.user)
+    return {
+        "id": str(current_user.id),
+        "email": current_user.email,
+        "full_name": current_user.user.full_name,
+        "two_factor_enabled": current_user.user.two_factor_enabled,
+        "deletion_scheduled_at": current_user.user.deletion_scheduled_at,
+    }
+
+
+#Workspaces ----------
 
 @router.get("/workspaces")
 async def get_workspaces(

@@ -6,7 +6,7 @@ from app.services.agentic_rag.learning_cache import get_learning_profile
 from app.utils.website_scraper import Webscrapper
 import re
 import numpy as np
-from app.services.ai.llm_utils import safe_llm_call
+from app.services.ai.llm_utils import safe_llm_call, token_log_context, write_to_token_log_file
 from app.utils.text_chunker import Schunker
 from app.services.agentic_rag.reasoning_agent import run_reasoning
 from app.models.brain import BrainEntry
@@ -27,8 +27,94 @@ class OrchestratorLayer:
         self.ingestion = ingestion
 
 
+    def log_aggregated_token_usage(self, query: str, token_logs: list, res=None):
+        import datetime
+        if not token_logs:
+            return
+
+        total_calls = len(token_logs)
+        total_system_tokens = sum(log["system_tokens"] for log in token_logs)
+        total_input_tokens = sum(log["input_tokens"] for log in token_logs)
+        total_output_tokens = sum(log["output_tokens"] for log in token_logs)
+        total_combined_tokens = sum(log["total_tokens"] for log in token_logs)
+
+        # Get reply and calculate its tokens
+        final_reply_text = ""
+        if res:
+            if isinstance(res, dict):
+                final_reply_text = res.get("answer", "")
+            elif isinstance(res, str):
+                final_reply_text = res
+        
+        final_reply_tokens = len(final_reply_text.split()) if final_reply_text else 0
+
+        report = []
+        report.append("=========================================")
+        report.append("TOKEN USAGE REPORT (Agentic RAG)")
+        report.append(f"Timestamp: {datetime.datetime.utcnow().isoformat()}Z")
+        report.append(f"User Query: {repr(query)}")
+        report.append("-----------------------------------------")
+
+        for idx, log in enumerate(token_logs, 1):
+            report.append(f"{idx}. Function: {log['caller']}")
+            report.append(f"   Provider: {log['provider']} | Model: {log['model']}")
+            report.append(f"   System Prompt Tokens: {log['system_tokens']}")
+            report.append(f"   Input/Query Tokens: {log['input_tokens']}")
+            report.append(f"   Output Tokens: {log['output_tokens']}")
+            report.append(f"   Total Tokens: {log['total_tokens']}")
+            
+            sys_snippet = log["system_prompt"][:100].replace('\n', ' ') + "..." if len(log["system_prompt"]) > 100 else log["system_prompt"]
+            user_snippet = log["user_input"][:100].replace('\n', ' ') + "..." if len(log["user_input"]) > 100 else log["user_input"]
+            out_snippet = log["content"][:100].replace('\n', ' ') + "..." if len(log["content"]) > 100 else log["content"]
+            
+            report.append(f"   [Sys Prompt Snippet]: {sys_snippet}")
+            report.append(f"   [User Input Snippet]: {user_snippet}")
+            report.append(f"   [LLM Output Snippet]: {out_snippet}")
+            report.append("")
+
+        report.append("-----------------------------------------")
+        report.append("TOTAL SUMMARY:")
+        report.append(f"Total Calls: {total_calls}")
+        report.append(f"Total System Tokens: {total_system_tokens}")
+        report.append(f"Total Input/Query Tokens: {total_input_tokens}")
+        report.append(f"Total Output Tokens: {total_output_tokens}")
+        report.append(f"TOTAL TOKENS USED: {total_combined_tokens}")
+        
+        if final_reply_text:
+            report.append("-----------------------------------------")
+            report.append(f"Final Reply Text: {repr(final_reply_text)}")
+            report.append(f"Final Reply Token Count (Estimate): {final_reply_tokens}")
+            
+        report.append("=========================================")
+
+        report_str = "\n".join(report)
+        logger.info(f"\n{report_str}")
+        write_to_token_log_file(report_str)
+
     #Reasoning Engine   
     async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None):
+        token_logs = []
+        token = token_log_context.set(token_logs)
+        try:
+            res = await self._agent_loop_internal(
+                db=db,
+                workspace_id=workspace_id,
+                query=query,
+                model=model,
+                source=source,
+                document_id=document_id,
+                entry_ids=entry_ids,
+                collection=collection
+            )
+            self.log_aggregated_token_usage(query, token_logs, res)
+            return res
+        except Exception as e:
+            self.log_aggregated_token_usage(query, token_logs)
+            raise e
+        finally:
+            token_log_context.reset(token)
+
+    async def _agent_loop_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None):
 
         website_names = []  
 

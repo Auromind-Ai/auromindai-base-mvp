@@ -63,170 +63,7 @@ const INDUSTRIES = [
   { id: 'travel',      label: 'Travel',      Icon: Plane        },
 ];
 
-const PRE_TEMPLATE_SAMPLES = [
-  {
-    id: 'sample_1',
-    name: 'order_delivery_update',
-    type: 'TEXT',
-    category: 'UTILITY',
-    language: 'en_US',
-    content: `Hello,
-
-Your order {{1}} has been shipped and is on its way.
-
-You can track your shipment using this link: {{2}}
-
-Thank you for choosing us. We look forward to delivering your order soon.`,
-    status: 'approved',
-    tag: 'trending',
-  },
-  {
-    id: 'sample_2',
-    name: 'abandoned_cart_reminder',
-    type: 'TEXT',
-    category: 'MARKETING',
-    language: 'en_US',
-    content: `Hi {{1}},
-
-We noticed you left some items in your cart.
-
-Use code {{2}} to get {{3}}% off your order!
-
-Complete your checkout here: {{4}}
-
-We look forward to serving you soon!`,
-    status: 'approved',
-    tag: 'trending',
-  },
-  {
-    id: 'sample_3',
-    name: 'appointment_confirmation',
-    type: 'TEXT',
-    category: 'UTILITY',
-    language: 'en_US',
-    content: `Hi {{1}},
-
-Your appointment with {{2}} has been successfully confirmed for {{3}}.
-
-If you need to reschedule or view booking details, please visit: {{4}}
-
-Thank you!`,
-    status: 'approved',
-    tag: 'general',
-  },
-  {
-    id: 'sample_4',
-    name: 'feedback_request',
-    type: 'TEXT',
-    category: 'MARKETING',
-    language: 'en_US',
-    content: `Hi {{1}},
-
-Thank you for choosing us! We hope you loved your experience.
-
-Could you take a moment to share your feedback here: {{2}}
-
-Your review helps us grow and improve.`,
-    status: 'approved',
-    tag: 'top_rated',
-  },
-  {
-    id: 'sample_5',
-    name: 'ecommerce_flash_sale',
-    type: 'TEXT',
-    category: 'MARKETING',
-    language: 'en_US',
-    content: `Flash Sale Alert!
-
-Hi {{1}}, get {{2}}% off on all items, today only.
-
-Shop the sale now before it ends: {{3}}
-
-Happy shopping!`,
-    status: 'approved',
-    tag: 'ecommerce',
-  },
-  {
-    id: 'sample_6',
-    name: 'education_class_reminder',
-    type: 'TEXT',
-    category: 'UTILITY',
-    language: 'en_US',
-    content: `Class Reminder:
-
-Hi {{1}}, this is a quick reminder that your upcoming class {{2}} is scheduled for {{3}}.
-
-Please join using this link: {{4}}
-
-See you there!`,
-    status: 'approved',
-    tag: 'education',
-  },
-  {
-    id: 'sample_7',
-    name: 'banking_txn_alert',
-    type: 'TEXT',
-    category: 'UTILITY',
-    language: 'en_US',
-    content: `Transaction Alert:
-
-Your account ending in {{1}} was debited for {{2}} on {{3}}.
-
-Your available balance is now: {{4}}
-
-If you did not perform this transaction, please contact support immediately.`,
-    status: 'approved',
-    tag: 'banking',
-  },
-  {
-    id: 'sample_8',
-    name: 'healthcare_prescription_ready',
-    type: 'TEXT',
-    category: 'UTILITY',
-    language: 'en_US',
-    content: `Prescription Ready:
-
-Hi {{1}}, your prescription from {{2}} is ready for pickup.
-
-Location details: {{3}}
-
-Please bring a valid ID when picking up.`,
-    status: 'approved',
-    tag: 'healthcare',
-  },
-  {
-    id: 'sample_9',
-    name: 'realestate_new_listing',
-    type: 'TEXT',
-    category: 'MARKETING',
-    language: 'en_US',
-    content: `New Property Listing:
-
-Hi {{1}}, a new property matching your search preferences is now available in {{2}}.
-
-Price details: {{3}}
-
-View photos and booking details here: {{4}}. We hope you like it!`,
-    status: 'approved',
-    tag: 'real_estate',
-  },
-  {
-    id: 'sample_10',
-    name: 'travel_flight_delay',
-    type: 'TEXT',
-    category: 'UTILITY',
-    language: 'en_US',
-    content: `Flight Update:
-
-Flight {{1}} to {{2}} has been delayed by {{3}} minutes.
-
-New departure time: {{4}}
-
-We apologize for the inconvenience and appreciate your patience.`,
-    status: 'approved',
-    tag: 'travel',
-  },
-];
+const PRE_TEMPLATE_SAMPLES = [];
 
 /* ─────────────────────────────────────────────
    Atoms
@@ -871,6 +708,7 @@ export default function TemplatesPage() {
   const router = useRouter();
   const { workspaceId } = useAuth();
   const [templates, setTemplates] = useState([]);
+  const [systemTemplates, setSystemTemplates] = useState([]);
   const [filtered, setFiltered]   = useState([]);
   const [viewSource, setViewSource] = useState('samples'); // 'samples' or 'user'
   const [activeTab, setActiveTab] = useState(null); // All, Draft, Pending, Approved, Rejected
@@ -890,7 +728,7 @@ export default function TemplatesPage() {
 
   useEffect(() => {
     if (viewSource === 'samples') {
-      let d = PRE_TEMPLATE_SAMPLES.filter(t => t.tag === activeCategory);
+      let d = systemTemplates.filter(t => t.tag === activeCategory);
       if (search) {
         d = d.filter(t =>
           t.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -919,8 +757,12 @@ export default function TemplatesPage() {
       if (workspaceId) {
         await api.get(`/templates/status/${workspaceId}`);
       }
-      const data = await api.get('/templates');
-      setTemplates(data.templates || []);
+      const [userRes, systemRes] = await Promise.all([
+        api.get('/templates'),
+        api.get('/templates/system')
+      ]);
+      setTemplates(userRes.templates || []);
+      setSystemTemplates(systemRes.templates || []);
     } catch (err) {
       console.error(err);
     } finally {

@@ -177,7 +177,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
 
 /* ─── PricingPage — Doc 2 logic · Doc 1 layout ──────────────────────────── */
 
-export default function PricingPage({ currentPlan = 'free', onUpgrade, settings }) {
+export default function PricingPage({ currentPlan = 'free', onUpgrade, settings, dbPlans = [] }) {
 
   const [isAnnual, setIsAnnual] = useState(false);
 
@@ -194,8 +194,27 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings 
     );
   }
 
-  /* Plans array — Doc 2 logic (unchanged) + icons from Doc 1 */
-  const plans = [
+  const iconMap = {
+    free: '🚀',
+    pro: '⚡',
+    enterprise: '👑',
+  };
+
+  /* Plans array — fetched from DB or fallback to settings */
+  const plans = dbPlans && dbPlans.length > 0
+    ? dbPlans.map(plan => ({
+        key:         plan.key,
+        icon:        iconMap[plan.key] || '🚀',
+        name:        plan.label,
+        price:       plan.key === 'free' ? 'Free' : plan.key === 'enterprise' ? 'Custom' : (isAnnual
+          ? `₹${Math.round(plan.amount * ANNUAL_DISCOUNT)}`
+          : `₹${plan.amount}`),
+        usage:       `${Math.round(plan.tokens / TOKENS_PER_CREDIT)} credits / month`,
+        description: plan.description,
+        featured:    plan.key === 'pro',
+        features:    plan.features || [],
+      }))
+    : [
     {
       key:         'free',
       icon:        '🚀',

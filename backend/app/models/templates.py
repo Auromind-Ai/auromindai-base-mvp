@@ -36,6 +36,7 @@ class Template(Base):
     # draft / pending / approved / rejected
 
     meta_template_id = Column(String, nullable=True)  # Meta API ID
+    system_tag = Column(String, nullable=True)  # Trending, ecommerce, etc.
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

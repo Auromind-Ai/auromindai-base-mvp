@@ -1,24 +1,143 @@
 
+import contextvars
+import os
+import inspect
+import logging
 from tenacity import retry, stop_after_attempt, wait_exponential
 from app.services.ai.llm_router import LLMRouter
 
+logger = logging.getLogger("auromind.token_usage")
 _router = LLMRouter()
+
+# Context variable to collect token usage logs for the current request
+token_log_context = contextvars.ContextVar("token_log_context", default=None)
+
+def split_prompt(prompt: str):
+    """
+    Splits the prompt into System Prompt (instructions) and User Input (context, queries, etc.)
+    using common delimiters.
+    """
+    split_keys = [
+        "User Query:",
+        "Question:",
+        "USER QUESTION:",
+        "User Question:",
+        "Subject:",
+        "Original Question:",
+        "WEBSITE CONTENT:"
+    ]
+    for key in split_keys:
+        if key in prompt:
+            parts = prompt.split(key, 1)
+            system_prompt = parts[0].strip()
+            user_input = (key + " " + parts[1]).strip()
+            return system_prompt, user_input
+    return prompt.strip(), ""
+
+def get_caller_function_name():
+    """
+    Detects the calling function name by traversing the stack, skipping
+    retry decorators and framework internals.
+    """
+    stack = inspect.stack()
+    for frame_info in stack:
+        filename = frame_info.filename
+        func_name = frame_info.function
+        
+        # Skip tenacity and other retry/contextlib wrapper frames
+        if "tenacity" in filename.lower() or "contextlib" in filename.lower():
+            continue
+            
+        if func_name in ("safe_llm_call", "safe_llm_call_text", "get_caller_function_name", "<module>", "__call__"):
+            continue
+            
+        basename = os.path.basename(filename)
+        return f"{basename}:{func_name}"
+    return "unknown"
+
+def write_to_token_log_file(message: str):
+    """
+    Writes token reports and messages to dedicated files: logs/token_usage.log and logs/token_usage.txt
+    """
+    try:
+        from app.core.logger import BASE_DIR
+        log_dir = os.path.join(BASE_DIR, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Write to .log
+        log_path = os.path.join(log_dir, "token_usage.log")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(message + "\n")
+            
+        # Write to .txt
+        txt_path = os.path.join(log_dir, "token_usage.txt")
+        with open(txt_path, "a", encoding="utf-8") as f:
+            f.write(message + "\n")
+            
+    except Exception as e:
+        logger.error(f"Failed to write to token log files: {e}")
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
 async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
-   
     result = await _router.generate(prompt, model=model)
-
+    
+    # Calculate tokens
+    input_tokens = result.get("input_tokens") or 0
+    output_tokens = result.get("output_tokens") or 0
+    total_tokens = result.get("total_tokens") or 0
+    
+    # Split prompt into System Prompt and Input Query
+    system_prompt, user_input = split_prompt(prompt)
+    
+    # Proportional token estimation
+    sys_words = len(system_prompt.split())
+    input_words = len(user_input.split())
+    total_words = sys_words + input_words
+    
+    if total_words > 0:
+        system_tokens = int(round((sys_words / total_words) * input_tokens))
+        user_input_tokens = input_tokens - system_tokens
+    else:
+        system_tokens = input_tokens
+        user_input_tokens = 0
+        
+    caller = get_caller_function_name()
+    
+    log_entry = {
+        "caller": caller,
+        "model": result.get("model"),
+        "provider": result.get("provider"),
+        "system_prompt": system_prompt,
+        "user_input": user_input,
+        "system_tokens": system_tokens,
+        "input_tokens": user_input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "content": result.get("content")
+    }
+    
+    # Log individual call to general logger
+    logger.info(
+        f"LLM Call - Caller: {caller} | Model: {log_entry['model']} | Provider: {log_entry['provider']} | "
+        f"Tokens -> System: {system_tokens}, Input: {user_input_tokens}, Output: {output_tokens}, Total: {total_tokens}"
+    )
+    
+    # Append to current session log if context variable is set
+    logs_list = token_log_context.get()
+    if logs_list is not None:
+        logs_list.append(log_entry)
+        
     return {
         "content": result["content"],
         "model": result.get("model"),
         "provider": result.get("provider"),
-        "tokens": result.get("total_tokens"),
+        "tokens": total_tokens,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
     }
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
 async def safe_llm_call_text(prompt: str, model: str = "auto") -> str:
-   
     result = await safe_llm_call(prompt, model=model)
     return result["content"]
