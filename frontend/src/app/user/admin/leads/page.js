@@ -9,10 +9,10 @@ import {
     FileText, Tag
 } from 'lucide-react';
 import AddLeadModal from '@/components/leads/AddLeadModal';
-import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
 import api from '@/lib/api';
 import { getWorkspaceIdFromToken } from '@/lib/auth';
 import MessageRenderer from '@/components/chat/MessageRenderer';
+import { SYSTEM_TIERS, AGENT_LABELS, STATUS_STYLES } from '@/lib/labelStyles';
 
 // ─── DATA META ────────────────────────────────────────────────────────────────
 
@@ -30,30 +30,7 @@ const TIER_BADGES = {
     cold: { text: '❄️ Cold', bg: 'bg-zinc-500/10', textCls: 'text-zinc-400', border: 'border-zinc-500/20' }
 };
 
-const AGENT_LABEL_BADGES = {
-    'Premium Lead': { text: '👑 Premium Lead', bg: 'bg-[#4B2580]/30', textCls: 'text-[#C084FC]', border: 'border-[#7C3AED]/30' },
-    'High Priority': { text: '🔥 High Priority', bg: 'bg-[#7B1A2E]/30', textCls: 'text-[#F87171]', border: 'border-[#DC2626]/30' },
-    'Interested': { text: '⚡ Interested', bg: 'bg-[#145A32]/30', textCls: 'text-[#34D399]', border: 'border-[#059669]/30' },
-    'Follow Up': { text: '📅 Follow Up', bg: 'bg-[#0F4C81]/30', textCls: 'text-[#38BDF8]', border: 'border-[#0F4C81]/30' }
-};
-
-const TAG_META = {
-    'Premium Lead': { bg: 'bg-[#7C3AED]/20', text: 'text-[#A78BFA]', border: 'border-[#7C3AED]/30' },
-    'High Priority': { bg: 'bg-[#DC2626]/20', text: 'text-[#F87171]', border: 'border-[#DC2626]/30' },
-    'Interested':    { bg: 'bg-[#059669]/20', text: 'text-[#34D399]', border: 'border-[#059669]/30' },
-};
-
-const TAG_PILL_META = {
-    'High Priority': { bg: 'bg-[#7B1A2E]', text: 'text-white' },
-    'Premium Lead':  { bg: 'bg-[#4B2580]', text: 'text-white' },
-    'Interested':    { bg: 'bg-[#145A32]', text: 'text-white' },
-    'Follow Up':     { bg: 'bg-[#0F4C81]', text: 'text-white' },
-    // Status mappings
-    'New':           { bg: 'bg-[#1e293b]', text: 'text-zinc-300' },
-    'Active':        { bg: 'bg-[#0f172a]', text: 'text-sky-400' },
-    'Converted':     { bg: 'bg-[#1e1b4b]', text: 'text-purple-400' },
-    'Lost':          { bg: 'bg-[#450a0a]', text: 'text-rose-400' },
-};
+// AGENT_LABEL_BADGES, TAG_META, and TAG_PILL_META replaced by shared labelStyles configuration.
 
 const ANALYTICS_ICONS = {
     'Intent':          Zap,
@@ -319,16 +296,7 @@ const normalizeLead = (lead) => {
     };
 };
 
-function TagPill({ label, size = 'md' }) {
-    const m = TAG_PILL_META[label] || { bg: 'bg-white/10', text: 'text-white' };
-    const padding = size === 'sm' ? 'px-2.5 py-1' : 'px-4 py-1.5';
-    const fontSize = size === 'sm' ? 'text-[10px]' : 'text-xs';
-    return (
-        <span className={`inline-flex items-center ${padding} rounded-full ${fontSize} font-semibold ${m.bg} ${m.text}`}>
-            {label}
-        </span>
-    );
-}
+// TagPill component removed since status is now rendered via shareable STATUS_STYLES in the new consolidated read-only LABEL section.
 
 const WhatsAppIcon = ({ className }) => (
     <svg viewBox="0 0 48 48" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -557,11 +525,11 @@ function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasM
                                             {lead.labels && lead.labels.length > 0 && (
                                                 <div className="flex flex-wrap gap-1 mt-0.5">
                                                     {lead.labels.map(lbl => {
-                                                        const badge = AGENT_LABEL_BADGES[lbl];
-                                                        if (!badge) return null;
+                                                        const config = AGENT_LABELS[lbl];
+                                                        if (!config) return null;
                                                         return (
-                                                            <span key={lbl} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${badge.bg} ${badge.textCls} ${badge.border}`}>
-                                                                {badge.text}
+                                                            <span key={lbl} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold border bg-opacity-30 ${config.activeBg} ${config.textCls}`}>
+                                                                {config.emoji} {lbl}
                                                             </span>
                                                         );
                                                     })}
@@ -594,7 +562,7 @@ function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasM
 
 // ─── CHAT SECTION ─────────────────────────────────────────────────────────────
 
-function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onToggleFavorite }) {
+function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite }) {
     const endRef = useRef(null);
     const [previewMedia, setPreviewMedia] = useState(null);
 
@@ -693,11 +661,11 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onTog
                                 );
                             })()}
                             {(leadDetail?.labels || lead?.labels || []).map(lbl => {
-                                const badge = AGENT_LABEL_BADGES[lbl];
-                                if (!badge) return null;
+                                const config = AGENT_LABELS[lbl];
+                                if (!config) return null;
                                 return (
-                                    <span key={lbl} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${badge.bg} ${badge.textCls} ${badge.border}`}>
-                                        {badge.text}
+                                    <span key={lbl} className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold border bg-opacity-30 ${config.activeBg} ${config.textCls}`}>
+                                        {config.emoji} {lbl}
                                     </span>
                                 );
                             })}
@@ -714,15 +682,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onTog
                         <div className="text-[10px] text-zinc-600 mt-0.5">Last activity: {lead.lastActive}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {leadDetail && !leadDetail.is_converted && (
-                            <button
-                                onClick={onConvert}
-                                className="flex items-center gap-1.5 px-3 h-8 rounded-lg text-xs font-semibold border bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:text-white transition-all cursor-pointer shadow-lg shadow-emerald-500/5 active:scale-95"
-                            >
-                                <Check size={12} />
-                                <span>Convert Lead</span>
-                            </button>
-                        )}
+
                         <button
                             onClick={onOpenInInbox}
                             disabled={!leadDetail?.conversation_id}
@@ -819,7 +779,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onConvert, onTog
 
 // ─── RIGHT PANEL ──────────────────────────────────────────────────────────────
 
-function RightPanel({ lead, details, history, loadingHistory, onToggleLabel }) {
+function RightPanel({ lead, details, history, loadingHistory }) {
     const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
 
     useEffect(() => {
@@ -1064,65 +1024,49 @@ function RightPanel({ lead, details, history, loadingHistory, onToggleLabel }) {
                 </div>
             </div>
 
-            {/* System Tier & Agent Labels */}
-            <div className="p-5 border-b border-white/[0.06] space-y-5">
-                {/* System Tier Section */}
-                <div>
-                    <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2.5">System Tier</h3>
-                    <div className="flex items-center gap-2">
-                        {tier.toLowerCase() === 'hot' && (
-                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-rose-500/10 border border-rose-500/25 text-rose-400">
-                                🔥 Hot
+            {/* Label Section */}
+            <div className="p-5 border-b border-white/[0.06]">
+                <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">Label</h3>
+                <div className="flex flex-wrap gap-2">
+                    {/* System Tier Badge */}
+                    {(() => {
+                        const t = SYSTEM_TIERS[tier.toLowerCase()] || SYSTEM_TIERS.cold;
+                        return (
+                            <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold border ${t.bg} ${t.border} ${t.textCls}`}>
+                                {t.text}
                             </span>
-                        )}
-                        {tier.toLowerCase() === 'warm' && (
-                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/25 text-amber-400">
-                                🟡 Warm
-                            </span>
-                        )}
-                        {tier.toLowerCase() === 'cold' && (
-                            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-zinc-500/10 border border-zinc-500/25 text-zinc-400">
-                                ❄️ Cold
-                            </span>
-                        )}
-                        <span className="text-[11px] text-zinc-500 font-medium italic">Computed automatically ({details?.score ?? lead?.score ?? 0})</span>
-                    </div>
-                </div>
+                        );
+                    })()}
 
-                {/* Agent Labels Section */}
-                <div>
-                    <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2.5">Agent Labels</h3>
-                    <div className="flex flex-wrap gap-2">
-                        {[
-                            { name: 'Premium Lead', emoji: '👑', activeBg: 'bg-[#4B2580] border-[#6D39BD]', inactiveBorder: 'border-white/10 hover:border-white/20' },
-                            { name: 'High Priority', emoji: '🔥', activeBg: 'bg-[#7B1A2E] border-[#A82B44]', inactiveBorder: 'border-white/10 hover:border-white/20' },
-                            { name: 'Interested', emoji: '⚡', activeBg: 'bg-[#145A32] border-[#208A4E]', inactiveBorder: 'border-white/10 hover:border-white/20' },
-                            { name: 'Follow Up', emoji: '📅', activeBg: 'bg-[#0F4C81] border-[#1A73C2]', inactiveBorder: 'border-white/10 hover:border-white/20' }
-                        ].map(lbl => {
-                            const isActive = activeLabels.includes(lbl.name);
+                    {/* Agent Labels Badges */}
+                    {activeLabels && activeLabels.length > 0 ? (
+                        activeLabels.map(lbl => {
+                            const config = AGENT_LABELS[lbl];
+                            if (!config) return null;
                             return (
-                                <button
-                                    key={lbl.name}
-                                    onClick={() => onToggleLabel && onToggleLabel(lead.id, lbl.name)}
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5 cursor-pointer
-                                        ${isActive
-                                            ? `${lbl.activeBg} text-white shadow-lg`
-                                            : `bg-transparent ${lbl.inactiveBorder} text-zinc-400 hover:text-white`
-                                        }`}
+                                <span
+                                    key={lbl}
+                                    className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold border gap-1.5 ${config.activeBg} ${config.textCls}`}
                                 >
-                                    {lbl.emoji} {lbl.name}
-                                </button>
+                                    {config.emoji} {lbl}
+                                </span>
                             );
-                        })}
-                    </div>
-                </div>
+                        })
+                    ) : (
+                        <span className="text-xs text-zinc-500 italic px-1 self-center">No labels yet</span>
+                    )}
 
-                {/* Lead Status / Tags */}
-                <div>
-                    <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2.5">Status</h3>
-                    <div className="flex flex-wrap gap-2">
-                        {lead.status && <TagPill label={lead.status.charAt(0).toUpperCase() + lead.status.slice(1)} />}
-                    </div>
+                    {/* Status Badge */}
+                    {lead.status && (() => {
+                        const statusLower = lead.status.toLowerCase();
+                        const s = STATUS_STYLES[statusLower] || { bg: 'bg-white/10', text: 'text-zinc-300', border: 'border-white/10' };
+                        const statusLabel = lead.status.charAt(0).toUpperCase() + lead.status.slice(1);
+                        return (
+                            <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold border ${s.bg} ${s.text} ${s.border}`}>
+                                {statusLabel}
+                            </span>
+                        );
+                    })()}
                 </div>
             </div>
 
@@ -1191,7 +1135,7 @@ export default function LeadsPage() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [view, setView] = useState('leads'); // 'leads' | 'chat'
     const [showAddLeadModal, setShowAddLeadModal] = useState(false);
-    const [showConvertModal, setShowConvertModal] = useState(false);
+
 
     const [loading, setLoading] = useState(false);
     const [detailsLoading, setDetailsLoading] = useState({});
@@ -1469,86 +1413,7 @@ export default function LeadsPage() {
         fetchSelectedLeadData(newLead.id);
     };
 
-    const handleLeadConverted = (updatedLeadResponse) => {
-        const updatedLead = normalizeLead(updatedLeadResponse);
 
-        // Update lead list
-        setLeads(prev => prev.map(l => {
-            if (l.id === updatedLead.id) {
-                return {
-                    ...l,
-                    ...updatedLead
-                };
-            }
-            return l;
-        }));
-
-        // Update lead details cache
-        setLeadsDetails(prev => {
-            const current = prev[updatedLead.id] || {};
-            return {
-                ...prev,
-                [updatedLead.id]: {
-                    ...current,
-                    ...updatedLead
-                }
-            };
-        });
-
-        // Refetch selected lead data to ensure everything is synced
-        fetchSelectedLeadData(updatedLead.id);
-    };
-
-    const handleToggleLabel = async (leadId, label) => {
-        if (!leadId) return;
-        const currentLabels = leadsDetails[leadId]?.labels || [];
-        const isActive = currentLabels.includes(label);
-        const action = isActive ? "remove" : "add";
-
-        try {
-            const res = await api.updateLeadLabels(leadId, label, action);
-            
-            // 1. Update leadsDetails cache
-            setLeadsDetails(prev => {
-                const current = prev[leadId] || {};
-                return {
-                    ...prev,
-                    [leadId]: {
-                        ...current,
-                        labels: res.labels || [],
-                        score: res.score || 0,
-                        lead_tier: res.lead_tier || 'cold',
-                        breakdown: res.breakdown || null
-                    }
-                };
-            });
-
-            // 2. Update lead in leads list
-            setLeads(prev => prev.map(l => {
-                if (l.id === leadId) {
-                    return {
-                        ...l,
-                        labels: res.labels || [],
-                        score: res.score || 0,
-                        lead_tier: res.lead_tier || 'cold',
-                        breakdown: res.breakdown || null
-                    };
-                }
-                return l;
-            }));
-
-            // 3. Fetch history to show updated timeline
-            const workspaceId = getWorkspaceIdFromToken();
-            const historyRes = await api.get(`/lead-scoring/leads/${leadId}/history?workspace_id=${workspaceId}`);
-            setHistoryLogs(prev => ({
-                ...prev,
-                [leadId]: historyRes.history || []
-            }));
-
-        } catch (err) {
-            console.error("Failed to update label:", err);
-        }
-    };
 
     const handleToggleFavorite = async (leadId) => {
         const workspaceId = getWorkspaceIdFromToken();
@@ -1685,7 +1550,6 @@ export default function LeadsPage() {
                                 leadDetail={leadsDetails[selectedLeadId]}
                                 onBack={() => setView('leads')}
                                 onOpenInInbox={handleOpenInInbox}
-                                onConvert={() => setShowConvertModal(true)}
                                 onToggleFavorite={handleToggleFavorite}
                             />
                         )}
@@ -1694,7 +1558,6 @@ export default function LeadsPage() {
                             details={leadsDetails[selectedLeadId]}
                             history={historyLogs[selectedLeadId]}
                             loadingHistory={historyLoading === selectedLeadId}
-                            onToggleLabel={handleToggleLabel}
                         />
                     </div>
                 </div>
@@ -1709,15 +1572,7 @@ export default function LeadsPage() {
                 />
             )}
 
-            {/* Convert Lead Modal popup */}
-            {showConvertModal && (
-                <ConvertLeadModal
-                    isOpen={showConvertModal}
-                    onClose={() => setShowConvertModal(false)}
-                    lead={leadsDetails[selectedLeadId] || selectedLead}
-                    onSuccess={handleLeadConverted}
-                />
-            )}
+
         </div>
     );
 }

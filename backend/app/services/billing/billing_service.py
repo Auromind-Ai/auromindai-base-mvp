@@ -12,7 +12,9 @@ from app.models.token_ledger import TokenLedger
 from app.models.plan import Plan
 from app.models.subscription import Subscription
 from app.models.workspace import Workspace, WorkspaceMember
+from app.models.credit_pack import CreditPack
 from .gateway.base import TOKENS_PER_CREDIT, PaymentGateway, TokenBalance, TokenLimitStatus
+
 from .gateway import get_gateway
 from .token_service import TokenService
 from .usage_service import UsageService
@@ -39,12 +41,8 @@ def check_token_limit(db: Session, workspace_id: str) -> dict[str, Any]:
         "estimated_overage_cost": status.estimated_overage_cost,
     }
 
-def enforce_execution_policy(db: Session, workspace_id: str) -> bool:
-    limit_status = BillingService().check_token_limit(db, workspace_id)
-    
-    if limit_status.within_limit:
-        return True
-        
+def enforce_execution_policy(db: Session, workspace_id: str, amount: int = 0) -> bool:
+    # 1. Check if overage billing is allowed
     subscription = SubscriptionService()._get_active_subscription(db, workspace_id)
     if not subscription:
         return False
@@ -59,7 +57,11 @@ def enforce_execution_policy(db: Session, workspace_id: str) -> bool:
     if overage_enabled and has_payment_method:
         return True
         
-    return False
+    # 2. If overages are not enabled/valid, enforce ledger limits
+    balance_info = BillingService().token_service.get_token_balance(db, workspace_id)
+    if amount > 0:
+        return balance_info.balance >= amount
+    return balance_info.balance > 0
 
 
 class BillingService:
@@ -299,12 +301,11 @@ class BillingService:
                 payment_payload=fetched_payment.raw or {},
                 plan_config=plan_config,
             )
-            self.token_service.grant_plan_tokens(
+            from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+            EntitlementOrchestrator.renew_subscription(
                 db=db,
-                workspace_id=workspace_id,
-                subscription=subscription,
+                workspace_id=uuid.UUID(str(workspace_id)),
                 payment=payment,
-                plan_config=plan_config,
             )
             db.commit()
 
@@ -339,6 +340,130 @@ class BillingService:
         except Exception:
             db.rollback()
             raise
+
+    def initiate_credit_pack_purchase(
+        self,
+        db: Session,
+        workspace_id: str,
+        user_id: str,
+        pack_id: str,
+        provider: str = "razorpay",
+    ) -> dict[str, Any]:
+        pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id, CreditPack.is_active == True).first()
+        if not pack:
+            raise ValueError(f"Unknown credit pack: {pack_id}")
+
+        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        gateway = self._resolve_gateway(provider)
+
+        # Razorpay expects amount in paise (integer)
+        amount_paise = int(pack.amount * 100)
+
+        order_payload = {
+            "amount": amount_paise,
+            "currency": pack.currency,
+            "payment_capture": 1,
+            "notes": {
+                "workspace_id": str(workspace.id),
+                "pack_id": pack_id,
+                "type": "credit_pack_purchase"
+            }
+        }
+
+        # Create Razorpay order
+        order_data = gateway.client.order.create(order_payload)
+
+        return {
+            "provider": gateway.provider,
+            "gateway_order_id": order_data["id"],
+            "pack_id": pack_id,
+            "amount": amount_paise,
+            "currency": pack.currency,
+            "public_key": gateway.get_public_key(),
+        }
+
+    def verify_credit_pack_payment(
+        self,
+        db: Session,
+        workspace_id: str,
+        user_id: str,
+        order_id: str,
+        payment_id: str,
+        signature: str,
+        provider: str = "razorpay",
+    ) -> dict[str, Any]:
+        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        gateway = self._resolve_gateway(provider)
+
+        # Verify signature
+        payload = {
+            "order_id": order_id,
+            "payment_id": payment_id,
+            "signature": signature,
+        }
+        gateway.verify_payment(payload)
+
+        # Fetch payment details to verify metadata and amount
+        fetched_payment = gateway.fetch_payment(payment_id)
+        if fetched_payment.status != "captured":
+            raise ValueError("Payment not captured")
+
+        notes = fetched_payment.raw.get("notes", {}) if fetched_payment.raw else {}
+        pack_id = notes.get("pack_id")
+        if not pack_id:
+            raise ValueError("Missing pack_id in payment metadata")
+
+        # Record payment transaction in DB
+        pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id, CreditPack.is_active == True).first()
+        if not pack:
+            raise ValueError(f"Unknown credit pack: {pack_id}")
+
+        # Check if already processed (idempotency check)
+        from app.models.token_ledger import TokenLedger
+        reference_key = f"purchase:{workspace_id}:{payment_id}"
+        existing = db.query(TokenLedger).filter(TokenLedger.reference_key == reference_key).first()
+        if existing:
+            return {
+                "status": "success",
+                "message": "Payment verified, credits already granted",
+                "payment_id": payment_id,
+            }
+
+        # Create mock PlanConfig for successful payment record helper
+        class DummyPlanConfig:
+            amount = pack.amount
+            currency = pack.currency
+
+        subscription = self.subscription_service._get_active_subscription(db, workspace_id)
+        if not subscription:
+            raise ValueError("No active subscription found for workspace to attach payment to")
+
+        payment = self.payment_service._record_successful_payment(
+            db=db,
+            provider=provider,
+            subscription=subscription,
+            payment_payload=fetched_payment.raw or {},
+            plan_config=DummyPlanConfig(),
+        )
+
+        # Grant credits
+        self.token_service.grant_purchased_credits(
+            db=db,
+            workspace_id=workspace_id,
+            credits=float(pack.credits),
+            payment_id=str(payment.id),
+            gateway_order_id=order_id,
+            description=f"Purchased AI Credit Pack: {pack.name}"
+        )
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": f"Successfully purchased {pack.name}",
+            "payment_id": payment_id,
+            "credits_granted": pack.credits,
+        }
+
 
     def handle_webhook(
         self,
@@ -417,10 +542,12 @@ class BillingService:
         token_status = self.check_token_limit(db, str(workspace.id))
         used_tokens = token_status.tokens_used
 
-        # 3. Credits Calculation (100,000 / 1000 = 100 Credits)
-        credits_total_limit = float(total_tokens) / TOKENS_PER_CREDIT
-        credits_used = float(used_tokens) / TOKENS_PER_CREDIT
-        credits_remaining = max(credits_total_limit - credits_used, 0)
+        # 3. Credits Calculation from ledger balance
+        balance_info = self.token_service.get_token_balance(db, str(workspace.id))
+        credits_total_limit = balance_info.tokens_added
+        credits_used = balance_info.tokens_used
+        credits_remaining = balance_info.balance
+
         
         usage_percent = round((used_tokens / total_tokens) * 100, 1) if total_tokens > 0 else 0
 
@@ -519,10 +646,11 @@ class BillingService:
         burn_rate = self.token_service.get_burn_rate(db, str(workspace.id))
         daily_usage = self.token_service.get_daily_usage(db, str(workspace.id), days=30)
 
-        credits_balance = round(float(balance.balance) / TOKENS_PER_CREDIT, 2)
-        credits_added = round(float(balance.tokens_added) / TOKENS_PER_CREDIT, 2)
-        credits_used = round(float(balance.tokens_used) / TOKENS_PER_CREDIT, 2)
-        credits_reserved = round(float(balance.tokens_reserved) / TOKENS_PER_CREDIT, 2)
+        credits_balance = round(float(balance.balance), 2)
+        credits_added = round(float(balance.tokens_added), 2)
+        credits_used = round(float(balance.tokens_used), 2)
+        credits_reserved = round(float(balance.tokens_reserved), 2)
+
 
         days_remaining = round(credits_balance / burn_rate, 1) if burn_rate > 0 else -1
 
@@ -556,49 +684,32 @@ class BillingService:
         self._get_workspace_for_user(db, workspace_id, user_id)
         return self.token_service.get_transaction_history(db, workspace_id, page, limit)
 
-    def get_credit_summary(self, db: Session, workspace_id: str, user_id: str) -> dict[str, Any]:
-        """Return real-time credit balance, burn rate, and estimated days remaining."""
-        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
-        balance = self.token_service.get_token_balance(db, str(workspace.id))
-        burn_rate = self.token_service.get_burn_rate(db, str(workspace.id))
-        daily_usage = self.token_service.get_daily_usage(db, str(workspace.id), days=30)
-
-        credits_balance = round(float(balance.balance) / TOKENS_PER_CREDIT, 2)
-        credits_added = round(float(balance.tokens_added) / TOKENS_PER_CREDIT, 2)
-        credits_used = round(float(balance.tokens_used) / TOKENS_PER_CREDIT, 2)
-        credits_reserved = round(float(balance.tokens_reserved) / TOKENS_PER_CREDIT, 2)
-
-        days_remaining = round(credits_balance / burn_rate, 1) if burn_rate > 0 else -1
-
-        # Determine health status
-        if credits_added > 0:
-            usage_pct = round((credits_used / credits_added) * 100, 1)
-        else:
-            usage_pct = 0
-
-        if usage_pct >= 80:
-            health = "critical"
-        elif usage_pct >= 50:
-            health = "warning"
-        else:
-            health = "healthy"
-
-        return {
-            "credits_balance": credits_balance,
-            "credits_added": credits_added,
-            "credits_used": credits_used,
-            "credits_reserved": credits_reserved,
-            "burn_rate": burn_rate,
-            "days_remaining": days_remaining,
-            "usage_percent": usage_pct,
-            "health": health,
-            "daily_usage": daily_usage,
-        }
-
-    def get_credit_history(self, db: Session, workspace_id: str, user_id: str, page: int = 1, limit: int = 20) -> dict:
-        """Return paginated credit transaction history."""
+    def list_credit_packs(
+        self,
+        db: Session,
+        workspace_id: str,
+        user_id: str,
+    ) -> list[dict[str, Any]]:
+        """Return active AI credit packs available to the workspace."""
         self._get_workspace_for_user(db, workspace_id, user_id)
-        return self.token_service.get_transaction_history(db, workspace_id, page, limit)
+        packs = (
+            db.query(CreditPack)
+            .filter(CreditPack.is_active == True)
+            .order_by(CreditPack.amount.asc(), CreditPack.created_at.asc())
+            .all()
+        )
+        return [
+            {
+                "id": str(pack.id),
+                "pack_id": pack.pack_id,
+                "name": pack.name,
+                "amount": float(pack.amount),
+                "credits": int(pack.credits),
+                "currency": pack.currency,
+            }
+            for pack in packs
+        ]
+
 
     def _get_workspace_for_user(self, db: Session, workspace_id: str, user_id: str) -> Workspace:
         membership = (

@@ -87,23 +87,25 @@ async def update_workspace_plan(
         Subscription.status == SubscriptionStatus.active
     ).first()
 
-    if old_sub:
-        old_sub.plan_id = plan.id
-        old_sub.billing_cycle = plan.billing_cycle
-        old_sub.is_admin_override = True
-    else:
-        new_sub = Subscription(
-            workspace_id=workspace_id,
-            plan_id=plan.id,
-            status=SubscriptionStatus.active,
-            billing_cycle=plan.billing_cycle,  
-            is_admin_override=True
-        )
-        db.add(new_sub)
+    import uuid
+    ws_uuid = uuid.UUID(workspace_id)
+    from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
 
-    # Sync workspace level fields
-    ws.plan_type = new_plan_name
-    
+    is_upgrade = True
+    if old_sub:
+        old_plan = db.query(Plan).filter(Plan.id == old_sub.plan_id).first()
+        if old_plan and plan:
+            order = {"free": 0, "pro": 1, "enterprise": 2}
+            old_val = order.get(old_plan.name.lower(), 0)
+            new_val = order.get(plan.name.lower(), 0)
+            if new_val < old_val:
+                is_upgrade = False
+
+    if is_upgrade:
+        EntitlementOrchestrator.upgrade_subscription(db, ws_uuid, plan.id)
+    else:
+        EntitlementOrchestrator.downgrade_subscription(db, ws_uuid, plan.id)
+
     if new_plan_name.lower() == "free":
         ws.overage_enabled = False
 

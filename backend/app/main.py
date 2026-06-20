@@ -23,7 +23,7 @@ from app.routers import (
     auth, brain, dashboard, chat,
     integrations, gmail, email, automation, admin,
     public, billing, upload, preferences, security,
-    notifications
+    notifications, wcc
 )
 from app.routers.feedback import router as feedback_router
 from app.routers.template import router as template_router
@@ -107,6 +107,7 @@ app.include_router(feedback_router)
 app.include_router(admin.router, tags=["admin"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])
+app.include_router(wcc.router)
 app.include_router(upload.router,tags=["upload"])
 app.include_router(lead_scoring_router, tags=["lead-scoring"])
 app.include_router(realtime_router)

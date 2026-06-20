@@ -64,10 +64,11 @@ class GatewayWebhookEvent:
 
 @dataclass
 class TokenBalance:
-    tokens_added: int
-    tokens_used: int
-    tokens_reserved: int
-    balance: int
+    tokens_added: float
+    tokens_used: float
+    tokens_reserved: float
+    balance: float
+
 
 
 @dataclass

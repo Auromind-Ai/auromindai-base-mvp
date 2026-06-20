@@ -39,19 +39,10 @@ export async function getMCPRules(workspace_id) {
 
 export async function updateLeadLabels(leadId, label, action) {
   try {
-    const leadDetail = await client.get(`/lead-scoring/leads/${leadId}/detail`);
-    const currentLabels = leadDetail.labels || [];
-    let newLabels = [...currentLabels];
-    if (action === "add") {
-      if (!newLabels.includes(label)) {
-        newLabels.push(label);
-      }
-    } else if (action === "remove") {
-      newLabels = newLabels.filter(l => l !== label);
-    }
+    const newLabels = action === "add" ? [label] : [];
     return await client.post(`/lead-scoring/leads/${leadId}/labels`, { labels: newLabels });
   } catch (err) {
-    return await client.post(`/lead-scoring/leads/${leadId}/labels`, { labels: [label] });
+    return await client.post(`/lead-scoring/leads/${leadId}/labels`, { labels: action === "add" ? [label] : [] });
   }
 }
 

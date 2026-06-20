@@ -34,7 +34,7 @@ function BillingContent() {
       try {
         //  BOTH CALLS
         const [billing, settingsData] = await Promise.all([
-          api.getBillingStatus(),
+          api.getBillingStatus(workspaceId),
           api.getPricing(), 
         ])
 
