@@ -283,6 +283,7 @@ class WebhookService:
 
     @staticmethod
     async def handle_instagram_webhook(payload: dict, db: Session):
+       
         for entry in payload.get("entry", []):
             instagram_account_id = entry.get("id")
             messaging_events = entry.get("messaging") or []
@@ -301,10 +302,11 @@ class WebhookService:
             for event in messaging_events:
                 message_data = event.get("message", {})
                 postback_data = event.get("postback", {})
-                if message_data.get("is_echo"):
-                    continue
-
                 sender_id = event.get("sender", {}).get("id")
+
+                # Echo Protection: Ignore any message originating from the page itself
+                if message_data.get("is_echo") or (sender_id and sender_id == instagram_account_id):
+                    continue
                 
                 # Extract text and button payload
                 text = message_data.get("text")

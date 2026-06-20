@@ -52,7 +52,7 @@ export const logout = () => {
   }
 };
 
-/* ---------- Admin backup helpers ---------- */
+/*Admin backup helpers*/
 export const setAdminBackup = (adminToken) => {
   if (typeof window !== 'undefined' && adminToken) {
     // only set if not already present (prevent overwriting)

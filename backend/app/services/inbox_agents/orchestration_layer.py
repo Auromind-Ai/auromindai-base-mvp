@@ -2,6 +2,7 @@ from app.core.logger import logger
 from app.services.inbox_agents.config_service import ConfigService
 from app.services.inbox_agents.unified_agent import UnifiedAgent
 from app.services.inbox_agents.sales_agent import SalesAgent
+from app.services.inbox_agents.support_agent import SupportAgent
 from app.services.inbox_agents.mcpservice import MCPService
 from app.services.inbox_agents.llm_client import LLMClient
 from app.services.inbox_agents.memory_service import MemoryService
@@ -28,6 +29,7 @@ class AgentOrchestration:
         self.mcp.config_service = self.config_service
         self.unified_agent = UnifiedAgent(self.llm, self.memory)
         self.sales_agent = SalesAgent(self.llm, self.memory)
+        self.support_agent = SupportAgent(self.llm, self.memory)
         self.escalation_queue = EscalationQueue(db=db)
 
         self.channel_adapters = {"twilio": None, "instagram": None, "whatsapp": None}
@@ -177,6 +179,21 @@ class AgentOrchestration:
                     "business_type": payload.get("business_type"),
                     "calendar_enabled": payload.get("calendar_enabled", False),
                     "payment_enabled": payload.get("payment_enabled", False),
+                    "payment_link": payload.get("payment_link", ""),
+                    "entry_ids": payload.get("entry_ids", []),
+                }
+            ) or {}
+        elif agent_type == "support_agent":
+            result = await self.support_agent.handle(
+                message=message,
+                context={
+                    "agent_type": agent_type,
+                    "workspace_id": workspace_id,
+                    "conversation_id": conversation_id,
+                    "db": self.db,
+                    "turn_count": turn_count,
+                    "repeat_count": repeat_count,
+                    "business_type": payload.get("business_type"),
                     "entry_ids": payload.get("entry_ids", []),
                 }
             ) or {}
@@ -239,6 +256,32 @@ class AgentOrchestration:
             result["close"]    = True
             result["demo_details"] = demo_details
 
+        # ─ PAYMENT LINK: Close the deal ─
+        if action == "send_payment_link":
+            payment_link = payload.get("payment_link", "")
+            if payment_link:
+                response_text = result.get("response", "")
+                if payment_link not in response_text:
+                    result["response"] = f"{response_text}\n\n🔗 Payment Link: {payment_link}"
+                result["payment_required"] = True
+                result["lead_score"] = "hot"
+                result["close"] = True
+                result["escalate"] = True
+                self.logger.info(
+                    "Payment link sent, deal closing.",
+                    extra={"workspace_id": workspace_id, "conversation_id": conversation_id}
+                )
+            else:
+                # No payment link configured — escalate to human for manual processing
+                result["escalate"] = True
+                result["close"] = True
+                if "connect" not in result.get("response", "").lower():
+                    result["response"] = result.get("response", "") + "\n\nI'll connect you with our team to complete the purchase."
+                self.logger.info(
+                    "No payment link configured. Escalating to human for purchase.",
+                    extra={"workspace_id": workspace_id, "conversation_id": conversation_id}
+                )
+
         if action == "lead_complete":
             stage = "sales"
             if self.memory:
@@ -260,30 +303,51 @@ class AgentOrchestration:
         # ─ Update memory ─
         if self.memory:
             collected = result.get("collect") or {}
-
-            # ── LEAD_DEBUG: Log raw collect from LLM result ──
+ 
+            # ── LEAD_DEBUG: Log raw collect from agent result ──
             self.logger.warning(
-                f"[LEAD_DEBUG][orchestration] RAW collect from LLM: {result.get('collect')}"
+                f"[LEAD_DEBUG][orchestration] RAW collect from agent: {result.get('collect')}"
             )
-
+ 
+            # ── SUPPORT AGENT: persist support_* fields directly ──
+            # SupportAgent manages its own state via support_* prefixed keys.
+            # These bypass lead_fields config (support flow has no lead_fields).
+            SUPPORT_FIELDS = {
+                "support_stage", "support_name", "support_contact",
+                "support_problem", "support_rag_solution",
+            }
+            support_collect = {k: v for k, v in collected.items() if k in SUPPORT_FIELDS and v}
+            if support_collect:
+                self.logger.warning(
+                    f"[LEAD_DEBUG][orchestration] Persisting support fields directly: {support_collect}"
+                )
+                self.memory.update_lead_data(
+                    workspace_id=workspace_id,
+                    conversation_id=conversation_id,
+                    data=support_collect,
+                )
+                # Remove support fields from collected so they don't go through
+                # the lead_fields validation pipeline below.
+                collected = {k: v for k, v in collected.items() if k not in SUPPORT_FIELDS}
+ 
             # Merge: also try to extract top-level values for known lead fields
             for field in lead_fields:
                 if field in result and result[field] and not collected.get(field):
                     collected[field] = result[field]
-
-            # Merge demo scheduling fields as well so they are persisted to Lead columns/custom_fields
+ 
+            # Merge demo scheduling fields
             for field in ["meeting_date", "meeting_time", "timezone"]:
                 if field in result and result[field] and not collected.get(field):
                     collected[field] = result[field]
-
+ 
             # ── LEAD_DEBUG: Log merged collected before validation ──
             self.logger.warning(
                 f"[LEAD_DEBUG][orchestration] collected BEFORE validation: {collected}"
             )
-
-            INVALID_WORDS = ["none", "null", "no", "nill", "don't have", 
+ 
+            INVALID_WORDS = ["none", "null", "no", "nill", "don't have",
                              "not have", "இல்ல", "தெரியல", "na", "n/a"]
-
+ 
             def validate_lead_fields(data: dict) -> dict:
                 import re
                 valid = {}
@@ -294,18 +358,16 @@ class AgentOrchestration:
                         )
                         continue
                     v = str(value).strip().lower()
-                    
-                    # Reject invalid words
+ 
                     if v in INVALID_WORDS:
                         self.logger.warning(
                             f"[LEAD_DEBUG][validation] REJECT field={field!r}: invalid word={v!r}"
                         )
                         continue
-                    
-                    # Field-specific rules
+ 
                     if field == "email":
                         self.logger.warning(
-                            f"[LEAD_DEBUG][validation] EMAIL check: raw value={value!r}, repr={value!r}"
+                            f"[LEAD_DEBUG][validation] EMAIL check: raw value={value!r}"
                         )
                         if not re.match(r"[^@]+@[^@]+\.[^@]+", value):
                             self.logger.warning(
@@ -316,7 +378,7 @@ class AgentOrchestration:
                             self.logger.warning(
                                 f"[LEAD_DEBUG][validation] EMAIL PASSED regex: {value!r}"
                             )
-                    
+ 
                     if field == "phone":
                         digits = re.sub(r"\D", "", value)
                         if len(digits) < 10:
@@ -324,55 +386,44 @@ class AgentOrchestration:
                                 f"[LEAD_DEBUG][validation] PHONE REJECTED: digits={digits!r} len={len(digits)}"
                             )
                             continue
-                    
+ 
                     if field == "name":
                         if len(value.strip()) < 2:
                             self.logger.warning(
                                 f"[LEAD_DEBUG][validation] NAME REJECTED: too short={value!r}"
                             )
                             continue
-                    
-                    valid[field] = value  
-
+ 
+                    valid[field] = value
+ 
                 return valid
-
+ 
             cleaned = validate_lead_fields(
                 {k: v for k, v in collected.items() if v}
             )
-
+ 
             # ── LEAD_DEBUG: Log cleaned output after validation ──
             self.logger.warning(
                 f"[LEAD_DEBUG][orchestration] cleaned fields AFTER validation: {cleaned}"
             )
-
+ 
             if cleaned:
-                # ── LEAD_DEBUG: Log persistence attempt ──
                 self.logger.warning(
-                    f"[LEAD_DEBUG][orchestration] Persisting fields: {cleaned}"
+                    f"[LEAD_DEBUG][orchestration] Persisting lead fields: {cleaned}"
                 )
-
-                self.logger.info(
-                    "[LEAD SAVE DEBUG] Before save",
-                    extra={
-                        "workspace_id": workspace_id,
-                        "conversation_id": conversation_id,
-                        "collect": cleaned
-                    }
-                )
-
                 self.memory.update_lead_data(
                     workspace_id=workspace_id,
                     conversation_id=conversation_id,
                     data=cleaned,
                 )
-                
-                # Force a refresh by re-fetching
+ 
+                # Force a refresh
                 lead = self.memory.get_lead_data(
                     workspace_id=workspace_id,
                     conversation_id=conversation_id,
                 )
-                
-                # Re-build lead_data from standard fields and custom_fields
+ 
+                # Re-build lead_data from standard + custom fields
                 lead_data = {}
                 for field in lead_fields:
                     val = ""
@@ -383,52 +434,42 @@ class AgentOrchestration:
                             val = getattr(lead, field, "")
                     if val:
                         lead_data[field] = val
-                
+ 
                 self.logger.info(
                     "[LEAD LOAD DEBUG] After save and reload",
                     extra={
                         "workspace_id": workspace_id,
                         "conversation_id": conversation_id,
                         "lead_fields": lead_data,
-                        "custom_fields": lead.custom_fields if lead else None
+                        "custom_fields": lead.custom_fields if lead else None,
                     }
                 )
-
-                # ── LEAD_DEBUG: Log lead_data after persistence reload ──
-                self.logger.warning(
-                    f"[LEAD_DEBUG][orchestration] lead_data AFTER persistence: {lead_data}"
-                )
-                self.logger.warning(
-                    f"[LEAD_DEBUG][orchestration] custom_fields AFTER persistence: {lead.custom_fields if lead else None}"
-                )
-
+ 
                 missing_fields = [
                     field for field in lead_fields
                     if not lead_data.get(field)
                 ]
-                # All lead fields collected → auto escalate cleanly (only if calendar/demo booking is NOT enabled)
+                # All lead fields collected → auto escalate (only if calendar not enabled)
                 if lead_fields and not missing_fields and not payload.get("calendar_enabled", False):
                     result["action"] = "lead_complete"
                     result["escalate"] = True
                     result["close"] = True
                     stage = "sales"
-
                     self.logger.info(
                         "All lead fields collected. Escalating to human.",
                         extra={
                             "workspace_id": workspace_id,
                             "conversation_id": conversation_id,
-                            "lead_data": lead_data
+                            "lead_data": lead_data,
                         }
                     )
-
             else:
-                # ── LEAD_DEBUG: Log empty validation failure ──
-                self.logger.warning(
-                    "[LEAD_DEBUG][orchestration] ⚠️ No fields persisted after validation! "
-                    f"collected was: {collected}"
-                )
-
+                if not support_collect:  # Only warn if we didn't persist support fields either
+                    self.logger.warning(
+                        "[LEAD_DEBUG][orchestration] ⚠️ No fields persisted after validation! "
+                        f"collected was: {collected}"
+                    )
+ 
             self.memory.update_conversation_state(
                 workspace_id=workspace_id,
                 conversation_id=conversation_id,
@@ -437,10 +478,10 @@ class AgentOrchestration:
                     "last_action":   action,
                 }
             )
-
+ 
             if agent_type == "sales_agent":
                 sales_data = {
-                    "stage": "sales",
+                    "stage": result.get("stage", "sales"),
                     "intent": result.get("intent"),
                     "lead_score": result.get("lead_score"),
                     "confidence_score": result.get("confidence_score"),
@@ -451,7 +492,7 @@ class AgentOrchestration:
                 self.memory.update_sales_data(
                     workspace_id=workspace_id,
                     conversation_id=conversation_id,
-                    data={k: v for k, v in sales_data.items() if v is not None}
+                    data={k: v for k, v in sales_data.items() if v is not None},
                 )
 
         # ─ MCP validation ─
@@ -483,8 +524,8 @@ class AgentOrchestration:
             or decision == "ESCALATE"
         ) and state.get("current_stage") != "sales"
 
-        # Also escalate if stage is sales and action is lead_complete or book_demo
-        if action in ["lead_complete", "book_demo"]:
+        # Also escalate if stage is sales and action is lead_complete, book_demo, or send_payment_link
+        if action in ["lead_complete", "book_demo", "send_payment_link"]:
             should_escalate = True
 
         if should_escalate:
@@ -542,6 +583,9 @@ class AgentOrchestration:
     def _determine_agent_type(self, message, turn_count, lead_data, state, is_followup_trigger=False):
         if is_followup_trigger:
             return "followup_agent"
+
+        if state.get("current_stage") == "support":
+            return "support_agent"
 
         if turn_count == 0:
             return "greeting_agent"

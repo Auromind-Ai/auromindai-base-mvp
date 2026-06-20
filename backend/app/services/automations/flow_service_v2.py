@@ -1303,6 +1303,11 @@ class FlowServiceV2:
                     False
                 ),
 
+                "payment_link": config.get(
+                    "payment_link",
+                    ""
+                ),
+
                 # RAG
                 "collection": config.get("collection"),
                 "entry_ids": config.get("entry_ids"),

@@ -286,6 +286,9 @@ class SupportTicket(Base):
 
     description = Column(Text)
 
+    customer_name = Column(String(255), nullable=True)
+    customer_contact = Column(String(255), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
