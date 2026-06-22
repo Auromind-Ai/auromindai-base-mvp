@@ -38,6 +38,10 @@ class BrainEntryResponse(BaseModel):
     status: str
     created_at: str
     word_count: int = 0
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    credits_charged: Optional[float] = None
+    embedding_status: Optional[str] = None
 
 class SearchResultItem(BaseModel):
     id: str
@@ -71,6 +75,10 @@ class IngestionStatusResponse(BaseModel):
     error_message: Optional[str] = None
     created_at: Optional[datetime] = None 
     title: Optional[str] = None
+    file_name: Optional[str] = None
+    file_size: Optional[int] = None
+    credits_charged: Optional[float] = None
+    embedding_status: Optional[str] = None
 
 class ListEntriesResponse(BaseModel):
     entries: List[dict]

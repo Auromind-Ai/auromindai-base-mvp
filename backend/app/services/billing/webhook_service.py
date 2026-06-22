@@ -9,8 +9,10 @@ from app.services.billing.payment_service import PaymentService
 from app.services.billing.plan_service import PlanService
 from app.services.billing.subscription_service import SubscriptionService
 from app.models.plan import Plan
+from app.models.credit_pack import CreditPack
 from app.services.billing.token_service import TokenService
 from app.services.billing.gateway import get_gateway
+
 
 class WebhookService:
     def __init__(self, token_service: TokenService):
@@ -122,7 +124,12 @@ class WebhookService:
                     self._handle_subscription_activated(db, gateway.provider, webhook.entity)
 
                 elif webhook.event_type in {"payment.captured", "subscription.charged"}:
-                    self._handle_payment_success(db, gateway.provider, webhook.entity)
+                    payment_payload = self._get_payment_payload(webhook.entity)
+                    notes = payment_payload.get("notes") or {}
+                    if notes.get("type") == "credit_pack_purchase":
+                        self._handle_credit_pack_payment_webhook(db, gateway.provider, webhook.entity)
+                    else:
+                        self._handle_payment_success(db, gateway.provider, webhook.entity)
 
                 elif webhook.event_type == "payment.failed":
                     self._handle_payment_failed(db, gateway.provider, webhook.entity)
@@ -282,12 +289,12 @@ class WebhookService:
             payment_payload=fetched_payment.raw or {},
             plan_config=plan_config,
         )
-        self.token_service.grant_plan_tokens(
+        import uuid
+        from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+        EntitlementOrchestrator.renew_subscription(
             db=db,
-            workspace_id=str(subscription.workspace_id),
-            subscription=subscription,
+            workspace_id=uuid.UUID(str(subscription.workspace_id)),
             payment=payment,
-            plan_config=plan_config,
         )
 
     def _handle_subscription_cancelled(
@@ -425,3 +432,61 @@ class WebhookService:
             return datetime.fromtimestamp(int(value), tz=timezone.utc)
         except (TypeError, ValueError, OSError):
             return None
+
+    def _handle_credit_pack_payment_webhook(
+        self,
+        db: Session,
+        provider: str,
+        entity: dict[str, Any],
+    ) -> None:
+        import uuid
+        payment_payload = self._get_payment_payload(entity)
+        provider_payment_id = payment_payload.get("id")
+        if not provider_payment_id:
+            return
+
+        notes = payment_payload.get("notes") or {}
+        workspace_id = notes.get("workspace_id")
+        pack_id = notes.get("pack_id")
+        if not workspace_id or not pack_id:
+            raise ValueError("Missing workspace_id or pack_id in payment webhook notes")
+
+        pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id, CreditPack.is_active == True).first()
+        if not pack:
+            raise ValueError(f"Unknown credit pack: {pack_id}")
+
+        # Check if already processed (idempotency check)
+        from app.models.token_ledger import TokenLedger
+        reference_key = f"purchase:{workspace_id}:{provider_payment_id}"
+        existing = db.query(TokenLedger).filter(TokenLedger.reference_key == reference_key).first()
+        if existing:
+            return
+
+        # Fetch active subscription for the payment record
+        subscription = self.subscription_service._get_active_subscription(db, workspace_id)
+        if not subscription:
+            raise ValueError("No active subscription found for workspace to attach payment to")
+
+        # Create mock PlanConfig for payment record helper
+        class DummyPlanConfig:
+            amount = pack.amount
+            currency = pack.currency
+
+        # Record payment transaction in DB
+        payment = self.payment_service._record_successful_payment(
+            db=db,
+            provider=provider,
+            subscription=subscription,
+            payment_payload=payment_payload,
+            plan_config=DummyPlanConfig(),
+        )
+
+        # Grant credits
+        self.token_service.grant_purchased_credits(
+            db=db,
+            workspace_id=workspace_id,
+            credits=float(pack.credits),
+            payment_id=str(payment.id),
+            gateway_order_id=payment_payload.get("order_id") or "",
+            description=f"Purchased AI Credit Pack: {pack.name}"
+        )

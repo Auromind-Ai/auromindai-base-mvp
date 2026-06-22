@@ -32,3 +32,8 @@ from .scheduled_resume import ScheduledResume
 from .lead_scoring import LeadScoreHistory, TemplateLog
 from .user_session import UserSession
 from .notification import Notification
+from .admin_audit_log import AdminAuditLog
+from .credit_pack import CreditPack
+from .plan_entitlement import PlanEntitlement
+from .feature_billing_rule import FeatureBillingRule
+from .wcc import WCCWallet, WCCRateCard, WCCTransaction, WCCRechargeLog

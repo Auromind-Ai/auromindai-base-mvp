@@ -38,6 +38,13 @@ class BrainEntry(Base):
     error_message = Column(Text)
     metadata_json = Column(Text)
 
+    # Billing and Ingestion tracking fields
+    file_name = Column(String(255), nullable=True)
+    file_size = Column(Integer, nullable=True)
+    credits_charged = Column(Float, nullable=True)
+    embedding_status = Column(String(50), nullable=True)
+
+
 # Brain Chunks
 class BrainChunk(Base):
     __tablename__ = "brain_chunks"

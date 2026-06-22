@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import UUID, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import UUID, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func, Numeric, Index
 from app.database import Base
 
 
@@ -14,6 +14,9 @@ class TokenLedger(Base):
     entry_type = Column(String(50), nullable=False)
     status = Column(String(20), nullable=False, default="posted")
     tokens_delta = Column(Integer, nullable=False)
+    credits_delta = Column(Numeric(12, 4), nullable=False, default=0.0000)
+    tokens_used = Column(Integer, nullable=True)
+    balance_source = Column(String(20), nullable=True)
     reference_key = Column(String(255), nullable=False, index=True)
     description = Column(Text)
     metadata_json = Column(Text)
@@ -24,4 +27,6 @@ class TokenLedger(Base):
 
     __table_args__ = (
         UniqueConstraint("reference_key", name="uq_token_ledger_reference_key"),
+        Index("ix_token_ledger_workspace_status_source", "workspace_id", "status", "balance_source"),
     )
+

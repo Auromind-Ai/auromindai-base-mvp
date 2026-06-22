@@ -23,7 +23,7 @@ from app.routers import (
     auth, brain, dashboard, chat,
     integrations, gmail, email, automation, admin,
     public, billing, upload, preferences, security,
-    notifications
+    notifications, wcc
 )
 from app.routers.feedback import router as feedback_router
 from app.routers.template import router as template_router
@@ -93,8 +93,8 @@ app.include_router(account_router, prefix="/account", tags=["account"])
 app.include_router(two_factor_router, prefix="/2fa", tags=["2fa"])                                         
 app.include_router(conversations.router)                                 
 app.include_router(twilio_webhook.router) 
-app.include_router(meta_what.router, prefix="/api")
-app.include_router(instagram.router, prefix="/api")
+app.include_router(meta_what.router)
+app.include_router(instagram.router)
 app.include_router(brain.router, tags=["brain"])
 app.include_router(chat.router)
 app.include_router(dashboard.router,    prefix="/dashboard", tags=["dashboard"])
@@ -107,6 +107,7 @@ app.include_router(feedback_router)
 app.include_router(admin.router, tags=["admin"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])
+app.include_router(wcc.router)
 app.include_router(upload.router,tags=["upload"])
 app.include_router(lead_scoring_router, tags=["lead-scoring"])
 app.include_router(realtime_router)

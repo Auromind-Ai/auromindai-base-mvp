@@ -38,6 +38,12 @@ class AuthService:
             )
             db.add(member)
             db.commit()
+
+            # Initialize billing entitlement orchestrator
+            from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+            EntitlementOrchestrator.on_workspace_created(db, workspace.id)
+            db.commit()
+
             db.refresh(user)
         elif password and not verify_password(password, user.password_hash):
             raise ValueError("Invalid email or password")
@@ -167,6 +173,11 @@ class AuthService:
             )
 
             db.add(member)
+            db.commit()
+
+            # Initialize billing entitlement orchestrator
+            from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+            EntitlementOrchestrator.on_workspace_created(db, workspace.id)
             db.commit()
 
         # get workspaces

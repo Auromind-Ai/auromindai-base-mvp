@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { CreditCard, Eye, EyeOff, Save, CheckCircle, XCircle, Loader2, RefreshCw } from "lucide-react"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+import api from "@/lib/api"
 
 function Toast({ toasts }) {
   return (
@@ -126,9 +126,7 @@ export default function PaymentsPage() {
   const load = useCallback(async () => {
     setStatus("loading")
     try {
-      const res = await fetch(`${API_BASE}/admin/payments`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
+      const data = await api.getPlatformPayments()
       const normalised = {
         razorpay_key:    data.razorpay_key    ?? "",
         razorpay_secret: data.razorpay_secret ?? "",
@@ -164,13 +162,7 @@ export default function PaymentsPage() {
       payload.paypal_secret = form.paypal_secret
     }
 
-    const res = await fetch(`${API_BASE}/admin/payments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    await api.createPlatformPayment(payload)
 
     // After save → mask again
     setSaved({

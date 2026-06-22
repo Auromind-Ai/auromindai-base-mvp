@@ -182,8 +182,8 @@ useEffect(() => {
                           }
                           className="bg-gray-900 text-white text-xs px-2 py-1 rounded border border-gray-700"
                         >
-                          <option value="starter">starter</option>
-                          <option value="professional">professional</option>
+                          <option value="free">free</option>
+                          <option value="pro">pro</option>
                           <option value="enterprise">enterprise</option>
                         </select>
                         <button

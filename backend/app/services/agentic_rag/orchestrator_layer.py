@@ -92,10 +92,38 @@ class OrchestratorLayer:
         write_to_token_log_file(report_str)
 
     #Reasoning Engine   
-    async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None):
-        token_logs = []
-        token = token_log_context.set(token_logs)
+    async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, bypass_billing: bool = False):
+        parent_logs = token_log_context.get()
+        if parent_logs is not None:
+            token_logs = parent_logs
+            token = None
+        else:
+            token_logs = []
+            token = token_log_context.set(token_logs)
+        
+        from app.services.billing.billing_service import BillingService
+        billing_service = BillingService()
+        
+        reservation_id = None
         try:
+            if not bypass_billing:
+                # 1. Estimate reservation tokens
+                estimated_tokens = billing_service.estimate_reservation_amount(query, use_rag=True)
+                
+                # 2. Reserve feature credits
+                import uuid
+                ref_key = f"agentic-rag:{workspace_id}:{uuid.uuid4()}"
+                reservation = billing_service.token_service.reserve_feature_credits(
+                    db=db,
+                    workspace_id=workspace_id,
+                    feature_key="agentic_rag",
+                    unit_amount=float(estimated_tokens),
+                    reference_key=ref_key,
+                    description=f"RAG query: {query[:50]}"
+                )
+                if reservation:
+                    reservation_id = reservation.id
+
             res = await self._agent_loop_internal(
                 db=db,
                 workspace_id=workspace_id,
@@ -107,12 +135,36 @@ class OrchestratorLayer:
                 collection=collection
             )
             self.log_aggregated_token_usage(query, token_logs, res)
+            
+            # 3. Finalize credits based on actual tokens used
+            if reservation_id:
+                try:
+                    total_tokens = sum(log.get("total_tokens", 0) for log in token_logs)
+                    billing_service.token_service.finalize_feature_credits(
+                        db=db,
+                        reservation_id=reservation_id,
+                        actual_units=float(total_tokens)
+                    )
+                except Exception as finalize_err:
+                    logger.error(f"Failed to finalize RAG billing: {finalize_err}")
             return res
         except Exception as e:
             self.log_aggregated_token_usage(query, token_logs)
+            
+            # 4. Release reservation on failure so client is not charged
+            if reservation_id:
+                try:
+                    billing_service.release_token_reservation(
+                        db=db,
+                        reservation_id=reservation_id,
+                        reason=f"RAG execution failed: {type(e).__name__}"
+                    )
+                except Exception as release_err:
+                    logger.error(f"Failed to release RAG reservation: {release_err}")
             raise e
         finally:
-            token_log_context.reset(token)
+            if token is not None:
+                token_log_context.reset(token)
 
     async def _agent_loop_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None):
 
@@ -702,7 +754,11 @@ class OrchestratorLayer:
         content_type,
         source=None,
         metadata=None,
-        existing_entry_id=None
+        existing_entry_id=None,
+        file_name=None,
+        file_size=None,
+        credits_charged=None,
+        embedding_status=None
     ):
 
         return self.ingestion.ingest_document(
@@ -713,7 +769,11 @@ class OrchestratorLayer:
             content_type=content_type,
             source=source,
             metadata=metadata,
-            existing_entry_id=existing_entry_id
+            existing_entry_id=existing_entry_id,
+            file_name=file_name,
+            file_size=file_size,
+            credits_charged=credits_charged,
+            embedding_status=embedding_status
         )
     
 

@@ -6,6 +6,9 @@ from app.models.workspace import Workspace
 from app.services.inbox_agents.instagram_service import InstagramService
 from app.services.inbox_agents.whatsapp import WhatsAppService
 from app.services.inbox.twilio_service import TwilioService
+from sqlalchemy.orm import object_session
+from app.services.wcc_service import WCCService
+from app.models.templates import Template
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +182,39 @@ class ChannelService:
         body: str,
         metadata: Dict[str, Any],
     ) -> Optional[str]:
+        # Pre-flight wallet balance check
+      
+        db = object_session(workspace)
+        is_temp_db = False
+        if not db:
+            from app.database import SessionLocal
+            db = SessionLocal()
+            is_temp_db = True
+
+        try:
+            category = "service"
+            template_name = metadata.get("template_name")
+            if template_name:
+                template = db.query(Template).filter(
+                    Template.name == template_name,
+                    Template.workspace_id == workspace.id
+                ).first()
+                if template and template.category:
+                    category = template.category.lower()
+
+            # Centralized pricing logic
+            estimate = WCCService.calculate_estimate(
+                db=db,
+                workspace_id=workspace.id,
+                audience_size=1,
+                category=category
+            )
+            # Perform pre-flight check
+            WCCService.check_preflight_balance(db, workspace.id, estimate["estimated_cost"])
+        finally:
+            if is_temp_db:
+                db.close()
+
         service = WhatsAppService(
             access_token=workspace.meta_access_token,
             phone_number_id=workspace.meta_phone_number_id,

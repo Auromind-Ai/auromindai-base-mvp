@@ -862,3 +862,566 @@ TOTAL TOKENS USED: 2464
 Final Reply Text: "**Analysis of Customer Onboarding Process**\n\nTo address your request, we will analyze our current customer onboarding process, identify potential bottlenecks, compare it against industry best practices, and suggest improvements.\n\n**Current Process:**\n\nOur current customer onboarding process involves the following steps:\n\n1. **Registration**: Customers register on our website or through a sales representative.\n2. **Account Setup**: Our team sets up the customer's account and provides initial login credentials.\n3. **Welcome Email**: A welcome email is sent to the customer with instructions on how to access their account.\n4. **Onboarding Session**: A 30-minute onboarding session is scheduled with a customer success representative to demonstrate our product's features and benefits.\n5. **Post-Onboarding Survey**: A survey is sent to the customer after the onboarding session to gather feedback and identify areas for improvement.\n\n**Identification of Bottlenecks:**\n\nBased on our analysis, the following bottlenecks were identified:\n\n1. **Long Onboarding Session**: The 30-minute onboarding session can be lengthy and may not provide a comprehensive overview of our product.\n2. **Limited Personalization**: Our current onboarding process does not offer personalized experiences for customers.\n3. **Insufficient Feedback Mechanism**: The post-onboarding survey may not provide real-time feedback, which can lead to delayed issue resolution.\n\n**Comparison against Industry Best Practices:**\n\nA comparison with industry best practices reveals the following insights:\n\n1. **Segmented Onboarding**: Many industry leaders employ segmented onboarding processes, which cater to different customer segments and provide tailored experiences.\n2. **Real-time Feedback Mechanisms**: Successful companies often incorporate real-time feedback mechanisms to ensure timely issue resolution and continuous improvement.\n3. **Personalization**: Industry leaders prioritize personalization, often using AI-driven tools to provide customized experiences for customers.\n\n**Suggestions for Improvements:**\n\nBased on our analysis and comparison with industry best practices, we suggest the following improvements:\n\n1. **Segmented Onboarding**: Implement a segmented onboarding process that caters to different customer segments and provides tailored experiences.\n2. **Real-time Feedback Mechanism**: Integrate a real-time feedback mechanism to enable timely issue resolution and continuous improvement.\n3. **Personalization**: Utilize AI-driven tools to provide customized experiences for customers and enhance the overall onboarding process.\n\nBy implementing these improvements, we can enhance our customer onboarding process, increase customer satisfaction, and remain competitive in the industry.\n\nFollow-up question:\nHow can we measure the effectiveness of the proposed improvements and onboarding process changes?"
 Final Reply Token Count (Estimate): 371
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T11:41:35.343219Z
+User Query: 'How to configure billing?'
+-----------------------------------------
+1. Function: mock_test
+   Provider: openai | Model: gpt-4
+   System Prompt Tokens: 500
+   Input/Query Tokens: 500
+   Output Tokens: 500
+   Total Tokens: 1500
+   [Sys Prompt Snippet]: sys
+   [User Input Snippet]: user
+   [LLM Output Snippet]: res
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 500
+Total Input/Query Tokens: 500
+Total Output Tokens: 500
+TOTAL TOKENS USED: 1500
+-----------------------------------------
+Final Reply Text: 'Mocked RAG response'
+Final Reply Token Count (Estimate): 3
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T12:36:14.390857Z
+User Query: 'what products availabe tell me the catlog'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 19
+   Output Tokens: 9
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        what products availabe tell me the catlog
+
+        Rewritten Query:
+   [LLM Output Snippet]: what products are available tell me the catalog
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 600
+   Input/Query Tokens: 21
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    what products are available tell me the catalog
+
+    Selected Tool:
+   [LLM Output Snippet]: vector_db
+
+3. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 189
+   Input/Query Tokens: 551
+   Output Tokens: 2
+   Total Tokens: 742
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          what products are available tell me the catalog          Context:         E-Comme...
+   [LLM Output Snippet]: YES
+
+4. Function: orchestrator_layer_support.py:synthesize_information
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 279
+   Input/Query Tokens: 560
+   Output Tokens: 287
+   Total Tokens: 1126
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          ROLE:         From the Retrieved C...
+   [User Input Snippet]: Question:          what products availabe tell me the catlog          Retrieved Context:         E-C...
+   [LLM Output Snippet]: AeroPulse Smartwatch is $129, NimbusSound Earbuds is $79, VoltEdge Power Bank is $49, CrystalView Mo...
+
+5. Function: orchestrator_layer_support.py:generate_final_output
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 275
+   Input/Query Tokens: 314
+   Output Tokens: 10
+   Total Tokens: 599
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          OBJECTIVE:         Identify and ex...
+   [User Input Snippet]: USER QUESTION:          what products availabe tell me the catlog          VERIFIED INFORMATION:    ...
+   [LLM Output Snippet]: InfinityView Tablet is available in the catalog.
+
+6. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 120
+   Input/Query Tokens: 35
+   Output Tokens: 12
+   Total Tokens: 167
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          what products availabe tell me the catlog          Answer:         InfinityView T...
+   [LLM Output Snippet]: What are the key features of the InfinityView Tablet?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 6
+Total System Tokens: 1812
+Total Input/Query Tokens: 1500
+Total Output Tokens: 323
+TOTAL TOKENS USED: 3635
+-----------------------------------------
+Final Reply Text: 'InfinityView Tablet is available in the catalog.\n\nFollow-up question:\nWhat are the key features of the InfinityView Tablet?'
+Final Reply Token Count (Estimate): 18
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T13:01:26.930851Z
+User Query: 'what products availabe tell me the catlog'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 19
+   Output Tokens: 9
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        what products availabe tell me the catlog
+
+        Rewritten Query:
+   [LLM Output Snippet]: what products are available tell me the catalog
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 600
+   Input/Query Tokens: 21
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    what products are available tell me the catalog
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 207
+   Input/Query Tokens: 20
+   Output Tokens: 304
+   Total Tokens: 531
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    what products availabe tell me the catlog
+
+    Final Answer:
+   [LLM Output Snippet]: Based on the user's query, I understand the intent to be:  1. Explanation (of products available and...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 100
+   Input/Query Tokens: 349
+   Output Tokens: 15
+   Total Tokens: 464
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          what products availabe tell me the catlog          Answer:         Based on the u...
+   [LLM Output Snippet]: What are the key features of the electronics products available in the catalog?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1256
+Total Input/Query Tokens: 409
+Total Output Tokens: 331
+TOTAL TOKENS USED: 1996
+-----------------------------------------
+Final Reply Text: 'Based on the user\'s query, I understand the intent to be:\n\n1. Explanation (of products available and catalog)\n2. Summarization (of the catalog)\n\nHowever, the query is a bit ambiguous and lacks specific context. Considering the most logical and commonly used meaning, I will interpret the query as:\n\n- "What products are available?" which is a question about the available products or offerings.\n- "Tell me the catalog" which implies providing an overview or listing of the available products.\n\nTo clarify, I will generate a response based on this interpretation.\n\n**Available Products Catalog:**\n\nOur current product offerings include:\n\n- Electronics:\n  - Smartphones\n  - Laptops\n  - Tablets\n  - Smartwatches\n\n- Fashion:\n  - Clothing (Men\'s and Women\'s)\n  - Shoes (Men\'s and Women\'s)\n  - Accessories (Hats, Scarves, Belts)\n\n- Home and Kitchen:\n  - Furniture\n  - Home Appliances\n  - Kitchen Utensils\n  - Bedding and Linens\n\n- Health and Beauty:\n  - Skincare Products\n  - Haircare Products\n  - Makeup and Cosmetics\n  - Fragrances\n\n- Sports and Outdoors:\n  - Fitness Equipment\n  - Outdoor Gear\n  - Camping Equipment\n  - Sports Accessories\n\nPlease note that this is a general catalog and may not be exhaustive. If you are looking for more specific information or a detailed product list, please provide more context or clarification.\n\nFollow-up question:\nWhat are the key features of the electronics products available in the catalog?'
+Final Reply Token Count (Estimate): 220
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T10:06:38.413012Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 363
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain concept
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain concept
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 183
+   Total Tokens: 402
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: To proceed, I need more context to understand what you would like explained. Based on my understandi...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 91
+   Input/Query Tokens: 229
+   Output Tokens: 15
+   Total Tokens: 335
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         To proceed, I need more context to understand wh...
+   [LLM Output Snippet]: What specific concept or process would you like me to explain in detail?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1256
+Total Input/Query Tokens: 258
+Total Output Tokens: 204
+TOTAL TOKENS USED: 1718
+-----------------------------------------
+Final Reply Text: 'To proceed, I need more context to understand what you would like explained. Based on my understanding of the instruction to "explain," I\'ll provide a general response, but if you could provide more details, I\'d be happy to give a more specific and relevant explanation.\n\nHowever, if you\'re looking for a general explanation, here are some possible topics:\n\n1. **A Concept or Term**: If you provide a specific concept or term, I can explain it in detail.\n2. **A Process or Procedure**: If you want to know how something works or the steps involved in a particular process, I can provide an explanation.\n3. **A Topic or Subject**: If you\'re interested in learning more about a particular topic or subject, I can provide an overview and explanation.\n\nPlease provide more context or specify what you would like explained, and I\'ll do my best to provide a clear and concise explanation.\n\nFollow-up question:\nWhat specific concept or process would you like me to explain in detail?'
+Final Reply Token Count (Estimate): 165
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T10:22:42.719480Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 363
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: provide explanations
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    provide explanations
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 319
+   Total Tokens: 538
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: To provide a response to "explain," I need to understand the context and intent behind the query. Ho...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 89
+   Input/Query Tokens: 367
+   Output Tokens: 16
+   Total Tokens: 472
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         To provide a response to "explain," I need to un...
+   [LLM Output Snippet]: How can you apply these explanation principles to a complex topic like artificial intelligence?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1254
+Total Input/Query Tokens: 396
+Total Output Tokens: 341
+TOTAL TOKENS USED: 1991
+-----------------------------------------
+Final Reply Text: 'To provide a response to "explain," I need to understand the context and intent behind the query. However, without additional information, I\'ll assume the user is looking for a general explanation of what it means to "explain."\n\n**Understanding the Intent:**\nThe intent appears to be "explanation," which involves providing a clear and concise description of a concept, process, or idea.\n\n**Response:**\n\nIn general, "explain" means to provide a clear and detailed description of something, making it easy for others to understand. It involves breaking down complex information into simple and logical steps, highlighting key points, and providing relevant examples or illustrations.\n\nWhen explaining something, consider the following principles:\n\n1. **Define the concept:** Clearly state the idea or concept being explained.\n2. **Break it down:** Divide the explanation into smaller, manageable parts.\n3. **Use examples:** Provide relevant examples or illustrations to help make the explanation more engaging and easier to understand.\n4. **Highlight key points:** Emphasize the most important aspects of the explanation.\n5. **Avoid jargon:** Use simple language to ensure the explanation is accessible to a wide audience.\n\nBy following these principles, you can effectively explain complex ideas and make them more understandable to others.\n\n**Additional Tips:**\n\n* Be concise and clear in your explanation.\n* Use visual aids, such as diagrams or flowcharts, to help illustrate complex concepts.\n* Encourage questions and feedback to ensure the explanation is effective.\n\nIf you have any further questions or would like me to clarify any of these points, please let me know!\n\nFollow-up question:\nHow can you apply these explanation principles to a complex topic like artificial intelligence?'
+Final Reply Token Count (Estimate): 266
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T11:59:31.868812Z
+User Query: 'explain tanglish'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 352
+   Input/Query Tokens: 10
+   Output Tokens: 9
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain tanglish
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain the features of the Tanglish language
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 602
+   Input/Query Tokens: 19
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain the features of the Tanglish language
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 11
+   Output Tokens: 228
+   Total Tokens: 449
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain tanglish
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation of "Tanglish"**  Tanglish, also known as Hinglish or Indlish, refers to a mixture of t...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 95
+   Input/Query Tokens: 272
+   Output Tokens: 15
+   Total Tokens: 382
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain tanglish          Answer:         **Explanation of "Tanglish"**  Tanglish...
+   [LLM Output Snippet]: How does the use of Tanglish affect the English language in India?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1259
+Total Input/Query Tokens: 312
+Total Output Tokens: 255
+TOTAL TOKENS USED: 1826
+-----------------------------------------
+Final Reply Text: '**Explanation of "Tanglish"**\n\nTanglish, also known as Hinglish or Indlish, refers to a mixture of the English and Hindi languages. It is commonly used in India, particularly in informal settings, such as in spoken language, texting, and social media.\n\nTanglish often involves borrowing words, phrases, and grammatical structures from both English and Hindi, creating a unique blend of languages. This blend can be seen in various aspects, including vocabulary, pronunciation, and syntax.\n\nFor example, a person might say "main phone kar raha hoon" (I am making a call) or "mera dost aaya" (my friend came). These phrases combine elements from both languages, illustrating the nature of Tanglish.\n\nTanglish is not an official language and is not widely taught in schools. However, it is a widely used and accepted form of communication in India, reflecting the country\'s linguistic diversity and the influence of English on the local languages.\n\nThe use of Tanglish can facilitate communication between English and Hindi speakers and is also a reflection of the cultural and linguistic evolution of India.\n\nFollow-up question:\nHow does the use of Tanglish affect the English language in India?'
+Final Reply Token Count (Estimate): 186
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T12:05:48.885741Z
+User Query: 'explain image'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 10
+   Output Tokens: 9
+   Total Tokens: 370
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain image
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain the concept of images in visual media
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 600
+   Input/Query Tokens: 21
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain the concept of images in visual media
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 209
+   Input/Query Tokens: 11
+   Output Tokens: 369
+   Total Tokens: 589
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain image
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation of "Image"**  An image is a visual representation of a two-dimensional scene or object...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 88
+   Input/Query Tokens: 419
+   Output Tokens: 14
+   Total Tokens: 521
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain image          Answer:         **Explanation of "Image"**  An image is a ...
+   [LLM Output Snippet]: What are some common formats used to store and share digital images?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1248
+Total Input/Query Tokens: 461
+Total Output Tokens: 395
+TOTAL TOKENS USED: 2104
+-----------------------------------------
+Final Reply Text: '**Explanation of "Image"**\n\nAn image is a visual representation of a two-dimensional scene or object. It is a digital or physical picture that captures the visual information from the real world, such as photographs, artwork, or graphics.\n\nThere are several types of images, including:\n\n1. **Raster images**: These are made up of pixels, which are small, square blocks of color that are arranged in a grid to form the image. Examples of raster images include photographs and graphics.\n2. **Vector images**: These are made up of mathematical equations that describe the shape and size of the image. Examples of vector images include logos, diagrams, and illustrations.\n3. **Digital images**: These are images that are stored on a computer or other digital device, such as photographs, graphics, and scanned documents.\n\nImages can be created using various tools and techniques, including:\n\n1. **Camera**: A camera is a device that captures a visual representation of a scene or object.\n2. **Graphics software**: Software such as Adobe Photoshop or GIMP can be used to create and edit images.\n3. **Scanning**: Scanning involves converting a physical image into a digital format.\n4. **Digital painting**: Digital painting involves creating an image using a digital tool, such as a graphics tablet or a drawing app on a mobile device.\n\nImages are widely used in various fields, including:\n\n1. **Art**: Images are used to create visual art, including paintings, drawings, and sculptures.\n2. **Advertising**: Images are used in advertising to capture the attention of potential customers and convey a message.\n3. **Communication**: Images are used in communication to convey information, express emotions, and create a connection with the viewer.\n4. **Education**: Images are used in education to illustrate concepts, demonstrate processes, and make learning more engaging.\n\nFollow-up question:\nWhat are some common formats used to store and share digital images?'
+Final Reply Token Count (Estimate): 302
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T12:13:20.750575Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 363
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain terms
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain terms
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 159
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation Requested**  To provide a comprehensive explanation, I need more context about the top...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 99
+   Input/Query Tokens: 197
+   Output Tokens: 13
+   Total Tokens: 309
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         **Explanation Requested**  To provide a comprehe...
+   [LLM Output Snippet]: Can you narrow it down to one of the provided categories?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1264
+Total Input/Query Tokens: 226
+Total Output Tokens: 178
+TOTAL TOKENS USED: 1668
+-----------------------------------------
+Final Reply Text: "**Explanation Requested**\n\nTo provide a comprehensive explanation, I need more context about the topic you would like to explain. Please provide more information or clarify what you would like me to explain.\n\nHowever, I can provide some general explanations on various topics if you would like. Please specify the topic or subject you would like to know more about.\n\nIf you're unsure, here are some common explanations I can provide:\n\n1. A scientific concept (e.g., gravity, photosynthesis)\n2. A technical term (e.g., AI, blockchain, cloud computing)\n3. A historical event (e.g., the American Revolution, the Industrial Revolution)\n4. A mathematical concept (e.g., calculus, algebra)\n\nPlease provide more context or specify the topic you would like to know more about.\n\nFollow-up question:\nCan you narrow it down to one of the provided categories?"
+Final Reply Token Count (Estimate): 132
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T12:20:09.909716Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 4
+   Total Tokens: 364
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain the concept
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 12
+   Output Tokens: 3
+   Total Tokens: 619
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain the concept
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 187
+   Total Tokens: 406
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: To provide a more accurate response, I need a bit more information about what you would like me to e...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 104
+   Input/Query Tokens: 220
+   Output Tokens: 18
+   Total Tokens: 342
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         To provide a more accurate response, I need a bi...
+   [LLM Output Snippet]: Which concept among AI, machine learning, or programming is most relevant to your interest?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1269
+Total Input/Query Tokens: 250
+Total Output Tokens: 212
+TOTAL TOKENS USED: 1731
+-----------------------------------------
+Final Reply Text: "To provide a more accurate response, I need a bit more information about what you would like me to explain. However, based on the instruction to choose the most logical meaning, I'll assume you're asking for a general explanation of the concept.\n\n**Explanation**\n\nIf you're asking for a general explanation, I'll provide a neutral and informative response. However, I'll also provide some options to narrow down the topic if you'd like.\n\nHere are a few possible topics I can explain:\n\n1. **Concepts**: e.g., AI, machine learning, programming, data analysis\n2. **Processes**: e.g., problem-solving, decision-making, communication\n3. **Ideas**: e.g., innovation, creativity, entrepreneurship\n4. **Technologies**: e.g., software, hardware, cybersecurity\n\nPlease let me know if any of these options interest you, or if you'd like to explore a different topic.\n\nFollow-up question:\nWhich concept among AI, machine learning, or programming is most relevant to your interest?"
+Final Reply Token Count (Estimate): 143
+=========================================

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { Plug, RefreshCw } from 'lucide-react'
 
+import api from '@/lib/api'
+
 export default function IntegrationsPage() {
   const params = useParams()
   const adminPath = params?.admin_path || 'x7k2-admin-9pqm'
@@ -13,9 +15,7 @@ export default function IntegrationsPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const response = await fetch(`/api/${adminPath}/integrations`)
-      if (!response.ok) throw new Error('Failed to fetch integrations')
-      const result = await response.json()
+      const result = await api.getPlatformIntegrations()
       setData(result)
       setError(null)
     } catch (err) {
@@ -23,7 +23,7 @@ export default function IntegrationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [adminPath])
+  }, [])
 
   const handleRefresh = () => {
     setLoading(true)

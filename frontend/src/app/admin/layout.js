@@ -3,6 +3,8 @@
 import { usePathname, useRouter } from "next/navigation"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 
+import api from "@/lib/api"
+
 export default function AdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -16,7 +18,7 @@ export default function AdminLayout({ children }) {
 
   const handleSignOut = async () => {
     try {
-      await fetch("/api/admin/logout", { method: "POST" })
+      await api.adminLogout()
     } catch (e) {
       console.error("Sign out failed", e)
     }

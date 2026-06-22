@@ -46,8 +46,8 @@ class ReservationCleanupSchedulerService:
         )
         self.scheduler.start()
 
-    # def stop(self):
-    #     self.scheduler.shutdown(wait=False)
+    def stop(self):
+        self.scheduler.shutdown(wait=False)
 
     def _run_cleanup(self):
         db = self.SessionLocal()

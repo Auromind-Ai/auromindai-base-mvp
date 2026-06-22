@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, Suspense } from "react";
-import { getToken } from "@/lib/auth";
+import api from "@/lib/api";
 
 function WhatsAppIcon() {
     return (
@@ -60,36 +60,13 @@ function WhatsAppCallbackContent() {
                 setStatus("Connecting to Auromind backend...");
                 setSubStatus("Exchanging authorization code with Meta APIs...");
 
-                const token = getToken();
                 const redirectUri = `${window.location.origin}/whatsapp/callback`;
 
-                const res = await fetch(`/backend/api/whatsapp/connect`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "ngrok-skip-browser-warning": "true",
-                        ...(token ? { "Authorization": `Bearer ${token}` } : {})
-                    },
-                    body: JSON.stringify({
-                        code,
-                        workspace_id,
-                        redirect_uri: redirectUri
-                    }),
+                const data = await api.connectWhatsApp({
+                    code,
+                    workspace_id,
+                    redirect_uri: redirectUri
                 });
-
-                const text = await res.text();
-                let data;
-                try {
-                    data = JSON.parse(text);
-                } catch (err) {
-                    console.error("Failed to parse JSON. Raw response:", text);
-                    if (!res.ok) throw new Error(`API Error ${res.status}: ${text}`);
-                    return;
-                }
-
-                if (!res.ok) {
-                    throw data;
-                }
 
                 setStatus("WhatsApp Connected!");
                 setSubStatus(`Successfully connected account: ${data.display_number || "Active"}`);

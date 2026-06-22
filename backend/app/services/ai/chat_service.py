@@ -20,6 +20,7 @@ from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.billing import BillingService
 from app.services.ai.llm_router import LLMRouter
 from app.database import SessionLocal
+from app.services.ai.llm_utils import token_log_context
 
 class ChatServiceConfig(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
@@ -59,10 +60,11 @@ class ChatService:
         description: str = "chat operation",
     ) -> Any:
         try:
-            reservation = self.billing_service.reserve_tokens(
+            reservation = self.billing_service.token_service.reserve_feature_credits(
                 db=db,
                 workspace_id=workspace_id,
-                amount=amount,
+                feature_key="ai_chat",
+                unit_amount=float(amount),
                 reference_key=reference_key,
                 description=description,
             )
@@ -73,6 +75,7 @@ class ChatService:
             raise
         except Exception as e:
             raise BillingError(f"Token reservation failed: {str(e)}")
+
 
     async def _check_guardrails(self, message: str) -> Dict[str, Any]:
         try:
@@ -106,6 +109,7 @@ class ChatService:
                 model=model,
                 source=source,
                 document_id=document_id,
+                bypass_billing=True,
             )
             return answer
         except RetryError as e:
@@ -122,19 +126,34 @@ class ChatService:
         reservation_id: str,
         request_message: str,
         response_text: str,
+        actual_tokens_used: Optional[int] = None,
     ) -> None:
         try:
-            actual_tokens_used = self.billing_service.estimate_tokens(
-                request_message, response_text
-            )
-            self.billing_service.finalize_token_usage(
+            if actual_tokens_used is None:
+                actual_tokens_used = self.billing_service.estimate_tokens(
+                    request_message, response_text
+                )
+            self.billing_service.token_service.finalize_feature_credits(
                 db=db,
                 reservation_id=reservation_id,
-                tokens_used=actual_tokens_used,
+                actual_units=float(actual_tokens_used),
             )
+            # Print to terminal and log to file
+            credits_deducted = float(actual_tokens_used) / 1000.0
+            summary_msg = (
+                f"\n=========================================\n"
+                f"CHAT BILLING DEBIT LOG:\n"
+                f"Query: {repr(request_message)}\n"
+                f"Actual Tokens Consumed: {actual_tokens_used}\n"
+                f"Credits Deducted: -{credits_deducted:.4f} credits (Rate: 1000 tokens = 1 credit)\n"
+                f"=========================================\n"
+            )
+            print(summary_msg, flush=True)
+            logger.info(f"Billing Finalized - Query: {repr(request_message)} | Tokens: {actual_tokens_used} | Credits: -{credits_deducted:.4f}")
         except Exception as e:
             logger.error(f"Failed to finalize billing: {e}")
             raise BillingError(f"Billing finalization failed: {str(e)}")
+
 
     def _release_token_reservation(
         self, db: Session, reservation_id: str, reason: str
@@ -238,9 +257,33 @@ class ChatService:
         session_id: Optional[str],
         use_rag: bool,
         user_id: str,
+        model: Optional[str] = "auto",
+        document_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         try:
             workspace = self._validate_workspace_access(db, workspace_id, user_id)
+
+            if document_id:
+                from app.models.brain import BrainEntry
+                entry = db.query(BrainEntry).filter(
+                    BrainEntry.id == document_id,
+                    BrainEntry.workspace_id == workspace.id
+                ).first()
+                if entry:
+                    if entry.status == "failed":
+                        return {
+                            "status": "blocked",
+                            "message": entry.error_message or "Document processing failed. Please delete and re-upload."
+                        }
+                    if entry.content_type == "image" or entry.content_type in ["png", "jpg", "jpeg", "webp"]:
+                        router = LLMRouter()
+                        resolved_provider = router.resolve_provider_for_model(model or "auto")
+                        if resolved_provider == "groq":
+                            return {
+                                "status": "blocked",
+                                "message": "Groq model does not support image analysis. Please configure Gemini or Claude API keys to enable image analysis."
+                            }
+
             if session_id:
                 session = db.query(ChatSession).filter(
                     ChatSession.id == session_id,
@@ -314,6 +357,9 @@ class ChatService:
         safe_query = preflight["safe_query"]
         reservation_id = preflight["reservation_id"]
         
+        token_logs = []
+        token = token_log_context.set(token_logs)
+        
         final_billing_reason = "no_response_generated"
         full_response = ""
         chunks_successfully_sent = False
@@ -335,12 +381,11 @@ class ChatService:
                         )
 
                     if answer_data:
-                        
                         result = answer_data if isinstance(answer_data, dict) else {
                             "answer": answer_data,
                             "meta": {"query": message, "rewritten_query": safe_query, "source": "fallback"}
                         }
-                        print("RAG RESULT:", result)
+                        print("RAG RESULT:", result, flush=True)
 
                         safe_answer = await self.guardrails_service.secure_response(result["answer"])
                         full_response = safe_answer
@@ -387,41 +432,56 @@ class ChatService:
             logger.error(f"Stream chat error: {e}", exc_info=True)
             yield json.dumps({"error": str(e), "type": type(e).__name__}) + "\n"
 
-      
         finally:
+            # Settle billing with actual token usage
             if reservation_id:
-                with SessionLocal() as cleanup_db:
-                    try:
-                        if chunks_successfully_sent and full_response:
-                            # 1. Finalize Billing
-                            self._finalize_billing(cleanup_db, reservation_id, message, full_response)
-
-                            # 2. Save AI Response & Update Session
-                            if session_id:
-                                ai_msg = ChatMessage(
-                                    id=str(uuid.uuid4()),
-                                    session_id=session_id,
-                                    role="assistant",
-                                    content=full_response,
+                def run_cleanup_sync():
+                    with SessionLocal() as cleanup_db:
+                        try:
+                            if chunks_successfully_sent and full_response:
+                                # Calculate actual tokens consumed
+                                actual_tokens = sum(log.get("total_tokens", 0) for log in token_logs)
+                                if actual_tokens <= 0:
+                                    actual_tokens = None # fallback to estimation
+                                
+                                # 1. Finalize Billing
+                                self._finalize_billing(
+                                    cleanup_db,
+                                    reservation_id,
+                                    message,
+                                    full_response,
+                                    actual_tokens_used=actual_tokens,
                                 )
-                                cleanup_db.add(ai_msg)
 
-                                session = cleanup_db.query(ChatSession).filter(
-                                    ChatSession.id == session_id
-                                ).first()
-                                if session:
-                                    session.updated_at = datetime.utcnow()
+                                # 2. Save AI Response & Update Session
+                                if session_id:
+                                    ai_msg = ChatMessage(
+                                        id=str(uuid.uuid4()),
+                                        session_id=session_id,
+                                        role="assistant",
+                                        content=full_response,
+                                    )
+                                    cleanup_db.add(ai_msg)
 
-                            cleanup_db.commit()
-                        else:
-                            self._force_release_reservation(cleanup_db, reservation_id, final_billing_reason)
-                            cleanup_db.commit()
+                                    session = cleanup_db.query(ChatSession).filter(
+                                        ChatSession.id == session_id
+                                    ).first()
+                                    if session:
+                                        session.updated_at = datetime.utcnow()
 
-                    except Exception as billing_cleanup_error:
-                        cleanup_db.rollback()
-                        logger.critical(
-                            "CRITICAL: Failed to finalize billing/save message for "
-                            "reservation %s: %s",
-                            reservation_id,
-                            billing_cleanup_error,
-                        )
+                                cleanup_db.commit()
+                            else:
+                                self._force_release_reservation(cleanup_db, reservation_id, final_billing_reason)
+                                cleanup_db.commit()
+
+                        except Exception as billing_cleanup_error:
+                            cleanup_db.rollback()
+                            logger.critical(
+                                "CRITICAL: Failed to finalize billing/save message for "
+                                "reservation %s: %s",
+                                reservation_id,
+                                billing_cleanup_error,
+                            )
+
+                await asyncio.to_thread(run_cleanup_sync)
+            token_log_context.reset(token)

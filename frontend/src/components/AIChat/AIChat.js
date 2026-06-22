@@ -15,6 +15,7 @@ import {
     Paperclip
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '@/lib/api';
 
 export default function AIChat({ isOpen, onClose, onToggleHistory }) {
     const [inputValue, setInputValue] = useState('');
@@ -38,17 +39,10 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
         setIsLoading(true);
 
         try {
-            const res = await fetch('/api/chat/stream', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({
-                    message: userMessage.content,
-                    model: 'gemini',
-                    use_rag: true
-                })
+            const res = await api.streamChat({
+                message: userMessage.content,
+                model: 'gemini',
+                use_rag: true
             });
 
             // Handle streaming response
