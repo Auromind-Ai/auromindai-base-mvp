@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getToken, setAdminBackup, authHeader } from "@/lib/auth";
+import { getToken, setAdminBackup } from "@/lib/auth";
 import { useRouter, useParams } from "next/navigation";
 import { Users, CheckCircle, Mail, ExternalLink, Loader2 } from "lucide-react";
+import api from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL ?? "http://localhost:3000";
 
 export default function UsersPage() {
@@ -41,18 +41,14 @@ export default function UsersPage() {
       try {
         setLoading(true);
 
-        const res = await fetch(`${API_BASE}/admin/users`);
-
-        if (res.status === 401 || res.status === 404) {
-          router.push(`/${adminPath}`);
-          return;
-        }
-
-        if (!res.ok) throw new Error("Failed to fetch users");
-        const data = await res.json();
+        const data = await api.getPlatformUsers();
         setUsers(Array.isArray(data) ? data : data.users || []);
         setError(null);
       } catch (err) {
+        if (err.status === 401 || err.status === 404) {
+          router.push(`/${adminPath}`);
+          return;
+        }
         setError(err.message);
         setUsers([]);
       } finally {
@@ -60,29 +56,13 @@ export default function UsersPage() {
       }
     };
     fetchUsers();
-  }, [router]);
+  }, [router, adminPath]);
 
   const handleViewDashboard = async (userId) => {
     setImpersonating(userId);
 
     try {
-      const adminToken = localStorage.getItem("admin_backup_token") || getToken();
-      console.log("🔑 Admin token:", adminToken);
-
-      const res = await fetch(`${API_BASE}/admin/switch-user/${userId}`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || "Failed to create impersonation session");
-      }
-
-      const data = await res.json();
+      const data = await api.switchUser(userId);
 
       const { session_id } = data;
       if (!session_id) {
@@ -94,13 +74,10 @@ export default function UsersPage() {
     } catch (err) {
       console.error("Impersonation failed:", err);
       alert("Could not start impersonation: " + err.message);
-  } finally {
-
-    setImpersonating(null);
-
-  }
-
-};
+    } finally {
+      setImpersonating(null);
+    }
+  };
   const activeUsers = users.filter((u) => u.is_active)?.length || 0;
   const totalUsers = users.length;
 

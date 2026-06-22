@@ -167,3 +167,53 @@ def decay_inactive_lead_scores():
     finally:
         db.close()
 
+
+@celery_app.task(
+    name="app.workers.scoring_worker.wcc_daily_reconciliation"
+)
+def wcc_daily_reconciliation():
+    logger.info("[wcc_daily_reconciliation] Starting daily WCC wallet reconciliation")
+    db = SessionLocal()
+    try:
+        from datetime import datetime, timedelta, timezone
+        from app.models.wcc import WCCTransaction
+        from sqlalchemy import func
+
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        start_of_yesterday = datetime(yesterday.year, yesterday.month, yesterday.day, 0, 0, 0, tzinfo=timezone.utc)
+        end_of_yesterday = datetime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59, tzinfo=timezone.utc)
+
+        # Query all workspace IDs that had transactions yesterday
+        summary = (
+            db.query(
+                WCCTransaction.workspace_id,
+                func.sum(WCCTransaction.debit_amount).label("total_debit"),
+                func.count(WCCTransaction.id).label("total_sessions")
+            )
+            .filter(WCCTransaction.created_at >= start_of_yesterday)
+            .filter(WCCTransaction.created_at <= end_of_yesterday)
+            .group_by(WCCTransaction.workspace_id)
+            .all()
+        )
+
+        for row in summary:
+            workspace_id = row.workspace_id
+            total_debit = row.total_debit
+            total_sessions = row.total_sessions
+
+            logger.info(
+                f"[wcc_daily_reconciliation] Workspace {workspace_id} had {total_sessions} sessions "
+                f"costing {total_debit} INR yesterday ({start_of_yesterday.date()})"
+            )
+
+            # Integrate with Meta's Conversation Analytics API
+            # - Fetch actual billable conversations count and cost from Meta
+            # - Compare with our DB records in `WCCTransaction`
+            # - Alert admin or log discrepancies if differences found
+            pass
+
+    except Exception as exc:
+        logger.error(f"[wcc_daily_reconciliation] Error: {exc}")
+    finally:
+        db.close()
+

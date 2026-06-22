@@ -7,8 +7,7 @@ import {
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend, AreaChart, Area
 } from "recharts";
 
-// ─ CONFIG ─
-const API = '/api'; // same-origin proxy
+import api from "@/lib/api";
 
 const TOOL_COLORS = {
   vector_db:     "#6366f1",
@@ -73,16 +72,9 @@ export default function AdminDashboard() {
     setError(null);
 
     try {
-      const [analyticsRes, statsRes] = await Promise.all([
-        fetch(`${API}/admin/rag_analytics?range=${range}`),
-        fetch(`${API}/admin/stats`),
-      ]);
-
-      if (!analyticsRes.ok || !statsRes.ok) throw new Error("API error");
-
       const [analyticsData, statsData] = await Promise.all([
-        analyticsRes.json(),
-        statsRes.json(),
+        api.getPlatformRAGAnalytics(range),
+        api.getPlatformRAGStats(),
       ]);
 
       setData(analyticsData);
@@ -97,8 +89,7 @@ export default function AdminDashboard() {
 
   const fetchFailures = async (tool) => {
     try {
-      const res  = await fetch(`${API}/admin/failures/${tool}`);
-      const json = await res.json();
+      const json = await api.getPlatformRAGFailures(tool);
       setFailures(json);
       setSelectedTool(tool);
       setActiveTab("failures");

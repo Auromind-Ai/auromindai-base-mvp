@@ -1,10 +1,9 @@
 'use client';
 
-const API = '/api';
-
 import { useState, useEffect } from 'react';
 import { Calendar, ExternalLink, Settings, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import api from '@/lib/api';
 
 export default function CalendarPage() {
     const [connected, setConnected] = useState(false);
@@ -21,16 +20,9 @@ export default function CalendarPage() {
 
     const checkConnection = async () => {
         try {
-            const response = await fetch(
-                `${API}/integrations/status`,
-                { credentials: 'include' }
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                setConnected(data.calendar?.connected || false);
-                setCalendarEmail(data.calendar?.email || '');
-            }
+            const data = await api.getIntegrationStatus();
+            setConnected(data.calendar?.connected || false);
+            setCalendarEmail(data.calendar?.email || '');
         } catch (error) {
             console.error('Failed to check calendar status:', error);
         } finally {

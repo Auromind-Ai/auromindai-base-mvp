@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import { Users, MessageSquare, Zap, Building2, Activity, Clock } from "lucide-react"
 import { authHeader } from "@/lib/auth"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import api from "@/lib/api"
 
 export default function AdminDashboard() {
   const params = useParams()
@@ -23,11 +23,7 @@ export default function AdminDashboard() {
     const fetchDashboard = async () => {
       try {
         setLoading(true)
-        const res = await fetch(`${API_BASE}/admin/dashboard`)
-
-        if (!res.ok) throw new Error("Failed to fetch dashboard")
-
-        const data = await res.json()
+        const data = await api.getPlatformDashboard()
 
         setUsers(data.users || { total: 0, active: 0 })
         setWorkspaces(data.workspaces || { total: 0 })

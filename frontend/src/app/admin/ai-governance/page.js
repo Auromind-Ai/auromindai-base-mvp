@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Shield, RefreshCw } from 'lucide-react'
 
+import api from '@/lib/api'
+
 export default function AIGovernancePage() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -10,9 +12,7 @@ export default function AIGovernancePage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/ai-governance')
-      if (!response.ok) throw new Error('Failed to fetch AI governance data')
-      const result = await response.json()
+      const result = await api.getAIGovernance()
       setData(result)
       setError(null)
     } catch (err) {
@@ -25,9 +25,7 @@ export default function AIGovernancePage() {
   const handleRefresh = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/admin/ai-governance')
-      if (!response.ok) throw new Error('Failed to fetch AI governance data')
-      const result = await response.json()
+      const result = await api.getAIGovernance()
       setData(result)
       setError(null)
     } catch (err) {

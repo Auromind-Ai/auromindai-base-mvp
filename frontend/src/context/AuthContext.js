@@ -36,7 +36,7 @@ export function AuthProvider({ children }) {
       setUser(profile);
       
       // Fetch workspaces list
-      const wsData = await api.get('/auth/workspaces', { signal });
+      const wsData = await api.getWorkspaces({ signal });
       const wsList = wsData?.workspaces || [];
       setWorkspacesState(wsList);
       
@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout');
+      await api.logout();
     } catch (err) {
       console.error("Logout API call failed:", err);
     } finally {

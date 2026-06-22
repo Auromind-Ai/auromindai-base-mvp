@@ -39,6 +39,7 @@ export default function AdminSidebar() {
     { name: "Logs", href: "/admin/logs", icon: FileText },
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: "Billing", href: "/admin/billing", icon: CreditCard },
+    { name: "Billing Operations", href: "/admin/billing-operations", icon: Activity },
     { name: "AI Governance", href: "/admin/ai-governance", icon: Shield },
     { name: "Integrations", href: "/admin/integrations", icon: Plug },
     { name: "RAG Brain", href: "/admin/rag", icon: Brain },

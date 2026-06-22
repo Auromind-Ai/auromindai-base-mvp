@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -153,12 +153,12 @@ const TIMEZONE_OPTIONS = buildTimezoneList();
 function TimezoneDropdown({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const dropdownRef = useState(null);
+  const dropdownRef = useRef(null);
 
   // Close on outside click
   useEffect(() => {
     function handleClick(e) {
-      if (dropdownRef[0] && !dropdownRef[0].contains(e.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setOpen(false);
         setSearch('');
       }
@@ -178,7 +178,7 @@ function TimezoneDropdown({ value, onChange, disabled }) {
     TIMEZONE_OPTIONS.find((tz) => tz.value === value)?.label || value || 'Select timezone';
 
   return (
-    <div className="relative" ref={(el) => (dropdownRef[0] = el)}>
+    <div className="relative" ref={dropdownRef}>
       <button
         type="button"
         disabled={disabled}
@@ -1015,7 +1015,7 @@ function SecuritySection() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4">
               <div className="flex-1">
                 <p className="text-[16px] font-medium text-white">Security Score</p>
-                <p className="mt-0.5 text-[13px] text-white/65">Measure your account's overall security strength and protection level.</p>
+                <p className="mt-0.5 text-[13px] text-white/65">Measure your account&apos;s overall security strength and protection level.</p>
               </div>
               <p className={`shrink-0 text-sm font-medium whitespace-nowrap ${loading ? 'text-zinc-300' : getScoreColor(summary?.security_score)}`}>
                 {loading ? '...' : (summary?.security_score_label || '')}

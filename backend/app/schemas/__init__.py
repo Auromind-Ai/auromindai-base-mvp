@@ -99,3 +99,9 @@ class LegacyCreateOrderRequest(BaseModel):
 class LegacyUpgradePlanRequest(BaseModel):
     workspace_id: str
     plan: str
+
+
+from .plan_entitlement import PlanEntitlementBase, PlanEntitlementCreate, PlanEntitlementUpdate, PlanEntitlementResponse, EntitlementCheckRequest, EntitlementCheckResponse
+from .feature_billing_rule import FeatureBillingRuleBase, FeatureBillingRuleCreate, FeatureBillingRuleUpdate, FeatureBillingRuleResponse
+
+

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { TrendingUp, RefreshCw } from 'lucide-react'
 
+import api from '@/lib/api'
+
 export default function AILearningPage() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -10,9 +12,7 @@ export default function AILearningPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/learning-events')
-      if (!response.ok) throw new Error('Failed to fetch learning events')
-      const result = await response.json()
+      const result = await api.getAILearning()
       setData(result)
       setError(null)
     } catch (err) {
@@ -25,9 +25,7 @@ export default function AILearningPage() {
   const handleRefresh = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/admin/learning-events')
-      if (!response.ok) throw new Error('Failed to fetch learning events')
-      const result = await response.json()
+      const result = await api.getAILearning()
       setData(result)
       setError(null)
     } catch (err) {

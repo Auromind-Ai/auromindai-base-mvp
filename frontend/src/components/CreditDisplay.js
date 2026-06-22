@@ -1,21 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { Zap } from 'lucide-react';
 import api from '@/lib/api';
 
 export default function CreditDisplay() {
+  const { workspaceId } = useAuth();
   const [credits, setCredits] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchCredits() {
+      if (!workspaceId || workspaceId === 'undefined' || workspaceId === 'null') return;
       try {
-        const workspaceId = localStorage.getItem('workspace_id');
-        if (!workspaceId) return;
-        
         const res = await api.getCreditSummary(workspaceId);
-        setCredits(res);
+        setCredits(res.data ?? res ?? null);
       } catch (err) {
         console.error("Failed to fetch credits", err);
       } finally {
@@ -26,7 +26,7 @@ export default function CreditDisplay() {
     // Defer to avoid blocking render
     const timeout = setTimeout(fetchCredits, 500);
     return () => clearTimeout(timeout);
-  }, []);
+  }, [workspaceId]);
 
   if (loading || !credits) {
     return (

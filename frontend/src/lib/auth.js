@@ -45,7 +45,14 @@ export const logout = () => {
   removeToken();
   if (isBrowser) {
     // Delete cookies via api first if possible, then redirect
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    import('@/lib/api')
+      .then((mod) => {
+        const api = mod.default || mod;
+        return api.logout();
+      })
+      .catch((err) => {
+        console.error("API logout failed, performing fallback:", err);
+      })
       .finally(() => {
         window.location.replace("/login");
       });

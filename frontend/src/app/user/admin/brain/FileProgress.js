@@ -1,9 +1,7 @@
 "use client";
 
-const API = '/api';
-
-import { useEffect, useState } from "react";
-import { authHeader } from "@/lib/auth";
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
 
 export default function FileProgress({ entryId, onDone }) {
   const [status, setStatus] = useState("pending");
@@ -15,16 +13,7 @@ export default function FileProgress({ entryId, onDone }) {
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(
-          `${API}/brain/ingest/status/${entryId}`,
-          { headers: { ...authHeader() } }
-        );
-
-        if (!res.ok) {
-          throw new Error(`Failed to fetch status`);
-        }
-
-        const data = await res.json();
+        const data = await api.getIngestStatus(entryId);
         setStatus(data.status);
 
         if (data.status === "failed") {

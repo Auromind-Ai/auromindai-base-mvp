@@ -12,7 +12,7 @@ import {
   Cpu
 } from 'lucide-react'
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import api from '@/lib/api'
 
 export default function SystemHealthPage() {
   const [data, setData] = useState(null)
@@ -29,17 +29,7 @@ export default function SystemHealthPage() {
       setLoading(true)
       setError(null)
 
-      const res = await fetch(`${BASE}/admin/system-health`, {
-        signal,
-        credentials: 'include'
-      })
-
-      if (!res.ok) {
-        const t = await res.text().catch(() => null)
-        throw new Error(t || `HTTP ${res.status}`)
-      }
-
-      const json = await res.json()
+      const json = await api.getSystemHealth({ signal })
       console.log('Fetched system health:', json)
 
       setData(json)

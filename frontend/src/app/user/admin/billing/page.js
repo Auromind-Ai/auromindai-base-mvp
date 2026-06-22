@@ -30,7 +30,7 @@ export default function BillingHistoryPage() {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    if (!workspaceId) {
+    if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
       setError("Workspace not found. Please sign in again.")
       setLoading(false)
       return
@@ -42,7 +42,7 @@ export default function BillingHistoryPage() {
         setError("")
 
         const [billingData, pricingData] = await Promise.all([
-          api.getBillingStatus(),
+          api.getBillingStatus(workspaceId),
           api.getPricing(),
         ])
 
@@ -311,20 +311,26 @@ export default function BillingHistoryPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {buildActivityItems(billing).map((item, idx, arr) => (
-                <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ width: 36, height: 36, borderRadius: 10, background: item.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {item.icon}
-                    </span>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(241, 242, 245, 0.94)", margin: 0 }}>{item.title}</p>
-                      <p style={{ fontSize: 11, color: "#b9c1cf", margin: 0, marginTop: 2 }}>{item.desc}</p>
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 12 }}>{item.date}</span>
+              {buildActivityItems(billing).length === 0 ? (
+                <div style={{ border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 12, padding: "24px", textAlign: "center", fontSize: 13, color: "#6b7280" }}>
+                  No recent activity.
                 </div>
-              ))}
+              ) : (
+                buildActivityItems(billing).map((item, idx, arr) => (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ width: 36, height: 36, borderRadius: 10, background: item.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {item.icon}
+                      </span>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(241, 242, 245, 0.94)", margin: 0 }}>{item.title}</p>
+                        <p style={{ fontSize: 11, color: "#b9c1cf", margin: 0, marginTop: 2 }}>{item.desc}</p>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 12 }}>{item.date}</span>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -445,60 +451,26 @@ const skeletonStyle = (w, h) => ({
 function buildActivityItems(billing) {
   const items = []
 
-  if (billing?.subscription?.created_at || billing?.activated_at) {
+  if (billing?.subscription?.current_period_start) {
     items.push({
       icon: <ShieldCheck size={16} color="#4ade80" />,
       bg: "rgba(34,197,94,0.12)",
       title: "Plan Activated",
       desc: `${titleCase(billing?.current_plan || "Pro")} plan subscription started`,
-      date: formatDate(billing?.subscription?.created_at || billing?.activated_at),
+      date: formatDate(billing?.subscription?.current_period_start),
     })
   }
 
-  if (billing?.email_updated_at || billing?.user?.updated_at) {
-    items.push({
-      icon: <Mail size={16} color="#818cf8" />,
-      bg: "rgba(129,140,248,0.12)",
-      title: "Email Updated",
-      desc: `${titleCase(billing?.current_plan || "Pro")} plan subscription started`,
-      date: formatDate(billing?.email_updated_at || billing?.user?.updated_at),
-    })
-  }
-
-  if (billing?.latest_payment?.created_at || (Array.isArray(billing?.payments) && billing.payments[0]?.date)) {
-    items.push({
-      icon: <FileText size={16} color="#f59e0b" />,
-      bg: "rgba(245,158,11,0.12)",
-      title: "Invoice Generated",
-      desc: "Monthly Invoice Created",
-      date: formatDate(billing?.latest_payment?.created_at || billing?.payments?.[0]?.date),
-    })
-  }
-
-  if (items.length === 0) {
-    items.push(
-      {
-        icon: <ShieldCheck size={16} color="#4ade80" />,
-        bg: "rgba(34,197,94,0.12)",
-        title: "Plan Activated",
-        desc: "Pro plan subscription started",
-        date: "—",
-      },
-      {
-        icon: <Mail size={16} color="#818cf8" />,
-        bg: "rgba(129,140,248,0.12)",
-        title: "Email Updated",
-        desc: "Pro plan subscription started",
-        date: "—",
-      },
-      {
+  if (Array.isArray(billing?.payments)) {
+    billing.payments.forEach(p => {
+      items.push({
         icon: <FileText size={16} color="#f59e0b" />,
         bg: "rgba(245,158,11,0.12)",
-        title: "Invoice Generated",
-        desc: "Monthly Invoice Created",
-        date: "—",
-      }
-    )
+        title: p.status === "PAID" || p.status === "captured" ? "Payment Received" : "Payment Attempt",
+        desc: p.description || `${titleCase(billing?.current_plan || "Pro")} Plan Payment`,
+        date: formatDate(p.date),
+      })
+    })
   }
 
   return items

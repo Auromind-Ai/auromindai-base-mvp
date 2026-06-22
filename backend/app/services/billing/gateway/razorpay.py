@@ -2,7 +2,7 @@ import hashlib
 import json
 from typing import Any
 from app.core.config import settings
-from groq import BadRequestError
+import razorpay.errors as razorpay_errors
 from app.models.workspace import Workspace
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
 
@@ -41,28 +41,21 @@ class RazorpayGateway(PaymentGateway):
     def get_public_key(self) -> str | None:
         return self.public_key
 
-    
     def create_customer(
         self,
         workspace: Workspace,
         user_email: str,
         user_name: str | None,
     ) -> str | None:
-
-
         try:
             existing = self.client.customer.all({
                 "email": user_email
             })
-
             if existing.get("items"):
                 return existing["items"][0]["id"]
-
         except Exception:
-            pass 
+            pass
 
-
-   
         try:
             customer = self.client.customer.create({
                 "name": user_name or workspace.name,
@@ -70,18 +63,19 @@ class RazorpayGateway(PaymentGateway):
                 "notes": {"workspace_id": str(workspace.id)},
             })
             return customer["id"]
-
-        except BadRequestError as e:
-           
+        except razorpay_errors.BadRequestError as e:
             if "Customer already exists" in str(e):
                 existing = self.client.customer.all({
                     "email": user_email
                 })
-
                 if existing.get("items"):
                     return existing["items"][0]["id"]
+            raise ValueError(f"Razorpay customer creation failed: {str(e)}")
+        except (razorpay_errors.GatewayError, razorpay_errors.ServerError) as e:
+            raise ValueError(f"Razorpay gateway error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected payment gateway error: {str(e)}")
 
-        raise
     def create_subscription(
         self,
         plan_config: BillingPlanConfig,
@@ -107,41 +101,79 @@ class RazorpayGateway(PaymentGateway):
                 "user_id": str(user_id),
             },
         }
-        subscription_data = self.client.subscription.create(payload)
-        return {
-            "provider": self.provider,
-            "subscription_id": subscription_data["id"],
-            "public_key": self.public_key,
-            "plan_reference": plan_id,
-            "prefill": {
-                "email": user_email,
-                "name": user_name or user_email,
-            },
-            "raw": subscription_data,
-        }
+        try:
+            subscription_data = self.client.subscription.create(payload)
+            return {
+                "provider": self.provider,
+                "subscription_id": subscription_data["id"],
+                "public_key": self.public_key,
+                "plan_reference": plan_id,
+                "prefill": {
+                    "email": user_email,
+                    "name": user_name or user_email,
+                },
+                "raw": subscription_data,
+            }
+        except razorpay_errors.BadRequestError as e:
+            raise ValueError(f"Invalid subscription request: {str(e)}")
+        except (razorpay_errors.GatewayError, razorpay_errors.ServerError) as e:
+            raise ValueError(f"Razorpay gateway error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected payment gateway error: {str(e)}")
 
     def verify_payment(self, payload: dict[str, Any]) -> dict[str, str]:
+        if "order_id" in payload or "razorpay_order_id" in payload:
+            order_id = payload.get("order_id") or payload.get("razorpay_order_id")
+            payment_id = payload.get("payment_id") or payload.get("razorpay_payment_id")
+            signature = payload.get("signature") or payload.get("razorpay_signature")
+            verification = {
+                "razorpay_order_id": order_id,
+                "razorpay_payment_id": payment_id,
+                "razorpay_signature": signature,
+            }
+            try:
+                self.client.utility.verify_payment_signature(verification)
+                return {
+                    "payment_id": payment_id,
+                    "order_id": order_id,
+                    "signature": signature,
+                }
+            except razorpay_errors.SignatureVerificationError as e:
+                raise ValueError(f"Invalid payment signature: {str(e)}")
+            except Exception as e:
+                raise ValueError(f"Payment verification failed: {str(e)}")
+
         verification = {
             "razorpay_payment_id": payload["payment_id"],
             "razorpay_subscription_id": payload["subscription_id"],
             "razorpay_signature": payload["signature"],
         }
-        self.client.utility.verify_subscription_payment_signature(verification)
-        return {
-            "payment_id": payload["payment_id"],
-            "subscription_id": payload["subscription_id"],
-            "signature": payload["signature"],
-        }
+        try:
+            self.client.utility.verify_subscription_payment_signature(verification)
+            return {
+                "payment_id": payload["payment_id"],
+                "subscription_id": payload["subscription_id"],
+                "signature": payload["signature"],
+            }
+        except razorpay_errors.SignatureVerificationError as e:
+            raise ValueError(f"Invalid payment signature: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Payment verification failed: {str(e)}")
 
     def handle_webhook(self, body: bytes, signature: str) -> GatewayWebhookEvent:
         if not self.webhook_secret:
             raise ValueError("Razorpay webhook secret not configured")
 
-        self.client.utility.verify_webhook_signature(
-            body.decode("utf-8"),
-            signature,
-            self.webhook_secret,
-        )
+        try:
+            self.client.utility.verify_webhook_signature(
+                body.decode("utf-8"),
+                signature,
+                self.webhook_secret,
+            )
+        except razorpay_errors.SignatureVerificationError as e:
+            raise ValueError(f"Invalid webhook signature: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Webhook signature check failed: {str(e)}")
 
         event = json.loads(body.decode("utf-8"))
         event_name = event.get("event", "")
@@ -172,29 +204,43 @@ class RazorpayGateway(PaymentGateway):
         )
 
     def fetch_subscription(self, subscription_id: str) -> GatewaySubscription:
-        data = self.client.subscription.fetch(subscription_id)
-        return GatewaySubscription(
-            provider=self.provider,
-            subscription_id=data["id"],
-            status=data.get("status", ""),
-            customer_id=data.get("customer_id"),
-            start_at=data.get("start_at"),
-            end_at=data.get("end_at"),
-            current_start=data.get("current_start"),
-            current_end=data.get("current_end"),
-            plan_reference=data.get("plan_id"),
-            raw=data,
-        )
+        try:
+            data = self.client.subscription.fetch(subscription_id)
+            return GatewaySubscription(
+                provider=self.provider,
+                subscription_id=data["id"],
+                status=data.get("status", ""),
+                customer_id=data.get("customer_id"),
+                start_at=data.get("start_at"),
+                end_at=data.get("end_at"),
+                current_start=data.get("current_start"),
+                current_end=data.get("current_end"),
+                plan_reference=data.get("plan_id"),
+                raw=data,
+            )
+        except razorpay_errors.BadRequestError as e:
+            raise ValueError(f"Subscription fetch failed: {str(e)}")
+        except (razorpay_errors.GatewayError, razorpay_errors.ServerError) as e:
+            raise ValueError(f"Razorpay subscription fetch gateway error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected subscription fetch error: {str(e)}")
 
     def fetch_payment(self, payment_id: str) -> GatewayPayment:
-        data = self.client.payment.fetch(payment_id)
-        return GatewayPayment(
-            provider=self.provider,
-            payment_id=data["id"],
-            amount=int(data.get("amount") or 0),
-            currency=(data.get("currency") or "INR").upper(),
-            status=(data.get("status") or "").lower(),
-            subscription_id=data.get("subscription_id"),
-            customer_id=data.get("customer_id"),
-            raw=data,
-        )
+        try:
+            data = self.client.payment.fetch(payment_id)
+            return GatewayPayment(
+                provider=self.provider,
+                payment_id=data["id"],
+                amount=int(data.get("amount") or 0),
+                currency=(data.get("currency") or "INR").upper(),
+                status=(data.get("status") or "").lower(),
+                subscription_id=data.get("subscription_id"),
+                customer_id=data.get("customer_id"),
+                raw=data,
+            )
+        except razorpay_errors.BadRequestError as e:
+            raise ValueError(f"Payment fetch failed: {str(e)}")
+        except (razorpay_errors.GatewayError, razorpay_errors.ServerError) as e:
+            raise ValueError(f"Razorpay payment fetch gateway error: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Unexpected payment fetch error: {str(e)}")
