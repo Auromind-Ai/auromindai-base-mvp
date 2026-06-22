@@ -93,7 +93,16 @@ def get_wcc_rates(
             current_user, db, workspace_id, x_workspace_id
         )
         rates = WCCService.get_rates(db)
-        return [WCCRateItem.from_orm(r) for r in rates]
+        return [
+            WCCRateItem(
+                category=r.category,
+                region=r.region,
+                rate_per_message=r.customer_price,
+                customer_price=r.customer_price,
+                is_active=r.is_active
+            )
+            for r in rates
+        ]
     except Exception as e:
         logger.error(f"Error fetching WCC rates: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -257,8 +266,8 @@ def get_wcc_sessions(
                 category=tx.category,
                 status=tx.status,
                 message_count=tx.message_count,
-                debit_amount=tx.debit_amount,
-                rate_applied=tx.rate_applied
+                debit_amount=tx.customer_price_applied if tx.customer_price_applied is not None else tx.debit_amount,
+                rate_applied=tx.customer_price_applied if tx.customer_price_applied is not None else tx.rate_applied
             )
             for tx in transactions
         ]

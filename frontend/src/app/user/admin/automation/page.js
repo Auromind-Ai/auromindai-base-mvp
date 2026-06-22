@@ -336,6 +336,29 @@ export default function AutomationCanvas() {
     wiringRef.current = null;
   }, []);
 
+  const handleGenerateAI = async () => {
+    if (!aiInput.trim()) return;
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const data = await api.generateAIFlow(aiInput);
+      if (data.nodes && data.nodes.length > 0) {
+        setNodes(data.nodes);
+        setEdges(data.edges || []);
+        setCanvasOffset({ x: 0, y: 0 });
+        setActiveNodeId(null);
+        setTimeout(() => setActiveNodeId(data.nodes[0].id), 100);
+      } else {
+        setError("AI returned invalid format. Try a different prompt.");
+      }
+    } catch (e) {
+      console.error(e);
+      setError(e.message || "Failed to connect to AI engine.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const canvasRef = useRef(null);
   const gridRef = useRef(null);
   const nodeHeightsRef = useRef({});
@@ -2988,22 +3011,7 @@ export default function AutomationCanvas() {
               className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-200 placeholder:text-zinc-600 font-normal"
             />
             <button
-              onClick={async () => {
-                if (!aiInput.trim()) return;
-                setIsGenerating(true);
-                setError(null);
-                try {
-                  const data = await api.generateAIFlow(aiInput);
-                  if (data.nodes && data.nodes.length > 0) {
-                    setNodes(data.nodes);
-                    setEdges(data.edges || []);
-                    setCanvasOffset({ x: 0, y: 0 });
-                    setActiveNodeId(null);
-                    setTimeout(() => setActiveNodeId(data.nodes[0].id), 100);
-                  } else { setError("AI returned invalid format. Try a different prompt."); }
-                } catch (e) { console.error(e); setError(e.message || "Failed to connect to AI engine."); }
-                finally { setIsGenerating(false); }
-              }}
+              onClick={handleGenerateAI}
               disabled={isGenerating || !aiInput}
                 className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 active:scale-95 transition-all rounded-xl text-white text-xs font-semibold shadow-lg shadow-violet-600/30 disabled:opacity-30 flex-shrink-0"
               >

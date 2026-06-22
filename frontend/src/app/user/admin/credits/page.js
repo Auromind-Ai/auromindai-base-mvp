@@ -46,10 +46,10 @@ export default function CreditsPage() {
     // WCC Rates State
     const [wccRates, setWccRates] = useState([]);
     const [estimatorRates, setEstimatorRates] = useState({
-        marketing: 1.09,
-        utility: 0.145,
-        auth: 0.145,
-        service: 0.00
+        marketing: 1.25,
+        utility: 0.18,
+        auth: 0.18,
+        service: 0.05
     });
 
     // Credit Packs State
@@ -789,18 +789,18 @@ export default function CreditsPage() {
                                 </div>
                                 <div className="flex items-center gap-2.5 mb-4 border-b border-white/5 pb-3">
                                     <Info size={16} className="text-emerald-400" />
-                                    <h3 className="font-bold text-sm text-white tracking-tight">Meta Messaging Rates</h3>
+                                    <h3 className="font-bold text-sm text-white tracking-tight">WhatsApp Conversation Pricing</h3>
                                 </div>
                                 <p className="text-zinc-400 text-xs leading-relaxed mb-6">
-                                    Meta charges for WhatsApp Business conversations on a 24-hour session basis. These credits represent direct pass-through costs billed by Meta.
+                                    WhatsApp Business API charges are calculated on a 24-hour conversation session basis. Rates below represent our platform's conversation charges.
                                 </p>
 
                                 <div className="space-y-4">
                                     {[
-                                        { title: 'Marketing', desc: 'Promos, offers, reminders', cost: `₹${(estimatorRates.marketing || 0).toFixed(3)} / msg`, color: 'border-l-pink-500' },
-                                        { title: 'Utility', desc: 'Order alerts, transaction info', cost: `₹${(estimatorRates.utility || 0).toFixed(3)} / msg`, color: 'border-l-sky-500' },
-                                        { title: 'Authentication', desc: 'Security codes, logins', cost: `₹${(estimatorRates.auth || 0).toFixed(3)} / msg`, color: 'border-l-amber-500' },
-                                        { title: 'Service Window', desc: 'User-initiated conversations', cost: 'Free / 24h', color: 'border-l-purple-500' },
+                                        { title: 'Marketing', desc: 'Promos, offers, reminders', cost: `₹${(estimatorRates.marketing || 0).toFixed(3)} / conversation`, color: 'border-l-pink-500' },
+                                        { title: 'Utility', desc: 'Order alerts, transaction info', cost: `₹${(estimatorRates.utility || 0).toFixed(3)} / conversation`, color: 'border-l-sky-500' },
+                                        { title: 'Authentication', desc: 'Security codes, logins', cost: `₹${(estimatorRates.auth || 0).toFixed(3)} / conversation`, color: 'border-l-amber-500' },
+                                        { title: 'Service Window', desc: 'User-initiated conversations (includes ₹0.05 platform fee)', cost: `₹${(estimatorRates.service || 0).toFixed(3)} / conversation`, color: 'border-l-purple-500' },
                                     ].map((rate, i) => (
                                         <div key={i} className={`p-3 bg-[#171722]/50 border border-white/5 border-l-2 ${rate.color} rounded-r-lg`}>
                                             <div className="flex justify-between items-center mb-1">
