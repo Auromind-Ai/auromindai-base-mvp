@@ -92,11 +92,11 @@ class UnifiedAgent:
 
             # RAG Context retrieval
             rag_answer = ""
-            if agent_type in ["sales_agent", "support_agent"]:
+            if agent_type == "sales_agent":
                 try:
                     entry_ids = context.get("entry_ids", [])
-                    source = "vector_db" if agent_type == "sales_agent" else "internal_web"
-                    collection_name = "support" if agent_type == "support_agent" else "general"
+                    source = "vector_db"
+                    collection_name = "general"
 
                     rag_response = await self.rag.agent_loop(
                         db=db,
@@ -114,21 +114,6 @@ class UnifiedAgent:
                         rag_answer = rag_response.get("answer")
                 except Exception as e:
                     self.logger.error("RAG retrieval failed", exc_info=True)
-
-            if agent_type == "support_agent" and not rag_answer:
-                return {
-                    "stage": "support",
-                    "response": (
-                        "Currently this information is not available "
-                        "in our system. Our support team will "
-                        "contact you shortly."
-                    ),
-                    "action": "escalate_human",
-                    "collect": {},
-                    "escalate": True,
-                    "close": False,
-                    "confidence_score": 0.4
-                }
 
             # Build missing/collected for lead agent
             def get_ordered_missing(lead_fields, lead_data):
@@ -162,14 +147,6 @@ class UnifiedAgent:
                     business_type=context.get("business_type", "general"),
                     lead_fields=lead_fields,
                     calendar_enabled=calendar_enabled,
-                )
-
-            elif agent_type == "support_agent":
-                prompt = self._build_support_prompt(
-                    message=message,
-                    rag_answer=rag_answer,
-                    history_text=history_text,
-                    business_type=context.get("business_type", "general"),
                 )
 
             else:
@@ -413,55 +390,4 @@ class UnifiedAgent:
         - Use "book_demo" + close=true when meeting_date, meeting_time, timezone are all collected.
         - Keep action null while still collecting fields or demo details.
         """
-
-    def _build_support_prompt(
-        self,
-        message,
-        rag_answer,
-        history_text,
-        business_type="general"
-    ):
-        return f"""
-        You are an elite AI Customer Support Agent.
-
-        BUSINESS TYPE: {business_type}
-
-        CONVERSATION HISTORY:
-        {history_text}
-
-        CUSTOMER ISSUE:
-        {message}
-
-        KNOWLEDGE BASE:
-        {rag_answer}
-
-        GOALS:
-        1. Solve customer issues clearly using ONLY the knowledge base
-        2. Keep responses short and human
-        3. Escalate only when necessary
-
-        ESCALATION RULES:
-        Escalate if:
-        - knowledge base has no answer
-        - billing/legal/security issue
-        - customer is angry/frustrated
-
-        RAG FAILURE:
-        If knowledge base is empty: say "Our support team will contact you shortly." and set escalate=true
-
-        RETURN STRICT JSON ONLY:
-        {{
-            "stage": "support",
-            "response": "your reply",
-            "action": null,
-            "issue_type": "technical_issue",
-            "priority": "medium",
-            "sentiment": "calm",
-            "confidence_score": 0.95,
-            "resolved": false,
-            "escalate": false,
-            "close": false
-        }}
-
-        VALID ACTIONS: null | "create_ticket"
-        """
+

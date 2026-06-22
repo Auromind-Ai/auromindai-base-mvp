@@ -673,10 +673,16 @@ export default function AutomationCanvas() {
       }
       const newEntryId = data.entry_id;
       if (newEntryId && activeNodeId) {
-         updateNodeConfig(activeNodeId, (config) => ({
-            ...config,
-            entry_ids: [...(config.entry_ids || []), newEntryId]
-         }));
+         updateNodeConfig(activeNodeId, (config) => {
+            const isSupport = agentType === 'support_agent';
+            const arrayKey = isSupport ? 'support_entry_ids' : 'sales_entry_ids';
+            const updatedArray = [...(config[arrayKey] || []), newEntryId];
+            return {
+               ...config,
+               [arrayKey]: updatedArray,
+               entry_ids: updatedArray
+            };
+         });
       }
     } catch (err) {
       console.error(err);
@@ -707,10 +713,16 @@ export default function AutomationCanvas() {
       const data = await api.addTextKnowledge(`Sales Note - ${new Date().toLocaleString()}`, salesManualText, workspace_id, collection);
       const newEntryId = data.entry_id;
       if (newEntryId && activeNodeId) {
-         updateNodeConfig(activeNodeId, (config) => ({
-            ...config,
-            entry_ids: [...(config.entry_ids || []), newEntryId]
-         }));
+         updateNodeConfig(activeNodeId, (config) => {
+            const isSupport = agentType === 'support_agent';
+            const arrayKey = isSupport ? 'support_entry_ids' : 'sales_entry_ids';
+            const updatedArray = [...(config[arrayKey] || []), newEntryId];
+            return {
+               ...config,
+               [arrayKey]: updatedArray,
+               entry_ids: updatedArray
+            };
+         });
          setSalesManualText(''); 
       }
     } catch (err) {
@@ -723,10 +735,17 @@ export default function AutomationCanvas() {
 
   const removeSalesEntry = (idToRemove) => {
      if (!activeNodeId) return;
-     updateNodeConfig(activeNodeId, (config) => ({
-        ...config,
-        entry_ids: (config.entry_ids || []).filter(id => id !== idToRemove)
-     }));
+     updateNodeConfig(activeNodeId, (config) => {
+        const agentType = config.agent_type || 'sales_agent';
+        const isSupport = agentType === 'support_agent';
+        const arrayKey = isSupport ? 'support_entry_ids' : 'sales_entry_ids';
+        const updatedArray = (config[arrayKey] || config.entry_ids || []).filter(id => id !== idToRemove);
+        return {
+           ...config,
+           [arrayKey]: updatedArray,
+           entry_ids: updatedArray
+        };
+     });
   };
 
   const handleSave = async () => {
@@ -2060,7 +2079,7 @@ export default function AutomationCanvas() {
                           {[
                             { value: 'lead_agent',    label: 'Lead',    emoji: '🎯', comingSoon: false },
                             { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: false  },
-                            { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: true  },
+                            { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: false },
                           ].map(({ value, label, emoji, comingSoon }) => {
                             const isSelected = (activeNode.config?.agent_type || 'lead_agent') === value;
                             return (
@@ -2068,7 +2087,30 @@ export default function AutomationCanvas() {
                                 <button
                                   data-no-drag
                                   disabled={comingSoon}
-                                  onClick={() => !comingSoon && updateNodeConfig(activeNodeId, { agent_type: value })}
+                                  onClick={() => {
+                                    if (comingSoon) return;
+                                    updateNodeConfig(activeNodeId, (config) => {
+                                      const isSupport = value === 'support_agent';
+                                      const isSales = value === 'sales_agent';
+                                      const currentSalesIds = config.sales_entry_ids || (config.agent_type === 'sales_agent' ? config.entry_ids : []);
+                                      const currentSupportIds = config.support_entry_ids || (config.agent_type === 'support_agent' ? config.entry_ids : []);
+                                      
+                                      let nextEntryIds = [];
+                                      if (isSupport) {
+                                        nextEntryIds = currentSupportIds;
+                                      } else if (isSales) {
+                                        nextEntryIds = currentSalesIds;
+                                      }
+                                      
+                                      return {
+                                        ...config,
+                                        agent_type: value,
+                                        sales_entry_ids: currentSalesIds,
+                                        support_entry_ids: currentSupportIds,
+                                        entry_ids: nextEntryIds
+                                      };
+                                    });
+                                  }}
                                   className={`w-full flex flex-col items-center gap-1 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all
                                     ${comingSoon
                                       ? 'bg-white/[0.02] border-white/5 text-zinc-600 cursor-not-allowed opacity-60'
@@ -2096,7 +2138,7 @@ export default function AutomationCanvas() {
                         </p>
                       </section>
 
-                      {activeNode.config?.agent_type !== 'sales_agent' && (
+                      {!['sales_agent', 'support_agent'].includes(activeNode.config?.agent_type) && (
                         <section>
                           <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
                           <textarea
@@ -2108,25 +2150,27 @@ export default function AutomationCanvas() {
                           />
                         </section>
                       )}
-                      <section>
-                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
-                        <select
-                          value={activeNode.config?.business_type || 'saas'}
-                          onChange={(e) => updateNodeConfig(activeNodeId, { business_type: e.target.value })}
-                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
-                          style={{ backgroundColor: "#140D1F", color: "white" }}
-                        >
-                          <option value="saas">SaaS</option>
-                          <option value="ecommerce">E-Commerce</option>
-                          <option value="healthcare">Healthcare</option>
-                          <option value="education">Education</option>
-                          <option value="real_estate">Real Estate</option>
-                          <option value="finance">Finance</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </section>
+                      {activeNode.config?.agent_type !== 'support_agent' && (
+                        <section>
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
+                          <select
+                            value={activeNode.config?.business_type || 'saas'}
+                            onChange={(e) => updateNodeConfig(activeNodeId, { business_type: e.target.value })}
+                            className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                            style={{ backgroundColor: "#140D1F", color: "white" }}
+                          >
+                            <option value="saas">SaaS</option>
+                            <option value="ecommerce">E-Commerce</option>
+                            <option value="healthcare">Healthcare</option>
+                            <option value="education">Education</option>
+                            <option value="real_estate">Real Estate</option>
+                            <option value="finance">Finance</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </section>
+                      )}
 
-                      {activeNode.config?.agent_type !== 'sales_agent' && (
+                      {!['sales_agent', 'support_agent'].includes(activeNode.config?.agent_type) && (
                         <section>
                           <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
                           <textarea
@@ -2139,52 +2183,56 @@ export default function AutomationCanvas() {
                         </section>
                       )}
 
-                      <section className="space-y-3">
-                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
-                        {[
-                          { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
-                          ...(activeNode.config?.agent_type === 'sales_agent' ? [{ key: 'payment_enabled', label: 'Enable Payment' }] : [])
-                        ].map(({ key, label }) => (
-                          <div key={key} className="space-y-3">
-                            <label className="flex items-center gap-3 cursor-pointer group" data-no-drag>
-                              <div
-                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                                className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
-                                  activeNode.config?.[key]
-                                    ? 'bg-indigo-500 border-indigo-500'
-                                    : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
-                                }`}
-                              >
-                                {activeNode.config?.[key] && (
-                                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                )}
-                              </div>
-                              <span
-                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                                className="text-sm text-white/80 group-hover:text-white transition"
-                              >
-                                {label}
-                              </span>
-                            </label>
-                            {key === 'payment_enabled' && activeNode.config?.[key] && (
-                              <div className="pl-8" data-no-drag>
-                                <input
-                                  type="text"
-                                  value={activeNode.config?.payment_link || ''}
-                                  onChange={(e) => updateNodeConfig(activeNodeId, { payment_link: e.target.value })}
-                                  placeholder="Paste payment link here"
-                                  className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500/50 outline-none placeholder:text-zinc-600"
-                                />
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </section>
-                      {activeNode.config?.agent_type === 'sales_agent' && (
+                      {activeNode.config?.agent_type !== 'support_agent' && (
+                        <section className="space-y-3">
+                          <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
+                          {[
+                            { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
+                            ...(activeNode.config?.agent_type === 'sales_agent' ? [{ key: 'payment_enabled', label: 'Enable Payment' }] : [])
+                          ].map(({ key, label }) => (
+                            <div key={key} className="space-y-3">
+                              <label className="flex items-center gap-3 cursor-pointer group" data-no-drag>
+                                <div
+                                  onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                  className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
+                                    activeNode.config?.[key]
+                                      ? 'bg-indigo-500 border-indigo-500'
+                                      : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
+                                  }`}
+                                >
+                                  {activeNode.config?.[key] && (
+                                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                  )}
+                                </div>
+                                <span
+                                  onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                  className="text-sm text-white/80 group-hover:text-white transition"
+                                >
+                                  {label}
+                                </span>
+                              </label>
+                              {key === 'payment_enabled' && activeNode.config?.[key] && (
+                                <div className="pl-8" data-no-drag>
+                                  <input
+                                    type="text"
+                                    value={activeNode.config?.payment_link || ''}
+                                    onChange={(e) => updateNodeConfig(activeNodeId, { payment_link: e.target.value })}
+                                    placeholder="Paste payment link here"
+                                    className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500/50 outline-none placeholder:text-zinc-600"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </section>
+                      )}
+                      {['sales_agent', 'support_agent'].includes(activeNode.config?.agent_type) && (
                         <section className="space-y-4 pt-4 border-t border-white/5">
-                          <label className="text-[12px] font-semibold text-white tracking-wider block">Product Details & Knowledge</label>
+                          <label className="text-[12px] font-semibold text-white tracking-wider block">
+                            {activeNode.config?.agent_type === 'support_agent' ? 'Support Documents & Knowledge' : 'Product Details & Knowledge'}
+                          </label>
                           <p className="text-[10px] text-zinc-500 mb-2">Upload documents or manually add details. The AI will strictly answer from this context.</p>
                           
                           {/* File Upload Zone */}

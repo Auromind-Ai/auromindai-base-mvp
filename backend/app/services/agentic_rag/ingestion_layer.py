@@ -1,4 +1,5 @@
 import logging
+import math
 from sqlalchemy.orm import Session 
 from typing import Dict, Any
 import uuid
@@ -8,6 +9,17 @@ from app.models.brain import BrainEntry
 from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 
 logger = logging.getLogger(__name__)
+
+class KnowledgeBillingService:
+
+    @staticmethod
+    def calculate_upload_credits(file_size_bytes: int) -> int:
+        size_mb = file_size_bytes / (1024 * 1024)
+
+        return max(
+            1,
+            math.ceil(size_mb * 10)
+        )
 
 class IngestionLayer:
 
@@ -23,7 +35,11 @@ class IngestionLayer:
         content_type: str,
         source: str = None,
         metadata: Dict[str, Any] = None,
-        existing_entry_id: str = None  
+        existing_entry_id: str = None,
+        file_name: str = None,
+        file_size: int = None,
+        credits_charged: float = None,
+        embedding_status: str = None
     ) -> Dict[str, Any]:
          
         if not text or len(text.strip()) < 10:
@@ -45,7 +61,7 @@ class IngestionLayer:
         chunker = Schunker()
         chunks = chunker.build_chunks(text)
         
-        if not chunks:
+        if not chunks: 
             raise ValueError("No chunks could be created from document")
         
         logger.info(f"Created {len(chunks)} chunks for document: {title}")
@@ -66,6 +82,14 @@ class IngestionLayer:
                 brain_entry.content = text[:5000]
                 brain_entry.content_type = content_type
                 brain_entry.metadata_json = metadata_json_str
+                if file_name is not None:
+                    brain_entry.file_name = file_name
+                if file_size is not None:
+                    brain_entry.file_size = file_size
+                if credits_charged is not None:
+                    brain_entry.credits_charged = credits_charged
+                if embedding_status is not None:
+                    brain_entry.embedding_status = embedding_status
         else:
             # Create new entry
             brain_entry = BrainEntry(
@@ -77,9 +101,14 @@ class IngestionLayer:
                 embedding=None,  # Embeddings are in BrainChunk table
                 version=1,
                 status="completed", # Default for synchronous calls
-                metadata_json=metadata_json_str
+                metadata_json=metadata_json_str,
+                file_name=file_name,
+                file_size=file_size,
+                credits_charged=credits_charged,
+                embedding_status=embedding_status or "completed"
             )
             db.add(brain_entry)
+
         
         # Flush to ensure parent_id is valid for FK
         db.flush()

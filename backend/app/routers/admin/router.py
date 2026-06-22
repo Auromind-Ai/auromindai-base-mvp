@@ -21,6 +21,7 @@ from . import (
     impersonate,
     rag_analytics,
     model_configs,
+    templates,
     entitlements,
     feature_rules
 )
@@ -128,5 +129,6 @@ router.include_router(admin_settings.router)
 router.include_router(impersonate.router)
 router.include_router(rag_analytics.router)
 router.include_router(model_configs.router)
+router.include_router(templates.router)
 router.include_router(entitlements.router)
 router.include_router(feature_rules.router)

@@ -149,9 +149,20 @@ class LLMRouter:
             )
 
             text = response.text or ""
-            input_tokens = len(prompt.split())
-            output_tokens = len(text.split())
-            total_tokens = input_tokens + output_tokens
+
+            usage = getattr(response, "usage_metadata", None)
+
+            if usage:
+                input_tokens = usage.prompt_token_count
+                output_tokens = usage.candidates_token_count
+                total_tokens = usage.total_token_count
+            else:
+                # fallback only if usage metadata unavailable
+                input_tokens = len(prompt.split())
+                output_tokens = len(text.split())
+                total_tokens = input_tokens + output_tokens
+            
+            logger.info(f"Gemini usage metadata: {response.usage_metadata}")
 
             return {
                 "content": text,
@@ -229,3 +240,41 @@ class LLMRouter:
 
         except Exception as e:
             raise Exception(f"Groq error: {e}")
+
+    def resolve_provider_for_model(self, model: str) -> str:
+        model = MODEL_MAP.get(model, "auto")
+        if model != "auto":
+            try:
+                config = self._get_config(model)
+                provider = config["provider"]
+                if provider == "claude":
+                    api_key = self._get_api_key("ANTHROPIC_API_KEY", "anthropic_api_key")
+                    if api_key and api_key.strip():
+                        return "claude"
+                elif provider == "gemini":
+                    api_key = self._get_api_key("GOOGLE_API_KEY", "gemini_api_key")
+                    if api_key and api_key.strip():
+                        return "gemini"
+                elif provider == "groq":
+                    api_key = self._get_api_key("GROQ_API_KEY", "groq_api_key")
+                    if api_key and api_key.strip():
+                        return "groq"
+            except Exception:
+                pass
+        
+        # Fallback logic for 'auto'
+        try:
+            api_key = self._get_api_key("ANTHROPIC_API_KEY", "anthropic_api_key")
+            if api_key and api_key.strip():
+                return "claude"
+        except Exception:
+            pass
+
+        try:
+            api_key = self._get_api_key("GOOGLE_API_KEY", "gemini_api_key")
+            if api_key and api_key.strip():
+                return "gemini"
+        except Exception:
+            pass
+
+        return "groq"

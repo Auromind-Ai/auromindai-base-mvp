@@ -298,6 +298,8 @@ class MemoryService:
                 user_id=conversation.user_id if conversation else None,
                 issue_type=data.get("issue_type"),
                 description=data.get("description"),
+                customer_name=data.get("customer_name"),
+                customer_contact=data.get("customer_contact"),
                 status="open",
             )
             self.db.add(ticket)

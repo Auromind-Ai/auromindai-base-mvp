@@ -50,6 +50,20 @@ class RetrievalLayer:
 
     #Retrieve Context
     def retrieve_context(self, db, workspace_id, query, entry_ids=None, collection=None):
+        if entry_ids:
+            from app.models.brain import BrainEntry
+            image_entries = db.query(BrainEntry).filter(
+                BrainEntry.id.in_(entry_ids),
+                BrainEntry.content_type.in_(["image", "png", "jpg", "jpeg", "webp"])
+            ).all()
+            if image_entries:
+                context = "\n\n".join([entry.content for entry in image_entries])
+                docs = [{"text": entry.content, "score": 1.0, "metadata": {}} for entry in image_entries]
+                return {
+                    "context": context,
+                    "docs": docs
+                }
+
         retrieved_docs = self.semantic_search(db, workspace_id, query, entry_ids, collection)
         THRESHOLD = setter.VECTOR_THRESHOLD
         strong_docs = [doc for doc in retrieved_docs if doc["score"] >= THRESHOLD]

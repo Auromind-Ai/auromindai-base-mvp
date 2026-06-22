@@ -261,6 +261,43 @@ class MessageService:
         }
 
     @staticmethod
+    def _trigger_human_takeover(db: Session, conversation) -> None:
+        """Mark conversation as human-takeover so AI automation is paused."""
+        try:
+            from app.models.ai_action import ConversationState
+            from datetime import timezone
+
+            state = (
+                db.query(ConversationState)
+                .filter_by(
+                    workspace_id=conversation.workspace_id,
+                    conversation_id=conversation.id,
+                )
+                .first()
+            )
+            if state:
+                state.human_takeover = True
+                state.ai_paused_at = datetime.now(timezone.utc)
+            else:
+                state = ConversationState(
+                    workspace_id=conversation.workspace_id,
+                    conversation_id=conversation.id,
+                    human_takeover=True,
+                    ai_paused_at=datetime.now(timezone.utc),
+                )
+                db.add(state)
+            logger.info(
+                "[HUMAN_TAKEOVER] Activated for conversation %s",
+                conversation.id,
+            )
+        except Exception as e:
+            logger.error(
+                "[HUMAN_TAKEOVER] Failed to activate for conversation %s: %s",
+                conversation.id, e,
+                exc_info=True,
+            )
+
+    @staticmethod
     async def generate_ai_suggestion(
         db: Session,
         *,
