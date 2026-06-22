@@ -15,7 +15,15 @@ async def get_announcement(db: Session = Depends(get_db)) -> Dict[str, Any]:
         "message": settings.get("announcement_message", ""),
     }
 
-     
+@router.get("/about")
+async def get_about(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    return {
+        "platform_version": get_setting(db, "platform_version", "v2.4.1"),
+        "release_date": get_setting(db, "release_date", "June 05, 2026"),
+        "copyright": get_setting(db, "copyright", "@2026 Auromind"),
+        "last_updated": get_setting(db, "last_updated", "June 05, 2026, 10:30 AM")
+    }
+
 @router.get("/pricing")
 async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
     settings = get_all_settings(db)

@@ -19,13 +19,13 @@ import {
   Info,
   AlertTriangle,
   RefreshCw,
-  Smartphone,
   Monitor,
+  Smartphone,
   Lock,
   MapPin,
   Ban,
-  ShieldAlert,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from 'lucide-react';
 
 // ─── Nav Config ───────────────────────────────────────────────────────────────
@@ -42,7 +42,6 @@ const NAV_SECTIONS = [
   {
     title: 'Account',
     items: [
-      { id: 'people', label: 'People', icon: <Users size={15} /> },
       { id: 'security', label: 'Security', icon: <Shield size={15} /> },
       { id: 'about', label: 'About', icon: <Info size={15} /> },
     ],
@@ -540,7 +539,6 @@ function PreferencesSection() {
 
 function NotificationsSection() {
   const [notifs, setNotifs] = useState({
-    reminders: false,
     productUpdates: false,
     securityAlerts: false,
     aiAgentEvents: false,
@@ -556,7 +554,6 @@ function NotificationsSection() {
         const prefs = await api.getPreferences();
         if (active && prefs) {
           setNotifs({
-            reminders: prefs.reminders ?? false,
             productUpdates: prefs.productUpdates ?? false,
             securityAlerts: prefs.securityAlerts ?? false,
             aiAgentEvents: prefs.aiAgentEvents ?? false,
@@ -591,11 +588,6 @@ function NotificationsSection() {
   };
 
   const notifItems = [
-    {
-      key: 'reminders',
-      label: 'Reminders',
-      desc: 'Notify me about upcoming events .',
-    },
     {
       key: 'productUpdates',
       label: 'Product Updates',
@@ -1235,29 +1227,46 @@ function SecuritySection() {
 // ─── About Section ────────────────────────────────────────────────────────────
 
 function AboutSection() {
+  const [aboutData, setAboutData] = useState({
+    platform_version: 'Loading...',
+    release_date: 'Loading...',
+    copyright: 'Loading...',
+    last_updated: 'Loading...'
+  });
+
+  useEffect(() => {
+    let active = true;
+    api.getAboutSettings().then((data) => {
+      if (active && data) {
+        setAboutData(data);
+      }
+    }).catch(console.error);
+    return () => { active = false; };
+  }, []);
+
   const items = [
     {
       label: 'Platform Version',
       desc: 'Current version of the website',
-      value: 'v2.4.1',
+      value: aboutData.platform_version || 'v2.4.1',
       valueColor: 'text-zinc-300',
     },
     {
       label: 'Release Date',
       desc: 'When this version was released',
-      value: 'June 05, 2026',
+      value: aboutData.release_date || 'June 05, 2026',
       valueColor: 'text-zinc-300',
     },
     {
       label: 'Copyright',
       desc: 'All rights reserved',
-      value: '@2026 Auromind',
+      value: aboutData.copyright || '@2026 Auromind',
       valueColor: 'text-zinc-300',
     },
     {
       label: 'Last Updated',
       desc: 'Last updated date & time',
-      value: 'June 05, 2026, 10:30 AM',
+      value: aboutData.last_updated || 'June 05, 2026, 10:30 AM',
       valueColor: 'text-zinc-300',
     },
   ];
@@ -1302,6 +1311,7 @@ function AboutSection() {
 function MyAccountSection({
   preferredName,
   handleNameChange,
+  handleNameSubmit,
   userEmail,
   userInitial,
   twoFactorEnabled,
@@ -1421,13 +1431,14 @@ function MyAccountSection({
               placeholder="Your name"
             />
             <button
+              onClick={handleNameSubmit}
               type="button"
               className="
-                mt-2 text-xs text-violet-400 hover:text-violet-300
-                transition-colors duration-200 underline-offset-2 hover:underline
+                mt-3 px-4 py-1.5 text-xs font-bold text-white bg-[#814AC8] hover:bg-[#9B6ED8]
+                rounded-lg transition-colors shadow-[0_4px_14px_rgba(129,74,200,0.30)] active:scale-95
               "
             >
-              Create your portrait
+              Save Name
             </button>
           </div>
         </div>
@@ -1596,6 +1607,17 @@ export default function SettingsContent({ email }) {
       setTimeout(() => setSettingsToast(null), 4000);
   };
 
+  const handleNameSubmit = async () => {
+    if (preferredName && preferredName.trim() !== user?.full_name) {
+      try {
+        await api.updateProfile({ full_name: preferredName.trim() });
+        showToast('success', 'Name updated successfully.');
+      } catch (err) {
+        showToast('error', 'Failed to update name.');
+      }
+    }
+  };
+
   const handleTwoFactorToggle = async (val) => {
       if (val) {
           setTwoFactorLoading(true);
@@ -1623,6 +1645,7 @@ export default function SettingsContent({ email }) {
           <MyAccountSection
               preferredName={preferredName}
               handleNameChange={handleNameChange}
+              handleNameSubmit={handleNameSubmit}
               userEmail={user?.email || ''}
               userInitial={userInitial}
               twoFactorEnabled={twoFactorEnabled}
@@ -1640,8 +1663,6 @@ export default function SettingsContent({ email }) {
         return <PreferencesSection />;
       case 'notifications':
         return <NotificationsSection />;
-      case 'people':
-        return <PeopleSection />;
       case 'security':
         return <SecuritySection />;
       case 'about':

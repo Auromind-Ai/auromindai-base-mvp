@@ -32,6 +32,42 @@ class ChannelService:
         return rendered_body
 
     @staticmethod
+    def _split_instagram_message(text: str, max_length: int = 1000) -> list[str]:
+        if not text:
+            return [""]
+        if len(text) <= max_length:
+            return [text]
+        
+        chunks = []
+        paragraphs = text.split("\n")
+        current_chunk = ""
+        
+        for paragraph in paragraphs:
+            if len(current_chunk) + len(paragraph) + 1 > max_length:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                    current_chunk = ""
+                
+                if len(paragraph) > max_length:
+                    p_text = paragraph
+                    while len(p_text) > max_length:
+                        chunks.append(p_text[:max_length])
+                        p_text = p_text[max_length:]
+                    current_chunk = p_text
+                else:
+                    current_chunk = paragraph
+            else:
+                if current_chunk:
+                    current_chunk += "\n" + paragraph
+                else:
+                    current_chunk = paragraph
+                    
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+            
+        return chunks
+
+    @staticmethod
     def _get_workspace(conversation: Conversation) -> Workspace:
         workspace = conversation.workspace
         if not workspace:
@@ -312,12 +348,18 @@ class ChannelService:
             access_token=workspace.meta_access_token,
             page_id=workspace.meta_business_id,
         )
-        response = service.send_message(recipient_id, rendered_body)
-        if isinstance(response, dict) and response.get("error"):
-            raise RuntimeError(f"Instagram send failed: {response['error']}")
-        if isinstance(response, dict):
-            message_id = response.get("message_id") or response.get("recipient_id")
-            if not message_id:
-                raise RuntimeError("Instagram send failed without message id")
-            return message_id
-        return None
+        
+        # Instagram character limit is 1000. Split the body into smaller chunks if necessary.
+        chunks = ChannelService._split_instagram_message(rendered_body, 1000)
+        last_message_id = None
+        
+        for chunk in chunks:
+            response = service.send_message(recipient_id, chunk)
+            if isinstance(response, dict) and response.get("error"):
+                raise RuntimeError(f"Instagram send failed: {response['error']}")
+            if isinstance(response, dict):
+                last_message_id = response.get("message_id") or response.get("recipient_id")
+                if not last_message_id:
+                    raise RuntimeError("Instagram send failed without message id")
+        
+        return last_message_id

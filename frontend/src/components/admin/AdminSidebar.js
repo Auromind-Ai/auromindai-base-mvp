@@ -22,7 +22,8 @@ import {
   Heart,
   TrendingUp,
   Key,
-  Settings
+  Settings,
+  LayoutTemplate
 } from "lucide-react"
 
 export default function AdminSidebar() {
@@ -44,6 +45,7 @@ export default function AdminSidebar() {
     { name: "RAG Brain", href: "/admin/rag", icon: Brain },
     { name: "System Health", href: "/admin/system", icon: Heart },
     { name: "Model Config", href: "/admin/model-config", icon: Key },
+    { name: "Templates", href: "/admin/templates", icon: LayoutTemplate },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ]
 

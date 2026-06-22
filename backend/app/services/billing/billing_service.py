@@ -599,13 +599,38 @@ class BillingService:
     def check_token_limit(self, db: Session, workspace_id: str) -> TokenLimitStatus:
         subscription = self.subscription_service._get_active_subscription(db, workspace_id)
         if subscription is None or subscription.plan_id is None:
+            # Fall back to free plan
+            plan = db.query(Plan).filter(Plan.name == "free").first()
+            token_limit = plan.token_limit if plan else 100000
+            price_per_extra_token = 0
+            
+            from sqlalchemy import func
+            from datetime import timezone
+            now = datetime.now(timezone.utc)
+            period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            tokens_used = (
+                db.query(func.sum(-TokenLedger.tokens_delta))
+                .filter(
+                    TokenLedger.workspace_id == workspace_id,
+                    TokenLedger.status == "posted",
+                    TokenLedger.entry_type == "usage",
+                    TokenLedger.created_at >= period_start,
+                )
+                .scalar() or 0
+            )
+            tokens_used = int(tokens_used)
+            
+            overage_tokens = max(tokens_used - token_limit, 0)
+            within_limit = tokens_used < token_limit
+            
             return TokenLimitStatus(
-                token_limit=0,
-                tokens_used=0,
-                overage_tokens=0,
-                within_limit=False, # FIXED: Free users with no subscription are strictly blocked
-                excess_tokens=0,
-                price_per_extra_token=0,
+                token_limit=token_limit,
+                tokens_used=tokens_used,
+                overage_tokens=overage_tokens,
+                within_limit=within_limit,
+                excess_tokens=overage_tokens,
+                price_per_extra_token=price_per_extra_token,
                 estimated_overage_cost=0,
             )
 

@@ -386,6 +386,31 @@ def validate_category(data):
             raise HTTPException(400, "OTP not allowed in marketing templates")
 
 
+# GET SYSTEM TEMPLATES
+@router.get("/templates/system")
+def get_system_templates(db: Session = Depends(get_db)):
+    templates = db.query(Template).filter(Template.system_tag.isnot(None)).all()
+    return {
+        "templates": [
+            {
+                "id": str(t.id),
+                "name": t.name,
+                "type": t.type,
+                "content": t.content,
+                "header": t.header,
+                "footer": t.footer,
+                "cta": t.cta,
+                "cta_btn_title": t.cta_btn_title,
+                "status": t.status,
+                "category": t.category,
+                "language": t.language,
+                "tag": t.system_tag, # Expose as 'tag' for frontend compatibility
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in templates
+        ]
+    }
+
 # GET TEMPLATES
 @router.get("/templates")
 def get_templates(

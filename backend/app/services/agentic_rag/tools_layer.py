@@ -183,7 +183,7 @@ class Toolslayer:
         
     def query_emails(self, db, workspace_id, filters):
 
-        logger.info("Applying filters:", filters)
+        logger.info(f"Applying filters: {filters}")
 
         query = db.query(MCPDecision).join(
             EmailMessage,
@@ -192,22 +192,31 @@ class Toolslayer:
             MCPDecision.workspace_id == workspace_id
         )
 
-        if filters.get("priority"):
-            logger.info("Filtering by priority:", filters["priority"])
-            query = query.filter(
-                MCPDecision.priority == filters["priority"]
-            )
+        priority = filters.get("priority")
+        if priority and str(priority).lower() not in ("null", "none", "any", "all"):
+            if isinstance(priority, list):
+                query = query.filter(MCPDecision.priority.in_(priority))
+            else:
+                query = query.filter(MCPDecision.priority == priority)
 
-        if filters.get("sender"):
-            query = query.filter(
-                EmailMessage.sender.ilike(f"%{filters['sender']}%")
-            )
+        sender = filters.get("sender")
+        if sender and str(sender).lower() not in ("null", "none", "any", "all", "receive"):
+            if isinstance(sender, list):
+                valid_senders = [s for s in sender if str(s).lower() not in ("any", "all", "receive", "null", "none")]
+                if valid_senders:
+                    from sqlalchemy import or_
+                    query = query.filter(or_(*(EmailMessage.sender.ilike(f"%{s}%") for s in valid_senders)))
+            else:
+                query = query.filter(EmailMessage.sender.ilike(f"%{sender}%"))
 
-        if filters.get("category"):
-            logger.info(f"Filtering by category: {filters['category']}")
-            query = query.filter(
-                MCPDecision.category == filters["category"]
-            )
+        category = filters.get("category")
+        if category and str(category).lower() not in ("null", "none", "any", "all"):
+            if isinstance(category, list):
+                valid_categories = [c for c in category if str(c).lower() not in ("any", "all", "null", "none")]
+                if len(valid_categories) > 0 and len(valid_categories) < 6:
+                    query = query.filter(MCPDecision.category.in_(valid_categories))
+            else:
+                query = query.filter(MCPDecision.category == category)
 
         #Intent handling
         if filters.get("intent") == "latest":

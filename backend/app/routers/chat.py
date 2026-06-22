@@ -123,6 +123,8 @@ async def stream_chat(
             session_id=request.session_id,
             use_rag=request.use_rag,
             user_id=str(current_user.id),
+            model=request.model,
+            document_id=request.document_id,
         )
     except BillingError as e:
         raise HTTPException(status_code=402, detail=str(e))

@@ -8,6 +8,7 @@ from app.services.agentic_rag.embedding_service import get_embedding_generator
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.utils.text_chunker import Schunker
 from app.services.document_service import get_document_service
+from app.services.billing.billing_service import BillingService
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +20,15 @@ async def process_document_background(
     original_filename: str,
     content_type: str,
     file_size: int,
-    metadata: Optional[Dict[str, Any]] = None
+    reservation_id: Optional[str] = None,
+    required_credits: Optional[float] = 0.0,
+    metadata=None
 ):
     db = SessionLocal()
+    billing_service = BillingService()
 
     try:
+        print(f"\n>>> [WORKER START] Starting background processing for entry {entry_id} (File: '{original_filename}', Size: {file_size} bytes)")
         logger.info(f"Starting background processing for entry {entry_id}")
 
         # SECURITY CHECK 
@@ -39,6 +44,7 @@ async def process_document_background(
 
         #  UPDATE STATUS 
         entry.status = "processing"
+        entry.embedding_status = "processing"
         db.commit()
 
         #  READ FILE 
@@ -50,8 +56,11 @@ async def process_document_background(
 
         doc_result = doc_service.process_file(
             content,
-            original_filename
+            original_filename,
+            db=db
         )
+
+        entry.content = doc_result["text"]
 
         #  BUILD SERVICES 
         # Re-use process-level singleton — model is NOT reloaded.
@@ -72,40 +81,69 @@ async def process_document_background(
             f"Starting vector ingestion for {entry_id}"
         )
 
-        #  CHUNKING 
-        chunks = chunker.build_chunks(
-            doc_result["text"]
-        )
+        is_image = content_type in ["image", "png", "jpg", "jpeg", "webp"]
 
-        if not chunks:
-            raise ValueError(
-                "No chunks generated from document"
+        if not is_image:
+            #  CHUNKING 
+            chunks = chunker.build_chunks(
+                doc_result["text"]
             )
 
-        for chunk in chunks:
-            chunk["metadata"] = ingestion_metadata
+            if not chunks:
+                raise ValueError(
+                    "No chunks generated from document"
+                )
 
-        #  EMBEDDINGS 
-        embeddings = embedding_generator.generate_embeddings(
-            [chunk["text"] for chunk in chunks]
-        )
+            for chunk in chunks:
+                chunk["metadata"] = ingestion_metadata
 
-        #  VECTOR STORAGE 
-        vector_store.add_chunks(
-            db=db,
-            workspace_id=workspace_id,
-            chunks=chunks,
-            embeddings=embeddings,
-            parent_id=entry_id,
-            chunk_metadata=ingestion_metadata
-        )
+            #  EMBEDDINGS 
+            embeddings = embedding_generator.generate_embeddings(
+                [chunk["text"] for chunk in chunks]
+            )
 
+            #  VECTOR STORAGE 
+            vector_store.add_chunks(
+                db=db,
+                workspace_id=workspace_id,
+                chunks=chunks,
+                embeddings=embeddings,
+                parent_id=entry_id,
+                chunk_metadata=ingestion_metadata
+            )
+        else:
+            logger.info(f"Skipping vector embedding for image entry {entry_id}")
+
+        # Finalize credits and get exact cost charged from ledger
+        actual_units = file_size / 1_000_000.0
+        if reservation_id:
+            ledger_entry = billing_service.token_service.finalize_feature_credits(
+                db=db,
+                reservation_id=reservation_id,
+                actual_units=float(required_credits or 0.0)
+            )
+            final_credits_charged = abs(float(ledger_entry.credits_delta))
+        else:
+            final_credits_charged = round(actual_units * 10.0, 4)
+
+        print(f"\n>>> [BILLING SUCCESS] Finalized charge of {final_credits_charged:.4f} credits for entry '{entry_id}' (file: '{original_filename}', size: {file_size} bytes / {actual_units:.4f} MB)\n")
         logger.info(
-            f"Stored {len(chunks)} chunks for entry {entry_id}"
+            f"[INGEST BILLING SUCCESS] Finalized charge of {final_credits_charged} credits for entry '{entry_id}' (file: '{original_filename}', size: {file_size} bytes / {actual_units:.4f} MB)"
         )
+
+        if not is_image:
+            logger.info(
+                f"Stored {len(chunks)} chunks for entry {entry_id}"
+            )
+        else:
+            logger.info(
+                f"Completed image document analysis for entry {entry_id}"
+            )
 
         #  COMPLETE 
         entry.status = "completed"
+        entry.embedding_status = "completed"
+        entry.credits_charged = final_credits_charged
         entry.error_message = None
 
         db.commit()
@@ -115,6 +153,21 @@ async def process_document_background(
         )
 
     except Exception as e:
+        if reservation_id:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation_id,
+                    reason="knowledge_base_processing_failed"
+                )
+                print(f"\n>>> [BILLING FAILURE] Released reservation for entry '{entry_id}' (file: '{original_filename}', reason: 'knowledge_base_processing_failed')\n")
+                logger.info(
+                    f"[INGEST BILLING FAILURE] Released reservation for entry '{entry_id}' (file: '{original_filename}', reason: 'knowledge_base_processing_failed')"
+                )
+            except Exception:
+                pass
+
+
         logger.error(
             f"Background processing failed: {e}"
         )
@@ -128,6 +181,8 @@ async def process_document_background(
 
         if entry:
             entry.status = "failed"
+            entry.embedding_status = "failed"
+            entry.credits_charged = 0.0
             entry.error_message = str(e)[:500]
 
             db.commit()
@@ -138,3 +193,4 @@ async def process_document_background(
         #  CLEANUP 
         if os.path.exists(file_path):
             os.remove(file_path)
+

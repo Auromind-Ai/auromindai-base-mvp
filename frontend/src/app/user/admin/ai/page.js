@@ -186,6 +186,10 @@ export default function AuromindAIPage() {
             setIsModelDropdownOpen(false);
             return;
         }
+        if (model.id === "groq" && attachedFile && attachedFile.type.startsWith("image/")) {
+            setAttachedFile(null);
+            setMessages(prev => [...prev, { role: 'assistant', content: "Switched to Groq. Attached image removed as Groq does not support image analysis.", isError: true }]);
+        }
         setSelectedModel(model.id);
         setIsModelDropdownOpen(false);
     };
@@ -347,10 +351,15 @@ export default function AuromindAIPage() {
     };
     const handleExecute = async () => {
         if ((!inputValue.trim() && !attachedFile) || isLoading) return;
+        if (selectedModel === "groq" && attachedFile && attachedFile.type.startsWith("image/")) {
+            setMessages(prev => [...prev, { role: 'assistant', content: "Groq model does not support image analysis. Please switch to Gemini or Claude.", isError: true }]);
+            return;
+        }
         const userMsg = inputValue;
+        const attachedImgUrl = attachedFile?.type?.startsWith('image/') ? attachedFile.url : null;
         setInputValue('');
         setAttachedFile(null);
-        setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+        setMessages(prev => [...prev, { role: 'user', content: userMsg, imageUrl: attachedImgUrl }]);
         setIsLoading(true);
         setMessages(prev => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
         abortControllerRef.current = new AbortController();
@@ -456,6 +465,11 @@ export default function AuromindAIPage() {
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        if (selectedModel === "groq" && file.type.startsWith("image/")) {
+            setMessages(prev => [...prev, { role: 'assistant', content: "Groq model does not support image analysis. Please switch to Gemini or Claude.", isError: true }]);
+            e.target.value = '';
+            return;
+        }
         const allowedTypes = ['application/pdf','image/png','image/jpeg','image/jpg','image/webp','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel','text/csv','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/msword','text/plain','text/markdown'];
         const isTypeAllowed = allowedTypes.includes(file.type) || file.name.endsWith('.csv') || file.name.endsWith('.md') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
         if (!isTypeAllowed && file.type) {
@@ -465,7 +479,8 @@ export default function AuromindAIPage() {
         e.target.value = '';
         setIsUploading(true);
         try {
-            setAttachedFile({ name: file.name, type: file.type });
+            const objectUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+            setAttachedFile({ name: file.name, type: file.type, url: objectUrl });
             if (!workspaceId) throw new Error("Workspace ID not found. Please refresh the page.");
             const apiModule = await import('@/lib/api').then(mod => mod.default);
             const uploadResponse = await apiModule.uploadDocument(file, workspaceId);
@@ -681,8 +696,14 @@ export default function AuromindAIPage() {
                                                 <div className="px-5 py-4">
                                                     {attachedFile && (
                                                         <div className="flex items-center gap-2 mb-3 bg-white/5 p-2 rounded-xl w-fit border border-white/10">
-                                                            <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-[10px]">
-                                                                {attachedFile.type.startsWith('image/') ? <ImageIcon size={16} /> : 'DOC'}
+                                                            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-purple-500/20 text-purple-400 font-bold text-[10px]">
+                                                                {attachedFile.type.startsWith('image/') && attachedFile.url ? (
+                                                                    <img src={attachedFile.url} alt="thumbnail" className="w-full h-full object-cover" />
+                                                                ) : attachedFile.type.startsWith('image/') ? (
+                                                                    <ImageIcon size={16} />
+                                                                ) : (
+                                                                    'DOC'
+                                                                )}
                                                             </div>
                                                             <div className="flex flex-col pr-2">
                                                                 <span className="text-[12px] text-gray-200 font-medium truncate max-w-[150px]">{attachedFile.name}</span>
@@ -839,7 +860,16 @@ export default function AuromindAIPage() {
                                                                         </div>
                                                                     </div>
                                                                 ) : (
-                                                                    <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
+                                                                     <div className="flex flex-col gap-2">
+                                                                         {msg.imageUrl && (
+                                                                             <img
+                                                                                 src={msg.imageUrl}
+                                                                                 alt="Uploaded attachment"
+                                                                                 className="max-w-[250px] max-h-[250px] rounded-lg object-cover border border-white/15"
+                                                                             />
+                                                                         )}
+                                                                         {msg.content && <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>}
+                                                                     </div>
                                                                 )}
                                                             </div>
                                                         ) : (
@@ -931,6 +961,28 @@ export default function AuromindAIPage() {
                                     className="w-full max-w-3xl px-4 pointer-events-auto"
                                 >
                                     <div className="ai-input-box bg-[#12121c] rounded-2xl border border-white/10 shadow-2xl transition-all duration-300">
+                                        {attachedFile && (
+                                            <div className="px-5 pt-4">
+                                                <div className="flex items-center gap-2 bg-white/5 p-2 rounded-xl w-fit border border-white/10">
+                                                    <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center bg-purple-500/20 text-purple-400 font-bold text-[10px]">
+                                                        {attachedFile.type.startsWith('image/') && attachedFile.url ? (
+                                                            <img src={attachedFile.url} alt="thumbnail" className="w-full h-full object-cover" />
+                                                        ) : attachedFile.type.startsWith('image/') ? (
+                                                            <ImageIcon size={16} />
+                                                        ) : (
+                                                            'DOC'
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col pr-2">
+                                                        <span className="text-[12px] text-gray-200 font-medium truncate max-w-[150px]">{attachedFile.name}</span>
+                                                        <span className="text-[10px] text-gray-500 uppercase tracking-tight">Ready to analyze</span>
+                                                    </div>
+                                                    <button onClick={() => setAttachedFile(null)} className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                         <div ref={plusRef} className="relative flex items-center px-4 py-3 gap-2">
                                             <button
                                                 onClick={() => setIsPlusOpen(!isPlusOpen)}

@@ -17,7 +17,8 @@ import {
   Layers,
   Plus,
   Trash2,
-  Mail
+  Mail,
+  Info
 } from "lucide-react"
 import api from "@/lib/api"
 
@@ -93,6 +94,12 @@ export default function SettingsPage() {
     max_workspaces: 10,
     max_users_per_workspace: 50,
     max_conversations: 1000,
+
+    // ---------------- About Section ----------------
+    platform_version: "v2.4.1",
+    release_date: "June 05, 2026",
+    copyright: "@2026 Auromind",
+    last_updated: "June 05, 2026, 10:30 AM",
 
     // ---------------- Credentials ----------------
     twilio_account_sid: "",
@@ -184,6 +191,7 @@ export default function SettingsPage() {
     { id: "payments", name: "Payments", icon: Layers },
     { id: "infra", name: "Infrastructure", icon: Globe },
     { id: "features", name: "Feature Toggles", icon: Zap },
+    { id: "about", name: "About Info", icon: Info },
   ]
 
   const AI_PROVIDERS = [
@@ -813,6 +821,61 @@ export default function SettingsPage() {
                         />
                       </div>
                     ))}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* Tab: About Info */}
+            {activeTab === "about" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                      <Info className="text-purple-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">About Section Details</h3>
+                      <p className="text-xs text-gray-500">Manage user-facing platform details</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Platform Version</label>
+                      <input 
+                        type="text"
+                        value={settings.platform_version}
+                        onChange={(e) => handleInputChange("platform_version", e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/[0.05] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Release Date</label>
+                      <input 
+                        type="text"
+                        value={settings.release_date}
+                        onChange={(e) => handleInputChange("release_date", e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/[0.05] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Copyright</label>
+                      <input 
+                        type="text"
+                        value={settings.copyright}
+                        onChange={(e) => handleInputChange("copyright", e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/[0.05] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">Last Updated</label>
+                      <input 
+                        type="text"
+                        value={settings.last_updated}
+                        onChange={(e) => handleInputChange("last_updated", e.target.value)}
+                        className="w-full bg-white/[0.02] border border-white/[0.05] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                      />
+                    </div>
                   </div>
                 </section>
               </div>
