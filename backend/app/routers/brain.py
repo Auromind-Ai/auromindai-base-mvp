@@ -1,158 +1,110 @@
-"""
-Brain Router - REST API for Knowledge Base Operations
-Provides endpoints for document ingestion, search, and RAG queries.
-"""
-
+import json
+import math
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
-from app.routers.auth import get_current_user # Import auth dependency
+from app.routers.auth import get_current_user
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, HttpUrl
-from typing import Optional, List
+from typing import Optional
 import logging
-
 from app.database import get_db
-from app.services.rag_service import get_rag_service
-from app.services.document_service import get_document_service, get_url_scraper
+from app.services.document_service import get_url_scraper
 from app.models.brain import BrainEntry
 from app.workers.ingestion_worker import process_document_background
 import uuid
 import os
 import shutil
-
+from app.services.agentic_rag.rag_service import get_rag_service
+from app.utils.website_scraper import Webscrapper
+from app.core.security import verify_workspace_access
+from app.schemas.brain import *
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/brain", tags=["brain"])
 
 
-# ============== Request/Response Models ==============
 
-class IngestTextRequest(BaseModel):
-    """Request model for manual text ingestion."""
-    title: str
-    content: str
-    workspace_id: str
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
+#Endpoints
 
-
-class IngestURLRequest(BaseModel):
-    """Request model for URL ingestion."""
-    url: str
-    workspace_id: str
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-
-
-class SearchRequest(BaseModel):
-    """Request model for semantic search."""
-    query: str
-    workspace_id: str
-    top_k: int = 5
-
-
-class QueryRequest(BaseModel):
-    """Request model for RAG query."""
-    question: str
-    workspace_id: str
-    top_k: int = 5
-    include_sources: bool = True
-
-
-class BrainEntryResponse(BaseModel):
-    """Response model for brain entries."""
-    id: str
-    title: str
-    content_type: str
-    status: str
-    created_at: str
-    word_count: int = 0
-
-
-class CrawlWebsiteRequest(BaseModel):
-    """Request model for full website crawl."""
-    url: str
-    workspace_id: str
-    max_pages: int = 50
-    region: Optional[str] = None
-    language: Optional[str] = None
-    cultural_context: Optional[str] = None
-
-
-
-# ============== Endpoints ==============
-
-@router.post("/ingest/document")
+@router.post("/ingest/document", response_model=IngestResponse)
 async def ingest_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    workspace_id: str = Form(...),
     region: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
     cultural_context: Optional[str] = Form(None),
+    collection: Optional[str] = Form("general"),
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user) # Add authentication security
+    current_user = Depends(get_current_user)
 ):
+    # verify_workspace_access now returns the verified workspace_id string directly
+    workspace_id = verify_workspace_access(current_user, db)
 
-    """
-    Upload and index a document (PDF, DOCX, TXT, Images).
-    
-    The document will be:
-    1. Parsed to extract text (OCR for images if needed)
-    2. Split into chunks
-    3. Embedded and stored in vector database
-    """
+    reservation = None
+    billing_service = None
     try:
-        # Validate file
+        logger.info(f"[INGEST DOCUMENT] user={current_user.id} workspace={workspace_id} file={file.filename}")
         if not file.filename:
             raise HTTPException(status_code=400, detail="No filename provided")
-        
-        allowed_extensions = {".pdf", ".docx", ".doc", ".txt", ".md", ".png", ".jpg", ".jpeg", ".webp", ".xlsx", ".xls", ".csv"}
+
+        allowed_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
         file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
-        
+
         if file_ext not in allowed_extensions:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
             )
-        
-        # Create entry ID and temp path
+
         entry_id = str(uuid.uuid4())
         temp_dir = os.path.join(os.getcwd(), "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
-        
-        # Save file to temp
+
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
-        # Get file size
+
         file_size = os.path.getsize(temp_file_path)
-        
-        # Create initial DB entry (PENDING)
+        from app.services.billing.billing_service import BillingService
+
+        billing_service = BillingService()
+
+        # Calculate billing using base 1000: 10 credits per 1 MB
+        size_mb = file_size / 1_000_000.0
+        required_credits = size_mb * 10.0
+
+        print(f"\n>>> [BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits")
+
+        reservation = billing_service.token_service.reserve_feature_credits(
+            db=db,
+            workspace_id=workspace_id,
+            feature_key="knowledge_base_upload",
+            unit_amount=float(required_credits),
+            reference_key=f"kb:{entry_id}",
+            description=f"Knowledge Upload: {file.filename}"
+        )
+
+        metadata_for_worker = {}
+        if region: metadata_for_worker["region"] = region
+        if language: metadata_for_worker["language"] = language
+        if cultural_context: metadata_for_worker["cultural_context"] = cultural_context
+        metadata_for_worker["collection"] = collection or "general"
+
         new_entry = BrainEntry(
             id=entry_id,
             workspace_id=workspace_id,
             title=file.filename,
-            content="Processing...", # Placeholder
+            content="Processing...",
             content_type=file_ext.replace(".", ""),
             status="pending",
-            embedding=None
+            embedding=None,
+            metadata_json=json.dumps(metadata_for_worker),
+            file_name=file.filename,
+            file_size=file_size,
+            credits_charged=required_credits,
+            embedding_status="pending"
         )
         db.add(new_entry)
         db.commit()
-        
-        # Trigger Background Task
-        # Prepare metadata for background task
-        metadata_for_worker = {}
-        if region:
-            metadata_for_worker["region"] = region
-        if language:
-            metadata_for_worker["language"] = language
-        if cultural_context:
-            metadata_for_worker["cultural_context"] = cultural_context
 
         background_tasks.add_task(
             process_document_background,
@@ -162,137 +114,528 @@ async def ingest_document(
             original_filename=file.filename,
             content_type=file_ext.replace(".", ""),
             file_size=file_size,
-            metadata=metadata_for_worker # Pass the metadata
+            reservation_id=reservation.id,
+            required_credits=required_credits,
+            metadata=metadata_for_worker
         )
-        
+
+
         return {
             "status": "pending",
             "entry_id": entry_id,
             "title": file.filename,
             "message": "File upload accepted. Processing in background.",
             "original_filename": file.filename,
-            "chunks_created": 0  # Will be updated in background
+            "chunks_created": 0
         }
 
-        
+    except HTTPException as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
+        raise e
     except ValueError as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
+        logger.error(f"Document ingestion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+@router.post("/ingest/sales_document", response_model=IngestResponse)
+async def ingest_sales_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    workspace_id = verify_workspace_access(current_user, db)
+
+    reservation = None
+    billing_service = None
+    try:
+        logger.info(f"[INGEST SALES DOCUMENT] user={current_user.id} workspace={workspace_id} file={file.filename}")
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
+        allowed_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
+        file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+
+        entry_id = str(uuid.uuid4())
+        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
+
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        file_size = os.path.getsize(temp_file_path)
+        from app.services.billing.billing_service import BillingService
+
+        billing_service = BillingService()
+
+        # Calculate billing using base 1000: 10 credits per 1 MB
+        size_mb = file_size / 1_000_000.0
+        required_credits = size_mb * 10.0
+
+        print(f"\n>>> [BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits")
+
+        reservation = billing_service.token_service.reserve_feature_credits(
+            db=db,
+            workspace_id=workspace_id,
+            feature_key="knowledge_base_upload",
+            unit_amount=float(required_credits),
+            reference_key=f"kb:{entry_id}",
+            description=f"Sales Knowledge Upload: {file.filename}"
+        )
+
+        metadata_for_worker = {"collection": "sales"}
+
+        new_entry = BrainEntry(
+            id=entry_id,
+            workspace_id=workspace_id,
+            title=file.filename,
+            content="Processing...",
+            content_type=file_ext.replace(".", ""),
+            status="pending",
+            embedding=None,
+            metadata_json=json.dumps(metadata_for_worker),
+            file_name=file.filename,
+            file_size=file_size,
+            credits_charged=required_credits,
+            embedding_status="pending"
+        )
+        db.add(new_entry)
+        db.commit()
+
+        background_tasks.add_task(
+            process_document_background,
+            entry_id=entry_id,
+            workspace_id=workspace_id,
+            file_path=temp_file_path,
+            original_filename=file.filename,
+            content_type=file_ext.replace(".", ""),
+            file_size=file_size,
+            reservation_id=reservation.id,
+            required_credits=required_credits,
+            metadata=metadata_for_worker
+        )
+
+
+        return {
+            "status": "pending",
+            "entry_id": entry_id,
+            "title": file.filename,
+            "message": "File upload accepted. Processing in background.",
+            "original_filename": file.filename,
+            "chunks_created": 0
+        }
+
+    except HTTPException as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
+        raise e
+    except ValueError as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
+        logger.error(f"Document ingestion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+@router.post("/ingest/support_document", response_model=IngestResponse)
+async def ingest_support_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    workspace_id = verify_workspace_access(current_user, db)
+
+    reservation = None
+    billing_service = None
+    try:
+        logger.info(f"[INGEST SUPPORT DOCUMENT] user={current_user.id} workspace={workspace_id} file={file.filename}")
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
+        allowed_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
+        file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
+
+        entry_id = str(uuid.uuid4())
+        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
+
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        file_size = os.path.getsize(temp_file_path)
+        from app.services.billing.billing_service import BillingService
+
+        billing_service = BillingService()
+
+        # Calculate billing using base 1000: 10 credits per 1 MB
+        size_mb = file_size / 1_000_000.0
+        required_credits = size_mb * 10.0
+
+        print(f"\n>>> [BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits")
+
+        reservation = billing_service.token_service.reserve_feature_credits(
+            db=db,
+            workspace_id=workspace_id,
+            feature_key="knowledge_base_upload",
+            unit_amount=float(required_credits),
+            reference_key=f"kb:{entry_id}",
+            description=f"Support Knowledge Upload: {file.filename}"
+        )
+
+        metadata_for_worker = {"collection": "support"}
+
+        new_entry = BrainEntry(
+            id=entry_id,
+            workspace_id=workspace_id,
+            title=file.filename,
+            content="Processing...",
+            content_type=file_ext.replace(".", ""),
+            status="pending",
+            embedding=None,
+            metadata_json=json.dumps(metadata_for_worker),
+            file_name=file.filename,
+            file_size=file_size,
+            credits_charged=required_credits,
+            embedding_status="pending"
+        )
+        db.add(new_entry)
+        db.commit()
+
+        background_tasks.add_task(
+            process_document_background,
+            entry_id=entry_id,
+            workspace_id=workspace_id,
+            file_path=temp_file_path,
+            original_filename=file.filename,
+            content_type=file_ext.replace(".", ""),
+            file_size=file_size,
+            reservation_id=reservation.id,
+            required_credits=required_credits,
+            metadata=metadata_for_worker
+        )
+
+
+        return {
+            "status": "pending",
+            "entry_id": entry_id,
+            "title": file.filename,
+            "message": "File upload accepted. Processing in background.",
+            "original_filename": file.filename,
+            "chunks_created": 0
+        }
+
+    except HTTPException as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
+        raise e
+    except ValueError as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        if reservation and billing_service:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="upload_api_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
+            except Exception:
+                pass
         logger.error(f"Document ingestion failed: {e}")
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
-@router.post("/ingest/url")
+
+@router.post("/ingest/url", response_model=IngestResponse)
 async def ingest_url(
     request: IngestURLRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    Scrape and index content from a URL.
-    
-    The page will be:
-    1. Fetched and parsed
-    2. Text extracted from main content
-    3. Split into chunks and embedded
-    """
+
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
-        # Scrape URL
+        logger.info(f"[INGEST URL] user={current_user.id} workspace={workspace_id} url={request.url}")
         scraper = get_url_scraper()
         scrape_result = await scraper.scrape_url(request.url)
-        
-        # Prepare metadata for ingestion
-        ingestion_metadata = {}
-        if request.region:
-            ingestion_metadata["region"] = request.region
-        if request.language:
-            ingestion_metadata["language"] = request.language
-        if request.cultural_context:
-            ingestion_metadata["cultural_context"] = request.cultural_context
 
-        # Ingest into RAG system
-        rag_service = get_rag_service()
-        result = rag_service.ingest_document(
+        ingestion_metadata = {}
+        if request.region: ingestion_metadata["region"] = request.region
+        if request.language: ingestion_metadata["language"] = request.language
+        if request.cultural_context: ingestion_metadata["cultural_context"] = request.cultural_context
+        ingestion_metadata["collection"] = request.collection or "general"
+
+        url_bytes = len(scrape_result["text"].encode('utf-8'))
+        size_mb = url_bytes / 1_000_000.0
+        credits = size_mb * 10.0
+
+        from app.services.billing.billing_service import BillingService
+        billing_service = BillingService()
+
+        print(f"\n>>> [BILLING RESERVATION] URL: '{request.url}' | Size: {url_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] URL: '{request.url}' | Size: {url_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits")
+
+        reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
-            workspace_id=request.workspace_id,
-            text=scrape_result["text"],
-            title=scrape_result["title"],
-            content_type="url",
-            source=request.url,
-            metadata=ingestion_metadata # Pass the metadata
+            workspace_id=workspace_id,
+            feature_key="knowledge_base_upload",
+            unit_amount=float(credits),
+            reference_key=f"kb:url:{uuid.uuid4()}",
+            description=f"URL Ingestion: {request.url}"
         )
-        
-        return result
-        
+
+        try:
+            rag = get_rag_service()
+            result = rag.ingest_document(
+                db=db,
+                workspace_id=workspace_id,
+                text=scrape_result["text"],
+                title=scrape_result["title"],
+                content_type="url",
+                source=request.url,
+                metadata=ingestion_metadata,
+                file_name=request.url,
+                file_size=url_bytes,
+                credits_charged=credits,
+                embedding_status="completed"
+            )
+
+            billing_service.token_service.finalize_feature_credits(
+                db=db,
+                reservation_id=reservation.id,
+                actual_units=float(credits)
+            )
+            print(f"\n>>> [BILLING SUCCESS] Finalized charge of {credits:.4f} credits for URL: '{request.url}' | Size: {url_bytes} bytes ({size_mb:.4f} MB)\n")
+            logger.info(f"[BILLING SUCCESS] Finalized charge of {credits:.4f} credits for URL: '{request.url}'")
+
+            return result
+        except Exception as e:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="url_ingestion_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for URL: '{request.url}' due to ingestion failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for URL: '{request.url}' due to ingestion failure.")
+            except Exception:
+                pass
+            raise e
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"URL ingestion failed: {e}")
         raise HTTPException(status_code=500, detail=f"URL ingestion failed: {str(e)}")
 
-
-@router.get("/ingest/status/{entry_id}")
+@router.get("/ingest/status/{entry_id:uuid}", response_model=IngestionStatusResponse)
 async def get_ingestion_status(
-    entry_id: str,
-    db: Session = Depends(get_db)
+    entry_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
 ):
-    """
-    Check the status of a background ingestion job.
-    """
-    entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
-    
+   
+    logger.info(f"[INGEST STATUS] user={current_user.id} entry_id={entry_id}")
+    workspace_id = verify_workspace_access(current_user, db)
+  
+    entry = db.query(BrainEntry).filter(
+        BrainEntry.id == entry_id,
+        BrainEntry.workspace_id == workspace_id,
+    ).first()
+  
     if not entry:
         raise HTTPException(status_code=404, detail="Ingestion job not found")
-        
+  
     return {
         "id": entry.id,
         "status": entry.status,
         "error_message": entry.error_message,
         "created_at": entry.created_at,
-        "title": entry.title
+        "title": entry.title,
+        "file_name": entry.file_name,
+        "file_size": entry.file_size,
+        "credits_charged": entry.credits_charged,
+        "embedding_status": entry.embedding_status,
     }
 
-
-
-@router.post("/ingest/text")
+@router.post("/ingest/text", response_model=IngestResponse)
 async def ingest_text(
     request: IngestTextRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    Manually add text knowledge to the brain.
-    
-    Useful for:
-    - FAQs
-    - Business rules
-    - Policies
-    - Quick notes
-    """
+   
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
+        logger.info(f"[INGEST TEXT] user={current_user.id} workspace={workspace_id}")
         if len(request.content.strip()) < 20:
             raise HTTPException(status_code=400, detail="Content too short (minimum 20 characters)")
-        
-        # Prepare metadata for ingestion
-        ingestion_metadata = {}
-        if request.region:
-            ingestion_metadata["region"] = request.region
-        if request.language:
-            ingestion_metadata["language"] = request.language
-        if request.cultural_context:
-            ingestion_metadata["cultural_context"] = request.cultural_context
 
-        rag_service = get_rag_service()
-        result = rag_service.ingest_document(
+        ingestion_metadata = {}
+        if request.region: ingestion_metadata["region"] = request.region
+        if request.language: ingestion_metadata["language"] = request.language
+        if request.cultural_context: ingestion_metadata["cultural_context"] = request.cultural_context
+        ingestion_metadata["collection"] = request.collection or "general"
+
+        text_bytes = len(request.content.encode('utf-8'))
+        size_mb = text_bytes / 1_000_000.0
+        credits = size_mb * 10.0
+
+        from app.services.billing.billing_service import BillingService
+        billing_service = BillingService()
+
+        print(f"\n>>> [BILLING RESERVATION] Text: '{request.title}' | Size: {text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] Text: '{request.title}' | Size: {text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits")
+
+        reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
-            workspace_id=request.workspace_id,
-            text=request.content,
-            title=request.title,
-            content_type="manual",
-            source="user_input",
-            metadata=ingestion_metadata # Pass the metadata
+            workspace_id=workspace_id,
+            feature_key="knowledge_base_upload",
+            unit_amount=float(credits),
+            reference_key=f"kb:text:{uuid.uuid4()}",
+            description=f"Text Ingestion: {request.title}"
         )
-        
-        return result
-        
+
+        try:
+            rag = get_rag_service()
+            result = rag.ingest_document(
+                db=db,
+                workspace_id=workspace_id,
+                text=request.content,
+                title=request.title,
+                content_type="manual",
+                source="user_input",
+                metadata=ingestion_metadata,
+                file_name=request.title,
+                file_size=text_bytes,
+                credits_charged=credits,
+                embedding_status="completed"
+            )
+
+            billing_service.token_service.finalize_feature_credits(
+                db=db,
+                reservation_id=reservation.id,
+                actual_units=float(credits)
+            )
+            print(f"\n>>> [BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Text: '{request.title}' | Size: {text_bytes} bytes ({size_mb:.4f} MB)\n")
+            logger.info(f"[BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Text: '{request.title}'")
+
+            return result
+        except Exception as e:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation.id,
+                    reason="text_ingestion_failed"
+                )
+                print(f"\n>>> [BILLING REFUND] Released reservation for Text: '{request.title}' due to ingestion failure.")
+                logger.info(f"[BILLING REFUND] Released reservation for Text: '{request.title}' due to ingestion failure.")
+            except Exception:
+                pass
+            raise e
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -300,192 +643,281 @@ async def ingest_text(
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
-@router.post("/ingest/website")
+@router.post("/ingest/website", response_model=CrawlResponse)
 async def crawl_website(
     request: CrawlWebsiteRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    Crawl an entire website and index all pages.
     
-    This will:
-    1. Start from the given URL
-    2. Follow internal links (up to max_pages)
-    3. Extract and clean content from each page
-    4. Detect page types (blog, product, FAQ, about, etc.)
-    5. Index all pages with proper metadata
-    
-    The crawl runs in the background. Check /brain/stats for progress.
-    """
-    from app.services.website_crawler_service import get_website_crawler
-    
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
-        # Validate URL
+        logger.info(f"[CRAWL WEBSITE] user={current_user.id} workspace={workspace_id} url={request.url}")
         url = request.url.strip()
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
-        
-        # Start crawl
-        crawler = get_website_crawler()
-        crawler.max_pages = min(request.max_pages, 100)  # Cap at 100 pages
-        
-        pages = await crawler.crawl_website(url)
-        
-        if not pages:
-            raise HTTPException(status_code=400, detail="No pages could be crawled from this website")
-        
-        # Ingest all pages
-        rag_service = get_rag_service()
+
+        scraper = Webscrapper(url)
+        pages = scraper.scrapper_choose()
+
+        if not pages or isinstance(pages, str):
+            raise HTTPException(
+                status_code=400,
+                detail="No pages could be crawled from this website"
+            )
+
+        rag = get_rag_service()
         total_chunks = 0
-        
-        # Prepare base metadata from request
+
         base_metadata = {}
-        if request.region:
-            base_metadata["region"] = request.region
-        if request.language:
-            base_metadata["language"] = request.language
-        if request.cultural_context:
-            base_metadata["cultural_context"] = request.cultural_context
+        if request.region: base_metadata["region"] = request.region
+        if request.language: base_metadata["language"] = request.language
+        if request.cultural_context: base_metadata["cultural_context"] = request.cultural_context
+        base_metadata["collection"] = request.collection or "general"
 
         for page in pages:
             try:
-                # Merge base metadata with page-specific metadata
-                page_metadata = {
-                    'page_type': page['page_type'],
-                    'meta_description': page.get('meta_description', ''),
-                    'word_count': page['word_count']
-                }
-                final_metadata = {**base_metadata, **page_metadata} # Merge dictionaries
-
-                result = rag_service.ingest_document(
-                    db=db,
-                    workspace_id=request.workspace_id,
-                    text=page['content'],
-                    title=page['title'],
-                    content_type=f"website_{page['page_type']}",
-                    source=page['url'],
-                    metadata=final_metadata # Pass the merged metadata
+                content = " ".join(
+                    page.get("paragraphs", []) +
+                    page.get("headings", []) +
+                    page.get("sub_headings", []) +
+                    page.get("list_point", [])
                 )
-                total_chunks += result.get('chunks_created', 0)
+
+                page_metadata = {
+                    "word_count": len(content.split())
+                }
+
+                final_metadata = {**base_metadata, **page_metadata}
+
+                # Website Crawl Content size-based billing
+                page_text_bytes = len(content.encode('utf-8'))
+                size_mb = page_text_bytes / 1_000_000.0
+                credits = size_mb * 10.0
+
+                from app.services.billing.billing_service import BillingService
+                billing_service = BillingService()
+
+                page_title = page.get('title', '') or url
+                print(f"\n>>> [BILLING RESERVATION] Crawled Page: '{page_title}' | Size: {page_text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits...")
+                logger.info(f"[BILLING RESERVATION] Crawled Page: '{page_title}' | Size: {page_text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits")
+
+                reservation = billing_service.token_service.reserve_feature_credits(
+                    db=db,
+                    workspace_id=workspace_id,
+                    feature_key="knowledge_base_upload",
+                    unit_amount=float(credits),
+                    reference_key=f"kb:website:{uuid.uuid4()}",
+                    description=f"Website Page Crawl: {page_title}"
+                )
+
+                try:
+                    result = rag.ingest_document(
+                        db=db,
+                        workspace_id=workspace_id,
+                        text=content,
+                        title=page.get("title", ""),
+                        content_type="website_page",
+                        source=page.get("url", url),
+                        metadata=final_metadata,
+                        file_name=page.get("url", url),
+                        file_size=page_text_bytes,
+                        credits_charged=credits,
+                        embedding_status="completed"
+                    )
+
+                    billing_service.token_service.finalize_feature_credits(
+                        db=db,
+                        reservation_id=reservation.id,
+                        actual_units=float(credits)
+                    )
+                    print(f"\n>>> [BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Crawled Page: '{page_title}' | Size: {page_text_bytes} bytes ({size_mb:.4f} MB)\n")
+                    logger.info(f"[BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Crawled Page: '{page_title}'")
+
+
+                    total_chunks += result.get("chunks_created", 0)
+
+                except Exception as ex:
+                    try:
+                        billing_service.release_token_reservation(
+                            db=db,
+                            reservation_id=reservation.id,
+                            reason="website_page_ingestion_failed"
+                        )
+                        print(f"\n>>> [BILLING REFUND] Released reservation for Crawled Page: '{page_title}' due to ingestion failure.")
+                        logger.info(f"[BILLING REFUND] Released reservation for Crawled Page: '{page_title}' due to ingestion failure.")
+                    except Exception:
+                        pass
+                    raise ex
+
             except Exception as e:
-                logger.warning(f"Failed to ingest page {page['url']}: {e}")
+                logger.warning(f"Failed to ingest page: {e}")
                 continue
-        
+
         return {
             "status": "success",
             "website": url,
             "pages_crawled": len(pages),
             "chunks_created": total_chunks,
-            "page_types": list(set(p['page_type'] for p in pages)),
-            "message": f"Successfully indexed {len(pages)} pages from your website"
+            "message": f"Successfully indexed {len(pages)} pages"
         }
-        
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
     except Exception as e:
         logger.error(f"Website crawl failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Website crawl failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Website crawl failed: {str(e)}"
+        )
 
 
-@router.get("/entries")
+@router.get("/entries", response_model=ListEntriesResponse)
 async def list_entries(
-    workspace_id: str,
     skip: int = 0,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    List all knowledge entries for a workspace.
-    """
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
+        logger.info(f"[LIST ENTRIES] user={current_user.id} workspace={workspace_id} skip={skip} limit={limit}")
         entries = db.query(BrainEntry).filter(
             BrainEntry.workspace_id == workspace_id
-        ).order_by(BrainEntry.created_at.desc()).offset(skip).limit(limit).all()
-        
-        # Get vector store stats
-        rag_service = get_rag_service()
-        stats = rag_service.get_stats(db, workspace_id)
-        
+        ).order_by(
+            BrainEntry.created_at.desc()
+        ).offset(skip).limit(limit).all()
+
+        rag = get_rag_service()
+        stats = rag.vector_store.get_collection_stats(
+            db=db,
+            workspace_id=workspace_id
+        )
+
+        chunk_count = stats.get("chunk_count", 0)
         result_entries = []
+        has_pending = False
+
         for entry in entries:
+            if entry.status == "pending":
+                has_pending = True
+
             result_entries.append({
-                "id": entry.id,
-                "title": entry.title or (entry.content[:50] + "..." if entry.content and len(entry.content) > 50 else entry.content),
+                "id": str(entry.id),
+                "title": entry.title or (
+                    entry.content[:50] + "..."
+                    if entry.content and len(entry.content) > 50
+                    else entry.content
+                ),
                 "content_type": entry.content_type or "text",
                 "status": entry.status or "indexed",
                 "created_at": entry.created_at.isoformat() if entry.created_at else None,
-                "word_count": len(entry.content.split()) if entry.content else 0
+                "word_count": len(entry.content.split()) if entry.content else 0,
+                "file_name": entry.file_name,
+                "file_size": entry.file_size,
+                "credits_charged": entry.credits_charged,
+                "embedding_status": entry.embedding_status,
             })
-        
+
+        if chunk_count == 0 and not entries:
+            workspace_status = "empty"
+        elif has_pending:
+            workspace_status = "processing"
+        else:
+            workspace_status = "ready"
+
         return {
             "entries": result_entries,
             "total": len(result_entries),
-            "indexed_chunks": stats["indexed_chunks"],
-            "status": stats["status"]
+            "indexed_chunks": chunk_count,
+            "status": workspace_status
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to list entries: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/entries/{entry_id}")
+
+@router.delete("/entries/{entry_id:uuid}")
 async def delete_entry(
-    entry_id: str,
-    workspace_id: str,
-    db: Session = Depends(get_db)
+    entry_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    Delete a knowledge entry and all its chunks.
-    """
+    
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
-        rag_service = get_rag_service()
-        success = rag_service.delete_entry(db, workspace_id, entry_id)
-        
+        logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
+        entry = db.query(BrainEntry).filter(
+            BrainEntry.id == str(entry_id),
+            BrainEntry.workspace_id == workspace_id
+        ).first()
+
+        if not entry:
+            raise HTTPException(status_code=404, detail="Entry not found in this workspace")
+
+        rag = get_rag_service()
+        success = await rag.delete_entry(
+                    db,
+                    workspace_id,
+                    str(entry_id)
+                )
+
         if success:
             return {"status": "success", "message": "Entry deleted"}
         else:
-            raise HTTPException(status_code=404, detail="Entry not found")
-            
+            raise HTTPException(status_code=500, detail="Failed to delete from vector store")
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to delete entry: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/search")
+@router.post("/search", response_model=SearchResponse)
 async def search_knowledge(
     request: SearchRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    Perform semantic search across the knowledge base.
     
-    Returns matching chunks ranked by relevance.
-    """
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
-        rag_service = get_rag_service()
-        results = rag_service.search(
-            db=db,
-            workspace_id=request.workspace_id,
-            query=request.query,
-            top_k=request.top_k
+        logger.info(
+            f"[SEARCH] user={current_user.id} workspace={workspace_id} "
+            f"query={request.query} collection={request.collection} entry_ids={request.entry_ids}"
         )
-        
+        rag = get_rag_service()
+        results = rag.retrieval.semantic_search(
+            db=db,
+            workspace_id=workspace_id,
+            query=request.query,
+            top_k=request.top_k,
+            entry_ids=request.entry_ids,
+            collection=request.collection,
+        )
+
         return {
             "query": request.query,
             "results": [
                 {
-                    "id": r["id"],
-                    "content": r["document"],
+                    "id": str(r["id"]),
+                    "content": r.get("text", ""),
                     "title": r["metadata"].get("title", "Unknown"),
                     "score": round(r["score"], 3)
                 }
                 for r in results
             ],
-            "total": len(results)
+            "total": len(results),
+            "collection": request.collection,
+            "entry_ids": request.entry_ids,
         }
-        
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -493,31 +925,33 @@ async def search_knowledge(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/query")
+@router.post("/query", response_model=QueryResponse)
 async def query_knowledge(
     request: QueryRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    Ask a question and get an AI-generated answer using RAG.
     
-    The system will:
-    1. Search for relevant context
-    2. Generate an answer using the LLM
-    3. Return the answer with source citations
-    """
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
-        rag_service = get_rag_service()
-        result = rag_service.query(
-            db=db,
-            workspace_id=request.workspace_id,
-            question=request.question,
-            top_k=request.top_k,
-            include_sources=request.include_sources
+        logger.info(
+            f"[QUERY] user={current_user.id} workspace={workspace_id} "
+            f"question={request.question} collection={request.collection} entry_ids={request.entry_ids}"
         )
-        
-        return result
-        
+        rag = get_rag_service()
+        response = await rag.agent_loop(
+            db=db,
+            workspace_id=workspace_id,
+            query=request.question,
+            entry_ids=request.entry_ids,
+            collection=request.collection,
+        )
+        return {
+            "answer": response.get("answer", ""),
+            "sources": []
+        }
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -525,28 +959,31 @@ async def query_knowledge(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/stats")
+@router.get("/stats", response_model=BrainStatsResponse)
 async def get_brain_stats(
-    workspace_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
-    """
-    Get statistics for the knowledge base.
-    """
+   
+    workspace_id = verify_workspace_access(current_user, db)
+
     try:
-        rag_service = get_rag_service()
-        stats = rag_service.get_stats(db, workspace_id)
-        
-        # Count entries in SQL
+        logger.info(f"[STATS] user={current_user.id} workspace={workspace_id}")
+        rag = get_rag_service()
+        stats = rag.vector_store.get_collection_stats(
+            db=db,
+            workspace_id=workspace_id
+        )
+
         entry_count = db.query(BrainEntry).filter(
             BrainEntry.workspace_id == workspace_id
         ).count()
-        
+
         return {
             **stats,
             "knowledge_entries": entry_count
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))

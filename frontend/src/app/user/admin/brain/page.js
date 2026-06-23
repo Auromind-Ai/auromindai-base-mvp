@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Brain, Upload, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe } from 'lucide-react';
 import api from '@/lib/api';
-import { getWorkspace } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
+import FileProgress from "./FileProgress";
+import AnimatedCounter from "../AnimatedCounter";
 
 export default function BrainPage() {
     const [entries, setEntries] = useState([]);
@@ -17,12 +19,11 @@ export default function BrainPage() {
     const [success, setSuccess] = useState(null);
     const [urlInput, setUrlInput] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState(null);
-    const [searching, setSearching] = useState(false);
+    const [currentEntryId, setCurrentEntryId] = useState(null);
+    const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, entryId: null });
     const fileInputRef = useRef(null);
 
-    const workspace = getWorkspace();
-    const workspaceId = workspace?.id;
+    const { workspaceId } = useAuth();
 
     // Fetch brain entries and stats
     const fetchData = async () => {
@@ -35,7 +36,11 @@ export default function BrainPage() {
                 api.getBrainStats(workspaceId)
             ]);
             setEntries(entriesRes.entries || []);
-            setStats(statsRes);
+            setStats({
+                knowledge_entries: statsRes.knowledge_entries,
+                indexed_chunks: entriesRes.indexed_chunks,
+                status: entriesRes.status
+            });
         } catch (err) {
             console.error('Failed to fetch brain data:', err);
             setError('Failed to load knowledge base');
@@ -57,8 +62,8 @@ export default function BrainPage() {
             setUploading(true);
             setError(null);
             const result = await api.uploadDocument(file, workspaceId);
-            setSuccess(`Uploaded "${result.title}" - ${result.chunks_created} chunks created`);
-            await fetchData();
+            setCurrentEntryId(result.entry_id);
+            setSuccess("File uploaded. Processing started.");
         } catch (err) {
             setError(err.message || 'Upload failed');
         } finally {
@@ -108,8 +113,9 @@ export default function BrainPage() {
 
 
     // Handle delete
-    const handleDelete = async (entryId) => {
-        if (!workspaceId) return;
+    const handleDelete = async () => {
+        const entryId = deleteConfirmation.entryId;
+        if (!workspaceId || !entryId) return;
 
         try {
             await api.deleteBrainEntry(entryId, workspaceId);
@@ -117,6 +123,8 @@ export default function BrainPage() {
             await fetchData();
         } catch (err) {
             setError(err.message || 'Delete failed');
+        } finally {
+            setDeleteConfirmation({ isOpen: false, entryId: null });
         }
     };
 
@@ -128,13 +136,25 @@ export default function BrainPage() {
             setSearching(true);
             setError(null);
             const result = await api.searchBrain(searchQuery.trim(), workspaceId);
-            setSearchResults(result);
+
+            const normalized = {
+                query: searchQuery.trim(),
+                results: result?.results 
+                    || result?.data 
+                    || result?.matches 
+                    || result?.chunks 
+                    || []
+            };
+            setSearchResults(normalized);
+
         } catch (err) {
             setError(err.message || 'Search failed');
         } finally {
             setSearching(false);
         }
     };
+
+
 
     // Clear notifications after 5 seconds
     useEffect(() => {
@@ -151,9 +171,14 @@ export default function BrainPage() {
         }
     }, [error]);
 
+    const filteredEntries = entries.filter(item => 
+        item.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        item.content_type?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     if (!workspaceId) {
         return (
-            <div className="max-w-5xl mx-auto p-8 text-center">
+            <div className="max-w-5xl mx-auto p-8 text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
                 <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
                 <h2 className="text-xl font-bold text-[#D4D4D4] mb-2">No Workspace Selected</h2>
                 <p className="text-[#9b9b9b]">Please log in to access the Brain.</p>
@@ -162,7 +187,14 @@ export default function BrainPage() {
     }
 
     return (
-        <div className="max-w-5xl mx-auto">
+        <>
+            {/*  1. Poppins font import  */}
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+            `}</style>
+
+        <div className="w-full bg-[#07070a] min-h-screen pt-6 md:pt-10 lg:pt-12 pb-6" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-8 space-y-6">
             {/* Notifications */}
             {success && (
                 <div className="fixed top-4 right-4 z-50 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
@@ -183,212 +215,274 @@ export default function BrainPage() {
                 </div>
             )}
 
-            <div className="mb-8 p-4">
-                <h1 className="text-2xl font-bold text-[#D4D4D4] mb-1 font-display tracking-tight">Brain (Knowledge Base)</h1>
-                <p className="text-[#9b9b9b] font-medium">Upload documents and sync websites to train your AI on your business knowledge.</p>
+            <div className="mb-10 text-center">
+                <h1 className="text-xl lg:text-3xl font-semibold text-white tracking-tight">
+                    Brain (Knowledge Base)
+                </h1>
+
+                <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                    Upload documents and sync websites to train your AI on your business knowledge.
+                </p>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-8 p-4">
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20">
-                            <Brain size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-[#D4D4D4]">
-                                {loading ? '-' : stats.knowledge_entries || entries.length}
-                            </div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Knowledge Items</div>
-                        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+
+            {/* Card 1 */}
+            <div
+                className="relative rounded-xl p-4 md:p-6 border border-white/10
+                bg-[#07070a]
+                backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
+            >
+                <div className="flex items-center gap-4">
+
+                <div className="w-10 h-10 md:w-11 md:h-11 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400">
+                    <Brain size={20} />
+                </div>
+
+                <div>
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white">
+                    {loading ? '-' : <AnimatedCounter value={stats.knowledge_entries || entries.length} />}
+                    </div>
+
+                    <div className="text-[10px] sm:text-xs uppercase tracking-widest text-zinc-500">
+                    Knowledge Items
                     </div>
                 </div>
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-                            <CheckCircle2 size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-[#D4D4D4]">
-                                {loading ? '-' : stats.indexed_chunks || 0}
-                            </div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Indexed Chunks</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-[var(--card)] rounded-xl p-5 border border-[var(--notion-border)] shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                            <FileText size={20} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-[#D4D4D4]">
-                                {loading ? '-' : stats.status === 'active' ? 'Active' : 'Empty'}
-                            </div>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-[#565656]">Status</div>
-                        </div>
-                    </div>
+
                 </div>
             </div>
 
-            {/* Upload Cards */}
-            <div className="grid grid-cols-2 gap-4 mb-8 p-4">
-                {/* Document Upload */}
-                <div className="bg-[var(--card)] rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center hover:border-indigo-500/50 hover:bg-[#252525] transition-all cursor-pointer group">
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.csv"
-                        className="hidden"
-                        disabled={uploading}
-                    />
-                    <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 mx-auto mb-3 border border-indigo-500/20 group-hover:scale-110 transition-transform">
-                        {uploading ? <Loader2 size={24} className="animate-spin" /> : <Upload size={24} />}
-                    </div>
-                    <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Upload Documents</h3>
-                    <p className="text-sm text-[#787878] font-medium mb-4">PDF, Excel, CSV, DOCX, or TXT (max 10MB)</p>
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50"
-                    >
-                        {uploading ? 'Uploading...' : 'Browse Files'}
-                    </button>
+
+            {/* Card 2 */}
+            <div
+                className="relative rounded-xl p-4 md:p-6 border border-white/10
+                bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+                backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
+            >
+                <div className="flex items-center gap-4">
+
+                <div className="w-11 h-11 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                    <CheckCircle2 size={20} />
                 </div>
 
-                {/* Website Sync */}
-                <div className="bg-[var(--card)] rounded-xl p-6 border-2 border-dashed border-[var(--notion-border)] text-center group">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 mx-auto mb-3 border border-emerald-500/20 group-hover:scale-110 transition-transform">
-                        {(syncing || crawling) ? <Loader2 size={24} className="animate-spin" /> : <Globe size={24} />}
+                <div>
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-white">
+                    {loading ? '-' : <AnimatedCounter value={stats.indexed_chunks || 0} />}
                     </div>
-                    <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Sync Your Website</h3>
-                    <p className="text-sm text-[#787878] font-medium mb-4">Index your entire website into the AI Brain</p>
-                    <div className="flex flex-col gap-3 max-w-sm mx-auto">
+
+                    <div className="text-xs uppercase tracking-widest text-zinc-500">
+                    Indexed Chunks
+                    </div>
+                </div>
+
+                </div>
+            </div>
+
+
+            {/* Card 3 */}
+            <div
+                className="relative rounded-xl p-4 md:p-6 border border-white/10
+                bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+                backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
+            >
+                <div className="flex items-center gap-4">
+
+                <div className="w-11 h-11 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400">
+                    <FileText size={20} />
+                </div>
+
+                <div>
+                    <div className="text-lg sm:text-xl md:text-2xl font-bold text-white capitalize">
+                    {loading ? '-' : stats.status || 'Empty'}
+                    </div>
+
+                    <div className="text-xs uppercase tracking-widest text-zinc-500">
+                    Status
+                    </div>
+                </div>
+
+                </div>
+            </div>
+
+            </div>
+
+            {/* Upload Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+
+                {/*  Document Upload card — gradient changed to #814AC8  */}
+                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#0b0b0b] hover:border-[#814AC8]/50">
+
+                    {/*  3. Purple corner glow  */}
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            background: "radial-gradient(400px circle at 100% 0%, rgba(129,74,200,0.30), transparent 60%)"
+                        }}
+                    />
+
+                    <div className="relative">
+                        {currentEntryId && (
+                        <div className="mb-4 flex justify-center">
+                          <FileProgress 
+                          entryId={currentEntryId} 
+                          onDone={() => setCurrentEntryId(null)}
+                          />
+                         </div>
+                        )}
                         <input
-                            type="text"
-                            placeholder="https://yourcompany.com"
-                            value={urlInput}
-                            onChange={(e) => setUrlInput(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all font-medium"
-                            disabled={syncing || crawling}
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileUpload}
+                            accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.csv"
+                            className="hidden"
+                            disabled={uploading}
                         />
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleUrlSync}
-                                disabled={syncing || crawling || !urlInput.trim()}
-                                className="flex-1 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-[#D4D4D4] text-xs font-bold rounded-xl transition-all border border-[#3f3f3f] active:scale-95 disabled:opacity-50"
-                                title="Sync single page only"
-                            >
-                                {syncing ? 'Syncing...' : 'Single Page'}
-                            </button>
-                            <button
-                                onClick={handleWebsiteCrawl}
-                                disabled={syncing || crawling || !urlInput.trim()}
-                                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                                {crawling ? (
-                                    <>
-                                        <Loader2 size={12} className="animate-spin" />
-                                        Crawling...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Globe size={12} />
-                                        Entire Website
-                                    </>
-                                )}
-                            </button>
+                        <div className="w-12 h-12 rounded-full bg-[#814AC8]/10 flex items-center justify-center text-[#814AC8] mx-auto mb-3 border border-[#814AC8]/20 group-hover:scale-110 transition-transform">
+                            {uploading ? <Loader2 size={24} className="animate-spin" /> : <Upload size={24} />}
                         </div>
-                        <p className="text-[10px] text-[#565656]">
-                            &quot;Entire Website&quot; crawls all pages (blogs, products, FAQs, etc.)
-                        </p>
+                        <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Upload Documents</h3>
+                        <p className="text-sm text-[#787878] font-medium mb-4">PDF, Excel, CSV, DOCX, or TXT (max 10MB)</p>
+
+                        {/*  2. Button bg → #814AC8  */}
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="px-6 py-2 text-white text-xs font-regular rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                            style={{
+                                backgroundColor: '#814AC8',
+                                boxShadow: '0 4px 14px rgba(129,74,200,0.30)',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#9B6ED8'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#814AC8'}
+                        >
+                            {uploading ? 'Uploading...' : 'Browse Files'}
+                        </button>
+                    </div>
+                </div>
+
+                {/*  Website Sync card — gradient changed to #814AC8  */}
+                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#0b0b0b]">
+
+                    {/*  3. Purple corner glow  */}
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            background: "radial-gradient(400px circle at 100% 0%, rgba(129,74,200,0.30), transparent 60%)"
+                        }}
+                    />
+
+                    <div className="relative">
+                        <div className="w-12 h-12 rounded-full bg-[#814AC8]/10 flex items-center justify-center text-[#814AC8] mx-auto mb-3 border border-[#814AC8]/20 group-hover:scale-110 transition-transform">
+                            {(syncing || crawling) ? <Loader2 size={24} className="animate-spin" /> : <Globe size={24} />}
+                        </div>
+                        <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Sync Your Website</h3>
+                        <p className="text-sm text-[#787878] font-medium mb-4">Index your entire website into the AI Brain</p>
+                        <div className="flex flex-col gap-3 max-w-sm mx-auto">
+                            <input
+                                type="text"
+                                placeholder="https://yourcompany.com"
+                                value={urlInput}
+                                onChange={(e) => setUrlInput(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none transition-all font-medium"
+                                style={{ '--tw-ring-color': 'rgba(129,74,200,0.5)' }}
+                                onFocus={e => e.currentTarget.style.borderColor = 'rgba(129,74,200,0.5)'}
+                                onBlur={e => e.currentTarget.style.borderColor = ''}
+                                disabled={syncing || crawling}
+                            />
+                            <div className="flex flex-col lg:flex-row gap-2">
+                                {/* Single Page — kept as subtle dark button */}
+                                <button
+                                    onClick={handleUrlSync}
+                                    disabled={syncing || crawling || !urlInput.trim()}
+                                    className="flex-1 px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-[#D4D4D4] text-xs font-regular rounded-xl transition-all border border-[#3f3f3f] active:scale-95 disabled:opacity-50"
+                                    title="Sync single page only"
+                                >
+                                    {syncing ? 'Syncing...' : 'Single Page'}
+                                </button>
+
+                                {/*  2. Entire Website button → #814AC8  */}
+                                <button
+                                    onClick={handleWebsiteCrawl}
+                                    disabled={syncing || crawling || !urlInput.trim()}
+                                    className="flex-1 px-4 py-2 text-white text-xs font-regular rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    style={{
+                                        backgroundColor: '#814AC8',
+                                        boxShadow: '0 4px 14px rgba(129,74,200,0.30)',
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#9B6ED8'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#814AC8'}
+                                >
+                                    {crawling ? (
+                                        <>
+                                            <Loader2 size={12} className="animate-spin" />
+                                            Crawling...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Globe size={12} />
+                                            Entire Website
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-white/60">
+                                &quot;Entire Website&quot; crawls all pages (blogs, products, FAQs, etc.)
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
 
 
             {/* Search Section */}
-            <div className="bg-[var(--card)] rounded-xl p-4 border border-[var(--notion-border)] mx-4 mb-6 shadow-sm">
-                <div className="flex gap-2">
+            <div className="rounded-xl p-4 mb-6 border border-white/10
+            bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+            backdrop-blur-xl">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#565656]" />
                         <input
                             type="text"
-                            placeholder="Search your knowledge base..."
+                            placeholder="Filter knowledge base by document name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="w-full pl-10 pr-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-medium"
+                            className="w-full pl-10 pr-4 py-2.5 bg-[#191919] border border-[var(--notion-border)] rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none transition-all font-medium"
+                            onFocus={e => e.currentTarget.style.borderColor = 'rgba(129,74,200,0.5)'}
+                            onBlur={e => e.currentTarget.style.borderColor = ''}
                         />
                     </div>
-                    <button
-                        onClick={handleSearch}
-                        disabled={searching || !searchQuery.trim()}
-                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {searching ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                        Search
-                    </button>
                 </div>
-
-                {/* Search Results */}
-                {searchResults && (
-                    <div className="mt-4 pt-4 border-t border-[var(--notion-border)]">
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-bold text-[#D4D4D4]">
-                                {searchResults.results?.length || 0} results for &quot;{searchResults.query}&quot;
-                            </h3>
-                            <button
-                                onClick={() => setSearchResults(null)}
-                                className="text-[#787878] hover:text-[#D4D4D4] text-xs"
-                            >
-                                Clear
-                            </button>
-                        </div>
-                        <div className="space-y-3">
-                            {searchResults.results?.map((result, i) => (
-                                <div key={result.id || i} className="bg-[#191919] rounded-lg p-3 border border-[var(--notion-border)]">
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-bold text-indigo-400">{result.title}</span>
-                                        <span className="text-[10px] font-bold text-[#565656] bg-[#252525] px-2 py-0.5 rounded">
-                                            {(result.score * 100).toFixed(0)}% match
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-[#9b9b9b] line-clamp-2">{result.content}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Knowledge List */}
-            <div className="bg-[var(--card)] rounded-xl border border-[var(--notion-border)] overflow-hidden mx-4 shadow-xl mb-8">
+            <div className="rounded-xl border border-white/10 overflow-hidden shadow-xl mb-8
+            bg-gradient-to-br from-white/[0.08] via-white/[0.02] to-transparent
+            backdrop-blur-xl">
                 <div className="p-4 border-b border-[var(--notion-border)] bg-[#252525]/50 flex items-center justify-between">
                     <h2 className="font-bold text-[#D4D4D4] tracking-tight">Indexed Knowledge</h2>
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#565656]">
-                        {loading ? 'Loading...' : `${entries.length} items`}
+                        {loading ? 'Loading...' : `${filteredEntries.length} items`}
                     </span>
                 </div>
 
                 {loading ? (
                     <div className="p-8 text-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-400 mx-auto mb-2" />
+                        <Loader2 className="w-8 h-8 animate-spin text-[#814AC8] mx-auto mb-2" />
                         <p className="text-sm text-[#787878]">Loading knowledge base...</p>
                     </div>
-                ) : entries.length === 0 ? (
+                ) : filteredEntries.length === 0 ? (
                     <div className="p-8 text-center">
                         <Brain className="w-12 h-12 text-[#3f3f3f] mx-auto mb-3" />
-                        <p className="text-sm text-[#787878] font-medium">No knowledge indexed yet.</p>
-                        <p className="text-xs text-[#565656] mt-1">Upload documents or sync URLs to get started.</p>
+                        <p className="text-sm text-[#787878] font-medium">No knowledge found.</p>
+                        <p className="text-xs text-white/60 mt-1">Try a different search term or upload documents.</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-[#2f2f2f]">
-                        {entries.map((item) => (
-                            <div key={item.id} className="p-4 flex items-center justify-between hover:bg-[#252525] transition-all group">
+                        {filteredEntries.map((item) => (
+                            <div key={item.id} className="p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 hover:bg-[#252525] transition-all group">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-[#2c2c2c] border border-[#3f3f3f] flex items-center justify-center text-[#787878] group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all shadow-sm">
+                                    <div className="w-10 h-10 rounded-xl bg-[#2c2c2c] border border-[#3f3f3f] flex items-center justify-center text-[#787878] group-hover:text-[#814AC8] group-hover:border-[#814AC8]/30 transition-all shadow-sm">
                                         {item.content_type === 'url' ? <Link size={18} /> : <FileText size={18} />}
                                     </div>
                                     <div>
@@ -398,13 +492,13 @@ export default function BrainPage() {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 sm:self-center">
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.15em] rounded-full border border-emerald-500/20">
                                         <CheckCircle2 size={12} />
                                         {item.status || 'indexed'}
                                     </span>
                                     <button
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={() => setDeleteConfirmation({ isOpen: true, entryId: item.id })}
                                         className="p-2 text-[#565656] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                                         title="Delete entry"
                                     >
@@ -417,5 +511,36 @@ export default function BrainPage() {
                 )}
             </div>
         </div>
+        </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmation.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+                    <div className="bg-[#111] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500 mb-4 mx-auto">
+                            <AlertCircle size={24} />
+                        </div>
+                        <h3 className="text-lg font-bold text-white text-center mb-2">Delete Knowledge Entry?</h3>
+                        <p className="text-sm text-[#787878] text-center mb-6">
+                            This action cannot be undone. The indexed chunks will be removed from your AI's brain.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setDeleteConfirmation({ isOpen: false, entryId: null })}
+                                className="flex-1 px-4 py-2.5 bg-[#252525] hover:bg-[#2f2f2f] text-white text-sm font-medium rounded-xl transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                className="flex-1 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded-xl transition-all shadow-[0_4px_14px_rgba(244,63,94,0.3)]"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

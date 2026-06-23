@@ -1,13 +1,17 @@
-import asyncio
 import logging
 import os
+import traceback
 from typing import Optional, Dict, Any
-from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.brain import BrainEntry
-import traceback
+from app.services.agentic_rag.embedding_service import get_embedding_generator
+from app.services.agentic_rag.vector_store_service import VectorStoreService
+from app.utils.text_chunker import Schunker
+from app.services.document_service import get_document_service
+from app.services.billing.billing_service import BillingService
 
 logger = logging.getLogger(__name__)
+
 
 async def process_document_background(
     entry_id: str,
@@ -16,84 +20,177 @@ async def process_document_background(
     original_filename: str,
     content_type: str,
     file_size: int,
-    metadata: Optional[Dict[str, Any]] = None # New parameter
+    reservation_id: Optional[str] = None,
+    required_credits: Optional[float] = 0.0,
+    metadata=None
 ):
-    """
-    Background task to process a document ingestion.
-    1. Updates status to PROCESSING
-    2. Calls RAG service to ingest
-    3. Updates status to COMPLETED or FAILED
-    4. Cleans up temp file
-    """
     db = SessionLocal()
+    billing_service = BillingService()
+
     try:
+        print(f"\n>>> [WORKER START] Starting background processing for entry {entry_id} (File: '{original_filename}', Size: {file_size} bytes)")
         logger.info(f"Starting background processing for entry {entry_id}")
-        
-        # 1. Update status to PROCESSING
-        entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
-        if entry:
-            entry.status = "processing"
-            db.commit()
-        else:
-            logger.error(f"Entry {entry_id} not found for background processing")
+
+        # SECURITY CHECK 
+        entry = db.query(BrainEntry).filter(
+            BrainEntry.id == entry_id
+        ).first()
+
+        if not entry:
+            logger.error(f"SECURITY FAULT: Entry {entry_id} not found")
             return
 
-        # 2. Process File
-        from app.services.rag_service import get_rag_service
-        from app.services.document_service import get_document_service
-        
-        # Read file from temp path
+        workspace_id = entry.workspace_id
+
+        #  UPDATE STATUS 
+        entry.status = "processing"
+        entry.embedding_status = "processing"
+        db.commit()
+
+        #  READ FILE 
         with open(file_path, "rb") as f:
             content = f.read()
-            
-        # Parse Document
+
+        #  PROCESS DOCUMENT 
         doc_service = get_document_service()
-        doc_result = doc_service.process_file(content, original_filename)
+
+        doc_result = doc_service.process_file(
+            content,
+            original_filename,
+            db=db
+        )
+
+        entry.content = doc_result["text"]
+
+        #  BUILD SERVICES 
+        # Re-use process-level singleton — model is NOT reloaded.
+        embedding_generator = get_embedding_generator()
         
-        # Ingest to RAG
-        rag_service = get_rag_service()
-        
-        # Merge existing metadata with new incoming metadata
-        ingestion_metadata = {"original_size": file_size}
+        vector_store = VectorStoreService()
+        chunker = Schunker()
+
+        #  METADATA 
+        ingestion_metadata = {
+            "original_size": file_size
+        }
+
         if metadata:
             ingestion_metadata.update(metadata)
 
-        logger.info(f"Calling RAG ingestion for {entry_id} with title {original_filename}")
-        # We pass the existing_entry_id to update the record created by the API
-        result = rag_service.ingest_document(
-            db=db,
-            workspace_id=workspace_id,
-            text=doc_result["text"],
-            title=original_filename,
-            content_type=doc_result["content_type"],
-            source=original_filename,
-            metadata=ingestion_metadata, # Pass the merged metadata
-            existing_entry_id=entry_id # <--- We will add this param
+        logger.info(
+            f"Starting vector ingestion for {entry_id}"
         )
-        logger.info(f"RAG ingestion returned: {result}")
-        
-        # 3. Update status to COMPLETED
-        # (The service might have updated the entry content, but we ensure status here)
-        entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
+
+        is_image = content_type in ["image", "png", "jpg", "jpeg", "webp"]
+
+        if not is_image:
+            #  CHUNKING 
+            chunks = chunker.build_chunks(
+                doc_result["text"]
+            )
+
+            if not chunks:
+                raise ValueError(
+                    "No chunks generated from document"
+                )
+
+            for chunk in chunks:
+                chunk["metadata"] = ingestion_metadata
+
+            #  EMBEDDINGS 
+            embeddings = embedding_generator.generate_embeddings(
+                [chunk["text"] for chunk in chunks]
+            )
+
+            #  VECTOR STORAGE 
+            vector_store.add_chunks(
+                db=db,
+                workspace_id=workspace_id,
+                chunks=chunks,
+                embeddings=embeddings,
+                parent_id=entry_id,
+                chunk_metadata=ingestion_metadata
+            )
+        else:
+            logger.info(f"Skipping vector embedding for image entry {entry_id}")
+
+        # Finalize credits and get exact cost charged from ledger
+        actual_units = file_size / 1_000_000.0
+        if reservation_id:
+            ledger_entry = billing_service.token_service.finalize_feature_credits(
+                db=db,
+                reservation_id=reservation_id,
+                actual_units=float(required_credits or 0.0)
+            )
+            final_credits_charged = abs(float(ledger_entry.credits_delta))
+        else:
+            final_credits_charged = round(actual_units * 10.0, 4)
+
+        print(f"\n>>> [BILLING SUCCESS] Finalized charge of {final_credits_charged:.4f} credits for entry '{entry_id}' (file: '{original_filename}', size: {file_size} bytes / {actual_units:.4f} MB)\n")
+        logger.info(
+            f"[INGEST BILLING SUCCESS] Finalized charge of {final_credits_charged} credits for entry '{entry_id}' (file: '{original_filename}', size: {file_size} bytes / {actual_units:.4f} MB)"
+        )
+
+        if not is_image:
+            logger.info(
+                f"Stored {len(chunks)} chunks for entry {entry_id}"
+            )
+        else:
+            logger.info(
+                f"Completed image document analysis for entry {entry_id}"
+            )
+
+        #  COMPLETE 
         entry.status = "completed"
+        entry.embedding_status = "completed"
+        entry.credits_charged = final_credits_charged
         entry.error_message = None
+
         db.commit()
-        
-        logger.info(f"Background processing completed for {entry_id}")
+
+        logger.info(
+            f"Background processing completed for {entry_id}"
+        )
 
     except Exception as e:
-        logger.error(f"Background processing failed: {e}")
+        if reservation_id:
+            try:
+                billing_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation_id,
+                    reason="knowledge_base_processing_failed"
+                )
+                print(f"\n>>> [BILLING FAILURE] Released reservation for entry '{entry_id}' (file: '{original_filename}', reason: 'knowledge_base_processing_failed')\n")
+                logger.info(
+                    f"[INGEST BILLING FAILURE] Released reservation for entry '{entry_id}' (file: '{original_filename}', reason: 'knowledge_base_processing_failed')"
+                )
+            except Exception:
+                pass
+
+
+        logger.error(
+            f"Background processing failed: {e}"
+        )
+
         traceback.print_exc()
-        
-        # Update status to FAILED
-        entry = db.query(BrainEntry).filter(BrainEntry.id == entry_id).first()
+
+        #  FAIL SAFE 
+        entry = db.query(BrainEntry).filter(
+            BrainEntry.id == entry_id
+        ).first()
+
         if entry:
             entry.status = "failed"
+            entry.embedding_status = "failed"
+            entry.credits_charged = 0.0
             entry.error_message = str(e)[:500]
+
             db.commit()
-            
+
     finally:
         db.close()
-        # 4. Cleanup temp file
+
+        #  CLEANUP 
         if os.path.exists(file_path):
             os.remove(file_path)
+

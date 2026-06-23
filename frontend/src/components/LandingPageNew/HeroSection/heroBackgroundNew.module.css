@@ -1,0 +1,229 @@
+/* ═══════════════════════════════════════════════════════════════
+   heroBackgroundNew.module.css — Futuristic Space Hero Background
+   ═══════════════════════════════════════════════════════════════ */
+
+/*  Keyframes  */
+
+@keyframes rotateGradient {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(1.05);
+    filter: hue-rotate(30deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg) scale(1);
+    filter: hue-rotate(0deg);
+  }
+}
+
+@keyframes rotateGradientReverse {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1.04);
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(-180deg) scale(0.97);
+    filter: hue-rotate(-25deg) brightness(1.15);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(-360deg) scale(1.04);
+    filter: hue-rotate(0deg) brightness(1);
+  }
+}
+
+@keyframes pulseHalo {
+  0%, 100% {
+    opacity: 0.22;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: translate(-50%, -50%) scale(1.14);
+  }
+}
+
+@keyframes pulseRing3 {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: var(--base-opacity, 0.2);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: calc(var(--base-opacity, 0.2) * 2.8);
+    transform: translate3d(
+      calc(var(--drift-x, 0px) * 0.5),
+      calc(var(--drift-y, 0px) * 0.5),
+      0
+    ) scale(1.5);
+  }
+}
+
+@keyframes drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(var(--drift-x, 0px), var(--drift-y, 0px), 0);
+  }
+}
+
+@keyframes secondaryFloat {
+  0%, 100% {
+    transform: translate(calc(-50% + 60px), calc(-50% - 30px)) scale(1);
+    opacity: 0.28;
+  }
+  33% {
+    transform: translate(calc(-50% - 40px), calc(-50% + 50px)) scale(1.06);
+    opacity: 0.38;
+  }
+  66% {
+    transform: translate(calc(-50% + 20px), calc(-50% + 20px)) scale(0.95);
+    opacity: 0.22;
+  }
+}
+
+@keyframes voidPulse {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50%       { opacity: 0.92; transform: translate(-50%, -50%) scale(1.03); }
+}
+
+/*  Root  */
+
+.bgRoot {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #050505;
+}
+
+/*  Stars ─ */
+
+.starField {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.star {
+  position: absolute;
+  border-radius: 9999px;
+  background: #ffffff;
+
+  box-shadow:
+    0 0 6px rgba(255,255,255,0.95),
+    0 0 14px rgba(255,255,255,0.55),
+    0 0 22px rgba(255,255,255,0.18);
+
+  opacity: 0.95;
+  animation: none;
+  filter: blur(0.3px);
+  will-change: transform;
+  transition: opacity 0.15s linear;
+}
+
+@keyframes starFloat {
+  0% {
+    transform: translate3d(0,0,0);
+  }
+  50% {
+    transform: translate3d(var(--drift-x), var(--drift-y), 0);
+  }
+  100% {
+    transform: translate3d(0,0,0);
+  }
+}
+
+@keyframes starTwinkle {
+  0%,100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/*  Vignette  */
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 80% at 50% 50%,
+    transparent 30%,
+    rgba(5, 5, 5, 0.55) 65%,
+    rgba(5, 5, 5, 0.92) 100%
+  );
+  z-index: 1;
+}
+
+/*  Outer halo ─ */
+
+.outerHalo {
+  width: 560px;
+  height: 560px;
+}
+
+/*  Secondary offset glow  */
+
+.secondaryGlow {
+  width: 360px;
+  height: 360px;
+}
+
+/*  Nova WebGL Orb Wrapper ─ */
+
+.novaWrapper {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 460px;
+  height: 460px;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0.95;
+  filter:
+    drop-shadow(0 0 40px rgba(118, 72, 255, 0.28))
+    drop-shadow(0 0 90px rgba(84, 139, 255, 0.18));
+}
+
+.novaWrapper > div {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 1024px) {
+  .novaWrapper {
+    width: 520px;
+    height: 520px;
+  }
+}
+
+@media (max-width: 768px) {
+  .novaWrapper {
+    width: 390px;
+    height: 390px;
+    top: 50%;
+  }
+}
+
+@media (max-width: 480px) {
+  .novaWrapper {
+    width: 310px;
+    height: 310px;
+  }
+}

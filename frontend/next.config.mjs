@@ -1,10 +1,27 @@
-/** @type {import('next').NextConfig} */
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+
 const nextConfig = {
-    reactStrictMode: true,
-    env: {
-        NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+
+    reactStrictMode: false,
+    eslint: {
+        ignoreDuringBuilds: true,
     },
-    // No rewrites - talk directly to the absolute URL configured in api.js
+    httpAgentOptions: {
+        keepAlive: true,
+    },
+    async rewrites() {
+        return [
+            {
+                source: '/api/:path*',
+                destination: `${BACKEND_URL}/:path*`,
+            },
+            {
+                source: '/ws/:path*',
+                destination: `${BACKEND_URL}/ws/:path*`,
+            },
+        ];
+    },
 };
 
 export default nextConfig;

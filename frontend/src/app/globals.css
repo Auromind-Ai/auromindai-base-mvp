@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -69,7 +69,7 @@
 body {
   background-color: var(--notion-bg);
   color: var(--notion-text);
-  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  font-family: 'Poppins', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -192,8 +192,8 @@ body {
 }
 
 @theme inline {
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-outfit);
+  --font-sans: 'Poppins', sans-serif;
+  --font-display: 'Poppins', sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -313,3 +313,177 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes sparkleRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.sparkle-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.sparkle-border::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    rgba(255,255,255,0.8),
+    transparent,
+    rgba(255,255,255,0.6),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  animation: sparkleRotate 3s linear infinite;
+  z-index: 0;
+}
+
+.sparkle-border:hover::before {
+  opacity: 0.7;
+}
+
+.sparkle-border::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: var(--card);
+  border-radius: inherit;
+  z-index: 1;
+}
+
+/* ensure content above sparkle layers */
+.sparkle-border > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Hide scrollbar but allow scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Email Page Center Container's scrollbar affects UI look */
+
+.email-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.email-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.email-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 20px;
+}
+
+.email-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.28);
+}
+
+/* Marketing Page Cards Animation */
+
+.sparkle-card {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* rotating border light */
+.sparkle-card::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 260deg,
+    #3b82f6 300deg,
+    #60a5fa 320deg,
+    transparent 340deg
+  );
+
+  animation: rotateBorder 3s linear infinite;
+
+  z-index: 0;
+}
+
+/* card background layer */
+.sparkle-card::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  background: linear-gradient(to right,#0B1220,#0E1A33,#14284D);
+
+  z-index: 1;
+}
+
+@keyframes rotateBorder {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes textIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+ 
+.animate-textIn {
+  animation: textIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+ 
+/* Video color grading — subtle cyan-purple tone shift */
+.video-tone {
+  filter: hue-rotate(10deg) saturate(1.2) brightness(1.05);
+}
+
+/* Minimal Global Dark Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0d12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Firefox scrollbar compatibility */
+* {
+  scrollbar-color: #27272a #0d0d12;
+  scrollbar-width: thin;
+}
+

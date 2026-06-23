@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# SQLite
+*.sqlite3
+
+# Logs
+*.log
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# AI / Vector DB
+chroma_db/
+faiss_index/
+*.faiss
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+
+# Docker
+docker-compose.override.yml
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Playwright / browser cache
+playwright/.cache/
+.env 
+**/hf_cache/             
+
+# HuggingFace
+hf_cache/
+.cache/

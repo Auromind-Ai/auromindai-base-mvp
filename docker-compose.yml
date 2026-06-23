@@ -1,37 +1,106 @@
+
 services:
-  postgres:
-    image: postgres:16-alpine
+
+  redis:
+    image: redis:7-alpine
+    container_name: auromind_redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  db:
+    image: pgvector/pgvector:pg16
     container_name: auromind_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: auromind
-      POSTGRES_PASSWORD: auromind
-      POSTGRES_DB: auromind
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Arunjack007@
+      POSTGRES_DB: auromindai
     ports:
-      - "5433:5432"
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U auromind" ]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auromindai"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: auromind_backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade heads &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75"
+    environment:
+      HF_HOME: /models/huggingface
+      TRANSFORMERS_CACHE: /models/huggingface
+      HF_HUB_ENABLE_HF_TRANSFER: 1
     volumes:
+      - ./backend/logs:/app/logs
       - ./backend:/app
+      - ./hf_cache:/models/huggingface
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://auromind:auromind@postgres:5432/auromind
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
-      postgres:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auromind_celery_worker
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+
+    command: celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat
+    environment:
+      HF_HOME: /models/huggingface
+      TRANSFORMERS_CACHE: /models/huggingface
+      HF_HUB_ENABLE_HF_TRANSFER: 1
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend:/app
+      - ./hf_cache:/models/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auromind_celery_beat
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    command: celery -A app.core.celery_app beat --loglevel=info
+    environment:
+      HF_HOME: /models/huggingface
+      TRANSFORMERS_CACHE: /models/huggingface
+      HF_HUB_ENABLE_HF_TRANSFER: 1
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend:/app
+      - ./hf_cache:/models/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:
@@ -39,16 +108,18 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: auromind_frontend
+    restart: unless-stopped
     command: npm run dev
+    environment:
+      - BACKEND_URL=http://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
       - backend
 
 volumes:
   postgres_data:
+

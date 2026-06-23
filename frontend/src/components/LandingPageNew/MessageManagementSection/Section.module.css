@@ -1,0 +1,795 @@
+/* =====
+   section.module.css — MessageManagementSection
+  */
+
+/* ---- Section ---- */
+.section {
+  position: relative;
+  background: #050505;
+  min-height: 100vh;
+  padding: 60px 6vw 80px;
+  overflow: hidden;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Grain overlay */
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+}
+
+.bgGlow1 {
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(ellipse, rgba(125, 169, 255, 0.06) 0%, transparent 65%);
+  top: -100px;
+  right: 5%;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+.bgGlow2 {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(201, 179, 255, 0.05) 0%, transparent 65%);
+  bottom: 100px;
+  left: 10%;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---- Heading ---- */
+.headingWrap {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.heading {
+  margin: 0;
+  color: #ffffff;
+  max-width: 896px;
+  font-family: "Poppins", sans-serif;
+  font-size: 50px;     
+  font-weight: 500;     
+  line-height: 1.1em;    
+  letter-spacing: -0.04em;
+  text-align: center;
+}
+
+.gradientText {
+  background: linear-gradient(90deg, #c9b3ff 0%, #7da9ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  margin-top: 22px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.65;
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- Two-col layout ---- */
+/* CHANGED: tighter gap, better alignment, phone positioned right */
+.cols {
+  display: flex;
+  gap: 32px;
+  margin-top: 50px;
+  position: relative;
+  z-index: 2;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.leftCol {
+  width: 38%;
+  min-width: 280px;
+  max-width: 400px;
+  flex-shrink: 0;
+  margin-top:110px;
+}
+
+/* CHANGED: no negative margin, flex-start */
+.rightCol {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 520px;
+}
+
+/* ---- Badge row ---- */
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: none;
+  order: 0;  
+}
+
+.badge {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 0;
+  border-radius: 0;
+}
+
+.badgeSub {
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* ---- Feature Scroller ---- */
+.scrollerOuter {
+  width: 432px;
+  max-width: 432px;
+  background: rgba(14, 14, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  overflow: hidden;
+  transform: scale(0.94);
+  transform-origin: top center;
+  display: flex;
+  flex-direction: column;
+}
+
+/* CHANGED: tighter height, simpler mask */
+.scrollerMask {
+  width: 100%;
+  height: 480px;
+  overflow: hidden;
+  position: relative;
+  order: 1;
+}
+
+
+.scrollerMask::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 220px;
+
+  background: linear-gradient(
+    to bottom,
+    rgba(11, 11, 15, 0) 0%,
+    rgba(11, 11, 15, 0.85) 60%,
+    rgba(11, 11, 15, 1) 100%
+  );
+
+  pointer-events: none;
+}
+
+/* CHANGED: smaller gap between rows to match reference list style */
+.scrollerTrack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: scrollUp 28s linear infinite;
+}
+
+
+.scrollerMask:hover .scrollerTrack {
+  animation-play-state: paused;
+}
+
+@keyframes scrollUp {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+/* CHANGED: feature cards now look like reference list rows — flat, separated by a divider */
+.featureCard {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 0;
+  padding: 14px 16px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.featureCard:last-child {
+  border-bottom: none;
+}
+
+/* Keep hover animation — only change background target */
+/* (Framer Motion whileHover stays in JSX — only override bg here) */
+
+/* =====
+   iPhone Mockup
+  */
+.phoneWrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 500px;
+  padding-top: 10px;
+  padding-bottom: 20px;
+}
+
+.phoneGlow1 {
+  position: absolute;
+  width: 500px;
+  height: 600px;
+  background: radial-gradient(
+    ellipse,
+    rgba(129, 74, 200, 0.2) 0%,
+    rgba(129, 74, 200, 0.07) 45%,
+    transparent 72%
+  );
+  border-radius: 50%;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.phoneGlow2 {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(
+    ellipse,
+    rgba(34, 21, 56, 0.5) 0%,
+    transparent 72%
+  );
+  border-radius: 50%;
+  bottom: 45px;
+  right: 0;
+  filter: blur(46px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Notification pills */
+.notifPill {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.notifTopRight {
+  top: 40px;
+  right: 4%;
+}
+
+.notifBottomLeft {
+  bottom: 100px;
+  left: 3%;
+}
+
+.notifInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(14, 14, 22, 0.88);
+  border: 1px solid rgba(201, 179, 255, 0.22);
+  border-radius: 13px;
+  padding: 9px 14px 9px 10px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+/* Phone outer ring / perspective wrapper */
+.phoneOuterRing {
+  position: relative;
+  z-index: 2;
+  margin-top: -10px;
+}
+
+/* CHANGED: wider and taller phone to match reference */
+.phone {
+  width: 360px;
+  height: 680px;
+  border-radius: 48px;
+  background: linear-gradient(180deg, #1a1a1b 0%, #0b0b0c 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 8px #0d0d0e,
+    0 0 0 9.5px rgba(255, 255, 255, 0.05),
+    0 52px 110px rgba(0, 0, 0, 0.9),
+    0 0 70px rgba(129, 74, 200, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  position: relative;
+  transform: rotate(-3deg);
+  will-change: transform;
+}
+
+/* Dynamic Island */
+.phoneNotch {
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 88px;
+  height: 24px;
+  background: #000;
+  border-radius: 16px;
+  z-index: 20;
+}
+
+/* CHANGED: status bar — proper flex layout, fixed alignment */
+.statusBar {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 25;
+  pointer-events: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 36px 0 22px;
+  box-sizing: border-box;
+  height: 20px;
+
+  transform: rotate(-3deg);
+  transform-origin: center center;
+}
+
+.statusTime {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+/* CHANGED: icons row — tighter, vertically centered */
+.statusIcons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* CHANGED: phone screen — richer dark gradient to feel like WhatsApp dark */
+.phoneScreen {
+  width: 100%;
+  height: 100%;
+  background: #0d0d0d;
+  border-radius: 48px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =====
+   WhatsApp UI
+  */
+/* CHANGED: darker header, matches reference exactly */
+.waHeader {
+  background: #1b1b1d;
+  padding: 44px 10px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.waBack {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.waAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c9b3ff, #7da9ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.waOnlineDot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 8px;
+  height: 8px;
+  background: #25d366;
+  border-radius: 50%;
+  border: 2px solid #1f2c34;
+}
+
+.waInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+/* CHANGED: brighter name, slightly larger */
+.waName {
+  color: #e9edef;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1;
+  margin-bottom: 3px;
+}
+
+.waStatus {
+  color: #25d366;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+/* CHANGED: only video + phone icons, no 3-dot, tighter gap */
+.waActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+/* =====
+   Chat body — WhatsApp dark wallpaper
+  */
+/* CHANGED: dark WhatsApp wallpaper with subtle doodle pattern */
+.waBody {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #111214;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+.waBody::-webkit-scrollbar {
+  width: 0;
+}
+
+/* CHANGED: WhatsApp-style doodle wallpaper pattern, dark and subtle */
+.waBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background-color: #0b0b0d;
+  background-image:
+    linear-gradient(
+      rgba(8, 8, 10, 0.22),
+      rgba(8, 8, 10, 0.22)
+    ),
+    url("/images/WABackGround.jpeg");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: repeat;
+  opacity: 0.42;
+}
+
+/* Messages */
+/* CHANGED: wider bubbles, better max-width */
+.msgRow {
+  display: flex;
+  flex-direction: column;
+  max-width: 88%;
+  position: relative;
+  z-index: 1;
+}
+
+.msgLeft  { align-self: flex-start; }
+.msgRight { align-self: flex-end; }
+
+.bubble {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #e9edef;
+  word-break: break-word;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+/* CHANGED: softer left bubble matching reference — slightly lighter than bg */
+.bubbleLeft {
+  background: #070707;
+  color: #ffffff;
+  border-radius: 0 10px 10px 10px;
+  border: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.42);
+}
+
+/* CHANGED: rich purple right bubble, slightly softer glow */
+.bubbleRight {
+  background: #814AC8 !important;
+  color: #ffffff;
+  border-radius: 10px 0 10px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 6px 18px rgba(129, 74, 200, 0.28),
+    0 0 10px rgba(129, 74, 200, 0.14);
+}
+
+.bubbleAi {
+  background: linear-gradient(135deg, rgba(37, 211, 102, 0.22), rgba(125, 169, 255, 0.18)) !important;
+  border: 1px solid rgba(125, 169, 255, 0.28);
+  box-shadow: 0 0 18px rgba(125, 169, 255, 0.18), 0 0 6px rgba(37, 211, 102, 0.1);
+}
+
+.msgMeta {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px 0;
+  align-self: flex-start;
+}
+
+.msgMetaRight {
+  align-self: flex-end;
+}
+
+.msgTime {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.ticks {
+  display: flex;
+  align-items: center;
+}
+
+/* Typing indicator */
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #202c33;
+  padding: 9px 14px;
+  border-radius: 0 10px 10px 10px;
+  width: fit-content;
+}
+
+.typingDot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* Message Bottom to top animate  */
+/* .waBody {
+  justify-content: flex-end;
+} */
+
+/* Input bar */
+.waInputBar {
+  background: #1b1b1d;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.waInputField {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border-radius: 22px;
+  padding: 7px 14px;
+  font-size: 11px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+}
+
+.waInputPlaceholder {
+  color: rgba(255, 255, 255, 0.28);
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+}
+
+.waSendBtn {
+  width: 30px;
+  height: 30px;
+  background: #814AC8;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(129, 74, 200, 0.35);
+}
+
+/* =====
+   Feature Card internals
+  */
+/* CHANGED: icon + title on same row, description underneath — matches reference rows */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+/* CHANGED: smaller icon, no background box — just the icon itself */
+.cardIcon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+}
+
+/* CHANGED: slightly smaller, dimmer to match reference */
+.cardTitle {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+/* CHANGED: indented under icon column */
+.cardDesc {
+  margin-left: 38px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* =====
+   Responsive
+  */
+@media (max-width: 1024px) {
+  .phone {
+    width: 270px;
+    height: 560px;
+  }
+  .leftCol {
+    width: 44%;
+  }
+}
+
+@media (max-width: 900px) {
+  .cols {
+    flex-direction: column;
+    gap: 40px;
+    align-items: center;
+  }
+  .leftCol {
+    width: 100%;
+    max-width: 100%;
+  }
+  .rightCol {
+    width: 100%;
+    justify-content: center;
+  }
+  .scrollerOuter {
+    max-width: 100%;
+  }
+  .scrollerMask {
+    height: 380px;
+  }
+}
+
+@media (max-width: 600px) {
+  .section {
+    padding: 48px 5vw 70px;
+  }
+
+  .heading {
+    font-size: 26px;
+  }
+
+  .phone {
+    width: 260px;
+    height: 540px;
+  }
+
+  .statusBar {
+    top: 8px;
+    padding: 0 30px;
+  }
+
+  .cols {
+    margin-top: 20px;
+    gap: 16px; 
+  }
+
+  .leftCol {
+    margin-top: 0px;
+  }
+
+  .headingWrap {
+    margin-bottom: 8px;
+  }
+}
+
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;        
+}
+
+.subheading {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  line-height: 1.65;
+  text-align: center;
+  max-width: 480px;
+  margin: 28px auto 0;
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    max-width: 90%;
+  }
+}
+
+.badgeWrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}

@@ -1,135 +1,113 @@
-from fastapi import APIRouter, Depends, HTTPException
+
+
+from datetime import date
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-import uuid
-from datetime import datetime
+from typing import Any
 
 from app.database import get_db
-from app.routers.auth import get_current_user # Assuming user authentication is needed for dashboard data
-from app.models import AIAction, Followup # Example models that might feed data
+from app.routers.auth import get_current_user
+from app.core.security import verify_workspace_access
+from app.services.analytics import dashboard_service
+from app.schemas.dashboard import (
+    DashboardOverviewResponse,
+    MetricResponse,
+    RevenueChartResponse,
+    ActivityItemResponse,
+    InsightItemResponse,
+)
 
 router = APIRouter(tags=["dashboard"])
 
-# ============== Response Models ==============
-
-class MetricResponse(BaseModel):
-    label: str
-    value: str
-    change: str
-    trend: str # 'up', 'down', 'neutral'
-    subtext: str
-
-class AttentionItemResponse(BaseModel):
-    id: int
-    name: str
-    status: str
-    time: str
-    priority: str # 'high', 'medium', 'low'
-
-class AIInsightResponse(BaseModel):
-    type: str # 'opportunity', 'optimization'
-    text: str
-
-class FlowStatResponse(BaseModel):
-    label: str
-    count: int
-
-class ScheduleItemResponse(BaseModel):
-    day: str
-    title: str
-    details: str
 
 
-# ============== Endpoints ==============
 
-@router.get("/metrics", response_model=List[MetricResponse])
+# Full overview bundle (recommended — single network round-trip)
+
+
+@router.get("/overview", response_model=DashboardOverviewResponse)
+async def get_dashboard_overview(
+    workspace_id: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+   
+    wid = verify_workspace_access(current_user, db, workspace_id)
+    try:
+        data = await dashboard_service.get_full_overview(wid, db, start_date=start_date, end_date=end_date)
+        return data
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Dashboard overview failed: {str(exc)}",
+        )
+
+
+
+# Individual endpoints (for targeted refreshes / future micro-frontend use)
+
+
+@router.get("/metrics", response_model=list[MetricResponse])
 async def get_metrics(
-    workspace_id: str,
+    workspace_id: str | None = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Retrieves key sales metrics for the dashboard.
-    (Currently returns hardcoded data for demonstration)
-    """
-    # TODO: Implement actual data retrieval from DB/services
-    METRICS = [
-        {"label": "Total Revenue", "value": "₹12.4L", "change": "+18.2%", "trend": "up", "subtext": "vs last month"},
-        {"label": "Active Leads", "value": "124", "change": "+12%", "trend": "up", "subtext": "vs last week"},
-        {"label": "Conversion Rate", "value": "18%", "change": "-2.1%", "trend": "down", "subtext": "vs target"},
-        {"label": "Avg. Response Time", "value": "12m", "change": "8m", "trend": "neutral", "subtext": "improving"},
-    ]
-    return METRICS
+    wid = verify_workspace_access(current_user, db, workspace_id)
+    try:
+        return await dashboard_service.get_overview_metrics(wid, db)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Metrics fetch failed: {str(exc)}",
+        )
 
-@router.get("/attention_items", response_model=List[AttentionItemResponse])
-async def get_attention_items(
-    workspace_id: str,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """
-    Retrieves a list of items requiring immediate attention.
-    (Currently returns hardcoded data for demonstration)
-    """
-    # TODO: Implement actual data retrieval from DB/services (e.g., overdue follow-ups, pending documents)
-    ATTENTION_ITEMS = [
-        {"id": 1, "name": "Rahul Sharma", "status": "Documents Pending", "time": "12 min ago", "priority": "high"},
-        {"id": 2, "name": "Priya Patel", "status": "Demo Not Scheduled", "time": "45 min ago", "priority": "medium"},
-        {"id": 3, "name": "Amit Kumar", "status": "Follow-up Overdue", "time": "2h ago", "priority": "high"},
-        {"id": 4, "name": "Sneha Gupta", "status": "Contract Review", "time": "4h ago", "priority": "low"},
-    ]
-    return ATTENTION_ITEMS
 
-@router.get("/ai_insights", response_model=List[AIInsightResponse])
-async def get_ai_insights(
-    workspace_id: str,
+@router.get("/revenue", response_model=RevenueChartResponse)
+async def get_revenue(
+    workspace_id: str | None = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Retrieves AI-generated insights for the dashboard.
-    (Currently returns hardcoded data for demonstration)
-    """
-    # TODO: Implement actual data retrieval from DB/services (e.g., from AIAction logs or a dedicated insights service)
-    AI_INSIGHTS = [
-        {"type": "opportunity", "text": "3 leads from LinkedIn show high engagement today."},
-        {"type": "optimization", "text": "WhatsApp messages sent between 2-4 PM convert 15% better."},
-    ]
-    return AI_INSIGHTS
+    wid = verify_workspace_access(current_user, db, workspace_id)
+    try:
+        return await dashboard_service.get_revenue_chart(wid, db)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Revenue chart fetch failed: {str(exc)}",
+        )
 
-@router.get("/flow_stats", response_model=List[FlowStatResponse])
-async def get_flow_stats(
-    workspace_id: str,
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    """
-    Retrieves statistics for the sales flow pipeline.
-    (Currently returns hardcoded data for demonstration)
-    """
-    # TODO: Implement actual data retrieval from DB/services
-    FLOW_STATS = [
-        {"label": "New", "count": 42},
-        {"label": "Working", "count": 28},
-        {"label": "Review", "count": 12},
-        {"label": "Closed", "count": 24}
-    ]
-    return FLOW_STATS
 
-@router.get("/upcoming_schedule", response_model=List[ScheduleItemResponse])
-async def get_upcoming_schedule(
-    workspace_id: str,
+@router.get("/activities", response_model=list[ActivityItemResponse])
+async def get_activities(
+    workspace_id: str | None = None,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """
-    Retrieves upcoming schedule items.
-    (Currently returns hardcoded data for demonstration)
-    """
-    # TODO: Implement actual data retrieval from DB/services
-    SCHEDULE_ITEMS = [
-        {"day": "24", "title": "Team Review", "details": "2:00 PM • Zoom"},
-        {"day": "25", "title": "Product Launch", "details": "10:00 AM • Main Hall"},
-    ]
-    return SCHEDULE_ITEMS
+    wid = verify_workspace_access(current_user, db, workspace_id)
+    try:
+        return await dashboard_service.get_recent_activities(wid, db)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Activities fetch failed: {str(exc)}",
+        )
+
+
+@router.get("/insights", response_model=list[InsightItemResponse])
+async def get_insights(
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = verify_workspace_access(current_user, db, workspace_id)
+    try:
+        return await dashboard_service.get_ai_insights(wid, db)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Insights fetch failed: {str(exc)}",
+        )
