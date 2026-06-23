@@ -1,0 +1,2464 @@
+
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:26:02.376227Z
+User Query: 'diabetes'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 5
+   Total Tokens: 365
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        diabetes
+
+        Rewritten Query:
+   [LLM Output Snippet]: diabetes complications treatment
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 12
+   Output Tokens: 3
+   Total Tokens: 619
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    diabetes complications treatment
+
+    Selected Tool:
+   [LLM Output Snippet]: direct_answer
+
+3. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 128
+   Input/Query Tokens: 12
+   Output Tokens: 14
+   Total Tokens: 154
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question: 
+        diabetes
+
+        Answer:
+        None
+
+        Follow-up question:
+   [LLM Output Snippet]: What are the primary causes of diabetes, and its risk factors?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 1083
+Total Input/Query Tokens: 33
+Total Output Tokens: 22
+TOTAL TOKENS USED: 1138
+-----------------------------------------
+Final Reply Text: 'None\n\nFollow-up question:\nWhat are the primary causes of diabetes, and its risk factors?'
+Final Reply Token Count (Estimate): 14
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:26:46.872081Z
+User Query: 'diabetes'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 4
+   Total Tokens: 364
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        diabetes
+
+        Rewritten Query:
+   [LLM Output Snippet]: diabetes complications
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    diabetes complications
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 358
+   Total Tokens: 577
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    diabetes
+
+    Final Answer:
+   [LLM Output Snippet]: **Understanding the User's Intent**  Based on the query "diabetes", I'm going to assume the user's i...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 92
+   Input/Query Tokens: 403
+   Output Tokens: 17
+   Total Tokens: 512
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          diabetes          Answer:         **Understanding the User's Intent**  Based on t...
+   [LLM Output Snippet]: How can diet and nutrition play a role in managing blood sugar levels in diabetes?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1257
+Total Input/Query Tokens: 432
+Total Output Tokens: 382
+TOTAL TOKENS USED: 2071
+-----------------------------------------
+Final Reply Text: '**Understanding the User\'s Intent**\n\nBased on the query "diabetes", I\'m going to assume the user\'s intent is to gather information about the condition. This could be an explanation, summarization, or analysis of diabetes.\n\n**Generating the Output**\n\nHere\'s a concise and structured response:\n\n**What is Diabetes?**\n\nDiabetes is a chronic medical condition that affects the way the body processes blood sugar (glucose). The body uses insulin, a hormone produced by the pancreas, to regulate blood sugar levels. In people with diabetes, the pancreas either doesn\'t produce enough insulin or the body\'s cells become resistant to insulin, leading to high blood sugar levels.\n\n**Types of Diabetes:**\n\n1. **Type 1 Diabetes**: An autoimmune condition where the body\'s immune system attacks and destroys the cells in the pancreas that produce insulin.\n2. **Type 2 Diabetes**: A metabolic disorder where the body becomes resistant to insulin, making it harder for glucose to enter the cells.\n3. **Gestational Diabetes**: A condition that develops during pregnancy, usually in the second or third trimester, due to hormonal changes and insulin resistance.\n\n**Risk Factors and Symptoms:**\n\n* Risk factors: family history, obesity, physical inactivity, age, and ethnicity\n* Symptoms: increased thirst and urination, blurred vision, fatigue, and slow healing of cuts and wounds\n\n**Management and Treatment:**\n\n* Monitoring blood sugar levels and keeping a healthy diet\n* Exercise and physical activity\n* Medications, such as insulin and oral medications\n* Insulin therapy for type 1 diabetes and some cases of type 2 diabetes\n\nThis response provides a clear and concise overview of diabetes, including its types, risk factors, symptoms, and management and treatment options.\n\nFollow-up question:\nHow can diet and nutrition play a role in managing blood sugar levels in diabetes?'
+Final Reply Token Count (Estimate): 282
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:27:44.348621Z
+User Query: 'company leave policy'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 4
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        company leave policy
+
+        Rewritten Query:
+   [LLM Output Snippet]: employee leave policy
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 12
+   Output Tokens: 3
+   Total Tokens: 619
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    employee leave policy
+
+    Selected Tool:
+   [LLM Output Snippet]: vector_db
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 954
+Total Input/Query Tokens: 24
+Total Output Tokens: 7
+TOTAL TOKENS USED: 985
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:28:16.454819Z
+User Query: 'What is our employee leave policy?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 17
+   Output Tokens: 13
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is our employee leave policy?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are the details of our company's employee leave policy.
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 599
+   Input/Query Tokens: 25
+   Output Tokens: 3
+   Total Tokens: 627
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What are the details of our company's employee leave policy.
+
+    Selected Tool:
+   [LLM Output Snippet]: vector_db
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 947
+Total Input/Query Tokens: 42
+Total Output Tokens: 16
+TOTAL TOKENS USED: 1005
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:28:55.107447Z
+User Query: 'Latest AI news today'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 14
+   Output Tokens: 8
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Latest AI news today
+
+        Rewritten Query:
+   [LLM Output Snippet]: Latest breaking AI industry news updates today
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 601
+   Input/Query Tokens: 19
+   Output Tokens: 3
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Latest breaking AI industry news updates today
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 118
+   Input/Query Tokens: 943
+   Output Tokens: 91
+   Total Tokens: 1152
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              Latest AI news today              Context:                                   ...
+   [LLM Output Snippet]: Latest AI news today is not specifically mentioned in the provided context. However, it does mention...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 103
+   Input/Query Tokens: 149
+   Output Tokens: 15
+   Total Tokens: 267
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Latest AI news today          Answer:                      Latest AI news today i...
+   [LLM Output Snippet]: What specific type of AI development or breakthrough are you most interested in?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1171
+Total Input/Query Tokens: 1125
+Total Output Tokens: 117
+TOTAL TOKENS USED: 2413
+-----------------------------------------
+Final Reply Text: "\n            Latest AI news today is not specifically mentioned in the provided context. However, it does mention some related news items. \n\n- There is a video about Inside Google's AI data centers from ABC News.\n- There's a mention of Reliance building India's AI brain in partnership with Databricks, which could be an AI-related development.\n\nTo get the latest AI news, you might want to check other sources or websites that specialize in AI news.\n\n            Sources:\n            • youtube.com\n• euronews.com\n• abcnews.com\n            \n\nFollow-up question:\nWhat specific type of AI development or breakthrough are you most interested in?"
+Final Reply Token Count (Estimate): 96
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:29:48.157473Z
+User Query: '((2500*18)/100)+2500'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 360
+   Input/Query Tokens: 9
+   Output Tokens: 11
+   Total Tokens: 380
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        ((2500*18)/100)+2500
+
+        Rewritten Query:
+   [LLM Output Snippet]: ((2500*18)/100)+2500
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 614
+   Input/Query Tokens: 9
+   Output Tokens: 2
+   Total Tokens: 625
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    ((2500*18)/100)+2500
+
+    Selected Tool:
+   [LLM Output Snippet]: calculator
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 974
+Total Input/Query Tokens: 18
+Total Output Tokens: 13
+TOTAL TOKENS USED: 1005
+-----------------------------------------
+Final Reply Text: '2950.0'
+Final Reply Token Count (Estimate): 1
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:30:25.076453Z
+User Query: 'Should startups prioritize growth or profitability?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 17
+   Output Tokens: 13
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Should startups prioritize growth or profitability?
+
+        Rewritten Query:
+   [LLM Output Snippet]: Startups should prioritize long-term profitability over short-term growth.
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 603
+   Input/Query Tokens: 21
+   Output Tokens: 3
+   Total Tokens: 627
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query:      Startups should prioritize long-term profitability over short-term growth.      Sel...
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 205
+   Input/Query Tokens: 19
+   Output Tokens: 500
+   Total Tokens: 724
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    Should startups prioritize growth or profitability?
+
+    Final Answer:
+   [LLM Output Snippet]: **Analysis**  The question of whether startups should prioritize growth or profitability is a comple...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 88
+   Input/Query Tokens: 556
+   Output Tokens: 18
+   Total Tokens: 662
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Should startups prioritize growth or profitability?          Answer:         **An...
+   [LLM Output Snippet]: What specific metrics or benchmarks can startups use to measure this balance between growth and prof...
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1244
+Total Input/Query Tokens: 613
+Total Output Tokens: 534
+TOTAL TOKENS USED: 2391
+-----------------------------------------
+Final Reply Text: "**Analysis**\n\nThe question of whether startups should prioritize growth or profitability is a complex one, and the answer depends on various factors. To provide a clear analysis, let's break down the two options:\n\n**Growth**\n\nPrioritizing growth can be beneficial for startups in several ways:\n\n1. **Scalability**: Growth allows startups to scale their operations, expand their reach, and increase their market share.\n2. **Innovation**: Focusing on growth can foster innovation, as startups are encouraged to experiment and try new approaches to achieve their goals.\n3. **Competitive advantage**: Growing companies can gain a competitive advantage by attracting top talent, building strong networks, and establishing themselves as leaders in their industry.\n\nHowever, prioritizing growth can also lead to:\n\n1. **Burnout**: Overemphasizing growth can lead to burnout, as startups may struggle to maintain their momentum and adapt to changing circumstances.\n2. **Financial instability**: Growing too quickly can result in financial instability, as startups may struggle to manage their cash flow, maintain profitability, or make necessary investments.\n\n**Profitability**\n\nPrioritizing profitability can provide a more stable foundation for startups, but it may limit their growth and innovation:\n\n1. **Financial stability**: Focusing on profitability allows startups to maintain a stable financial foundation, ensuring they can cover their expenses and invest in necessary resources.\n2. **Prudent decision-making**: Prioritizing profitability encourages startups to make prudent decisions, such as allocating resources efficiently and managing risk.\n\nHowever, prioritizing profitability can also lead to:\n\n1. **Innovation stagnation**: Overemphasizing profitability may lead to stagnation, as startups may be less inclined to experiment and try new approaches.\n2. **Missed opportunities**: Focusing solely on profitability may cause startups to miss opportunities for growth and expansion.\n\n**Conclusion**\n\nUltimately, startups should strike a balance between growth and profitability. While growth is essential for innovation and scalability, profitability provides a stable foundation for financial stability and prudent decision-making. A balanced approach will allow startups to achieve both growth and profitability, ensuring long-term success.\n\nIn terms of prioritization, we recommend that startups:\n\n1. **Focus on growth in the early stages**, when the company is still establishing itself and exploring its market.\n2. **Shift to profitability as the company matures**, when it has established a stable foundation and is ready to focus on long-term sustainability.\n\nBy adopting a balanced approach, startups can achieve growth while maintaining financial stability and pr\n\nFollow-up question:\nWhat specific metrics or benchmarks can startups use to measure this balance between growth and profitability?"
+Final Reply Token Count (Estimate): 398
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:31:21.386551Z
+User Query: 'Explain the patient admission process.'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 16
+   Output Tokens: 9
+   Total Tokens: 373
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Explain the patient admission process.
+
+        Rewritten Query:
+   [LLM Output Snippet]: Explain the hospital patient intake process.
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 601
+   Input/Query Tokens: 18
+   Output Tokens: 3
+   Total Tokens: 622
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Explain the hospital patient intake process.
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 206
+   Input/Query Tokens: 17
+   Output Tokens: 447
+   Total Tokens: 670
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    Explain the patient admission process.
+
+    Final Answer:
+   [LLM Output Snippet]: **Patient Admission Process Explanation**  The patient admission process is a systematic and structu...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 88
+   Input/Query Tokens: 500
+   Output Tokens: 19
+   Total Tokens: 607
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Explain the patient admission process.          Answer:         **Patient Admissi...
+   [LLM Output Snippet]: What is the role of triage in prioritizing emergency cases during the patient admission process?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1243
+Total Input/Query Tokens: 551
+Total Output Tokens: 478
+TOTAL TOKENS USED: 2272
+-----------------------------------------
+Final Reply Text: "**Patient Admission Process Explanation**\n\nThe patient admission process is a systematic and structured procedure aimed at ensuring a smooth transition for patients into a healthcare facility. Here's a step-by-step explanation of the patient admission process:\n\n1. **Pre-Admission**: The process begins with the patient's arrival at the healthcare facility, either through an emergency department or an outpatient clinic. The patient's identification and demographics are verified, and the patient's insurance information is collected.\n2. **Registration**: The patient is registered and assigned a unique medical record number. This information is used to access the patient's medical history, insurance details, and billing information.\n3. **Triage**: The patient is evaluated by a triage nurse who assesses their condition and determines the urgency of their care. This helps prioritize patients with life-threatening conditions.\n4. **Medical History and Medications**: The patient is asked to provide their medical history, including any allergies, medications, and previous illnesses. This information helps healthcare providers develop an accurate diagnosis and treatment plan.\n5. **Physical Examination**: A healthcare provider performs a physical examination to assess the patient's condition and identify any potential health risks.\n6. **Diagnostic Testing**: Depending on the patient's condition, diagnostic tests such as lab work, imaging studies, or cardiovascular assessments may be ordered to confirm a diagnosis.\n7. **Consultations**: The healthcare provider may consult with specialists, such as a cardiologist or oncologist, to ensure the patient receives comprehensive care.\n8. **Treatment Plan**: A treatment plan is developed based on the patient's diagnosis, medical history, and current condition. This plan outlines the patient's care, including medications, therapies, and follow-up appointments.\n9. **Notification**: The patient's family or caregivers are notified and kept informed about the patient's condition, treatment plan, and any changes to their care.\n10. **Discharge**: When the patient's treatment is complete or their condition stabilizes, they are discharged from the healthcare facility. The patient is provided with instructions for follow-up care and any necessary medications or therapies.\n\nBy following this structured process, healthcare facilities can ensure a safe and effective patient admission experience, while prioritizing the patient's needs and quality of care.\n\nFollow-up question:\nWhat is the role of triage in prioritizing emergency cases during the patient admission process?"
+Final Reply Token Count (Estimate): 359
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:35:56.673355Z
+User Query: 'What happened in FIFA World Cup 2034?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 19
+   Output Tokens: 9
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What happened in FIFA World Cup 2034?
+
+        Rewritten Query:
+   [LLM Output Snippet]: FIFA World Cup 2034 outcomes
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    FIFA World Cup 2034 outcomes
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 109
+   Input/Query Tokens: 989
+   Output Tokens: 104
+   Total Tokens: 1202
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What happened in FIFA World Cup 2034?              Context:                  ...
+   [LLM Output Snippet]: Saudi Arabia was formally confirmed as the host nation for the 2034 FIFA World Cup in December 2024,...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 104
+   Input/Query Tokens: 169
+   Output Tokens: 19
+   Total Tokens: 292
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What happened in FIFA World Cup 2034?          Answer:                      Saudi...
+   [LLM Output Snippet]: What are the planned stadium locations and capacities for the 2034 FIFA World Cup venues?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1166
+Total Input/Query Tokens: 1193
+Total Output Tokens: 135
+TOTAL TOKENS USED: 2494
+-----------------------------------------
+Final Reply Text: '\n            Saudi Arabia was formally confirmed as the host nation for the 2034 FIFA World Cup in December 2024, following an uncontested bidding process. The decision was made at an Extraordinary FIFA Congress, where all 211 FIFA Member Associations convened virtually. Saudi Arabia was selected to stage the FIFA World Cup 2034, with the appointment made by acclamation. \n\nNote that there is no information available on the actual events or matches that took place during the FIFA World Cup 2034 in the provided context.\n\n            Sources:\n            • en.wikipedia.org\n• frontofficesports.com\n• inside.fifa.com\n            \n\nFollow-up question:\nWhat are the planned stadium locations and capacities for the 2034 FIFA World Cup venues?'
+Final Reply Token Count (Estimate): 107
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:36:52.913777Z
+User Query: 'AI'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 4
+   Total Tokens: 364
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        AI
+
+        Rewritten Query:
+   [LLM Output Snippet]: artificial intelligence
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    artificial intelligence
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 280
+   Total Tokens: 499
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    AI
+
+    Final Answer:
+   [LLM Output Snippet]: **Understanding the Intent**  The user query "AI" is ambiguous and can have multiple meanings. Howev...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 86
+   Input/Query Tokens: 331
+   Output Tokens: 14
+   Total Tokens: 431
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          AI          Answer:         **Understanding the Intent**  The user query "AI" is ...
+   [LLM Output Snippet]: What are some real-world applications of machine learning in industries today?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1251
+Total Input/Query Tokens: 360
+Total Output Tokens: 301
+TOTAL TOKENS USED: 1912
+-----------------------------------------
+Final Reply Text: '**Understanding the Intent**\n\nThe user query "AI" is ambiguous and can have multiple meanings. However, based on the context and common usage, I will choose the most logical and commonly used meaning, which is "Artificial Intelligence." This field deals with creating intelligent machines that can think and learn like humans.\n\n**Generating the Output**\n\nArtificial Intelligence (AI) is a branch of computer science that focuses on creating intelligent machines that can perform tasks that typically require human intelligence, such as:\n\n- Learning: AI systems can learn from data and improve their performance over time.\n- Reasoning: AI systems can draw inferences and make decisions based on the data they have learned.\n- Problem-solving: AI systems can solve complex problems and make decisions that require human-like intelligence.\n\nSome of the key areas of research in AI include:\n\n- Machine Learning (ML): a subset of AI that deals with training algorithms to learn from data.\n- Natural Language Processing (NLP): a subset of AI that deals with enabling computers to understand and generate human language.\n- Robotics: a field that combines AI with robotics to create intelligent machines that can interact with their environment.\n\n**Special Handling**\n\nSince the query is a general term, I have generated a general overview of the field. If you would like me to expand on a specific aspect of AI or provide more information on a particular area, please let me know.\n\nFollow-up question:\nWhat are some real-world applications of machine learning in industries today?'
+Final Reply Token Count (Estimate): 247
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:38:17.116432Z
+User Query: 'Who is the current CEO of OpenAI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 19
+   Output Tokens: 12
+   Total Tokens: 379
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Who is the current CEO of OpenAI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: Who is the present chief executive officer of OpenAI?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 600
+   Input/Query Tokens: 23
+   Output Tokens: 3
+   Total Tokens: 626
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Who is the present chief executive officer of OpenAI?
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 115
+   Input/Query Tokens: 1190
+   Output Tokens: 94
+   Total Tokens: 1399
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              Who is the current CEO of OpenAI?              Context:                      ...
+   [LLM Output Snippet]: The current CEO of OpenAI is Sam Altman.   Sam Altman has been the CEO of the artificial intelligenc...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 116
+   Input/Query Tokens: 147
+   Output Tokens: 14
+   Total Tokens: 277
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Who is the current CEO of OpenAI?          Answer:                      The curre...
+   [LLM Output Snippet]: What other notable roles does Greg Brockman hold within OpenAI?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1179
+Total Input/Query Tokens: 1379
+Total Output Tokens: 123
+TOTAL TOKENS USED: 2681
+-----------------------------------------
+Final Reply Text: '\n            The current CEO of OpenAI is Sam Altman. \n\nSam Altman has been the CEO of the artificial intelligence company OpenAI since 2019. He has also been the co-founder of OpenAI since 2015. \n\nIn addition, the current OpenAI executive leadership team is listed below:\n\n- Sam Altman: CEO & Co-Founder\n- Greg Brockman: President & Co-Founder\n- Fidji Simo: CEO of Applications\n\n            Sources:\n            • en.wikipedia.org\n• digitaldefynd.com\n• businessinsider.com\n            \n\nFollow-up question:\nWhat other notable roles does Greg Brockman hold within OpenAI?'
+Final Reply Token Count (Estimate): 80
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:41:22.746073Z
+User Query: 'Explain diabetes symptoms.'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 9
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Explain diabetes symptoms.
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain common symptoms of diabetes mellitus
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 602
+   Input/Query Tokens: 18
+   Output Tokens: 3
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain common symptoms of diabetes mellitus
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 208
+   Input/Query Tokens: 13
+   Output Tokens: 347
+   Total Tokens: 568
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    Explain diabetes symptoms.
+
+    Final Answer:
+   [LLM Output Snippet]: **Understanding the Intent:** The user's query is seeking an explanation of diabetes symptoms, which...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 90
+   Input/Query Tokens: 396
+   Output Tokens: 16
+   Total Tokens: 502
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Explain diabetes symptoms.          Answer:         **Understanding the Intent:**...
+   [LLM Output Snippet]: What are the potential complications of undiagnosed or unmanaged diabetes?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1250
+Total Input/Query Tokens: 439
+Total Output Tokens: 375
+TOTAL TOKENS USED: 2064
+-----------------------------------------
+Final Reply Text: '**Understanding the Intent:**\nThe user\'s query is seeking an explanation of diabetes symptoms, which falls under the intent of "explanation."\n\n**Providing the Explanation:**\nDiabetes is a chronic medical condition characterized by high blood sugar levels. The symptoms of diabetes can vary depending on the type of diabetes and the individual affected. Here are some common symptoms:\n\n1. **Increased thirst and urination**: When there is excess glucose in the blood, the kidneys produce more urine, leading to dehydration and increased thirst.\n2. **Fatigue**: High blood sugar levels can cause fatigue, weakness, and a general feeling of being unwell.\n3. **Blurred vision**: High blood sugar levels can cause the lens in the eye to swell, leading to blurred vision.\n4. **Slow healing of cuts and wounds**: High blood sugar levels can impair the body\'s ability to heal wounds.\n5. **Tingling or numbness in hands and feet**: High blood sugar levels can damage the nerves, causing tingling, numbness, or pain in the hands and feet.\n6. **Recurring skin, gum, or bladder infections**: People with diabetes are more susceptible to infections due to high blood sugar levels.\n7. **Unexplained weight loss**: High blood sugar levels can cause the body to break down muscle and fat for energy, leading to unexplained weight loss.\n8. **Increased hunger**: High blood sugar levels can cause the body to produce more insulin, leading to increased hunger.\n\n**Additional Tips:**\nIf you or someone you know is experiencing these symptoms, it\'s essential to consult a healthcare professional for proper diagnosis and treatment. Early detection and management of diabetes can help prevent complications and improve quality of life.\n\nFollow-up question:\nWhat are the potential complications of undiagnosed or unmanaged diabetes?'
+Final Reply Token Count (Estimate): 278
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:44:23.704440Z
+User Query: 'What are the potential complications of undiagnosed or unmanaged diabetes?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 24
+   Output Tokens: 9
+   Total Tokens: 382
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query:          What are the potential complications of undiagnosed or unmanaged diabetes?     ...
+   [LLM Output Snippet]: What complications can arise from untreated diabetes?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 601
+   Input/Query Tokens: 19
+   Output Tokens: 3
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What complications can arise from untreated diabetes?
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 206
+   Input/Query Tokens: 26
+   Output Tokens: 346
+   Total Tokens: 578
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query:      What are the potential complications of undiagnosed or unmanaged diabetes?      Fin...
+   [LLM Output Snippet]: **Complications of Undiagnosed or Unmanaged Diabetes**  Undiagnosed or unmanaged diabetes can lead t...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 99
+   Input/Query Tokens: 397
+   Output Tokens: 22
+   Total Tokens: 518
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What are the potential complications of undiagnosed or unmanaged diabetes?       ...
+   [LLM Output Snippet]: What are some early warning signs or symptoms of kidney damage from undiagnosed or unmanaged diabete...
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1255
+Total Input/Query Tokens: 466
+Total Output Tokens: 380
+TOTAL TOKENS USED: 2101
+-----------------------------------------
+Final Reply Text: '**Complications of Undiagnosed or Unmanaged Diabetes**\n\nUndiagnosed or unmanaged diabetes can lead to various potential complications, including:\n\n1. **Cardiovascular Disease**: High blood sugar levels can damage blood vessels and nerves, increasing the risk of heart attacks, strokes, and peripheral artery disease.\n2. **Kidney Damage (Nephropathy)**: Diabetes can cause damage to the kidneys, leading to kidney failure and the need for dialysis or a kidney transplant.\n3. **Nerve Damage (Neuropathy)**: High blood sugar levels can damage nerve endings, causing pain, numbness, and weakness in the hands and feet.\n4. **Blindness (Diabetic Retinopathy)**: Diabetes can cause damage to the blood vessels in the eyes, leading to blindness.\n5. **Foot Damage (Diabetic Foot)**: Nerve damage and poor circulation can cause foot ulcers and infections, which can lead to amputation.\n6. **Dental Problems**: Diabetes can increase the risk of gum disease, tooth loss, and dental infections.\n7. **Cognitive Decline**: High blood sugar levels have been linked to an increased risk of cognitive decline and dementia.\n8. **Skin and Wound Infections**: Diabetes can increase the risk of skin infections, including cellulitis and abscesses.\n9. **Hearing Loss**: High blood sugar levels have been linked to an increased risk of hearing loss.\n10. **Mental Health Issues**: Diabetes can increase the risk of depression, anxiety, and other mental health issues.\n\nIt is essential to manage diabetes through a combination of lifestyle changes, medication, and regular monitoring to prevent these complications and maintain overall health.\n\nFollow-up question:\nWhat are some early warning signs or symptoms of kidney damage from undiagnosed or unmanaged diabetes?'
+Final Reply Token Count (Estimate): 254
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:46:27.783888Z
+User Query: 'Show high priority emails from Amazon received this week'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 22
+   Output Tokens: 14
+   Total Tokens: 382
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query:          Show high priority emails from Amazon received this week          Rewritten Que...
+   [LLM Output Snippet]: Show high priority emails received from Amazon within the last 7 days
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 598
+   Input/Query Tokens: 28
+   Output Tokens: 3
+   Total Tokens: 629
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query:      Show high priority emails received from Amazon within the last 7 days      Selected...
+   [LLM Output Snippet]: direct_storage
+
+3. Function: tools_layer.py:parse_email_query
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 156
+   Input/Query Tokens: 53
+   Output Tokens: 53
+   Total Tokens: 262
+   [Sys Prompt Snippet]: You are an email query understanding engine.          Your task is to convert a user query into stru...
+   [User Input Snippet]: User Query:  last email          Output:         {         "priority": null,         "category": nul...
+   [LLM Output Snippet]: {     "priority": "high",     "category": null,     "sender": "Amazon",     "date": {         "$gte"...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 119
+   Input/Query Tokens: 31
+   Output Tokens: 12
+   Total Tokens: 162
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Show high priority emails from Amazon received this week          Answer:        ...
+   [LLM Output Snippet]: Did you search Amazon's promotional or spam inbox folders?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1219
+Total Input/Query Tokens: 134
+Total Output Tokens: 82
+TOTAL TOKENS USED: 1435
+-----------------------------------------
+Final Reply Text: "No emails found.\n\nFollow-up question:\nDid you search Amazon's promotional or spam inbox folders?"
+Final Reply Token Count (Estimate): 14
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T09:47:12.641071Z
+User Query: 'Analyze our customer onboarding process, identify bottlenecks, compare against industry best practices, and suggest improvements.'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 33
+   Output Tokens: 31
+   Total Tokens: 412
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query:          Analyze our customer onboarding process, identify bottlenecks, compare against ...
+   [LLM Output Snippet]: Analyze customer onboarding process data to identify and isolate bottlenecks for optimization. Compa...
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 595
+   Input/Query Tokens: 47
+   Output Tokens: 3
+   Total Tokens: 645
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query:      Analyze customer onboarding process data to identify and isolate bottlenecks for op...
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 205
+   Input/Query Tokens: 35
+   Output Tokens: 496
+   Total Tokens: 736
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query:      Analyze our customer onboarding process, identify bottlenecks, compare against indu...
+   [LLM Output Snippet]: **Analysis of Customer Onboarding Process**  To address your request, we will analyze our current cu...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 93
+   Input/Query Tokens: 561
+   Output Tokens: 17
+   Total Tokens: 671
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Analyze our customer onboarding process, identify bottlenecks, compare against in...
+   [LLM Output Snippet]: How can we measure the effectiveness of the proposed improvements and onboarding process changes?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1241
+Total Input/Query Tokens: 676
+Total Output Tokens: 547
+TOTAL TOKENS USED: 2464
+-----------------------------------------
+Final Reply Text: "**Analysis of Customer Onboarding Process**\n\nTo address your request, we will analyze our current customer onboarding process, identify potential bottlenecks, compare it against industry best practices, and suggest improvements.\n\n**Current Process:**\n\nOur current customer onboarding process involves the following steps:\n\n1. **Registration**: Customers register on our website or through a sales representative.\n2. **Account Setup**: Our team sets up the customer's account and provides initial login credentials.\n3. **Welcome Email**: A welcome email is sent to the customer with instructions on how to access their account.\n4. **Onboarding Session**: A 30-minute onboarding session is scheduled with a customer success representative to demonstrate our product's features and benefits.\n5. **Post-Onboarding Survey**: A survey is sent to the customer after the onboarding session to gather feedback and identify areas for improvement.\n\n**Identification of Bottlenecks:**\n\nBased on our analysis, the following bottlenecks were identified:\n\n1. **Long Onboarding Session**: The 30-minute onboarding session can be lengthy and may not provide a comprehensive overview of our product.\n2. **Limited Personalization**: Our current onboarding process does not offer personalized experiences for customers.\n3. **Insufficient Feedback Mechanism**: The post-onboarding survey may not provide real-time feedback, which can lead to delayed issue resolution.\n\n**Comparison against Industry Best Practices:**\n\nA comparison with industry best practices reveals the following insights:\n\n1. **Segmented Onboarding**: Many industry leaders employ segmented onboarding processes, which cater to different customer segments and provide tailored experiences.\n2. **Real-time Feedback Mechanisms**: Successful companies often incorporate real-time feedback mechanisms to ensure timely issue resolution and continuous improvement.\n3. **Personalization**: Industry leaders prioritize personalization, often using AI-driven tools to provide customized experiences for customers.\n\n**Suggestions for Improvements:**\n\nBased on our analysis and comparison with industry best practices, we suggest the following improvements:\n\n1. **Segmented Onboarding**: Implement a segmented onboarding process that caters to different customer segments and provides tailored experiences.\n2. **Real-time Feedback Mechanism**: Integrate a real-time feedback mechanism to enable timely issue resolution and continuous improvement.\n3. **Personalization**: Utilize AI-driven tools to provide customized experiences for customers and enhance the overall onboarding process.\n\nBy implementing these improvements, we can enhance our customer onboarding process, increase customer satisfaction, and remain competitive in the industry.\n\nFollow-up question:\nHow can we measure the effectiveness of the proposed improvements and onboarding process changes?"
+Final Reply Token Count (Estimate): 371
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T11:41:35.343219Z
+User Query: 'How to configure billing?'
+-----------------------------------------
+1. Function: mock_test
+   Provider: openai | Model: gpt-4
+   System Prompt Tokens: 500
+   Input/Query Tokens: 500
+   Output Tokens: 500
+   Total Tokens: 1500
+   [Sys Prompt Snippet]: sys
+   [User Input Snippet]: user
+   [LLM Output Snippet]: res
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 500
+Total Input/Query Tokens: 500
+Total Output Tokens: 500
+TOTAL TOKENS USED: 1500
+-----------------------------------------
+Final Reply Text: 'Mocked RAG response'
+Final Reply Token Count (Estimate): 3
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T12:36:14.390857Z
+User Query: 'what products availabe tell me the catlog'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 19
+   Output Tokens: 9
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        what products availabe tell me the catlog
+
+        Rewritten Query:
+   [LLM Output Snippet]: what products are available tell me the catalog
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 600
+   Input/Query Tokens: 21
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    what products are available tell me the catalog
+
+    Selected Tool:
+   [LLM Output Snippet]: vector_db
+
+3. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 189
+   Input/Query Tokens: 551
+   Output Tokens: 2
+   Total Tokens: 742
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          what products are available tell me the catalog          Context:         E-Comme...
+   [LLM Output Snippet]: YES
+
+4. Function: orchestrator_layer_support.py:synthesize_information
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 279
+   Input/Query Tokens: 560
+   Output Tokens: 287
+   Total Tokens: 1126
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          ROLE:         From the Retrieved C...
+   [User Input Snippet]: Question:          what products availabe tell me the catlog          Retrieved Context:         E-C...
+   [LLM Output Snippet]: AeroPulse Smartwatch is $129, NimbusSound Earbuds is $79, VoltEdge Power Bank is $49, CrystalView Mo...
+
+5. Function: orchestrator_layer_support.py:generate_final_output
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 275
+   Input/Query Tokens: 314
+   Output Tokens: 10
+   Total Tokens: 599
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          OBJECTIVE:         Identify and ex...
+   [User Input Snippet]: USER QUESTION:          what products availabe tell me the catlog          VERIFIED INFORMATION:    ...
+   [LLM Output Snippet]: InfinityView Tablet is available in the catalog.
+
+6. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 120
+   Input/Query Tokens: 35
+   Output Tokens: 12
+   Total Tokens: 167
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          what products availabe tell me the catlog          Answer:         InfinityView T...
+   [LLM Output Snippet]: What are the key features of the InfinityView Tablet?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 6
+Total System Tokens: 1812
+Total Input/Query Tokens: 1500
+Total Output Tokens: 323
+TOTAL TOKENS USED: 3635
+-----------------------------------------
+Final Reply Text: 'InfinityView Tablet is available in the catalog.\n\nFollow-up question:\nWhat are the key features of the InfinityView Tablet?'
+Final Reply Token Count (Estimate): 18
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-20T13:01:26.930851Z
+User Query: 'what products availabe tell me the catlog'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 19
+   Output Tokens: 9
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        what products availabe tell me the catlog
+
+        Rewritten Query:
+   [LLM Output Snippet]: what products are available tell me the catalog
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 600
+   Input/Query Tokens: 21
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    what products are available tell me the catalog
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 207
+   Input/Query Tokens: 20
+   Output Tokens: 304
+   Total Tokens: 531
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    what products availabe tell me the catlog
+
+    Final Answer:
+   [LLM Output Snippet]: Based on the user's query, I understand the intent to be:  1. Explanation (of products available and...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 100
+   Input/Query Tokens: 349
+   Output Tokens: 15
+   Total Tokens: 464
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          what products availabe tell me the catlog          Answer:         Based on the u...
+   [LLM Output Snippet]: What are the key features of the electronics products available in the catalog?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1256
+Total Input/Query Tokens: 409
+Total Output Tokens: 331
+TOTAL TOKENS USED: 1996
+-----------------------------------------
+Final Reply Text: 'Based on the user\'s query, I understand the intent to be:\n\n1. Explanation (of products available and catalog)\n2. Summarization (of the catalog)\n\nHowever, the query is a bit ambiguous and lacks specific context. Considering the most logical and commonly used meaning, I will interpret the query as:\n\n- "What products are available?" which is a question about the available products or offerings.\n- "Tell me the catalog" which implies providing an overview or listing of the available products.\n\nTo clarify, I will generate a response based on this interpretation.\n\n**Available Products Catalog:**\n\nOur current product offerings include:\n\n- Electronics:\n  - Smartphones\n  - Laptops\n  - Tablets\n  - Smartwatches\n\n- Fashion:\n  - Clothing (Men\'s and Women\'s)\n  - Shoes (Men\'s and Women\'s)\n  - Accessories (Hats, Scarves, Belts)\n\n- Home and Kitchen:\n  - Furniture\n  - Home Appliances\n  - Kitchen Utensils\n  - Bedding and Linens\n\n- Health and Beauty:\n  - Skincare Products\n  - Haircare Products\n  - Makeup and Cosmetics\n  - Fragrances\n\n- Sports and Outdoors:\n  - Fitness Equipment\n  - Outdoor Gear\n  - Camping Equipment\n  - Sports Accessories\n\nPlease note that this is a general catalog and may not be exhaustive. If you are looking for more specific information or a detailed product list, please provide more context or clarification.\n\nFollow-up question:\nWhat are the key features of the electronics products available in the catalog?'
+Final Reply Token Count (Estimate): 220
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T10:06:38.413012Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 363
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain concept
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain concept
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 183
+   Total Tokens: 402
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: To proceed, I need more context to understand what you would like explained. Based on my understandi...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 91
+   Input/Query Tokens: 229
+   Output Tokens: 15
+   Total Tokens: 335
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         To proceed, I need more context to understand wh...
+   [LLM Output Snippet]: What specific concept or process would you like me to explain in detail?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1256
+Total Input/Query Tokens: 258
+Total Output Tokens: 204
+TOTAL TOKENS USED: 1718
+-----------------------------------------
+Final Reply Text: 'To proceed, I need more context to understand what you would like explained. Based on my understanding of the instruction to "explain," I\'ll provide a general response, but if you could provide more details, I\'d be happy to give a more specific and relevant explanation.\n\nHowever, if you\'re looking for a general explanation, here are some possible topics:\n\n1. **A Concept or Term**: If you provide a specific concept or term, I can explain it in detail.\n2. **A Process or Procedure**: If you want to know how something works or the steps involved in a particular process, I can provide an explanation.\n3. **A Topic or Subject**: If you\'re interested in learning more about a particular topic or subject, I can provide an overview and explanation.\n\nPlease provide more context or specify what you would like explained, and I\'ll do my best to provide a clear and concise explanation.\n\nFollow-up question:\nWhat specific concept or process would you like me to explain in detail?'
+Final Reply Token Count (Estimate): 165
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T10:22:42.719480Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 363
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: provide explanations
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    provide explanations
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 319
+   Total Tokens: 538
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: To provide a response to "explain," I need to understand the context and intent behind the query. Ho...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 89
+   Input/Query Tokens: 367
+   Output Tokens: 16
+   Total Tokens: 472
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         To provide a response to "explain," I need to un...
+   [LLM Output Snippet]: How can you apply these explanation principles to a complex topic like artificial intelligence?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1254
+Total Input/Query Tokens: 396
+Total Output Tokens: 341
+TOTAL TOKENS USED: 1991
+-----------------------------------------
+Final Reply Text: 'To provide a response to "explain," I need to understand the context and intent behind the query. However, without additional information, I\'ll assume the user is looking for a general explanation of what it means to "explain."\n\n**Understanding the Intent:**\nThe intent appears to be "explanation," which involves providing a clear and concise description of a concept, process, or idea.\n\n**Response:**\n\nIn general, "explain" means to provide a clear and detailed description of something, making it easy for others to understand. It involves breaking down complex information into simple and logical steps, highlighting key points, and providing relevant examples or illustrations.\n\nWhen explaining something, consider the following principles:\n\n1. **Define the concept:** Clearly state the idea or concept being explained.\n2. **Break it down:** Divide the explanation into smaller, manageable parts.\n3. **Use examples:** Provide relevant examples or illustrations to help make the explanation more engaging and easier to understand.\n4. **Highlight key points:** Emphasize the most important aspects of the explanation.\n5. **Avoid jargon:** Use simple language to ensure the explanation is accessible to a wide audience.\n\nBy following these principles, you can effectively explain complex ideas and make them more understandable to others.\n\n**Additional Tips:**\n\n* Be concise and clear in your explanation.\n* Use visual aids, such as diagrams or flowcharts, to help illustrate complex concepts.\n* Encourage questions and feedback to ensure the explanation is effective.\n\nIf you have any further questions or would like me to clarify any of these points, please let me know!\n\nFollow-up question:\nHow can you apply these explanation principles to a complex topic like artificial intelligence?'
+Final Reply Token Count (Estimate): 266
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T11:59:31.868812Z
+User Query: 'explain tanglish'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 352
+   Input/Query Tokens: 10
+   Output Tokens: 9
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain tanglish
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain the features of the Tanglish language
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 602
+   Input/Query Tokens: 19
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain the features of the Tanglish language
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 11
+   Output Tokens: 228
+   Total Tokens: 449
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain tanglish
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation of "Tanglish"**  Tanglish, also known as Hinglish or Indlish, refers to a mixture of t...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 95
+   Input/Query Tokens: 272
+   Output Tokens: 15
+   Total Tokens: 382
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain tanglish          Answer:         **Explanation of "Tanglish"**  Tanglish...
+   [LLM Output Snippet]: How does the use of Tanglish affect the English language in India?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1259
+Total Input/Query Tokens: 312
+Total Output Tokens: 255
+TOTAL TOKENS USED: 1826
+-----------------------------------------
+Final Reply Text: '**Explanation of "Tanglish"**\n\nTanglish, also known as Hinglish or Indlish, refers to a mixture of the English and Hindi languages. It is commonly used in India, particularly in informal settings, such as in spoken language, texting, and social media.\n\nTanglish often involves borrowing words, phrases, and grammatical structures from both English and Hindi, creating a unique blend of languages. This blend can be seen in various aspects, including vocabulary, pronunciation, and syntax.\n\nFor example, a person might say "main phone kar raha hoon" (I am making a call) or "mera dost aaya" (my friend came). These phrases combine elements from both languages, illustrating the nature of Tanglish.\n\nTanglish is not an official language and is not widely taught in schools. However, it is a widely used and accepted form of communication in India, reflecting the country\'s linguistic diversity and the influence of English on the local languages.\n\nThe use of Tanglish can facilitate communication between English and Hindi speakers and is also a reflection of the cultural and linguistic evolution of India.\n\nFollow-up question:\nHow does the use of Tanglish affect the English language in India?'
+Final Reply Token Count (Estimate): 186
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T12:05:48.885741Z
+User Query: 'explain image'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 10
+   Output Tokens: 9
+   Total Tokens: 370
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain image
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain the concept of images in visual media
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 600
+   Input/Query Tokens: 21
+   Output Tokens: 3
+   Total Tokens: 624
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain the concept of images in visual media
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 209
+   Input/Query Tokens: 11
+   Output Tokens: 369
+   Total Tokens: 589
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain image
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation of "Image"**  An image is a visual representation of a two-dimensional scene or object...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 88
+   Input/Query Tokens: 419
+   Output Tokens: 14
+   Total Tokens: 521
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain image          Answer:         **Explanation of "Image"**  An image is a ...
+   [LLM Output Snippet]: What are some common formats used to store and share digital images?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1248
+Total Input/Query Tokens: 461
+Total Output Tokens: 395
+TOTAL TOKENS USED: 2104
+-----------------------------------------
+Final Reply Text: '**Explanation of "Image"**\n\nAn image is a visual representation of a two-dimensional scene or object. It is a digital or physical picture that captures the visual information from the real world, such as photographs, artwork, or graphics.\n\nThere are several types of images, including:\n\n1. **Raster images**: These are made up of pixels, which are small, square blocks of color that are arranged in a grid to form the image. Examples of raster images include photographs and graphics.\n2. **Vector images**: These are made up of mathematical equations that describe the shape and size of the image. Examples of vector images include logos, diagrams, and illustrations.\n3. **Digital images**: These are images that are stored on a computer or other digital device, such as photographs, graphics, and scanned documents.\n\nImages can be created using various tools and techniques, including:\n\n1. **Camera**: A camera is a device that captures a visual representation of a scene or object.\n2. **Graphics software**: Software such as Adobe Photoshop or GIMP can be used to create and edit images.\n3. **Scanning**: Scanning involves converting a physical image into a digital format.\n4. **Digital painting**: Digital painting involves creating an image using a digital tool, such as a graphics tablet or a drawing app on a mobile device.\n\nImages are widely used in various fields, including:\n\n1. **Art**: Images are used to create visual art, including paintings, drawings, and sculptures.\n2. **Advertising**: Images are used in advertising to capture the attention of potential customers and convey a message.\n3. **Communication**: Images are used in communication to convey information, express emotions, and create a connection with the viewer.\n4. **Education**: Images are used in education to illustrate concepts, demonstrate processes, and make learning more engaging.\n\nFollow-up question:\nWhat are some common formats used to store and share digital images?'
+Final Reply Token Count (Estimate): 302
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T12:13:20.750575Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 363
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain terms
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain terms
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 159
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation Requested**  To provide a comprehensive explanation, I need more context about the top...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 99
+   Input/Query Tokens: 197
+   Output Tokens: 13
+   Total Tokens: 309
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         **Explanation Requested**  To provide a comprehe...
+   [LLM Output Snippet]: Can you narrow it down to one of the provided categories?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1264
+Total Input/Query Tokens: 226
+Total Output Tokens: 178
+TOTAL TOKENS USED: 1668
+-----------------------------------------
+Final Reply Text: "**Explanation Requested**\n\nTo provide a comprehensive explanation, I need more context about the topic you would like to explain. Please provide more information or clarify what you would like me to explain.\n\nHowever, I can provide some general explanations on various topics if you would like. Please specify the topic or subject you would like to know more about.\n\nIf you're unsure, here are some common explanations I can provide:\n\n1. A scientific concept (e.g., gravity, photosynthesis)\n2. A technical term (e.g., AI, blockchain, cloud computing)\n3. A historical event (e.g., the American Revolution, the Industrial Revolution)\n4. A mathematical concept (e.g., calculus, algebra)\n\nPlease provide more context or specify the topic you would like to know more about.\n\nFollow-up question:\nCan you narrow it down to one of the provided categories?"
+Final Reply Token Count (Estimate): 132
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T12:20:09.909716Z
+User Query: 'explain'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 4
+   Total Tokens: 364
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain the concept
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 604
+   Input/Query Tokens: 12
+   Output Tokens: 3
+   Total Tokens: 619
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain the concept
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 210
+   Input/Query Tokens: 9
+   Output Tokens: 187
+   Total Tokens: 406
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain
+
+    Final Answer:
+   [LLM Output Snippet]: To provide a more accurate response, I need a bit more information about what you would like me to e...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 104
+   Input/Query Tokens: 220
+   Output Tokens: 18
+   Total Tokens: 342
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain          Answer:         To provide a more accurate response, I need a bi...
+   [LLM Output Snippet]: Which concept among AI, machine learning, or programming is most relevant to your interest?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1269
+Total Input/Query Tokens: 250
+Total Output Tokens: 212
+TOTAL TOKENS USED: 1731
+-----------------------------------------
+Final Reply Text: "To provide a more accurate response, I need a bit more information about what you would like me to explain. However, based on the instruction to choose the most logical meaning, I'll assume you're asking for a general explanation of the concept.\n\n**Explanation**\n\nIf you're asking for a general explanation, I'll provide a neutral and informative response. However, I'll also provide some options to narrow down the topic if you'd like.\n\nHere are a few possible topics I can explain:\n\n1. **Concepts**: e.g., AI, machine learning, programming, data analysis\n2. **Processes**: e.g., problem-solving, decision-making, communication\n3. **Ideas**: e.g., innovation, creativity, entrepreneurship\n4. **Technologies**: e.g., software, hardware, cybersecurity\n\nPlease let me know if any of these options interest you, or if you'd like to explore a different topic.\n\nFollow-up question:\nWhich concept among AI, machine learning, or programming is most relevant to your interest?"
+Final Reply Token Count (Estimate): 143
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T13:00:42.515082Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 14
+   Total Tokens: 381
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are the pricing options and available plans for your software package?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 14
+TOTAL TOKENS USED: 381
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T04:24:06.267806Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What package pricing options and plans are available?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 10
+TOTAL TOKENS USED: 377
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T04:30:57.996118Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 11
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are your available package pricing plans and options?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 11
+TOTAL TOKENS USED: 378
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T04:32:02.488246Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are your package price plans and options?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 10
+TOTAL TOKENS USED: 377
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T05:13:24.100764Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 15
+   Total Tokens: 164
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you to this conversation today, is there a specific issue?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 15
+TOTAL TOKENS USED: 164
+-----------------------------------------
+Final Reply Text: 'Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you to this conversation today, is there a specific issue?'
+Final Reply Token Count (Estimate): 22
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T05:13:49.509585Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 17
+   Total Tokens: 166
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you here today, is it for a specific issue or general information?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 17
+TOTAL TOKENS USED: 166
+-----------------------------------------
+Final Reply Text: 'Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you here today, is it for a specific issue or general information?'
+Final Reply Token Count (Estimate): 24
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T05:50:32.952999Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 15
+   Total Tokens: 164
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you to the conversation today or what's on your mind?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 15
+TOTAL TOKENS USED: 164
+-----------------------------------------
+Final Reply Text: "Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you to the conversation today or what's on your mind?"
+Final Reply Token Count (Estimate): 22
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:20:32.573291Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 15
+   Total Tokens: 164
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you to this platform today or what's on your mind?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 15
+TOTAL TOKENS USED: 164
+-----------------------------------------
+Final Reply Text: "Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you to this platform today or what's on your mind?"
+Final Reply Token Count (Estimate): 22
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:31:36.366989Z
+User Query: 'VoltEdge Power Bank full details'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 9
+   Total Tokens: 374
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank product specifications and features
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 349
+Total Input/Query Tokens: 16
+Total Output Tokens: 9
+TOTAL TOKENS USED: 374
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:21.456985Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 11
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are the available package pricing options and plans?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 11
+TOTAL TOKENS USED: 378
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:26.635715Z
+User Query: 'package pricing options and plans'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 11
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are the available package pricing options and plans?
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3223
+   Output Tokens: 147
+   Total Tokens: 3394
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check that for you",    "action": "search_knowledge...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 16
+   Output Tokens: 7
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        package pricing options and plans
+
+        Rewritten Query:
+   [LLM Output Snippet]: package pricing information and plans details
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 718
+Total Input/Query Tokens: 3260
+Total Output Tokens: 165
+TOTAL TOKENS USED: 4143
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:40.693386Z
+User Query: 'I want to book a demo next Tuesday.'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 5
+   Total Tokens: 372
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: Next Tuesday demo booking
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 5
+TOTAL TOKENS USED: 372
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:52.673763Z
+User Query: 'demo booking process'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 5
+   Total Tokens: 372
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: Next Tuesday demo booking
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3223
+   Output Tokens: 159
+   Total Tokens: 3406
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "The requested information is not available in the current ...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        demo booking process
+
+        Rewritten Query:
+   [LLM Output Snippet]: demo booking system process
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 720
+Total Input/Query Tokens: 3256
+Total Output Tokens: 169
+TOTAL TOKENS USED: 4145
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:36:07.648797Z
+User Query: 'I want to book a demo next Tuesday.'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 12
+   Total Tokens: 379
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: I want to schedule a demo appointment for next Tuesday.
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 12
+TOTAL TOKENS USED: 379
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:36:12.522887Z
+User Query: 'demo booking process'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 12
+   Total Tokens: 379
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: I want to schedule a demo appointment for next Tuesday.
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3224
+   Output Tokens: 159
+   Total Tokens: 3407
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "The requested information is not available in the current ...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        demo booking process
+
+        Rewritten Query:
+   [LLM Output Snippet]: demo booking process details
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 720
+Total Input/Query Tokens: 3257
+Total Output Tokens: 176
+TOTAL TOKENS USED: 4153
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:37:55.161968Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What package pricing options and plans are available?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 10
+TOTAL TOKENS USED: 377
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:38:00.340380Z
+User Query: 'package pricing options and plans'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What package pricing options and plans are available?
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3224
+   Output Tokens: 147
+   Total Tokens: 3395
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check that for you",    "action": "search_knowledge...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 16
+   Output Tokens: 6
+   Total Tokens: 370
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        package pricing options and plans
+
+        Rewritten Query:
+   [LLM Output Snippet]: package pricing plans and options
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 718
+Total Input/Query Tokens: 3261
+Total Output Tokens: 163
+TOTAL TOKENS USED: 4142
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:42:57.892479Z
+User Query: 'VoltEdge Power Bank full details'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 373
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank specifications and features
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 349
+Total Input/Query Tokens: 16
+Total Output Tokens: 8
+TOTAL TOKENS USED: 373
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:43:02.854123Z
+User Query: 'VoltEdge Power Bank full details'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 373
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank specifications and features
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3198
+   Output Tokens: 153
+   Total Tokens: 3375
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for saas.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check the details for the VoltEdge Power Bank.",   ...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 9
+   Total Tokens: 374
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank specifications and technical features
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 722
+Total Input/Query Tokens: 3230
+Total Output Tokens: 170
+TOTAL TOKENS USED: 4122
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:44:53.363720Z
+User Query: 'VoltEdge Power Bank'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge portable power bank
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 351
+Total Input/Query Tokens: 12
+Total Output Tokens: 6
+TOTAL TOKENS USED: 369
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:44:58.369641Z
+User Query: 'VoltEdge Power Bank'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge portable power bank
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3187
+   Output Tokens: 151
+   Total Tokens: 3362
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for saas.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check that for you",    "action": "search_knowledge...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Portable Power Bank
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 726
+Total Input/Query Tokens: 3211
+Total Output Tokens: 163
+TOTAL TOKENS USED: 4100
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:14:52.785860Z
+User Query: 'complete product catalog'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 600
+   Output Tokens: 176
+   Total Tokens: 802
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. Welcome! I'm here ...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        complete product catalog
+
+        Rewritten Query:
+   [LLM Output Snippet]: complete product catalog listing
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 376
+Total Input/Query Tokens: 612
+Total Output Tokens: 181
+TOTAL TOKENS USED: 1169
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:22:39.307117Z
+User Query: 'complete product catalog'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 600
+   Output Tokens: 164
+   Total Tokens: 790
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. Welcome! I'll be h...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        complete product catalog
+
+        Rewritten Query:
+   [LLM Output Snippet]: complete comprehensive product catalog
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 376
+Total Input/Query Tokens: 612
+Total Output Tokens: 169
+TOTAL TOKENS USED: 1157
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:41:15.639611Z
+User Query: 'available products'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 630
+   Output Tokens: 177
+   Total Tokens: 833
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. I'd be happy to he...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 10
+   Output Tokens: 5
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        available products
+
+        Rewritten Query:
+   [LLM Output Snippet]: available products in stock
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 377
+Total Input/Query Tokens: 640
+Total Output Tokens: 182
+TOTAL TOKENS USED: 1199
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:42:16.322127Z
+User Query: 'how to create website'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 14
+   Output Tokens: 3
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        how to create website
+
+        Rewritten Query:
+   [LLM Output Snippet]: create website
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 349
+Total Input/Query Tokens: 14
+Total Output Tokens: 3
+TOTAL TOKENS USED: 366
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:42:21.485046Z
+User Query: 'website creation'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 14
+   Output Tokens: 3
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        how to create website
+
+        Rewritten Query:
+   [LLM Output Snippet]: create website
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 648
+   Output Tokens: 162
+   Total Tokens: 834
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "To create a website, you'll need a few key elements. Let m...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 10
+   Output Tokens: 3
+   Total Tokens: 364
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        website creation
+
+        Rewritten Query:
+   [LLM Output Snippet]: website development
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 724
+Total Input/Query Tokens: 672
+Total Output Tokens: 168
+TOTAL TOKENS USED: 1564
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:47:03.779797Z
+User Query: 'complete product catalog'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 600
+   Output Tokens: 173
+   Total Tokens: 799
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. Welcome! I'm here ...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        complete product catalog
+
+        Rewritten Query:
+   [LLM Output Snippet]: complete product catalog listing
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 376
+Total Input/Query Tokens: 612
+Total Output Tokens: 178
+TOTAL TOKENS USED: 1166
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T12:00:55.444282Z
+User Query: 'explain about ai'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 368
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain about ai
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain principles of artificial intelligence
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 602
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 621
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain principles of artificial intelligence
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 208
+   Input/Query Tokens: 13
+   Output Tokens: 402
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain about ai
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation: Artificial Intelligence (AI)**  Artificial Intelligence (AI) refers to the developmen...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 101
+   Input/Query Tokens: 440
+   Output Tokens: 16
+   Total Tokens: 557
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain about ai          Answer:         **Explanation: Artificial Intelligence ...
+   [LLM Output Snippet]: How do narrow or weak AI systems balance accuracy with the risk of bias?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1261
+Total Input/Query Tokens: 481
+Total Output Tokens: 427
+TOTAL TOKENS USED: 2169
+-----------------------------------------
+Final Reply Text: '**Explanation: Artificial Intelligence (AI)**\n\nArtificial Intelligence (AI) refers to the development of computer systems that can perform tasks that typically require human intelligence, such as:\n\n1. **Learning**: AI systems can learn from data and adapt to new information.\n2. **Problem-solving**: AI systems can solve complex problems and make decisions based on data.\n3. **Perception**: AI systems can interpret and understand data from sensors, such as images, speech, and text.\n4. **Reasoning**: AI systems can draw conclusions and make inferences based on data and logic.\n5. **Action**: AI systems can interact with the physical world through robots, autonomous vehicles, and other devices.\n\n**Types of AI:**\n\n1. **Narrow or Weak AI**: Designed to perform a specific task, such as facial recognition, language translation, or playing chess.\n2. **General or Strong AI**: A hypothetical AI system that possesses human-like intelligence and can perform any intellectual task.\n3. **Superintelligence**: A hypothetical AI system that significantly surpasses human intelligence in all domains.\n\n**AI Applications:**\n\n1. **Virtual Assistants**: Siri, Google Assistant, Alexa, and Cortana.\n2. **Image Recognition**: Self-driving cars, facial recognition, and medical diagnosis.\n3. **Natural Language Processing**: Chatbots, language translation, and text summarization.\n4. **Predictive Maintenance**: Predicting equipment failures and scheduling maintenance.\n5. **Healthcare**: Personalized medicine, disease diagnosis, and patient monitoring.\n\n**Challenges and Future Directions:**\n\n1. **Ethics**: Ensuring AI systems are transparent, accountable, and fair.\n2. **Security**: Protecting AI systems from cyber threats and data breaches.\n3. **Explainability**: Understanding how AI systems make decisions and predictions.\n4. **Integration**: Seamlessly integrating AI with human decision-making processes.\n5. **Long-term Viability**: Ensuring AI systems continue to learn and improve over time.\n\nFollow-up question:\nHow do narrow or weak AI systems balance accuracy with the risk of bias?'
+Final Reply Token Count (Estimate): 279
+=========================================

@@ -2,31 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { Calendar, ExternalLink, Settings, Plus } from 'lucide-react';
-import { getWorkspace } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
+import api from '@/lib/api';
 
 export default function CalendarPage() {
     const [connected, setConnected] = useState(false);
     const [loading, setLoading] = useState(true);
     const [calendarEmail, setCalendarEmail] = useState('');
-    const workspace = getWorkspace();
+    const { workspaces, workspaceId } = useAuth();
+    const workspace = workspaces.find((item) => item.id === workspaceId) || null;
 
     useEffect(() => {
-        checkConnection();
-    }, []);
+        if (workspace?.id) {
+            checkConnection();
+        }
+    }, [workspace?.id]);
 
     const checkConnection = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(
-                `http://localhost:8000/integrations/status?workspace_id=${workspace?.id}`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                setConnected(data.calendar?.connected || false);
-                setCalendarEmail(data.calendar?.email || '');
-            }
+            const data = await api.getIntegrationStatus();
+            setConnected(data.calendar?.connected || false);
+            setCalendarEmail(data.calendar?.email || '');
         } catch (error) {
             console.error('Failed to check calendar status:', error);
         } finally {
@@ -53,7 +49,7 @@ export default function CalendarPage() {
                             Connect your Google Calendar to view and manage your schedule
                         </p>
                         <a
-                            href="/user/admin/integrations"
+                            href="/user/admin/channels"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-600 transition-all"
                         >
                             <Settings size={20} />

@@ -1,59 +1,102 @@
+const isBrowser = typeof window !== "undefined";
+let memoryUser = null;
+let memoryWorkspace = null;
+
+/* ---------------- TOKEN ---------------- */
+
 export const setToken = (token) => {
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
-    }
+  // Cookies are set by the server. Storage writes for the JWT token are removed for security.
 };
 
 export const getToken = () => {
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem('token');
-    }
-    return null;
+  // JWT tokens are inside HttpOnly cookies and not readable by JavaScript.
+  return null;
 };
 
 export const removeToken = () => {
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('workspace');
-    }
+  memoryUser = null;
+  memoryWorkspace = null;
 };
 
 export const setUser = (user) => {
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('user', JSON.stringify(user));
-    }
+  memoryUser = user || null;
 };
 
 export const getUser = () => {
-    if (typeof window !== 'undefined') {
-        const user = localStorage.getItem('user');
-        return user ? JSON.parse(user) : null;
-    }
-    return null;
+  return isBrowser ? memoryUser : null;
 };
 
 export const setWorkspace = (workspace) => {
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('workspace', JSON.stringify(workspace));
-    }
+  memoryWorkspace = workspace || null;
 };
 
 export const getWorkspace = () => {
-    if (typeof window !== 'undefined') {
-        const workspace = localStorage.getItem('workspace');
-        return workspace ? JSON.parse(workspace) : null;
-    }
-    return null;
+  return isBrowser ? memoryWorkspace : null;
 };
 
+/* ---------------- AUTH ---------------- */
+
 export const isAuthenticated = () => {
-    return !!getToken();
+  if (!isBrowser) return false;
+  return !!getUser();
 };
 
 export const logout = () => {
-    removeToken();
-    if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+  removeToken();
+  if (isBrowser) {
+    // Delete cookies via api first if possible, then redirect
+    import('@/lib/api')
+      .then((mod) => {
+        const api = mod.default || mod;
+        return api.logout();
+      })
+      .catch((err) => {
+        console.error("API logout failed, performing fallback:", err);
+      })
+      .finally(() => {
+        window.location.replace("/login");
+      });
+  }
+};
+
+/*Admin backup helpers*/
+export const setAdminBackup = (adminToken) => {
+  if (typeof window !== 'undefined' && adminToken) {
+    // only set if not already present (prevent overwriting)
+    if (!localStorage.getItem('admin_backup_token')) {
+      localStorage.setItem('admin_backup_token', adminToken);
     }
+  }
+};
+
+export const getAdminBackup = () => {
+  // admin backup tokens are handled as cookies, not accessible via JS
+  return null;
+};
+
+export const clearAdminBackup = () => {
+  // Handled on backend
+};
+export const getWorkspaceIdFromToken = () => {
+  if (!isBrowser) return null;
+  return memoryWorkspace?.id || null;
+};
+
+/* ---------------- HEADERS ---------------- */
+
+/* Use this for admin-only API calls (prefers admin backup token) */
+export const adminAuthHeader = () => {
+  return {};
+};
+export const authHeader = () => {
+  return {};
+};
+/* Restore admin token as active token (exit impersonation) */
+export const backupAdminToken = () => {
+  // Handled on the backend when starting the impersonation session
+};
+
+export const restoreAdminToken = () => {
+  // Handled on the backend via the /auth/stop-impersonation endpoint
+  return true;
 };

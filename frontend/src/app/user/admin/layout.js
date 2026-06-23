@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Poppins } from 'next/font/google';
 import Link from 'next/link';
+import api from '@/lib/api';
 import {
     Sparkles,
     LayoutDashboard,
     MessageSquare,
+    Zap,
     Send,
     CheckCircle2,
     TrendingUp,
@@ -24,35 +28,39 @@ import {
     Wand2,
     Plug,
     Calendar as CalendarIcon,
-    Mail
+    Mail,
+    Coins
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { getUser, getWorkspace, logout } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import GlobalAIChat from '@/components/AIChat';
 import SettingsModal from '@/components/SettingsModal';
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
+import { RealtimeProvider } from '@/context/RealtimeContext';
+import CreditRingDropdown from '@/components/CreditRingDropdown';
 
 const MAIN_NAV_ITEMS = [
-    { label: 'Home', icon: LayoutDashboard, href: '/user/admin/dashboard' },
-    { label: 'Auromind AI', icon: Sparkles, href: '/user/admin/ai' },
-    { label: 'Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
-    { label: 'Calendar', icon: CalendarIcon, href: '/user/admin/calendar' },
-    { label: 'Email', icon: Mail, href: '/user/admin/email' },
-    { label: 'Leads / CRM', icon: Users, href: '/user/admin/leads' },
-    { label: 'Tasks & Follow-ups', icon: Send, href: '/user/admin/followups' },
-    { label: 'Meetings & Promises', icon: CheckCircle2, href: '/user/admin/promises' },
+    { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
+    { label: 'AI Workspace', icon: Sparkles, href: '/user/admin/ai' },
     { label: 'Brain', icon: Brain, href: '/user/admin/brain' },
-    { label: 'Marketing', icon: TrendingUp, href: '/user/admin/marketing' },
-    { label: 'Flows & Templates', icon: Wand2, href: '/user/admin/flows' },
+    { label: 'Omni-Inbox', icon: MessageSquare, href: '/user/admin/inbox' },
+    { label: 'Automations', icon: Zap, href: '/user/admin/automation' },
+    { label: 'Leads & CRM', icon: Users, href: '/user/admin/leads' },
     { label: 'Channels', icon: Share2, href: '/user/admin/channels' },
+    { label: 'Templates', icon: FileText, href: '/user/admin/templates' },
+    { label: 'Credits & Wallet', icon: Coins, href: '/user/admin/credits' },
+    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
 ];
 
 const SYSTEM_NAV_ITEMS = [
-    { label: 'Integrations', icon: Plug, href: '/user/admin/integrations' },
-    { label: 'Automation', icon: Wand2, href: '/user/admin/automation' },
-    { label: 'Billing', icon: CreditCard, href: '/user/admin/billing' },
-    { label: 'Settings', icon: Settings, href: '/user/admin/settings' },
+    // Settings logic is handled via handleClick in renderNavItem
+    { label: 'Settings', icon: Settings, href: '#' },
 ];
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
 
 export default function AdminLayout({ children }) {
     return (
@@ -65,34 +73,51 @@ export default function AdminLayout({ children }) {
 function AdminLayoutContent({ children }) {
     const router = useRouter();
     const pathname = usePathname();
-    const [user, setUser] = useState(null);
-    const [workspace, setWorkspace] = useState(null);
+    const { user, workspaces, workspaceId, loading, logout } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
-    const [isLoading, setIsLoading] = useState(true);
+
+    const workspace = workspaces.find(w => w.id === workspaceId) || null;
+
+    const handleStopImpersonation = async () => {
+        try {
+            await api.stopImpersonation();
+            window.location.href = '/admin';
+        } catch (err) {
+            console.error("Stop impersonation failed:", err);
+        }
+    };
+
+    const handleLogout = async () => {
+        await logout();
+    };
 
     useEffect(() => {
-        const checkAuth = () => {
-            const currentUser = getUser();
-            const currentWorkspace = getWorkspace();
+        if (!loading && !user) {
+            console.warn("🚫 No current user found, redirecting to login");
+            router.push('/login');
+        }
+    }, [user, loading, router]);
 
-            if (!currentUser) {
-                router.push('/login');
-                return;
-            }
-
-            setUser(currentUser);
-            setWorkspace(currentWorkspace);
-            setIsLoading(false);
+    // app/layout.js or _app.js
+    useEffect(() => {
+        window.fbAsyncInit = function () {
+            FB.init({
+                appId: process.env.NEXT_PUBLIC_FB_APP_ID,
+                cookie: true,
+                xfbml: true,
+                version: 'v19.0'
+            });
         };
-        // Defer to next tick to satisfy linter
-        const timeout = setTimeout(checkAuth, 0);
-        return () => clearTimeout(timeout);
-    }, [router]);
 
-    const handleLogout = () => {
-        logout();
-        router.push('/login');
-    };
+        // Load SDK
+        (function (d, s, id) {
+            if (d.getElementById(id)) return;
+            const js = d.createElement(s);
+            js.id = id;
+            js.src = "https://connect.facebook.net/en_US/sdk.js";
+            d.getElementsByTagName('head')[0].appendChild(js);
+        })(document, 'script', 'facebook-jssdk');
+    }, []);
 
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const isAIPage = pathname && (pathname === '/user/admin/ai' || pathname.includes('/admin/ai'));
@@ -116,30 +141,41 @@ function AdminLayoutContent({ children }) {
                 key={item.href}
                 href={item.href}
                 onClick={handleClick}
-                className={`flex items-center gap-2.5 px-3 py-1 rounded-[4px] text-sm group select-none transition-colors duration-150
+                className={`relative flex items-center gap-2.5 px-3 py-[7px] rounded-[6px] text-sm group select-none
+                    transition-all duration-150 active:scale-[0.97] active:opacity-80
                     ${isActive
-                        ? 'bg-[var(--notion-active)] text-white font-medium'
-                        : 'text-[#9b9b9b] hover:bg-[var(--notion-hover)] hover:text-white'}
+                        ? 'bg-white/10 text-white font-medium shadow-sm'
+                        : 'text-[#9b9b9b] hover:bg-white/5 hover:text-white'}
                 `}
             >
-                <Icon size={16} strokeWidth={2} className={`${isActive ? 'text-white' : 'text-[#7e7e7e] group-hover:text-white'}`} />
-                {item.label}
+                {isActive && (
+                    <motion.span
+                        layoutId="sidebar-active-pill"
+                        className="absolute inset-0 rounded-[6px] bg-white/10 pointer-events-none"
+                        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+                    />
+                )}
+                <Icon size={16} strokeWidth={2} className={`relative z-10 transition-colors duration-150 ${isActive ? 'text-white' : 'text-[#7e7e7e] group-hover:text-white'}`} />
+                <span className="relative z-10">{item.label}</span>
             </Link>
         );
     };
 
-    if (isLoading || !user) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-[#191919] p-6">
-                <div className="w-full max-w-sm space-y-4">
-                    <div className="h-4 w-3/4 rounded-full shimmer-container shimmer-bg mx-auto" />
-                    <div className="h-4 w-1/2 rounded-full shimmer-container shimmer-bg mx-auto" />
-                    <div className="h-4 w-2/3 rounded-full shimmer-container shimmer-bg mx-auto" />
-                </div>
-            </div>
-        );
-    }
 
+if (loading) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-[#191919] p-6">
+            <div className="w-full max-w-sm space-y-4">
+                <div className="h-4 w-3/4 rounded-full shimmer-container shimmer-bg mx-auto" />
+                <div className="h-4 w-1/2 rounded-full shimmer-container shimmer-bg mx-auto" />
+                <div className="h-4 w-2/3 rounded-full shimmer-container shimmer-bg mx-auto" />
+            </div>
+        </div>
+    );
+}
+if (!user) {
+    return null; 
+}
     const isFullScreenPage = pathname && (
         pathname === '/user/admin/ai' ||
         pathname.startsWith('/user/admin/ai/') ||
@@ -151,77 +187,109 @@ function AdminLayoutContent({ children }) {
         pathname.startsWith('/user/admin/flows/') ||
         pathname === '/user/admin/automation' ||
         pathname.startsWith('/user/admin/automation/') ||
-        pathname === '/user/admin/dashboard'
+        pathname === '/user/admin/dashboard' ||
+        pathname === '/user/admin/brain' ||
+        pathname.startsWith('/user/admin/brain/') ||
+        pathname === '/user/admin/channels' ||
+        pathname.startsWith('/user/admin/channels/')
     );
 
     return (
-        <div className="flex min-h-screen bg-[var(--notion-bg)] text-[var(--notion-text)] font-sans relative">
+        <RealtimeProvider user={user} workspace={workspace}>
+        <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
             {/* Desktop Sidebar */}
             <aside
-                className="hidden md:flex w-[260px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10"
+                className={`${poppins.className} hidden md:flex w-[320px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
             >
-                {/* ... sidebar content ... */}
-                <div className="h-14 flex items-center px-4 hover:bg-[var(--notion-hover)] cursor-pointer m-1 rounded-[4px] transition-colors">
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                        <div className="w-5 h-5 rounded-[4px] bg-indigo-500 flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
-                            {workspace?.name?.charAt(0) || 'A'}
-                        </div>
-                        <span className="font-medium text-sm truncate text-[#D4D4D4]">{workspace?.name || 'Auromind'}</span>
-                        <ChevronDown size={14} className="text-[#9b9b9b] flex-shrink-0 ml-auto" />
+                {/* Profile Section */}
+                <div className="flex items-center gap-3 px-5 pt-6 pb-5">
+                    <div className="w-11 h-11 rounded-full flex-shrink-0 overflow-hidden bg-orange-500 flex items-center justify-center text-sm text-white font-bold border-2 border-white/10">
+                        {user?.email?.charAt(0)?.toUpperCase()}
                     </div>
+                    <span className="font-semibold text-[17px] text-white truncate">{user?.full_name || user?.name || 'User'}</span>
                 </div>
 
-                <div className="px-3 mb-2">
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] border border-[var(--notion-border)] bg-[#202020] shadow-sm text-sm text-[#9b9b9b] hover:bg-[var(--notion-hover)] cursor-pointer h-9 transition-colors">
+                {/* Search */}
+                <div className="px-4 mb-4">
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#202020] border border-[var(--notion-border)] text-sm text-[#9b9b9b] cursor-pointer hover:bg-[var(--notion-hover)] transition-colors">
                         <Search size={14} />
-                        <span className="flex-1">Search</span>
-                        <kbd className="text-[10px] border border-[#2f2f2f] rounded px-1.5 py-0.5 bg-[#252525] text-[#787878]">⌘K</kbd>
+                        <span>Search</span>
                     </div>
                 </div>
 
-                <div className="flex-1 px-2 overflow-y-auto custom-scrollbar">
-                    <div className="space-y-6 py-2">
-                        <div className="space-y-0.5">
-                            {MAIN_NAV_ITEMS.map(item => renderNavItem(item))}
-                        </div>
-                        <div className="space-y-0.5">
-                            <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mt-4 mb-1">
-                                System
-                            </div>
-                            {SYSTEM_NAV_ITEMS.map(item => renderNavItem(item))}
-                        </div>
+                {/* Nav Items */}
+                <div className="flex-1 px-3 overflow-y-auto custom-scrollbar">
+                    <div className="space-y-0.5">
+                        {MAIN_NAV_ITEMS.map(item => renderNavItem(item))}
+                    </div>
+                    <div className="mt-6 space-y-0.5">
+                        <div className="px-3 py-1 text-xs font-medium text-[#555] mb-1">System</div>
+                        {SYSTEM_NAV_ITEMS.map(item => renderNavItem(item))}
                     </div>
                 </div>
 
-                <div className="p-2 border-t border-[var(--notion-border)] mt-auto">
-                    <div className="flex items-center gap-3 px-2 py-1.5 rounded-[4px] hover:bg-[var(--notion-hover)] cursor-pointer group transition-colors">
-                        <div className="w-5 h-5 rounded-[4px] bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold">
-                            {user.email?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm text-[#D4D4D4] truncate">{user.name || 'User'}</p>
-                        </div>
-                        <button onClick={handleLogout} className="text-[#9b9b9b] opacity-0 group-hover:opacity-100 hover:text-[#D4D4D4] transition-opacity">
-                            <LogOut size={14} />
+                <div className="p-4 border-t border-[var(--notion-border)] space-y-2">
+                    {user?.impersonated && (
+                        <button
+                            onClick={handleStopImpersonation}
+                            className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-sm transition-colors border border-indigo-500/20"
+                        >
+                            <Shield size={14} />
+                            <span>Back to Admin</span>
                         </button>
-                    </div>
+                    )}
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2.5 px-2 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full"
+                    >
+                        <LogOut size={14} />
+                        Log out
+                    </button>
                 </div>
             </aside>
 
-            {/* Mobile Mobile Drawer (Sheet) */}
+            {/* Mobile Drawer (Sheet) */}
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                 <SheetContent side="left" className="p-0 w-[300px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
-                    <div className="flex flex-col h-full bg-[#050505]">
+                    <div className={`${poppins.className} flex flex-col h-full bg-[#0f0f12]`}>
+                        {/* Workspace Brand */}
                         <div className="h-14 flex items-center px-4 border-b border-white/5">
-                            <span className="font-medium text-sm text-[#D4D4D4]">Menu</span>
-                        </div>
-                        <div className="flex-1 px-2 py-4 overflow-y-auto">
-                            <div className="space-y-0.5">
-                                {MAIN_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                                <div className="w-5 h-5 rounded-[4px] bg-indigo-500 flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
+                                    {workspace?.name?.charAt(0) || 'A'}
+                                </div>
+                                <span className="font-medium text-sm truncate text-[#D4D4D4]">{workspace?.name || 'Auromind'}</span>
                             </div>
-                            <div className="mt-6 space-y-0.5">
-                                <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mb-1">System</div>
-                                {SYSTEM_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                        </div>
+
+                        {/* Navigation */}
+                        <div className="flex-1 px-2 py-4 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-6">
+                                <div className="space-y-0.5">
+                                    {MAIN_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                                </div>
+                                <div className="space-y-0.5">
+                                    <div className="px-3 py-1.5 text-xs font-medium text-[#787878] mb-1">
+                                        System
+                                    </div>
+                                    {SYSTEM_NAV_ITEMS.map((item) => renderNavItem(item, true))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* User Profile */}
+                        <div className="p-3 border-t border-white/5 bg-[#141418]">
+                            <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                                <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-xs text-white font-bold">
+                                    {user?.email?.charAt(0)?.toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-[#D4D4D4] font-medium truncate">{user?.full_name || user?.name || 'User'}</p>
+                                    <p className="text-[10px] text-[#555] truncate">{user?.email}</p>
+                                </div>
+                                <button onClick={handleLogout} className="text-[#9b9b9b] hover:text-white transition-colors p-1">
+                                    <LogOut size={16} />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -229,28 +297,56 @@ function AdminLayoutContent({ children }) {
             </Sheet>
 
             {/* Main Content Area */}
-            <main className="flex-1 min-w-0 bg-[var(--notion-bg)] flex flex-col min-h-screen overflow-hidden">
-                {/* Mobile Header */}
-                <div className="md:hidden flex items-center h-14 px-4 border-b border-[var(--notion-border)] bg-[var(--notion-bg)]/80 backdrop-blur-md sticky top-0 z-50">
-                    <button onClick={() => setIsMobileOpen(true)} className="p-2 -ml-2 rounded-[4px] hover:bg-[var(--notion-hover)] transition-colors">
-                        <Menu size={20} className="text-[#D4D4D4]" />
-                    </button>
-                    <span className="ml-3 font-medium text-sm text-[#D4D4D4]">Auromind</span>
-                </div>
-
-                {isFullScreenPage ? (
-                    <div className="w-full flex-1 flex flex-col overflow-hidden">
-                        {children}
-                    </div>
-                ) : (
-                    <div className="w-full max-w-[1200px] mx-auto p-4 md:p-12 md:pt-24 h-full overflow-y-auto custom-scrollbar">
-                        {children}
+            <main className="flex-1 min-w-0 flex flex-col min-h-screen relative overflow-hidden bg-[var(--notion-bg)]">
+                {/* Impersonation Banner */}
+                {user?.impersonated && (
+                    <div className="bg-indigo-600 px-4 py-2 flex items-center justify-between text-white text-xs font-bold z-[60] shadow-lg animate-in slide-in-from-top duration-300">
+                        <div className="flex items-center gap-2">
+                            <Shield size={14} className="animate-pulse" />
+                            <span>SECRET LOGIN MODE: Impersonating {user?.full_name || user?.name || user?.email}</span>
+                        </div>
+                        <button 
+                            onClick={handleStopImpersonation}
+                            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md transition-colors border border-white/10"
+                        >
+                            Exit & Return to Admin
+                        </button>
                     </div>
                 )}
-            </main>
 
-            {/* Settings Modal */}
-            {/* ... */}
+                {/* Mobile Top Navigation */}
+                <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-[var(--notion-border)] bg-[var(--notion-bg)]/80 backdrop-blur-md sticky top-0 z-50">
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setIsMobileOpen(true)} 
+                            className="p-2 -ml-2 rounded-lg hover:bg-[var(--notion-hover)] transition-colors active:scale-95"
+                        >
+                            <Menu size={20} className="text-[#D4D4D4]" />
+                        </button>
+                        <span className="font-semibold text-sm text-[#D4D4D4] tracking-tight">Auromind</span>
+                    </div>
+                    
+                    {/* Compact Profile Circle for Mobile Header */}
+                    <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center text-[10px] text-white font-bold border border-white/10">
+                        {user?.email?.charAt(0)?.toUpperCase()}
+                    </div>
+                </div>
+
+                <div className={`w-full flex-1 flex flex-col overflow-hidden ${isFullScreenPage ? '' : 'overflow-y-auto custom-scrollbar'}`}>
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={pathname}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                            className="flex-1 flex flex-col h-full"
+                        >
+                            {children}
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
+            </main>
 
             {/* Settings Modal */}
             <SettingsModal
@@ -263,5 +359,6 @@ function AdminLayoutContent({ children }) {
             {/* Global AI Chat - Hidden on Auromind AI page */}
             {pathname !== '/user/admin/ai' && <GlobalAIChat />}
         </div>
+        </RealtimeProvider>
     );
 }

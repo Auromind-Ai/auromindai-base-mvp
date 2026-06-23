@@ -1,22 +1,328 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Float, Boolean, JSON
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
 
+
+# AI ACTIONS (MCP LOG)
 class AIAction(Base):
     __tablename__ = "ai_actions"
     
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    workspace_id = Column(String(36), ForeignKey("workspaces.id", ondelete="CASCADE"))
-    action_type = Column(String(100), nullable=False)  # followup, marketing_suggestion, promise_detection
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        index=True
+    )
+
+    action_type = Column(String(100), nullable=False)
+
     intent = Column(Text)
-    intent_raw = Column(Text) # The raw input or prompt that triggered the action
+    intent_raw = Column(Text)
+
     confidence = Column(Float)
-    mcp_decision = Column(String(50))  # allow, escalate, block
+
+    mcp_decision = Column(String(50))
     mcp_reason = Column(Text)
-    rule_results = Column(JSON) # Detailed breakdown of which rules were evaluated and their results
-    context_refs = Column(JSON) # References to Brain entries or other context used
-    execution_status = Column(String(50), default="pending") # pending, executed, failed, blocked
+
+    rule_results = Column(JSON)
+    context_refs = Column(JSON)
+
+    execution_status = Column(String(50), default="pending")
+
     human_override = Column(Boolean, default=False)
+
     action_metadata = Column(JSON)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    workspace = relationship("Workspace", back_populates="ai_actions")
+
+
+
+# CONVERSATION STATE
+class ConversationState(Base):
+    __tablename__ = "conversation_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "conversation_id",
+            name="uq_conversation_states_workspace_conversation",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    current_stage = Column(String(50))  
+    # lead / sales / followup / support
+
+    last_intent = Column(String(255))
+    last_agent = Column(String(100))
+
+    human_takeover = Column(Boolean, default=False)
+    ai_paused_at = Column(DateTime(timezone=True), nullable=True)
+
+    followup_count = Column(Integer, default=0)
+
+    # Repeat detection
+    repeat_count = Column(Integer, default=0)
+    last_message_hash = Column(String(64))
+
+    updated_at = Column(
+    DateTime(timezone=True),
+    server_default=func.now(),
+    onupdate=func.now()
+)
+
+
+# LEADS
+class Lead(Base):
+    __tablename__ = "leads"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "conversation_id", name="uq_leads_scope"),
+    )
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    name = Column(String(255))
+    phone = Column(String(50), index=True, nullable=True)
+    source = Column(String(100), nullable=True)  # whatsapp / instagram / sms / web
+    requirement = Column(Text)
+    budget = Column(String(100))
+    timeline = Column(String(100))
+    # Advanced CRM properties
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id")
+    )
+
+    # Dynamic Business Fields
+    custom_fields = Column(JSON, default=dict)
+
+    # Archival
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    archive_location = Column(String, nullable=True)
+
+    # Business
+    business_type = Column(String(255))
+    product_type = Column(String(255))
+
+    # Goal
+    goal = Column(Text)
+
+    # Qualification
+    qualification = Column(String(50))
+    lead_score = Column(Float, default=0)
+    is_favorite = Column(Boolean, default=False, nullable=False, server_default="false")
+
+
+    # --- Lead Scoring fields (agnostic) ---
+    status = Column(
+        String(50), default="new", index=True
+    )  # new | active | converted | lost
+
+    current_node = Column(Integer, default=0)
+    total_nodes = Column(Integer, default=0)
+    score = Column(Integer, default=0, index=True)
+    behavioral_score = Column(Integer, default=0)
+    semantic_intent_score = Column(Integer, default=0)
+    lead_tier = Column(String(50), default="cold")
+    labels = Column(JSON, default=list, nullable=True)
+
+    intent_signals = Column(
+        JSON,
+        nullable=True
+)
+    budget_min = Column(Numeric(12, 2), nullable=True)
+    budget_max = Column(Numeric(12, 2), nullable=True)
+    budget_raw = Column(String(255), nullable=True)
+
+    template_attempts = Column(Integer, default=0)
+
+    last_activity_at = Column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    assigned_to = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )  # null = AI, user_id = human
+
+    conversion_amount = Column(Numeric(12, 2), nullable=True)
+    converted_at = Column(DateTime(timezone=True), nullable=True)
+    is_converted = Column(Boolean, default=False, nullable=False)
+    converted_product = Column(String(255), nullable=True)
+    conversion_notes = Column(Text, nullable=True)
+    # Demo Booking
+    demo_requested = Column(Boolean, default=False)
+
+    meeting_date = Column(DateTime(timezone=True))
+    meeting_link = Column(Text)
+
+    # Payment
+    payment_status = Column(String(50))
+    payment_link = Column(Text)
+
+    # AI
+    last_agent = Column(String(100))
+    ai_summary = Column(Text)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+
+# SALES PIPELINE
+class SalesPipeline(Base):
+    __tablename__ = "sales_pipeline"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "conversation_id",
+            name="uq_sales_pipeline_scope",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    stage = Column(String(50))  
+    
+    intent = Column(String(255))
+    lead_score = Column(String(50))  # e.g., hot, warm, cold
+    confidence_score = Column(Float)
+    
+    objection_detected = Column(Boolean, default=False)
+    payment_required = Column(Boolean, default=False)
+    meeting_required = Column(Boolean, default=False)
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+
+# SUPPORT TICKETS
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    issue_type = Column(String(100))
+    status = Column(String(50))  # open / resolved
+
+    description = Column(Text)
+
+    customer_name = Column(String(255), nullable=True)
+    customer_contact = Column(String(255), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# HUMAN ESCALATION
+class HumanEscalation(Base):
+    __tablename__ = "human_escalations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    channel = Column(String(50))
+    message = Column(Text)
+
+    reason = Column(Text)
+    status = Column(String(50))  # pending / resolved
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    assigned_to = Column(UUID(as_uuid=True))
+
+    priority = Column(String(50), default="normal")
+
+    resolved_at = Column(DateTime(timezone=True))
+
+    resolution_notes = Column(Text)

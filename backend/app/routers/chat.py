@@ -1,154 +1,158 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from pydantic import BaseModel
+from app.schemas.chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, UpdateSessionRequest, ChatStreamRequest, ChatQueryRequest
+from uuid import UUID
+import logging
 from app.database import get_db
 from app.routers.auth import get_current_user
-from app.models.conversation import ChatSession, ChatMessage
-import uuid
-import logging
+from app.core.security import verify_workspace_access
+from app.core.chat_provider import get_chat_service
+from app.core.exceptions import BillingError
+from app.services.ai.chat_service import ChatService
+from app.services.inbox.session_service import SessionService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-
 logger = logging.getLogger(__name__)
 
-# Pydantic Models
-class ChatSessionCreate(BaseModel):
-    title: Optional[str] = "New Chat"
-    workspace_id: str
-
-class ChatSessionResponse(BaseModel):
-    id: str
-    title: Optional[str]
-    created_at: str
-    updated_at: Optional[str]
-    workspace_id: str
-
-class ChatMessageResponse(BaseModel):
-    id: str
-    role: str
-    content: str
-    created_at: str
-
-class UpdateSessionRequest(BaseModel):
-    title: str
-
-# Endpoints
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])
-async def get_sessions(
-    workspace_id: str,
-    skip: int = 0, 
-    limit: int = 50, 
+def get_sessions(
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """List all chat sessions for a workspace."""
-    sessions = db.query(ChatSession).filter(
-        ChatSession.workspace_id == workspace_id,
-        ChatSession.user_id == current_user.id
-    ).order_by(ChatSession.updated_at.desc()).offset(skip).limit(limit).all()
-    
-    # Convert datetime to string
-    return [
-        ChatSessionResponse(
-            id=s.id,
-            title=s.title,
-            created_at=str(s.created_at),
-            updated_at=str(s.updated_at),
-            workspace_id=s.workspace_id
-        ) for s in sessions
-    ]
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[GET SESSIONS] user={current_user.id} workspace={workspace_id}")
+    return SessionService.get_sessions(db, str(current_user.id), str(workspace_id), skip, limit)
+
 
 @router.post("/sessions", response_model=ChatSessionResponse)
-async def create_session(
+def create_session(
     request: ChatSessionCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """Create a new chat session."""
-    session = ChatSession(
-        id=str(uuid.uuid4()),
-        workspace_id=request.workspace_id,
-        user_id=current_user.id,
-        title=request.title
-    )
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    
-    return ChatSessionResponse(
-        id=session.id,
-        title=session.title,
-        created_at=str(session.created_at),
-        updated_at=str(session.updated_at),
-        workspace_id=session.workspace_id
-    )
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[CREATE SESSION] user={current_user.id} workspace={workspace_id}")
+    return SessionService.create_session(db, str(current_user.id), str(workspace_id), request.title)
+
 
 @router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
-async def get_session_messages(
-    session_id: str,
+def get_session_messages(
+    session_id: UUID,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """Get all messages for a specific session."""
-    # Verify ownership
-    session = db.query(ChatSession).filter(
-        ChatSession.id == session_id,
-        ChatSession.user_id == current_user.id
-    ).first()
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-        
-    messages = db.query(ChatMessage).filter(
-        ChatMessage.session_id == session_id
-    ).order_by(ChatMessage.created_at.asc()).all()
-    
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[GET MESSAGES] user={current_user.id} session={session_id}")
+    session = SessionService.get_session_or_404(db, session_id, str(current_user.id), str(workspace_id))
+    messages = SessionService.get_messages(db, session.id)
     return [
         ChatMessageResponse(
-            id=m.id,
-            role=m.role,
-            content=m.content,
-            created_at=str(m.created_at)
-        ) for m in messages
+            id=m.id, role=m.role, content=m.content, created_at=m.created_at
+        )
+        for m in messages
     ]
 
+
 @router.delete("/sessions/{session_id}")
-async def delete_session(
-    session_id: str,
+def delete_session(
+    session_id: UUID,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """Delete a chat session."""
-    session = db.query(ChatSession).filter(
-        ChatSession.id == session_id,
-        ChatSession.user_id == current_user.id
-    ).first()
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-        
-    db.delete(session)
-    db.commit()
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.warning(f"[DELETE SESSION] user={current_user.id} session={session_id}")
+    session = SessionService.get_session_or_404(db, session_id, str(current_user.id), str(workspace_id))
+    SessionService.delete_session(db, session)
     return {"message": "Session deleted"}
 
+
 @router.patch("/sessions/{session_id}")
-async def update_session_title(
-    session_id: str,
+def update_session_title(
+    session_id: UUID,
     request: UpdateSessionRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(get_current_user)
+    current_user=Depends(get_current_user),
 ):
-    """Update session title."""
-    session = db.query(ChatSession).filter(
-        ChatSession.id == session_id,
-        ChatSession.user_id == current_user.id
-    ).first()
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-        
-    session.title = request.title
-    db.commit()
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[UPDATE SESSION] user={current_user.id} session={session_id} title={request.title}")
+    session = SessionService.get_session_or_404(db, session_id, str(current_user.id), str(workspace_id))
+    SessionService.update_title(db, session, request.title)
     return {"message": "Session updated", "title": session.title}
+
+
+@router.post("/query")
+async def chat_query(
+    request: ChatQueryRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    service: ChatService = Depends(get_chat_service),
+):
+    try:
+        workspace_id = verify_workspace_access(current_user, db)
+        return await service.handle_chat_query(
+            db=db,
+            message=request.message,
+            workspace_id=str(workspace_id),
+            user_id=str(current_user.id),
+        )
+    except Exception as e:
+        logger.error(f"[CHAT QUERY] error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/stream")
+async def stream_chat(
+    request: ChatStreamRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    service: ChatService = Depends(get_chat_service),
+):
+    logger.info(f" RAW MODEL FROM REQUEST: {request.model}")
+    workspace_id = verify_workspace_access(current_user, db)
+    logger.info(f"[STREAM CHAT] user={current_user.id} workspace={workspace_id} session={request.session_id}")
+    try:
+        preflight = await service.validate_and_reserve_stream_tokens(
+            db=db,
+            message=request.message,
+            workspace_id=str(workspace_id),
+            session_id=request.session_id,
+            use_rag=request.use_rag,
+            user_id=str(current_user.id),
+            model=request.model,
+            document_id=request.document_id,
+        )
+    except BillingError as e:
+        raise HTTPException(status_code=402, detail=str(e))
+    except Exception as e:
+        logger.error(f"[STREAM CHAT] preflight error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        return StreamingResponse(
+            service.handle_stream_chat(
+                preflight=preflight,
+                message=request.message,
+                workspace_id=str(workspace_id),
+                session_id=request.session_id,
+                use_rag=request.use_rag,
+                model = request.model if request.model else "auto",
+                user_id=str(current_user.id),
+                document_id=request.document_id,
+                chat_mode=request.chat_mode,
+                source=request.source,
+            ),
+            media_type="application/x-ndjson",
+        )
+    except Exception as e:
+        logger.error(f"[STREAM CHAT] error: {e}")
+        if preflight and preflight.get("status") == "ok" and "reservation_id" in preflight:
+            try:
+                service._release_token_reservation(db, preflight["reservation_id"], f"router_error:{type(e).__name__}")
+            except Exception as release_err:
+                logger.error(f"Failed to defensively release reservation in router: {release_err}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,131 @@
+from app.core.logger import logger
+from datetime import datetime
+from app.models import HumanEscalation
+import uuid
+
+
+class EscalationQueue:
+
+    def __init__(self, db=None):
+        self.logger = logger
+        self.db = db
+
+        # fallback (only for dev)
+        self.queue = []
+
+        self.logger.info("EscalationQueue initialized")
+
+    #  ADD ESCALATION
+    def add(self, data):
+        try:
+            conversation_id = data.get("conversation_id")
+            escalation_data = {
+                "id": uuid.uuid4().hex,
+                "user_id": data.get("user_id"),
+                "conversation_id": conversation_id,
+                "workspace_id": data.get("workspace_id"),
+                "reason": data.get("reason"),
+                "status": "pending",
+            }
+
+            # DB MODE (CORRECT)
+            if self.db:
+                escalation = HumanEscalation(
+                    user_id=self._maybe_uuid(escalation_data["user_id"]),
+                    conversation_id=conversation_id,
+                    reason=escalation_data["reason"],
+                    status="pending",
+                    workspace_id=escalation_data["workspace_id"],
+                    channel=data.get("channel"),
+                    message=data.get("message"),
+                )
+
+                self.db.add(escalation)
+                self.db.commit()
+                self.db.refresh(escalation)
+
+                try:
+                    from app.services.notification_service import NotificationService
+                    NotificationService.notify_workspace(
+                        db=self.db,
+                        workspace_id=escalation_data["workspace_id"],
+                        type="ai_agent_event",
+                        title="Human Escalation Triggered",
+                        message=f"Conversation escalated. Reason: {escalation_data['reason']}"
+                    )
+                except Exception as notif_exc:
+                    self.logger.error(f"Failed to send escalation notification: {notif_exc}")
+
+            else:
+                escalation = escalation_data
+                self.queue.append(escalation)
+
+            self.logger.info(
+                "Escalation added",
+                extra={
+                    "user_id": escalation_data["user_id"],
+                    "conversation_id": conversation_id,
+                    "workspace_id": escalation_data["workspace_id"],
+                }
+            )
+
+            return escalation
+
+        except Exception as e:
+            if self.db:
+                self.db.rollback()
+
+            self.logger.error("Error adding escalation", exc_info=True)
+            return None
+
+    @staticmethod
+    def _maybe_uuid(value):
+        if value is None:
+            return None
+        try:
+            return uuid.UUID(str(value))
+        except (TypeError, ValueError):
+            return None
+
+    # # GET PENDING
+    # def get_pending(self):
+    #     try:
+    #         if self.db:
+    #             return self.db.query(HumanEscalation).filter(
+    #                 HumanEscalation.status == "pending"
+    #             ).all()
+
+    #         return [e for e in self.queue if e["status"] == "pending"]
+
+    #     except Exception as e:
+    #         self.logger.error("Error fetching escalations", exc_info=True)
+    #         return []
+
+    # # MARK RESOLVED
+    # def mark_resolved(self, escalation_id):
+    #     try:
+    #         if self.db:
+    #             escalation = self.db.query(HumanEscalation).filter(
+    #                 HumanEscalation.id == escalation_id
+    #             ).first()
+
+    #             if escalation:
+    #                 escalation.status = "resolved"
+    #                 self.db.commit()
+    #                 return True
+
+    #             return False
+
+    #         # fallback
+    #         for item in self.queue:
+    #             if item.get("id") == escalation_id:
+    #                 item["status"] = "resolved"
+
+    #         return True
+
+    #     except Exception as e:
+    #         if self.db:
+    #             self.db.rollback()
+
+    #         self.logger.error("Error resolving escalation", exc_info=True)
+    #         return False
