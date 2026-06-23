@@ -62,9 +62,20 @@ app = FastAPI(
 register_exception_handlers(app)
 
 # Middleware
+allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+fallback_origins = [
+    "https://growwdigitel.cloud",
+    "http://growwdigitel.cloud",
+    "https://www.growwdigitel.cloud",
+    "http://www.growwdigitel.cloud",
+]
+for origin in fallback_origins:
+    if origin not in allowed_origins:
+        allowed_origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
