@@ -32,17 +32,17 @@ const STAT_CFG = [
   { key: 'pending',  label: 'Pending',         Icon: Clock,       color: '#fb923c', iconBg: 'rgba(251,146,60,0.12)',  pct: 3  },
   { key: 'approved', label: 'Approved',        Icon: CheckCircle, color: '#34d399', iconBg: 'rgba(52,211,153,0.12)',  pct: 5  },
   { key: 'rejected', label: 'Rejected',        Icon: AlertCircle, color: '#f87171', iconBg: 'rgba(248,113,113,0.12)', pct: 2  },
-  { key: 'action',   label: 'Action Required', Icon: Bell,        color: '#a78bfa', iconBg: 'rgba(167,139,250,0.12)', pct: 8  },
+  { key: 'action',   label: 'Action Required', Icon: Bell,        color: '#C49FE0', iconBg: 'rgba(167,139,250,0.12)', pct: 8  },
 ];
 
 const CARD_ICONS = [
-  { Icon: Rocket,        grad: 'linear-gradient(135deg,#2d1b69 0%,#5b21b6 100%)', color: '#c4b5fd', glow: 'rgba(196,181,253,0.2)' },
+  { Icon: Rocket,        grad: 'linear-gradient(135deg,#3d1f7a 0%,#814AC8 100%)', color: '#c4b5fd', glow: 'rgba(196,181,253,0.2)' },
   { Icon: Gift,          grad: 'linear-gradient(135deg,#1e3a5f 0%,#1d4ed8 100%)', color: '#93c5fd', glow: 'rgba(147,197,253,0.2)' },
   { Icon: Zap,           grad: 'linear-gradient(135deg,#713f12 0%,#b45309 100%)', color: '#fde68a', glow: 'rgba(253,230,138,0.2)' },
   { Icon: ShoppingCart,  grad: 'linear-gradient(135deg,#064e3b 0%,#059669 100%)', color: '#6ee7b7', glow: 'rgba(110,231,183,0.2)' },
   { Icon: Bell,          grad: 'linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%)', color: '#fca5a5', glow: 'rgba(252,165,165,0.2)' },
   { Icon: Package,       grad: 'linear-gradient(135deg,#0c4a6e 0%,#0284c7 100%)', color: '#7dd3fc', glow: 'rgba(125,211,252,0.2)' },
-  { Icon: Sparkles,      grad: 'linear-gradient(135deg,#4a1d96 0%,#7c3aed 100%)', color: '#ddd6fe', glow: 'rgba(221,214,254,0.2)' },
+  { Icon: Sparkles,      grad: 'linear-gradient(135deg,#3d1f7a 0%,#814AC8 100%)', color: '#ddd6fe', glow: 'rgba(221,214,254,0.2)' },
   { Icon: Users,         grad: 'linear-gradient(135deg,#134e4a 0%,#0d9488 100%)', color: '#5eead4', glow: 'rgba(94,234,212,0.2)' },
   { Icon: Tag,           grad: 'linear-gradient(135deg,#1e1b4b 0%,#4338ca 100%)', color: '#a5b4fc', glow: 'rgba(165,180,252,0.2)' },
   { Icon: MessageSquare, grad: 'linear-gradient(135deg,#1a2e05 0%,#4d7c0f 100%)', color: '#bef264', glow: 'rgba(190,242,100,0.2)' },
@@ -248,7 +248,7 @@ const StatusPill = ({ status }) => {
 };
 
 const TypeTag = ({ type }) => (
-  <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-[#a78bfa] px-[9px] py-[3px] rounded-full bg-[rgba(124,58,237,0.15)] border border-[rgba(124,58,237,0.3)]">
+  <span className="text-[10px] font-bold tracking-[0.08em] uppercase text-[#814AC8] px-[9px] py-[3px] rounded-full bg-[rgba(124,58,237,0.15)] border border-[rgba(124,58,237,0.3)]">
     {type || 'text'}
   </span>
 );
@@ -298,18 +298,17 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       onClick={() => onPreview(tpl)}
-      className="rounded-[18px] transition-all duration-[220ms] ease-[ease] cursor-pointer relative overflow-hidden"
+      className={`rounded-[18px] transition-all duration-[220ms] ease-[ease] cursor-pointer relative overflow-hidden flex w-full ${
+        isList ? 'flex-col sm:flex-row sm:items-center' : 'flex-col items-center'
+      }`}
       style={{
         background: hov ? '#15152e' : '#0B001C',
         border: `1px solid ${hov ? '#2e2e60' : '#1e1e3f'}`,
-        padding: isList ? '16px 20px' : '26px 22px 22px',
-        display: 'flex',
-        flexDirection: isList ? 'row' : 'column',
-        alignItems: 'center',
-        gap: isList ? 16 : 18,
+        padding: isList ? '16px 18px' : '26px 22px 22px',
+        gap: isList ? 14 : 18,
         transform: hov ? 'translateY(-4px)' : 'translateY(0)',
         boxShadow: hov
-          ? '0 12px 40px rgba(124,58,237,0.18), 0 0 0 1px #2e2e60'
+          ? '0 12px 40px rgba(129,74,200,0.18), 0 0 0 1px #2e2e60'
           : '0 1px 4px rgba(0,0,0,0.3)',
         animation: `cardIn 0.4s ${idx * 40}ms both`,
       }}
@@ -338,25 +337,24 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
 
       {/* Content */}
       <div
-        className="flex-1 min-w-0 flex flex-col"
-        style={{
-          alignItems: isList ? 'flex-start' : 'center',
-          gap: isList ? 4 : 10,
-          textAlign: isList ? 'left' : 'center',
-        }}
+        className={`flex-1 min-w-0 w-full flex flex-col ${
+          isList ? 'items-center sm:items-start text-center sm:text-left' : 'items-center text-center'
+        }`}
+        style={{ gap: isList ? 4 : 10 }}
       >
         <h3
-          className="m-0 text-[15px] font-bold text-[#f0f0ff] tracking-[-0.01em] whitespace-nowrap overflow-hidden text-ellipsis w-full"
-          style={{ maxWidth: isList ? 280 : '100%' }}
+          className={`m-0 text-[15px] font-bold text-[#f0f0ff] tracking-[-0.01em] whitespace-nowrap overflow-hidden text-ellipsis w-full ${
+            isList ? 'max-w-full sm:max-w-[280px]' : 'max-w-full'
+          }`}
         >
           {tpl.name}
         </h3>
         <TypeTag type={tpl.type} />
         <p
-          className="m-0 text-[13px] text-[rgba(255,255,255,0.7)] leading-[1.65]"
+          className={`m-0 text-[13px] text-[rgba(255,255,255,0.7)] leading-[1.65] ${isList ? 'tpl-card-desc-list' : ''}`}
           style={
             isList
-              ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 400 }
+              ? undefined
               : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
           }
         >
@@ -366,11 +364,11 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
 
       {/* Footer */}
       <div
-        className="flex items-center gap-2 shrink-0 flex-wrap"
-        style={{
-          justifyContent: isList ? 'flex-end' : 'space-between',
-          ...(isList ? {} : { width: '100%', paddingTop: 16, borderTop: '1px solid #1e1e3f' }),
-        }}
+        className={`flex items-center gap-2 shrink-0 flex-wrap w-full ${
+          isList
+            ? 'justify-between sm:justify-end sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-[#1e1e3f]'
+            : 'justify-between pt-4 border-t border-[#1e1e3f]'
+        }`}
       >
         <StatusPill status={tpl.status} />
         <div className="flex gap-[7px] w-full justify-between">
@@ -404,7 +402,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
               onClick={e => { e.stopPropagation(); onSubmit(tpl); }}
               className="px-[14px] py-[7px] rounded-[9px] border-none text-white text-[12px] font-bold cursor-pointer flex items-center gap-[5px] transition-all duration-[150ms] font-[var(--sans)]"
               style={{
-                background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                background: '#814AC8',
                 boxShadow: '0 2px 14px rgba(129,74,200,0.45)',
               }}
               onMouseEnter={e => {
@@ -426,7 +424,7 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
               onClick={e => { e.stopPropagation(); onUse(tpl); }}
               className="px-[14px] py-[7px] rounded-[9px] border-none text-white text-[12px] font-bold cursor-pointer flex items-center gap-[5px] transition-all duration-[150ms] font-[var(--sans)]"
               style={{
-                background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                background: '#814AC8',
                 boxShadow: '0 2px 14px rgba(129,74,200,0.45)',
               }}
               onMouseEnter={e => {
@@ -532,7 +530,7 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
           background: 'linear-gradient(160deg, #1a1030 0%, #0d0820 100%)',
           borderRadius: 24,
           border: '1px solid #2a1f4a',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.15)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(129,74,200,0.15)',
           fontFamily: 'var(--sans)',
           overflow: 'hidden',
         }}
@@ -614,7 +612,7 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
             {[
               { label: 'Personalized', bg: 'rgba(16,100,50,0.5)',  border: '#1a5c30', color: '#4ade80' },
               { label: 'Fast Delivery', bg: 'rgba(100,40,10,0.5)', border: '#7a3010', color: '#fb923c' },
-              { label: 'Secure Payment', bg: 'rgba(30,20,80,0.5)', border: '#3a2a70', color: '#a78bfa' },
+              { label: 'Secure Payment', bg: 'rgba(30,20,80,0.5)', border: '#3a2a70', color: '#C49FE0' },
             ].map(({ label, bg, border, color }) => (
               <span
                 key={label}
@@ -634,12 +632,12 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
               onClick={() => { onSubmit(tpl); onClose(); }}
               className="w-full py-[15px] rounded-[14px] border-none text-white text-[15px] font-bold cursor-pointer transition-all duration-[150ms]"
               style={{
-                background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-                boxShadow: '0 4px 24px rgba(124,58,237,0.5)',
+                background: '#814AC8',
+                boxShadow: '0 4px 24px rgba(129,74,200,0.5)',
                 fontFamily: 'var(--sans)',
               }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 32px rgba(124,58,237,0.7)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(124,58,237,0.5)'}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 32px rgba(129,74,200,0.7)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(129,74,200,0.5)'}
             >
               Review &amp; Submit
             </button>
@@ -648,8 +646,8 @@ function PreviewModal({ tpl, onClose, onSubmit }) {
               onClick={onClose}
               className="w-full py-[15px] rounded-[14px] border-none text-white text-[15px] font-bold cursor-pointer transition-all duration-[150ms]"
               style={{
-                background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-                boxShadow: '0 4px 24px rgba(124,58,237,0.5)',
+                background: '#814AC8',
+                boxShadow: '0 4px 24px rgba(129,74,200,0.5)',
                 fontFamily: 'var(--sans)',
               }}
             >
@@ -733,7 +731,7 @@ function UseTemplateModal({ tpl, onClose }) {
           background: 'linear-gradient(160deg, #1a1030 0%, #0d0820 100%)',
           borderRadius: 24,
           border: '1px solid #2a1f4a',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,58,237,0.15)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(129,74,200,0.15)',
           fontFamily: 'var(--sans)',
           overflow: 'hidden',
         }}
@@ -775,7 +773,7 @@ function UseTemplateModal({ tpl, onClose }) {
                     value={variables[key]}
                     onChange={e => handleInputChange(key, e.target.value)}
                     placeholder={`Enter value for {{${key}}}`}
-                    className="w-full px-4 py-3 rounded-xl border border-[#2a1f4a] bg-[#140D1F] text-[#f0f0ff] text-[14px] outline-none focus:border-[#7c3aed] transition-colors"
+                    className="w-full px-4 py-3 rounded-xl border border-[#2a1f4a] bg-[#140D1F] text-[#f0f0ff] text-[14px] outline-none focus:border-[#814AC8] transition-colors"
                   />
                 </div>
               ))}
@@ -816,13 +814,97 @@ function UseTemplateModal({ tpl, onClose }) {
             onClick={handleUseTemplate}
             className="flex-1 py-[12px] rounded-[12px] border-none text-white text-[14px] font-bold cursor-pointer transition-all duration-[150ms]"
             style={{
-              background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-              boxShadow: '0 4px 24px rgba(124,58,237,0.4)',
+              background: 'linear-gradient(135deg,#9B6FD0,#814AC8)',
+              boxShadow: '0 4px 24px rgba(129,74,200,0.4)',
             }}
-            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 32px rgba(124,58,237,0.6)'}
-            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(124,58,237,0.4)'}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 32px rgba(129,74,200,0.6)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(129,74,200,0.4)'}
           >
             Proceed to Inbox
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ConnectWhatsAppModal({ open, onClose, onConnect }) {
+  if (!open) return null;
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]"
+      />
+      <div
+        className="fixed z-[101] flex flex-col"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 420,
+          maxWidth: '95vw',
+          background: 'linear-gradient(160deg, #1a1030 0%, #0d0820 100%)',
+          borderRadius: 24,
+          border: '1px solid #2a1f4a',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(129,74,200,0.15)',
+          fontFamily: 'var(--sans)',
+          overflow: 'hidden',
+        }}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 flex items-center justify-center cursor-pointer transition-all duration-[150ms]"
+          style={{
+            width: 34, height: 34, borderRadius: 10,
+            border: '1px solid #2a2a4a',
+            background: 'rgba(255,255,255,0.06)',
+            color: '#ffffff',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+        >
+          <X size={15} color="#ffffff" />
+        </button>
+
+        <div className="p-6 pt-10 flex flex-col items-center gap-4 text-center">
+          <div
+            className="flex items-center justify-center"
+            style={{
+              width: 64, height: 64, borderRadius: 18,
+              background: '#25D366',
+              boxShadow: '0 0 30px rgba(37,211,102,0.45)',
+            }}
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="#ffffff">
+              <path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.96 9.96 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18a7.96 7.96 0 0 1-4.073-1.117l-.291-.173-3.017.897.897-3.017-.173-.291A7.96 7.96 0 0 1 4 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8zm4.406-5.884c-.242-.121-1.432-.707-1.654-.787-.222-.081-.384-.121-.545.121-.161.242-.626.787-.768.949-.141.161-.282.181-.524.06-.242-.121-1.021-.376-1.945-1.199-.718-.641-1.203-1.432-1.344-1.674-.141-.242-.015-.373.106-.494.109-.109.242-.282.363-.424.121-.141.161-.242.242-.404.081-.161.04-.303-.02-.424-.061-.121-.545-1.314-.747-1.799-.196-.473-.396-.409-.545-.416l-.464-.008c-.161 0-.424.06-.646.303-.222.242-.848.829-.848 2.022s.868 2.346.989 2.507c.121.161 1.708 2.608 4.139 3.656.579.25 1.031.399 1.382.511.581.185 1.11.159 1.527.097.466-.069 1.432-.585 1.634-1.151.202-.565.202-1.049.141-1.151-.06-.101-.222-.161-.464-.282z"/>
+            </svg>
+          </div>
+
+          <h2 className="m-0 text-[19px] font-bold text-[#f0f0ff] tracking-[-0.02em]">
+            WhatsApp Not Connected
+          </h2>
+          <p className="m-0 text-[13.5px] text-[rgba(255,255,255,0.65)] leading-[1.6] max-w-[300px]">
+            Connect your WhatsApp Business Account before creating templates.
+          </p>
+        </div>
+
+        <div className="px-6 pb-6 pt-2 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-[13px] rounded-[12px] border border-[#2a1f4a] bg-transparent text-white text-[14px] font-semibold cursor-pointer hover:bg-white/5 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConnect}
+            className="flex-1 py-[13px] rounded-[12px] border-none text-white text-[14px] font-bold cursor-pointer transition-all duration-[150ms]"
+            style={{ background: '#814AC8', boxShadow: '0 4px 24px rgba(129,74,200,0.5)' }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 6px 32px rgba(129,74,200,0.7)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 24px rgba(129,74,200,0.5)'}
+          >
+            Connect Now
           </button>
         </div>
       </div>
@@ -841,23 +923,23 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      className="flex items-center gap-[10px] px-[13px] py-[9px] rounded-[10px] border-none text-[13px] cursor-pointer w-full text-left transition-all duration-[180ms]"
+      className="flex items-center gap-[10px] px-[13px] py-[9px] rounded-[10px] border-none text-[13px] cursor-pointer w-auto md:w-full shrink-0 whitespace-nowrap text-left transition-all duration-[180ms]"
       style={{
         background: active
-          ? 'linear-gradient(135deg,#7c3aed,#6d28d9)'
+          ? '#814AC8'
           : hov
-            ? 'rgba(124,58,237,0.15)'
+            ? 'rgba(129,74,200,0.15)'
             : 'transparent',
-        color: active ? '#ffffff' : hov ? '#a78bfa' : 'rgba(255,255,255,0.5)',
+        color: active ? '#ffffff' : hov ? '#C49FE0' : 'rgba(255,255,255,0.5)',
         fontWeight: active ? 700 : 500,
-        boxShadow: active ? '0 2px 14px rgba(124,58,237,0.4)' : 'none',
+        boxShadow: active ? '0 2px 14px rgba(129,74,200,0.4)' : 'none',
         fontFamily: 'var(--sans)',
       }}
     >
       <Icon
         size={15}
         strokeWidth={active ? 2.2 : 1.6}
-        color={active ? '#ffffff' : hov ? '#a78bfa' : 'rgba(255,255,255,0.4)'}
+        color={active ? '#ffffff' : hov ? '#C49FE0' : 'rgba(255,255,255,0.4)'}
       />
       {label}
     </button>
@@ -880,7 +962,9 @@ export default function TemplatesPage() {
   const [useTemplate, setUseTemplate] = useState(null);
   const [viewMode, setViewMode]   = useState('grid');
   const [spinning, setSpinning]   = useState(false);
-  const [activeCategory, setActiveCategory] = useState('trending'); // trending, ecommerce, etc.
+  const [activeCategory, setActiveCategory] = useState('trending');
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(false);
 
   const countFor = tab =>
     tab === 'All' ? templates.length
@@ -936,6 +1020,23 @@ export default function TemplatesPage() {
     } catch (err) { console.error(err); }
   };
 
+  const handleNewTemplateClick = async () => {
+    setCheckingConnection(true);
+    try {
+      const data = await api.getChannelsStatus(workspaceId);
+      if (data.whatsapp?.connected) {
+        router.push('/user/admin/templates/create');
+      } else {
+        setShowConnectModal(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setShowConnectModal(true);
+    } finally {
+      setCheckingConnection(false);
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -967,7 +1068,25 @@ export default function TemplatesPage() {
         .tpl-root ::-webkit-scrollbar { width: 4px; }
         .tpl-root ::-webkit-scrollbar-track { background: transparent; }
         .tpl-root ::-webkit-scrollbar-thumb { background: #2e2e5a; border-radius: 99px; }
-        .tpl-root input::placeholder { color: #55557a; font-family: var(--sans); }
+        .tpl-root input::placeholder { color: #c1c1d1; font-family: var(--sans); }
+
+        .tpl-card-desc-list {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          white-space: normal;
+        }
+        @media (min-width: 640px) {
+          .tpl-card-desc-list {
+            display: block;
+            -webkit-line-clamp: unset;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 400px;
+          }
+        }
       `}</style>
 
       <div
@@ -979,25 +1098,25 @@ export default function TemplatesPage() {
 
           {/* ── Page header ── */}
           <div
-            className="flex items-start justify-between mb-11 gap-4"
+            className="flex flex-col sm:flex-row items-center sm:items-start justify-between mb-8 sm:mb-11 gap-4"
             style={{ animation: 'fadeIn 0.5s ease' }}
           >
             {/* Centered title block */}
-            <div className="flex-1 text-center">
-              <h1 className="m-0 mb-[10px] text-[34px] font-extrabold text-[#f0f0ff] tracking-[-0.04em]">
+            <div className="flex-1 text-center w-full">
+              <h1 className="m-0 mb-[10px] text-[26px] sm:text-[30px] md:text-[34px] font-extrabold text-[#f0f0ff] tracking-[-0.04em]">
                 Message Templates
               </h1>
-              <p className="m-0 mx-auto text-[15px] text-[rgba(255,255,255,0.8)] leading-[1.6] max-w-[480px]">
+              <p className="m-0 mx-auto text-[13px] sm:text-[15px] text-[rgba(255,255,255,0.8)] leading-[1.6] max-w-[480px] px-2">
                 Create, manage and submit WhatsApp Business templates for Meta approval.
               </p>
             </div>
 
             {/* New Template button */}
             <button
-              onClick={() => router.push('/user/admin/templates/create')}
-              className="flex items-center gap-[7px] shrink-0 px-5 py-[10px] rounded-[11px] border-none text-white text-[13px] font-bold cursor-pointer tracking-[-0.01em] transition-all duration-[180ms] mt-1"
+              onClick={handleNewTemplateClick}
+              className="flex items-center justify-center gap-[7px] shrink-0 w-full sm:w-auto px-5 py-[10px] rounded-[11px] border-none text-white text-[13px] font-bold cursor-pointer tracking-[-0.01em] transition-all duration-[180ms] mt-1"
               style={{
-                background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                background: '#814AC8',
                 boxShadow: '0 2px 18px rgba(129,74,200,0.45)',
                 fontFamily: 'var(--sans)',
               }}
@@ -1016,7 +1135,7 @@ export default function TemplatesPage() {
 
           {!loading && (
             <div
-              className="grid grid-cols-6 gap-[13px] mb-[34px] w-full"
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-[10px] sm:gap-[13px] mb-[26px] sm:mb-[34px] w-full"
               style={{ animation: 'fadeIn 0.5s 0.1s ease both' }}
             >
               {STAT_CFG.map(cfg => {
@@ -1044,124 +1163,124 @@ export default function TemplatesPage() {
 
           
           <div
-            className="flex items-center gap-2 mb-[26px] w-full"
+            className="flex flex-col md:flex-row items-stretch md:items-center gap-2 mb-[26px] w-full"
             style={{ animation: 'fadeIn 0.5s 0.15s ease both' }}
           >
             <div
-              className="flex items-center gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-[17px] flex-1 transition-[border-color] duration-[150ms]"
-              onFocusCapture={e => e.currentTarget.style.borderColor = '#7c3aed'}
+              className="flex items-center gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-[13px] sm:py-[17px] flex-1 transition-[border-color] duration-[150ms]"
+              onFocusCapture={e => e.currentTarget.style.borderColor = '#814AC8'}
               onBlurCapture={e => e.currentTarget.style.borderColor = '#1e1e3f'}
             >
-              <Search size={13} color="#55557a" className="shrink-0" />
+              <Search size={13} color="#7f7fa3" className="shrink-0" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search templates…"
-                className="bg-transparent border-none outline-none text-[#f0f0ff] text-[13px] w-full"
+                className="bg-transparent border-none outline-none text-white text-[13px] w-full"
               />
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="bg-none border-none text-[#55557a] cursor-pointer p-0 flex"
+                  className="bg-none border-none text-[#7f7fa3] cursor-pointer p-0 flex"
                 >
                   <X size={12} />
                 </button>
               )}
             </div>
 
-            {/* Tabs — CHANGED px-8 to px-4 */}
-            <div className="flex items-center gap-1 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-3 shrink-0">
-              {TABS.map(tab => {
-                const active = viewSource === 'user' && activeTab === tab;
-                const cnt = countFor(tab);
-                return (
+            <div className="flex items-center gap-2 md:shrink-0">
+              {/* Tabs — horizontally scrollable on narrow screens */}
+              <div className="flex items-center gap-1 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-2 sm:px-4 py-3 shrink-0 overflow-x-auto flex-1 md:flex-initial">
+                {TABS.map(tab => {
+                  const active = viewSource === 'user' && activeTab === tab;
+                  const cnt = countFor(tab);
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => {
+                        setViewSource('user');
+                        setActiveTab(tab);
+                        setActiveCategory(null);
+                      }}
+                      className="flex items-center gap-[6px] px-[10px] sm:px-[14px] py-[7px] rounded-[9px] border-none text-[13px] cursor-pointer whitespace-nowrap shrink-0 transition-all duration-[150ms]"
+                      style={{
+                        background: active ? '#814AC8' : 'transparent',
+                        color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                        fontWeight: active ? 700 : 500,
+                        boxShadow: active ? '0 2px 14px rgba(129,74,200,0.4)' : 'none',
+                        fontFamily: 'var(--sans)',
+                      }}
+                      onMouseEnter={e => {
+                        if (!active) {
+                          e.currentTarget.style.color = '#f0f0ff';
+                          e.currentTarget.style.background = 'rgba(129,74,200,0.1)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!active) {
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
+                    >
+                      {tab}
+                      <span
+                        className="text-[11px] font-bold px-[7px] py-[1px] rounded-full min-w-[20px] text-center"
+                        style={{
+                          background: active ? 'rgba(255,255,255,0.2)' : 'rgba(136,136,187,0.15)',
+                          color: active ? '#fff' : '#55557a',
+                        }}
+                      >
+                        {cnt}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Right controls */}
+              <div className="flex items-center gap-2 shrink-0">
+                {[['grid', LayoutGrid], ['list', List]].map(([mode, ModeIcon]) => (
                   <button
-                    key={tab}
-                    onClick={() => {
-                      setViewSource('user');
-                      setActiveTab(tab);
-                      setActiveCategory(null);
-                    }}
-                    className="flex items-center gap-[6px] px-[14px] py-[7px] rounded-[9px] border-none text-[13px] cursor-pointer whitespace-nowrap transition-all duration-[150ms]"
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className="flex items-center justify-center cursor-pointer transition-all duration-[150ms] w-10 h-10 sm:w-[52px] sm:h-[52px] shrink-0"
                     style={{
-                      background: active ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'transparent',
-                      color: active ? '#fff' : '#9090bb',
-                      fontWeight: active ? 700 : 500,
-                      boxShadow: active ? '0 2px 14px rgba(124,58,237,0.4)' : 'none',
-                      fontFamily: 'var(--sans)',
+                      borderRadius: 14,
+                      border: `1.5px solid ${viewMode === mode ? '#814AC8' : '#2a2a4a'}`,
+                      background: viewMode === mode ? '#814AC8' : '#0d0d1e',
+                      color: '#ffffff',
+                      boxShadow: viewMode === mode ? '0 2px 14px rgba(129,74,200,0.4)' : 'none',
                     }}
                     onMouseEnter={e => {
-                      if (!active) {
-                        e.currentTarget.style.color = '#f0f0ff';
-                        e.currentTarget.style.background = 'rgba(124,58,237,0.1)';
+                      if (viewMode !== mode) {
+                        e.currentTarget.style.borderColor = '#814AC8';
+                        e.currentTarget.style.background = 'rgba(129,74,200,0.12)';
                       }
                     }}
                     onMouseLeave={e => {
-                      if (!active) {
-                        e.currentTarget.style.color = '#9090bb';
-                        e.currentTarget.style.background = 'transparent';
+                      if (viewMode !== mode) {
+                        e.currentTarget.style.borderColor = '#2a2a4a';
+                        e.currentTarget.style.background = '#0d0d1e';
                       }
                     }}
                   >
-                    {tab}
-                    <span
-                      className="text-[11px] font-bold px-[7px] py-[1px] rounded-full min-w-[20px] text-center"
-                      style={{
-                        background: active ? 'rgba(255,255,255,0.2)' : 'rgba(136,136,187,0.15)',
-                        color: active ? '#fff' : '#55557a',
-                      }}
-                    >
-                      {cnt}
-                    </span>
+                    <ModeIcon size={20} strokeWidth={1.8} color="#ffffff" />
                   </button>
-                );
-              })}
-            </div>
-
-            {/* Right controls */}
-            <div className="flex items-center gap-2 shrink-0 ml-auto">
-              {[['grid', LayoutGrid], ['list', List]].map(([mode, ModeIcon]) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className="flex items-center justify-center cursor-pointer transition-all duration-[150ms]"
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    border: `1.5px solid ${viewMode === mode ? '#7c3aed' : '#2a2a4a'}`,
-                    background: viewMode === mode ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : '#0d0d1e',
-                    color: '#ffffff',
-                    boxShadow: viewMode === mode ? '0 2px 14px rgba(124,58,237,0.4)' : 'none',
-                  }}
-                  onMouseEnter={e => {
-                    if (viewMode !== mode) {
-                      e.currentTarget.style.borderColor = '#7c3aed';
-                      e.currentTarget.style.background = 'rgba(124,58,237,0.12)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (viewMode !== mode) {
-                      e.currentTarget.style.borderColor = '#2a2a4a';
-                      e.currentTarget.style.background = '#0d0d1e';
-                    }
-                  }}
-                >
-                  <ModeIcon size={22} strokeWidth={1.8} color="#ffffff" />
-                </button>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 items-start">
+          <div className="flex flex-col md:flex-row gap-3 items-start">
             <div
-              className="w-[240px] shrink-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[20px_14px] sticky top-[80px]"
+              className="w-full md:w-[200px] lg:w-[240px] shrink-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[16px_14px] md:p-[20px_14px] md:sticky md:top-[80px]"
               style={{ animation: 'fadeIn 0.5s 0.2s ease both' }}
             >
               <p className="m-0 mb-2 ml-1 text-[10px] font-bold text-[rgba(255,255,255,0.9)] uppercase tracking-[0.12em]">
                 Categories
               </p>
-              <div className="flex flex-col gap-[2px] mb-[22px]">
+              <div className="flex flex-row md:flex-col gap-[6px] md:gap-[2px] mb-[14px] md:mb-[22px] overflow-x-auto md:overflow-visible pb-1 md:pb-0">
                 {CATEGORIES.map(({ id, label, Icon }) => (
                   <SidebarItem
                     key={id} id={id} label={label} Icon={Icon}
@@ -1178,7 +1297,7 @@ export default function TemplatesPage() {
               <p className="m-0 mb-[10px] ml-1 text-[11px] font-bold text-[rgba(255,255,255,0.9)] uppercase tracking-[0.1em]">
                 Industry
               </p>
-              <div className="flex flex-col gap-[2px]">
+              <div className="flex flex-row md:flex-col gap-[6px] md:gap-[2px] overflow-x-auto md:overflow-visible pb-1 md:pb-0">
                 {INDUSTRIES.map(({ id, label, Icon }) => (
                   <SidebarItem
                     key={id} id={id} label={label} Icon={Icon}
@@ -1195,7 +1314,7 @@ export default function TemplatesPage() {
 
             {/* Cards area — flex-1 already fills remaining space */}
             <div
-              className="flex-1 min-w-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[20px]"
+              className="flex-1 min-w-0 w-full bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[14px] sm:p-[20px]"
             >
 
               {/* Loading */}
@@ -1207,7 +1326,7 @@ export default function TemplatesPage() {
               /* Empty state */
               ) : filtered.length === 0 ? (
                 <div className="text-center p-[80px_20px] bg-[#111122] border border-[#1e1e3f] rounded-[18px]">
-                  <div className="w-[60px] h-[60px] bg-[rgba(124,58,237,0.12)] border border-[rgba(124,58,237,0.25)] rounded-[18px] flex items-center justify-center mx-auto mb-[18px] text-[#a78bfa]">
+                  <div className="w-[60px] h-[60px] bg-[rgba(129,74,200,0.12)] border border-[rgba(129,74,200,0.25)] rounded-[18px] flex items-center justify-center mx-auto mb-[18px] text-[#C49FE0]">
                     <FileText size={26} strokeWidth={1.6} />
                   </div>
                   <p className="m-0 mb-2 text-[16px] font-bold text-[#9090bb]">
@@ -1221,7 +1340,7 @@ export default function TemplatesPage() {
                       onClick={() => router.push('/user/admin/templates/create')}
                       className="inline-flex items-center gap-[7px] px-[22px] py-[10px] rounded-[11px] border-none text-white text-[13px] font-bold cursor-pointer"
                       style={{
-                        background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+                        background: '#814AC8',
                         boxShadow: '0 2px 18px rgba(129,74,200,0.45)',
                         fontFamily: 'var(--sans)',
                       }}
@@ -1234,11 +1353,11 @@ export default function TemplatesPage() {
               /* Grid / List */
               ) : (
                 <div
-                  className="grid gap-[14px]"
-                  style={{
-                    gridTemplateColumns: viewMode === 'list' ? '1fr' : 'repeat(4, minmax(0, 1fr))',
-                    gap: viewMode === 'list' ? 9 : 14,
-                  }}
+                  className={`grid ${
+                    viewMode === 'list'
+                      ? 'grid-cols-1 gap-[9px]'
+                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[14px]'
+                  }`}
                 >
                   {filtered.map((tpl, i) => (
                     <TemplateCard
@@ -1260,6 +1379,11 @@ export default function TemplatesPage() {
 
       <PreviewModal tpl={selected} onClose={() => setSelected(null)} onSubmit={handleSubmit} />
       <UseTemplateModal tpl={useTemplate} onClose={() => setUseTemplate(null)} />
+        <ConnectWhatsAppModal
+          open={showConnectModal}
+          onClose={() => setShowConnectModal(false)}
+          onConnect={() => router.push('/user/admin/channels')}
+        />
     </>
   );
 }

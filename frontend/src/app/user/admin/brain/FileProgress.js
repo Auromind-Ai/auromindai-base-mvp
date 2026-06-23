@@ -1,6 +1,7 @@
 "use client";
 
 import api from "@/lib/api";
+import { useState, useEffect } from 'react';
 
 export default function FileProgress({ entryId, onDone }) {
   const [status, setStatus] = useState("pending");

@@ -96,12 +96,13 @@ export default function SignupFormCard() {
       padding: '40px 36px',
       width: '100%',
       maxWidth: '440px',
+      fontFamily: "'Poppins', sans-serif",
     }}>
       <div style={{ textAlign: 'center', marginBottom: '28px' }}>
         <h2 style={{ color: '#ffffff', fontSize: '26px', fontWeight: '700', margin: '0 0 6px', letterSpacing: '-0.3px' }}>
           {step === 'form' ? 'Create Account' : 'Enter OTP'}
         </h2>
-        <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>
+        <p style={{ color: '#adb2bd', fontSize: '14px', margin: 0 }}>
           {step === 'form' ? 'Start your free account today' : `OTP sent to ${email}`}
         </p>
       </div>
@@ -126,7 +127,7 @@ export default function SignupFormCard() {
               placeholder="Sarah Jenkins"
               value={fullName}
               onChange={e => setFullName(e.target.value)}
-              style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box', boxShadow: 'inset 0px 4px 20px 0px rgba(255,255,255,0.18)' }}
             />
           </div>
           <div>
@@ -136,13 +137,13 @@ export default function SignupFormCard() {
               placeholder="your@email.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box', boxShadow: 'inset 0px 4px 20px 0px rgba(255,255,255,0.18)' }}
             />
           </div>
           <button
             onClick={handleSignup}
             disabled={loading}
-            style={{ width: '100%', background: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', marginTop: '4px', opacity: loading ? 0.7 : 1 }}
+            style={{ width: '100%', background: '#814AC8', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', marginTop: '4px', opacity: loading ? 0.7 : 1 }}
           >
             {loading ? 'Sending OTP...' : 'Sign Up Free'}
           </button>

@@ -177,6 +177,60 @@ function BentoMetricCard({ metric, i, rgb }) {
   );
 }
 
+function ViewAllModal({ isOpen, onClose, title, children }) {
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+          />
+
+          {/* Modal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2, ease: [0.34, 1.2, 0.64, 1] }}
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[201]
+                       w-[90vw] max-w-lg bg-[#0e0e1a] border border-purple-300/30
+                       rounded-2xl shadow-2xl flex flex-col"
+            style={{ maxHeight: '80vh' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
+              <h2 className="text-[17px] font-semibold text-white/90">{title}</h2>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10
+                           flex items-center justify-center text-white/50 hover:text-white transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto flex-1 px-6 py-4 custom-scrollbar">
+              {children}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function BentoMetricsGrid({ metrics }) {
   const rgb = useMemo(() => parseRgb('#8400ff'), []);
   return (
@@ -731,6 +785,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
 // ─── Recent Activity Card ──────────────────────────────────────────────
 function RecentActivityCard({ activities = [] }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const [popupPos, setPopupPos] = useState({ top: 0 });
   const itemRefs = useRef([]);
 
@@ -758,7 +813,9 @@ function RecentActivityCard({ activities = [] }) {
     >
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10 flex-shrink-0">
         <h2 className="text-[18px] font-semibold text-white/90">Recent Activity</h2>
-        <button className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
+        <button
+          onClick={() => setShowModal(true)}
+          className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
@@ -842,9 +899,29 @@ function RecentActivityCard({ activities = [] }) {
           </motion.div>
         )}
       </AnimatePresence>
-    </section>
-  );
-}
+      <ViewAllModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title="All Recent Activity"
+        >
+          {activities.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-8">No activity found</p>
+          ) : (
+            <div className="space-y-1">
+              {activities.map((a, i) => (
+                <div key={i} className="flex items-center gap-3 py-3 border-b border-white/[0.06] last:border-0">
+                  <span className="w-[9px] h-[9px] rounded-full border-2 border-purple-400/50 flex-shrink-0" />
+                  <span className="flex-1 text-sm text-white/75">{a.label}</span>
+                  <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </ViewAllModal>
+
+      </section>
+    );
+  }
 
 // Quick Actions Card
 const QUICK_ACTIONS = [
@@ -959,6 +1036,7 @@ function QuickActionsCard({ onAddLeadClick }) {
 
 // AI Insights Card 
 function AIInsightsCard({ insights = [] }) {
+  const [showModal, setShowModal] = useState(false);
   const iconMap = {
     flame: Flame,
     mail: Mail,
@@ -968,7 +1046,9 @@ function AIInsightsCard({ insights = [] }) {
     <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10">
         <h2 className="text-[18px] font-semibold text-white/90">AI Insights</h2>
-        <button className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
+        <button 
+        onClick={() => setShowModal(true)}
+        className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
@@ -992,9 +1072,36 @@ function AIInsightsCard({ insights = [] }) {
           );
         })}
       </div>
-    </section>
-  );
-}
+      <ViewAllModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          title="All AI Insights"
+        >
+          {insights.length === 0 ? (
+            <p className="text-sm text-zinc-500 text-center py-8">No insights found</p>
+          ) : (
+            <div className="space-y-3">
+              {insights.map((item, i) => {
+                const Icon = iconMap[item.icon_type] || Sparkles;
+                return (
+                  <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015]">
+                    <div className={`w-10 h-10 rounded-xl ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
+                      <Icon size={18} className={item.icon_color} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white/85">{item.title}</p>
+                      <p className="text-xs text-white/60 mt-0.5">{item.subtitle}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </ViewAllModal>
+
+      </section>
+    );
+  }
 
 const calculateDatesForPeriod = (selectedPeriod) => {
   const now = new Date();

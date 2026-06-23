@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import NavigationSection from '@/components/LandingPage/NavigationSection';
+import NavigationSection from '@/components/LandingPageNew/NavigationSection/NavigationSection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 import { HelpCircle, Key, CreditCard, Layers, Compass, CheckCircle2, ArrowRight } from 'lucide-react';
 

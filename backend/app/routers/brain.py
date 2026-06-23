@@ -569,7 +569,7 @@ async def search_knowledge(
             "query": request.query,
             "results": [
                 {
-                    "id": r["id"],
+                    "id": str(r["id"]),
                     "content": r.get("text", ""),
                     "title": r["metadata"].get("title", "Unknown"),
                     "score": round(r["score"], 3)
