@@ -15,3 +15,8 @@ frontend/.env.production
 # General
 .DS_Store
 *.log
+
+/generated/prisma
+backend/.env
+
+hf_cache/
