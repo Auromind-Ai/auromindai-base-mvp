@@ -9,7 +9,7 @@ import {
   Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
-  ZoomIn, ZoomOut, Upload, Timer, HelpCircle, FileText
+  ZoomIn, ZoomOut, Upload, Timer, HelpCircle, FileText, Pencil
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken, getUser } from '@/lib/auth';
@@ -294,6 +294,8 @@ export default function AutomationCanvas() {
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState('');
 
   // ─── MODAL & TOAST STATE ───
   const [toasts, setToasts] = useState([]);
@@ -1355,10 +1357,10 @@ export default function AutomationCanvas() {
                             </button>
                             <button
                               onClick={() => handleSelectAutomation(flow)}
-                              title="Open Wire Editor"
+                              title="Edit Flow"
                               className="p-2 text-white/30 hover:text-purple-400 hover:bg-purple-500/5 rounded-lg transition-all"
                             >
-                              <MousePointer2 size={14} />
+                              <Pencil size={14} />
                             </button>
                             <button
                               onClick={() => handleDeleteFlow(flow.id)}
@@ -1465,7 +1467,45 @@ export default function AutomationCanvas() {
             </div>
             <div className="flex flex-col">
               <span className="text-[14px] font-semiBold text-white tracking-widest leading-none mb-2">Agentic Orchestrator</span>
-              <span className="text-[12px] font-medium text-white/75 leading-none">{selectedItem?.name || "Untitled Wire"}</span>
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onBlur={() => {
+                    if (tempName.trim()) {
+                      setSelectedItem(prev => ({ ...prev, name: tempName.trim() }));
+                    }
+                    setIsEditingName(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (tempName.trim()) {
+                        setSelectedItem(prev => ({ ...prev, name: tempName.trim() }));
+                      }
+                      setIsEditingName(false);
+                    } else if (e.key === 'Escape') {
+                      setIsEditingName(false);
+                    }
+                  }}
+                  className="bg-black/35 border border-white/10 rounded px-2 py-0.5 text-[12px] font-medium text-white outline-none focus:border-purple-500/50 w-48 font-sans"
+                  autoFocus
+                />
+              ) : (
+                <div className="flex items-center gap-1.5 group/name">
+                  <span className="text-[12px] font-medium text-white/75 leading-none">{selectedItem?.name || "Untitled Wire"}</span>
+                  <button
+                    onClick={() => {
+                      setTempName(selectedItem?.name || "Untitled Wire");
+                      setIsEditingName(true);
+                    }}
+                    className="p-1 opacity-0 group-hover/name:opacity-100 hover:text-white transition-opacity text-white/40"
+                    title="Rename Flow"
+                  >
+                    <Pencil size={11} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
