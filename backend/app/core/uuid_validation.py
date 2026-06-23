@@ -38,6 +38,9 @@ class UUIDValidationMiddleware:
             return
 
         request = Request(scope, receive=receive)
+        if request.method == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
 
         #  Check query params containing "id" 
         for param_name, param_value in request.query_params.items():

@@ -144,6 +144,18 @@ def start_impersonation(
     )
     cookie_samesite = "none" if is_https else "lax"
     
+    # Extract domain for cookie sharing between frontend and backend on subdomains
+    from app.core.config import settings
+    cookie_domain = None
+    if settings.FRONTEND_URL:
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.FRONTEND_URL)
+        if parsed.hostname:
+            parts = parsed.hostname.split(".")
+            # Ignore IP addresses and localhost
+            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
+                cookie_domain = "." + ".".join(parts[-2:])
+    
     # Store admin token in backup cookie
     if admin_token:
         response.set_cookie(
@@ -154,6 +166,7 @@ def start_impersonation(
             samesite=cookie_samesite,
             path="/",
             max_age=60 * 15,  # 15 minutes, matches user token expiration or duration of impersonation
+            domain=cookie_domain,
         )
 
     # Set auth_token to impersonated user token
@@ -165,6 +178,7 @@ def start_impersonation(
         samesite=cookie_samesite,
         path="/",
         max_age=60 * 15,  # 15 minutes
+        domain=cookie_domain,
     )
 
     return {
