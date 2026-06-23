@@ -59,7 +59,10 @@ export default function FlowsPage() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(true);
     const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
-    useEffect(() => { setTimeout(() => setIsLibraryOpen(false), 0); }, []);
+    useEffect(() => {
+        setIsMounted(true);
+        setTimeout(() => setIsLibraryOpen(false), 0);
+    }, []);
 
     if (!isMounted) return null;
 
