@@ -24,9 +24,9 @@ from app.models.wcc import WCCRateCard
 logger = logging.getLogger(__name__)
 
 
-# ────────────────────────────────────────────────────────
+# ─
 # FIX 1: Auto-create / update Lead on every inbound message
-# ────────────────────────────────────────────────────────
+# ─
 def _derive_source(metadata: dict[str, Any] | None) -> str:
     """Map webhook metadata → lead source label."""
     provider = (metadata or {}).get("provider", "")
@@ -412,7 +412,7 @@ class WebhookService:
         logger.info("[%s] Processing inbound message", normalized_channel.value)
 
         try:
-            # ── Step 1: Get or create conversation ──
+            #  Step 1: Get or create conversation 
             conversation = ConversationService.get_or_create_conversation(
                 db,
                 workspace_id=workspace_id,
@@ -423,7 +423,7 @@ class WebhookService:
                 profile_pic=profile_pic,
             )
 
-            # ── Step 2: FIX 1 — Auto upsert lead ──
+            #  Step 2: FIX 1 — Auto upsert lead 
             source = _derive_source(metadata)
             lead = upsert_lead(
                 workspace_id=workspace_id,
@@ -433,12 +433,12 @@ class WebhookService:
                 db=db,
             )
 
-            # ── Step 3: Save inbound message ──
+            #  Step 3: Save inbound message 
             message_metadata = {
                 **(metadata or {}),
                 "channel": normalized_channel.value,
             }
-            _, created = MessageService.persist_inbound_message(
+            message, created = MessageService.persist_inbound_message(
                 db,
                 conversation=conversation,
                 body=body,
@@ -456,10 +456,15 @@ class WebhookService:
 
             db.commit()
 
-            # ── Step 4: FIX 2 — Async Intent detection + score (inbound only) ──
+            # Inject message identifiers for downstream idempotency & billing keys
+            message_metadata["message_id"] = str(message.id)
+            if message_external_id:
+                message_metadata["message_external_id"] = message_external_id
+
+            #  Step 4: FIX 2 — Async Intent detection + score (inbound only) 
             analyze_message_intent.delay(str(conversation.id), body, message_external_id)
 
-            # ── Step 5: Enqueue bot reply processing ──
+            #  Step 5: Enqueue bot reply processing 
             MessageService.enqueue_incoming_processing(
                 str(conversation.id),
                 body,

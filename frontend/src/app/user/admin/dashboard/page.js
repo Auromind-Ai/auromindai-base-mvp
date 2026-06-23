@@ -229,7 +229,7 @@ function BentoMetricsGrid({ metrics }) {
           100% { transform: scale(1); opacity: 0; }
         }
 
-        /* ─── CHART STYLES ─── */
+        /* ─ CHART STYLES ─ */
         .chart-line-2026 { fill: none; stroke: #39ff7e; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
         .chart-line-2025 { fill: none; stroke: #b794f4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -252,7 +252,7 @@ function BentoMetricsGrid({ metrics }) {
           animation: dotPulse 1.4s ease-in-out infinite;
         }
 
-        /* ─── QUICK ACTIONS ─── */
+        /* ─ QUICK ACTIONS ─ */
         .quick-action-card {
           transition: transform 220ms cubic-bezier(0.34,1.2,0.64,1), border-color 200ms ease, box-shadow 220ms ease, background 200ms ease;
           position: relative;
@@ -728,7 +728,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
   );
 }
 
-// ─── Recent Activity Card ──────────────────────────────────────────────
+// ─ Recent Activity Card 
 function RecentActivityCard({ activities = [] }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [popupPos, setPopupPos] = useState({ top: 0 });

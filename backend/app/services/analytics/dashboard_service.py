@@ -153,7 +153,7 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
 
     try:
 
-        # ── 1. Total Revenue
+        #  1. Total Revenue
         from app.models.ai_action import Lead
 
         if hasattr(Lead, "conversion_amount"):
@@ -204,7 +204,7 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
                 "gradient": "from-blue-500 via-cyan-400 to-emerald-400",
             }
 
-        # ── 2. Active Leads
+        #  2. Active Leads
         active_leads_now = (
             db.query(func.count(Lead.id))
             .filter(
@@ -227,7 +227,7 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
             .scalar()
         ) or 0
 
-        # ── 3. Conversion Rate
+        #  3. Conversion Rate
         total_leads = (
             db.query(func.count(Lead.id))
             .filter(
@@ -273,7 +273,7 @@ async def get_overview_metrics(workspace_id: str, db: Session, start_date: date 
         conv_rate = round((converted_leads / max(total_leads, 1)) * 100, 1)
         conv_rate_prev = round((converted_leads_prev / max(total_leads_prev, 1)) * 100, 1)
 
-        # ── 4. Average Response Time
+        #  4. Average Response Time
         from app.models.message import Message
 
         avg_resp_q = text("""
@@ -692,7 +692,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
     except Exception as e:
         logger.warning(f"[insights] outbound messages error: {e}")
 
-    # ── Automation gap: leads with no followup ─────────────────────────────
+    #  Automation gap: leads with no followup 
     try:
         from app.models.ai_action import Lead
         from app.models.workspace import WorkspaceMember
@@ -744,7 +744,7 @@ async def get_ai_insights(workspace_id: str, db: Session, start_date: date | Non
     except Exception as e:
         logger.warning(f"[insights] automation gap error: {e}")
 
-    # ── Fallback if nothing computed ───────────────────────────────────────
+    #  Fallback if nothing computed ─
     if not insights:
         insights = [
             {

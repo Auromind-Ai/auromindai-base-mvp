@@ -29,7 +29,7 @@ class UnifiedAgent:
                 "repeat_count": repeat_count
             })
 
-            # ── LEAD_DEBUG: Log incoming message ──
+            #  LEAD_DEBUG: Log incoming message 
             self.logger.warning(f"[LEAD_DEBUG][unified_agent] Incoming message: {message!r}")
 
             # Fetch State
@@ -75,7 +75,7 @@ class UnifiedAgent:
                         val = getattr(lead, field, "")
                 lead_data[field] = val or ""
 
-            # ── LEAD_DEBUG: Log lead_data loaded from DB ──
+            #  LEAD_DEBUG: Log lead_data loaded from DB 
             self.logger.warning(
                 f"[LEAD_DEBUG][unified_agent] lead_data BEFORE extraction: {lead_data}"
             )
@@ -124,7 +124,7 @@ class UnifiedAgent:
             next_field = missing_fields[0] if missing_fields else None
             all_fields_collected = len(missing_fields) == 0 and len(lead_fields) > 0
 
-            # ── LEAD_DEBUG: Log computed missing/collected before LLM ──
+            #  LEAD_DEBUG: Log computed missing/collected before LLM 
             self.logger.warning(
                 f"[LEAD_DEBUG][unified_agent] collected_fields: {collected_fields}"
             )
@@ -166,7 +166,7 @@ class UnifiedAgent:
             result = self.llm.generate_json(prompt)
             self.logger.info(f"LLM Result: {result}")
 
-            # ── LEAD_DEBUG: Log raw LLM output ──
+            #  LEAD_DEBUG: Log raw LLM output 
             self.logger.warning(f"[LEAD_DEBUG][unified_agent] RAW LLM RESULT: {result}")
 
             if not result:
@@ -178,7 +178,7 @@ class UnifiedAgent:
                 if result and field in result and result[field] and not newly_collected.get(field):
                     newly_collected[field] = result[field]
 
-            # ── LEAD_DEBUG: Log newly_collected from LLM ──
+            #  LEAD_DEBUG: Log newly_collected from LLM 
             self.logger.warning(
                 f"[LEAD_DEBUG][unified_agent] newly_collected from LLM: {newly_collected}"
             )
@@ -390,4 +390,4 @@ class UnifiedAgent:
         - Use "book_demo" + close=true when meeting_date, meeting_time, timezone are all collected.
         - Keep action null while still collecting fields or demo details.
         """
-
+

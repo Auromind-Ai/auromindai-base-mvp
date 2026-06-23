@@ -14,9 +14,9 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
-/* ─────────────────────────────────────────────
+/* ─
    Config
-───────────────────────────────────────────── */
+─ */
 const TABS = ['All', 'Draft', 'Pending', 'Approved', 'Rejected'];
 
 const STATUS = {
@@ -65,9 +65,9 @@ const INDUSTRIES = [
 
 const PRE_TEMPLATE_SAMPLES = [];
 
-/* ─────────────────────────────────────────────
+/* ─
    Atoms
-───────────────────────────────────────────── */
+─ */
 const StatusPill = ({ status }) => {
   const s = STATUS[status] || STATUS.draft;
   return (
@@ -90,9 +90,9 @@ const TypeTag = ({ type }) => (
   </span>
 );
 
-/* ─────────────────────────────────────────────
+/* ─
    Skeleton
-───────────────────────────────────────────── */
+─ */
 const SkeletonCard = () => (
   <div className="bg-[#111122] border border-[#1e1e3f] rounded-[18px] p-[24px_20px] flex flex-col items-center gap-[14px]">
     <div className="w-[72px] h-[72px] rounded-[20px] bg-[#1c1c3a] animate-[shimmer_1.6s_infinite] bg-[length:300%_100%]" />
@@ -121,9 +121,9 @@ const SkeletonCard = () => (
   </div>
 );
 
-/* ─────────────────────────────────────────────
+/* ─
    Template Card
-───────────────────────────────────────────── */
+─ */
 function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   const [hov, setHov] = useState(false);
   const isList = viewMode === 'list';
@@ -284,9 +284,9 @@ function TemplateCard({ tpl, onPreview, onSubmit, onUse, viewMode, idx }) {
   );
 }
 
-/* ─────────────────────────────────────────────
+/* ─
    Stat Card
-───────────────────────────────────────────── */
+─ */
 function StatCard({ cfg, count, onClick, isActive }) {
   const [hov, setHov] = useState(false);
   const { label, Icon, color, iconBg, pct } = cfg;
@@ -333,9 +333,9 @@ function StatCard({ cfg, count, onClick, isActive }) {
   );
 }
 
-/* ─────────────────────────────────────────────
+/* ─
    Preview Drawer
-───────────────────────────────────────────── */
+─ */
 function PreviewModal({ tpl, onClose, onSubmit }) {
   const open = !!tpl;
 
@@ -667,9 +667,9 @@ function UseTemplateModal({ tpl, onClose }) {
   );
 }
 
-/* ─────────────────────────────────────────────
+/* ─
    Category Sidebar Item
-───────────────────────────────────────────── */
+─ */
 function SidebarItem({ id, label, Icon, active, onClick }) {
   const [hov, setHov] = useState(false);
 
@@ -701,9 +701,9 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
   );
 }
 
-/* ─────────────────────────────────────────────
+/* ─
    Main Page
-───────────────────────────────────────────── */
+─ */
 export default function TemplatesPage() {
   const router = useRouter();
   const { workspaceId } = useAuth();
@@ -819,7 +819,7 @@ export default function TemplatesPage() {
 
         <div className="max-w-[1600px] mx-auto px-3 pt-8 pb-16">
 
-          {/* ── Page header ── */}
+          {/*  Page header  */}
           <div
             className="flex items-start justify-between mb-11 gap-4"
             style={{ animation: 'fadeIn 0.5s ease' }}

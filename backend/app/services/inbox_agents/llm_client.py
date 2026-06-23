@@ -79,6 +79,39 @@ class LLMClient:
                         f"  - API Reported Total Tokens: {api_total_tokens}"
                     )
 
+                    # Write to token log context if present
+                    try:
+                        from app.services.ai.llm_utils import token_log_context, get_caller_function_name
+                        logs_list = token_log_context.get()
+                        if logs_list is not None:
+                            # Estimate system vs input tokens if api_prompt_tokens is available
+                            if api_prompt_tokens:
+                                total_words = len(system_msg.split()) + len(prompt.split())
+                                if total_words > 0:
+                                    system_tokens_val = int(round((len(system_msg.split()) / total_words) * api_prompt_tokens))
+                                    user_tokens_val = api_prompt_tokens - system_tokens_val
+                                else:
+                                    system_tokens_val = api_prompt_tokens
+                                    user_tokens_val = 0
+                            else:
+                                system_tokens_val = sys_tokens
+                                user_tokens_val = user_tokens
+
+                            logs_list.append({
+                                "caller": get_caller_function_name(),
+                                "model": model,
+                                "provider": "groq",
+                                "system_prompt": system_msg,
+                                "user_input": prompt,
+                                "system_tokens": system_tokens_val,
+                                "input_tokens": user_tokens_val,
+                                "output_tokens": api_completion_tokens or out_tokens,
+                                "total_tokens": api_total_tokens or overall_local_tokens,
+                                "content": response_content,
+                            })
+                    except Exception as log_err:
+                        self.logger.warning(f"Failed to append to token_log_context: {log_err}")
+
                     return response_content
 
                 except Exception as e:

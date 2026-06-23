@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
-/* ─── Logic (Doc 2 — untouched) ─────────────────────────────────────────── */
+/* ─ Logic (Doc 2 — untouched) ─ */
 
 const PLAN_ORDER = {
   free: 0,
@@ -15,7 +15,7 @@ const PLAN_ORDER = {
 const TOKENS_PER_CREDIT = 1000;
 const ANNUAL_DISCOUNT = 0.8;
 
-/* ─── Animation variants (Doc 1) ────────────────────────────────────────── */
+/* ─ Animation variants (Doc 1)  */
 
 const containerVariants = {
   hidden: {},
@@ -32,7 +32,7 @@ const cardVariants = {
   }),
 };
 
-/* ─── Checkmark icon (Doc 1) ─────────────────────────────────────────────── */
+/* ─ Checkmark icon (Doc 1) ─ */
 
 function CheckIcon() {
   return (
@@ -48,10 +48,10 @@ function CheckIcon() {
   );
 }
 
-/* ─── PricingCard — Doc 2 logic · Doc 1 UI ──────────────────────────────── */
+/* ─ PricingCard — Doc 2 logic · Doc 1 UI ─ */
 
 function PricingCard({ plan, currentPlan, onUpgrade, index }) {
-  /* ── Logic: Doc 2 (unchanged) ── */
+  /*  Logic: Doc 2 (unchanged)  */
   const isCurrent    = currentPlan === plan.key;
   const isEnterprise = plan.key === 'enterprise';
 
@@ -69,19 +69,19 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
     if (planKey === 'pro')       return 'Upgrade to Pro';
     return 'Contact Sales';
   };
-  /* ── end Doc 2 logic ── */
+  /*  end Doc 2 logic  */
 
   const isFeatured = plan.featured;
   const showPerMonth = !['Free', 'Custom'].includes(plan.price);
 
-  /* ── Card background (Doc 1 style + isCurrent tint) ── */
+  /*  Card background (Doc 1 style + isCurrent tint)  */
   const cardBg = isCurrent
     ? 'border-[#814AC8]/50 bg-[radial-gradient(circle_at_top,rgba(129,74,200,0.22),rgba(12,12,12,1)_68%)] shadow-[0_0_40px_rgba(129,74,200,0.28)]'
     : isFeatured
     ? 'border-[#7C3AED]/30 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.22),rgba(12,12,12,1)_68%)] shadow-[0_0_40px_rgba(124,58,237,0.18)]'
     : 'border-white/10 bg-[linear-gradient(to_top,rgba(129,74,200,0.30)_0%,rgba(0,0,0,1)_60%)]';
 
-  /* ── Button style (Doc 1 featured purple / non-featured ghost + Doc 2 disabled states) ── */
+  /*  Button style (Doc 1 featured purple / non-featured ghost + Doc 2 disabled states)  */
   const buttonClass = isCurrent
     ? 'cursor-not-allowed border border-[#814AC8]/30 bg-[#814AC8]/10 text-[#C4A0F0]'
     : isEnterprise
@@ -175,7 +175,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
   );
 }
 
-/* ─── PricingPage — Doc 2 logic · Doc 1 layout ──────────────────────────── */
+/* ─ PricingPage — Doc 2 logic · Doc 1 layout ─ */
 
 export default function PricingPage({ currentPlan = 'free', onUpgrade, settings, dbPlans = [] }) {
 

@@ -3,7 +3,7 @@
 import { Phone, Instagram, Globe, Mail, MessageCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import React from 'react';
 
-// ── Channel config ──
+//  Channel config 
 const CHANNELS = {
   whatsapp: { icon: Phone, label: 'WhatsApp', color: 'text-emerald-400', bg: 'bg-emerald-400/10', dot: 'bg-emerald-400' },
   instagram: { icon: Instagram, label: 'Instagram', color: 'text-pink-400', bg: 'bg-pink-400/10', dot: 'bg-pink-400' },
@@ -14,7 +14,7 @@ const CHANNELS = {
 
 const DEFAULT_CHANNEL = { icon: Globe, label: 'Unknown', color: 'text-zinc-400', bg: 'bg-zinc-400/10', dot: 'bg-zinc-500' };
 
-// ── Helpers ──
+//  Helpers 
 function getChannel(source) {
   if (!source) return DEFAULT_CHANNEL;
   return CHANNELS[source.toLowerCase()] || DEFAULT_CHANNEL;

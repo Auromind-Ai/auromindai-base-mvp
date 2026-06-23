@@ -295,7 +295,7 @@ export default function AutomationCanvas() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
 
-  // ─── MODAL & TOAST STATE ───
+  // ─ MODAL & TOAST STATE ─
   const [toasts, setToasts] = useState([]);
   const [deleteWireModal, setDeleteWireModal] = useState({ open: false, item: null, isDeleting: false });
   const [deleteStepModal, setDeleteStepModal] = useState({ open: false, nodeId: null });
@@ -526,7 +526,7 @@ export default function AutomationCanvas() {
   const zoomRef = useRef(zoom);
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
-  // ─── NODE DRAG (native pointer events — no Framer conflict) ───
+  // ─ NODE DRAG (native pointer events — no Framer conflict) ─
   const handleNodePointerDown = useCallback((e, nodeId) => {
     if (e.target.closest?.('[data-no-drag]')) return;
     e.stopPropagation();
@@ -2516,7 +2516,7 @@ export default function AutomationCanvas() {
                 boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
               }}
             >
-              {/* ── Header ── */}
+              {/*  Header  */}
               <div className="px-5 pt-5 pb-4 border-b border-white/[0.06]">
                 <h3 className="text-[15px] font-bold text-white">Steps</h3>
                 <p className="text-[11px] text-white/60 mt-0.5 leading-snug">
@@ -2526,7 +2526,7 @@ export default function AutomationCanvas() {
 
               <div className="px-4 py-4 space-y-5">
 
-                {/* ── Trigger ── */}
+                {/*  Trigger  */}
                 <div>
                   <p className="text-[13px] font-semibold text-white/90 mb-2.5">Trigger</p>
                   <div
@@ -2560,7 +2560,7 @@ export default function AutomationCanvas() {
                   </div>
                 </div>
 
-                {/* ── Actions ── */}
+                {/*  Actions  */}
                 <div>
                   <p className="text-[13px] font-semibold text-white/90 mb-2.5">Actions</p>
                   <div className="space-y-2.5">
@@ -3105,7 +3105,7 @@ export default function AutomationCanvas() {
  
       `}</style>
 
-      {/* ─── TOAST NOTIFICATIONS ─── */}
+      {/* ─ TOAST NOTIFICATIONS ─ */}
       <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none">
         <AnimatePresence>
           {toasts.map(toast => (
@@ -3131,7 +3131,7 @@ export default function AutomationCanvas() {
         </AnimatePresence>
       </div>
 
-      {/* ─── DELETE WIRE CONFIRM MODAL ─── */}
+      {/* ─ DELETE WIRE CONFIRM MODAL ─ */}
       <AnimatePresence>
         {deleteWireModal.open && (
           <motion.div
@@ -3198,7 +3198,7 @@ export default function AutomationCanvas() {
         )}
       </AnimatePresence>
 
-      {/* ─── DELETE STEP CONFIRM MODAL ─── */}
+      {/* ─ DELETE STEP CONFIRM MODAL ─ */}
       <AnimatePresence>
         {deleteStepModal.open && (
           <motion.div
@@ -3253,7 +3253,7 @@ export default function AutomationCanvas() {
         )}
       </AnimatePresence>
 
-      {/* ─── CREATE WIRE MODAL ─── */}
+      {/* ─ CREATE WIRE MODAL ─ */}
       <AnimatePresence>
         {createWireModal && (
           <motion.div

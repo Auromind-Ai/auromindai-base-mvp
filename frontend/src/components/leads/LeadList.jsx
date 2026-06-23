@@ -18,7 +18,7 @@ const SORT_OPTIONS = [
   { id: 'recent', label: 'Recent' },
 ];
 
-// ── Skeleton ──
+//  Skeleton 
 function LeadSkeleton() {
   return (
     <div className="p-3.5 rounded-xl animate-pulse">

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
-// ── Icons (inline SVG to avoid extra deps) ────────────────────────────────────
+//  Icons (inline SVG to avoid extra deps) 
 const Icon = ({ d, size = 16, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -36,7 +36,7 @@ const icons = {
   phone:       'M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8',
 };
 
-// ── Sidebar category item ─────────────────────────────────────────────────────
+//  Sidebar category item 
 const CatItem = ({ iconKey, label, active, onClick }) => (
   <button
     onClick={onClick}
@@ -51,7 +51,7 @@ const CatItem = ({ iconKey, label, active, onClick }) => (
   </button>
 );
 
-// ── Input ───
+//  Input ─
 const Input = ({ label, hint, placeholder, value, onChange, className = '' }) => (
   <div className={className}>
     {label && <p className="text-white text-sm font-medium mb-1">{label}</p>}
@@ -67,7 +67,7 @@ const Input = ({ label, hint, placeholder, value, onChange, className = '' }) =>
   </div>
 );
 
-// ── Phone Preview Component (extracted to avoid deep nesting in return) ────────
+//  Phone Preview Component (extracted to avoid deep nesting in return) 
 function PhonePreview({ form, actionMode }) {
   const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' opacity='0.06'%3E%3Ctext x='5' y='20' font-size='14' fill='white'%3E%F0%9F%98%8A%3C/text%3E%3Ctext x='40' y='15' font-size='12' fill='white'%3E%F0%9F%93%B7%3C/text%3E%3Ctext x='60' y='35' font-size='11' fill='white'%3E%F0%9F%8E%B5%3C/text%3E%3Ctext x='10' y='50' font-size='11' fill='white'%3E%E2%9D%A4%EF%B8%8F%3C/text%3E%3Ctext x='45' y='55' font-size='13' fill='white'%3E%F0%9F%8C%9F%3C/text%3E%3Ctext x='20' y='72' font-size='12' fill='white'%3E%F0%9F%93%B1%3C/text%3E%3Ctext x='58' y='70' font-size='11' fill='white'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E")`;
 
@@ -75,7 +75,7 @@ function PhonePreview({ form, actionMode }) {
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'hidden', height: '560px' }}>
       <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', width: '300px', position: 'relative' }}>
 
-        {/* ── Status Bar — IphoneMockup style: OUTSIDE phone shell, overlays notch ── */}
+        {/*  Status Bar — IphoneMockup style: OUTSIDE phone shell, overlays notch  */}
         <div style={{
           position: 'absolute',
           top: '18px',
@@ -108,7 +108,7 @@ function PhonePreview({ form, actionMode }) {
           </div>
         </div>
 
-        {/* ── Phone outer shell — IphoneMockup exact style ── */}
+        {/*  Phone outer shell — IphoneMockup exact style  */}
         <div style={{
           width: '300px',
           borderRadius: '44px',
@@ -119,7 +119,7 @@ function PhonePreview({ form, actionMode }) {
           position: 'relative',
         }}>
 
-          {/* ── Phone screen ── */}
+          {/*  Phone screen  */}
           <div style={{
             background: '#0d0d14',
             borderRadius: '36px',
@@ -140,7 +140,7 @@ function PhonePreview({ form, actionMode }) {
               flexShrink: 0,
             }} />
 
-            {/* ── WA Header — IphoneMockup style ── */}
+            {/*  WA Header — IphoneMockup style  */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -205,7 +205,7 @@ function PhonePreview({ form, actionMode }) {
               </div>
             </div>
 
-            {/* ── Chat area — dark bg + WA pattern ── */}
+            {/*  Chat area — dark bg + WA pattern  */}
             <div style={{
               flex: 1,
               padding: '12px',
@@ -285,7 +285,7 @@ function PhonePreview({ form, actionMode }) {
               </div>
             </div>
 
-            {/* ── Input bar — IphoneMockup style ── */}
+            {/*  Input bar — IphoneMockup style  */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -329,7 +329,7 @@ function PhonePreview({ form, actionMode }) {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+//  Main Component ─
 export default function CreateTemplatePage() {
   const { workspaceId } = useAuth();
   const [form, setForm] = useState({
@@ -471,7 +471,7 @@ export default function CreateTemplatePage() {
           onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* ── SIDEBAR ── */}
+      {/*  SIDEBAR  */}
       <aside className={`
         fixed md:static z-30 flex flex-col h-full w-[240px] bg-[#060010] border-r border-[#1A0B2E]
         transition-transform duration-300
@@ -505,7 +505,7 @@ export default function CreateTemplatePage() {
         </nav>
       </aside>
 
-      {/* ── MAIN CONTENT ── */}
+      {/*  MAIN CONTENT  */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top bar (mobile) */}
@@ -531,7 +531,7 @@ export default function CreateTemplatePage() {
         <div className="flex-1 overflow-y-auto template-scroll">
           <div className="flex gap-6 p-6 max-w-[1400px] mx-auto">
 
-            {/* ── FORM COLUMN ── */}
+            {/*  FORM COLUMN  */}
             <div className="flex-1 min-w-0 space-y-6">
 
               {/* Generate with AI */}
@@ -792,7 +792,7 @@ export default function CreateTemplatePage() {
               </button>
             </div>
 
-            {/* ── RIGHT PANEL ── */}
+            {/*  RIGHT PANEL  */}
             <div className="w-[300px] shrink-0 hidden lg:flex flex-col gap-5">
 
               {/* Template Preview card */}

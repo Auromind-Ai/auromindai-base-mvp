@@ -58,7 +58,7 @@ export default function ScoreBreakdown({ breakdown, score }) {
 
   return (
     <div className="space-y-4">
-      {/* ── REALTIME SCORE ── */}
+      {/*  REALTIME SCORE  */}
       <div className="rounded-2xl bg-[#121218] border border-white/5 p-6 relative overflow-hidden flex flex-col items-center justify-center text-center">
         {/* Ambient background glow based on score */}
         <div className={`absolute inset-0 opacity-20 ${score >= 75 ? 'bg-red-500' : score >= 40 ? 'bg-amber-400' : 'bg-sky-400'} blur-3xl`} />
@@ -88,7 +88,7 @@ export default function ScoreBreakdown({ breakdown, score }) {
         </div>
       </div>
 
-      {/* ── INTELLIGENCE CHECKLIST ── */}
+      {/*  INTELLIGENCE CHECKLIST  */}
       <div className="rounded-2xl bg-[#121218] border border-white/5 p-5">
         <h3 className="text-[10px] font-semibold tracking-[0.15em] text-zinc-500 uppercase mb-4">
           Why this lead is {score >= 75 ? 'Hot' : score >= 40 ? 'Warm' : 'Cold'}

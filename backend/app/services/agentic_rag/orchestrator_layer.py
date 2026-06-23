@@ -33,10 +33,10 @@ class OrchestratorLayer:
             return
 
         total_calls = len(token_logs)
-        total_system_tokens = sum(log["system_tokens"] for log in token_logs)
-        total_input_tokens = sum(log["input_tokens"] for log in token_logs)
-        total_output_tokens = sum(log["output_tokens"] for log in token_logs)
-        total_combined_tokens = sum(log["total_tokens"] for log in token_logs)
+        total_system_tokens = sum(log.get("system_tokens", 0) for log in token_logs)
+        total_input_tokens = sum(log.get("input_tokens", 0) for log in token_logs)
+        total_output_tokens = sum(log.get("output_tokens", 0) for log in token_logs)
+        total_combined_tokens = sum(log.get("total_tokens", 0) for log in token_logs)
 
         # Get reply and calculate its tokens
         final_reply_text = ""
@@ -56,16 +56,20 @@ class OrchestratorLayer:
         report.append("-----------------------------------------")
 
         for idx, log in enumerate(token_logs, 1):
-            report.append(f"{idx}. Function: {log['caller']}")
-            report.append(f"   Provider: {log['provider']} | Model: {log['model']}")
-            report.append(f"   System Prompt Tokens: {log['system_tokens']}")
-            report.append(f"   Input/Query Tokens: {log['input_tokens']}")
-            report.append(f"   Output Tokens: {log['output_tokens']}")
-            report.append(f"   Total Tokens: {log['total_tokens']}")
+            report.append(f"{idx}. Function: {log.get('caller', 'unknown')}")
+            report.append(f"   Provider: {log.get('provider', 'unknown')} | Model: {log.get('model', 'unknown')}")
+            report.append(f"   System Prompt Tokens: {log.get('system_tokens', 0)}")
+            report.append(f"   Input/Query Tokens: {log.get('input_tokens', 0)}")
+            report.append(f"   Output Tokens: {log.get('output_tokens', 0)}")
+            report.append(f"   Total Tokens: {log.get('total_tokens', 0)}")
             
-            sys_snippet = log["system_prompt"][:100].replace('\n', ' ') + "..." if len(log["system_prompt"]) > 100 else log["system_prompt"]
-            user_snippet = log["user_input"][:100].replace('\n', ' ') + "..." if len(log["user_input"]) > 100 else log["user_input"]
-            out_snippet = log["content"][:100].replace('\n', ' ') + "..." if len(log["content"]) > 100 else log["content"]
+            system_prompt = log.get("system_prompt", "")
+            user_input = log.get("user_input", "")
+            content = log.get("content", "")
+            
+            sys_snippet = system_prompt[:100].replace('\n', ' ') + "..." if len(system_prompt) > 100 else system_prompt
+            user_snippet = user_input[:100].replace('\n', ' ') + "..." if len(user_input) > 100 else user_input
+            out_snippet = content[:100].replace('\n', ' ') + "..." if len(content) > 100 else content
             
             report.append(f"   [Sys Prompt Snippet]: {sys_snippet}")
             report.append(f"   [User Input Snippet]: {user_snippet}")
@@ -182,16 +186,12 @@ class OrchestratorLayer:
         if small_talk:
             fallback_triggered = True
             logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (small talk)")
-            response = await self.support.add_followup(query, small_talk, model=model)
-
-            confidence = compute_confidence(tool="direct_answer")
-
             return self.mcp.format_response(
-                response,
+                "",
                 query,
                 query,               
                 "direct_answer",     
-                confidence,
+                0.0,
                 model=model,
             )
 
@@ -632,25 +632,14 @@ class OrchestratorLayer:
         elif tool == "direct_answer":
             fallback_triggered = True
             logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (direct_answer tool)")
-
-            response = self.helpers.get_small_talk_response(query)
-            response = await self.support.add_followup(query, response, model=model)
-
-            if response:
-                print("Direct answer response:", response)
-                confidence = compute_confidence(tool="direct_answer")
-
-                return self.mcp.format_response(
-                    response,
-                    query,
-                    rewritten_query,
-                    tool,
-                    confidence,
-                    model=model,
-                )
-            
-            else:
-                return "Hello! How can I assist you today?"
+            return self.mcp.format_response(
+                "",
+                query,
+                rewritten_query,
+                tool,
+                0.0,
+                model=model,
+            )
             
         elif tool == "direct_storage":
 

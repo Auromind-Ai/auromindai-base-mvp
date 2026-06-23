@@ -11,12 +11,12 @@ from app.models.user import User
 
 router = APIRouter()
 
-# ── Cached set of valid IANA timezone names
+#  Cached set of valid IANA timezone names
 _VALID_TIMEZONES = available_timezones()
 
 
 
-# ── Routes ─
+#  Routes ─
 
 @router.get("/me/preferences")
 async def get_preferences(

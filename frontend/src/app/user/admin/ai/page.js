@@ -35,7 +35,7 @@ import {
     BarChart2,
     Bell,
     MessageSquare,
-    // ── NEW: scroll-to-bottom arrow ──
+    //  NEW: scroll-to-bottom arrow 
     ChevronDown as ArrowDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -51,7 +51,7 @@ const poppins = Poppins({
   variable: '--font-poppins',
 })
 
-// ── Typewriter (unchanged) ────
+//  Typewriter (unchanged) 
 const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     const [displayedText, setDisplayedText] = useState('');
     const textRef = useRef(text);
@@ -79,7 +79,7 @@ const Typewriter = ({ text, onComplete, onUpdate, speed = 4 }) => {
     );
 };
 
-// ── Helpers (unchanged) ───────
+//  Helpers (unchanged) ─
 function getGreeting() {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
@@ -133,7 +133,7 @@ const SOURCE_OPTIONS = [
     { value: "direct_storage", label: "Email", icon: Inbox },
     { value: "web_search", label: "Web Search", icon: Search },
 ];
-// ── Page ───
+//  Page ─
 export default function AuromindAIPage() {
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
@@ -147,7 +147,7 @@ export default function AuromindAIPage() {
     const messagesEndRef = useRef(null);
     const [isPlusOpen, setIsPlusOpen] = useState(false);
     const plusRef = useRef(null);
-    // ── FIX 1: isInitializing starts false; set true only while fetching ──
+    //  FIX 1: isInitializing starts false; set true only while fetching 
     const [isInitializing, setIsInitializing] = useState(false);
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -162,7 +162,7 @@ export default function AuromindAIPage() {
     const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false);
     const [attachedFile, setAttachedFile] = useState(null);
     const [lastUploadedId, setLastUploadedId] = useState(null);
-    // ── NEW: Scroll-to-bottom state ──────────────────────────────────────────
+    //  NEW: Scroll-to-bottom state 
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
     const skipNextSessionFetchRef = useRef(false);
@@ -193,7 +193,7 @@ export default function AuromindAIPage() {
         setSelectedModel(model.id);
         setIsModelDropdownOpen(false);
     };
-    // ── loadSessions: don't auto-restore last session (always show hero) ────
+    //  loadSessions: don't auto-restore last session (always show hero) 
     const loadSessions = useCallback(async () => {
         try {
             const data = await api.getChatSessions(workspaceId);
@@ -319,7 +319,7 @@ export default function AuromindAIPage() {
             setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, title } : s));
         } catch (err) { console.error("Failed to update session:", err); }
     };
-    // ── FIX 6: Scroll-to-bottom — only auto-scroll when already near bottom ──
+    //  FIX 6: Scroll-to-bottom — only auto-scroll when already near bottom 
     const scrollToBottom = useCallback((force = false) => {
         const container = scrollContainerRef.current;
         if (!container) return;
@@ -332,7 +332,7 @@ export default function AuromindAIPage() {
     useEffect(() => {
         scrollToBottom(false);
     }, [messages, scrollToBottom]);
-    // ── NEW: Scroll detection for floating button ────────────────────────────
+    //  NEW: Scroll detection for floating button ─
     useEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
@@ -609,7 +609,7 @@ export default function AuromindAIPage() {
     const userName = workspace?.user_name || workspace?.name || 'Diana Rose';
     const isChatStarted = messages.length > 0 || isInitializing;
 
-    // ── RENDER ──────────────────
+    //  RENDER ─
     return (
         <div className={`${poppins.className} flex bg-[#0a0a0f] h-screen text-white overflow-hidden`}>
             <ChatSidebar
@@ -638,13 +638,13 @@ export default function AuromindAIPage() {
                         }
                     `}</style>
                     <main className="flex-1 flex flex-col overflow-hidden">
-                        {/* ── Scrollable area — shared ref for scroll detection ── */}
+                        {/*  Scrollable area — shared ref for scroll detection  */}
                         <div
                             ref={scrollContainerRef}
                             className="flex-1 overflow-y-auto custom-scrollbar no-scrollbar"
                         >
                             <AnimatePresence mode="wait">
-                                {/* ── HERO SCREEN (messages === 0 and not initializing) ── */}
+                                {/*  HERO SCREEN (messages === 0 and not initializing)  */}
                                 {!isChatStarted ? (
                                     <motion.div
                                         key="hero"
@@ -805,7 +805,7 @@ export default function AuromindAIPage() {
                                         </div>
                                     </motion.div>
                                 ) : (
-                                    /* ── CHAT SCREEN ── */
+                                    /*  CHAT SCREEN  */
                                     <motion.div
                                         key="chat-flow"
                                         initial={{ opacity: 0 }}
@@ -932,7 +932,7 @@ export default function AuromindAIPage() {
                             </AnimatePresence>
                         </div>
                     </main>
-                    {/* ── Floating bottom input (chat mode only) ── */}
+                    {/*  Floating bottom input (chat mode only)  */}
                     {isChatStarted && (
                         <div className="absolute bottom-0 w-full z-30">
                             <AnimatePresence>
