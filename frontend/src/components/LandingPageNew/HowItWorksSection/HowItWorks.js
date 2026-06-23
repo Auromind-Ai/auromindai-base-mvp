@@ -103,7 +103,7 @@ export default function HowItWorks() {
   const item = steps[currentStep];
 
   return (
-    <section className="bg-black py-24 md:py-32 overflow-hidden">
+    <section id="process" className="bg-black py-24 md:py-32 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
 
         {/* Heading */}

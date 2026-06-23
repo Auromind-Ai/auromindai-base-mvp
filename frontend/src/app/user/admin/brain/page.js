@@ -128,6 +128,32 @@ export default function BrainPage() {
         }
     };
 
+    // Handle search
+    const handleSearch = async () => {
+        if (!searchQuery.trim() || !workspaceId) return;
+
+        try {
+            setSearching(true);
+            setError(null);
+            const result = await api.searchBrain(searchQuery.trim(), workspaceId);
+
+            const normalized = {
+                query: searchQuery.trim(),
+                results: result?.results 
+                    || result?.data 
+                    || result?.matches 
+                    || result?.chunks 
+                    || []
+            };
+            setSearchResults(normalized);
+
+        } catch (err) {
+            setError(err.message || 'Search failed');
+        } finally {
+            setSearching(false);
+        }
+    };
+
 
 
     // Clear notifications after 5 seconds

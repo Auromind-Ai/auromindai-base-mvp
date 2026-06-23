@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { CheckCircle2 } from 'lucide-react';
 import { Poppins } from "next/font/google";
 import { useState } from "react";
+import NeatCTAButton from "@/components/ui/NeatCTAButton";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -39,7 +40,7 @@ const BeforeAfterSection = () => {
   ];
 
   return (
-    <section ref={containerRef} className="relative h-[150vh] md:h-[220vh] bg-black py-6 md:py-20">
+    <section id="benefits" ref={containerRef} className="relative h-[150vh] md:h-[220vh] bg-black py-6 md:py-20">
       <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden px-6">
         <div className="relative w-full max-w-6xl h-[600px] md:h-[700px]">
 
@@ -179,7 +180,8 @@ const BeforeAfterSection = () => {
               ))}
             </div>
 
-            <button
+            <NeatCTAButton
+              href="/signup"
               className={`${poppins.className} group w-full mx-auto 
                 py-2.5 sm:py-3 
                 mt-3 sm:mt-4 md:mt-[30px]
@@ -193,14 +195,11 @@ const BeforeAfterSection = () => {
                 border-2 border-black
                 transition-all duration-300 ease-in-out`}
             >
-              
-              <span className="flex items-center justify-center gap-2">
-                Get Started
-                <span className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ease-in-out">
-                  →
-                </span>
+              Get Started
+              <span className="opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 ease-in-out">
+                →
               </span>
-            </button>
+            </NeatCTAButton>
           </motion.div>
 
         </div>

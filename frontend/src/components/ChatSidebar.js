@@ -5,7 +5,9 @@ import {
     ChevronsLeft,
     Edit2,
     Trash2,
-    Pin
+    Pin,
+    Plus,
+    MoreHorizontal
 } from 'lucide-react';
 
 export default function ChatSidebar({
@@ -21,6 +23,8 @@ export default function ChatSidebar({
     const [editingId, setEditingId] = useState(null);
     const [editTitle, setEditTitle] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [sessionToDelete, setSessionToDelete] = useState(null);
 
     const handleEditClick = (session, e) => {
         e.stopPropagation();
@@ -38,9 +42,22 @@ export default function ChatSidebar({
 
     const handleDeleteClick = (sessionId, e) => {
         e.stopPropagation();
-        if (confirm("Are you sure you want to delete this chat?")) {
-            onDeleteSession(sessionId);
-        }
+        setSessionToDelete(sessionId);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!sessionToDelete) return;
+
+        await onDeleteSession(sessionToDelete);
+
+        setShowDeleteModal(false);
+        setSessionToDelete(null);
+    };
+
+    const cancelDelete = () => {
+        setShowDeleteModal(false);
+        setSessionToDelete(null);
     };
 
     const filteredSessions = useMemo(() => {
@@ -88,14 +105,12 @@ export default function ChatSidebar({
                                     Chat history
                                 </h2>
                                 <button
-                                    onClick={toggleSidebar}
+                                    onClick={onCreateSession}
                                     className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all"
                                     style={{ background: 'transparent' }}
+                                    title="New Chat"
                                 >
-                                    {/* Star / bookmark icon matching screenshot */}
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                                    </svg>
+                                    <Plus size={16} />
                                 </button>
                             </div>
 
@@ -200,21 +215,6 @@ export default function ChatSidebar({
                                 )}
                             </div>
 
-                            {/*  Bottom: Log out  */}
-                            <div
-                                className="flex-shrink-0 px-5 py-4"
-                                style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
-                            >
-                                <button
-                                    onClick={() => { localStorage.removeItem('token'); window.location.href = '/login'; }}
-                                    className="text-[13px] transition-colors"
-                                    style={{ color: '#6b7280' }}
-                                    onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-                                    onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
-                                >
-                                    Log out
-                                </button>
-                            </div>
 
                         </div>
                     </motion.div>
@@ -234,6 +234,49 @@ export default function ChatSidebar({
                     />
                 )}
             </AnimatePresence>
+
+            <AnimatePresence>
+                {showDeleteModal && (
+                    <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                    >
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className="w-full max-w-md rounded-2xl bg-[#0f0f13] border border-white/10 p-6 shadow-2xl"
+                    >
+                        <h3 className="text-lg font-semibold text-white">
+                        Delete Chat
+                        </h3>
+
+                        <p className="mt-2 text-sm text-gray-400">
+                        Are you sure you want to delete this conversation?
+                        This action cannot be undone.
+                        </p>
+
+                        <div className="mt-6 flex justify-end gap-3">
+                        <button
+                            onClick={cancelDelete}
+                            className="px-4 py-2 rounded-lg border border-white/10 text-gray-300 hover:bg-white/5"
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            onClick={confirmDelete}
+                            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white"
+                        >
+                            Delete
+                        </button>
+                        </div>
+                    </motion.div>
+                    </motion.div>
+                )}
+                </AnimatePresence>
         </>
     );
 }
@@ -255,6 +298,8 @@ function SessionCard({
     formatTime,
     standalone
 }) {
+    const [showMenu, setShowMenu] = useState(false);
+
     const baseCardStyle = standalone
         ? {
             border: `1px solid ${isActive ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.09)'}`,
@@ -277,6 +322,7 @@ function SessionCard({
             onMouseLeave={e => {
                 if (!isActive && !standalone) e.currentTarget.style.background = 'transparent';
                 if (!isActive && standalone) e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                setShowMenu(false);
             }}
         >
             <div className="px-4 py-3">
@@ -323,26 +369,39 @@ function SessionCard({
                 </p>
             </div>
 
-            {/* Edit / Delete on hover */}
-            <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                <button
-                    onClick={onEdit}
-                    className="p-1 rounded-md transition-colors"
-                    style={{ color: '#6b7280' }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#d1d5db'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
-                >
-                    <Edit2 size={11} />
-                </button>
-                <button
-                    onClick={onDelete}
-                    className="p-1 rounded-md transition-colors"
-                    style={{ color: '#6b7280' }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
-                >
-                    <Trash2 size={11} />
-                </button>
+            {/* Three dots / Edit & Delete menu */}
+            <div className="absolute right-2 bottom-1.5 z-20 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                {showMenu ? (
+                    <div className="flex items-center gap-1 bg-[#1a1a24] border border-white/10 rounded-md p-1 shadow-lg animate-in fade-in zoom-in-95 duration-100">
+                        <button
+                            onClick={(e) => {
+                                onEdit(e);
+                                setShowMenu(false);
+                            }}
+                            className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                            title="Edit"
+                        >
+                            <Edit2 size={12} />
+                        </button>
+                        <button
+                            onClick={(e) => {
+                                onDelete(e);
+                                setShowMenu(false);
+                            }}
+                            className="p-1 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                            title="Delete"
+                        >
+                            <Trash2 size={12} />
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setShowMenu(true)}
+                        className="p-1 rounded-md text-gray-500 hover:text-gray-300 transition-colors opacity-0 group-hover/card:opacity-100"
+                    >
+                        <MoreHorizontal size={14} />
+                    </button>
+                )}
             </div>
         </div>
     );
