@@ -17,10 +17,23 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 logger = logging.getLogger(__name__)
 
 def set_auth_cookie(response: Response, request: Request, key: str, value: str, max_age: int = None):
+    from app.core.config import settings
     is_https = (
         request.url.scheme == "https"
         or request.headers.get("x-forwarded-proto") == "https"
     )
+    
+    # Extract domain for cookie sharing between frontend and backend on subdomains
+    cookie_domain = None
+    if settings.FRONTEND_URL:
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.FRONTEND_URL)
+        if parsed.hostname:
+            parts = parsed.hostname.split(".")
+            # Ignore IP addresses and localhost
+            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
+                cookie_domain = "." + ".".join(parts[-2:])
+
     response.set_cookie(
         key=key,
         value=value,
@@ -29,18 +42,31 @@ def set_auth_cookie(response: Response, request: Request, key: str, value: str, 
         samesite="none" if is_https else "lax",
         max_age=max_age,
         path="/",
+        domain=cookie_domain,
     )
 
 def delete_auth_cookie(response: Response, request: Request, key: str, path: str = "/"):
+    from app.core.config import settings
     is_https = (
         request.url.scheme == "https"
         or request.headers.get("x-forwarded-proto") == "https"
     )
+    
+    cookie_domain = None
+    if settings.FRONTEND_URL:
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.FRONTEND_URL)
+        if parsed.hostname:
+            parts = parsed.hostname.split(".")
+            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
+                cookie_domain = "." + ".".join(parts[-2:])
+
     response.delete_cookie(
         key=key,
         path=path,
         secure=is_https,
         samesite="none" if is_https else "lax",
+        domain=cookie_domain,
     )
 
 class CurrentUser:
