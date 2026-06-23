@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError, DataError
 from app.database import Base
 import app.models
 from app.models.templates import Template
-from app.models.automation import AutomationFlow
+from app.models.automation import AutomationFlow, PurchasedFlowPack
 from app.models.webhook_event import WebhookEvent
 
 from app.models.wcc import WCCWallet, WCCRateCard, WCCTransaction, WCCRechargeLog

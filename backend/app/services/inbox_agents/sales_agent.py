@@ -143,7 +143,7 @@ class SalesAgent:
 
             self.logger.info("SalesAgent sending prompt to LLM...")
 
-            result = self.llm.generate_json(prompt)
+            result = await self.llm.generate_json(prompt)
 
             if not result:
                 raise ValueError("LLM returned empty JSON")
@@ -183,7 +183,7 @@ class SalesAgent:
                     # Log retry prompt token breakdown
                     self._log_prompt_token_breakdown(prompt_2, message, rag_answer_2, history_text)
 
-                    result = self.llm.generate_json(prompt_2)
+                    result = await self.llm.generate_json(prompt_2)
                     if not result:
                         raise ValueError("LLM returned empty JSON on retry")
                 except Exception as e:

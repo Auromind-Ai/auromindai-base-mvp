@@ -20,16 +20,14 @@ from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.billing import BillingService
 from app.services.ai.llm_router import LLMRouter
 from app.database import SessionLocal
-from app.services.ai.llm_utils import token_log_context
+from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, AIExecutionContext
 
 class ChatServiceConfig(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
     google_api_key: Optional[str] = None
     groq_client: Optional[Any] = None
 
-
 class ChatService:
-    
 
     def __init__(self, config: ChatServiceConfig):
         self.config = config
@@ -50,32 +48,6 @@ class ChatService:
             raise
         except Exception as e:
             raise WorkspaceAccessError(f"Failed to validate workspace access: {str(e)}")
-
-    def _reserve_tokens(
-        self,
-        db: Session,
-        workspace_id: str,
-        reference_key: str,
-        amount: int = 1,
-        description: str = "chat operation",
-    ) -> Any:
-        try:
-            reservation = self.billing_service.token_service.reserve_feature_credits(
-                db=db,
-                workspace_id=workspace_id,
-                feature_key="ai_chat",
-                unit_amount=float(amount),
-                reference_key=reference_key,
-                description=description,
-            )
-            if not reservation:
-                raise BillingError("Failed to reserve tokens")
-            return reservation
-        except BillingError:
-            raise
-        except Exception as e:
-            raise BillingError(f"Token reservation failed: {str(e)}")
-
 
     async def _check_guardrails(self, message: str) -> Dict[str, Any]:
         try:
@@ -120,134 +92,84 @@ class ChatService:
             logger.error(f"RAG retrieval error: {e}", exc_info=True)
             raise RAGError(f"Failed to retrieve from knowledge base: {str(e)}")
 
-    def _finalize_billing(
+    async def handle_chat_query(
         self,
         db: Session,
-        reservation_id: str,
-        request_message: str,
-        response_text: str,
-        actual_tokens_used: Optional[int] = None,
-    ) -> None:
-        try:
-            if actual_tokens_used is None:
-                actual_tokens_used = self.billing_service.estimate_tokens(
-                    request_message, response_text
-                )
-            self.billing_service.token_service.finalize_feature_credits(
-                db=db,
-                reservation_id=reservation_id,
-                actual_units=float(actual_tokens_used),
-            )
-            # Print to terminal and log to file
-            credits_deducted = float(actual_tokens_used) / 1000.0
-            summary_msg = (
-                f"\n=========================================\n"
-                f"CHAT BILLING DEBIT LOG:\n"
-                f"Query: {repr(request_message)}\n"
-                f"Actual Tokens Consumed: {actual_tokens_used}\n"
-                f"Credits Deducted: -{credits_deducted:.4f} credits (Rate: 1000 tokens = 1 credit)\n"
-                f"=========================================\n"
-            )
-            print(summary_msg, flush=True)
-            logger.info(f"Billing Finalized - Query: {repr(request_message)} | Tokens: {actual_tokens_used} | Credits: -{credits_deducted:.4f}")
-        except Exception as e:
-            logger.error(f"Failed to finalize billing: {e}")
-            raise BillingError(f"Billing finalization failed: {str(e)}")
+        message: str,
+        workspace_id: str,
+        user_id: str,
+        model: str = "auto",
+        use_rag: bool = True,
+        document_id: Optional[str] = None,
+        source: str = "internal",
+    ) -> Dict[str, Any]:
+        
+        self._validate_workspace_access(db, workspace_id, user_id)
+        guard_result = await self._check_guardrails(message)
+        safe_query = guard_result["safe_query"]
 
+        async def run_query():
+            full_response = ""
+            rag_answered = False
+            meta = {}
+            if use_rag:
+                try:
+                    answer_data = await self._get_rag_answer(
+                        db=db,
+                        workspace_id=workspace_id,
+                        query=safe_query,
+                        model=model,
+                        source=source,
+                        document_id=document_id,
+                    )
+                    if answer_data:
+                        if isinstance(answer_data, dict):
+                            full_response = answer_data.get("answer", "")
+                            meta = answer_data.get("meta", {})
+                        else:
+                            full_response = answer_data
+                        rag_answered = True
+                except Exception as e:
+                    logger.error(f"RAG failed in handle_chat_query: {e}")
 
-    def _release_token_reservation(
-        self, db: Session, reservation_id: str, reason: str
-    ) -> None:
-        try:
-            self.billing_service.release_token_reservation(
-                db=db,
-                reservation_id=reservation_id,
-                reason=reason,
-            )
-        except Exception as e:
-            logger.error(f"Failed to release tokens: {e}")
-            raise BillingError(f"tokens release failed: {str(e)}")
+            if not rag_answered:
+                router = LLMRouter()
+                result = await router.generate(safe_query, model=model)
+                full_response = result.get("text", "")
+                
+                # Manually track usage on the active context since LLMRouter returns usage details
+                from app.services.ai.execution_service import current_execution_context
+                ctx = current_execution_context.get()
+                if ctx:
+                    usage = result.get("usage", {})
+                    ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
 
-    def _force_release_reservation(self, db: Session, reservation_id: str, reason: str):
-        try:
-            db.rollback()
-        except Exception as e:
-            logger.warning(f"Failed rollback before release (ignored): {e}")
-        self._release_token_reservation(db, reservation_id, reason)
+                meta = {
+                    "query": message,
+                    "rewritten_query": safe_query,
+                    "tool": "reasoning",
+                    "model": result.get("model", model),
+                    "source": "llm"
+                }
 
-    # async def handle_chat_query(
-    #     self,
-    #     db: Session,
-    #     message: str,
-    #     workspace_id: str,
-    #     user_id: str,
-    #     model: str = "auto",  # FIX: was missing; _get_rag_answer requires it
-    # ) -> Dict[str, Any]:
-       
-    #     reservation_key = f"chat-query:{workspace_id}:{uuid.uuid4()}"
-    #     reservation = None
+            safe_answer = await self.guardrails_service.secure_response(full_response)
+            return {
+                "answer": safe_answer,
+                "sources": [],
+                "actions": [],
+                "meta": meta
+            }
 
-    #     try:
-    #         self._validate_workspace_access(db, workspace_id, user_id)
-
-    #         # Run guardrails BEFORE reserving credits to avoid DoS via blocked prompts
-    #         guard_result = await self._check_guardrails(message)
-    #         safe_query = guard_result["safe_query"]
-    #         estimated_tokens = BillingService.estimate_reservation_amount(message=message, use_rag=True)
-    #         reservation = self._reserve_tokens(
-    #             db=db,
-    #             workspace_id=workspace_id,
-    #             reference_key=reservation_key,
-    #             amount=estimated_tokens,
-    #             description="chat.query reservation",
-    #         )
-
-    #         # FIX: previously called without `model=`, causing TypeError since
-    #         # _get_rag_answer signature requires it with no default.
-    #         answer_data = await self._get_rag_answer(
-    #             db=db,
-    #             workspace_id=workspace_id,
-    #             query=safe_query,
-    #             model=model,
-    #         )
-
-    #         if answer_data:
-    #             if isinstance(answer_data, dict):
-    #                 raw_answer = answer_data.get("answer", "")
-    #                 meta = answer_data.get("meta", {})
-    #             else:
-    #                 raw_answer = answer_data
-    #                 meta = {}
-
-    #             safe_answer = await self.guardrails_service.secure_response(raw_answer)
-    #             self._finalize_billing(db, reservation.id, message, safe_answer)
-    #             return {"answer": safe_answer, "sources": [], "actions": [], "meta": meta}
-
-    #         self._release_token_reservation(db, reservation.id, "no_answer_generated")
-    #         return {
-    #             "answer": "I'm not sure how to help with that yet.",
-    #             "sources": [],
-    #             "actions": [],
-    #         }
-
-    #     except (GuardrailError, RAGError, BillingError, WorkspaceAccessError):
-    #         if reservation is not None:
-    #             try:
-    #                 self._force_release_reservation(
-    #                     db, reservation.id, "error:handled_exception"
-    #                 )
-    #             except Exception as release_err:
-    #                 logger.error(f"Failed force-release reservation: {release_err}")
-    #         raise
-    #     except Exception as e:
-    #         if reservation is not None:
-    #             try:
-    #                 self._force_release_reservation(
-    #                     db, reservation.id, f"error:{type(e).__name__}"
-    #                 )
-    #             except Exception as release_err:
-    #                 logger.error(f"Failed force-release reservation: {release_err}")
-    #         raise ChatProcessingError(f"Chat query failed: {str(e)}")
+        result = await AIExecutionService.execute(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            feature_key=AIFeatureRegistry.CHAT,
+            prompt=message,
+            model=model,
+            execute_fn=run_query
+        )
+        return result
 
     async def validate_and_reserve_stream_tokens(
         self,
@@ -304,14 +226,36 @@ class ChatService:
                 message=message,
                 use_rag=use_rag,
             )
-            # Reserve Tokens
-            reservation = self._reserve_tokens(
-                db=db,
+
+            # Create Root context
+            ctx = AIExecutionContext(
                 workspace_id=workspace_id,
-                reference_key=f"api-chat:{workspace_id}:{uuid.uuid4()}",
-                amount=estimated_tokens,
-                description="api.chat reservation",
+                user_id=user_id,
+                feature_key=AIFeatureRegistry.CHAT,
+                stream=True
             )
+
+            # Check execution policy and reserve credits
+            from app.services.billing.feature_billing_service import FeatureBillingService
+            from app.services.billing.billing_service import enforce_execution_policy
+            credits_cost = FeatureBillingService.calculate_cost(db, ctx.feature_key, float(estimated_tokens))
+            if not enforce_execution_policy(db, ctx.workspace_id, amount=float(credits_cost)):
+                raise BillingError("Insufficient quota. Please upgrade your plan or enable overages.")
+
+            ref_key = f"ai-exec:{ctx.execution_id}"
+            desc = f"Stream execution reservation for {ctx.feature_key}"
+            reservation = self.billing_service.token_service.reserve_feature_credits(
+                db=db,
+                workspace_id=ctx.workspace_id,
+                feature_key=ctx.feature_key,
+                unit_amount=float(estimated_tokens),
+                reference_key=ref_key,
+                description=desc
+            )
+            if reservation:
+                ctx.reservation_id = str(reservation.id)
+            else:
+                raise BillingError("Failed to reserve credits")
             
             # Save User Message
             if session_id:
@@ -323,13 +267,12 @@ class ChatService:
                 )
                 db.add(user_msg)
 
-            # COMMIT NOW. The charge is locked, the user message is safe.
             db.commit()
             
             return {
                 "status": "ok",
                 "safe_query": safe_query,
-                "reservation_id": str(reservation.id)
+                "context": ctx
             }
         except Exception as e:
             db.rollback()
@@ -355,16 +298,12 @@ class ChatService:
             return
             
         safe_query = preflight["safe_query"]
-        reservation_id = preflight["reservation_id"]
+        ctx = preflight["context"]
         
-        token_logs = []
-        token = token_log_context.set(token_logs)
-        
-        final_billing_reason = "no_response_generated"
-        full_response = ""
-        chunks_successfully_sent = False
-        try:
+        async def run_stream():
             rag_answered = False
+            full_response = ""
+            meta_payload = {}
             if use_rag:
                 try:
                     with SessionLocal() as rag_db:
@@ -385,103 +324,81 @@ class ChatService:
                             "answer": answer_data,
                             "meta": {"query": message, "rewritten_query": safe_query, "source": "fallback"}
                         }
-                        print("RAG RESULT:", result, flush=True)
-
                         safe_answer = await self.guardrails_service.secure_response(result["answer"])
                         full_response = safe_answer
                         rag_answered = True
-
-                        yield json.dumps({"content": safe_answer, "meta": result.get("meta")}) + "\n"
-                        chunks_successfully_sent = True
-
+                        meta_payload = result.get("meta") or {}
+                        
+                        yield {"content": safe_answer, "meta": meta_payload}
                 except asyncio.TimeoutError:
                     logger.warning("RAG call timed out, falling back to LLM")
                 except Exception as e:
                     logger.error(f"Unexpected error in RAG: {e}")
 
             if not rag_answered:
-                try:
-                    router = LLMRouter()
-                    result = await asyncio.wait_for(
-                        router.generate(safe_query, model=model),
-                        timeout=30,
-                    )
-                    content = result["content"]
-                    full_response = content
+                router = LLMRouter()
+                result = await asyncio.wait_for(
+                    router.generate(safe_query, model=model),
+                    timeout=30,
+                )
+                text = result.get("text", "")
+                full_response = text
+                
+                # Accumulate token usage from generator into active context
+                usage = result.get("usage", {})
+                ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+                
+                meta_payload = {
+                    "query": message,
+                    "rewritten_query": safe_query,
+                    "tool": "reasoning",
+                    "model": result.get("model", model),
+                    "confidence_score": None,  
+                    "source": "llm"
+                }
+                yield {"content": text, "meta": meta_payload}
 
+            # Save AI Response & update session
+            if session_id and full_response:
+                with SessionLocal() as cleanup_db:
+                    try:
+                        ai_msg = ChatMessage(
+                            id=str(uuid.uuid4()),
+                            session_id=session_id,
+                            role="assistant",
+                            content=full_response,
+                        )
+                        cleanup_db.add(ai_msg)
+
+                        session = cleanup_db.query(ChatSession).filter(
+                            ChatSession.id == session_id
+                        ).first()
+                        if session:
+                            session.updated_at = datetime.utcnow()
+                        cleanup_db.commit()
+                    except Exception as save_err:
+                        cleanup_db.rollback()
+                        logger.error(f"Failed to save assistant message: {save_err}")
+
+        db = SessionLocal()
+        try:
+            async for chunk in AIExecutionService.execute_stream(
+                db=db,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                feature_key=AIFeatureRegistry.CHAT,
+                prompt=message,
+                context=ctx,
+                execute_fn=run_stream
+            ):
+                content = chunk.get("content", "")
+                meta = chunk.get("meta")
+                if content:
                     yield f"{json.dumps({'content': content})}\n"
-
-                    fallback_meta = {
-                            "query": message,
-                            "rewritten_query": safe_query,
-                            "tool": "reasoning",
-                            "model": result.get("model", model),
-                            "confidence_score": None,  
-                            "source": "llm"
-                        }
-                    yield f"{json.dumps({'meta': fallback_meta})}\n"
-                    chunks_successfully_sent = True
-
-                except Exception as e:
-                    final_billing_reason = f"llm_error:{type(e).__name__}"
-                    logger.error(f"LLMRouter fallback failed: {str(e)}")
-                    yield f"{json.dumps({'error': str(e)})}\n"
-
+                if meta:
+                    yield f"{json.dumps({'meta': meta})}\n"
         except Exception as e:
-            final_billing_reason = f"runtime_error:{type(e).__name__}"
-            logger.error(f"Stream chat error: {e}", exc_info=True)
-            yield json.dumps({"error": str(e), "type": type(e).__name__}) + "\n"
-
+            logger.error(f"Stream execution failed: {e}")
+            yield f"{json.dumps({'error': str(e)})}\n"
         finally:
-            # Settle billing with actual token usage
-            if reservation_id:
-                def run_cleanup_sync():
-                    with SessionLocal() as cleanup_db:
-                        try:
-                            if chunks_successfully_sent and full_response:
-                                # Calculate actual tokens consumed
-                                actual_tokens = sum(log.get("total_tokens", 0) for log in token_logs)
-                                if actual_tokens <= 0:
-                                    actual_tokens = None # fallback to estimation
-                                
-                                # 1. Finalize Billing
-                                self._finalize_billing(
-                                    cleanup_db,
-                                    reservation_id,
-                                    message,
-                                    full_response,
-                                    actual_tokens_used=actual_tokens,
-                                )
-
-                                # 2. Save AI Response & Update Session
-                                if session_id:
-                                    ai_msg = ChatMessage(
-                                        id=str(uuid.uuid4()),
-                                        session_id=session_id,
-                                        role="assistant",
-                                        content=full_response,
-                                    )
-                                    cleanup_db.add(ai_msg)
-
-                                    session = cleanup_db.query(ChatSession).filter(
-                                        ChatSession.id == session_id
-                                    ).first()
-                                    if session:
-                                        session.updated_at = datetime.utcnow()
-
-                                cleanup_db.commit()
-                            else:
-                                self._force_release_reservation(cleanup_db, reservation_id, final_billing_reason)
-                                cleanup_db.commit()
-
-                        except Exception as billing_cleanup_error:
-                            cleanup_db.rollback()
-                            logger.critical(
-                                "CRITICAL: Failed to finalize billing/save message for "
-                                "reservation %s: %s",
-                                reservation_id,
-                                billing_cleanup_error,
-                            )
-
-                await asyncio.to_thread(run_cleanup_sync)
-            token_log_context.reset(token)
+            db.close()

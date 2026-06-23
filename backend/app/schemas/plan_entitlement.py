@@ -15,6 +15,7 @@ class PlanEntitlementBase(BaseModel):
     lead_limit: int = Field(100, description="Max leads in the CRM")
     meeting_limit: int = Field(10, description="Max meetings/events")
     automation_limit: int = Field(2, description="Max active automation flows")
+    flow: int = Field(5, description="Max active flows allowed")
 
     allow_ai_topup: bool = Field(True, description="Whether workspace is allowed to purchase AI top-up credits")
     allow_wcc_recharge: bool = Field(True, description="Whether workspace is allowed to recharge WCC wallet balance")
@@ -38,6 +39,7 @@ class PlanEntitlementUpdate(BaseModel):
     lead_limit: Optional[int] = None
     meeting_limit: Optional[int] = None
     automation_limit: Optional[int] = None
+    flow: Optional[int] = None
 
     allow_ai_topup: Optional[bool] = None
     allow_wcc_recharge: Optional[bool] = None

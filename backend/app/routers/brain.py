@@ -14,6 +14,7 @@ import os
 import shutil
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.utils.website_scraper import Webscrapper
+from app.core.exceptions import BillingError, WorkspaceAccessError
 from app.core.security import verify_workspace_access
 from app.schemas.brain import *
 
@@ -64,21 +65,21 @@ async def ingest_document(
 
         file_size = os.path.getsize(temp_file_path)
         from app.services.billing.billing_service import BillingService
+        from app.services.billing.feature_billing_service import FeatureBillingService
 
         billing_service = BillingService()
 
-        # Calculate billing using base 1000: 10 credits per 1 MB
         size_mb = file_size / 1_000_000.0
-        required_credits = size_mb * 10.0
+        credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits...")
-        logger.info(f"[BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits")
+        print(f"\n>>> [BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
             workspace_id=workspace_id,
             feature_key="knowledge_base_upload",
-            unit_amount=float(required_credits),
+            unit_amount=float(size_mb),
             reference_key=f"kb:{entry_id}",
             description=f"Knowledge Upload: {file.filename}"
         )
@@ -100,7 +101,7 @@ async def ingest_document(
             metadata_json=json.dumps(metadata_for_worker),
             file_name=file.filename,
             file_size=file_size,
-            credits_charged=required_credits,
+            credits_charged=credits_cost,
             embedding_status="pending"
         )
         db.add(new_entry)
@@ -115,7 +116,7 @@ async def ingest_document(
             content_type=file_ext.replace(".", ""),
             file_size=file_size,
             reservation_id=reservation.id,
-            required_credits=required_credits,
+            required_credits=credits_cost,
             metadata=metadata_for_worker
         )
 
@@ -205,21 +206,21 @@ async def ingest_sales_document(
 
         file_size = os.path.getsize(temp_file_path)
         from app.services.billing.billing_service import BillingService
+        from app.services.billing.feature_billing_service import FeatureBillingService
 
         billing_service = BillingService()
 
-        # Calculate billing using base 1000: 10 credits per 1 MB
         size_mb = file_size / 1_000_000.0
-        required_credits = size_mb * 10.0
+        credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits...")
-        logger.info(f"[BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits")
+        print(f"\n>>> [BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
             workspace_id=workspace_id,
             feature_key="knowledge_base_upload",
-            unit_amount=float(required_credits),
+            unit_amount=float(size_mb),
             reference_key=f"kb:{entry_id}",
             description=f"Sales Knowledge Upload: {file.filename}"
         )
@@ -237,7 +238,7 @@ async def ingest_sales_document(
             metadata_json=json.dumps(metadata_for_worker),
             file_name=file.filename,
             file_size=file_size,
-            credits_charged=required_credits,
+            credits_charged=credits_cost,
             embedding_status="pending"
         )
         db.add(new_entry)
@@ -252,7 +253,7 @@ async def ingest_sales_document(
             content_type=file_ext.replace(".", ""),
             file_size=file_size,
             reservation_id=reservation.id,
-            required_credits=required_credits,
+            required_credits=credits_cost,
             metadata=metadata_for_worker
         )
 
@@ -342,21 +343,21 @@ async def ingest_support_document(
 
         file_size = os.path.getsize(temp_file_path)
         from app.services.billing.billing_service import BillingService
+        from app.services.billing.feature_billing_service import FeatureBillingService
 
         billing_service = BillingService()
 
-        # Calculate billing using base 1000: 10 credits per 1 MB
         size_mb = file_size / 1_000_000.0
-        required_credits = size_mb * 10.0
+        credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits...")
-        logger.info(f"[BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {required_credits:.4f} credits")
+        print(f"\n>>> [BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
+        logger.info(f"[BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
             workspace_id=workspace_id,
             feature_key="knowledge_base_upload",
-            unit_amount=float(required_credits),
+            unit_amount=float(size_mb),
             reference_key=f"kb:{entry_id}",
             description=f"Support Knowledge Upload: {file.filename}"
         )
@@ -374,7 +375,7 @@ async def ingest_support_document(
             metadata_json=json.dumps(metadata_for_worker),
             file_name=file.filename,
             file_size=file_size,
-            credits_charged=required_credits,
+            credits_charged=credits_cost,
             embedding_status="pending"
         )
         db.add(new_entry)
@@ -389,7 +390,7 @@ async def ingest_support_document(
             content_type=file_ext.replace(".", ""),
             file_size=file_size,
             reservation_id=reservation.id,
-            required_credits=required_credits,
+            required_credits=credits_cost,
             metadata=metadata_for_worker
         )
 
@@ -468,26 +469,12 @@ async def ingest_url(
 
         url_bytes = len(scrape_result["text"].encode('utf-8'))
         size_mb = url_bytes / 1_000_000.0
-        credits = size_mb * 10.0
 
-        from app.services.billing.billing_service import BillingService
-        billing_service = BillingService()
-
-        print(f"\n>>> [BILLING RESERVATION] URL: '{request.url}' | Size: {url_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits...")
-        logger.info(f"[BILLING RESERVATION] URL: '{request.url}' | Size: {url_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits")
-
-        reservation = billing_service.token_service.reserve_feature_credits(
-            db=db,
-            workspace_id=workspace_id,
-            feature_key="knowledge_base_upload",
-            unit_amount=float(credits),
-            reference_key=f"kb:url:{uuid.uuid4()}",
-            description=f"URL Ingestion: {request.url}"
-        )
-
-        try:
+        async def run_ingestion():
+            from app.services.billing.feature_billing_service import FeatureBillingService
+            credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
             rag = get_rag_service()
-            result = rag.ingest_document(
+            return rag.ingest_document(
                 db=db,
                 workspace_id=workspace_id,
                 text=scrape_result["text"],
@@ -497,32 +484,27 @@ async def ingest_url(
                 metadata=ingestion_metadata,
                 file_name=request.url,
                 file_size=url_bytes,
-                credits_charged=credits,
+                credits_charged=credits_cost,
                 embedding_status="completed"
             )
 
-            billing_service.token_service.finalize_feature_credits(
-                db=db,
-                reservation_id=reservation.id,
-                actual_units=float(credits)
-            )
-            print(f"\n>>> [BILLING SUCCESS] Finalized charge of {credits:.4f} credits for URL: '{request.url}' | Size: {url_bytes} bytes ({size_mb:.4f} MB)\n")
-            logger.info(f"[BILLING SUCCESS] Finalized charge of {credits:.4f} credits for URL: '{request.url}'")
+        from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+        result = await AIExecutionService.execute(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=current_user.id,
+            feature_key=AIFeatureRegistry.KNOWLEDGE_BASE_UPLOAD,
+            prompt="",
+            custom_unit_amount=size_mb,
+            description=f"URL Ingestion: {request.url}",
+            execute_fn=run_ingestion
+        )
+        return result
 
-            return result
-        except Exception as e:
-            try:
-                billing_service.release_token_reservation(
-                    db=db,
-                    reservation_id=reservation.id,
-                    reason="url_ingestion_failed"
-                )
-                print(f"\n>>> [BILLING REFUND] Released reservation for URL: '{request.url}' due to ingestion failure.")
-                logger.info(f"[BILLING REFUND] Released reservation for URL: '{request.url}' due to ingestion failure.")
-            except Exception:
-                pass
-            raise e
-
+    except HTTPException as e:
+        raise e
+    except (BillingError, WorkspaceAccessError) as e:
+        raise e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -581,26 +563,12 @@ async def ingest_text(
 
         text_bytes = len(request.content.encode('utf-8'))
         size_mb = text_bytes / 1_000_000.0
-        credits = size_mb * 10.0
 
-        from app.services.billing.billing_service import BillingService
-        billing_service = BillingService()
-
-        print(f"\n>>> [BILLING RESERVATION] Text: '{request.title}' | Size: {text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits...")
-        logger.info(f"[BILLING RESERVATION] Text: '{request.title}' | Size: {text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits")
-
-        reservation = billing_service.token_service.reserve_feature_credits(
-            db=db,
-            workspace_id=workspace_id,
-            feature_key="knowledge_base_upload",
-            unit_amount=float(credits),
-            reference_key=f"kb:text:{uuid.uuid4()}",
-            description=f"Text Ingestion: {request.title}"
-        )
-
-        try:
+        async def run_ingestion():
+            from app.services.billing.feature_billing_service import FeatureBillingService
+            credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
             rag = get_rag_service()
-            result = rag.ingest_document(
+            return rag.ingest_document(
                 db=db,
                 workspace_id=workspace_id,
                 text=request.content,
@@ -610,32 +578,27 @@ async def ingest_text(
                 metadata=ingestion_metadata,
                 file_name=request.title,
                 file_size=text_bytes,
-                credits_charged=credits,
+                credits_charged=credits_cost,
                 embedding_status="completed"
             )
 
-            billing_service.token_service.finalize_feature_credits(
-                db=db,
-                reservation_id=reservation.id,
-                actual_units=float(credits)
-            )
-            print(f"\n>>> [BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Text: '{request.title}' | Size: {text_bytes} bytes ({size_mb:.4f} MB)\n")
-            logger.info(f"[BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Text: '{request.title}'")
+        from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+        result = await AIExecutionService.execute(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=current_user.id,
+            feature_key=AIFeatureRegistry.KNOWLEDGE_BASE_UPLOAD,
+            prompt="",
+            custom_unit_amount=size_mb,
+            description=f"Text Ingestion: {request.title}",
+            execute_fn=run_ingestion
+        )
+        return result
 
-            return result
-        except Exception as e:
-            try:
-                billing_service.release_token_reservation(
-                    db=db,
-                    reservation_id=reservation.id,
-                    reason="text_ingestion_failed"
-                )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Text: '{request.title}' due to ingestion failure.")
-                logger.info(f"[BILLING REFUND] Released reservation for Text: '{request.title}' due to ingestion failure.")
-            except Exception:
-                pass
-            raise e
-
+    except HTTPException as e:
+        raise e
+    except (BillingError, WorkspaceAccessError) as e:
+        raise e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -695,26 +658,12 @@ async def crawl_website(
                 # Website Crawl Content size-based billing
                 page_text_bytes = len(content.encode('utf-8'))
                 size_mb = page_text_bytes / 1_000_000.0
-                credits = size_mb * 10.0
-
-                from app.services.billing.billing_service import BillingService
-                billing_service = BillingService()
-
                 page_title = page.get('title', '') or url
-                print(f"\n>>> [BILLING RESERVATION] Crawled Page: '{page_title}' | Size: {page_text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits...")
-                logger.info(f"[BILLING RESERVATION] Crawled Page: '{page_title}' | Size: {page_text_bytes} bytes ({size_mb:.4f} MB) | Reserving {credits:.4f} credits")
 
-                reservation = billing_service.token_service.reserve_feature_credits(
-                    db=db,
-                    workspace_id=workspace_id,
-                    feature_key="knowledge_base_upload",
-                    unit_amount=float(credits),
-                    reference_key=f"kb:website:{uuid.uuid4()}",
-                    description=f"Website Page Crawl: {page_title}"
-                )
-
-                try:
-                    result = rag.ingest_document(
+                async def run_page_ingestion():
+                    from app.services.billing.feature_billing_service import FeatureBillingService
+                    credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
+                    return rag.ingest_document(
                         db=db,
                         workspace_id=workspace_id,
                         text=content,
@@ -724,34 +673,26 @@ async def crawl_website(
                         metadata=final_metadata,
                         file_name=page.get("url", url),
                         file_size=page_text_bytes,
-                        credits_charged=credits,
+                        credits_charged=credits_cost,
                         embedding_status="completed"
                     )
 
-                    billing_service.token_service.finalize_feature_credits(
-                        db=db,
-                        reservation_id=reservation.id,
-                        actual_units=float(credits)
-                    )
-                    print(f"\n>>> [BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Crawled Page: '{page_title}' | Size: {page_text_bytes} bytes ({size_mb:.4f} MB)\n")
-                    logger.info(f"[BILLING SUCCESS] Finalized charge of {credits:.4f} credits for Crawled Page: '{page_title}'")
+                from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+                result = await AIExecutionService.execute(
+                    db=db,
+                    workspace_id=workspace_id,
+                    user_id=current_user.id,
+                    feature_key=AIFeatureRegistry.KNOWLEDGE_BASE_UPLOAD,
+                    prompt="",
+                    custom_unit_amount=size_mb,
+                    description=f"Website Page Crawl: {page_title}",
+                    execute_fn=run_page_ingestion
+                )
 
+                total_chunks += result.get("chunks_created", 0)
 
-                    total_chunks += result.get("chunks_created", 0)
-
-                except Exception as ex:
-                    try:
-                        billing_service.release_token_reservation(
-                            db=db,
-                            reservation_id=reservation.id,
-                            reason="website_page_ingestion_failed"
-                        )
-                        print(f"\n>>> [BILLING REFUND] Released reservation for Crawled Page: '{page_title}' due to ingestion failure.")
-                        logger.info(f"[BILLING REFUND] Released reservation for Crawled Page: '{page_title}' due to ingestion failure.")
-                    except Exception:
-                        pass
-                    raise ex
-
+            except (BillingError, WorkspaceAccessError) as e:
+                raise e
             except Exception as e:
                 logger.warning(f"Failed to ingest page: {e}")
                 continue
@@ -764,6 +705,10 @@ async def crawl_website(
             "message": f"Successfully indexed {len(pages)} pages"
         }
 
+    except HTTPException as e:
+        raise e
+    except (BillingError, WorkspaceAccessError) as e:
+        raise e
     except Exception as e:
         logger.error(f"Website crawl failed: {e}")
         raise HTTPException(

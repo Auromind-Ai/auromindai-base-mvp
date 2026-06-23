@@ -2,6 +2,7 @@ import json
 import logging
 import uuid
 from typing import Any, Dict, List
+from sqlalchemy.orm import Session
 import google.generativeai as genai
 from groq import Groq
 from app.core.config import settings
@@ -20,46 +21,132 @@ class AgenticWiringServiceV2:
     #  PUBLIC                                                              
  
 
-    def generate_flow(self, prompt: str) -> Dict[str, Any]:
+    async def generate_flow(
+        self,
+        prompt: str,
+        db: Session = None,
+        workspace_id: str = None,
+        user_id: str = None
+    ) -> Dict[str, Any]:
         system_prompt = self._get_system_prompt()
         user_prompt = self._build_user_prompt(prompt)
 
         try:
-            if self.groq_client:
-                response = self.groq_client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    model="llama-3.3-70b-versatile",
-                    temperature=0.15,
-                    response_format={"type": "json_object"},
-                    timeout=30.0,
-                )
-                flow_data = json.loads(response.choices[0].message.content)
+            if db is not None and workspace_id is not None and user_id is not None:
+                import asyncio
+                from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+                from app.core.exceptions import BillingError, WorkspaceAccessError
 
-            elif self.google_api_key:
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                response = model.generate_content(
-                    f"{system_prompt}\n\n{user_prompt}",
-                    generation_config={
-                        "temperature": 0.15,
-                        "response_mime_type": "application/json",
-                    },
+                async def run_flow_generation():
+                    if self.groq_client:
+                        response = await asyncio.to_thread(
+                            self.groq_client.chat.completions.create,
+                            messages=[
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt},
+                            ],
+                            model="llama-3.3-70b-versatile",
+                            temperature=0.15,
+                            response_format={"type": "json_object"},
+                            timeout=30.0,
+                        )
+                        content = response.choices[0].message.content or ""
+                        usage = response.usage
+                        input_tokens = usage.prompt_tokens if usage else 0
+                        output_tokens = usage.completion_tokens if usage else 0
+                        total_tokens = usage.total_tokens if usage else 0
+                        return {
+                            "text": content,
+                            "usage": {
+                                "input_tokens": input_tokens,
+                                "output_tokens": output_tokens,
+                                "total_tokens": total_tokens
+                            },
+                            "provider": "groq",
+                            "model": "llama-3.3-70b-versatile"
+                        }
+                    elif self.google_api_key:
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        response = await asyncio.to_thread(
+                            model.generate_content,
+                            f"{system_prompt}\n\n{user_prompt}",
+                            generation_config={
+                                "temperature": 0.15,
+                                "response_mime_type": "application/json",
+                            },
+                        )
+                        content = response.text.strip()
+                        if "```json" in content:
+                            content = content.split("```json")[1].split("```")[0].strip()
+                        
+                        usage = response.usage_metadata if hasattr(response, "usage_metadata") else None
+                        input_tokens = usage.prompt_token_count if usage else 0
+                        output_tokens = usage.candidates_token_count if usage else 0
+                        total_tokens = usage.total_token_count if usage else 0
+
+                        return {
+                            "text": content,
+                            "usage": {
+                                "input_tokens": input_tokens,
+                                "output_tokens": output_tokens,
+                                "total_tokens": total_tokens
+                            },
+                            "provider": "gemini",
+                            "model": "gemini-1.5-flash"
+                        }
+                    else:
+                        raise Exception("No AI provider configured (set GOOGLE_API_KEY or GROQ_API_KEY)")
+
+                res = await AIExecutionService.execute(
+                    db=db,
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                    feature_key=AIFeatureRegistry.FLOW,
+                    prompt=user_prompt,
+                    description="Generate WhatsApp flow",
+                    execute_fn=run_flow_generation
                 )
-                content = response.text.strip()
-                if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0].strip()
-                flow_data = json.loads(content)
+                flow_data = json.loads(res.get("text", "{}"))
 
             else:
-                raise Exception("No AI provider configured (set GOOGLE_API_KEY or GROQ_API_KEY)")
+                # Fallback to direct client call if no DB/Auth context is provided
+                if self.groq_client:
+                    response = self.groq_client.chat.completions.create(
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        model="llama-3.3-70b-versatile",
+                        temperature=0.15,
+                        response_format={"type": "json_object"},
+                        timeout=30.0,
+                    )
+                    flow_data = json.loads(response.choices[0].message.content)
+
+                elif self.google_api_key:
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    response = model.generate_content(
+                        f"{system_prompt}\n\n{user_prompt}",
+                        generation_config={
+                            "temperature": 0.15,
+                            "response_mime_type": "application/json",
+                        },
+                    )
+                    content = response.text.strip()
+                    if "```json" in content:
+                        content = content.split("```json")[1].split("```")[0].strip()
+                    flow_data = json.loads(content)
+
+                else:
+                    raise Exception("No AI provider configured (set GOOGLE_API_KEY or GROQ_API_KEY)")
 
             return self._validate_and_enhance_flow(flow_data)
 
         except Exception as e:
             logger.exception("[AgenticWiring] Flow generation failed: %s", e)
-            from app.core.exceptions import AIProviderError, get_ai_provider_error_details
+            from app.core.exceptions import AIProviderError, get_ai_provider_error_details, BillingError, WorkspaceAccessError
+            if isinstance(e, (AIProviderError, BillingError, WorkspaceAccessError)):
+                raise e
             safe_msg, status_code = get_ai_provider_error_details(e, operation="flow")
             raise AIProviderError(safe_msg, status_code=status_code)
 

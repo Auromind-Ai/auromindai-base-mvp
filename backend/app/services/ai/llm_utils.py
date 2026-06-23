@@ -79,12 +79,28 @@ def write_to_token_log_file(message: str):
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
 async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
-    result = await _router.generate(prompt, model=model)
+    from app.services.ai.execution_service import AIExecutionService, current_execution_context
+    
+    ctx = current_execution_context.get()
+    if ctx:
+        result = await AIExecutionService.execute(
+            db=None,
+            workspace_id=ctx.workspace_id,
+            user_id=ctx.user_id,
+            feature_key=ctx.feature_key,
+            prompt=prompt,
+            model=model
+        )
+    else:
+        logger.warning(f"safe_llm_call called without active execution context for model: {model}")
+        result = await _router.generate(prompt, model=model)
     
     # Calculate tokens
-    input_tokens = result.get("input_tokens") or 0
-    output_tokens = result.get("output_tokens") or 0
-    total_tokens = result.get("total_tokens") or 0
+    usage = result.get("usage", {})
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+    total_tokens = usage.get("total_tokens", 0)
+    content = result.get("text", "")
     
     # Split prompt into System Prompt and Input Query
     system_prompt, user_input = split_prompt(prompt)
@@ -113,7 +129,7 @@ async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
         "input_tokens": user_input_tokens,
         "output_tokens": output_tokens,
         "total_tokens": total_tokens,
-        "content": result.get("content")
+        "content": content
     }
     
     # Log individual call to general logger
@@ -128,7 +144,7 @@ async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
         logs_list.append(log_entry)
         
     return {
-        "content": result["content"],
+        "content": content,
         "model": result.get("model"),
         "provider": result.get("provider"),
         "tokens": total_tokens,

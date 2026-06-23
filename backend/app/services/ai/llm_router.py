@@ -3,9 +3,10 @@ import asyncio
 from app.core.logger import logger
 from anthropic import AsyncAnthropic
 from groq import Groq
+from openai import AsyncOpenAI
 import google.generativeai as genai
 from app.database import SessionLocal
-from app.services.model_config_service import  ModelConfigService
+from app.services.model_config_service import ModelConfigService
 import time
 
 MODEL_MAP = {
@@ -14,7 +15,7 @@ MODEL_MAP = {
     "sonnet": "sonnet",
     "opus": "opus",
     "gemini_flash": "gemini",
-        }
+}
 
 class LLMRouter:
 
@@ -24,7 +25,6 @@ class LLMRouter:
         self._cache_time = 0
         self._cache_ttl = 10   
 
-    
     def _get_api_key(self, env_name: str, db_key: str) -> str:
         from app.services.platform_settings_service import get_setting
         db = SessionLocal()
@@ -61,7 +61,6 @@ class LLMRouter:
             if not config["is_active"]:
                 raise Exception(f"Model '{model_name}' is disabled")
 
-            
             self._config_cache[model_name] = config
             self._cache_time = current_time
 
@@ -70,17 +69,14 @@ class LLMRouter:
         finally:
             db.close()
 
-  
-    async def generate(self, prompt: str, model: str = "auto"):
+    async def generate(self, prompt: str, model: str = "auto", media_data: bytes = None, mime_type: str = None):
         try:
-            start_time = time.time()
+            resolved_model_name = MODEL_MAP.get(model, model)
+            print(f"Requested model: {resolved_model_name}")
 
-            model = MODEL_MAP.get(model, "auto")
-            print(f"Requested model: {model}")
-
-            if model != "auto":
+            if resolved_model_name != "auto":
                 try:
-                    config = self._get_config(model)
+                    config = self._get_config(resolved_model_name)
                     provider = config["provider"]
 
                     if provider == "claude":
@@ -88,11 +84,15 @@ class LLMRouter:
                             raise Exception("Claude key missing")
                         return await self._claude_call(prompt, config)
 
+                    elif provider == "openai":
+                        if not settings.OPENAI_API_KEY:
+                            raise Exception("OpenAI key missing")
+                        return await self._openai_call(prompt, config, media_data, mime_type)
+
                     elif provider == "gemini":
                         if not settings.GOOGLE_API_KEY:
                             raise Exception("Gemini key missing")
-                        return await self._gemini_call(prompt, config)
-
+                        return await self._gemini_call(prompt, config, media_data, mime_type)
 
                     elif provider == "groq":
                         if not settings.GROQ_API_KEY:
@@ -100,36 +100,44 @@ class LLMRouter:
                         return await self._groq_call(prompt, config)
 
                 except Exception as e:
-                    logger.warning(f"{model} not available → fallback AUTO: {e}")
+                    logger.warning(f"{resolved_model_name} not available → fallback AUTO: {e}")
 
+            # Fallbacks for 'auto' or when specific provider fails
             try:
                 if settings.ANTHROPIC_API_KEY:
                     logger.info("AUTO → Claude Sonnet")
                     config = self._get_config("sonnet")
                     return await self._claude_call(prompt, config)
-
             except Exception as e:
-                logger.warning(f"Claude failed: {e}")
+                logger.warning(f"Claude fallback failed: {e}")
+
+            try:
+                if settings.OPENAI_API_KEY:
+                    logger.info("AUTO → OpenAI gpt-4o-mini")
+                    config = self._get_config("gpt-4o-mini")
+                    return await self._openai_call(prompt, config, media_data, mime_type)
+            except Exception as e:
+                logger.warning(f"OpenAI fallback failed: {e}")
 
             try:
                 if settings.GOOGLE_API_KEY:
                     logger.info("AUTO → Gemini")
                     config = self._get_config("gemini")
-                    return await self._gemini_call(prompt, config)
-
+                    return await self._gemini_call(prompt, config, media_data, mime_type)
             except Exception as e:
-                logger.warning(f"Gemini failed: {e}")
+                logger.warning(f"Gemini fallback failed: {e}")
 
             logger.info("AUTO -> Groq fallback")
             config = self._get_config("groq")
             return await self._groq_call(prompt, config)
+
         except Exception as e:
             logger.exception("AI Generation failed: %s", e)
             from app.core.exceptions import AIProviderError, get_ai_provider_error_details
             safe_msg, status_code = get_ai_provider_error_details(e, operation="general")
             raise AIProviderError(safe_msg, status_code=status_code)
             
-    async def _gemini_call(self, prompt, config):
+    async def _gemini_call(self, prompt, config, media_data=None, mime_type=None):
         try:
             api_key_env = config.get("api_key_env", "GOOGLE_API_KEY")
             if api_key_env == "GEMINI_API_KEY":
@@ -139,9 +147,16 @@ class LLMRouter:
 
             model = genai.GenerativeModel(config["model"])
 
+            contents = [prompt]
+            if media_data and mime_type:
+                contents.append({
+                    "mime_type": mime_type,
+                    "data": media_data
+                })
+
             response = await asyncio.to_thread(
                 model.generate_content,
-                prompt,
+                contents,
                 generation_config={
                     "temperature": config["temperature"],
                     "max_output_tokens": config["max_tokens"],
@@ -149,7 +164,6 @@ class LLMRouter:
             )
 
             text = response.text or ""
-
             usage = getattr(response, "usage_metadata", None)
 
             if usage:
@@ -157,7 +171,6 @@ class LLMRouter:
                 output_tokens = usage.candidates_token_count
                 total_tokens = usage.total_token_count
             else:
-                # fallback only if usage metadata unavailable
                 input_tokens = len(prompt.split())
                 output_tokens = len(text.split())
                 total_tokens = input_tokens + output_tokens
@@ -165,16 +178,75 @@ class LLMRouter:
             logger.info(f"Gemini usage metadata: {response.usage_metadata}")
 
             return {
-                "content": text,
+                "text": text,
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
                 "provider": "gemini",
                 "model": config["model"],
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": total_tokens
+                "finish_reason": None,
+                "metadata": {}
             }
         
         except Exception as e:
             raise Exception(f"Gemini error: {e}")
+
+    async def _openai_call(self, prompt, config, media_data=None, mime_type=None):
+        try:
+            api_key_env = config.get("api_key_env", "OPENAI_API_KEY")
+            api_key = self._get_api_key(api_key_env, "openai_api_key")
+            client = AsyncOpenAI(api_key=api_key)
+
+            messages = []
+            if media_data and mime_type:
+                import base64
+                base64_image = base64.b64encode(media_data).decode("utf-8")
+                image_url = f"data:{mime_type};base64,{base64_image}"
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": image_url
+                            }
+                        }
+                    ]
+                })
+            else:
+                messages.append({"role": "user", "content": prompt})
+
+            response = await client.chat.completions.create(
+                model=config["model"],
+                temperature=config["temperature"],
+                max_tokens=config["max_tokens"],
+                messages=messages
+            )
+
+            text = response.choices[0].message.content or ""
+            usage = response.usage
+            input_tokens = usage.prompt_tokens if usage else 0
+            output_tokens = usage.completion_tokens if usage else 0
+            total_tokens = usage.total_tokens if usage else 0
+            finish_reason = response.choices[0].finish_reason if response.choices else None
+
+            return {
+                "text": text,
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
+                "provider": "openai",
+                "model": config["model"],
+                "finish_reason": finish_reason,
+                "metadata": {}
+            }
+        except Exception as e:
+            raise Exception(f"OpenAI error: {e}")
 
     async def _claude_call(self, prompt, config):
         try:
@@ -196,12 +268,16 @@ class LLMRouter:
             total_tokens = input_tokens + output_tokens
 
             return {
-                "content": text,
+                "text": text,
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
                 "provider": "claude",
                 "model": config["model"],
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": total_tokens
+                "finish_reason": getattr(response, "stop_reason", None),
+                "metadata": {}
             }
 
         except Exception as e:
@@ -220,37 +296,45 @@ class LLMRouter:
                 max_tokens=config["max_tokens"],
                 messages=[{"role": "user", "content": prompt}]
             )
-            
 
-            content = response.choices[0].message.content
+            content = response.choices[0].message.content or ""
 
             usage = response.usage
-            input_tokens = usage.prompt_tokens
-            output_tokens = usage.completion_tokens
-            total_tokens = usage.total_tokens
+            input_tokens = usage.prompt_tokens if usage else 0
+            output_tokens = usage.completion_tokens if usage else 0
+            total_tokens = usage.total_tokens if usage else 0
+            finish_reason = response.choices[0].finish_reason if response.choices else None
 
             return {
-                "content": content,
+                "text": content,
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
                 "provider": "groq",
                 "model": config["model"],
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": total_tokens
+                "finish_reason": finish_reason,
+                "metadata": {}
             }
 
         except Exception as e:
             raise Exception(f"Groq error: {e}")
 
     def resolve_provider_for_model(self, model: str) -> str:
-        model = MODEL_MAP.get(model, "auto")
-        if model != "auto":
+        resolved_model_name = MODEL_MAP.get(model, model)
+        if resolved_model_name != "auto":
             try:
-                config = self._get_config(model)
+                config = self._get_config(resolved_model_name)
                 provider = config["provider"]
                 if provider == "claude":
                     api_key = self._get_api_key("ANTHROPIC_API_KEY", "anthropic_api_key")
                     if api_key and api_key.strip():
                         return "claude"
+                elif provider == "openai":
+                    api_key = self._get_api_key("OPENAI_API_KEY", "openai_api_key")
+                    if api_key and api_key.strip():
+                        return "openai"
                 elif provider == "gemini":
                     api_key = self._get_api_key("GOOGLE_API_KEY", "gemini_api_key")
                     if api_key and api_key.strip():
@@ -271,10 +355,17 @@ class LLMRouter:
             pass
 
         try:
+            api_key = self._get_api_key("OPENAI_API_KEY", "openai_api_key")
+            if api_key and api_key.strip():
+                return "openai"
+        except Exception:
+            pass
+
+        try:
             api_key = self._get_api_key("GOOGLE_API_KEY", "gemini_api_key")
             if api_key and api_key.strip():
                 return "gemini"
         except Exception:
             pass
 
-        return "groq"
+        return "groq"

@@ -610,7 +610,7 @@ class BillingService:
             period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
             tokens_used = (
-                db.query(func.sum(-TokenLedger.tokens_delta))
+                db.query(func.sum(TokenLedger.tokens_used))
                 .filter(
                     TokenLedger.workspace_id == workspace_id,
                     TokenLedger.status == "posted",
