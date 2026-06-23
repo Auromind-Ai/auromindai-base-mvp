@@ -319,7 +319,7 @@ export default function ChannelsPage() {
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({});
 
-    // ─── Filter / Sort state ─
+    // ─ Filter / Sort state ─
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('default');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -345,7 +345,7 @@ export default function ChannelsPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // ─── Filtering + Sorting logic ─
+    // ─ Filtering + Sorting logic ─
     const filteredItems = useMemo(() => {
         let items = [...ALL_ITEMS];
 
@@ -388,7 +388,7 @@ export default function ChannelsPage() {
     const filteredChannels = useMemo(() => filteredItems.filter(i => i.type === 'channel'), [filteredItems]);
     const filteredIntegrations = useMemo(() => filteredItems.filter(i => i.type === 'integration'), [filteredItems]);
 
-    // ─── Listen for WhatsApp embedded signup messages ─
+    // ─ Listen for WhatsApp embedded signup messages ─
     useEffect(() => {
         const handleMessage = (e) => {
             if (e.origin !== "https://www.facebook.com") return;
@@ -591,7 +591,7 @@ const disconnectChannel = async (channelId) => {
         <div className="min-h-screen bg-black text-white font-sans">
             <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
 
-                {/* ── Header ── */}
+                {/*  Header  */}
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-10 gap-6">
                     <div className="pt-2 md:pb-2">
                         <h1 className="text-3xl lg:text-4xl font-medium text-white tracking-tight mb-5">Channels</h1>
@@ -613,7 +613,7 @@ const disconnectChannel = async (channelId) => {
                     </div>
                 </div>
 
-                {/* ── Toolbar ── */}
+                {/*  Toolbar  */}
                 <div className="flex flex-wrap items-center gap-3 mb-10">
                     <div className="relative flex-1 min-w-[220px]">
                         <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#444]" />
@@ -693,14 +693,14 @@ const disconnectChannel = async (channelId) => {
                     </div>
                 </div>
 
-                {/* ── Empty state ── */}
+                {/*  Empty state  */}
                 {filteredItems.length === 0 && (
                     <div className="text-center py-20">
                         <p className="text-white/40 text-[15px]">No channels or integrations match your filters.</p>
                     </div>
                 )}
 
-                {/* ── Channel Cards ── */}
+                {/*  Channel Cards  */}
                 {filteredChannels.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     {filteredChannels.map((item) => {
@@ -823,7 +823,7 @@ const disconnectChannel = async (channelId) => {
                 </div>
                 )}
 
-                {/* ── Integration Section ── */}
+                {/*  Integration Section  */}
                 {filteredIntegrations.length > 0 && (
                 <div className="mt-14">
                     <h2 className="text-3xl lg:text-4xl font-medium text-white tracking-tight mb-3">Integration</h2>
@@ -906,13 +906,13 @@ const disconnectChannel = async (channelId) => {
                 </div>
                 )}
 
-                {/* ── Footer ── */}
+                {/*  Footer  */}
                 <div className="mt-14 text-center text-white/50 text-[12px]">
                     <p>Auromind AI securely handles your communication data according to our privacy policy.</p>
                 </div>
             </div>
 
-            {/* ── Twilio Modal ── */}
+            {/*  Twilio Modal  */}
             {showTwilioModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-[#0d0d0d] border border-[#1f1f1f] p-6 rounded-2xl w-full max-w-[420px] shadow-2xl relative"

@@ -57,7 +57,7 @@ class SupportAgent:
                 query=query,
                 source="vector_db",
                 entry_ids=entry_ids if entry_ids else None,
-                # ── FIX: Only query support collections in vector_db ──
+                #  FIX: Only query support collections in vector_db 
                 collection=["support", "support_agent"]
             )
             if (
@@ -203,7 +203,7 @@ RETURN STRICT JSON ONLY (no extra text, no markdown):
             feedback = result.get("feedback")
             response_text = result.get("response", "")
 
-            # ── Merge: prefer LLM-extracted over existing, skip nulls ──
+            #  Merge: prefer LLM-extracted over existing, skip nulls 
             merged_name    = collect_raw.get("support_name")    or support_name    or ""
             merged_contact = collect_raw.get("support_contact") or support_contact or ""
             merged_problem = collect_raw.get("support_problem") or support_problem or ""
@@ -213,7 +213,7 @@ RETURN STRICT JSON ONLY (no extra text, no markdown):
                 f"problem={merged_problem!r} new_stage={new_stage}"
             )
 
-            # ── Build updated_data for DB persistence ──
+            #  Build updated_data for DB persistence 
             updated_data = {
                 "support_stage":        new_stage,
                 "support_name":         merged_name,
@@ -229,7 +229,7 @@ RETURN STRICT JSON ONLY (no extra text, no markdown):
             )
             self.logger.info(f"[SUPPORT] Persisted updated_data: {updated_data}")
 
-            # ── Build collect dict to return to Orchestration ──
+            #  Build collect dict to return to Orchestration 
             # Orchestration will also persist these via its own update_lead_data path.
             # We return all non-empty support fields so they are not lost.
             collect_for_orchestration = {
@@ -257,7 +257,7 @@ RETURN STRICT JSON ONLY (no extra text, no markdown):
 
                 # Check if RAG returned a VALID solution (not a "not available" message)
                 if rag_answer and self._is_valid_rag_answer(rag_answer):
-                    # ── Solution found in vector_db → show solution + ask "Did this resolve?" ──
+                    #  Solution found in vector_db → show solution + ask "Did this resolve?" 
                     self.logger.info("[SUPPORT] Valid RAG solution found. Showing to user for verification.")
                     updated_data["support_stage"] = "verifying_solution"
                     updated_data["support_rag_solution"] = rag_answer
@@ -281,7 +281,7 @@ RETURN STRICT JSON ONLY (no extra text, no markdown):
                         "confidence_score": 0.95,
                     }
                 else:
-                    # ── No valid solution in vector_db → directly create ticket (skip "Did this resolve?") ──
+                    #  No valid solution in vector_db → directly create ticket (skip "Did this resolve?") 
                     self.logger.info("[SUPPORT] No valid RAG solution found. Directly creating support ticket.")
                     ticket = self.memory.create_support_ticket(
                         workspace_id=workspace_id,

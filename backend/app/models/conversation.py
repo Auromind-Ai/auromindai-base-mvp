@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, DateTime, Enum, Text, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, String, DateTime, Enum, Text, UniqueConstraint, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -48,6 +48,10 @@ class Conversation(Base):
     profile_pic = Column(Text)
 
     status = Column(Enum(ConversationStatus), default=ConversationStatus.OPEN)
+
+    active_agent = Column(String(50), nullable=True)
+    agent_locked = Column(Boolean, default=False)
+    active_workflow_id = Column(UUID(as_uuid=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

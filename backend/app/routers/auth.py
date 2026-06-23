@@ -177,10 +177,10 @@ async def verify_otp(request_obj: Request, request: VerifyOTPRequest, response: 
             device_info=device_info
         )
 
-        # ── 2FA gate — do NOT set cookie yet ──────────────────────────────
+        #  2FA gate — do NOT set cookie yet ─
         if result.get("requiresTwoFactor"):
             return result          # {requiresTwoFactor: true, pending_token: "..."}
-        # ── END 2FA gate ──────────────────────────────────────────────────
+        #  END 2FA gate 
 
         token = result["access_token"]
         from app.core.config import settings

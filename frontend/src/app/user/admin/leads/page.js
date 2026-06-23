@@ -14,7 +14,7 @@ import { getWorkspaceIdFromToken } from '@/lib/auth';
 import MessageRenderer from '@/components/chat/MessageRenderer';
 import { SYSTEM_TIERS, AGENT_LABELS, STATUS_STYLES } from '@/lib/labelStyles';
 
-// ─── DATA META ────────────────────────────────────────────────────────────────
+// ─ DATA META ─
 
 const CHANNEL_META = {
     Whatsapp: { icon: Phone,     gradient: 'from-[#25D366] to-[#128C7E]', dot: 'bg-emerald-400', label: 'Whatsapp',  textColor: 'text-emerald-400', scoreColor: 'text-emerald-400' },
@@ -104,7 +104,7 @@ const CHANNEL_THEME = {
 
 const getTheme = (channel) => CHANNEL_THEME[channel] || CHANNEL_THEME.Web;
 
-// ─── HELPERS & MAPPERS ────────────────────────────────────────────────────────
+// ─ HELPERS & MAPPERS ─
 
 const getChannelKey = (source) => {
     if (!source) return 'Web';
@@ -450,7 +450,7 @@ function ChatSkeleton() {
     );
 }
 
-// ─── LEADS PANEL ─────────────────────────────────────────────────────────────
+// ─ LEADS PANEL 
 
 function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasMore, onLoadMore, leadsDetails = {} }) {
     return (
@@ -560,7 +560,7 @@ function LeadsPanel({ leads, selected, onSelect, show, loading, totalCount, hasM
     );
 }
 
-// ─── CHAT SECTION ─────────────────────────────────────────────────────────────
+// ─ CHAT SECTION 
 
 function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite }) {
     const endRef = useRef(null);
@@ -777,7 +777,7 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
     );
 }
 
-// ─── RIGHT PANEL ──────────────────────────────────────────────────────────────
+// ─ RIGHT PANEL ─
 
 function RightPanel({ lead, details, history, loadingHistory }) {
     const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
@@ -1121,7 +1121,7 @@ function RightPanel({ lead, details, history, loadingHistory }) {
     );
 }
 
-// ─── MAIN APP PAGE ────────────────────────────────────────────────────────────
+// ─ MAIN APP PAGE ─
 
 export default function LeadsPage() {
     const router = useRouter();

@@ -400,7 +400,7 @@ export default function BillingHistoryPage() {
   )
 }
 
-/* ─── Sub-components ─── */
+/* ─ Sub-components ─ */
 
 function UsageBar({ label, value, percent, barColor }) {
   return (
@@ -432,7 +432,7 @@ function StatusPill({ status }) {
   )
 }
 
-/* ─── Helpers ─── */
+/* ─ Helpers ─ */
 const cardStyle = {
   background: "#070012",
   border: "0.43px solid rgba(157, 157, 157, 0.3)",

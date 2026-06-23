@@ -9,7 +9,7 @@ from app.services.inbox_agents.memory_service import MemoryService
 from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.inbox.twilio_service import TwilioService
 from app.models.flow_execution import FlowExecutionState
-from app.models import Conversation
+from app.models import Conversation, TokenLedger
 from app.core.config import settings
 
 
@@ -38,8 +38,8 @@ class AgentOrchestration:
 
         self.logger.info("AgentOrchestration initialized successfully")
 
-    # MAIN ENTRY POINT 
-    async def process_message(self, payload, channel, skip_send=False):
+    # MAIN ENTRY POINT INTERNAL
+    async def _process_message_internal(self, payload, channel, skip_send=False):
         data = self.normalize_message(payload, channel)
 
         user_id      = data.get("user_id")
@@ -48,7 +48,7 @@ class AgentOrchestration:
         db           = self.db
         conversation_id = data.get("conversation_id")
 
-        # ── LEAD_DEBUG: Log incoming message at orchestration entry ──
+        #  LEAD_DEBUG: Log incoming message at orchestration entry 
         self.logger.warning(f"[LEAD_DEBUG][orchestration] Incoming message: {message!r}")
 
         # Note: We no longer extract or generate a user_id-based memory_key.
@@ -122,7 +122,7 @@ class AgentOrchestration:
             if val:
                 lead_data[field] = val
 
-        # ── LEAD_DEBUG: Log lead_data loaded from DB ──
+        #  LEAD_DEBUG: Log lead_data loaded from DB 
         self.logger.warning(
             f"[LEAD_DEBUG][orchestration] lead_data from DB: {lead_data}"
         )
@@ -146,22 +146,44 @@ class AgentOrchestration:
             state["current_stage"] = "sales"
 
         # Determine agent
-        forced_agent = payload.get("forced_agent")
-        if forced_agent:
-            agent_type = forced_agent
-            self.logger.info(f"FORCED AGENT RAW: {payload.get('forced_agent')}")
-            self.logger.info(
-                "Using forced agent from automation",
-                extra={"agent_type": agent_type, "workspace_id": workspace_id}
-            )
+        conversation = None
+        if db and conversation_id:
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+
+        if conversation and conversation.agent_locked and conversation.active_agent:
+            agent_type = conversation.active_agent
+            self.logger.info(f"Conversation is agent-locked. Forcing active agent: {agent_type}")
         else:
-            agent_type = self._determine_agent_type(
-                message=message,
-                turn_count=turn_count,
-                lead_data=lead_data,
-                state=state,
-                is_followup_trigger=payload.get("is_followup_trigger", False)
-            )
+            forced_agent = payload.get("forced_agent")
+            if forced_agent:
+                agent_type = forced_agent
+                self.logger.info(f"FORCED AGENT RAW: {payload.get('forced_agent')}")
+                self.logger.info(
+                    "Using forced agent from automation",
+                    extra={"agent_type": agent_type, "workspace_id": workspace_id}
+                )
+            else:
+                agent_type = self._determine_agent_type(
+                    message=message,
+                    turn_count=turn_count,
+                    lead_data=lead_data,
+                    state=state,
+                    is_followup_trigger=payload.get("is_followup_trigger", False)
+                )
+
+            # First message lock condition
+            if conversation and conversation.active_agent is None:
+                conversation.active_agent = agent_type
+                conversation.agent_locked = True
+                workflow_id = payload.get("flow_id") or payload.get("active_workflow_id")
+                if workflow_id:
+                    import uuid as uuid_pkg
+                    conversation.active_workflow_id = uuid_pkg.UUID(str(workflow_id))
+                db.add(conversation)
+                db.commit()
+                self.logger.info(f"Agent locked to: {agent_type} for workflow: {workflow_id}")
+
+        self.runtime_context["agent_type"] = agent_type
 
         self.logger.info(f"Agent type: {agent_type}", extra={
             "user_id": user_id, "turn_count": turn_count, "conversation_id": conversation_id
@@ -247,6 +269,55 @@ class AgentOrchestration:
                 else:
                     result["response"] += "\n\nMeeting scheduled successfully."
                 demo_details = f"Demo Booked for {result.get('meeting_date')} at {result.get('meeting_time')} ({result.get('timezone')})"
+
+                # Charge 10 credits for successful booking by lead_agent / unified_agent
+                if agent_type in ["lead_agent", "unified_agent"]:
+                    try:
+                        from app.services.billing.billing_service import BillingService
+                        from app.models.token_ledger import TokenLedger
+
+                        meeting_date = result.get("meeting_date")
+                        meeting_time = result.get("meeting_time")
+                        ref_key = f"demo-booking:{workspace_id}:{conversation_id}:{meeting_date}:{meeting_time}"
+
+                        # Check if duplicate transaction exists to prevent double charge risk
+                        existing_charge = db.query(TokenLedger).filter(TokenLedger.reference_key.like(f"{ref_key}%")).first()
+                        if existing_charge:
+                            print(
+                                f"\n=========================================\n"
+                                f"CALENDAR BOOKING BILLING DEBIT LOG:\n"
+                                f"Workspace: {workspace_id}\n"
+                                f"Calendar Event already charged (Ref: {ref_key}). Skipping duplicate charge.\n"
+                                f"=========================================\n",
+                                flush=True
+                            )
+                        else:
+                            billing_service = BillingService()
+                            booking_reservation = billing_service.token_service.reserve_feature_credits(
+                                db=db,
+                                workspace_id=workspace_id,
+                                feature_key="meeting_booking",
+                                unit_amount=1.0,
+                                reference_key=ref_key,
+                                description=f"Calendar Booking: {demo_details}",
+                            )
+                            if booking_reservation:
+                                billing_service.token_service.finalize_feature_credits(
+                                    db=db,
+                                    reservation_id=booking_reservation.id,
+                                    actual_units=1.0
+                                )
+                                print(
+                                    f"\n=========================================\n"
+                                    f"CALENDAR BOOKING BILLING DEBIT LOG:\n"
+                                    f"Workspace: {workspace_id}\n"
+                                    f"Calendar Event Successfully Created / Confirmed\n"
+                                    f"Credits Deducted: -10.0000 credits\n"
+                                    f"=========================================\n",
+                                    flush=True
+                                )
+                    except Exception as booking_bill_err:
+                        self.logger.error(f"Failed to charge for calendar booking: {booking_bill_err}")
             else:
                 result["response"] += "\n\nFailed to schedule meeting automatically. Our team will follow up to manually confirm the schedule."
                 demo_details = "Demo Booking Failed (Automatic scheduling failed)"
@@ -304,12 +375,12 @@ class AgentOrchestration:
         if self.memory:
             collected = result.get("collect") or {}
  
-            # ── LEAD_DEBUG: Log raw collect from agent result ──
+            #  LEAD_DEBUG: Log raw collect from agent result 
             self.logger.warning(
                 f"[LEAD_DEBUG][orchestration] RAW collect from agent: {result.get('collect')}"
             )
  
-            # ── SUPPORT AGENT: persist support_* fields directly ──
+            #  SUPPORT AGENT: persist support_* fields directly 
             # SupportAgent manages its own state via support_* prefixed keys.
             # These bypass lead_fields config (support flow has no lead_fields).
             SUPPORT_FIELDS = {
@@ -340,13 +411,13 @@ class AgentOrchestration:
                 if field in result and result[field] and not collected.get(field):
                     collected[field] = result[field]
  
-            # ── LEAD_DEBUG: Log merged collected before validation ──
+            #  LEAD_DEBUG: Log merged collected before validation 
             self.logger.warning(
                 f"[LEAD_DEBUG][orchestration] collected BEFORE validation: {collected}"
             )
  
             INVALID_WORDS = ["none", "null", "no", "nill", "don't have",
-                             "not have", "இல்ல", "தெரியல", "na", "n/a"]
+                             "not have","na", "n/a"]
  
             def validate_lead_fields(data: dict) -> dict:
                 import re
@@ -402,7 +473,7 @@ class AgentOrchestration:
                 {k: v for k, v in collected.items() if v}
             )
  
-            # ── LEAD_DEBUG: Log cleaned output after validation ──
+            #  LEAD_DEBUG: Log cleaned output after validation 
             self.logger.warning(
                 f"[LEAD_DEBUG][orchestration] cleaned fields AFTER validation: {cleaned}"
             )
@@ -517,6 +588,48 @@ class AgentOrchestration:
             ) or {}
         )
 
+        # Check Unlock Conditions
+        if conversation and conversation.agent_locked:
+            should_unlock = False
+            updated_lead = self.memory.get_lead_data(workspace_id=workspace_id, conversation_id=conversation_id)
+            
+            # 1. Support
+            support_stage = ""
+            if updated_lead:
+                if updated_lead.custom_fields:
+                    support_stage = updated_lead.custom_fields.get("support_stage", "")
+                if not support_stage and hasattr(updated_lead, "support_stage"):
+                    support_stage = getattr(updated_lead, "support_stage", "")
+            if support_stage == "completed" or (result and result.get("collect", {}).get("support_stage") == "completed"):
+                should_unlock = True
+                self.logger.info("Unlocking conversation: Support stage is completed")
+
+            # 2. Sales
+            sales_stage = (result or {}).get("stage") or (result or {}).get("sales_stage")
+            if not sales_stage and updated_lead and updated_lead.custom_fields:
+                sales_stage = updated_lead.custom_fields.get("sales_stage") or updated_lead.custom_fields.get("stage")
+            if sales_stage in ["closed_won", "closed_lost"]:
+                should_unlock = True
+                self.logger.info(f"Unlocking conversation: Sales stage is {sales_stage}")
+
+            # 3. Lead
+            lead_status = (result or {}).get("lead_status") or (result or {}).get("status") or (result or {}).get("lead_status_value")
+            if not lead_status and updated_lead:
+                if updated_lead.custom_fields:
+                    lead_status = updated_lead.custom_fields.get("lead_status") or updated_lead.custom_fields.get("status")
+                if not lead_status and hasattr(updated_lead, "lead_status"):
+                    lead_status = getattr(updated_lead, "lead_status", "")
+            if lead_status in ["qualified", "disqualified"]:
+                should_unlock = True
+                self.logger.info(f"Unlocking conversation: Lead status is {lead_status}")
+
+            if should_unlock:
+                conversation.agent_locked = False
+                conversation.active_agent = None
+                conversation.active_workflow_id = None
+                db.add(conversation)
+                db.commit()
+
         # ─ ESCALATE: end AI session, hand off to human ─
         should_escalate = (
             result.get("escalate")
@@ -529,6 +642,12 @@ class AgentOrchestration:
             should_escalate = True
 
         if should_escalate:
+            if conversation and conversation.agent_locked:
+                conversation.agent_locked = False
+                conversation.active_agent = None
+                conversation.active_workflow_id = None
+                db.add(conversation)
+                db.commit()
             self._end_ai_session(conversation_id)
             reason = mcp_result.get("reason", "Lead qualification complete — handoff to human")
             if action == "book_demo" and result.get("demo_details"):
@@ -728,3 +847,83 @@ class AgentOrchestration:
 
         except Exception:
             self.logger.error("send_response failed", exc_info=True)
+
+    # PUBLIC ENTRY POINT WITH BILLING WRAPPER
+    async def process_message(self, payload, channel, skip_send=False):
+        from app.services.ai.llm_utils import token_log_context
+        import uuid
+        
+        token_logs = []
+        token_ctx = token_log_context.set(token_logs)
+        try:
+            response = await self._process_message_internal(payload, channel, skip_send=skip_send)
+            return response
+        finally:
+            token_log_context.reset(token_ctx)
+            try:
+                workspace_id = payload.get("workspace_id")
+                if not workspace_id:
+                    normalized = self.normalize_message(payload, channel)
+                    workspace_id = normalized.get("workspace_id")
+                
+                db = getattr(self.escalation_queue, "db", None) or self.db
+                
+                if workspace_id and db:
+                    total_tokens = sum(log.get("total_tokens", 0) for log in token_logs)
+                    if total_tokens > 0:
+                        from app.services.billing.billing_service import BillingService
+                        billing_service = BillingService()
+                        
+                        curr_agent = self.runtime_context.get("agent_type") or "inbox_agent"
+                        conversation_id = payload.get("conversation_id")
+                        
+                        message_id = payload.get("message_id")
+                        if not message_id and db and conversation_id:
+                            from app.models.message import Message, SenderType
+                            latest_msg = (
+                                db.query(Message)
+                                .filter(Message.conversation_id == conversation_id, Message.sender_type == SenderType.USER)
+                                .order_by(Message.timestamp.desc())
+                                .first()
+                            )
+                            if latest_msg:
+                                message_id = str(latest_msg.id)
+                        if not message_id:
+                            message_id = "fallback-key"
+                            
+                        reference_key = f"agent-run:{workspace_id}:{conversation_id}:{message_id}"
+                        
+                        # Idempotency check for billing
+                        existing = db.query(TokenLedger).filter(
+                            TokenLedger.reference_key == reference_key,
+                            TokenLedger.status == "posted"
+                        ).first()
+                        if existing:
+                            self.logger.info(f"Billing already posted for reference key: {reference_key}")
+                        else:
+                            reservation = billing_service.token_service.reserve_feature_credits(
+                                db=db,
+                                workspace_id=workspace_id,
+                                feature_key="ai_chat",
+                                unit_amount=float(total_tokens),
+                                reference_key=reference_key,
+                                description=f"Agent Execution ({curr_agent}) tokens",
+                            )
+                            if reservation:
+                                billing_service.token_service.finalize_feature_credits(
+                                    db=db,
+                                    reservation_id=reservation.id,
+                                    actual_units=float(total_tokens)
+                                )
+                                credits_deducted = float(total_tokens) / 1000.0
+                                print(
+                                    f"\n=========================================\n"
+                                    f"AGENT BILLING DEBIT LOG ({curr_agent}):\n"
+                                    f"Workspace: {workspace_id}\n"
+                                    f"Actual Tokens Consumed: {total_tokens}\n"
+                                    f"Credits Deducted: -{credits_deducted:.4f} credits (Rate: 1000 tokens = 1 credit)\n"
+                                    f"=========================================\n",
+                                    flush=True
+                                )
+            except Exception as bill_err:
+                self.logger.error(f"Failed to charge tokens for agent execution: {bill_err}")

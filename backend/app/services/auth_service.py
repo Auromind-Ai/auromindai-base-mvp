@@ -311,7 +311,7 @@ class AuthService:
                 raise ValueError("Your email is not registered. Please sign up first.")
             
 
-            # ── 2FA CHECK — only addition to this method ──────────────────────────
+            #  2FA CHECK — only addition to this method ─
             if user.two_factor_enabled:
                 import uuid as _uuid
                 import redis as _redis
@@ -322,7 +322,7 @@ class AuthService:
                 except Exception:
                     raise ValueError("Authentication service temporarily unavailable. Please try again.")
                 return {"requiresTwoFactor": True, "pending_token": pending_token}
-            # ── END 2FA CHECK ─────────────────────────────────────────────────────
+            #  END 2FA CHECK 
 
             return AuthService.email_login(db, email, None, "My Workspace", ip_address, device_info)
         else:

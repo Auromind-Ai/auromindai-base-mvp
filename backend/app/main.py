@@ -95,6 +95,12 @@ app.include_router(conversations.router)
 app.include_router(twilio_webhook.router) 
 app.include_router(meta_what.router)
 app.include_router(instagram.router)
+
+# Mount webhook and channel routers under /api prefix for compatibility with direct webhook calls
+app.include_router(conversations.router, prefix="/api")
+app.include_router(twilio_webhook.router, prefix="/api")
+app.include_router(meta_what.router, prefix="/api")
+app.include_router(instagram.router, prefix="/api")
 app.include_router(brain.router, tags=["brain"])
 app.include_router(chat.router)
 app.include_router(dashboard.router,    prefix="/dashboard", tags=["dashboard"])

@@ -286,6 +286,12 @@ class MessageService:
                     ai_paused_at=datetime.now(timezone.utc),
                 )
                 db.add(state)
+            
+            # Unlock conversation on human takeover/manual handoff
+            conversation.agent_locked = False
+            conversation.active_agent = None
+            conversation.active_workflow_id = None
+            db.add(conversation)
             logger.info(
                 "[HUMAN_TAKEOVER] Activated for conversation %s",
                 conversation.id,

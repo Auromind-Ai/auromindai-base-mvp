@@ -9,7 +9,7 @@ from cryptography.fernet import Fernet
 from app.core.config import settings
 
 
-# ─── Encryption (uses your existing SECRET_KEY) ───────────────────────────────
+# ─ Encryption (uses your existing SECRET_KEY) 
 
 def _fernet() -> Fernet:
     """Derive a Fernet key from SECRET_KEY so no extra env var is needed."""
@@ -26,7 +26,7 @@ def decrypt_secret(encrypted: str) -> str:
     return _fernet().decrypt(encrypted.encode()).decode()
 
 
-# ─── TOTP ─────────────────────────────────────────────────────────────────────
+# ─ TOTP ─
 
 def generate_totp_secret() -> str:
     """Random RFC-6238 base32 secret."""

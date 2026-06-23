@@ -149,7 +149,7 @@ export default function ConvertLeadModal({ isOpen, onClose, conversation, onSucc
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-[#111119] border border-white/[0.08] rounded-2xl p-6 shadow-2xl flex flex-col gap-5 animate-in zoom-in-95 duration-200">
 
-        {/* ─── Step 1: Confirmation ─── */}
+        {/* ─ Step 1: Confirmation ─ */}
         {step === 'confirm' && (
           <>
             <div className="flex flex-col items-center text-center gap-3 py-2">
@@ -195,7 +195,7 @@ export default function ConvertLeadModal({ isOpen, onClose, conversation, onSucc
           </>
         )}
 
-        {/* ─── Step 2: Conversion Form ─── */}
+        {/* ─ Step 2: Conversion Form ─ */}
         {step === 'form' && (
           <>
             <div>
@@ -266,7 +266,7 @@ export default function ConvertLeadModal({ isOpen, onClose, conversation, onSucc
           </>
         )}
 
-        {/* ─── Step 3: Success ─── */}
+        {/* ─ Step 3: Success ─ */}
         {step === 'success' && (
           <>
             <div className="flex flex-col items-center text-center gap-4 py-4">
