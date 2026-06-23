@@ -163,7 +163,7 @@ class UnifiedAgent:
                 )
 
             self.logger.info("Sending prompt to LLM...")
-            result = self.llm.generate_json(prompt)
+            result = await self.llm.generate_json(prompt)
             self.logger.info(f"LLM Result: {result}")
 
             # ── LEAD_DEBUG: Log raw LLM output ──

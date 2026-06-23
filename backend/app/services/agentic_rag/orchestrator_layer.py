@@ -101,66 +101,38 @@ class OrchestratorLayer:
             token_logs = []
             token = token_log_context.set(token_logs)
         
-        from app.services.billing.billing_service import BillingService
-        billing_service = BillingService()
-        
-        reservation_id = None
         try:
-            if not bypass_billing:
-                # 1. Estimate reservation tokens
-                estimated_tokens = billing_service.estimate_reservation_amount(query, use_rag=True)
-                
-                # 2. Reserve feature credits
-                import uuid
-                ref_key = f"agentic-rag:{workspace_id}:{uuid.uuid4()}"
-                reservation = billing_service.token_service.reserve_feature_credits(
+            async def run_rag_internal():
+                return await self._agent_loop_internal(
                     db=db,
                     workspace_id=workspace_id,
-                    feature_key="agentic_rag",
-                    unit_amount=float(estimated_tokens),
-                    reference_key=ref_key,
-                    description=f"RAG query: {query[:50]}"
+                    query=query,
+                    model=model,
+                    source=source,
+                    document_id=document_id,
+                    entry_ids=entry_ids,
+                    collection=collection
                 )
-                if reservation:
-                    reservation_id = reservation.id
 
-            res = await self._agent_loop_internal(
+            from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, current_execution_context
+            parent_ctx = current_execution_context.get()
+            user_id = parent_ctx.user_id if parent_ctx else "system"
+
+            res = await AIExecutionService.execute(
                 db=db,
                 workspace_id=workspace_id,
-                query=query,
+                user_id=user_id,
+                feature_key=AIFeatureRegistry.RAG,
+                prompt=query,
                 model=model,
-                source=source,
-                document_id=document_id,
-                entry_ids=entry_ids,
-                collection=collection
+                bypass_billing=bypass_billing,
+                execute_fn=run_rag_internal,
+                description=f"RAG query: {query[:50]}"
             )
             self.log_aggregated_token_usage(query, token_logs, res)
-            
-            # 3. Finalize credits based on actual tokens used
-            if reservation_id:
-                try:
-                    total_tokens = sum(log.get("total_tokens", 0) for log in token_logs)
-                    billing_service.token_service.finalize_feature_credits(
-                        db=db,
-                        reservation_id=reservation_id,
-                        actual_units=float(total_tokens)
-                    )
-                except Exception as finalize_err:
-                    logger.error(f"Failed to finalize RAG billing: {finalize_err}")
             return res
         except Exception as e:
             self.log_aggregated_token_usage(query, token_logs)
-            
-            # 4. Release reservation on failure so client is not charged
-            if reservation_id:
-                try:
-                    billing_service.release_token_reservation(
-                        db=db,
-                        reservation_id=reservation_id,
-                        reason=f"RAG execution failed: {type(e).__name__}"
-                    )
-                except Exception as release_err:
-                    logger.error(f"Failed to release RAG reservation: {release_err}")
             raise e
         finally:
             if token is not None:

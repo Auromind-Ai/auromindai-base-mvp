@@ -2044,6 +2044,7 @@ class PlanEntitlementUpdateRequest(BaseModel):
     lead_limit: int
     meeting_limit: int
     automation_limit: int
+    flow: int
     allow_ai_topup: bool
     allow_wcc_recharge: bool
     included_credit_reset_policy: str
@@ -2071,6 +2072,7 @@ async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
                 lead_limit=100,
                 meeting_limit=10,
                 automation_limit=2,
+                flow=5,
                 allow_ai_topup=True,
                 allow_wcc_recharge=True,
                 included_credit_reset_policy="EXPIRE",
@@ -2094,6 +2096,7 @@ async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
             "lead_limit": ent.lead_limit,
             "meeting_limit": ent.meeting_limit,
             "automation_limit": ent.automation_limit,
+            "flow": ent.flow,
             "allow_ai_topup": ent.allow_ai_topup,
             "allow_wcc_recharge": ent.allow_wcc_recharge,
             "included_credit_reset_policy": ent.included_credit_reset_policy,
@@ -2133,6 +2136,7 @@ async def update_plan_entitlement_admin(
         "lead_limit": ent.lead_limit,
         "meeting_limit": ent.meeting_limit,
         "automation_limit": ent.automation_limit,
+        "flow": ent.flow,
         "allow_ai_topup": ent.allow_ai_topup,
         "allow_wcc_recharge": ent.allow_wcc_recharge,
         "included_credit_reset_policy": ent.included_credit_reset_policy,
@@ -2150,6 +2154,7 @@ async def update_plan_entitlement_admin(
     ent.lead_limit = payload.lead_limit
     ent.meeting_limit = payload.meeting_limit
     ent.automation_limit = payload.automation_limit
+    ent.flow = payload.flow
     ent.allow_ai_topup = payload.allow_ai_topup
     ent.allow_wcc_recharge = payload.allow_wcc_recharge
     ent.included_credit_reset_policy = payload.included_credit_reset_policy
@@ -2171,6 +2176,7 @@ async def update_plan_entitlement_admin(
         "lead_limit": ent.lead_limit,
         "meeting_limit": ent.meeting_limit,
         "automation_limit": ent.automation_limit,
+        "flow": ent.flow,
         "allow_ai_topup": ent.allow_ai_topup,
         "allow_wcc_recharge": ent.allow_wcc_recharge,
         "included_credit_reset_policy": ent.included_credit_reset_policy,

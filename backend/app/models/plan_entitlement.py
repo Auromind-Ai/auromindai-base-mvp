@@ -25,6 +25,7 @@ class PlanEntitlement(Base):
     lead_limit = Column(Integer, nullable=False, default=100)
     meeting_limit = Column(Integer, nullable=False, default=10)
     automation_limit = Column(Integer, nullable=False, default=2)
+    flow = Column(Integer, nullable=False, default=5)
 
     # Business lifecycle fields
     allow_ai_topup = Column(Boolean, nullable=False, default=True)

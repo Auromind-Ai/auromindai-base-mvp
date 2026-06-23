@@ -124,122 +124,44 @@ class DocumentService:
             logger.warning(f"Error fetching API key for {env_name}: {e}")
         return ""
 
-    def _analyze_image_with_vlm(self, file_content: bytes, filename: str, db=None) -> str:
+    async def _analyze_image_with_vlm(self, file_content: bytes, filename: str, db=None) -> str:
+        logger.info(f"Analyzing image {filename} using centralized AIExecutionService...")
+        
+        # Determine mime type
         mime_type = "image/png"
         if filename.lower().endswith((".jpg", ".jpeg")):
             mime_type = "image/jpeg"
         elif filename.lower().endswith(".webp"):
             mime_type = "image/webp"
 
-        # 1. Try Gemini first (highly robust vision model)
-        gemini_key = self._get_api_key(db, "GOOGLE_API_KEY", "gemini_api_key")
-        if not gemini_key:
-            gemini_key = self._get_api_key(db, "GEMINI_API_KEY", "gemini_api_key")
+        prompt = (
+            "Describe this image in detail. Extract any text, labels, numbers, tables, or charts visible in the image. "
+            "Explain the main contents and visual elements clearly so it can be indexed for search."
+        )
 
-        if gemini_key:
-            try:
-                logger.info(f"Analyzing image {filename} using Gemini VLM...")
-                import google.generativeai as genai
-                genai.configure(api_key=gemini_key)
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                prompt = (
-                    "Describe this image in detail. Extract any text, labels, numbers, tables, or charts visible in the image. "
-                    "Explain the main contents and visual elements clearly so it can be indexed for search."
-                )
-                response = model.generate_content(
-                    [
-                        prompt,
-                        {"mime_type": mime_type, "data": file_content}
-                    ]
-                )
-                if response and response.text:
-                    logger.info(f"Gemini VLM image analysis successful for {filename}")
-                    return response.text
-            except Exception as e:
-                logger.warning(f"Gemini VLM image analysis failed: {e}")
+        from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, current_execution_context
+        ctx = current_execution_context.get()
+        user_id = ctx.user_id if ctx else "system"
 
-        # 2. Try Claude (Anthropic) if Gemini failed or key not configured
-        claude_key = self._get_api_key(db, "ANTHROPIC_API_KEY", "anthropic_api_key")
-        if claude_key:
-            try:
-                logger.info(f"Analyzing image {filename} using Claude VLM...")
-                from anthropic import Anthropic
-                client = Anthropic(api_key=claude_key)
-                base64_image = base64.b64encode(file_content).decode("utf-8")
-                prompt = (
-                    "Describe this image in detail. Extract any text, labels, numbers, tables, or charts visible in the image. "
-                    "Explain the main contents and visual elements clearly so it can be indexed for search."
-                )
-                response = client.messages.create(
-                    model="claude-3-sonnet-20240229",
-                    max_tokens=2048,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "image",
-                                    "source": {
-                                        "type": "base64",
-                                        "media_type": mime_type,
-                                        "data": base64_image
-                                    }
-                                },
-                                {
-                                    "type": "text",
-                                    "text": prompt
-                                }
-                            ]
-                        }
-                    ]
-                )
-                if response and response.content and len(response.content) > 0:
-                    analysis_text = response.content[0].text
-                    logger.info(f"Claude VLM image analysis successful for {filename}")
-                    return analysis_text
-            except Exception as e:
-                logger.warning(f"Claude VLM image analysis failed: {e}")
+        result = await AIExecutionService.execute(
+            db=db,
+            workspace_id="system_workspace",
+            user_id=user_id,
+            feature_key=AIFeatureRegistry.CHAT,
+            prompt=prompt,
+            model="auto",
+            media_data=file_content,
+            mime_type=mime_type,
+            bypass_billing=True
+        )
 
-        # 3. Try OpenAI if Gemini and Claude failed/unconfigured
-        openai_key = self._get_api_key(db, "OPENAI_API_KEY", "openai_api_key")
-        if openai_key:
-            try:
-                logger.info(f"Analyzing image {filename} using OpenAI VLM...")
-                from openai import OpenAI
-                client = OpenAI(api_key=openai_key)
-                base64_image = base64.b64encode(file_content).decode("utf-8")
-                prompt = (
-                    "Describe this image in detail. Extract any text, labels, numbers, tables, or charts visible in the image. "
-                    "Explain the main contents and visual elements clearly so it can be indexed for search."
-                )
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:{mime_type};base64,{base64_image}"
-                                    }
-                                }
-                            ]
-                        }
-                    ],
-                    max_tokens=2048
-                )
-                if response and response.choices and len(response.choices) > 0:
-                    analysis_text = response.choices[0].message.content
-                    logger.info(f"OpenAI VLM image analysis successful for {filename}")
-                    return analysis_text
-            except Exception as e:
-                logger.warning(f"OpenAI VLM image analysis failed: {e}")
+        text = result.get("text", "")
+        if not text:
+            raise ValueError("VLM image analysis returned empty response")
 
-        raise ValueError("Groq model does not support image analysis. Please configure Gemini, Claude, or OpenAI API keys to enable image analysis.")
+        return text
 
-    def process_file(self, file_content: bytes, filename: str, db: Optional[Any] = None) -> Dict[str, Any]:
+    async def process_file(self, file_content: bytes, filename: str, db: Optional[Any] = None) -> Dict[str, Any]:
        
         # Validate file size
         size_mb = len(file_content) / (1024 * 1024)
@@ -265,7 +187,7 @@ class DocumentService:
             text = self.extract_text_from_csv(file_content)
             content_type = "csv"
         elif filename_lower.endswith((".png", ".jpg", ".jpeg", ".webp")):
-             text = self._analyze_image_with_vlm(file_content, filename, db)
+             text = await self._analyze_image_with_vlm(file_content, filename, db)
              content_type = "image"
         else:
             raise ValueError(f"Unsupported file type: {filename}")

@@ -13,7 +13,7 @@ from app.models.workspace import WorkspaceMember
 from app.models.brain import BrainEntry
 from app.models.integration import Integration, CalendarEvent
 from app.models.ai_action import Lead
-from app.models.automation import AutomationFlow
+from app.models.automation import AutomationFlow, PurchasedFlowPack
 
 
 class EntitlementService:
@@ -24,6 +24,8 @@ class EntitlementService:
 
     @classmethod
     def get_workspace_entitlement(cls, db: Session, workspace_id: uuid.UUID) -> PlanEntitlement:
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
 
         # 1. Fetch active subscription
         subscription = (
@@ -57,6 +59,8 @@ class EntitlementService:
     def check_entitlement(
         cls, db: Session, workspace_id: uuid.UUID, resource: str, value: int = 1
     ) -> Dict[str, Any]:
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
         entitlement = cls.get_workspace_entitlement(db, workspace_id)
         resource = resource.lower()
 
@@ -106,6 +110,18 @@ class EntitlementService:
                 AutomationFlow.workspace_id == workspace_id, AutomationFlow.status == "Active"
             ).count()
             limit = entitlement.automation_limit
+        elif resource == "flow":
+            usage = db.query(AutomationFlow).filter(
+                AutomationFlow.workspace_id == workspace_id
+            ).count()
+            plan_limit = entitlement.flow if hasattr(entitlement, "flow") else 5
+            if plan_limit == -1:
+                limit = -1
+            else:
+                purchased = db.query(func.sum(PurchasedFlowPack.flows)).filter(
+                    PurchasedFlowPack.workspace_id == workspace_id
+                ).scalar() or 0
+                limit = plan_limit + purchased
         else:
             raise ValueError(f"Unknown entitlement resource type: {resource}")
 
