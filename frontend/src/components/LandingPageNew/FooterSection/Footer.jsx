@@ -1,9 +1,27 @@
 "use client";
 
+import Link from 'next/link';
+
 const footerLinks = {
-  Links: ["Services", "Process", "Case studies", "Benefits", "Pricing"],
-  Pages: ["Home", "About", "Blog", "Contact"],
-  Socials: ["Instagram", "Facebook", "Linkedin", "Twitter"],
+  Links: [
+    { name: "Services", href: "/#demo" },
+    { name: "Process", href: "/#process" },
+    { name: "Case studies", href: "/resources/case-studies" },
+    { name: "Benefits", href: "/#benefits" },
+    { name: "Pricing", href: "/#pricing" },
+  ],
+  Pages: [
+    { name: "Home", href: "/" },
+    { name: "About", href: "/" },
+    { name: "Blog", href: "/resources/blog" },
+    { name: "Contact", href: "mailto:auromindaipvtltd@gmail.com" },
+  ],
+  Socials: [
+    { name: "Instagram", href: "https://instagram.com" },
+    { name: "Facebook", href: "https://facebook.com" },
+    { name: "Linkedin", href: "https://linkedin.com" },
+    { name: "Twitter", href: "https://twitter.com" },
+  ],
 };
 
 export default function Footer() {
@@ -87,22 +105,36 @@ export default function Footer() {
                     </h4>
 
                     <ul className="flex flex-col gap-2.5">
-                      {items.map((item) => (
-                        <li key={item}>
-                          <a
-                            href="#"
-                            className="text-sm transition-all duration-150 hover:text-white hover:translate-x-0.5 inline-block"
-                            style={{
-                              color: "#A1A1AA",
-                              fontFamily: "'Poppins', sans-serif",
-                            }}
-                          >
-                          {item}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                      {items.map((item) => {
+                        const isExternal = item.href.startsWith("http") || item.href.startsWith("mailto");
+                        const linkProps = {
+                          className: "text-sm transition-all duration-150 hover:text-white hover:translate-x-0.5 inline-block",
+                          style: {
+                            color: "#A1A1AA",
+                            fontFamily: "'Poppins', sans-serif",
+                          }
+                        };
+                        return (
+                          <li key={item.name}>
+                            {isExternal ? (
+                              <a
+                                href={item.href}
+                                target={item.href.startsWith("http") ? "_blank" : undefined}
+                                rel={item.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                                {...linkProps}
+                              >
+                                {item.name}
+                              </a>
+                            ) : (
+                              <Link href={item.href} {...linkProps}>
+                                {item.name}
+                              </Link>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
               ))}
             </div>
           </div>

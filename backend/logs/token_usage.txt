@@ -2397,3 +2397,68 @@ TOTAL TOKENS USED: 1166
 Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
 Final Reply Token Count (Estimate): 17
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T12:00:55.444282Z
+User Query: 'explain about ai'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 368
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain about ai
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain principles of artificial intelligence
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 602
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 621
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain principles of artificial intelligence
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 208
+   Input/Query Tokens: 13
+   Output Tokens: 402
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain about ai
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation: Artificial Intelligence (AI)**  Artificial Intelligence (AI) refers to the developmen...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 101
+   Input/Query Tokens: 440
+   Output Tokens: 16
+   Total Tokens: 557
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain about ai          Answer:         **Explanation: Artificial Intelligence ...
+   [LLM Output Snippet]: How do narrow or weak AI systems balance accuracy with the risk of bias?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1261
+Total Input/Query Tokens: 481
+Total Output Tokens: 427
+TOTAL TOKENS USED: 2169
+-----------------------------------------
+Final Reply Text: '**Explanation: Artificial Intelligence (AI)**\n\nArtificial Intelligence (AI) refers to the development of computer systems that can perform tasks that typically require human intelligence, such as:\n\n1. **Learning**: AI systems can learn from data and adapt to new information.\n2. **Problem-solving**: AI systems can solve complex problems and make decisions based on data.\n3. **Perception**: AI systems can interpret and understand data from sensors, such as images, speech, and text.\n4. **Reasoning**: AI systems can draw conclusions and make inferences based on data and logic.\n5. **Action**: AI systems can interact with the physical world through robots, autonomous vehicles, and other devices.\n\n**Types of AI:**\n\n1. **Narrow or Weak AI**: Designed to perform a specific task, such as facial recognition, language translation, or playing chess.\n2. **General or Strong AI**: A hypothetical AI system that possesses human-like intelligence and can perform any intellectual task.\n3. **Superintelligence**: A hypothetical AI system that significantly surpasses human intelligence in all domains.\n\n**AI Applications:**\n\n1. **Virtual Assistants**: Siri, Google Assistant, Alexa, and Cortana.\n2. **Image Recognition**: Self-driving cars, facial recognition, and medical diagnosis.\n3. **Natural Language Processing**: Chatbots, language translation, and text summarization.\n4. **Predictive Maintenance**: Predicting equipment failures and scheduling maintenance.\n5. **Healthcare**: Personalized medicine, disease diagnosis, and patient monitoring.\n\n**Challenges and Future Directions:**\n\n1. **Ethics**: Ensuring AI systems are transparent, accountable, and fair.\n2. **Security**: Protecting AI systems from cyber threats and data breaches.\n3. **Explainability**: Understanding how AI systems make decisions and predictions.\n4. **Integration**: Seamlessly integrating AI with human decision-making processes.\n5. **Long-term Viability**: Ensuring AI systems continue to learn and improve over time.\n\nFollow-up question:\nHow do narrow or weak AI systems balance accuracy with the risk of bias?'
+Final Reply Token Count (Estimate): 279
+=========================================

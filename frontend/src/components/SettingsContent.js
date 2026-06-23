@@ -1430,16 +1430,7 @@ function MyAccountSection({
               "
               placeholder="Your name"
             />
-            <button
-              onClick={handleNameSubmit}
-              type="button"
-              className="
-                mt-3 px-4 py-1.5 text-xs font-bold text-white bg-[#814AC8] hover:bg-[#9B6ED8]
-                rounded-lg transition-colors shadow-[0_4px_14px_rgba(129,74,200,0.30)] active:scale-95
-              "
-            >
-              Save Name
-            </button>
+            
           </div>
         </div>
       </section>
@@ -1543,18 +1534,15 @@ export default function SettingsContent({ email }) {
   console.log('=== SETTINGS DEBUG ===', { user, email });
   const [activeSection, setActiveSection] = useState('my-account');
   const [preferredName, setPreferredName] = useState('User');
-
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showDisableModal, setShowDisableModal] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [settingsToast, setSettingsToast] = useState(null);
-
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [cancelDelLoading, setCancelDelLoading] = useState(false);
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {

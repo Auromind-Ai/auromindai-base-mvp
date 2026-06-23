@@ -1,5 +1,7 @@
 "use client";
 
+import NeatCTAButton from "@/components/ui/NeatCTAButton";
+
 export default function CTASection() {
   return (
     <section className="w-full bg-black py-16 px-4 flex items-center justify-center">
@@ -64,7 +66,8 @@ export default function CTASection() {
           <div className="relative flex flex-col sm:flex-row items-center gap-3 mt-2">
 
             {/* Get Started Button */}
-            <button
+            <NeatCTAButton
+              href="/signup"
               className="group relative overflow-hidden h-[44px] w-[180px] rounded-[12px] bg-[#814AC8] text-[16px] font-semibold text-white shadow-[0_0_25px_rgba(129,74,200,0.4)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(129,74,200,0.65)]"
             >
               <span className="flex items-center justify-center gap-2 w-full h-full">
@@ -94,10 +97,11 @@ export default function CTASection() {
                 </span>
 
               </span>
-            </button>
+            </NeatCTAButton>
 
             {/* Book a Demo */}
-            <button
+            <NeatCTAButton
+              href="/resources/demo-videos"
               className="group relative overflow-hidden flex items-center justify-center gap-2 h-[44px] w-[180px] rounded-[12px] border border-white/10 bg-white/5 text-[16px] font-medium text-white backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:bg-white/10"
             >
               {/* Play icon */}
@@ -115,7 +119,7 @@ export default function CTASection() {
                   Book a Demo
                 </span>
               </span>
-            </button>
+            </NeatCTAButton>
           </div>
         </div>
       </div>

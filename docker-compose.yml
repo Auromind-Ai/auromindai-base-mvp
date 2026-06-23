@@ -88,7 +88,7 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    command: celery -A app.core.celery_app beat --loglevel=info --scheduler celery.beat:PersistentScheduler -s /tmp/celerybeat-schedule
+    command: celery -A app.core.celery_app beat --loglevel=info
     environment:
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
