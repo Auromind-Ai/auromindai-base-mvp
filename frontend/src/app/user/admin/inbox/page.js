@@ -459,14 +459,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         </div>
                     </div>
 
-                    <div className="mb-6">
-                        <p className="text-[16px] font-regular text-white/90 tracking-wider mb-3 mt-10">About</p>
-                        <p className="text-[14px] text-white/70 leading-relaxed">
-                            Interested in premium plans<br />Frequently asks about pricing
-                        </p>
-                        <button className="text-[13px] mt-1 font-medium" style={{ color: ch.color }}>View more</button>
-                    </div>
-
                     {/* SECTION A: System Tier */}
                     <div className="mb-6 border-b border-white/[0.06] pb-6">
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">System Tier</p>

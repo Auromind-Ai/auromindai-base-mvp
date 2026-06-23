@@ -58,8 +58,8 @@ const Input = ({ label, hint, placeholder, value, onChange, className = '' }) =>
     {hint && <p className="text-white/60 text-xs mb-3 leading-relaxed">{hint}</p>}
     <input
       className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm text-white
-        placeholder:text-[#4A4359] focus:outline-none focus:border-purple-500 focus:ring-2
-        focus:ring-purple-500/20 transition-all duration-300"
+        placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]-500 focus:ring-2
+        focus:ring-[#814AC8]/20 transition-all duration-300"
       placeholder={placeholder}
       value={value}
       onChange={onChange}
@@ -162,7 +162,7 @@ function PhonePreview({ form, actionMode }) {
                 width: '32px',
                 height: '32px',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                background: '#814AC8',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -226,6 +226,25 @@ function PhonePreview({ form, actionMode }) {
                   overflow: 'hidden',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                 }}>
+
+                  {/* Media header — image/video */}
+                  {(form.type === 'IMAGE' || form.type === 'VIDEO') && form.mediaPreviewUrl && (
+                    <div style={{ width: '100%', aspectRatio: '1.91 / 1', overflow: 'hidden', background: '#000', position: 'relative' }}>
+                      {form.type === 'IMAGE' ? (
+                        <img src={form.mediaPreviewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <video src={form.mediaPreviewUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      )}
+                      {form.type === 'VIDEO' && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ padding: '10px 12px' }}>
                     {form.header && (
                       <div style={{ fontWeight: '700', marginBottom: '4px', fontSize: '12px', color: 'white' }}>
@@ -310,7 +329,7 @@ function PhonePreview({ form, actionMode }) {
                 width: '28px',
                 height: '28px',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                background: '#814AC8',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -342,6 +361,10 @@ export default function CreateTemplatePage() {
     footer: '',
     cta: '',
     ctaBtnTitle: 'Buy Now',
+    mediaFile: null,
+    mediaPreviewUrl: '',
+    mediaName: '',
+    mediaSize: 0,
   });
 
   const [aiPrompt, setAiPrompt] = useState('');
@@ -418,22 +441,43 @@ export default function CreateTemplatePage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.name || form.name.trim() === '') {
-      alert('Template Name is required');
-      return;
-    }
-    const nameRegex = /^[a-z0-9_]+$/;
-    if (!nameRegex.test(form.name)) {
-      alert('Template Name can only contain lowercase alphanumeric characters and underscores (e.g., app_verification_code)');
-      return;
-    }
-    if (!form.message || form.message.trim() === '') {
-      alert('Message content is required');
-      return;
-    }
+  if (!form.name || form.name.trim() === '') {
+    alert('Template Name is required');
+    return;
+  }
+  const nameRegex = /^[a-z0-9_]+$/;
+  if (!nameRegex.test(form.name)) {
+    alert('Template Name can only contain lowercase alphanumeric characters and underscores (e.g., app_verification_code)');
+    return;
+  }
+  if (!form.message || form.message.trim() === '') {
+    alert('Message content is required');
+    return;
+  }
+  if ((form.type === 'IMAGE' || form.type === 'VIDEO') && !form.mediaFile) {
+    alert(`Please upload a ${form.type === 'IMAGE' ? 'image' : 'video'} for the header`);
+    return;
+  }
 
-    try {
-      await api.post('/templates/create', {
+  try {
+    let payload;
+
+    if (form.mediaFile) {
+      const fd = new FormData();
+      fd.append('name', form.name);
+      fd.append('type', form.type);
+      fd.append('message', form.message);
+      fd.append('header', form.header);
+      fd.append('footer', form.footer);
+      fd.append('cta', form.cta);
+      fd.append('cta_btn_title', form.ctaBtnTitle);
+      fd.append('category', form.category);
+      fd.append('language', form.language);
+      fd.append('workspace_id', workspaceId);
+      fd.append('media', form.mediaFile);
+      payload = fd;
+    } else {
+      payload = {
         name: form.name,
         type: form.type,
         message: form.message,
@@ -444,12 +488,47 @@ export default function CreateTemplatePage() {
         category: form.category,
         language: form.language,
         workspace_id: workspaceId,
-      });
-      window.location.href = '/user/admin/templates';
-    } catch (err) {
-      console.error(err);
-      alert(err.message || 'Failed to create template');
+      };
     }
+
+    await api.post('/templates/create', payload);
+    window.location.href = '/user/admin/templates';
+  } catch (err) {
+    console.error(err);
+    alert(err.message || 'Failed to create template');
+  }
+};
+
+  const handleMediaUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isImage = form.type === 'IMAGE';
+    const allowedTypes = isImage
+      ? ['image/jpeg', 'image/png', 'image/webp']
+      : ['video/mp4', 'video/quicktime'];
+    const maxSize = isImage ? 5 * 1024 * 1024 : 16 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type)) {
+      alert(isImage ? 'Only JPG, PNG, WEBP allowed' : 'Only MP4, MOV allowed');
+      return;
+    }
+    if (file.size > maxSize) {
+      alert(`Max file size is ${isImage ? '5MB' : '16MB'}`);
+      return;
+    }
+
+    setForm(prev => ({
+      ...prev,
+      mediaFile: file,
+      mediaPreviewUrl: URL.createObjectURL(file),
+      mediaName: file.name,
+      mediaSize: file.size,
+    }));
+  };
+
+  const removeMedia = () => {
+    setForm(prev => ({ ...prev, mediaFile: null, mediaPreviewUrl: '', mediaName: '', mediaSize: 0 }));
   };
 
   const insertVar = (v) => setForm({ ...form, message: form.message + v });
@@ -473,17 +552,11 @@ export default function CreateTemplatePage() {
 
       {/* ── SIDEBAR ── */}
       <aside className={`
-        fixed md:static z-30 flex flex-col h-full w-[240px] bg-[#060010] border-r border-[#1A0B2E]
+        fixed md:static z-30 flex flex-col h-full w-[240px] md:w-[210px] lg:w-[240px] bg-[#060010] border-r border-[#1A0B2E]
         transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 template-scroll">
-          <div className="pt-4 pb-1">
-            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Manage</p>
-            <CatItem iconKey="template" label="Template Message" active={true} />
-            <CatItem iconKey="agents"   label="Agents"           active={false} />
-            <CatItem iconKey="analytics" label="Analytics"       active={false} />
-          </div>
           <div className="pt-4 pb-1">
             <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Categories</p>
             <CatItem iconKey="template" label="Utility"        active={false}
@@ -501,6 +574,16 @@ export default function CreateTemplatePage() {
               onClick={() => setForm({ ...form, type: 'IMAGE' })} />
             <CatItem iconKey="video" label="Video" active={form.type === 'VIDEO'}
               onClick={() => setForm({ ...form, type: 'VIDEO' })} />
+          </div>
+
+          <div className="pt-4 pb-1">
+            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Language</p>
+            <CatItem iconKey="text" label="English (US)"    active={form.language === 'en_US'}
+              onClick={() => setForm({ ...form, language: 'en_US' })} />
+            <CatItem iconKey="text" label="Tamil (தமிழ்)"   active={form.language === 'ta'}
+              onClick={() => setForm({ ...form, language: 'ta' })} />
+            <CatItem iconKey="text" label="Hindi (हिन्दी)"  active={form.language === 'hi'}
+              onClick={() => setForm({ ...form, language: 'hi' })} />
           </div>
         </nav>
       </aside>
@@ -529,14 +612,14 @@ export default function CreateTemplatePage() {
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto template-scroll">
-          <div className="flex gap-6 p-6 max-w-[1400px] mx-auto">
+          <div className="flex flex-col lg:flex-row gap-6 p-4 sm:p-6 max-w-[1400px] mx-auto">
 
             {/* ── FORM COLUMN ── */}
             <div className="flex-1 min-w-0 space-y-6">
 
               {/* Generate with AI */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 sm:p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
                   <h2 className="text-2xl font-bold text-center mb-1">Generate with AI</h2>
                   <p className="text-white/60 text-sm text-center mb-6 max-w-lg mx-auto leading-relaxed">
                     Generate professional message templates in seconds using AI-powered
@@ -553,8 +636,8 @@ export default function CreateTemplatePage() {
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                       className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm
-                        text-white placeholder:text-[#4A4359] focus:outline-none focus:border-purple-500
-                        focus:ring-2 focus:ring-purple-500/20 transition-all duration-300 resize-none"
+                        text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
+                        focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
                     />
                   </div>
                   <div className="flex items-center justify-between flex-wrap gap-3">
@@ -569,8 +652,8 @@ export default function CreateTemplatePage() {
                           onClick={() => setTone(key)}
                           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200
                             ${tone === key
-                              ? 'bg-purple-600 text-white shadow-[0_0_16px_rgba(168,85,247,0.4)]'
-                              : 'bg-transparent border border-[#24113A] text-[#B7B3C7] hover:border-purple-500/50 hover:text-white'
+                              ? 'bg-[#814AC8] text-white shadow-[0_0_16px_rgba(168,85,247,0.4)]'
+                              : 'bg-transparent border border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/50 hover:text-white'
                             }`}
                         >
                           {label}
@@ -584,7 +667,7 @@ export default function CreateTemplatePage() {
                         transition-all duration-300 hover:scale-[1.02]
                         ${!aiPrompt
                           ? 'bg-[#1A0B2E] text-[#4A4359] cursor-not-allowed'
-                          : 'bg-gradient-to-r from-purple-700 to-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_28px_rgba(168,85,247,0.5)]'
+                          : 'bg-gradient-to-r from-[#814AC8] to-[#814AC8] text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_28px_rgba(168,85,247,0.5)]'
                         }`}
                     >
                       <Icon d={icons.sparkle} size={14} />
@@ -598,8 +681,8 @@ export default function CreateTemplatePage() {
                           <p className="text-sm text-[#B7B3C7] whitespace-pre-line mb-3">{tpl.text}</p>
                           <button
                             onClick={() => setForm({ ...form, message: tpl.text })}
-                            className="w-full bg-purple-600/20 border border-purple-500/30 text-purple-300
-                              py-1.5 rounded-xl text-sm hover:bg-purple-600/30 transition-all duration-200"
+                            className="w-full bg-[#814AC8]/20 border border-[#814AC8]/30 text-[#c490e8]
+                              py-1.5 rounded-xl text-sm hover:bg-[#814AC8]/30 transition-all duration-200"
                           >
                             Use this
                           </button>
@@ -621,33 +704,7 @@ export default function CreateTemplatePage() {
                 />
               </div>
 
-              {/* Language Selection */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <p className="text-white text-sm font-medium mb-1">Language</p>
-                <p className="text-white/60 text-xs mb-4 leading-relaxed">
-                  Select the language for your message template. Meta requires matching the content language with the selected code.
-                </p>
-                <div className="flex gap-2.5">
-                  {[
-                    { key: 'en_US', label: 'English (US)' },
-                    { key: 'ta',    label: 'Tamil (தமிழ்)' },
-                    { key: 'hi',    label: 'Hindi (हिन्दी)' },
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setForm({ ...form, language: key })}
-                      className={`flex-1 py-3 px-4 rounded-2xl border text-sm font-medium transition-all duration-300
-                        ${form.language === key
-                          ? 'border-purple-500 text-purple-300 bg-purple-600/10 shadow-[0_0_12px_rgba(168,85,247,0.2)]'
-                          : 'border-[#24113A] text-[#B7B3C7] hover:border-purple-500/40 hover:text-white bg-[#0B0613]'
-                        }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+             
 
               {/* Header */}
               {form.type === 'TEXT' && (
@@ -659,6 +716,63 @@ export default function CreateTemplatePage() {
                     value={form.header}
                     onChange={(e) => setForm({ ...form, header: e.target.value })}
                   />
+                </div>
+              )}
+
+              {/* Header Media Upload — IMAGE / VIDEO types */}
+              {(form.type === 'IMAGE' || form.type === 'VIDEO') && (
+                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <p className="text-white text-m font-medium mb-1">
+                    Header ({form.type === 'IMAGE' ? 'Image' : 'Video'}) <span className="text-white/60 font-normal">(Optional)</span>
+                  </p>
+                  <p className="text-white/60 text-xs mb-3 leading-relaxed">
+                    Upload {form.type === 'IMAGE' ? 'an image' : 'a video'} for your template header.
+                  </p>
+
+                  {!form.mediaPreviewUrl ? (
+                    <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#3D1F6B] rounded-2xl py-8 cursor-pointer hover:border-[#814AC8] transition-all duration-200">
+                      <Icon d={form.type === 'IMAGE' ? icons.image : icons.video} size={26} className="text-[#814AC8]" />
+                      <span className="text-sm text-white/70">
+                        Drag &amp; Drop or <span className="text-[#c490e8] underline">Browse File</span>
+                      </span>
+                      <span className="text-[11px] text-[#4A4359]">
+                        {form.type === 'IMAGE' ? 'JPG, PNG, WEBP • Max 5MB' : 'MP4, MOV • Max 16MB'}
+                      </span>
+                      <input
+                        type="file"
+                        accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4,video/quicktime'}
+                        className="hidden"
+                        onChange={handleMediaUpload}
+                      />
+                    </label>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
+                      {form.type === 'IMAGE' ? (
+                        <img src={form.mediaPreviewUrl} alt={form.mediaName} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                      ) : (
+                        <video src={form.mediaPreviewUrl} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">{form.mediaName}</p>
+                        <p className="text-xs text-white/50">{(form.mediaSize / (1024 * 1024)).toFixed(1)} MB</p>
+                      </div>
+                      <label className="px-3 py-1.5 rounded-lg border border-[#24113A] text-xs text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white cursor-pointer transition-all duration-200">
+                        Replace
+                        <input
+                          type="file"
+                          accept={form.type === 'IMAGE' ? 'image/jpeg,image/png,image/webp' : 'video/mp4,video/quicktime'}
+                          className="hidden"
+                          onChange={handleMediaUpload}
+                        />
+                      </label>
+                      <button
+                        onClick={removeMedia}
+                        className="p-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                      >
+                        <Icon d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -677,8 +791,8 @@ export default function CreateTemplatePage() {
                     value={form.message}
                     onChange={(e) => setForm({ ...form, message: e.target.value })}
                     className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm
-                      text-white placeholder:text-[#4A4359] focus:outline-none focus:border-purple-500
-                      focus:ring-2 focus:ring-purple-500/20 transition-all duration-300 resize-none"
+                      text-white placeholder:text-[#4A4359] focus:outline-none focus:-[#814AC8]
+                      focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
                   />
                   <span className="absolute bottom-3 right-4 text-[11px] text-[#4A4359]">
                     {form.message.length} / 1024
@@ -689,8 +803,8 @@ export default function CreateTemplatePage() {
                     <button
                       key={v}
                       onClick={() => insertVar(v)}
-                      className="px-3 py-1 rounded-full border border-[#3D1F6B] text-purple-400 text-xs
-                        hover:bg-purple-600/20 hover:border-purple-500 hover:shadow-[0_0_10px_rgba(168,85,247,0.2)]
+                      className="px-3 py-1 rounded-full border border-[#814AC8]/40 text-[#814AC8] text-xs
+                        hover:bg-[#814AC8]/20 hover:border-[#814AC8] hover:shadow-[0_0_10px_rgba(129,74,200,0.2)]
                         transition-all duration-200"
                     >
                       {v}
@@ -729,8 +843,8 @@ export default function CreateTemplatePage() {
                         onClick={() => setActionMode(key)}
                         className={`px-5 py-2 rounded-xl text-sm font-medium border transition-all duration-200
                           ${actionMode === key
-                            ? 'border-purple-500 text-purple-300 bg-purple-600/10 shadow-[0_0_12px_rgba(168,85,247,0.2)]'
-                            : 'border-[#24113A] text-[#B7B3C7] hover:border-purple-500/40 hover:text-white'
+                            ? 'border-[#814AC8] text-[#c490e8] bg-[#814AC8]/10 shadow-[0_0_12px_rgba(129,74,200,0.2)]'
+                            : 'border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white'
                           }`}
                       >
                         {label}
@@ -748,7 +862,7 @@ export default function CreateTemplatePage() {
                           <p className="text-white/60 text-xs mb-1">Action Type</p>
                           <input defaultValue="URL"
                             className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
-                              text-white focus:outline-none focus:border-purple-500/60" />
+                              text-white focus:outline-none focus:border-[#814AC8]/60" />
                         </div>
                         <div>
                           <p className="text-white/60 text-xs mb-1">Button Title</p>
@@ -756,7 +870,7 @@ export default function CreateTemplatePage() {
                             value={form.ctaBtnTitle}
                             onChange={(e) => setForm({ ...form, ctaBtnTitle: e.target.value })}
                             className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
-                              text-white focus:outline-none focus:border-purple-500/60"
+                              text-white focus:outline-none focus:border-[#814AC8]/60"
                           />
                         </div>
                         <div>
@@ -766,12 +880,12 @@ export default function CreateTemplatePage() {
                             value={form.cta}
                             onChange={(e) => setForm({ ...form, cta: e.target.value })}
                             className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
-                              text-white placeholder:text-[#4A4359] focus:outline-none focus:border-purple-500/60"
+                              text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]/60"
                           />
                         </div>
                       </div>
                       <button className="w-full mt-3 py-2.5 rounded-xl border border-[#24113A] text-[#B7B3C7]
-                        text-sm hover:border-purple-500/40 hover:text-white transition-all duration-200">
+                        text-sm hover:border-[#814AC8]/40 hover:text-white transition-all duration-200">
                         + Add Another Action
                       </button>
                     </div>
@@ -783,7 +897,7 @@ export default function CreateTemplatePage() {
               <button
                 onClick={handleSubmit}
                 className="w-full py-3.5 rounded-2xl font-semibold text-white
-                  bg-gradient-to-r from-purple-700 via-purple-600 to-purple-500
+                  bg-[#814AC8]
                   shadow-[0_0_30px_rgba(168,85,247,0.3)]
                   hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:scale-[1.01]
                   transition-all duration-300"
@@ -793,7 +907,7 @@ export default function CreateTemplatePage() {
             </div>
 
             {/* ── RIGHT PANEL ── */}
-            <div className="w-[300px] shrink-0 hidden lg:flex flex-col gap-5">
+            <div className="w-full lg:w-[300px] shrink-0 flex flex-col gap-5">
 
               {/* Template Preview card */}
               <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
@@ -816,7 +930,7 @@ export default function CreateTemplatePage() {
                   <div className="space-y-2">
                     {sampleVars.map(({ key, label }) => (
                       <div key={key} className="flex items-center justify-between border-b border-[#1A0B2E] pb-2">
-                        <span className="text-purple-400 text-xs font-mono">{key}</span>
+                        <span className="text-[#814AC8] text-xs font-mono">{key}</span>
                         <span className="text-[#B7B3C7] text-xs">{label}</span>
                       </div>
                     ))}
@@ -827,8 +941,8 @@ export default function CreateTemplatePage() {
               {/* Pro Tip */}
               <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 p-1.5 bg-purple-600/20 rounded-lg">
-                    <Icon d={icons.tip} size={14} className="text-purple-400" />
+                  <div className="mt-0.5 p-1.5 bg-[#814AC8]/20 rounded-lg">
+                    <Icon d={icons.tip} size={14} className="text-[#c490e8]" />
                   </div>
                   <div>
                     <p className="text-white text-sm font-semibold mb-1">Pro Tip</p>

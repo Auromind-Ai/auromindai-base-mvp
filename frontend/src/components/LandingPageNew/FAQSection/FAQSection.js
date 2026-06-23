@@ -126,7 +126,7 @@ export default function FAQSection() {
                         transition={{ duration: 0.3, ease: 'easeOut' }}
                         className="px-5 pb-5 md:px-6 md:pb-6"
                       >
-                        <p className="max-w-[90%] text-[14px] leading-[1.7] text-white/70 sm:text-[15px] md:text-[16px] lg:text-[18px]">
+                        <p className="max-w-[90%] text-[12px] leading-[1.7] text-white/70 sm:text-[15px] md:text-[16px] lg:text-[18px]">
                           {faq.answer}
                         </p>
                       </motion.div>

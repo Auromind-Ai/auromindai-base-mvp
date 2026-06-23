@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Sparkles,
     Plus,
@@ -45,6 +45,7 @@ import ChatSidebar from '@/components/ChatSidebar';
 import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { Poppins } from 'next/font/google';
+import ReactMarkdown from "react-markdown";
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
@@ -142,12 +143,13 @@ export default function AuromindAIPage() {
     const [editingIndex, setEditingIndex] = useState(null);
     const [editValue, setEditValue] = useState('');
     const [copiedIndex, setCopiedIndex] = useState(null);
+    const [feedbackMap, setFeedbackMap] = useState({}); 
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
     const messagesEndRef = useRef(null);
     const [isPlusOpen, setIsPlusOpen] = useState(false);
     const plusRef = useRef(null);
-    // ── FIX 1: isInitializing starts false; set true only while fetching ──
+
     const [isInitializing, setIsInitializing] = useState(false);
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -162,11 +164,10 @@ export default function AuromindAIPage() {
     const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false);
     const [attachedFile, setAttachedFile] = useState(null);
     const [lastUploadedId, setLastUploadedId] = useState(null);
-    // ── NEW: Scroll-to-bottom state ──────────────────────────────────────────
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
     const skipNextSessionFetchRef = useRef(false);
-    const { workspaces, workspaceId } = useAuth();
+    const { user, workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find(w => w.id === workspaceId) || null;
     const router = useRouter();
     const [userPlan, setUserPlan] = useState("free");
@@ -453,6 +454,13 @@ export default function AuromindAIPage() {
             setTimeout(() => setCopiedIndex(null), 2000);
         } catch (err) { console.error('Failed to copy text: ', err); }
     };
+
+    const handleFeedback = (index, type) => {
+        setFeedbackMap(prev => ({
+            ...prev,
+            [index]: prev[index] === type ? null : type  // toggle off if same
+        }));
+    };
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -591,7 +599,7 @@ export default function AuromindAIPage() {
         return text;
     }
     const greeting = getGreeting();
-    const userName = workspace?.user_name || workspace?.name || 'Diana Rose';
+    const userName = user?.full_name || user?.name || 'User';
     const isChatStarted = messages.length > 0 || isInitializing;
 
     // ── RENDER ──────────────────
@@ -610,6 +618,16 @@ export default function AuromindAIPage() {
             {/* Main content */}
             <div className="flex-1 flex flex-col relative overflow-hidden">
                 <div className="flex flex-col flex-1 bg-transparent relative overflow-hidden">
+                    {/* Fixed History Button — always visible when sidebar is closed */}
+                    {!isSidebarOpen && (
+                        <button
+                            onClick={() => setIsSidebarOpen(true)}
+                            className="absolute top-4 left-4 z-40 p-1.5 hover:bg-white/5 rounded-md text-gray-500 hover:text-gray-300 transition-all flex items-center justify-center border border-transparent hover:border-white/10"
+                            title="Chat History"
+                        >
+                            <History size={16} />
+                        </button>
+                    )}
                     <style jsx global>{`
                         .no-scrollbar::-webkit-scrollbar { display: none; }
                         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -639,16 +657,6 @@ export default function AuromindAIPage() {
                                         transition={{ duration: 0.5, ease: "easeOut" }}
                                         className="flex flex-col items-center w-full px-4 pt-16 pb-32 md:pt-32 relative z-10"
                                     >
-                                        {/* History button — top-left, only when sidebar closed */}
-                                        {!isSidebarOpen && (
-                                            <button
-                                                onClick={() => setIsSidebarOpen(true)}
-                                                className="absolute top-4 left-4 z-40 p-1.5 hover:bg-white/5 rounded-md text-gray-500 hover:text-gray-300 transition-all flex items-center justify-center border border-transparent hover:border-white/10"
-                                                title="Chat History"
-                                            >
-                                                <History size={16} />
-                                            </button>
-                                        )}
                                         {/* Greeting */}
                                         <motion.h1
                                             initial={{ opacity: 0, y: 10 }}
@@ -791,19 +799,6 @@ export default function AuromindAIPage() {
                                         animate={{ opacity: 1 }}
                                         className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 pt-4 pb-36"
                                     >
-                                        {/* History icon — top of chat view */}
-                                        {!isSidebarOpen && (
-                                            <div className="sticky top-0 z-40 flex justify-start mb-4 pt-1">
-                                                <button
-                                                    onClick={() => setIsSidebarOpen(true)}
-                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/5 border border-white/[0.06] hover:border-white/10 text-gray-600 hover:text-gray-300 transition-all text-[12px]"
-                                                    title="Chat History"
-                                                >
-                                                    <History size={14} />
-                                                    <span>History</span>
-                                                </button>
-                                            </div>
-                                        )}
                                         {/* Initializing spinner (session load) */}
                                         {isInitializing ? (
                                             <div className="flex items-center justify-center py-20 text-gray-500 text-sm gap-3">
@@ -867,26 +862,102 @@ export default function AuromindAIPage() {
                                                                             <span className="text-sm font-medium tracking-tight">Gathering insights...</span>
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="assistant-message-content whitespace-pre-line font-medium leading-[1.8] text-white/95">
-                                                                            {formatAssistantMessage(msg.content)}
+                                                                        <div className="assistant-message-content font-medium leading-relaxed text-white/95 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:rounded-none [&_pre_code]:text-inherit">
+                                                                            <ReactMarkdown
+                                                                                components={{
+                                                                                    h1: ({ node, ...props }) => <h1 className="text-3xl font-bold text-white mt-8 mb-4 border-t border-white/50 pt-6 first:mt-0 first:border-t-0 first:pt-0" {...props} />,
+                                                                                    h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-white mt-6 mb-3 border-t border-white/50 pt-6 first:mt-0 first:border-t-0 first:pt-0" {...props} />,
+                                                                                    h3: ({ node, ...props }) => <h3 className="text-xl font-bold text-white mt-5 mb-2.5 border-t border-white/50 pt-6 first:mt-0 first:border-t-0 first:pt-0" {...props} />,
+                                                                                    h4: ({ node, ...props }) => <h4 className="text-lg font-bold text-white mt-4 mb-2 border-t border-white/50 pt-6 first:mt-0 first:border-t-0 first:pt-0" {...props} />,
+                                                                                    h5: ({ node, ...props }) => <h5 className="text-base font-bold text-white mt-3.5 mb-1.5 border-t border-white/50 pt-6 first:mt-0 first:border-t-0 first:pt-0" {...props} />,
+                                                                                    h6: ({ node, ...props }) => <h6 className="text-sm font-bold text-white mt-3 mb-1 border-t border-white/50 pt-6 first:mt-0 first:border-t-0 first:pt-0" {...props} />,
+                                                                                    p: ({ node, children, ...props }) => {
+                                                                                        const childrenArray = React.Children.toArray(children);
+                                                                                        const isBoldHeading = childrenArray.length === 1 && 
+                                                                                                              React.isValidElement(childrenArray[0]) && 
+                                                                                                              (childrenArray[0].props?.node?.tagName === 'strong' || childrenArray[0].type === 'strong');
+                                                                                        if (isBoldHeading) {
+                                                                                            return <h3 className="text-xl font-bold text-white mt-6 mb-3 border-t border-white/50 pt-6 first:mt-0 first:border-t-0 first:pt-0" {...props}>{children}</h3>;
+                                                                                        }
+                                                                                        return <p className="mb-4 leading-relaxed text-white/75 last:mb-0" {...props}>{children}</p>;
+                                                                                    },
+                                                                                    ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4 space-y-1.5 text-white/75" {...props} />,
+                                                                                    ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4 space-y-1.5 text-white/75" {...props} />,
+                                                                                    li: ({ node, ...props }) => <li className="leading-relaxed text-white/75" {...props} />,
+                                                                                    strong: ({ node, ...props }) => <strong className="font-bold text-white" {...props} />,
+                                                                                    code: ({ node, ...props }) => <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-white" {...props} />,
+                                                                                    pre: ({ node, ...props }) => <pre className="bg-white/5 p-4 rounded-lg overflow-x-auto font-mono text-sm border border-white/10 my-4 text-white" {...props} />,
+                                                                                    blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-purple-500 pl-4 italic my-4 text-white/75" {...props} />,
+                                                                                    hr: ({ node, ...props }) => <hr className="border-t border-white/50 my-6" {...props} />,
+                                                                                }}
+                                                                            >
+                                                                                {msg.content}
+                                                                            </ReactMarkdown>
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                                 {!msg.isStreaming && (
-                                                                    <div className="flex items-center gap-1 mt-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                                    <div className="flex items-center gap-1.5 mt-3 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+
+                                                                        {/* ── Copy ── */}
                                                                         <button
                                                                             onClick={() => handleCopy(msg.content, idx)}
                                                                             className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-                                                                            title="Copy to clipboard"
+                                                                            title="Copy"
                                                                         >
-                                                                            {copiedIndex === idx ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                                                                            {copiedIndex === idx
+                                                                                ? <Check size={14} className="text-green-500" />
+                                                                                : <Copy size={14} />}
                                                                         </button>
+
+                                                                        {/* ── Regenerate ── */}
                                                                         <button
                                                                             onClick={() => handleRegenerate(idx)}
                                                                             className="p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
-                                                                            title="Regenerate response"
+                                                                            title="Regenerate"
                                                                         >
                                                                             <RotateCcw size={14} />
+                                                                        </button>
+
+                                                                        {/* ── Divider ── */}
+                                                                        <div className="w-px h-4 bg-white/10 mx-0.5" />
+
+                                                                        {/* ── Like ── */}
+                                                                        <button
+                                                                            onClick={() => handleFeedback(idx, 'like')}
+                                                                            title="Good response"
+                                                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-all duration-200
+                                                                                ${feedbackMap[idx] === 'like'
+                                                                                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 shadow-sm shadow-emerald-500/10'
+                                                                                    : 'bg-transparent border-transparent text-gray-500 hover:bg-white/5 hover:border-white/10 hover:text-gray-300'
+                                                                                }`}
+                                                                        >
+                                                                            <ThumbsUp
+                                                                                size={13}
+                                                                                className={feedbackMap[idx] === 'like' ? 'fill-emerald-400' : ''}
+                                                                            />
+                                                                            {feedbackMap[idx] === 'like' && (
+                                                                                <span className="text-emerald-400">Helpful</span>
+                                                                            )}
+                                                                        </button>
+
+                                                                        {/* ── Dislike ── */}
+                                                                        <button
+                                                                            onClick={() => handleFeedback(idx, 'dislike')}
+                                                                            title="Bad response"
+                                                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border transition-all duration-200
+                                                                                ${feedbackMap[idx] === 'dislike'
+                                                                                    ? 'bg-red-500/15 border-red-500/40 text-red-400 shadow-sm shadow-red-500/10'
+                                                                                    : 'bg-transparent border-transparent text-gray-500 hover:bg-white/5 hover:border-white/10 hover:text-gray-300'
+                                                                                }`}
+                                                                        >
+                                                                            <ThumbsDown
+                                                                                size={13}
+                                                                                className={feedbackMap[idx] === 'dislike' ? 'fill-red-400' : ''}
+                                                                            />
+                                                                            {feedbackMap[idx] === 'dislike' && (
+                                                                                <span className="text-red-400">Not helpful</span>
+                                                                            )}
                                                                         </button>
                                                                     </div>
                                                                 )}

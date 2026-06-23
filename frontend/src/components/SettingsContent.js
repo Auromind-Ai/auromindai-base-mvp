@@ -1417,15 +1417,7 @@ function MyAccountSection({
               "
               placeholder="Your name"
             />
-            <button
-              type="button"
-              className="
-                mt-2 text-xs text-violet-400 hover:text-violet-300
-                transition-colors duration-200 underline-offset-2 hover:underline
-              "
-            >
-              Create your portrait
-            </button>
+            
           </div>
         </div>
       </section>
@@ -1529,18 +1521,15 @@ export default function SettingsContent({ email }) {
   console.log('=== SETTINGS DEBUG ===', { user, email });
   const [activeSection, setActiveSection] = useState('my-account');
   const [preferredName, setPreferredName] = useState('User');
-
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showDisableModal, setShowDisableModal] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [settingsToast, setSettingsToast] = useState(null);
-
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [cancelDelLoading, setCancelDelLoading] = useState(false);
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {

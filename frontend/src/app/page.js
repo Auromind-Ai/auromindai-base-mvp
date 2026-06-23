@@ -2,27 +2,18 @@
 
 import { useRef, useEffect } from 'react';
 import Lenis from 'lenis';
-import NavigationSection from '../components/LandingPage/NavigationSection';
+import dynamic from 'next/dynamic';
+import NavigationSection from '../components/LandingPageNew/NavigationSection/NavigationSection';
+import ModernSaaSBackground from '../components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
+import BeforeAfterSection from '../components/LandingPageNew/BeforeAfterSection/BeforeAfterSection';
+import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
+import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
 import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
-import ModernSaaSBackground from '../components/LandingPage/ModernSaaSBackground';
-import InteractiveScrollSection from '../components/LandingPage/InteractiveScrollSection';
-import BeforeAfterSection from '../components/LandingPage/BeforeAfterSection';
-import SeeItInActionSection from '../components/LandingPage/SeeItInActionSection';
-
-import ProductDemoSection from '../components/LandingPage/ProductDemoSection';
-import PricingSection from '../components/LandingPage/PricingSection';
-
 import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
-// import CtaSection from '../components/LandingPage/CtaSection';
-// import FooterSection from '../components/LandingPage/FooterSection';
-import SocialProofSection from '../components/LandingPage/SocialProofSection';
 import MessageManagementSection from '../components/LandingPageNew/MessageManagementSection/Messagemanagementsection';
 import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks';
 import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
-import UICtaSectionTwo from "../components/ui/CtaSectionTwo";
 import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
-import InteractiveBrainSection from "@/components/LandingPageNew/InteractiveBrainSection/InteractiveBrainSection";
-import dynamic from 'next/dynamic';
 import CtaSection from '@/components/LandingPageNew/FinalCTASection/ctasection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 
@@ -83,23 +74,15 @@ export default function LandingPage() {
 
         <div className="relative z-10 bg-white">
           
-          {/* <InteractiveScrollSection /> */}
           <BeforeAfterSection />
-          {/* <SeeItInActionSection /> */}
-          
 
           <NeuroHero />
 
           <HowItWorks />
-
-          {/* <GirlViewer /> */}
           
           <PricingSectionNew />
           <TestimonialsSection />
-          
-          {/* <InteractiveBrainSection /> */}
-          
-          
+   
           <FAQSection />
           <ProductDemoSection />
           <SocialProofSection />

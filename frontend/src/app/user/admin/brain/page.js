@@ -130,7 +130,17 @@ export default function BrainPage() {
             setSearching(true);
             setError(null);
             const result = await api.searchBrain(searchQuery.trim(), workspaceId);
-            setSearchResults(result);
+
+            const normalized = {
+                query: searchQuery.trim(),
+                results: result?.results 
+                    || result?.data 
+                    || result?.matches 
+                    || result?.chunks 
+                    || []
+            };
+            setSearchResults(normalized);
+
         } catch (err) {
             setError(err.message || 'Search failed');
         } finally {
