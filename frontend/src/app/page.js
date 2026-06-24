@@ -7,7 +7,7 @@ import NavigationSection from '../components/LandingPageNew/NavigationSection/Na
 import ModernSaaSBackground from '../components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import BeforeAfterSection from '../components/LandingPageNew/BeforeAfterSection/BeforeAfterSection';
 import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
-import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
+// import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
 import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
 import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
 import MessageManagementSection from '../components/LandingPageNew/MessageManagementSection/Messagemanagementsection';
@@ -85,7 +85,7 @@ export default function LandingPage() {
    
           <FAQSection />
           <ProductDemoSection />
-          <SocialProofSection />
+          {/* <SocialProofSection /> */}
 
           <CtaSection />
           <FooterSection />
