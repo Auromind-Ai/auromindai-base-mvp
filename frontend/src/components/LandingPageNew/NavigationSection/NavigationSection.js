@@ -260,7 +260,6 @@ const NavigationSection = () => {
             </div>
           </div>
         </div>
-        </div>
 
         <div className="flex items-center gap-3 sm:gap-6">
           
