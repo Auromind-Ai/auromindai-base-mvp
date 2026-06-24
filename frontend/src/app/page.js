@@ -13,7 +13,7 @@ import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
 import MessageManagementSection from '../components/LandingPageNew/MessageManagementSection/Messagemanagementsection';
 import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks';
 import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
-import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
+// import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import CtaSection from '@/components/LandingPageNew/FinalCTASection/ctasection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 
@@ -81,7 +81,7 @@ export default function LandingPage() {
           <HowItWorks />
           
           <PricingSectionNew />
-          <TestimonialsSection />
+          {/* <TestimonialsSection /> */}
    
           <FAQSection />
           <ProductDemoSection />
