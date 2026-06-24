@@ -36,14 +36,31 @@ def upgrade() -> None:
     op.add_column('conversations', sa.Column('active_agent', sa.String(length=50), nullable=True))
     op.add_column('conversations', sa.Column('agent_locked', sa.Boolean(), nullable=True))
     op.add_column('conversations', sa.Column('active_workflow_id', sa.UUID(), nullable=True))
-    op.drop_index(op.f('ix_wcc_rate_cards_effective_range'), table_name='wcc_rate_cards')
-    op.drop_column('wcc_rate_cards', 'meta_cost')
-    op.drop_column('wcc_rate_cards', 'effective_to')
-    op.drop_column('wcc_rate_cards', 'customer_price')
-    op.drop_index(op.f('ix_wcc_transactions_category'), table_name='wcc_transactions')
-    op.drop_column('wcc_transactions', 'customer_price_applied')
-    op.drop_column('wcc_transactions', 'meta_cost_applied')
-    op.drop_column('wcc_transactions', 'pricing_version')
+    # Safe drops using connection and inspection to prevent transaction aborts
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    
+    # 1. Drop index 'ix_wcc_rate_cards_effective_range' if exists
+    has_idx1 = conn.execute(sa.text("SELECT 1 FROM pg_indexes WHERE indexname = 'ix_wcc_rate_cards_effective_range'")).first()
+    if has_idx1:
+        op.drop_index('ix_wcc_rate_cards_effective_range', table_name='wcc_rate_cards')
+        
+    # 2. Drop columns from 'wcc_rate_cards' if they exist
+    rate_card_cols = [c['name'] for c in inspector.get_columns('wcc_rate_cards')]
+    for col in ['meta_cost', 'effective_to', 'customer_price']:
+        if col in rate_card_cols:
+            op.drop_column('wcc_rate_cards', col)
+            
+    # 3. Drop index 'ix_wcc_transactions_category' if exists
+    has_idx2 = conn.execute(sa.text("SELECT 1 FROM pg_indexes WHERE indexname = 'ix_wcc_transactions_category'")).first()
+    if has_idx2:
+        op.drop_index('ix_wcc_transactions_category', table_name='wcc_transactions')
+        
+    # 4. Drop columns from 'wcc_transactions' if they exist
+    tx_cols = [c['name'] for c in inspector.get_columns('wcc_transactions')]
+    for col in ['customer_price_applied', 'meta_cost_applied', 'pricing_version']:
+        if col in tx_cols:
+            op.drop_column('wcc_transactions', col)
     # ### end Alembic commands ###
 
 
