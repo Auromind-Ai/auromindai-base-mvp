@@ -306,21 +306,21 @@ const NavigationSection = () => {
         </div>
       </div>
           {menuOpen && (
-        <div className="lg:hidden absolute right-4 top-[70px] w-[240px] rounded-2xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] px-5 py-6 space-y-4 z-[99] flex flex-col">
+        <div className="lg:hidden absolute left-4 right-4 top-[70px] rounded-2xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] px-6 py-8 space-y-6 z-[99] flex flex-col">
           
-          <Link href="#product" className="block text-white text-[15px] font-medium hover:text-white/80 transition-colors">
+          <Link href="#product" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
             Product
           </Link>
 
-          <Link href="#solutions" className="block text-white text-[15px] font-medium hover:text-white/80 transition-colors">
+          <Link href="#solutions" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
             Solutions
           </Link>
 
-          <Link href="#pricing" className="block text-white text-[15px] font-medium hover:text-white/80 transition-colors">
+          <Link href="#pricing" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
             Pricing
           </Link>
 
-          <Link href="#resources" className="block text-white text-[15px] font-medium hover:text-white/80 transition-colors">
+          <Link href="#resources" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
             Resources
           </Link>
 
@@ -329,21 +329,24 @@ const NavigationSection = () => {
           {isLogged ? (
             <Link
               href="/user/admin/dashboard"
-              className="w-full text-center rounded-[8px] bg-[#814AC8] py-3 text-[15px] font-semibold text-white hover:bg-[#8d58d1] transition-all"
+              className="w-full text-center rounded-xl bg-[#814AC8] py-3.5 text-[16px] font-bold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
+              onClick={() => setMenuOpen(false)}
             >
               Dashboard
             </Link>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               <Link
                 href="/login"
-                className="w-full text-center text-[15px] font-medium text-white/90 hover:text-white py-2 transition-colors"
+                className="w-full text-center text-[16px] font-semibold text-white border border-white/10 rounded-xl py-3.5 hover:bg-white/5 transition-all"
+                onClick={() => setMenuOpen(false)}
               >
                 Log In
               </Link>
               <Link
                 href="/signup"
-                className="w-full text-center rounded-[8px] bg-[#814AC8] py-3 text-[15px] font-semibold text-white hover:bg-[#8d58d1] transition-all"
+                className="w-full text-center rounded-xl bg-[#814AC8] py-3.5 text-[16px] font-bold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
+                onClick={() => setMenuOpen(false)}
               >
                 Get Started Free
               </Link>
