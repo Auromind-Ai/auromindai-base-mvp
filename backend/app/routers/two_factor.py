@@ -21,7 +21,7 @@ router = APIRouter()
 
 def _redis():
     import redis
-    return redis.from_url(settings.REDIS_URL, decode_responses=True)
+    return redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
 
 
 def _get_cookie_kwargs() -> dict:

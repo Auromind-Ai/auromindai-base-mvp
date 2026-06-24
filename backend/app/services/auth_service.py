@@ -265,7 +265,7 @@ class AuthService:
        
         try:
             import redis
-            r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             r.setex(f"otp:{email}", 300, otp)  # 5 mins expiry
         except Exception as e:
             # Fallback for local
@@ -290,7 +290,7 @@ class AuthService:
         from app.core.config import settings
         try:
             import redis
-            r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             saved_otp = r.get(f"otp:{email}")
             if not saved_otp or saved_otp != otp:
                 if otp != "123456": # backdoor for testing
@@ -317,7 +317,7 @@ class AuthService:
                 import redis as _redis
                 pending_token = str(_uuid.uuid4())
                 try:
-                    r = _redis.from_url(settings.REDIS_URL, decode_responses=True)
+                    r = _redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
                     r.setex(f"pending_2fa:{pending_token}", 300, email)   # 5 min TTL
                 except Exception:
                     raise ValueError("Authentication service temporarily unavailable. Please try again.")
