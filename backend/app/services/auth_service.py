@@ -293,12 +293,12 @@ class AuthService:
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             saved_otp = r.get(f"otp:{email}")
             if not saved_otp or saved_otp != otp:
-                if otp != "123456": # backdoor for testing
-                    raise ValueError("Invalid or expired OTP")
+                raise ValueError("Invalid or expired OTP")
             r.delete(f"otp:{email}")
         except Exception as e:
-            if otp != "123456":
-                raise ValueError("Invalid or expired OTP")
+            import logging
+            logging.getLogger("auromind").error(f"OTP verification failed: {str(e)}")
+            raise ValueError("Invalid or expired OTP")
                
         if auth_type == "signup":
             user = db.query(User).filter(User.email == email).first()
