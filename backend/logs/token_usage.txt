@@ -3071,3 +3071,189 @@ TOTAL TOKENS USED: 985
 Final Reply Text: "I'm doing great! Thanks for asking 😊 How about you?"
 Final Reply Token Count (Estimate): 10
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T11:27:29.028584Z
+User Query: 'explain about cricket'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 7
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain about cricket
+
+        Rewritten Query:
+   [LLM Output Snippet]: information about the sport of cricket
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 601
+   Input/Query Tokens: 18
+   Output Tokens: 3
+   Total Tokens: 622
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    information about the sport of cricket
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 106
+   Input/Query Tokens: 1138
+   Output Tokens: 142
+   Total Tokens: 1386
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              explain about cricket              Context:                                  ...
+   [LLM Output Snippet]: Cricket is a sport played by two teams of eleven players on a large grassy field with a rectangular ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 100
+   Input/Query Tokens: 206
+   Output Tokens: 11
+   Total Tokens: 317
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain about cricket          Answer:                      Cricket is a sport pl...
+   [LLM Output Snippet]: What are the rules for each format of cricket?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1157
+Total Input/Query Tokens: 1374
+Total Output Tokens: 163
+TOTAL TOKENS USED: 2694
+-----------------------------------------
+Final Reply Text: "\n            Cricket is a sport played by two teams of eleven players on a large grassy field with a rectangular pitch and a wooden target called a wicket at each end. The game is divided into phases known as innings, with one team batting and the other fielding. The teams change roles between innings. Key aspects of cricket include:\n* Two teams of eleven players each\n* A large grassy field with a rectangular pitch and wickets\n* Innings, with one team batting and the other fielding\n* The teams change roles between innings. Cricket has different formats, including men's and women's versions, and various types of matches, such as Test, One Day, and Twenty20.\n\n            Sources:\n            • en.wikipedia.org\n• citizendium.org\n• en.citizendium.org\n            \n\nFollow-up question:\nWhat are the rules for each format of cricket?"
+Final Reply Token Count (Estimate): 132
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T12:14:50.058057Z
+User Query: 'who is msd'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 368
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is msd
+
+        Rewritten Query:
+   [LLM Output Snippet]: who is Microsoft Developer
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 603
+   Input/Query Tokens: 14
+   Output Tokens: 3
+   Total Tokens: 620
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    who is Microsoft Developer
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 106
+   Input/Query Tokens: 1095
+   Output Tokens: 168
+   Total Tokens: 1369
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is msd              Context:                                      Title: ...
+   [LLM Output Snippet]: MSD is not explicitly mentioned in the provided context. However, based on the information given, it...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 95
+   Input/Query Tokens: 236
+   Output Tokens: 9
+   Total Tokens: 340
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is msd          Answer:                      MSD is not explicitly mentioned ...
+   [LLM Output Snippet]: What does MSD stand for in technology?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1155
+Total Input/Query Tokens: 1357
+Total Output Tokens: 185
+TOTAL TOKENS USED: 2697
+-----------------------------------------
+Final Reply Text: '\n            MSD is not explicitly mentioned in the provided context. However, based on the information given, it can be inferred that "MS" might be referring to Microsoft, as it is mentioned in all the provided titles and content. If "MSD" is an abbreviation, it is not clear what it stands for in this context. \n\nTo provide a more accurate answer, the following points can be considered:\n* Microsoft is mentioned as a company working on its own AI chips.\n* Microsoft developers are discussed in the context of building applications and working with various technologies.\n* Microsoft executives and engineers are mentioned as leading the company\'s software development initiatives.\n\nHowever, without more information, it is not possible to determine what "MSD" specifically refers to. Therefore, the answer to who or what MSD is cannot be found in the provided context.\n\n            Sources:\n            • theverge.com\n• softwareengineeringdaily.com\n• businessinsider.com\n            \n\nFollow-up question:\nWhat does MSD stand for in technology?'
+Final Reply Token Count (Estimate): 155
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T12:39:56.864924Z
+User Query: 'who is msd'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 7
+   Total Tokens: 370
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is msd
+
+        Rewritten Query:
+   [LLM Output Snippet]: what is msd stands for
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 603
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 622
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    what is msd stands for
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 104
+   Input/Query Tokens: 1116
+   Output Tokens: 121
+   Total Tokens: 1341
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is msd              Context:                                      Title: ...
+   [LLM Output Snippet]: MSD can refer to different entities. Some of the notable meanings include: * Mahendra Singh Dhoni, a...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 107
+   Input/Query Tokens: 174
+   Output Tokens: 9
+   Total Tokens: 290
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is msd          Answer:                      MSD can refer to different entit...
+   [LLM Output Snippet]: What context is MSD being used in?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1165
+Total Input/Query Tokens: 1318
+Total Output Tokens: 140
+TOTAL TOKENS USED: 2623
+-----------------------------------------
+Final Reply Text: '\n            MSD can refer to different entities. Some of the notable meanings include:\n* Mahendra Singh Dhoni, an Indian cricketer\n* Merck Sharp and Dohme, an international name of Merck & Co., a pharmaceutical company\n* Mass storage device, like a USB key\n* Microsoft Diagnostics, a computer diagnostic program\n* Marjory Stoneman Douglas High School, a school in Florida, United States\n* MSD can also stand for other organizations, companies, and terms. \nWithout more specific information, it is difficult to determine which MSD is being referred to.\n\n            Sources:\n            • en.wikipedia.org\n• abbreviationfinder.org\n• msd.com\n            \n\nFollow-up question:\nWhat context is MSD being used in?'
+Final Reply Token Count (Estimate): 103
+=========================================

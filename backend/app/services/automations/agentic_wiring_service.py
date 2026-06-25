@@ -109,36 +109,11 @@ class AgenticWiringServiceV2:
                 flow_data = json.loads(res.get("text", "{}"))
 
             else:
-                # Fallback to direct client call if no DB/Auth context is provided
-                if self.groq_client:
-                    response = self.groq_client.chat.completions.create(
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt},
-                        ],
-                        model="llama-3.3-70b-versatile",
-                        temperature=0.15,
-                        response_format={"type": "json_object"},
-                        timeout=30.0,
-                    )
-                    flow_data = json.loads(response.choices[0].message.content)
+                raise ValueError(
+                    "generate_flow() requires db, workspace_id, and user_id. "
+                    "Unauthenticated / billing-bypassed flow generation is not permitted."
+                )
 
-                elif self.google_api_key:
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    response = model.generate_content(
-                        f"{system_prompt}\n\n{user_prompt}",
-                        generation_config={
-                            "temperature": 0.15,
-                            "response_mime_type": "application/json",
-                        },
-                    )
-                    content = response.text.strip()
-                    if "```json" in content:
-                        content = content.split("```json")[1].split("```")[0].strip()
-                    flow_data = json.loads(content)
-
-                else:
-                    raise Exception("No AI provider configured (set GOOGLE_API_KEY or GROQ_API_KEY)")
 
             return self._validate_and_enhance_flow(flow_data)
 

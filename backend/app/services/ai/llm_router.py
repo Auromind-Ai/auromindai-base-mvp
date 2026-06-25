@@ -162,9 +162,12 @@ class LLMRouter:
                 output_tokens = usage.candidates_token_count
                 total_tokens = usage.total_token_count
             else:
-                input_tokens = len(prompt.split())
-                output_tokens = len(text.split())
-                total_tokens = input_tokens + output_tokens
+                # Provider returned no usage_metadata — signal missing usage.
+                # extract_usage() will detect total_tokens=0 and refuse to bill.
+                # Never estimate token counts for billing purposes.
+                input_tokens = 0
+                output_tokens = 0
+                total_tokens = 0
             
             logger.info(f"Gemini usage metadata: {response.usage_metadata}")
 

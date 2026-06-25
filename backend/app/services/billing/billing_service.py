@@ -492,6 +492,29 @@ class BillingService:
     ) -> TokenLedger:
         return self.token_service.finalize_token_usage(db, reservation_id, tokens_used)
 
+    def settle_from_provider_usage(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        usage: dict,
+        feature_key: str,
+        execution_id: str,
+        request_id: str | None = None,
+    ) -> TokenLedger:
+        """
+        Settle a reservation using verified provider token counts.
+        Single source of truth for all AI credit deductions.
+        Delegates to TokenService.settle_from_provider_usage().
+        """
+        return self.token_service.settle_from_provider_usage(
+            db=db,
+            reservation_id=reservation_id,
+            usage=usage,
+            feature_key=feature_key,
+            execution_id=execution_id,
+            request_id=request_id,
+        )
+
     def release_token_reservation(
         self,
         db: Session,
