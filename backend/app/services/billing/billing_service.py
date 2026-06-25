@@ -501,11 +501,7 @@ class BillingService:
         execution_id: str,
         request_id: str | None = None,
     ) -> TokenLedger:
-        """
-        Settle a reservation using verified provider token counts.
-        Single source of truth for all AI credit deductions.
-        Delegates to TokenService.settle_from_provider_usage().
-        """
+       
         return self.token_service.settle_from_provider_usage(
             db=db,
             reservation_id=reservation_id,
