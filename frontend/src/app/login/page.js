@@ -180,16 +180,16 @@ function LoginContent() {
         try {
             const data = await api.verifyOTP(email, otp, 'login');
 
-            // ── 2FA gate ─────────────────────────────────────
+            //  2FA gate ─
             if (data?.requiresTwoFactor) {
                 setPendingToken(data.pending_token);
                 setTotpCode('');
                 setStep('2fa');
                 return;
             }
-            // ── END 2FA gate ─────────────────────────────────
+            //  END 2FA gate 
 
-            // ── Pending deletion gate ──────────────────────────
+            //  Pending deletion gate ─
             if (data?.user?.deletion_scheduled_at) {
                 const adminToken = localStorage.getItem('admin_backup_token');
                 localStorage.clear();
@@ -210,7 +210,7 @@ function LoginContent() {
                 setStep('restore');
                 return;
             }
-            // ── END pending deletion gate ──────────────────────
+            //  END pending deletion gate ─
 
             if (!data?.access_token) throw new Error('Verification failed');
 
@@ -282,7 +282,7 @@ function LoginContent() {
         try {
             const data = await api.verifyLogin2FA(pendingToken, totpCode);
 
-            // ── Pending deletion gate ──────────────────────────
+            //  Pending deletion gate ─
             if (data?.user?.deletion_scheduled_at) {
                 const adminToken = localStorage.getItem('admin_backup_token');
                 localStorage.clear();
@@ -303,7 +303,7 @@ function LoginContent() {
                 setStep('restore');
                 return;
             }
-            // ── END pending deletion gate ──────────────────────
+            //  END pending deletion gate ─
 
             if (!data?.access_token) throw new Error('Verification failed');
 

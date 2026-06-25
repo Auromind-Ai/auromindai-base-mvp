@@ -141,7 +141,7 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
         db.close()
 
 
-# ── resume_flow_node ────────────────────────────────────────────────────────
+#  resume_flow_node ─
 
 @celery_app.task(
     bind=True,
@@ -327,7 +327,7 @@ def send_next_pending_message(self, conversation_id: str):
         db.close()
 
 
-# ── send_whatsapp_message_task (FIXED — sets "dispatched", not "sent") ──────
+#  send_whatsapp_message_task (FIXED — sets "dispatched", not "sent") 
 
 @celery_app.task(
     bind=True,
@@ -664,7 +664,7 @@ def send_whatsapp_message_task(
         db.close()
 
 
-# ── sweep_stuck_messages ────────────────────────────────────────────────────
+#  sweep_stuck_messages ─
 
 @celery_app.task(name="app.workers.flow_execution.sweep_stuck_messages")
 def sweep_stuck_messages():
@@ -699,7 +699,7 @@ def sweep_stuck_messages():
         db.close()
 
 
-# ── poll_scheduled_resumes (Celery beat — every 30s) ────────────────────────
+#  poll_scheduled_resumes (Celery beat — every 30s) ─
 
 @celery_app.task(name="app.workers.flow_execution.poll_scheduled_resumes")
 def poll_scheduled_resumes():

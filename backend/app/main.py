@@ -62,9 +62,20 @@ app = FastAPI(
 register_exception_handlers(app)
 
 # Middleware
+allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+fallback_origins = [
+    "https://growwdigitel.cloud",
+    "http://growwdigitel.cloud",
+    "https://www.growwdigitel.cloud",
+    "http://www.growwdigitel.cloud",
+]
+for origin in fallback_origins:
+    if origin not in allowed_origins:
+        allowed_origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -95,6 +106,12 @@ app.include_router(conversations.router)
 app.include_router(twilio_webhook.router) 
 app.include_router(meta_what.router)
 app.include_router(instagram.router)
+
+# Mount webhook and channel routers under /api prefix for compatibility with direct webhook calls
+app.include_router(conversations.router, prefix="/api")
+app.include_router(twilio_webhook.router, prefix="/api")
+app.include_router(meta_what.router, prefix="/api")
+app.include_router(instagram.router, prefix="/api")
 app.include_router(brain.router, tags=["brain"])
 app.include_router(chat.router)
 app.include_router(dashboard.router,    prefix="/dashboard", tags=["dashboard"])

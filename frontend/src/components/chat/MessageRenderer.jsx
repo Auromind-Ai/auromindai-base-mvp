@@ -25,7 +25,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
   // Nothing to render
   if (!content && !mediaUrl) return null;
 
-  // ── Template layout rendering (header, body, footer, buttons) ─────
+  //  Template layout rendering (header, body, footer, buttons) ─
   if (templateHeader || templateFooter || (buttons && Array.isArray(buttons) && buttons.length > 0)) {
     return (
       <div className="flex flex-col gap-1.5 min-w-[180px]">
@@ -114,7 +114,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
     );
   }
 
-  // ── 1. Structured media from metadata ────────────────────────────
+  //  1. Structured media from metadata ─
 
   if (mediaUrl && (messageType === 'image' || /\.(jpe?g|png|gif|webp)(\?|$)/i.test(mediaUrl))) {
     return (
@@ -177,7 +177,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
     );
   }
 
-  // ── 2. Text-based media tag detection (legacy fallback) ──────────
+  //  2. Text-based media tag detection (legacy fallback) 
 
   if (content) {
     const trimmed = content.trim();
@@ -241,7 +241,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
     }
   }
 
-  // ── 3. Structured button templates from metadata ─────────────────
+  //  3. Structured button templates from metadata 
 
   if (buttons && Array.isArray(buttons) && buttons.length > 0) {
     const skipText = meta.type === 'interactive' || !!meta.buttons;
@@ -292,7 +292,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
     );
   }
 
-  // ── 4. Text-based button template detection (legacy fallback) ────
+  //  4. Text-based button template detection (legacy fallback) 
 
   if (content && content.includes('\n') && content.includes('[') && content.includes(']')) {
     const lines = content.split('\n');
@@ -330,7 +330,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
     }
   }
 
-  // ── 5. Default: Plain text ──────────────────────────────────────
+  //  5. Default: Plain text 
 
   return (
     <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
@@ -339,7 +339,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
   );
 }
 
-// ── Helpers ────────────────────────────────────────────────────────
+//  Helpers ─
 
 function isUrl(str) {
   return /^https?:\/\//i.test(str);

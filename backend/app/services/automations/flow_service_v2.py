@@ -22,6 +22,8 @@ from app.services.ai.llm_utils import safe_llm_call
 from app.services.automations.trigger_engine import match_button_target, match_trigger
 from app.services.automations.flow_ai_reply_handler import execute_ai_reply
 from app.core.celery_app import celery_app
+from app.models.message import Message, SenderType
+from app.models.message_execution import MessageExecution
 
 
 def _trigger_send_next(conversation_id: Any, countdown: int = 1):
@@ -97,15 +99,69 @@ class FlowServiceV2:
             )
             return False
 
-        # SAFETY CHECK
-        if not conversation:
-
-            logger.error(
-                f"Conversation not found: {conversation_id}"
+        # Idempotency Check
+        incoming_message_id = metadata.get("message_id")
+        if not incoming_message_id:
+            latest_msg = (
+                db.query(Message)
+                .filter(Message.conversation_id == conversation.id, Message.sender_type == SenderType.USER)
+                .order_by(Message.timestamp.desc())
+                .first()
             )
+            if latest_msg:
+                incoming_message_id = str(latest_msg.id)
 
-            return False
-            
+        execution_record = None
+        if incoming_message_id:
+            existing = db.query(MessageExecution).filter(
+                MessageExecution.message_id == incoming_message_id
+            ).first()
+            if existing:
+                if existing.status == "completed":
+                    logger.info(f"Message already processed: {incoming_message_id}")
+                    return True
+                else:
+                    existing.status = "processing"
+                    db.add(existing)
+                    db.commit()
+                    execution_record = existing
+            else:
+                execution_record = MessageExecution(
+                    message_id=incoming_message_id,
+                    conversation_id=conversation.id,
+                    status="processing",
+                )
+                db.add(execution_record)
+                db.commit()
+
+        try:
+            result = await self._execute_incoming_message_internal(
+                db=db,
+                conversation=conversation,
+                inbound_text=inbound_text,
+                metadata=metadata,
+            )
+            if execution_record:
+                execution_record.status = "completed"
+                db.add(execution_record)
+                db.commit()
+            return result
+        except Exception as exc:
+            db.rollback()
+            if execution_record:
+                execution_record.status = "failed"
+                db.add(execution_record)
+                db.commit()
+            raise exc
+
+    async def _execute_incoming_message_internal(
+        self,
+        db: Session,
+        *,
+        conversation: Conversation,
+        inbound_text: str,
+        metadata: Dict[str, Any],
+    ) -> bool:
         from app.models.ai_action import ConversationState
         conv_state = db.query(ConversationState).filter_by(
             conversation_id=conversation.id,
@@ -115,7 +171,7 @@ class FlowServiceV2:
         if conv_state and conv_state.human_takeover:
             logger.info(
                 "[AI_AUTOMATION_PAUSED] Flow execution ignored because human_takeover is active for conversation %s",
-                conversation_id
+                conversation.id
             )
             return False
         
@@ -125,6 +181,9 @@ class FlowServiceV2:
         state = self._claim_execution_slot(db, conversation.id, execution_token)
         state.runtime_context = state.runtime_context or {}
         state.runtime_context["last_user_message"] = inbound_text
+        incoming_message_id = metadata.get("message_id")
+        if incoming_message_id:
+            state.runtime_context["message_id"] = incoming_message_id
 
         try:
             # Check if the user is mid-conversation
@@ -150,7 +209,7 @@ class FlowServiceV2:
                 self._persist_state(db, state)
                 is_mid_conversation = False
 
-            # ── Priority 1: pending button reply ────
+            #  Priority 1: pending button reply 
             if state.pending_button:
                 handled = await self._handle_pending_button(
                     db=db,
@@ -162,10 +221,9 @@ class FlowServiceV2:
                 )
                 if handled:
                     self._persist_state(db, state)
-                    _trigger_send_next(conversation_id, countdown=1)
+                    _trigger_send_next(conversation.id, countdown=1)
                     return True
                 else:
-                 
                     if state.active_flow_id:
                         flow = (
                             db.query(AutomationFlow)
@@ -217,7 +275,7 @@ class FlowServiceV2:
                                     execution_token=execution_token,
                                 )
                                 self._persist_state(db, state)
-                                _trigger_send_next(conversation_id, countdown=1)
+                                _trigger_send_next(conversation.id, countdown=1)
                                 return True
 
                         # If no fallback target, clear pending state and send default fallback message
@@ -240,7 +298,7 @@ class FlowServiceV2:
                             state=state,
                         )
                         self._persist_state(db, state)
-                        _trigger_send_next(conversation_id, countdown=1)
+                        _trigger_send_next(conversation.id, countdown=1)
                         return True
 
             # pending question reply 
@@ -254,10 +312,9 @@ class FlowServiceV2:
                 )
                 if handled:
                     self._persist_state(db, state)
-                    _trigger_send_next(conversation_id, countdown=1)
+                    _trigger_send_next(conversation.id, countdown=1)
                     return True
 
-           
             # Active AI session — BUT check new trigger FIRST
             active_ai = (
                 state.runtime_context.get("active_ai_session")
@@ -266,14 +323,11 @@ class FlowServiceV2:
             )
 
             if active_ai and state.current_node_id:
-
                 # Check if AI session expired/completed
                 ai_closed = state.runtime_context.get("ai_session_closed", False)
 
                 if ai_closed:
-
                     logger.info(" AI session closed")
-
                     # Fully terminate AI state
                     state.runtime_context["active_ai_session"] = False
                     state.runtime_context["ai_session_closed"] = True
@@ -285,13 +339,9 @@ class FlowServiceV2:
                     state.pending_button = None
 
                     flag_modified(state, "runtime_context")
-
                     db.flush()
-
                     return False
-
                 else:
-
                     # Continue AI conversation normally
                     flow = db.query(AutomationFlow).filter(
                         AutomationFlow.id == state.active_flow_id
@@ -307,11 +357,8 @@ class FlowServiceV2:
                             inbound_text=inbound_text,
                             execution_token=execution_token,
                         )
-
                         self._persist_state(db, state)
-
-                        _trigger_send_next(conversation_id, countdown=1)
-
+                        _trigger_send_next(conversation.id, countdown=1)
                         return True
 
             # If mid-conversation, do NOT match triggers
@@ -319,12 +366,28 @@ class FlowServiceV2:
                 logger.info(f"Mid-conversation message '{inbound_text}' ignored by trigger match (preventing onboarding restart).")
                 return False
 
-            # Only if NO pending/active flow state → trigger match
-            match = self._find_trigger_match(
-                db=db,
-                workspace_id=conversation.workspace_id,
-                inbound_text=inbound_text,
-            )
+            # Only if NO pending/active flow state → trigger match (or locked workflow bypass)
+            match = None
+            if conversation.agent_locked and conversation.active_workflow_id:
+                flow = db.query(AutomationFlow).filter(
+                    AutomationFlow.id == conversation.active_workflow_id
+                ).first()
+                if flow:
+                    trigger_node = next(
+                        (n for n in (flow.nodes or []) if n.get("type") == "trigger"), None
+                    )
+                    if trigger_node:
+                        logger.info(f"Agent is locked. Bypassing trigger match, forcing active workflow {flow.id}")
+                        from app.services.automations.trigger_engine import TriggerMatchResult
+                        trigger_match = TriggerMatchResult(matched=True, match_type="forced_lock", confidence=1.0)
+                        match = (flow, trigger_node, trigger_match)
+
+            if not match:
+                match = self._find_trigger_match(
+                    db=db,
+                    workspace_id=conversation.workspace_id,
+                    inbound_text=inbound_text,
+                )
 
             if not match:
                 self.tracer.trace(
@@ -336,6 +399,7 @@ class FlowServiceV2:
                 )
                 db.commit()
                 return False
+
             flow, trigger_node, trigger_match = match
             self.tracer.trace(
                 db,
@@ -375,6 +439,7 @@ class FlowServiceV2:
                 ScheduledResume.status == "pending",
             ).update({"status": "cancelled"}, synchronize_session=False)
             db.flush()
+
             next_node_id = self._get_default_target(
                 flow.edges or [], trigger_node.get("id")
             )
@@ -395,7 +460,7 @@ class FlowServiceV2:
                 execution_token=execution_token,
             )
             self._persist_state(db, state)
-            _trigger_send_next(conversation_id, countdown=1)
+            _trigger_send_next(conversation.id, countdown=1)
             return True
 
         except Exception as exc:
@@ -1280,6 +1345,7 @@ class FlowServiceV2:
 
             flow_context = {
                 "agent_type": agent_type,
+                "flow_id": str(flow.id),
 
                 # Business Config
                 "business_type": config.get(

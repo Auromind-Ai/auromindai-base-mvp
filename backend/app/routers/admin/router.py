@@ -82,6 +82,17 @@ async def admin_auth(
     )
     cookie_samesite = "none" if is_https else "lax"
     
+    # Extract domain for cookie sharing between frontend and backend on subdomains
+    cookie_domain = None
+    if settings.FRONTEND_URL:
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.FRONTEND_URL)
+        if parsed.hostname:
+            parts = parsed.hostname.split(".")
+            # Ignore IP addresses and localhost
+            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
+                cookie_domain = "." + ".".join(parts[-2:])
+                
     # Set secure httpOnly cookie
     response.set_cookie(
         key="admin_session",
@@ -90,7 +101,8 @@ async def admin_auth(
         secure=is_https,
         samesite=cookie_samesite,
         max_age=7200,
-        path="/api/admin",
+        path="/",
+        domain=cookie_domain,
     )
     
     return {"status": "success", "message": "Authenticated"}
@@ -102,11 +114,23 @@ async def admin_logout(request: Request, response: Response):
         or request.headers.get("x-forwarded-proto") == "https"
     )
     cookie_samesite = "none" if is_https else "lax"
+    
+    # Extract domain for cookie sharing between frontend and backend on subdomains
+    cookie_domain = None
+    if settings.FRONTEND_URL:
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.FRONTEND_URL)
+        if parsed.hostname:
+            parts = parsed.hostname.split(".")
+            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
+                cookie_domain = "." + ".".join(parts[-2:])
+                
     response.delete_cookie(
         key="admin_session",
-        path="/api/admin",
+        path="/",
         secure=is_https,
         samesite=cookie_samesite,
+        domain=cookie_domain,
     )
     return {"status": "success", "message": "Logged out"}
 

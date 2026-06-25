@@ -1425,3 +1425,1040 @@ TOTAL TOKENS USED: 1731
 Final Reply Text: "To provide a more accurate response, I need a bit more information about what you would like me to explain. However, based on the instruction to choose the most logical meaning, I'll assume you're asking for a general explanation of the concept.\n\n**Explanation**\n\nIf you're asking for a general explanation, I'll provide a neutral and informative response. However, I'll also provide some options to narrow down the topic if you'd like.\n\nHere are a few possible topics I can explain:\n\n1. **Concepts**: e.g., AI, machine learning, programming, data analysis\n2. **Processes**: e.g., problem-solving, decision-making, communication\n3. **Ideas**: e.g., innovation, creativity, entrepreneurship\n4. **Technologies**: e.g., software, hardware, cybersecurity\n\nPlease let me know if any of these options interest you, or if you'd like to explore a different topic.\n\nFollow-up question:\nWhich concept among AI, machine learning, or programming is most relevant to your interest?"
 Final Reply Token Count (Estimate): 143
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-22T13:00:42.515082Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 14
+   Total Tokens: 381
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are the pricing options and available plans for your software package?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 14
+TOTAL TOKENS USED: 381
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T04:24:06.267806Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What package pricing options and plans are available?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 10
+TOTAL TOKENS USED: 377
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T04:30:57.996118Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 11
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are your available package pricing plans and options?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 11
+TOTAL TOKENS USED: 378
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T04:32:02.488246Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are your package price plans and options?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 10
+TOTAL TOKENS USED: 377
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T05:13:24.100764Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 15
+   Total Tokens: 164
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you to this conversation today, is there a specific issue?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 15
+TOTAL TOKENS USED: 164
+-----------------------------------------
+Final Reply Text: 'Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you to this conversation today, is there a specific issue?'
+Final Reply Token Count (Estimate): 22
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T05:13:49.509585Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 17
+   Total Tokens: 166
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you here today, is it for a specific issue or general information?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 17
+TOTAL TOKENS USED: 166
+-----------------------------------------
+Final Reply Text: 'Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you here today, is it for a specific issue or general information?'
+Final Reply Token Count (Estimate): 24
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T05:50:32.952999Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 15
+   Total Tokens: 164
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you to the conversation today or what's on your mind?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 15
+TOTAL TOKENS USED: 164
+-----------------------------------------
+Final Reply Text: "Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you to the conversation today or what's on your mind?"
+Final Reply Token Count (Estimate): 22
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:20:32.573291Z
+User Query: 'hi'
+-----------------------------------------
+1. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 123
+   Input/Query Tokens: 26
+   Output Tokens: 15
+   Total Tokens: 164
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          hi          Answer:         Hello! 👋 How can I help you today?          Follow-up...
+   [LLM Output Snippet]: What brings you to this platform today or what's on your mind?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 123
+Total Input/Query Tokens: 26
+Total Output Tokens: 15
+TOTAL TOKENS USED: 164
+-----------------------------------------
+Final Reply Text: "Hello! 👋 How can I help you today?\n\nFollow-up question:\nWhat brings you to this platform today or what's on your mind?"
+Final Reply Token Count (Estimate): 22
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:31:36.366989Z
+User Query: 'VoltEdge Power Bank full details'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 9
+   Total Tokens: 374
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank product specifications and features
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 349
+Total Input/Query Tokens: 16
+Total Output Tokens: 9
+TOTAL TOKENS USED: 374
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:21.456985Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 11
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are the available package pricing options and plans?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 11
+TOTAL TOKENS USED: 378
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:26.635715Z
+User Query: 'package pricing options and plans'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 11
+   Total Tokens: 378
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What are the available package pricing options and plans?
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3223
+   Output Tokens: 147
+   Total Tokens: 3394
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check that for you",    "action": "search_knowledge...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 16
+   Output Tokens: 7
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        package pricing options and plans
+
+        Rewritten Query:
+   [LLM Output Snippet]: package pricing information and plans details
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 718
+Total Input/Query Tokens: 3260
+Total Output Tokens: 165
+TOTAL TOKENS USED: 4143
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:40.693386Z
+User Query: 'I want to book a demo next Tuesday.'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 5
+   Total Tokens: 372
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: Next Tuesday demo booking
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 5
+TOTAL TOKENS USED: 372
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:35:52.673763Z
+User Query: 'demo booking process'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 5
+   Total Tokens: 372
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: Next Tuesday demo booking
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3223
+   Output Tokens: 159
+   Total Tokens: 3406
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "The requested information is not available in the current ...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        demo booking process
+
+        Rewritten Query:
+   [LLM Output Snippet]: demo booking system process
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 720
+Total Input/Query Tokens: 3256
+Total Output Tokens: 169
+TOTAL TOKENS USED: 4145
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:36:07.648797Z
+User Query: 'I want to book a demo next Tuesday.'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 12
+   Total Tokens: 379
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: I want to schedule a demo appointment for next Tuesday.
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 12
+TOTAL TOKENS USED: 379
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:36:12.522887Z
+User Query: 'demo booking process'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 12
+   Total Tokens: 379
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        I want to book a demo next Tuesday.
+
+        Rewritten Query:
+   [LLM Output Snippet]: I want to schedule a demo appointment for next Tuesday.
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3224
+   Output Tokens: 159
+   Total Tokens: 3407
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "The requested information is not available in the current ...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        demo booking process
+
+        Rewritten Query:
+   [LLM Output Snippet]: demo booking process details
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 720
+Total Input/Query Tokens: 3257
+Total Output Tokens: 176
+TOTAL TOKENS USED: 4153
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:37:55.161968Z
+User Query: 'What are your package pricing options and plans?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What package pricing options and plans are available?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 346
+Total Input/Query Tokens: 21
+Total Output Tokens: 10
+TOTAL TOKENS USED: 377
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:38:00.340380Z
+User Query: 'package pricing options and plans'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 10
+   Total Tokens: 377
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What are your package pricing options and plans?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What package pricing options and plans are available?
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3224
+   Output Tokens: 147
+   Total Tokens: 3395
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for None.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check that for you",    "action": "search_knowledge...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 348
+   Input/Query Tokens: 16
+   Output Tokens: 6
+   Total Tokens: 370
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        package pricing options and plans
+
+        Rewritten Query:
+   [LLM Output Snippet]: package pricing plans and options
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 718
+Total Input/Query Tokens: 3261
+Total Output Tokens: 163
+TOTAL TOKENS USED: 4142
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:42:57.892479Z
+User Query: 'VoltEdge Power Bank full details'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 373
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank specifications and features
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 349
+Total Input/Query Tokens: 16
+Total Output Tokens: 8
+TOTAL TOKENS USED: 373
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:43:02.854123Z
+User Query: 'VoltEdge Power Bank full details'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 373
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank specifications and features
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3198
+   Output Tokens: 153
+   Total Tokens: 3375
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for saas.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check the details for the VoltEdge Power Bank.",   ...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 16
+   Output Tokens: 9
+   Total Tokens: 374
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank full details
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Power Bank specifications and technical features
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 722
+Total Input/Query Tokens: 3230
+Total Output Tokens: 170
+TOTAL TOKENS USED: 4122
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:44:53.363720Z
+User Query: 'VoltEdge Power Bank'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge portable power bank
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 351
+Total Input/Query Tokens: 12
+Total Output Tokens: 6
+TOTAL TOKENS USED: 369
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T06:44:58.369641Z
+User Query: 'VoltEdge Power Bank'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge portable power bank
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 3187
+   Output Tokens: 151
+   Total Tokens: 3362
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a highly skilled and professional Sales Consultant for saas.  YOUR IDENT...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "Let me check that for you",    "action": "search_knowledge...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        VoltEdge Power Bank
+
+        Rewritten Query:
+   [LLM Output Snippet]: VoltEdge Portable Power Bank
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 726
+Total Input/Query Tokens: 3211
+Total Output Tokens: 163
+TOTAL TOKENS USED: 4100
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:14:52.785860Z
+User Query: 'complete product catalog'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 600
+   Output Tokens: 176
+   Total Tokens: 802
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. Welcome! I'm here ...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        complete product catalog
+
+        Rewritten Query:
+   [LLM Output Snippet]: complete product catalog listing
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 376
+Total Input/Query Tokens: 612
+Total Output Tokens: 181
+TOTAL TOKENS USED: 1169
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:22:39.307117Z
+User Query: 'complete product catalog'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 600
+   Output Tokens: 164
+   Total Tokens: 790
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. Welcome! I'll be h...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        complete product catalog
+
+        Rewritten Query:
+   [LLM Output Snippet]: complete comprehensive product catalog
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 376
+Total Input/Query Tokens: 612
+Total Output Tokens: 169
+TOTAL TOKENS USED: 1157
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:41:15.639611Z
+User Query: 'available products'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 630
+   Output Tokens: 177
+   Total Tokens: 833
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. I'd be happy to he...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 10
+   Output Tokens: 5
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        available products
+
+        Rewritten Query:
+   [LLM Output Snippet]: available products in stock
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 377
+Total Input/Query Tokens: 640
+Total Output Tokens: 182
+TOTAL TOKENS USED: 1199
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:42:16.322127Z
+User Query: 'how to create website'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 14
+   Output Tokens: 3
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        how to create website
+
+        Rewritten Query:
+   [LLM Output Snippet]: create website
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 349
+Total Input/Query Tokens: 14
+Total Output Tokens: 3
+TOTAL TOKENS USED: 366
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:42:21.485046Z
+User Query: 'website creation'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 349
+   Input/Query Tokens: 14
+   Output Tokens: 3
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        how to create website
+
+        Rewritten Query:
+   [LLM Output Snippet]: create website
+
+2. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 24
+   Input/Query Tokens: 648
+   Output Tokens: 162
+   Total Tokens: 834
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "discovery",    "response": "To create a website, you'll need a few key elements. Let m...
+
+3. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 351
+   Input/Query Tokens: 10
+   Output Tokens: 3
+   Total Tokens: 364
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        website creation
+
+        Rewritten Query:
+   [LLM Output Snippet]: website development
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 724
+Total Input/Query Tokens: 672
+Total Output Tokens: 168
+TOTAL TOKENS USED: 1564
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T07:47:03.779797Z
+User Query: 'complete product catalog'
+-----------------------------------------
+1. Function: llm_client.py:generate
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 26
+   Input/Query Tokens: 600
+   Output Tokens: 173
+   Total Tokens: 799
+   [Sys Prompt Snippet]: You are a helpful AI assistant. You must output valid JSON when required.
+   [User Input Snippet]:              You are Veera, a professional sales consultant for saas. You are a confident human expe...
+   [LLM Output Snippet]: {   "stage": "greeting",    "response": "Hello, I'm Veera, your sales consultant. Welcome! I'm here ...
+
+2. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 367
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        complete product catalog
+
+        Rewritten Query:
+   [LLM Output Snippet]: complete product catalog listing
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 376
+Total Input/Query Tokens: 612
+Total Output Tokens: 178
+TOTAL TOKENS USED: 1166
+-----------------------------------------
+Final Reply Text: 'The requested information is not available in the current knowledge base. Please upload relevant documents to proceed.'
+Final Reply Token Count (Estimate): 17
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-23T12:00:55.444282Z
+User Query: 'explain about ai'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 6
+   Total Tokens: 368
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain about ai
+
+        Rewritten Query:
+   [LLM Output Snippet]: explain principles of artificial intelligence
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 602
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 621
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    explain principles of artificial intelligence
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 208
+   Input/Query Tokens: 13
+   Output Tokens: 402
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    explain about ai
+
+    Final Answer:
+   [LLM Output Snippet]: **Explanation: Artificial Intelligence (AI)**  Artificial Intelligence (AI) refers to the developmen...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.1-8b-instant
+   System Prompt Tokens: 101
+   Input/Query Tokens: 440
+   Output Tokens: 16
+   Total Tokens: 557
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain about ai          Answer:         **Explanation: Artificial Intelligence ...
+   [LLM Output Snippet]: How do narrow or weak AI systems balance accuracy with the risk of bias?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1261
+Total Input/Query Tokens: 481
+Total Output Tokens: 427
+TOTAL TOKENS USED: 2169
+-----------------------------------------
+Final Reply Text: '**Explanation: Artificial Intelligence (AI)**\n\nArtificial Intelligence (AI) refers to the development of computer systems that can perform tasks that typically require human intelligence, such as:\n\n1. **Learning**: AI systems can learn from data and adapt to new information.\n2. **Problem-solving**: AI systems can solve complex problems and make decisions based on data.\n3. **Perception**: AI systems can interpret and understand data from sensors, such as images, speech, and text.\n4. **Reasoning**: AI systems can draw conclusions and make inferences based on data and logic.\n5. **Action**: AI systems can interact with the physical world through robots, autonomous vehicles, and other devices.\n\n**Types of AI:**\n\n1. **Narrow or Weak AI**: Designed to perform a specific task, such as facial recognition, language translation, or playing chess.\n2. **General or Strong AI**: A hypothetical AI system that possesses human-like intelligence and can perform any intellectual task.\n3. **Superintelligence**: A hypothetical AI system that significantly surpasses human intelligence in all domains.\n\n**AI Applications:**\n\n1. **Virtual Assistants**: Siri, Google Assistant, Alexa, and Cortana.\n2. **Image Recognition**: Self-driving cars, facial recognition, and medical diagnosis.\n3. **Natural Language Processing**: Chatbots, language translation, and text summarization.\n4. **Predictive Maintenance**: Predicting equipment failures and scheduling maintenance.\n5. **Healthcare**: Personalized medicine, disease diagnosis, and patient monitoring.\n\n**Challenges and Future Directions:**\n\n1. **Ethics**: Ensuring AI systems are transparent, accountable, and fair.\n2. **Security**: Protecting AI systems from cyber threats and data breaches.\n3. **Explainability**: Understanding how AI systems make decisions and predictions.\n4. **Integration**: Seamlessly integrating AI with human decision-making processes.\n5. **Long-term Viability**: Ensuring AI systems continue to learn and improve over time.\n\nFollow-up question:\nHow do narrow or weak AI systems balance accuracy with the risk of bias?'
+Final Reply Token Count (Estimate): 279
+=========================================

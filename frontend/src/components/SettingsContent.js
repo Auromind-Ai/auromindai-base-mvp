@@ -28,7 +28,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 
-// ─── Nav Config ───────────────────────────────────────────────────────────────
+// ─ Nav Config 
 
 const NAV_SECTIONS = [
   {
@@ -48,7 +48,7 @@ const NAV_SECTIONS = [
   },
 ];
 
-// ─── Toggle Component ─────────────────────────────────────────────────────────
+// ─ Toggle Component 
 
 function Toggle({ checked, onChange, disabled }) {
   return (
@@ -78,7 +78,7 @@ function Toggle({ checked, onChange, disabled }) {
   );
 }
 
-// ─── Timezone Helpers ──────────────────────────────────────────────────────────
+// ─ Timezone Helpers ─
 
 function getTimezoneOffset(tz) {
   try {
@@ -148,7 +148,7 @@ function buildTimezoneList() {
 // Build once at module level
 const TIMEZONE_OPTIONS = buildTimezoneList();
 
-// ─── Timezone Dropdown Component ──────────────────────────────────────────────
+// ─ Timezone Dropdown Component 
 
 function TimezoneDropdown({ value, onChange, disabled }) {
   const [open, setOpen] = useState(false);
@@ -267,7 +267,7 @@ function TimezoneDropdown({ value, onChange, disabled }) {
   );
 }
 
-// ─── Preferences Section ──────────────────────────────────────────────────────
+// ─ Preferences Section ─
 
 function PreferencesSection() {
   const [autoTimezone, setAutoTimezone] = useState(false);
@@ -276,7 +276,7 @@ function PreferencesSection() {
   const [timezone, setTimezone] = useState('');
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
-  // ── Load saved preferences on mount ─────────────────────────────────────
+  //  Load saved preferences on mount ─
   useEffect(() => {
     let cancelled = false;
     async function loadPrefs() {
@@ -319,7 +319,7 @@ function PreferencesSection() {
     return () => { cancelled = true; };
   }, []);
 
-  // ── Toggle handler ──────────────────────────────────────────────────────
+  //  Toggle handler ─
   const handleAutoTimezone = async (val) => {
     setAutoTimezone(val);
     try {
@@ -336,7 +336,7 @@ function PreferencesSection() {
     }
   };
 
-  // ── Dropdown change handler ─────────────────────────────────────────────
+  //  Dropdown change handler ─
   const handleTimezoneChange = async (tz) => {
     setTimezone(tz);
     try {
@@ -535,7 +535,7 @@ function PreferencesSection() {
   );
 }
 
-// ─── Notifications Section ────────────────────────────────────────────────────
+// ─ Notifications Section ─
 
 function NotificationsSection() {
   const [notifs, setNotifs] = useState({
@@ -671,7 +671,7 @@ function NotificationsSection() {
   );
 }
 
-// ─── Placeholder sections ─────────────────────────────────────────────────────
+// ─ Placeholder sections 
 
 function PlaceholderSection({ title, desc }) {
   return (
@@ -690,7 +690,7 @@ function PlaceholderSection({ title, desc }) {
   );
 }
 
-// ─── People Section ───────────────────────────────────────────────────────────
+// ─ People Section 
 
 function PeopleSection() {
   const [search, setSearch] = useState('');
@@ -800,7 +800,7 @@ function PeopleSection() {
   );
 }
 
-// ─── Security Section ─────────────────────────────────────────────────────────
+// ─ Security Section 
 
 function SecuritySection() {
   const [summary, setSummary] = useState(null);
@@ -1224,7 +1224,7 @@ function SecuritySection() {
   );
 }
 
-// ─── About Section ────────────────────────────────────────────────────────────
+// ─ About Section ─
 
 function AboutSection() {
   const [aboutData, setAboutData] = useState({
@@ -1306,7 +1306,7 @@ function AboutSection() {
   );
 }
 
-// ─── My Account Section ───────────────────────────────────────────────────────
+// ─ My Account Section 
 
 function MyAccountSection({
   preferredName,
@@ -1328,7 +1328,7 @@ function MyAccountSection({
   return (
     <div className="pb-6">
 
-      {/* ── Pending Deletion Banner ── */}
+      {/*  Pending Deletion Banner  */}
         {deletionScheduledAt && (
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-xl border border-red-500/30 bg-red-950/20">
             <div className="flex items-start gap-3">
@@ -1430,16 +1430,7 @@ function MyAccountSection({
               "
               placeholder="Your name"
             />
-            <button
-              onClick={handleNameSubmit}
-              type="button"
-              className="
-                mt-3 px-4 py-1.5 text-xs font-bold text-white bg-[#814AC8] hover:bg-[#9B6ED8]
-                rounded-lg transition-colors shadow-[0_4px_14px_rgba(129,74,200,0.30)] active:scale-95
-              "
-            >
-              Save Name
-            </button>
+            
           </div>
         </div>
       </section>
@@ -1536,25 +1527,22 @@ function MyAccountSection({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─ Main Component 
 
 export default function SettingsContent({ email }) {
   const { user, logout } = useAuth();
   console.log('=== SETTINGS DEBUG ===', { user, email });
   const [activeSection, setActiveSection] = useState('my-account');
   const [preferredName, setPreferredName] = useState('User');
-
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [showDisableModal, setShowDisableModal] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [settingsToast, setSettingsToast] = useState(null);
-
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [cancelDelLoading, setCancelDelLoading] = useState(false);
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -1676,7 +1664,7 @@ export default function SettingsContent({ email }) {
     <div className="h-full w-full font-sans text-white">
       <div className="w-full h-full flex flex-col">
 
-        {/* ── Outer card wrapper ── */}
+        {/*  Outer card wrapper  */}
         <div
           className="
             flex flex-col xl:flex-row gap-0
@@ -1725,7 +1713,7 @@ export default function SettingsContent({ email }) {
                 xl:!block
               `}
             >
-              {/* ── Sidebar Card Wrapper ── */}
+              {/*  Sidebar Card Wrapper  */}
               <div
                 className="
                   rounded-2xl border border-[rgba(157,157,157,0.43)]
@@ -1788,7 +1776,7 @@ export default function SettingsContent({ email }) {
         </div>
       </div>
 
-      {/* ── Toast ── */}
+      {/*  Toast  */}
       {settingsToast && (
           <div className={`
               fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm font-medium
@@ -1801,7 +1789,7 @@ export default function SettingsContent({ email }) {
           </div>
       )}
 
-      {/* ── Setup Modal ── */}
+      {/*  Setup Modal  */}
       {showSetupModal && setupData && (
           <TwoFactorSetupModal
               setupData={setupData}
@@ -1818,7 +1806,7 @@ export default function SettingsContent({ email }) {
           />
       )}
 
-      {/* ── Disable Modal ── */}
+      {/*  Disable Modal  */}
       {showDisableModal && (
           <TwoFactorDisableModal
               onSuccess={() => {

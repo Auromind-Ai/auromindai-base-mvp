@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 import api from '@/lib/api';
 
@@ -33,10 +35,21 @@ const cardVariants = {
 export default function PricingSectionNew() {
   const [billing, setBilling] = useState('monthly');
   const [settings, setSettings] = useState(null);
+  const { user } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     api.getPricing().then(setSettings).catch(console.error);
   }, []);
+
+  const handlePlanClick = () => {
+    const paymentUrl = '/user/admin/billing/payment';
+    if (user) {
+      router.push(paymentUrl);
+    } else {
+      router.push(`/login?redirect=${encodeURIComponent(paymentUrl)}`);
+    }
+  };
 
   const plans = [
     {
@@ -86,7 +99,7 @@ export default function PricingSectionNew() {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-black py-24 md:py-32">
+    <section id="pricing" className="relative overflow-hidden bg-black py-24 md:py-32">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="font-['Poppins'] text-[26px] font-medium text-white tracking-[-0.04em] leading-[1.1em] text-center sm:text-[50px]">
@@ -209,6 +222,7 @@ export default function PricingSectionNew() {
 
                     <div className="mt-[28px]">
                     <button
+                      onClick={handlePlanClick}
                       className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 ${
                         isFeatured
                           ? 'bg-[#814AC8] text-white hover:bg-[#9B5DE5] shadow-[0_20px_40px_rgba(129,74,200,0.35)]'

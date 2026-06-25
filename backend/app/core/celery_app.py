@@ -48,6 +48,11 @@ celery_app.conf.update(
 
 
     worker_max_tasks_per_child=500,
+
+    # Redbeat - Redis-based scheduler (restart-safe)
+    beat_scheduler="redbeat.RedBeatScheduler",
+    redbeat_redis_url=REDIS_URL,
+    redbeat_lock_timeout=150,
 )
 
 celery_app.conf.beat_schedule = {

@@ -16,7 +16,7 @@ const DEFAULT_PROVIDER = "razorpay"
 function BillingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const source = searchParams.get('source') // URL-la irunthu 'chat' varutha nu paakuthu
+  const source = searchParams.get('source')
   const { workspaceId } = useAuth()
 
   const [currentPlan, setCurrentPlan] = useState("free")
