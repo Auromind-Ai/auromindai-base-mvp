@@ -5,7 +5,7 @@ import { Phone, Instagram, Globe, Mail, MessageCircle, ChevronDown } from 'lucid
 import ConversationLog from './ConversationLog';
 import ConvertLeadModal from './ConvertLeadModal';
 
-// ── Channel config ──
+//  Channel config 
 const CHANNELS = {
   whatsapp: { icon: Phone, label: 'WhatsApp', color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
   instagram: { icon: Instagram, label: 'Instagram', color: 'text-pink-400', bg: 'bg-pink-400/10' },
@@ -69,7 +69,7 @@ function getStatusDot(status) {
   }
 }
 
-// ── Skeleton ──
+//  Skeleton 
 function DetailSkeleton() {
   return (
     <div className="flex-1 flex flex-col p-6 gap-6 animate-pulse overflow-hidden">

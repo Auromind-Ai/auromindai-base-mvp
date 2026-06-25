@@ -100,13 +100,15 @@ class RedisPubSubService:
         reconnect_delay = 1.0
 
         while not self._stop_event.is_set():
-            # ── Step 1: connect & subscribe if not already up ──────────────
+            #  Step 1: connect & subscribe if not already up 
             if self._redis is None:
                 try:
                     self._redis = aioredis.from_url(
                         settings.REDIS_URL,
                         encoding="utf-8",
                         decode_responses=True,
+                        socket_timeout=2.0,
+                        socket_connect_timeout=2.0,
                     )
                     self._pubsub = self._redis.pubsub(
                         ignore_subscribe_messages=True
@@ -138,7 +140,7 @@ class RedisPubSubService:
                     reconnect_delay = min(reconnect_delay * 2, 30.0)
                     continue
 
-            # ── Step 2: stream messages ────────────────────────────────────
+            #  Step 2: stream messages 
             # Process any queued subscribe/unsubscribe commands first
             if not self._command_queue.empty():
                 try:

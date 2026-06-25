@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import styles from "./heroBackgroundNew.module.css";
 import Nova from "./Nova";
 
-// ─── Particle Generator ──────────────────────────────────────────────────────
+// ─ Particle Generator ─
 
 function generateParticles(count = 1100) {
   return Array.from({ length: count }, (_, i) => {
@@ -36,7 +36,7 @@ function generateParticles(count = 1100) {
 
 const PARTICLES = generateParticles(220);
 
-// ─── HeroBackground ──────────────────────────────────────────────────────────
+// ─ HeroBackground ─
 
 export default function HeroBackground() {
   const containerRef = useRef(null);
@@ -133,7 +133,7 @@ export default function HeroBackground() {
       className={styles.bgRoot}
       aria-hidden="true"
     >
-      {/* ── Stars ── */}
+      {/*  Stars  */}
       <div ref={containerRef} className={styles.starField}>
         {PARTICLES.map((p) => (
           <span
@@ -156,16 +156,16 @@ export default function HeroBackground() {
         ))}
       </div>
 
-      {/* ── Radial Vignette ── */}
+      {/*  Radial Vignette  */}
       <div className={styles.vignette} />
 
-      {/* ── Outer Halo ── */}
+      {/*  Outer Halo  */}
       <div className={styles.outerHalo} />
 
-      {/* ── Secondary offset layer ── */}
+      {/*  Secondary offset layer  */}
       <div className={styles.secondaryGlow} />
 
-      {/* ── Nova WebGL Orb — replaces ring layers ── */}
+      {/*  Nova WebGL Orb — replaces ring layers  */}
       <div className={styles.novaWrapper}>
         <Nova
           hue={0}

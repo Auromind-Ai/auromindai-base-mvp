@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { Instagram, Mail, Search,
-         ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap } from 'lucide-react';
+         ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap, ExternalLink,
+         MessageSquare, Phone, RefreshCw, Cpu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 
@@ -51,6 +52,18 @@ const WhatsAppIcon = () => (
 
 const TwilioIcon = () => (
     <svg viewBox="0 0 48 48" width="62" height="62" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="24" fill="#F22F46"/>
+        <circle cx="24" cy="24" r="9" fill="none" stroke="white" strokeWidth="3.5"/>
+        <circle cx="24" cy="15.5" r="2.8" fill="white"/>
+        <circle cx="24" cy="32.5" r="2.8" fill="white"/>
+        <circle cx="15.5" cy="24" r="2.8" fill="white"/>
+        <circle cx="32.5" cy="24" r="2.8" fill="white"/>
+    </svg>
+);
+
+// ── Twilio small icon for modal header ──
+const TwilioIconSm = ({ size = 20 }) => (
+    <svg viewBox="0 0 48 48" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
         <circle cx="24" cy="24" r="24" fill="#F22F46"/>
         <circle cx="24" cy="24" r="9" fill="none" stroke="white" strokeWidth="3.5"/>
         <circle cx="24" cy="15.5" r="2.8" fill="white"/>
@@ -118,7 +131,7 @@ const CHANNELS_DATA = [
     categoryLabel: 'SMS & WhatsApp',
     categoryDot: 'bg-red-500',
     connectBtnClass: 'text-white',
-    connectBtnStyle: { background: '#140D1F', border: '0.2px solid #C7368D', boxShadow: '0 0 12px -5px #C7368D' },
+    connectBtnStyle: { background: '#140D1F', border: '0.2px solid #CE272D', boxShadow: '0 0 12px -5px #C7368D' },
     icon: TwilioIcon,
     type: 'channel',
     category: 'sms',
@@ -126,22 +139,36 @@ const CHANNELS_DATA = [
 ];
 
 const GmailIcon = () => (
-    <svg viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
-        <path fill="#EA4335" d="M6 40h6V22.5L4 17v21a3 3 0 003 3z"/>
-        <path fill="#34A853" d="M36 40h6a3 3 0 003-3V17l-9 5.5z"/>
-        <path fill="#FBBC05" d="M36 8l-12 9L12 8H6l18 13L42 8z"/>
-        <path fill="#4285F4" d="M4 17l8 5.5V8H6a3 3 0 00-2 2.83z"/>
-        <path fill="#C5221F" d="M44 10.83A3 3 0 0042 8h-6v14.5L44 17z"/>
+    <svg viewBox="0 0 48 48" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#4caf50" d="M45,16.2l-5,2.75l-5,4.75L35,40h7c1.657,0,3-1.343,3-3V16.2z"/>
+        <path fill="#1e88e5" d="M3,16.2l3.614,1.71L13,23.7V40H6c-1.657,0-3-1.343-3-3V16.2z"/>
+        <polygon fill="#e53935" points="35,11.2 24,19.45 13,11.2 12,17 13,23.7 24,31.95 35,23.7 36,17"/>
+        <path fill="#c62828" d="M3,12.298V16.2l10,7.5V11.2L9.876,8.859C9.132,8.301,8.228,8,7.298,8h0C4.924,8,3,9.924,3,12.298z"/>
+        <path fill="#fbc02d" d="M45,12.298V16.2l-10,7.5V11.2l3.124-2.341C38.868,8.301,39.772,8,40.702,8h0C43.076,8,45,9.924,45,12.298z"/>
     </svg>
 );
 
 const GoogleCalendarIcon = () => (
-    <svg viewBox="0 0 48 48" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
-        <rect x="6" y="6" width="36" height="36" rx="3" fill="#fff"/>
-        <rect x="6" y="6" width="36" height="10" rx="3" fill="#1A73E8"/>
-        <text x="24" y="34" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#1A73E8">31</text>
-        <rect x="14" y="6" width="4" height="8" rx="2" fill="#fff"/>
-        <rect x="30" y="6" width="4" height="8" rx="2" fill="#fff"/>
+    <svg viewBox="0 0 48 48" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <clipPath id="gcal-clip">
+                <rect x="2" y="2" width="44" height="44" rx="8"/>
+            </clipPath>
+        </defs>
+        <g clipPath="url(#gcal-clip)">
+            {/* Blue — top left */}
+            <rect x="2" y="2" width="22" height="22" fill="#1A73E8"/>
+            {/* Red — top right */}
+            <rect x="24" y="2" width="22" height="22" fill="#EA4335"/>
+            {/* Yellow — bottom left */}
+            <rect x="2" y="24" width="22" height="22" fill="#FBBC04"/>
+            {/* Green — bottom right */}
+            <rect x="24" y="24" width="22" height="22" fill="#34A853"/>
+        </g>
+        {/* White center box */}
+        <rect x="12" y="12" width="24" height="24" rx="3" fill="white"/>
+        {/* 31 */}
+        <text x="24" y="29.5" textAnchor="middle" fontSize="14" fontWeight="800" fill="#1A73E8" fontFamily="sans-serif">31</text>
     </svg>
 );
 
@@ -207,6 +234,522 @@ const CATEGORY_OPTIONS = [
     { value: 'email', label: 'Email' },
     { value: 'calendar', label: 'Calendar' },
 ];
+
+// ── Twilio Onboarding Modal ───────────────────────────────────────────────────
+// Step labels for progress bar
+const TWILIO_STEPS = [
+    { num: 1, label: 'Intro' },
+    { num: 2, label: 'Overview' },
+    { num: 3, label: 'Credentials' },
+    { num: 4, label: 'Connect' },
+];
+
+function TwilioOnboardingModal({
+    twilioStep,
+    setTwilioStep,
+    twilioForm,
+    setTwilioForm,
+    showAuthToken,
+    setShowAuthToken,
+    twilioSubmitting,
+    submitTwilio,
+}) {
+    if (twilioStep === null) return null;
+
+    const isSuccess = twilioStep === 'success';
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
+        >
+            {/* Modal container */}
+            <div
+                className="relative w-full rounded-2xl overflow-hidden"
+                style={{
+                    maxWidth: '500px',
+                    background: 'linear-gradient(145deg, #0f0305 0%, #0d0d0d 60%, #0a0305 100%)',
+                    border: '1px solid rgba(242,47,70,0.18)',
+                    boxShadow: '0 0 80px rgba(242,47,70,0.12), 0 0 0 1px rgba(255,255,255,0.03), 0 24px 60px rgba(0,0,0,0.6)',
+                }}
+            >
+                {/* Top gradient line */}
+                <div
+                    className="h-px w-full"
+                    style={{
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(242,47,70,0.8) 30%, rgba(242,47,70,1) 50%, rgba(242,47,70,0.8) 70%, transparent 100%)',
+                    }}
+                />
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 pt-5 pb-4">
+                    <div className="flex items-center gap-2.5">
+                        <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center"
+                            style={{
+                                background: 'linear-gradient(135deg, #F22F46 0%, #9b1c2e 100%)',
+                                boxShadow: '0 0 12px rgba(242,47,70,0.4)',
+                            }}
+                        >
+                            <TwilioIconSm size={16} />
+                        </div>
+                        <span className="text-[13px] font-semibold text-white/70 tracking-wide">
+                            Connect Twilio
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => setTwilioStep(null)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                    >
+                        <X size={13} className="text-white/50" />
+                    </button>
+                </div>
+
+                {/* Step Progress (hidden on success) */}
+                {!isSuccess && (
+                    <div className="px-6 pb-5">
+                        <div className="flex items-center gap-1.5 mb-2">
+                            {TWILIO_STEPS.map((s) => {
+                                const active = typeof twilioStep === 'number' && twilioStep >= s.num;
+                                const current = twilioStep === s.num;
+                                return (
+                                    <div key={s.num} className="flex-1 relative">
+                                        <div
+                                            className="h-1 rounded-full transition-all duration-500"
+                                            style={{
+                                                background: active
+                                                    ? 'linear-gradient(90deg, #F22F46, #ff6b7a)'
+                                                    : 'rgba(255,255,255,0.07)',
+                                                boxShadow: active ? '0 0 8px rgba(242,47,70,0.5)' : 'none',
+                                            }}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="text-[11px] text-white/25 font-medium">
+                            Step {twilioStep} of 4
+                        </p>
+                    </div>
+                )}
+
+                {/* ─── Step Content ─────────────────────────────────────── */}
+                <div className="px-6 pb-6">
+
+                    {/* ── STEP 1: Welcome ── */}
+                    {twilioStep === 1 && (
+                        <div>
+                            <div className="text-center mb-6">
+                                <div
+                                    className="w-[72px] h-[72px] rounded-[20px] flex items-center justify-center mx-auto mb-5"
+                                    style={{
+                                        background: 'linear-gradient(145deg, #F22F46 0%, #7a1422 100%)',
+                                        boxShadow: '0 0 40px rgba(242,47,70,0.35), 0 8px 24px rgba(0,0,0,0.4)',
+                                    }}
+                                >
+                                    <TwilioIconSm size={40} />
+                                </div>
+                                <h2 className="text-[22px] font-semibold text-white mb-2 tracking-tight">
+                                    Connect Twilio
+                                </h2>
+                                <p className="text-[13px] text-white/45 leading-relaxed max-w-[300px] mx-auto">
+                                    Follow these simple steps to connect Twilio in less than 2 minutes.
+                                </p>
+                            </div>
+
+                            {/* Feature list */}
+                            <div className="space-y-2.5 mb-7">
+                                {[
+                                    { icon: MessageSquare, label: 'Send WhatsApp Messages', desc: 'Reach customers on their preferred platform' },
+                                    { icon: Phone, label: 'Send SMS Messages', desc: 'Broadcast and automate text campaigns' },
+                                    { icon: RefreshCw, label: 'Receive Customer Replies', desc: 'Two-way conversations in your inbox' },
+                                    { icon: Cpu, label: 'Automate Conversations', desc: 'AI-powered flows with Twilio routing' },
+                                ].map((feat, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-center gap-3.5 p-3.5 rounded-xl transition-all duration-200"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.06)',
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(242,47,70,0.06)'; e.currentTarget.style.borderColor = 'rgba(242,47,70,0.18)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+                                    >
+                                        <div
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                                            style={{ background: 'rgba(242,47,70,0.12)', border: '1px solid rgba(242,47,70,0.2)' }}
+                                        >
+                                            <feat.icon size={15} className="text-red-400" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[13px] font-medium text-white">{feat.label}</div>
+                                            <div className="text-[11px] text-white/35 mt-0.5">{feat.desc}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => setTwilioStep(2)}
+                                className="w-full py-3 rounded-xl text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition-all duration-200"
+                                style={{
+                                    background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
+                                    boxShadow: '0 0 24px rgba(242,47,70,0.35), 0 4px 12px rgba(0,0,0,0.3)',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 32px rgba(242,47,70,0.5), 0 4px 12px rgba(0,0,0,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 24px rgba(242,47,70,0.35), 0 4px 12px rgba(0,0,0,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                            >
+                                Get Started <ChevronRight size={16} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ── STEP 2: What is Twilio ── */}
+                    {twilioStep === 2 && (
+                        <div>
+                            <h2 className="text-[20px] font-semibold text-white mb-1.5 tracking-tight">What is Twilio?</h2>
+                            <p className="text-[13px] text-white/40 mb-5 leading-relaxed">
+                                A quick overview of what Twilio does for your workspace.
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3 mb-7">
+                                {[
+                                    {
+                                        emoji: '💬',
+                                        title: 'WhatsApp & SMS',
+                                        desc: 'Send & receive messages on both platforms seamlessly.',
+                                    },
+                                    {
+                                        emoji: '📡',
+                                        title: 'Reliable & Scalable',
+                                        desc: 'Enterprise-grade reliability with global reach.',
+                                    },
+                                    {
+                                        emoji: '🔄',
+                                        title: 'Auto Replies',
+                                        desc: 'Automate customer conversation flows with AI.',
+                                    },
+                                    {
+                                        emoji: '⚡',
+                                        title: 'Quick Setup',
+                                        desc: 'Connect in under 2 minutes with just your credentials.',
+                                    },
+                                ].map((card, i) => (
+                                    <div
+                                        key={i}
+                                        className="p-4 rounded-xl transition-all duration-200"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.07)',
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.2)'; e.currentTarget.style.background = 'rgba(242,47,70,0.05)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                    >
+                                        <div className="text-[24px] mb-2.5">{card.emoji}</div>
+                                        <div className="text-[12px] font-semibold text-white mb-1 leading-tight">{card.title}</div>
+                                        <div className="text-[11px] text-white/35 leading-relaxed">{card.desc}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setTwilioStep(1)}
+                                    className="px-5 py-2.5 rounded-xl text-[13px] text-white/50 transition-all duration-200"
+                                    style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={() => setTwilioStep(3)}
+                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition-all duration-200"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
+                                        boxShadow: '0 0 20px rgba(242,47,70,0.28)',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(242,47,70,0.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.28)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                >
+                                    Continue Setup <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── STEP 3: Get Credentials ── */}
+                    {twilioStep === 3 && (
+                        <div>
+                            <h2 className="text-[20px] font-semibold text-white mb-1.5 tracking-tight">Get Your Credentials</h2>
+                            <p className="text-[13px] text-white/60 mb-5 leading-relaxed">
+                                Follow these steps to retrieve your Twilio credentials.
+                            </p>
+
+                            <div className="space-y-2.5 mb-5">
+                                {[
+                                    {
+                                        num: 1,
+                                        title: 'Login to Twilio Console',
+                                        desc: 'Go to https://console.twilio.com and sign in.',
+                                    },
+                                    {
+                                        num: 2,
+                                        title: 'Copy Account SID',
+                                        desc: 'Find your Account SID on the main dashboard.',
+                                    },
+                                    {
+                                        num: 3,
+                                        title: 'Copy Auth Token',
+                                        desc: 'Find your Auth Token under Account → General Settings.',
+                                    },
+                                    {
+                                        num: 4,
+                                        title: 'Get Your Phone Number',
+                                        desc: 'Purchase or use an existing WhatsApp-enabled number.',
+                                    },
+                                ].map((step) => (
+                                    <div
+                                        key={step.num}
+                                        className="flex items-start gap-3.5 p-3.5 rounded-xl transition-all duration-200"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.06)',
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.2)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+                                    >
+                                        <div
+                                            className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[11px] font-bold"
+                                            style={{
+                                                background: 'rgba(242,47,70,0.15)',
+                                                border: '1px solid rgba(242,47,70,0.3)',
+                                                color: '#F22F46',
+                                            }}
+                                        >
+                                            {step.num}
+                                        </div>
+                                        <div>
+                                            <div className="text-[13px] font-regular text-white mb-0.5">{step.title}</div>
+                                            <div className="text-[11px] text-white/60 leading-relaxed">{step.desc}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Open Console link */}
+                            <a
+                                href="https://console.twilio.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[13px] font-medium mb-5 transition-all duration-200"
+                                style={{
+                                    border: '1px solid rgba(242,47,70,0.3)',
+                                    color: '#F22F46',
+                                    background: 'rgba(242,47,70,0.05)',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(242,47,70,0.1)'; e.currentTarget.style.borderColor = 'rgba(242,47,70,0.5)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(242,47,70,0.05)'; e.currentTarget.style.borderColor = 'rgba(242,47,70,0.3)'; }}
+                            >
+                                <ExternalLink size={13} />
+                                Open Twilio Console
+                            </a>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setTwilioStep(2)}
+                                    className="px-5 py-2.5 rounded-xl text-[13px] text-white/50 transition-all duration-200"
+                                    style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    onClick={() => setTwilioStep(4)}
+                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition-all duration-200"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
+                                        boxShadow: '0 0 20px rgba(242,47,70,0.28)',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(242,47,70,0.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.28)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                >
+                                    I Have My Credentials <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── STEP 4: Enter Credentials (EXISTING FORM - UNCHANGED LOGIC) ── */}
+                    {twilioStep === 4 && (
+                        <div>
+                            <h2 className="text-[20px] font-semibold text-white mb-1.5 tracking-tight">Enter Your Credentials</h2>
+                            <p className="text-[13px] text-white/60 mb-5 leading-relaxed">
+                                Paste your Twilio details below to complete the connection.
+                            </p>
+
+                            {/* ─── EXISTING FORM FIELDS — DO NOT MODIFY LOGIC ─── */}
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
+                                        Twilio Account SID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="ACxxxxxxxx..."
+                                        value={twilioForm.sid}
+                                        onChange={e => setTwilioForm(prev => ({ ...prev, sid: e.target.value }))}
+                                        className="w-full rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.09)',
+                                        }}
+                                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(242,47,70,0.06)'; }}
+                                        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
+                                        Twilio Auth Token
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={showAuthToken ? 'text' : 'password'}
+                                            placeholder="Your Twilio Auth Token"
+                                            value={twilioForm.token}
+                                            onChange={e => setTwilioForm(prev => ({ ...prev, token: e.target.value }))}
+                                            className="w-full rounded-xl pl-4 pr-11 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
+                                            style={{
+                                                background: 'rgba(255,255,255,0.03)',
+                                                border: '1px solid rgba(255,255,255,0.09)',
+                                            }}
+                                            onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(242,47,70,0.06)'; }}
+                                            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAuthToken(prev => !prev)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
+                                        >
+                                            {showAuthToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
+                                        Twilio Phone Number
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="+1234567890"
+                                        value={twilioForm.phone}
+                                        onChange={e => setTwilioForm(prev => ({ ...prev, phone: e.target.value }))}
+                                        className="w-full rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.09)',
+                                        }}
+                                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(242,47,70,0.06)'; }}
+                                        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    />
+                                    <p className="text-[10px] text-white/45 mt-1.5">Use a WhatsApp-enabled number</p>
+                                </div>
+                            </div>
+                            {/* ─── END EXISTING FORM FIELDS ─── */}
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setTwilioStep(3)}
+                                    disabled={twilioSubmitting}
+                                    className="px-5 py-2.5 rounded-xl text-[13px] text-white/50 transition-all duration-200 disabled:opacity-30"
+                                    style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                                    onMouseEnter={e => { if (!twilioSubmitting) { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; } }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                                >
+                                    Back
+                                </button>
+                                {/* Calls the EXISTING submitTwilio function — unchanged */}
+                                <button
+                                    onClick={submitTwilio}
+                                    disabled={twilioSubmitting}
+                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
+                                    style={{
+                                        background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
+                                        boxShadow: '0 0 20px rgba(242,47,70,0.3)',
+                                    }}
+                                    onMouseEnter={e => { if (!twilioSubmitting) { e.currentTarget.style.boxShadow = '0 0 28px rgba(242,47,70,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
+                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                >
+                                    {twilioSubmitting ? (
+                                        <>
+                                            <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                            Connecting...
+                                        </>
+                                    ) : (
+                                        <>Connect <ChevronRight size={14} /></>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── SUCCESS SCREEN ── */}
+                    {twilioStep === 'success' && (
+                        <div className="text-center py-5">
+                            {/* Animated green check */}
+                            <div
+                                className="w-[80px] h-[80px] rounded-full flex items-center justify-center mx-auto mb-6"
+                                style={{
+                                    background: 'radial-gradient(circle, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.04) 70%)',
+                                    border: '2px solid rgba(34,197,94,0.3)',
+                                    boxShadow: '0 0 50px rgba(34,197,94,0.2), inset 0 0 20px rgba(34,197,94,0.05)',
+                                    animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                }}
+                            >
+                                <Check size={34} className="text-green-400" strokeWidth={2.5} />
+                            </div>
+
+                            <h2 className="text-[20px] font-semibold text-white mb-2.5 tracking-tight">
+                                Twilio Connected Successfully
+                            </h2>
+                            <p className="text-[13px] text-white/45 leading-relaxed max-w-[280px] mx-auto mb-8">
+                                You can now send and receive WhatsApp and SMS messages through Twilio.
+                            </p>
+
+                            <button
+                                onClick={() => setTwilioStep(null)}
+                                className="px-10 py-3 rounded-xl text-white font-semibold text-[14px] transition-all duration-200"
+                                style={{
+                                    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                                    boxShadow: '0 0 24px rgba(34,197,94,0.3)',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 32px rgba(34,197,94,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 24px rgba(34,197,94,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                            >
+                                Done
+                            </button>
+
+                            <style>{`
+                                @keyframes scaleIn {
+                                    0% { transform: scale(0); opacity: 0; }
+                                    100% { transform: scale(1); opacity: 1; }
+                                }
+                            `}</style>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ChannelsPage() {
     const FB_APP_ID  = process.env.NEXT_PUBLIC_FB_APP_ID;
@@ -313,11 +856,29 @@ export default function ChannelsPage() {
     const [hoveredBtn, setHoveredBtn] = useState(null);
 
     const [connecting, setConnecting] = useState(null);
+
+    // ── Twilio state ────────────────────────────────────────────────────────
+    // showTwilioModal kept for submitTwilio compatibility (it still calls setShowTwilioModal)
     const [showTwilioModal, setShowTwilioModal] = useState(false);
+    // twilioStep drives the new onboarding UI: null | 1 | 2 | 3 | 4 | 'success'
+    const [twilioStep, setTwilioStep] = useState(null);
+    // ────────────────────────────────────────────────────────────────────────
+
     const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '' });
     const [showAuthToken, setShowAuthToken] = useState(false);
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({});
+
+    // ─── Detect successful Twilio connection and advance to success screen ───
+    // Watches twilioSubmitting transition (true → false) while on step 4
+    const prevTwilioSubmitting = useRef(false);
+    useEffect(() => {
+        if (prevTwilioSubmitting.current === true && !twilioSubmitting && statuses.twilio && twilioStep === 4) {
+            setTwilioStep('success');
+        }
+        prevTwilioSubmitting.current = twilioSubmitting;
+    }, [twilioSubmitting, statuses.twilio, twilioStep]);
+    // ────────────────────────────────────────────────────────────────────────
 
     // ─── Filter / Sort state ─
     const [searchQuery, setSearchQuery] = useState('');
@@ -345,7 +906,7 @@ export default function ChannelsPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // ─── Filtering + Sorting logic ─
+    // ─ Filtering + Sorting logic ─
     const filteredItems = useMemo(() => {
         let items = [...ALL_ITEMS];
 
@@ -388,7 +949,7 @@ export default function ChannelsPage() {
     const filteredChannels = useMemo(() => filteredItems.filter(i => i.type === 'channel'), [filteredItems]);
     const filteredIntegrations = useMemo(() => filteredItems.filter(i => i.type === 'integration'), [filteredItems]);
 
-    // ─── Listen for WhatsApp embedded signup messages ─
+    // ─ Listen for WhatsApp embedded signup messages ─
     useEffect(() => {
         const handleMessage = (e) => {
             if (e.origin !== "https://www.facebook.com") return;
@@ -519,6 +1080,7 @@ const disconnectChannel = async (channelId) => {
     }
 };
 
+    // ── submitTwilio — EXISTING FUNCTION, NOT MODIFIED ──────────────────────
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
         
@@ -561,6 +1123,7 @@ const disconnectChannel = async (channelId) => {
             setTwilioSubmitting(false);
         }
     };
+    // ────────────────────────────────────────────────────────────────────────
 
     const handleConnect = (id) => {
         if (statuses[id]) return;
@@ -580,10 +1143,11 @@ const disconnectChannel = async (channelId) => {
         if (id === 'gmail')           connectIntegration('gmail');
         if (id === 'google_calendar') connectIntegration('google_calendar');
         if (id === 'twilio') {
+            // Open the new onboarding modal at step 1
             const savedPhone = localStorage.getItem("twilio_phone") || '';
             setTwilioForm({ sid: '', token: '', phone: savedPhone });
             setShowAuthToken(false);
-            setShowTwilioModal(true);
+            setTwilioStep(1);
         }
     };
 
@@ -591,7 +1155,7 @@ const disconnectChannel = async (channelId) => {
         <div className="min-h-screen bg-black text-white font-sans">
             <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
 
-                {/* ── Header ── */}
+                {/*  Header  */}
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-10 gap-6">
                     <div className="pt-2 md:pb-2">
                         <h1 className="text-3xl lg:text-4xl font-medium text-white tracking-tight mb-5">Channels</h1>
@@ -613,7 +1177,7 @@ const disconnectChannel = async (channelId) => {
                     </div>
                 </div>
 
-                {/* ── Toolbar ── */}
+                {/*  Toolbar  */}
                 <div className="flex flex-wrap items-center gap-3 mb-10">
                     <div className="relative flex-1 min-w-[220px]">
                         <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#444]" />
@@ -693,14 +1257,14 @@ const disconnectChannel = async (channelId) => {
                     </div>
                 </div>
 
-                {/* ── Empty state ── */}
+                {/*  Empty state  */}
                 {filteredItems.length === 0 && (
                     <div className="text-center py-20">
                         <p className="text-white/40 text-[15px]">No channels or integrations match your filters.</p>
                     </div>
                 )}
 
-                {/* ── Channel Cards ── */}
+                {/*  Channel Cards  */}
                 {filteredChannels.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     {filteredChannels.map((item) => {
@@ -823,7 +1387,7 @@ const disconnectChannel = async (channelId) => {
                 </div>
                 )}
 
-                {/* ── Integration Section ── */}
+                {/*  Integration Section  */}
                 {filteredIntegrations.length > 0 && (
                 <div className="mt-14">
                     <h2 className="text-3xl lg:text-4xl font-medium text-white tracking-tight mb-3">Integration</h2>
@@ -849,7 +1413,7 @@ const disconnectChannel = async (channelId) => {
                                 >
                                     <div className="p-6 flex-1 min-h-[160px]">
                                         <div className="flex items-start gap-4">
-                                            <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.iconBg} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                                            <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
                                                 <Icon />
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -906,103 +1470,23 @@ const disconnectChannel = async (channelId) => {
                 </div>
                 )}
 
-                {/* ── Footer ── */}
+                {/*  Footer  */}
                 <div className="mt-14 text-center text-white/50 text-[12px]">
                     <p>Auromind AI securely handles your communication data according to our privacy policy.</p>
                 </div>
             </div>
 
-            {/* ── Twilio Modal ── */}
-            {showTwilioModal && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#0d0d0d] border border-[#1f1f1f] p-6 rounded-2xl w-full max-w-[420px] shadow-2xl relative"
-                        style={{ boxShadow: '0 0 60px rgba(242,47,70,0.15)' }}>
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg">
-                                    <Zap size={18} color="#fff" />
-                                </div>
-                                <div>
-                                    <h2 className="text-[16px] font-semibold text-white">Connect Twilio</h2>
-                                    <p className="text-[11px] text-white/40">Enter your Twilio credentials</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setShowTwilioModal(false)}
-                                className="w-8 h-8 rounded-lg bg-[#1a1a1a] flex items-center justify-center text-white/40 hover:text-white hover:bg-[#222] transition-colors">
-                                <X size={15} />
-                            </button>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-[11px] text-white/50 mb-1.5 uppercase tracking-widest font-medium">Twilio Account SID</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="ACxxxxxxxx..."
-                                    value={twilioForm.sid}
-                                    onChange={e => setTwilioForm(prev => ({ ...prev, sid: e.target.value }))}
-                                    className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-[#333] outline-none font-mono focus:border-red-500/40 transition-colors" 
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-[11px] text-white/50 mb-1.5 uppercase tracking-widest font-medium">Twilio Auth Token</label>
-                                <div className="relative">
-                                    <input 
-                                        type={showAuthToken ? "text" : "password"} 
-                                        placeholder="Your Twilio Auth Token"
-                                        value={twilioForm.token}
-                                        onChange={e => setTwilioForm(prev => ({ ...prev, token: e.target.value }))}
-                                        className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl pl-4 pr-10 py-2.5 text-white text-[13px] placeholder:text-[#333] outline-none font-mono focus:border-red-500/40 transition-colors" 
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAuthToken(prev => !prev)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
-                                    >
-                                        {showAuthToken ? <EyeOff size={16} /> : <Eye size={16} />}
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label className="block text-[11px] text-white/50 mb-1.5 uppercase tracking-widest font-medium">Twilio Phone Number</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="+1234567890"
-                                    value={twilioForm.phone}
-                                    onChange={e => setTwilioForm(prev => ({ ...prev, phone: e.target.value }))}
-                                    className="w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-[#333] outline-none font-mono focus:border-red-500/40 transition-colors" 
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 mt-6">
-                            <button 
-                                onClick={() => setShowTwilioModal(false)}
-                                className="flex-1 px-4 py-2.5 rounded-xl border border-[#222] text-white/60 hover:text-white hover:border-[#333] text-[13px] transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={submitTwilio} 
-                                disabled={twilioSubmitting}
-                                className="flex-1 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 px-4 py-2.5 rounded-xl text-white text-[13px] font-semibold disabled:opacity-50 transition-all shadow-lg flex items-center justify-center gap-2"
-                                style={{ boxShadow: '0 0 20px rgba(239,68,68,0.3)' }}
-                            >
-                                {twilioSubmitting ? (
-                                    <>
-                                        <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    'Save'
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* ── Twilio Onboarding Modal (replaces old simple modal) ── */}
+            <TwilioOnboardingModal
+                twilioStep={twilioStep}
+                setTwilioStep={setTwilioStep}
+                twilioForm={twilioForm}
+                setTwilioForm={setTwilioForm}
+                showAuthToken={showAuthToken}
+                setShowAuthToken={setShowAuthToken}
+                twilioSubmitting={twilioSubmitting}
+                submitTwilio={submitTwilio}
+            />
         </div>
     );
-}   
+}

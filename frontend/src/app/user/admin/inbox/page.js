@@ -1102,7 +1102,7 @@ function PanelCard({ children, className = '', style = {} }) {
     );
 }
 
-// ─── Main Page Content ───────────────────────────────────────────────────────
+// ─ Main Page Content 
 function InboxContent() {
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
@@ -1149,7 +1149,7 @@ function InboxContent() {
     const [tabletRight, setTabletRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
 
-    // ── Template helpers ──────────────────────────────────────────────────────
+    //  Template helpers ─
     const fetchInboxTemplates = useCallback(async () => {
         try {
             const workspace_id = workspace?.id;
@@ -1200,7 +1200,7 @@ function InboxContent() {
         (t.content || '').toLowerCase().includes(templateSearchQuery.toLowerCase())
     );
 
-    // ── URL param hydration ───────────────────────────────────────────────────
+    //  URL param hydration 
     useEffect(() => {
         const msgParam = searchParams.get('msg');
         const channelParam = searchParams.get('channel');
@@ -1225,7 +1225,7 @@ function InboxContent() {
 
     useEffect(() => { leadRef.current = lead; }, [lead]);
 
-    // ── Lead detail fetch ─────────────────────────────────────────────────────
+    //  Lead detail fetch 
     useEffect(() => {
         if (!resolvedLeadId) { setLeadDetail(null); return; }
         let active = true;
@@ -1235,7 +1235,7 @@ function InboxContent() {
         return () => { active = false; };
     }, [resolvedLeadId]);
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    //  Helpers 
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
         if (!conversationId || !workspace?.id) return null;
         try {
@@ -1302,7 +1302,7 @@ function InboxContent() {
         } catch (e) { console.error('Conversation fetch error:', e); }
     }, [workspace?.id, ch.id, activeFilter, fetchMessages, fetchLeadIdForConversation, getStatusParam, pathname, router, searchParams]);
 
-    // ── URL-driven conversation selection ─────────────────────────────────────
+    //  URL-driven conversation selection ─
     useEffect(() => {
         if (!workspace?.id || !urlConversationId) {
             if (!urlConversationId) lastProcessedIdRef.current = null;
@@ -1323,7 +1323,7 @@ function InboxContent() {
         }).catch(e => console.error('Failed to look up conversation:', e));
     }, [workspace?.id, urlConversationId, fetchConversations]);
 
-    // ── Channel / filter changes ──────────────────────────────────────────────
+    //  Channel / filter changes 
     useEffect(() => {
         const timer = setTimeout(() => {
             setLead(null); setResolvedLeadId(null);
@@ -1333,14 +1333,14 @@ function InboxContent() {
         return () => clearTimeout(timer);
     }, [ch.id, fetchConversations]);
 
-    // ── Polling ───────────────────────────────────────────────────────────────
+    //  Polling 
     useEffect(() => {
         if (!lead?.id) return;
         const interval = setInterval(() => fetchMessages(lead.id), 30000);
         return () => clearInterval(interval);
     }, [lead?.id, fetchMessages]);
 
-    // ── Realtime ──────────────────────────────────────────────────────────────
+    //  Realtime ─
     useEffect(() => {
         if (!lead?.id) return;
         subscribeConversation(lead.id);
@@ -1385,7 +1385,7 @@ function InboxContent() {
         });
     }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId]);
 
-    // ── Actions ───────────────────────────────────────────────────────────────
+    //  Actions 
     async function sendMessage() {
         if (!msg.trim() || !lead) return;
         try {
@@ -1490,7 +1490,7 @@ function InboxContent() {
         setMobileView('chat');
     }
 
-    // ── Shared ChatArea props ─────────────────────────────────────────────────
+    //  Shared ChatArea props ─
     const chatAreaProps = {
         ch, lead, messages, msg, setMsg,
         aiSuggestion, sendMessage, generateSuggestion, useSuggestion,
@@ -1519,11 +1519,11 @@ function InboxContent() {
         leadDetail, setLeadDetail,
     };
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    //  Render ─
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
-            {/* ── DESKTOP (≥1024px) ── */}
+            {/*  DESKTOP (≥1024px)  */}
             <div className="hidden lg:flex flex-1 overflow-hidden p-3 gap-3">
                 <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1554,7 +1554,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/* ── TABLET (768px–1023px) ── */}
+            {/*  TABLET (768px–1023px)  */}
             <div className="hidden md:flex lg:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1587,7 +1587,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/* ── MOBILE (<768px) ── */}
+            {/*  MOBILE (<768px)  */}
             <div className="flex md:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1620,7 +1620,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/* ── Template Selector Modal ── */}
+            {/*  Template Selector Modal  */}
             {showTemplateSelect && (
                 <>
                     <div onClick={() => setShowTemplateSelect(false)} className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]" />
@@ -1755,7 +1755,7 @@ function InboxContent() {
                 </>
             )}
 
-            {/* ── Modals ── */}
+            {/*  Modals  */}
             {showConvertModal && (
                 <ConvertLeadModal
                     isOpen={showConvertModal}

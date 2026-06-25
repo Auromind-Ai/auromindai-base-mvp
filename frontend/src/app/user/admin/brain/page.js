@@ -128,6 +128,32 @@ export default function BrainPage() {
         }
     };
 
+    // Handle search
+    const handleSearch = async () => {
+        if (!searchQuery.trim() || !workspaceId) return;
+
+        try {
+            setSearching(true);
+            setError(null);
+            const result = await api.searchBrain(searchQuery.trim(), workspaceId);
+
+            const normalized = {
+                query: searchQuery.trim(),
+                results: result?.results 
+                    || result?.data 
+                    || result?.matches 
+                    || result?.chunks 
+                    || []
+            };
+            setSearchResults(normalized);
+
+        } catch (err) {
+            setError(err.message || 'Search failed');
+        } finally {
+            setSearching(false);
+        }
+    };
+
 
 
     // Clear notifications after 5 seconds
@@ -162,7 +188,7 @@ export default function BrainPage() {
 
     return (
         <>
-            {/* ── 1. Poppins font import ── */}
+            {/*  1. Poppins font import  */}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
             `}</style>
@@ -284,10 +310,10 @@ export default function BrainPage() {
             {/* Upload Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
 
-                {/* ── Document Upload card — gradient changed to #814AC8 ── */}
+                {/*  Document Upload card — gradient changed to #814AC8  */}
                 <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#0b0b0b] hover:border-[#814AC8]/50">
 
-                    {/* ── 3. Purple corner glow ── */}
+                    {/*  3. Purple corner glow  */}
                     <div
                         className="absolute inset-0 pointer-events-none"
                         style={{
@@ -318,7 +344,7 @@ export default function BrainPage() {
                         <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Upload Documents</h3>
                         <p className="text-sm text-[#787878] font-medium mb-4">PDF, Excel, CSV, DOCX, or TXT (max 10MB)</p>
 
-                        {/* ── 2. Button bg → #814AC8 ── */}
+                        {/*  2. Button bg → #814AC8  */}
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
@@ -335,10 +361,10 @@ export default function BrainPage() {
                     </div>
                 </div>
 
-                {/* ── Website Sync card — gradient changed to #814AC8 ── */}
+                {/*  Website Sync card — gradient changed to #814AC8  */}
                 <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#0b0b0b]">
 
-                    {/* ── 3. Purple corner glow ── */}
+                    {/*  3. Purple corner glow  */}
                     <div
                         className="absolute inset-0 pointer-events-none"
                         style={{
@@ -375,7 +401,7 @@ export default function BrainPage() {
                                     {syncing ? 'Syncing...' : 'Single Page'}
                                 </button>
 
-                                {/* ── 2. Entire Website button → #814AC8 ── */}
+                                {/*  2. Entire Website button → #814AC8  */}
                                 <button
                                     onClick={handleWebsiteCrawl}
                                     disabled={syncing || crawling || !urlInput.trim()}

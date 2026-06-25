@@ -17,6 +17,10 @@ class AdminConsoleMiddleware:
             return
 
         request = Request(scope, receive=receive)
+        if request.method == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+            
         path = request.url.path
         admin_prefix = "/admin"
         

@@ -23,7 +23,7 @@ const DEFAULT_REVENUE = {
 const DEFAULT_ACTIVITIES = [];
 const DEFAULT_INSIGHTS   = [];
 
-// ── Hook ─────────
+//  Hook ─
 
 /**
  * @param {Object} options

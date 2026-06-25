@@ -44,8 +44,8 @@ export async function addTextKnowledge(title, content, workspace_id) {
   return client.post('/brain/ingest/text', { title, content, workspace_id });
 }
 
-export async function getBrainEntries() {
-  return client.get('/brain/entries');
+export async function getBrainEntries(workspace_id) {
+  return client.get(`/brain/entries?workspace_id=${workspace_id}`);
 }
 
 export async function deleteBrainEntry(entry_id, workspace_id) {
@@ -61,7 +61,7 @@ export async function queryBrain(question, workspace_id, top_k = 5, include_sour
 }
 
 export async function getBrainStats(workspace_id) {
-  return client.get('/brain/stats');
+  return client.get(`/brain/stats?workspace_id=${workspace_id}`);
 }
 
 export async function getIngestStatus(entryId) {

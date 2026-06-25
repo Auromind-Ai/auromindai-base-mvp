@@ -390,4 +390,3 @@ class UnifiedAgent:
         - Use "book_demo" + close=true when meeting_date, meeting_time, timezone are all collected.
         - Keep action null while still collecting fields or demo details.
         """
-

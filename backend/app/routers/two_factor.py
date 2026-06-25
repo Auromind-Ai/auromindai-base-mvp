@@ -17,25 +17,38 @@ from app.core.config import settings
 router = APIRouter()
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# ─ Helpers ─
 
 def _redis():
     import redis
-    return redis.from_url(settings.REDIS_URL, decode_responses=True)
+    return redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
 
 
 def _get_cookie_kwargs() -> dict:
     is_prod = settings.ENVIRONMENT.lower() == "production"
+    
+    # Extract domain for cookie sharing between frontend and backend on subdomains
+    cookie_domain = None
+    if settings.FRONTEND_URL:
+        from urllib.parse import urlparse
+        parsed = urlparse(settings.FRONTEND_URL)
+        if parsed.hostname:
+            parts = parsed.hostname.split(".")
+            # Ignore IP addresses and localhost
+            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
+                cookie_domain = "." + ".".join(parts[-2:])
+                
     return dict(
         httponly=True,
         secure=is_prod,
-        samesite="strict" if is_prod else "lax",
+        samesite="none" if is_prod else "lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
+        domain=cookie_domain,
     )
 
 
-# ─── Request models ───────────────────────────────────────────────────────────
+# ─ Request models 
 
 class VerifySetupRequest(BaseModel):
     code: str
@@ -48,14 +61,14 @@ class DisableRequest(BaseModel):
     code: str
 
 
-# ─── GET /2fa/status ──────────────────────────────────────────────────────────
+# ─ GET /2fa/status ─
 
 @router.get("/status")
 async def get_status(current_user: CurrentUser = Depends(get_current_user)):
     return {"two_factor_enabled": current_user.user.two_factor_enabled}
 
 
-# ─── POST /2fa/setup ─────────────────────────────────────────────────────────
+# ─ POST /2fa/setup 
 
 @router.post("/setup")
 async def setup(
@@ -78,7 +91,7 @@ async def setup(
     }
 
 
-# ─── POST /2fa/verify-setup ───────────────────────────────────────────────────
+# ─ POST /2fa/verify-setup 
 
 @router.post("/verify-setup")
 async def verify_setup(
@@ -112,7 +125,7 @@ async def verify_setup(
     return {"success": True, "message": "Two-factor authentication enabled."}
 
 
-# ─── POST /2fa/verify-login ───────────────────────────────────────────────────
+# ─ POST /2fa/verify-login 
 
 @router.post("/verify-login")
 async def verify_login(
@@ -151,7 +164,7 @@ async def verify_login(
     return result
 
 
-# ─── POST /2fa/disable ────────────────────────────────────────────────────────
+# ─ POST /2fa/disable ─
 
 @router.post("/disable")
 async def disable(

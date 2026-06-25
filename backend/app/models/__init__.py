@@ -38,4 +38,5 @@ from .plan_entitlement import PlanEntitlement
 from .feature_billing_rule import FeatureBillingRule
 from .wcc import WCCWallet, WCCRateCard, WCCTransaction, WCCRechargeLog
 from .automation import AutomationFlow, PurchasedFlowPack
+from .message_execution import MessageExecution
 

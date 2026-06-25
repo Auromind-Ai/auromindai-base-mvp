@@ -145,7 +145,7 @@ export default function ManageChatsSection() {
               text-[30px] sm:text-[36px] md:text-[40px] lg:text-[45px]
               font-medium leading-[1.2] tracking-[0em]"
             style={{
-              background: "linear-gradient(180deg, #A855F7 0%, #FFFFFF 100%)",
+              background: "linear-gradient(180deg, #814AC8 30%, #FFFFFF 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundSize: "100% 1.2em",
@@ -229,7 +229,7 @@ export default function ManageChatsSection() {
                 rotateY: `${cardRotateY * 0.35}deg`,
               } : {}}
             >
-              <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-black">
+              <div className="relative overflow-hidden rounded-[32px] border border-white/30 bg-black">
                 <div className="flex flex-col items-center justify-center pt-5 pb-3 px-4">
                   <div className="mb-2 flex h-12 w-12 md:h-14 md:w-14 items-center justify-center rounded-2xl"
                     style={{ background: "linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)" }}
