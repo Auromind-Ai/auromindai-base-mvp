@@ -20,36 +20,7 @@ class ProviderUsageMissingError(Exception):
 
 
 def extract_usage(result: dict) -> dict:
-    """
-    Extract normalised provider usage from the standard LLMRouter result dict.
-
-    Every provider adapter already returns the same shape::
-
-        {
-            "text":     "...",
-            "provider": "groq" | "claude" | "gemini" | "openai" | "openrouter",
-            "model":    "<model-id>",
-            "usage": {
-                "input_tokens":  <int>,
-                "output_tokens": <int>,
-                "total_tokens":  <int>,
-            },
-        }
-
-    Returns a flat dict::
-
-        {
-            "provider":          "groq",
-            "model":             "llama-3.3-70b-versatile",
-            "prompt_tokens":     1234,
-            "completion_tokens": 456,
-            "total_tokens":      1690,
-        }
-
-    Raises ProviderUsageMissingError if the provider did not report any token
-    usage (total_tokens == 0).  Callers must never estimate or guess — they
-    must release the reservation and skip billing instead.
-    """
+   
     if not result:
         raise ProviderUsageMissingError("Provider returned no result")
 
@@ -77,10 +48,6 @@ def extract_usage(result: dict) -> dict:
 
 
 def split_prompt(prompt: str):
-    """
-    Splits the prompt into System Prompt (instructions) and User Input (context, queries, etc.)
-    using common delimiters.
-    """
     split_keys = [
         "User Query:",
         "Question:",
@@ -99,10 +66,6 @@ def split_prompt(prompt: str):
     return prompt.strip(), ""
 
 def get_caller_function_name():
-    """
-    Detects the calling function name by traversing the stack, skipping
-    retry decorators and framework internals.
-    """
     stack = inspect.stack()
     for frame_info in stack:
         filename = frame_info.filename
@@ -120,9 +83,6 @@ def get_caller_function_name():
     return "unknown"
 
 def write_to_token_log_file(message: str):
-    """
-    Writes token reports and messages to dedicated files: logs/token_usage.log and logs/token_usage.txt
-    """
     try:
         from app.core.logger import BASE_DIR
         log_dir = os.path.join(BASE_DIR, "logs")
