@@ -5,15 +5,13 @@ from dateutil import parser
 from geopy.geocoders import Nominatim
 from google.oauth2.credentials import Credentials
 from timezonefinder import TimezoneFinder
-from app.core.config import settings
 from app.models.integration import CalendarEvent
 from app.models.integration import Integration
 from app.services.ai.llm_utils import safe_llm_call
 from app.services.platform_settings_service import get_setting
 from googleapiclient.discovery import build
 
-GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
+# Dynamic settings will be loaded at runtime
 
 geolocator = Nominatim(user_agent="calendar_ai")
 tf = TimezoneFinder()
@@ -62,12 +60,13 @@ class CalendarExecutor:
 
             if google_integration:
 
+                from app.services.config_service import config_service
                 creds = Credentials(
                     token=google_integration.access_token,
                     refresh_token=google_integration.refresh_token,
                     token_uri="https://oauth2.googleapis.com/token",
-                    client_id=GOOGLE_CLIENT_ID,
-                    client_secret=GOOGLE_CLIENT_SECRET
+                    client_id=config_service.get("google_client_id"),
+                    client_secret=config_service.get("google_client_secret")
                 )
 
                 service = build("calendar", "v3", credentials=creds)

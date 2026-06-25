@@ -3,7 +3,6 @@ from sched import scheduler
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine
 from app.core.logger import logger
-from app.core.config import settings
 from app.services.background_scheduler import EmailSchedulerService
 from app.services.cleanup_service import ReservationCleanupSchedulerService
 from app.services.agentic_rag.cache_loader import load_learning_cache
@@ -38,7 +37,8 @@ def init_learning_cache():
 
 def init_schedulers(app):
     # Multi-worker safe check
-    if not settings.SCHEDULER_ENABLED:
+    from app.services.config_service import config_service
+    if not config_service.get("scheduler_enabled", True):
         logger.warning("Schedulers disabled (multi-worker mode)")
         return
 

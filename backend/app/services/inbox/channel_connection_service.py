@@ -7,7 +7,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app import models
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +20,9 @@ class ChannelConnectionService:
         if not code:
             raise HTTPException(status_code=400, detail="Missing authorization code")
 
-        app_id = settings.META_APP_ID or settings.IG_APP_ID
-        app_secret = settings.META_APP_SECRET or settings.IG_APP_SECRET
+        from app.services.config_service import config_service
+        app_id = config_service.get("meta_app_id") or config_service.get("ig_app_id")
+        app_secret = config_service.get("meta_app_secret") or config_service.get("ig_app_secret")
         
         params = {
             "client_id": app_id,
@@ -234,7 +234,8 @@ class ChannelConnectionService:
         
         # ACTIVATE WEBHOOKS: We must explicitly tell Meta to route messages for this WABA to our app's webhook URL
         # Note: Meta strictly requires the App's System User Token for this endpoint!
-        system_token = settings.META_SYSTEM_USER_TOKEN or access_token
+        from app.services.config_service import config_service
+        system_token = config_service.get("meta_system_user_token") or access_token
         try:
             print(system_token)
             subscribe_res = requests.post(
@@ -280,17 +281,18 @@ class ChannelConnectionService:
             raise HTTPException(status_code=400, detail="Missing OAuth code")
         if not workspace_id:
             raise HTTPException(status_code=400, detail="Missing workspace_id")
-        print("IG_APP_ID:", settings.IG_APP_ID)
-        print("IG_APP_SECRET:", settings.IG_APP_SECRET)
-        print("IG_REDIRECT_URI:", settings.IG_REDIRECT_URI)
+        from app.services.config_service import config_service
+        print("IG_APP_ID:", config_service.get("ig_app_id"))
+        print("IG_APP_SECRET:", config_service.get("ig_app_secret"))
+        print("IG_REDIRECT_URI:", config_service.get("ig_redirect_uri"))
         
 
         token_res = requests.get(
             "https://graph.facebook.com/v19.0/oauth/access_token",
             params={
-                "client_id": settings.IG_APP_ID,
-                "client_secret": settings.IG_APP_SECRET,
-                "redirect_uri": settings.IG_REDIRECT_URI,
+                "client_id": config_service.get("ig_app_id"),
+                "client_secret": config_service.get("ig_app_secret"),
+                "redirect_uri": config_service.get("ig_redirect_uri"),
                 "code": code,
             },
             timeout=10,
@@ -303,8 +305,8 @@ class ChannelConnectionService:
             "https://graph.facebook.com/v19.0/oauth/access_token",
             params={
                 "grant_type": "fb_exchange_token",
-                "client_id": settings.IG_APP_ID,
-                "client_secret": settings.IG_APP_SECRET,
+                "client_id": config_service.get("ig_app_id"),
+                "client_secret": config_service.get("ig_app_secret"),
                 "fb_exchange_token": access_token,
             },
             timeout=10,

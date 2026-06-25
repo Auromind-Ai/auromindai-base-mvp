@@ -23,7 +23,8 @@ from . import (
     model_configs,
     templates,
     entitlements,
-    feature_rules
+    feature_rules,
+    flow_packs
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -156,3 +157,4 @@ router.include_router(model_configs.router)
 router.include_router(templates.router)
 router.include_router(entitlements.router)
 router.include_router(feature_rules.router)
+router.include_router(flow_packs.router)

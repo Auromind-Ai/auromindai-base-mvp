@@ -158,12 +158,13 @@ class OrchestratorLayer:
         if small_talk:
             fallback_triggered = True
             logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (small talk)")
+            confidence = compute_confidence(tool="direct_answer")
             return self.mcp.format_response(
-                "",
+                small_talk,
                 query,
                 query,               
                 "direct_answer",     
-                0.0,
+                confidence,
                 model=model,
             )
 
@@ -604,12 +605,18 @@ class OrchestratorLayer:
         elif tool == "direct_answer":
             fallback_triggered = True
             logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (direct_answer tool)")
+            response = (
+                self.helpers.get_small_talk_response(rewritten_query)
+                or self.helpers.get_small_talk_response(query)
+                or "Hello! How can I help you today?"
+            )
+            confidence = compute_confidence(tool="direct_answer")
             return self.mcp.format_response(
-                "",
+                response,
                 query,
                 rewritten_query,
                 tool,
-                0.0,
+                confidence,
                 model=model,
             )
             

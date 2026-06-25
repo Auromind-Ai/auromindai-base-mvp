@@ -24,6 +24,10 @@ class ConfigService:
         self.logger.info("ConfigService initialized")
 
     def get(self, key, default=None):
+        from app.services.config_service import config_service
+        val = config_service.get(key)
+        if val is not None:
+            return val
         return self.default_config.get(key, default)
 
     def get_config(self, workspace_id=None):

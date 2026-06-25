@@ -1,7 +1,6 @@
 import hashlib
 import json
 from typing import Any
-from app.core.config import settings
 import razorpay.errors as razorpay_errors
 from app.models.workspace import Workspace
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
@@ -21,12 +20,10 @@ class RazorpayGateway(PaymentGateway):
         from app.database import SessionLocal
         from app.services.platform_settings_service import get_setting
 
-        db = SessionLocal()
-        try:
-            key = get_setting(db, "razorpay_key") or settings.RAZORPAY_KEY
-            secret = get_setting(db, "razorpay_secret") or settings.RAZORPAY_SECRET
-        finally:
-            db.close()
+        from app.services.config_service import config_service
+        key = config_service.get("razorpay_key")
+        secret = config_service.get("razorpay_secret")
+        webhook_secret = config_service.get("razorpay_webhook_secret")
 
         if not key or not secret:
             raise ValueError("Razorpay is not configured")
@@ -34,7 +31,7 @@ class RazorpayGateway(PaymentGateway):
         client = razorpay.Client(auth=(key, secret))
         return cls(
             client=client,
-            webhook_secret=settings.RAZORPAY_WEBHOOK_SECRET,
+            webhook_secret=webhook_secret,
             public_key=key,
         )
 

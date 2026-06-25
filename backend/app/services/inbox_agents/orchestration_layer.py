@@ -10,7 +10,6 @@ from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.inbox.twilio_service import TwilioService
 from app.models.flow_execution import FlowExecutionState
 from app.models import Conversation, TokenLedger
-from app.core.config import settings
 
 
 class AgentOrchestration:
@@ -19,7 +18,8 @@ class AgentOrchestration:
         self.logger = logger
         self.logger.info("Initializing AgentOrchestration...")
 
-        self.llm = LLMClient(api_key=settings.GROQ_API_KEY)
+        from app.services.config_service import config_service
+        self.llm = LLMClient(api_key=config_service.get("groq_api_key"))
         self.db = db
 
         # Core Services

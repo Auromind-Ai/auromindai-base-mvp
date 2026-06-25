@@ -5,7 +5,6 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 import google.generativeai as genai
 from groq import Groq
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +12,9 @@ logger = logging.getLogger(__name__)
 class AgenticWiringServiceV2:
 
     def __init__(self):
-        self.google_api_key = settings.GOOGLE_API_KEY
-        self.groq_api_key = settings.GROQ_API_KEY
+        from app.services.config_service import config_service
+        self.google_api_key = config_service.get("google_api_key")
+        self.groq_api_key = config_service.get("groq_api_key")
         if self.google_api_key:
             genai.configure(api_key=self.google_api_key)
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None

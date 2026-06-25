@@ -61,6 +61,17 @@ export default function AutomationCanvas() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [infoModal, setInfoModal] = useState({ open: false, title: '', message: '' });
   const [newFlowName, setNewFlowName] = useState('');
+  const [customModal, setCustomModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+    isConfirm: true,
+    onConfirm: null,
+  });
+  const [flowQuota, setFlowQuota] = useState({ plan_base: 5, purchased: 0, total: 5, used: 0 });
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState('');
 
@@ -167,20 +178,18 @@ export default function AutomationCanvas() {
     return { sx, sy, tx, ty };
   }, [zoom, edgeTick, nodes]);
 
-  useEffect(() => {
-    setIsMounted(true);
-    fetchFlows();
-    const handleKeyDown = (e) => { if (e.code === 'Space') setIsSpacePressed(true); };
-    const handleKeyUp = (e) => { if (e.code === 'Space') setIsSpacePressed(false); };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
+  const fetchFlowQuota = useCallback(async () => {
+    const wsId = getWorkspaceIdFromToken();
+    if (!wsId) return;
+    try {
+      const quota = await api.getFlowQuota(wsId);
+      setFlowQuota(quota);
+    } catch (e) {
+      console.error("Failed to fetch flow quota:", e);
+    }
   }, []);
 
-  const fetchFlows = async () => {
+  async function fetchFlows() {
     try {
       const data = await api.getFlows();
       console.log('fetchFlows received:', data?.length, data);
@@ -202,9 +211,25 @@ export default function AutomationCanvas() {
         }
       }
     } catch (e) { console.error(e); }
-  };
+  }
 
-  const handleSelectAutomation = async (item) => {
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+    fetchFlows();
+    fetchFlowQuota();
+    const handleKeyDown = (e) => { if (e.code === 'Space') setIsSpacePressed(true); };
+    const handleKeyUp = (e) => { if (e.code === 'Space') setIsSpacePressed(false); };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchFlowQuota]);
+
+  async function handleSelectAutomation(item) {
     if (!item) return;
     try {
       const freshItem = await api.getFlowById(item.id);
@@ -229,59 +254,161 @@ export default function AutomationCanvas() {
       setZoom(1);
       setCurrentView('canvas');
     }
-  };
+  }
 
   const handleToggleStatus = async (flow) => {
     const newStatus = flow.status === 'Active' ? 'Draft' : 'Active';
-    try {
-      const updated = await api.saveFlow({
-        id: flow.id,
-        name: flow.name,
-        trigger_type: flow.trigger_type || 'msg_recv',
-        nodes: flow.nodes || [],
-        edges: flow.edges || [],
-        status: newStatus
-      });
-      setAutomations(prev => prev.map(a => a.id === updated.id ? updated : a));
-      if (selectedItem?.id === flow.id) {
-        setSelectedItem(updated);
+
+    const performToggle = async () => {
+      try {
+        const updated = await api.saveFlow({
+          id: flow.id,
+          name: flow.name,
+          trigger_type: flow.trigger_type || 'msg_recv',
+          nodes: flow.nodes || [],
+          edges: flow.edges || [],
+          status: newStatus
+        });
+        setAutomations(prev => prev.map(a => a.id === updated.id ? updated : a));
+        if (selectedItem?.id === flow.id) {
+          setSelectedItem(updated);
+        }
+        fetchFlowQuota();
+      } catch (e) {
+        console.error(e);
+        setCustomModal({
+          open: true,
+          title: 'Status Update Failed',
+          message: 'Failed to update status: ' + e.message,
+          confirmText: 'Dismiss',
+          isConfirm: false,
+          confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
       }
-    } catch (e) {
-      console.error(e);
-      alert("Failed to update status: " + e.message);
+    };
+
+    if (newStatus === 'Active') {
+      setCustomModal({
+        open: true,
+        title: 'Deploy Flow',
+        message: `Are you sure you want to deploy and activate the flow "${flow.name}"? This will enable automated triggers.`,
+        confirmText: 'Deploy',
+        cancelText: 'Cancel',
+        confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+        isConfirm: true,
+        onConfirm: () => {
+          setCustomModal(prev => ({ ...prev, open: false }));
+          performToggle();
+        }
+      });
+    } else {
+      setCustomModal({
+        open: true,
+        title: 'Deactivate Flow',
+        message: `Are you sure you want to pause and deactivate the flow "${flow.name}"? Active executions will stop.`,
+        confirmText: 'Deactivate',
+        cancelText: 'Cancel',
+        confirmColor: 'bg-zinc-700 hover:bg-zinc-650 text-white border border-white/10',
+        isConfirm: true,
+        onConfirm: () => {
+          setCustomModal(prev => ({ ...prev, open: false }));
+          performToggle();
+        }
+      });
     }
   };
 
   const handleDuplicateFlow = async (flow) => {
-    try {
-      const newFlow = await api.saveFlow({
-        name: `Copy of ${flow.name}`,
-        trigger_type: flow.trigger_type || 'msg_recv',
-        nodes: flow.nodes || [],
-        edges: flow.edges || [],
-        status: 'Draft'
-      });
-      setAutomations(prev => [...prev, newFlow]);
-      alert(`Flow duplicated successfully as "Copy of ${flow.name}"!`);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to duplicate flow: " + e.message);
-    }
+    const performDuplicate = async () => {
+      try {
+        const newFlow = await api.saveFlow({
+          name: `Copy of ${flow.name}`,
+          trigger_type: flow.trigger_type || 'msg_recv',
+          nodes: flow.nodes || [],
+          edges: flow.edges || [],
+          status: 'Draft'
+        });
+        setAutomations(prev => [...prev, newFlow]);
+        fetchFlowQuota();
+        setCustomModal({
+          open: true,
+          title: 'Flow Duplicated',
+          message: `Flow duplicated successfully as "Copy of ${flow.name}"!`,
+          confirmText: 'Done',
+          isConfirm: false,
+          confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
+      } catch (e) {
+        console.error(e);
+        setCustomModal({
+          open: true,
+          title: 'Duplication Failed',
+          message: 'Failed to duplicate flow: ' + e.message,
+          confirmText: 'Dismiss',
+          isConfirm: false,
+          confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
+      }
+    };
+
+    setCustomModal({
+      open: true,
+      title: 'Duplicate Flow',
+      message: `Are you sure you want to duplicate "${flow.name}"?`,
+      confirmText: 'Duplicate',
+      cancelText: 'Cancel',
+      confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+      isConfirm: true,
+      onConfirm: () => {
+        setCustomModal(prev => ({ ...prev, open: false }));
+        performDuplicate();
+      }
+    });
   };
 
   const handleDeleteFlow = async (flowId) => {
-    if (!confirm("Are you sure you want to delete this flow? This action cannot be undone.")) return;
-    try {
-      await api.deleteFlow(flowId);
-      setAutomations(prev => prev.filter(a => a.id !== flowId));
-      if (selectedItem?.id === flowId) {
-        setSelectedItem(null);
-        setCurrentView('dashboard');
+    const flow = automations.find(a => a.id === flowId);
+    const flowName = flow ? flow.name : 'this flow';
+
+    const performDelete = async () => {
+      try {
+        await api.deleteFlow(flowId);
+        setAutomations(prev => prev.filter(a => a.id !== flowId));
+        if (selectedItem?.id === flowId) {
+          setSelectedItem(null);
+          setCurrentView('dashboard');
+        }
+        fetchFlowQuota();
+      } catch (e) {
+        console.error(e);
+        setCustomModal({
+          open: true,
+          title: 'Deletion Failed',
+          message: 'Failed to delete flow: ' + e.message,
+          confirmText: 'Dismiss',
+          isConfirm: false,
+          confirmColor: 'bg-rose-600 hover:bg-rose-500',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
       }
-    } catch (e) {
-      console.error(e);
-      alert("Failed to delete flow: " + e.message);
-    }
+    };
+
+    setCustomModal({
+      open: true,
+      title: 'Delete Flow',
+      message: `Are you sure you want to delete the flow "${flowName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmColor: 'bg-rose-600 hover:bg-rose-500',
+      isConfirm: true,
+      onConfirm: () => {
+        setCustomModal(prev => ({ ...prev, open: false }));
+        performDelete();
+      }
+    });
   };
 
   const handleCreateFlowSubmit = async () => {
@@ -306,9 +433,18 @@ export default function AutomationCanvas() {
       setNewFlowName('');
       setIsCreateModalOpen(false);
       handleSelectAutomation(newFlow);
+      fetchFlowQuota();
     } catch (e) {
       console.error(e);
-      alert("Failed to create flow: " + e.message);
+      setCustomModal({
+        open: true,
+        title: 'Creation Failed',
+        message: 'Failed to create flow: ' + e.message,
+        confirmText: 'Dismiss',
+        isConfirm: false,
+        confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+        onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+      });
     }
   };
 
@@ -938,6 +1074,10 @@ export default function AutomationCanvas() {
         newFlowName={newFlowName}
         setNewFlowName={setNewFlowName}
         handleCreateFlowSubmit={handleCreateFlowSubmit}
+        customModal={customModal}
+        setCustomModal={setCustomModal}
+        flowQuota={flowQuota}
+        fetchFlowQuota={fetchFlowQuota}
       />
     );
   }

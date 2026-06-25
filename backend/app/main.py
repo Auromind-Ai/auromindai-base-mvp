@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Core
-from app.core.config import settings
 from app.core.middleware import MetricsMiddleware
 from app.core.websockets import manager
 from app.core.logger import logger
@@ -23,7 +22,7 @@ from app.routers import (
     auth, brain, dashboard, chat,
     integrations, gmail, email, automation, admin,
     public, billing, upload, preferences, security,
-    notifications, wcc
+    notifications, wcc, flow_packs
 )
 from app.routers.feedback import router as feedback_router
 from app.routers.template import router as template_router
@@ -37,6 +36,35 @@ from app.routers.account import router as account_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Starting...")
+    
+    # Seed platform settings from environment variables on startup
+    from app.database import SessionLocal
+    from app.services.platform_settings_service import seed_settings_from_env, migrate_sensitive_settings
+    db = SessionLocal()
+    try:
+        seed_settings_from_env(db)
+        migrate_sensitive_settings(db)
+    except Exception as e:
+        logger.error(f"Failed to seed or migrate settings: {e}")
+    finally:
+        db.close()
+
+    # Load dynamic allowed origins at startup and update CORSMiddleware options
+    try:
+        from app.services.config_service import config_service
+        db_origins = config_service.get("allowed_origins")
+        if db_origins:
+            new_origins = [o.strip() for o in db_origins.split(",") if o.strip()]
+            for middleware in app.user_middleware:
+                if middleware.cls == CORSMiddleware:
+                    origins_list = middleware.options.get("allow_origins", [])
+                    for origin in new_origins:
+                        if origin not in origins_list:
+                            origins_list.append(origin)
+                    break
+    except Exception as e:
+        logger.error(f"Failed to load dynamic CORS allowed origins: {e}")
+
     init_schedulers(app)
     await init_llm_router(app)
     await init_pubsub(app)
@@ -62,7 +90,7 @@ app = FastAPI(
 register_exception_handlers(app)
 
 # Middleware
-allowed_origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+allowed_origins = []
 fallback_origins = [
     "https://growwdigitel.cloud",
     "http://growwdigitel.cloud",
@@ -125,6 +153,8 @@ app.include_router(admin.router, tags=["admin"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])
 app.include_router(wcc.router)
+app.include_router(flow_packs.router)
+app.include_router(flow_packs.admin_router)
 app.include_router(upload.router,tags=["upload"])
 app.include_router(lead_scoring_router, tags=["lead-scoring"])
 app.include_router(realtime_router)

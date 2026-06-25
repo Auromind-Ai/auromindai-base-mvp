@@ -213,15 +213,8 @@ export default function CreditsPage() {
             const checkout = await api.initiateWccRecharge(workspaceId, amount);
             const orderData = checkout.data ?? checkout;
 
-            if (!window.Razorpay) {
-                throw new Error('Razorpay checkout is still loading. Please try again.');
-            }
-
-            const razorpay = new window.Razorpay({
-                key: orderData.public_key,
-                order_id: orderData.gateway_order_id,
-                amount: orderData.amount,
-                currency: orderData.currency || 'INR',
+            api.openRazorpayCheckout({
+                orderData,
                 name: 'Auromind',
                 description: `WCC Wallet Recharge - ₹${amount}`,
                 handler: async (response) => {
@@ -245,13 +238,10 @@ export default function CreditsPage() {
                         setActionLoading(false);
                     }
                 },
-                modal: {
-                    ondismiss: () => {
-                        setActionLoading(false);
-                    }
+                ondismiss: () => {
+                    setActionLoading(false);
                 }
             });
-            razorpay.open();
         } catch (err) {
             console.error('[WCC RECHARGE] Error:', err);
             triggerToast(`⚠️ Failed to initiate recharge: ${err.message || 'Unknown error'}`);
@@ -271,15 +261,8 @@ export default function CreditsPage() {
             const res = await api.initiateCreditPackPurchase(workspaceId, packId);
             const orderData = res.data ?? res;
 
-            if (!window.Razorpay) {
-                throw new Error('Razorpay checkout is loading. Please retry.');
-            }
-
-            const razorpay = new window.Razorpay({
-                key: orderData.public_key,
-                order_id: orderData.gateway_order_id,
-                amount: orderData.amount,
-                currency: orderData.currency || 'INR',
+            api.openRazorpayCheckout({
+                orderData,
                 name: 'Auromind',
                 description: `AI Credit Pack - ${packName}`,
                 handler: async (response) => {
@@ -303,13 +286,10 @@ export default function CreditsPage() {
                         setActionLoading(false);
                     }
                 },
-                modal: {
-                    ondismiss: () => {
-                        setActionLoading(false);
-                    }
+                ondismiss: () => {
+                    setActionLoading(false);
                 }
             });
-            razorpay.open();
         } catch (err) {
             console.error('[CREDITS PURCHASE] Error:', err);
             triggerToast(`⚠️ Failed to initiate purchase: ${err.message || 'Unknown error'}`);

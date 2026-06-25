@@ -103,7 +103,8 @@ class SystemMetricsState:
 
 
 def get_metrics_update_interval() -> float:
-    interval = settings.SYSTEM_METRICS_UPDATE_INTERVAL
+    from app.services.config_service import config_service
+    interval = config_service.get("system_metrics_update_interval", 5)
     
     if interval <= 0:
         logger.warning(

@@ -8,8 +8,6 @@ from docx import Document
 import httpx
 from bs4 import BeautifulSoup
 import base64
-from app.core.config import settings
-from app.services.platform_settings_service import get_setting
 
 logger = logging.getLogger(__name__)
 
@@ -112,12 +110,8 @@ class DocumentService:
 
     def _get_api_key(self, db, env_name: str, db_key: str) -> str:
         try:
-            if db:
-                key = get_setting(db, db_key)
-                if key and isinstance(key, str) and key.strip():
-                    return key
-            
-            key = getattr(settings, env_name, None)
+            from app.services.config_service import config_service
+            key = config_service.get(db_key)
             if key and isinstance(key, str) and key.strip():
                 return key
         except Exception as e:

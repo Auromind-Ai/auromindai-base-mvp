@@ -13,7 +13,8 @@ from app.models.workspace import WorkspaceMember
 from app.models.brain import BrainEntry
 from app.models.integration import Integration, CalendarEvent
 from app.models.ai_action import Lead
-from app.models.automation import AutomationFlow, PurchasedFlowPack
+from app.models.automation import AutomationFlow
+from app.models.flow_pack import FlowPackPurchase
 
 
 class EntitlementService:
@@ -114,12 +115,13 @@ class EntitlementService:
             usage = db.query(AutomationFlow).filter(
                 AutomationFlow.workspace_id == workspace_id
             ).count()
-            plan_limit = entitlement.flow if hasattr(entitlement, "flow") else 5
+            plan_limit = getattr(entitlement, "max_flows", None) or getattr(entitlement, "flow", 5)
             if plan_limit == -1:
                 limit = -1
             else:
-                purchased = db.query(func.sum(PurchasedFlowPack.flows)).filter(
-                    PurchasedFlowPack.workspace_id == workspace_id
+                purchased = db.query(func.sum(FlowPackPurchase.flows_count)).filter(
+                    FlowPackPurchase.workspace_id == workspace_id,
+                    FlowPackPurchase.status == "success"
                 ).scalar() or 0
                 limit = plan_limit + purchased
         else:

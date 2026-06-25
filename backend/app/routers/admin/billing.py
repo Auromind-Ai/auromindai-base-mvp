@@ -2051,6 +2051,12 @@ class PlanEntitlementUpdateRequest(BaseModel):
     included_wallet_reset_policy: str
     feature_flags: Dict[str, Any]
 
+    @validator("flow")
+    def validate_flow_quota(cls, v):
+        if v < 0:
+            raise ValueError("Flow quota must be a non-negative integer")
+        return v
+
 
 @router.get("/plan-entitlements")
 async def get_plan_entitlements_admin(db: Session = Depends(get_db)):

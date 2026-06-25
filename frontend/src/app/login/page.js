@@ -8,41 +8,12 @@ import { setToken, setUser, setWorkspace, isAuthenticated, getUser } from '@/lib
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Sphere, MeshDistortMaterial, Environment, Float, Stars } from '@react-three/drei';
+import dynamic from 'next/dynamic';
 
-function AnimatedSphere() {
-  const meshRef = useRef();
-
-  useFrame((state) => {
-    if (meshRef.current) {
-        meshRef.current.rotation.x = state.clock.getElapsedTime() * 0.1;
-        meshRef.current.rotation.y = state.clock.getElapsedTime() * 0.15;
-    }
-  });
-
-  return (
-    <Float speed={2} rotationIntensity={1} floatIntensity={1.5}>
-      <Sphere args={[1, 100, 100]} ref={meshRef} scale={1.6}>
-        <MeshDistortMaterial
-          color="#6366F1"
-          attach="material"
-          distort={0.4}
-          speed={2}
-          roughness={0.2}
-          metalness={0.9}
-        />
-      </Sphere>
-      {/* Additional smaller spheres to create a constellation effect */}
-      <Sphere args={[0.2, 32, 32]} position={[2, 2, -1]}>
-        <meshStandardMaterial color="#A855F7" roughness={0.1} metalness={0.8} />
-      </Sphere>
-      <Sphere args={[0.15, 32, 32]} position={[-2, -1.5, 1]}>
-        <meshStandardMaterial color="#EC4899" roughness={0.2} metalness={0.7} />
-      </Sphere>
-    </Float>
-  );
-}
+const Login3D = dynamic(() => import('./Login3D'), {
+    ssr: false,
+    loading: () => <div className="absolute inset-0 bg-[#020202]" />
+});
 
 const features = [
     {
@@ -58,11 +29,10 @@ const features = [
         desc: "Build complex, high-converting lead flows and follow-up sequences without writing a single line of code."
     }
 ];
-
 const getErrorMessage = (err) => {
     let msg = err?.message || '';
     let status = err?.status;
-    
+   
     if (msg.includes("Invalid or expired OTP") || msg.includes("Invalid OTP") || msg.includes("expired OTP")) {
         return "Invalid or expired OTP. Please request a new code.";
     }
@@ -89,7 +59,6 @@ function LoginContent() {
     const searchParams = useSearchParams();
     const redirectPath = searchParams.get('redirect');
     const { user, loading: authLoading, refreshUser } = useAuth();
-
     const [step, setStep] = useState('email');
     const [email, setEmail] = useState('');
     const [otp, setOtp] = useState('');
@@ -99,9 +68,17 @@ function LoginContent() {
     const [featureIndex, setFeatureIndex] = useState(0);
     const [pendingToken, setPendingToken] = useState('');
     const [totpCode, setTotpCode] = useState('');
-
     const [deletionDate, setDeletionDate] = useState('');
     const [cancelRestoreLoading, setCancelRestoreLoading] = useState(false);
+    const [showCanvas, setShowCanvas] = useState(false);
+
+    useEffect(() => {
+        // Delay mounting of 3D Canvas until after initial form animations finish
+        const timer = setTimeout(() => {
+            setShowCanvas(true);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         if (!authLoading && user) {
@@ -172,14 +149,12 @@ function LoginContent() {
             setLoading(false);
         }
     };
-
     const handleVerifyOTP = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
         try {
             const data = await api.verifyOTP(email, otp, 'login');
-
             //  2FA gate ─
             if (data?.requiresTwoFactor) {
                 setPendingToken(data.pending_token);
@@ -187,53 +162,40 @@ function LoginContent() {
                 setStep('2fa');
                 return;
             }
-            //  END 2FA gate 
-
+            //  END 2FA gate
             //  Pending deletion gate ─
             if (data?.user?.deletion_scheduled_at) {
                 const adminToken = localStorage.getItem('admin_backup_token');
                 localStorage.clear();
-
                 if (adminToken) {
                     localStorage.setItem('admin_backup_token', adminToken);
                 }
-
                 setToken(data.access_token);
                 setUser(data.user);
-
                 if (data.workspaces?.length > 0) {
                     setWorkspace(data.workspaces[0]);
                     localStorage.setItem('workspace_id', data.workspaces[0].id);
                 }
-
                 setDeletionDate(data.user.deletion_scheduled_at);
                 setStep('restore');
                 return;
             }
             //  END pending deletion gate ─
-
             if (!data?.access_token) throw new Error('Verification failed');
-
             if (!data?.access_token) throw new Error('Verification failed');
-
             const adminToken = localStorage.getItem('admin_backup_token');
             localStorage.clear();
             if (adminToken) localStorage.setItem('admin_backup_token', adminToken);
-
             setToken(data.access_token);
             setUser(data.user);
-
             if (data.user?.role === 'admin' || data.user?.is_platform_admin) {
                 localStorage.setItem('admin_backup_token', data.access_token);
             }
-
             if (data.workspaces?.length > 0) {
                 setWorkspace(data.workspaces[0]);
-                localStorage.setItem('workspace_id', data.workspaces[0].id);
+               localStorage.setItem('workspace_id', data.workspaces[0].id);
             }
-
             await refreshUser();
-
             router.push(redirectPath || '/user/admin/dashboard');
         } catch (err) {
             setError(getErrorMessage(err));
@@ -241,7 +203,6 @@ function LoginContent() {
             setLoading(false);
         }
     };
-
     const handleResend = async () => {
         if (resendTimer > 0) return;
         setError('');
@@ -281,19 +242,15 @@ function LoginContent() {
         setLoading(true);
         try {
             const data = await api.verifyLogin2FA(pendingToken, totpCode);
-
             //  Pending deletion gate ─
             if (data?.user?.deletion_scheduled_at) {
                 const adminToken = localStorage.getItem('admin_backup_token');
                 localStorage.clear();
-
                 if (adminToken) {
                     localStorage.setItem('admin_backup_token', adminToken);
                 }
-
                 setToken(data.access_token);
                 setUser(data.user);
-
                 if (data.workspaces?.length > 0) {
                     setWorkspace(data.workspaces[0]);
                     localStorage.setItem('workspace_id', data.workspaces[0].id);
@@ -304,16 +261,12 @@ function LoginContent() {
                 return;
             }
             //  END pending deletion gate ─
-
             if (!data?.access_token) throw new Error('Verification failed');
-
             const adminToken = localStorage.getItem('admin_backup_token');
             localStorage.clear();
             if (adminToken) localStorage.setItem('admin_backup_token', adminToken);
-
             setToken(data.access_token);
             setUser(data.user);
-
             if (data.user?.role === 'admin' || data.user?.is_platform_admin) {
                 localStorage.setItem('admin_backup_token', data.access_token);
             }
@@ -321,7 +274,6 @@ function LoginContent() {
                 setWorkspace(data.workspaces[0]);
                 localStorage.setItem('workspace_id', data.workspaces[0].id);
             }
-
             await refreshUser();
             router.push(redirectPath || '/user/admin/dashboard');
         } catch (err) {
@@ -339,24 +291,13 @@ function LoginContent() {
 
     return (
         <div className="min-h-screen bg-[#020202] text-white flex overflow-hidden font-sans">
-           
             {/* Left Pane - 3D Visual Experience */}
             <div className="hidden lg:block lg:w-[55%] relative bg-[#020202]">
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)] z-0" />
                
-                <div className="absolute inset-0 z-10">
-                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-                        <ambientLight intensity={0.5} />
-                        <directionalLight position={[10, 10, 5]} intensity={1.5} color="#A855F7" />
-                        <directionalLight position={[-10, -10, -5]} intensity={1} color="#6366F1" />
-                        <pointLight position={[0, 0, 0]} intensity={0.5} color="#EC4899" />
-                       
-                        <AnimatedSphere />
-                        <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-                        <Environment preset="city" />
-                    </Canvas>
+                <div className={`absolute inset-0 z-10 transition-opacity duration-1000 ${showCanvas ? 'opacity-100' : 'opacity-0'}`}>
+                    {showCanvas && <Login3D />}
                 </div>
-
                 <div className="absolute bottom-8 left-8 xl:bottom-16 xl:left-16 z-20 text-left pointer-events-none w-full max-w-md">
                     <AnimatePresence mode="wait">
                         <motion.div
@@ -374,7 +315,7 @@ function LoginContent() {
                             </p>
                         </motion.div>
                     </AnimatePresence>
-                   
+
                     {/* Progress indicators */}
                     <div className="flex gap-2 mt-8">
                         {features.map((_, i) => (
@@ -386,13 +327,11 @@ function LoginContent() {
                     </div>
                 </div>
             </div>
-
             {/* Right Pane - Authentication Form */}
             <div className="w-full lg:w-[45%] flex flex-col justify-between p-8 sm:p-12 relative z-10 border-l border-white/5 bg-[#050505]">
                 {/* Background ambient glow for right pane */}
                 <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-900/10 rounded-full blur-[100px] pointer-events-none" />
                 <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-fuchsia-900/10 rounded-full blur-[120px] pointer-events-none" />
-
                 <div className="relative z-10">
                     <Link href="/" className="inline-flex items-center gap-2 group">
                         <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
@@ -401,7 +340,6 @@ function LoginContent() {
                         <span className="font-semibold text-lg tracking-tight">Auromind</span>
                     </Link>
                 </div>
-
                 <div className="w-full max-w-[380px] mx-auto relative z-10">
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -414,7 +352,6 @@ function LoginContent() {
                                 : step === '2fa' ? 'Authenticator Code'
                                 : 'Account Scheduled for Deletion'}
                         </h1>
-
                         <p className="text-white/50 text-[15px] mb-10 leading-relaxed">
                             {step === 'email'
                                 ? 'Log in to access your intelligent workspace and continue your journey.'
@@ -424,7 +361,6 @@ function LoginContent() {
                                 ? 'Enter the 6-digit code from your Google Authenticator app.'
                                 : 'Your account is currently scheduled for deletion. You can restore it now.'}
                         </p>
-
                         {error && (
                             <motion.div
                                 initial={{ opacity: 0, height: 0 }}
@@ -442,7 +378,6 @@ function LoginContent() {
                                 )}
                             </motion.div>
                         )}
-
                         <AnimatePresence mode="wait">
                             {step === 'email' && (
                                 <motion.form
@@ -462,6 +397,7 @@ function LoginContent() {
                                                 <div className="pl-4 pr-3 text-white/30 group-focus-within:text-indigo-400 transition-colors duration-300">
                                                     <Mail size={18} strokeWidth={2} />
                                                 </div>
+
                                                 <input
                                                     type="email"
                                                     required
@@ -469,6 +405,12 @@ function LoginContent() {
                                                     onChange={(e) => setEmail(e.target.value)}
                                                     className="w-full bg-transparent py-4 pr-4 text-white placeholder:text-white/20 focus:outline-none text-[15px]"
                                                     placeholder="you@company.com"
+                                                    style={{
+                                                        WebkitBoxShadow: '0 0 0px 1000px #111111 inset',
+                                                        
+                                                        caretColor: '#ffffff',
+                                                        transition: 'background-color 99999s ease-in-out 0s',
+                                                    }}
                                                 />
                                             </div>
                                         </div>
@@ -532,7 +474,8 @@ function LoginContent() {
                                                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                                                     className="w-full bg-transparent py-4 px-2 text-white placeholder:text-white/10 focus:outline-none text-2xl font-mono tracking-[0.3em]"
                                                     placeholder="000000"
-                                                    autoFocus
+                                                  autoFocus
+
                                                 />
                                             </div>
                                         </div>
@@ -542,7 +485,8 @@ function LoginContent() {
                                         disabled={loading || otp.length < 6}
                                         className="relative w-full rounded-2xl overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-90 group-hover:opacity-100 transition-opacity" />
+                                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-90 group-hover:pacity-100 transition-opacity" />
+
                                         <div className="relative flex items-center justify-center py-4 gap-2 text-white font-medium text-[15px]">
                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                                                 <> Verify &amp; Log In <Sparkles className="w-4 h-4" /></>
@@ -572,6 +516,7 @@ function LoginContent() {
                                     onSubmit={handleVerify2FA}
                                     className="space-y-6"
                                 >
+
                                     <div className="space-y-2">
                                         <label className="text-[13px] font-medium text-white/60 ml-1 uppercase tracking-wider">Authenticator Code</label>
                                         <div className="relative group">
@@ -580,6 +525,7 @@ function LoginContent() {
                                                 <div className="pl-5 pr-2 text-white/30 group-focus-within:text-violet-400 transition-colors duration-300">
                                                     <Shield size={20} strokeWidth={2} />
                                                 </div>
+
                                                 <input
                                                     type="text"
                                                     inputMode="numeric"
@@ -594,6 +540,7 @@ function LoginContent() {
                                             </div>
                                         </div>
                                     </div>
+
                                     <button type="submit" disabled={loading || totpCode.length < 6}
                                         className="relative w-full rounded-2xl overflow-hidden group disabled:opacity-70 disabled:cursor-not-allowed">
                                         <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-fuchsia-500 opacity-90 group-hover:opacity-100 transition-opacity" />
@@ -601,6 +548,7 @@ function LoginContent() {
                                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Shield className="w-4 h-4" /> Verify &amp; Log In</>}
                                         </div>
                                     </button>
+
                                     <div className="flex items-center justify-between mt-6">
                                         <button type="button" onClick={() => { setStep('email'); setOtp(''); setTotpCode(''); setError(''); }}
                                             className="text-white/40 hover:text-white text-[13px] font-medium transition-colors">
@@ -653,7 +601,6 @@ function LoginContent() {
                         </AnimatePresence>
                     </motion.div>
                 </div>
-
                 <div className="relative z-10 flex flex-col items-center gap-6 mt-12">
                     <p className="text-white/40 text-[13px] font-medium">
                         Don&apos;t have an account?{' '}
@@ -662,11 +609,8 @@ function LoginContent() {
                             <span className="absolute -bottom-1 left-0 w-0 h-[1px] bg-indigo-400 transition-all duration-300 group-hover:w-full" />
                         </Link>
                     </p>
-                   
-
                 </div>
             </div>
-           
         </div>
     );
 }
