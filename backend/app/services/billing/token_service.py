@@ -11,7 +11,7 @@ from app.models.token_ledger import TokenLedger
 from app.models.usage import Usage
 from app.services.billing.gateway.base import TokenBalance
 from app.models.billing import Payment
-
+from app.services.billing.feature_billing_service import FeatureBillingService
 from .gateway.base import RESERVATION_MAX_PER_WORKSPACE, RESERVATION_TTL_MINUTES, TOKENS_PER_CREDIT
 
 
@@ -98,33 +98,8 @@ class TokenService:
         execution_id: str,
         request_id: str | None = None,
     ) -> TokenLedger:
-        """
-        Settle a reservation using the AI provider's official token counts.
-
-        This is the ONLY method that should produce a billing deduction for AI
-        executions.  It never uses estimated or reserved amounts.
-
-        Flow:
-          1. Read provider-reported token counts from *usage* (output of extract_usage()).
-          2. Calculate credits via FeatureBillingService (feature's billing rule).
-          3. Call finalize_credits() with the real credit amount.
-          4. Stamp provider metadata onto the finalized TokenLedger row.
-          5. Commit.
-
-        Args:
-            db:             SQLAlchemy session.
-            reservation_id: The TokenLedger reservation to finalise.
-            usage:          Dict returned by extract_usage() — must contain
-                            provider, model, prompt_tokens, completion_tokens,
-                            total_tokens.
-            feature_key:    Billing feature key (used to look up the billing rule).
-            execution_id:   AIExecutionService execution UUID (for audit).
-            request_id:     Optional provider request/trace ID (for debugging).
-
-        Returns:
-            The finalised TokenLedger row (status="posted").
-        """
-        from app.services.billing.feature_billing_service import FeatureBillingService
+      
+     
 
         total_tokens      = int(usage.get("total_tokens", 0))
         prompt_tokens     = int(usage.get("prompt_tokens", 0))

@@ -21,11 +21,7 @@ class TokenLedger(Base):
     description = Column(Text)
     metadata_json = Column(Text)
     expires_at = Column(DateTime(timezone=True), index=True)
-
-    # ── Provider-reported usage ────────────────────────────────────────────────
-    # Populated at finalization from the AI provider's official token response.
-    # These fields are the single source of truth for all billing amounts.
-    # Never populated from estimates or reservation values.
+   
     provider = Column(String(50), nullable=True)
     model = Column(String(100), nullable=True)
     prompt_tokens = Column(Integer, nullable=True)
