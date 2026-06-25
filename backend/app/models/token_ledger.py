@@ -22,11 +22,24 @@ class TokenLedger(Base):
     metadata_json = Column(Text)
     expires_at = Column(DateTime(timezone=True), index=True)
 
+    # ── Provider-reported usage ────────────────────────────────────────────────
+    # Populated at finalization from the AI provider's official token response.
+    # These fields are the single source of truth for all billing amounts.
+    # Never populated from estimates or reservation values.
+    provider = Column(String(50), nullable=True)
+    model = Column(String(100), nullable=True)
+    prompt_tokens = Column(Integer, nullable=True)
+    completion_tokens = Column(Integer, nullable=True)
+    total_tokens = Column(Integer, nullable=True)
+    request_id = Column(String(255), nullable=True)
+    execution_id = Column(String(255), nullable=True, index=True)
+    feature_key = Column(String(100), nullable=True, index=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     __table_args__ = (
         UniqueConstraint("reference_key", name="uq_token_ledger_reference_key"),
         Index("ix_token_ledger_workspace_status_source", "workspace_id", "status", "balance_source"),
+        Index("ix_token_ledger_execution_id", "execution_id"),
     )
-

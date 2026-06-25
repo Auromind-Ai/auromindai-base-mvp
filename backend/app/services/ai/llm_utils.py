@@ -12,6 +12,70 @@ _router = LLMRouter()
 # Context variable to collect token usage logs for the current request
 token_log_context = contextvars.ContextVar("token_log_context", default=None)
 
+
+# ── Provider usage extraction ─────────────────────────────────────────────────
+
+class ProviderUsageMissingError(Exception):
+    """Raised when an AI provider returns no token usage and billing cannot proceed."""
+
+
+def extract_usage(result: dict) -> dict:
+    """
+    Extract normalised provider usage from the standard LLMRouter result dict.
+
+    Every provider adapter already returns the same shape::
+
+        {
+            "text":     "...",
+            "provider": "groq" | "claude" | "gemini" | "openai" | "openrouter",
+            "model":    "<model-id>",
+            "usage": {
+                "input_tokens":  <int>,
+                "output_tokens": <int>,
+                "total_tokens":  <int>,
+            },
+        }
+
+    Returns a flat dict::
+
+        {
+            "provider":          "groq",
+            "model":             "llama-3.3-70b-versatile",
+            "prompt_tokens":     1234,
+            "completion_tokens": 456,
+            "total_tokens":      1690,
+        }
+
+    Raises ProviderUsageMissingError if the provider did not report any token
+    usage (total_tokens == 0).  Callers must never estimate or guess — they
+    must release the reservation and skip billing instead.
+    """
+    if not result:
+        raise ProviderUsageMissingError("Provider returned no result")
+
+    usage = result.get("usage") or {}
+    prompt_tokens     = int(usage.get("input_tokens",  0))
+    completion_tokens = int(usage.get("output_tokens", 0))
+    total_tokens      = int(usage.get("total_tokens",  0))
+
+    provider = result.get("provider") or "unknown"
+    model    = result.get("model")    or "unknown"
+
+    if total_tokens == 0:
+        raise ProviderUsageMissingError(
+            f"Provider '{provider}' returned total_tokens=0. "
+            "Cannot bill without verified token usage."
+        )
+
+    return {
+        "provider":          provider,
+        "model":             model,
+        "prompt_tokens":     prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens":      total_tokens,
+    }
+
+
 def split_prompt(prompt: str):
     """
     Splits the prompt into System Prompt (instructions) and User Input (context, queries, etc.)

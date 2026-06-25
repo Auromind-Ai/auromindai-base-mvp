@@ -230,8 +230,8 @@ def seed_settings_from_env(db: Session):
         clear_settings_cache()
 
 
-def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
-    # 1. Fetch current settings to form the prospective settings dictionary
+def get_prospective_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
+    # Fetch current settings to form the prospective settings dictionary
     current_settings = {}
     for s in db.query(PlatformSetting).all():
         val = s.value
@@ -247,13 +247,19 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
 
     # Merge updates to form prospective settings
     # For sensitive keys, if the update value is the mask placeholder or empty,
-    # use the existing DB value so validations work against real data.
+    # use the existing DB value so validations/tests work against real data.
     prospective = {**current_settings}
     for key, value in updates.items():
         if key in SENSITIVE_KEYS and (not value or str(value) == "••••••••"):
-            # Keep existing decrypted value for validation
+            # Keep existing decrypted value
             continue
         prospective[key] = value
+    return prospective
+
+
+def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
+    # 1. Get prospective settings
+    prospective = get_prospective_settings(db, updates)
 
     # 2. Perform validations on prospective settings
     # 2.1 Google Client ID / Secret together
