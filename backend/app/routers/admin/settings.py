@@ -128,3 +128,315 @@ async def update_platform_settings(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating settings: {str(e)}")
 
+
+def _get_audit_details(request: Request) -> tuple[str, str]:
+    admin_user = "platform_admin"
+    token = request.cookies.get("admin_session")
+    if token:
+        try:
+            payload = jwt.decode(token, core_settings.SECRET_KEY, algorithms=[core_settings.ALGORITHM])
+            admin_user = payload.get("sub", "platform_admin")
+        except Exception:
+            pass
+
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0].strip()
+    else:
+        ip = request.headers.get("x-real-ip", request.client.host if request.client else "unknown").strip()
+    return admin_user, ip
+
+
+def _log_test_audit(db: Session, admin_user: str, ip: str, action: str, status: str, details: dict):
+    # Mask any potential sensitive details
+    masked_details = details.copy()
+    for k in SENSITIVE_KEYS:
+        if k in masked_details:
+            masked_details[k] = "••••••••"
+    
+    log = AdminAuditLog(
+        admin_user_id=admin_user,
+        action=action,
+        old_value={"status": "IN_PROGRESS"},
+        new_value={"status": status, **masked_details},
+        ip_address=ip
+    )
+    db.add(log)
+    db.commit()
+
+
+def make_test_response(success: bool, service: str, message: str, latency_ms: int, error_code: str = None) -> Dict[str, Any]:
+    res = {
+        "success": success,
+        "service": service,
+        "message": message,
+        "latency_ms": latency_ms
+    }
+    if error_code:
+        res["error_code"] = error_code
+    return res
+
+
+@router.post("/settings/test/smtp")
+async def test_smtp_connection(
+    request: Request,
+    updates: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    import time
+    import smtplib
+    
+    start_time = time.time()
+    admin_user, ip = _get_audit_details(request)
+    
+    from app.services.platform_settings_service import get_prospective_settings
+    settings = get_prospective_settings(db, updates)
+    
+    smtp_host = settings.get("smtp_host", "")
+    smtp_port_val = settings.get("smtp_port")
+    smtp_user = settings.get("smtp_user", "")
+    smtp_password = settings.get("smtp_password", "")
+    
+    if not smtp_host or not smtp_port_val:
+        return make_test_response(False, "smtp", "Missing host or port", 0, "INVALID_CONFIGURATION")
+        
+    try:
+        smtp_port = int(smtp_port_val)
+    except Exception:
+        return make_test_response(False, "smtp", "SMTP port must be an integer", 0, "INVALID_PORT")
+
+    try:
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10.0)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=10.0)
+            server.ehlo()
+            if server.has_extn("STARTTLS"):
+                server.starttls()
+                server.ehlo()
+        
+        if smtp_user and smtp_password:
+            server.login(smtp_user, smtp_password)
+            
+        server.noop()
+        server.quit()
+        
+        latency = int((time.time() - start_time) * 1000)
+        _log_test_audit(db, admin_user, ip, "TEST_SMTP_CONNECTION", "SUCCESS", {})
+        return make_test_response(True, "smtp", "SMTP connection and authentication successful", latency)
+        
+    except Exception as e:
+        latency = int((time.time() - start_time) * 1000)
+        error_msg = str(e)
+        _log_test_audit(db, admin_user, ip, "TEST_SMTP_CONNECTION", "FAILED", {"error": error_msg})
+        return make_test_response(False, "smtp", f"SMTP test failed: {error_msg}", latency, "SMTP_CONNECTION_FAILED")
+
+
+@router.post("/settings/test/google")
+async def test_google_connection(
+    request: Request,
+    updates: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    import time
+    start_time = time.time()
+    admin_user, ip = _get_audit_details(request)
+    
+    from app.services.platform_settings_service import get_prospective_settings
+    settings = get_prospective_settings(db, updates)
+    
+    client_id = settings.get("google_client_id")
+    client_secret = settings.get("google_client_secret")
+    redirect_uri = settings.get("google_integration_redirect_uri") or settings.get("oauth_redirect_uri", "https://localhost:3000")
+    
+    if not client_id or not client_secret:
+        return make_test_response(False, "google", "Google Client ID and Secret are required", 0, "INVALID_CONFIGURATION")
+        
+    try:
+        from google_auth_oauthlib.flow import Flow
+        from app.services.integration_service import GOOGLE_SCOPES
+        
+        flow = Flow.from_client_config(
+            {
+                "web": {
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [redirect_uri]
+                }
+            },
+            scopes=GOOGLE_SCOPES
+        )
+        flow.redirect_uri = redirect_uri
+        
+        # Attempt to build authorization URL (local computation, does not hit API but validates structure/config)
+        flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent'
+        )
+        
+        latency = int((time.time() - start_time) * 1000)
+        _log_test_audit(db, admin_user, ip, "TEST_GOOGLE_CONNECTION", "SUCCESS", {})
+        return make_test_response(True, "google", "Google OAuth configuration initialized successfully", latency)
+        
+    except Exception as e:
+        latency = int((time.time() - start_time) * 1000)
+        error_msg = str(e)
+        _log_test_audit(db, admin_user, ip, "TEST_GOOGLE_CONNECTION", "FAILED", {"error": error_msg})
+        return make_test_response(False, "google", f"Google OAuth validation failed: {error_msg}", latency, "GOOGLE_CONFIG_FAILED")
+
+
+@router.post("/settings/test/meta")
+async def test_meta_connection(
+    request: Request,
+    updates: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    import time
+    import requests
+    
+    start_time = time.time()
+    admin_user, ip = _get_audit_details(request)
+    
+    from app.services.platform_settings_service import get_prospective_settings
+    settings = get_prospective_settings(db, updates)
+    
+    app_id = settings.get("meta_app_id")
+    app_secret = settings.get("meta_app_secret")
+    system_user_token = settings.get("meta_system_user_token")
+    
+    if not app_id or not app_secret:
+        return make_test_response(False, "meta", "Meta App ID and Secret are required", 0, "INVALID_CONFIGURATION")
+        
+    try:
+        # 1. Test App ID & Secret by querying the App details
+        app_res = requests.get(
+            f"https://graph.facebook.com/v19.0/{app_id}",
+            params={"access_token": f"{app_id}|{app_secret}"},
+            timeout=10.0
+        )
+        app_data = app_res.json()
+        if "error" in app_data:
+            raise ValueError(app_data["error"].get("message", "Invalid App credentials"))
+            
+        # 2. If System User Token is provided, verify it too
+        if system_user_token:
+            me_res = requests.get(
+                "https://graph.facebook.com/v19.0/me",
+                params={"access_token": system_user_token},
+                timeout=10.0
+            )
+            me_data = me_res.json()
+            if "error" in me_data:
+                raise ValueError(f"System User Token invalid: {me_data['error'].get('message', 'Access denied')}")
+                
+        latency = int((time.time() - start_time) * 1000)
+        _log_test_audit(db, admin_user, ip, "TEST_META_CONNECTION", "SUCCESS", {})
+        return make_test_response(True, "meta", "Meta App credentials verified successfully", latency)
+        
+    except Exception as e:
+        latency = int((time.time() - start_time) * 1000)
+        error_msg = str(e)
+        _log_test_audit(db, admin_user, ip, "TEST_META_CONNECTION", "FAILED", {"error": error_msg})
+        return make_test_response(False, "meta", f"Meta OAuth test failed: {error_msg}", latency, "META_TEST_FAILED")
+
+
+@router.post("/settings/test/supabase")
+async def test_supabase_connection(
+    request: Request,
+    updates: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    import time
+    import requests
+    
+    start_time = time.time()
+    admin_user, ip = _get_audit_details(request)
+    
+    from app.services.platform_settings_service import get_prospective_settings
+    settings = get_prospective_settings(db, updates)
+    
+    url = settings.get("supabase_url")
+    key = settings.get("supabase_service_role_key") or settings.get("supabase_anon_key")
+    bucket = settings.get("supabase_bucket", "uploads")
+    
+    if not url or not key:
+        return make_test_response(False, "supabase", "Supabase URL and Service Role Key are required", 0, "INVALID_CONFIGURATION")
+        
+    try:
+        # Perform manual check of list buckets endpoint with a 10s timeout
+        res = requests.get(
+            f"{url.rstrip('/')}/storage/v1/bucket",
+            headers={"Authorization": f"Bearer {key}", "apikey": key},
+            timeout=10.0
+        )
+        if res.status_code != 200:
+            raise ValueError(f"Supabase storage returned status {res.status_code}: {res.text}")
+            
+        buckets = res.json()
+        bucket_names = [b.get("id") for b in buckets]
+        if bucket not in bucket_names:
+            raise ValueError(f"Bucket '{bucket}' not found in Supabase Storage. Available buckets: {', '.join(bucket_names) if bucket_names else 'None'}")
+            
+        latency = int((time.time() - start_time) * 1000)
+        _log_test_audit(db, admin_user, ip, "TEST_SUPABASE_CONNECTION", "SUCCESS", {})
+        return make_test_response(True, "supabase", "Supabase storage connection verified successfully", latency)
+        
+    except Exception as e:
+        latency = int((time.time() - start_time) * 1000)
+        error_msg = str(e)
+        _log_test_audit(db, admin_user, ip, "TEST_SUPABASE_CONNECTION", "FAILED", {"error": error_msg})
+        return make_test_response(False, "supabase", f"Supabase connection failed: {error_msg}", latency, "SUPABASE_TEST_FAILED")
+
+
+@router.post("/settings/test/s3")
+async def test_s3_connection(
+    request: Request,
+    updates: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    import time
+    import boto3
+    from botocore.config import Config
+    
+    start_time = time.time()
+    admin_user, ip = _get_audit_details(request)
+    
+    from app.services.platform_settings_service import get_prospective_settings
+    settings = get_prospective_settings(db, updates)
+    
+    bucket = settings.get("aws_s3_bucket")
+    region = settings.get("aws_region")
+    access_key = settings.get("aws_access_key_id")
+    secret_key = settings.get("aws_secret_access_key")
+    endpoint_url = settings.get("aws_s3_endpoint_url")
+    
+    if not bucket or not access_key or not secret_key:
+        return make_test_response(False, "s3", "S3 Bucket, Access Key, and Secret Key are required", 0, "INVALID_CONFIGURATION")
+        
+    try:
+        config = Config(connect_timeout=10.0, read_timeout=10.0, retries={'max_attempts': 0})
+        s3 = boto3.client(
+            "s3",
+            region_name=region,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            endpoint_url=endpoint_url,
+            config=config
+        )
+        
+        # Check bucket existence/permissions using head_bucket
+        s3.head_bucket(Bucket=bucket)
+        
+        latency = int((time.time() - start_time) * 1000)
+        _log_test_audit(db, admin_user, ip, "TEST_S3_CONNECTION", "SUCCESS", {})
+        return make_test_response(True, "s3", "S3 Bucket connection verified successfully", latency)
+        
+    except Exception as e:
+        latency = int((time.time() - start_time) * 1000)
+        error_msg = str(e)
+        _log_test_audit(db, admin_user, ip, "TEST_S3_CONNECTION", "FAILED", {"error": error_msg})
+        return make_test_response(False, "s3", f"S3 connection failed: {error_msg}", latency, "S3_TEST_FAILED")
+

@@ -89,6 +89,84 @@ class TokenService:
         credits = float(amount) / TOKENS_PER_CREDIT
         return self.reserve_credits(db, workspace_id, credits, reference_key, description)
 
+    def settle_from_provider_usage(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        usage: dict,
+        feature_key: str,
+        execution_id: str,
+        request_id: str | None = None,
+    ) -> TokenLedger:
+        """
+        Settle a reservation using the AI provider's official token counts.
+
+        This is the ONLY method that should produce a billing deduction for AI
+        executions.  It never uses estimated or reserved amounts.
+
+        Flow:
+          1. Read provider-reported token counts from *usage* (output of extract_usage()).
+          2. Calculate credits via FeatureBillingService (feature's billing rule).
+          3. Call finalize_credits() with the real credit amount.
+          4. Stamp provider metadata onto the finalized TokenLedger row.
+          5. Commit.
+
+        Args:
+            db:             SQLAlchemy session.
+            reservation_id: The TokenLedger reservation to finalise.
+            usage:          Dict returned by extract_usage() — must contain
+                            provider, model, prompt_tokens, completion_tokens,
+                            total_tokens.
+            feature_key:    Billing feature key (used to look up the billing rule).
+            execution_id:   AIExecutionService execution UUID (for audit).
+            request_id:     Optional provider request/trace ID (for debugging).
+
+        Returns:
+            The finalised TokenLedger row (status="posted").
+        """
+        from app.services.billing.feature_billing_service import FeatureBillingService
+
+        total_tokens      = int(usage.get("total_tokens", 0))
+        prompt_tokens     = int(usage.get("prompt_tokens", 0))
+        completion_tokens = int(usage.get("completion_tokens", 0))
+        provider          = usage.get("provider", "unknown")
+        model             = usage.get("model", "unknown")
+
+        # Determine billing type for this feature
+        rule = FeatureBillingService.get_rule(db, feature_key)
+        if rule and rule.billing_type == "TOKEN":
+            # credits = (total_tokens / unit_value) × credit_cost
+            credits_used = float(FeatureBillingService.calculate_cost(db, feature_key, float(total_tokens)))
+        elif rule and rule.billing_type == "FLAT":
+            # Flat-rate features (e.g. per-request) ignore token count
+            credits_used = float(FeatureBillingService.calculate_cost(db, feature_key, 1.0))
+        else:
+            # Unknown rule — use token count with TOKENS_PER_CREDIT default
+            credits_used = float(total_tokens) / TOKENS_PER_CREDIT
+
+        # Finalise the reservation to the REAL credit amount (not the estimate)
+        ledger_row = self.finalize_credits(
+            db=db,
+            reservation_id=reservation_id,
+            credits_used=credits_used,
+            tokens_used=total_tokens,
+        )
+
+        # Stamp provider metadata — these are the single source of truth columns
+        ledger_row.provider          = provider
+        ledger_row.model             = model
+        ledger_row.prompt_tokens     = prompt_tokens
+        ledger_row.completion_tokens = completion_tokens
+        ledger_row.total_tokens      = total_tokens
+        ledger_row.execution_id      = execution_id
+        ledger_row.request_id        = request_id
+        ledger_row.feature_key       = feature_key
+
+        db.flush()
+        db.commit()
+
+        return ledger_row
+
     def finalize_credits(
         self,
         db: Session,

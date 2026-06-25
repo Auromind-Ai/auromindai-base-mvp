@@ -229,6 +229,7 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
   const [toasts, setToasts] = useState([])
+  const [testing, setTesting] = useState({})
 
   const showToast = useCallback((message, type = "success") => {
     const id = Date.now()
@@ -239,6 +240,26 @@ export default function SettingsPage() {
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
+
+  const handleTest = async (service) => {
+    const targetService = service === "storage"
+      ? (settings.storage_provider === "S3" ? "s3" : "supabase")
+      : service;
+
+    try {
+      setTesting((prev) => ({ ...prev, [service]: true }))
+      const response = await api.testConnection(targetService, settings)
+      if (response.success) {
+        showToast(`${service.toUpperCase()} connection successful! ⚡ (${response.latency_ms}ms)`, "success")
+      } else {
+        showToast(`${service.toUpperCase()} connection failed: ${response.message}`, "error")
+      }
+    } catch (err) {
+      showToast(`${service.toUpperCase()} connection error: ${err.message || err}`, "error")
+    } finally {
+      setTesting((prev) => ({ ...prev, [service]: false }))
+    }
+  }
 
   useEffect(() => {
     fetchSettings()
@@ -889,16 +910,23 @@ export default function SettingsPage() {
                       onChange={(val) => handleInputChange("smtp_password", val)}
                       placeholder="••••••••••••••••"
                     />
-                    <div className="space-y-2 md:col-span-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">From Email</p>
-                       <input 
-                        type="text"
-                        value={settings.from_email || ""}
-                        onChange={(e) => handleInputChange("from_email", e.target.value)}
-                        placeholder="noreply@auromind.ai"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
-                      />
-                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.smtp}
+                      onClick={() => handleTest("smtp")}
+                      className="px-4 py-2 border border-white/10 hover:border-orange-500/30 hover:bg-orange-500/5 text-orange-400 disabled:text-orange-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.smtp ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        "Test SMTP Connection"
+                      )}
+                    </button>
                   </div>
                 </section>
 
@@ -940,16 +968,23 @@ export default function SettingsPage() {
                         className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
                       />
                     </div>
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Google Integration Redirect URI</p>
-                       <input 
-                        type="text"
-                        value={settings.google_integration_redirect_uri || ""}
-                        onChange={(e) => handleInputChange("google_integration_redirect_uri", e.target.value)}
-                        placeholder="https://app.auromind.ai/api/integrations/google/callback"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
-                      />
-                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.google}
+                      onClick={() => handleTest("google")}
+                      className="px-4 py-2 border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/5 text-indigo-400 disabled:text-indigo-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.google ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        "Test Google OAuth"
+                      )}
+                    </button>
                   </div>
                 </section>
 
@@ -1013,16 +1048,23 @@ export default function SettingsPage() {
                       onChange={(val) => handleInputChange("ig_app_secret", val)}
                       placeholder="••••••••••••••••"
                     />
-                    <div className="space-y-2 md:col-span-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Instagram Redirect URI</p>
-                       <input 
-                        type="text"
-                        value={settings.ig_redirect_uri || ""}
-                        onChange={(e) => handleInputChange("ig_redirect_uri", e.target.value)}
-                        placeholder="https://app.auromind.ai/api/integrations/instagram/callback"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
-                      />
-                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.meta}
+                      onClick={() => handleTest("meta")}
+                      className="px-4 py-2 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/5 text-pink-400 disabled:text-pink-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.meta ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        "Test Meta Integration"
+                      )}
+                    </button>
                   </div>
                 </section>
 
@@ -1153,6 +1195,23 @@ export default function SettingsPage() {
                         </div>
                       </>
                     )}
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.storage}
+                      onClick={() => handleTest("storage")}
+                      className="px-4 py-2 border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/5 text-emerald-400 disabled:text-emerald-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.storage ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        `Test ${settings.storage_provider === "S3" ? "S3" : "Supabase"} Connection`
+                      )}
+                    </button>
                   </div>
                 </section>
 

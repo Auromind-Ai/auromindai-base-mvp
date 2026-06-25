@@ -11,7 +11,17 @@ export default function FeatureRulesTab({
   setSuccess,
   setActionLoading
 }) {
+  const emptyRule = {
+  feature_name: "",
+  feature_key: "",
+  billing_type: "TOKEN",
+  unit_value: 1000,
+  credit_cost: 1,
+  is_active: true,
+  description: ""
+}
   const [editingRule, setEditingRule] = useState(null)
+  const [creatingRule, setCreatingRule] = useState(null)
 
   const handleUpdateRule = async (e) => {
     e.preventDefault()
@@ -39,12 +49,49 @@ export default function FeatureRulesTab({
       setActionLoading(false)
     }
   }
+  const handleCreateRule = async (e) => {
+  e.preventDefault()
+
+  try {
+    setActionLoading(true)
+    setError(null)
+
+    await api.createFeatureRuleAdmin({
+      ...creatingRule,
+      unit_value: Number(creatingRule.unit_value),
+      credit_cost: Number(creatingRule.credit_cost)
+    })
+
+    setSuccess("Feature rule created")
+
+    setCreatingRule(null)
+
+    const rules = await api.getFeatureRulesAdmin()
+
+    setFeatureRules(rules)
+
+  } catch (err) {
+    setError(err.message || "Failed to create rule")
+  } finally {
+    setActionLoading(false)
+  }
+}
 
   return (
     <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-xl space-y-6 animate-fade-in">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
-        <Settings size={14} /> Feature Billing Rules
-      </h3>
+      <div className="flex justify-between items-center">
+  <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+    <Settings size={14} />
+    Feature Billing Rules
+  </h3>
+
+  <button
+    onClick={() => setCreatingRule({ ...emptyRule })}
+    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold"
+  >
+    + Add Rule
+  </button>
+</div>
 
       {featureRules.length > 0 ? (
         <div className="overflow-x-auto">
@@ -160,6 +207,130 @@ export default function FeatureRulesTab({
           </div>
         </div>
       )}
+      {creatingRule && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6 w-full max-w-md">
+
+      <div className="flex justify-between items-center mb-5">
+        <h4 className="text-white font-bold">
+          Create Feature Rule
+        </h4>
+
+        <button
+          onClick={() => setCreatingRule(null)}
+          className="text-gray-400"
+        >
+          Close
+        </button>
+
+      </div>
+
+      <form onSubmit={handleCreateRule} className="space-y-4">
+
+        {/* Feature Name */}
+
+        <input
+          placeholder="Feature Name"
+          value={creatingRule.feature_name}
+          onChange={(e) => {
+
+            const name = e.target.value
+
+            setCreatingRule({
+
+              ...creatingRule,
+
+              feature_name: name,
+
+              feature_key: name
+                .toLowerCase()
+                .replace(/\s+/g, "_")
+                .replace(/[^a-z0-9_]/g, "")
+
+            })
+
+          }}
+          className="w-full p-2 rounded-xl bg-black border border-white/10"
+        />
+
+        {/* Feature Key */}
+
+        <input
+          value={creatingRule.feature_key}
+          disabled
+          className="w-full p-2 rounded-xl bg-black border border-white/10 text-gray-400"
+        />
+
+        {/* Description */}
+
+        <textarea
+          placeholder="Description"
+          value={creatingRule.description}
+          onChange={(e) =>
+            setCreatingRule({
+              ...creatingRule,
+              description: e.target.value
+            })
+          }
+          className="w-full p-2 rounded-xl bg-black border border-white/10"
+        />
+
+        {/* Billing Type */}
+
+        <select
+          value={creatingRule.billing_type}
+          onChange={(e) =>
+            setCreatingRule({
+              ...creatingRule,
+              billing_type: e.target.value
+            })
+          }
+          className="w-full p-2 rounded-xl bg-black border border-white/10"
+        >
+          <option value="TOKEN">TOKEN</option>
+          <option value="FLAT">FLAT</option>
+          <option value="PER_MB">PER_MB</option>
+          <option value="PER_MINUTE">PER_MINUTE</option>
+          <option value="PER_REQUEST">PER_REQUEST</option>
+        </select>
+
+        <input
+          type="number"
+          value={creatingRule.unit_value}
+          onChange={(e)=>
+            setCreatingRule({
+              ...creatingRule,
+              unit_value:e.target.value
+            })
+          }
+          className="w-full p-2 rounded-xl bg-black border border-white/10"
+        />
+
+        <input
+          type="number"
+          step="0.0001"
+          value={creatingRule.credit_cost}
+          onChange={(e)=>
+            setCreatingRule({
+              ...creatingRule,
+              credit_cost:e.target.value
+            })
+          }
+          className="w-full p-2 rounded-xl bg-black border border-white/10"
+        />
+
+        <button
+          type="submit"
+          className="w-full py-2 rounded-xl bg-indigo-600 text-white"
+        >
+          Create Rule
+        </button>
+
+      </form>
+
+    </div>
+  </div>
+)}
     </div>
   )
 }

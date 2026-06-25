@@ -247,68 +247,62 @@ class AIExecutionService:
                         ctx.child_executions[sub_exec_id]["usage"]["output_tokens"] += child_usage.get("output_tokens", 0)
                         ctx.child_executions[sub_exec_id]["usage"]["total_tokens"] += (child_usage.get("input_tokens", 0) + child_usage.get("output_tokens", 0))
 
-            # 7. Finalize Billing (Only at root level)
+            # 7. Settle Billing from Provider Usage (root level only)
             if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested:
-                # Idempotency safeguard check
-                from app.models.token_ledger import TokenLedger
+                from app.services.ai.llm_utils import extract_usage, ProviderUsageMissingError
+                from app.models.token_ledger import TokenLedger as _TL
+
+                # Idempotency safeguard — skip if already settled
                 ref_key = f"ai-exec:{ctx.execution_id}"
-                existing_ledger = db.query(TokenLedger).filter(
-                    TokenLedger.reference_key == ref_key,
-                    TokenLedger.status == "posted"
+                existing_ledger = db.query(_TL).filter(
+                    _TL.reference_key.like(f"{ref_key}%"),
+                    _TL.status == "posted"
                 ).first()
                 if existing_ledger:
-                    logger.info(f"[AIExecutionService] Billing already finalized for execution {ctx.execution_id}. Skipping.")
+                    logger.info(f"[AIExecutionService] Billing already settled for {ctx.execution_id}. Skipping.")
                     reservation_created = False
                 else:
-                    if hasattr(ctx, "child_executions") and ctx.child_executions:
-                        total_credits = Decimal("0.0000")
-                        total_tokens = 0
-                        for c_id, child in ctx.child_executions.items():
-                            c_key = child["feature_key"]
-                            c_custom = child["custom_unit_amount"]
-                            c_tokens = child["usage"]["total_tokens"]
-                            
-                            try:
-                                rule = FeatureBillingService.get_rule(db, c_key)
-                                if not rule:
-                                    continue
-                                
-                                if c_custom is not None:
-                                    c_units = c_custom
-                                elif rule.billing_type == "TOKEN":
-                                    c_units = c_tokens
-                                else:
-                                    c_units = 1.0
-                                    
-                                c_cost = FeatureBillingService.calculate_cost(db, c_key, c_units)
-                                total_credits += c_cost
-                                total_tokens += c_tokens
-                            except Exception as calc_err:
-                                logger.error(f"Failed to calculate child cost for {c_key}: {calc_err}")
-                        
+                    try:
+                        # Build a synthetic result dict from accumulated ctx.usage
+                        # so extract_usage() can read it uniformly.
+                        aggregated_result = {
+                            "provider": ctx.provider or "unknown",
+                            "model":    ctx.model    or "unknown",
+                            "usage": {
+                                "input_tokens":  ctx.usage["input_tokens"],
+                                "output_tokens": ctx.usage["output_tokens"],
+                                "total_tokens":  ctx.usage["total_tokens"],
+                            },
+                        }
+                        provider_usage = extract_usage(aggregated_result)
+                    except ProviderUsageMissingError as pume:
+                        logger.error(
+                            f"[AIExecutionService] Provider returned no usage for {ctx.execution_id}: {pume}. "
+                            "Releasing reservation — workspace will NOT be charged."
+                        )
                         with db.begin_nested():
-                            billing_service.token_service.finalize_credits(
+                            billing_service.token_service.release_token_reservation(
                                 db=db,
                                 reservation_id=ctx.reservation_id,
-                                credits_used=float(total_credits),
-                                tokens_used=total_tokens
+                                reason=f"Provider usage missing: {pume}",
                             )
-                        logger.info(f"[AIExecutionService] Aggregated finalization: {total_credits} credits, {total_tokens} tokens")
-                    else:
-                        rule = FeatureBillingService.get_rule(db, ctx.feature_key)
-                        if custom_unit_amount is not None:
-                            actual_units = custom_unit_amount
-                        elif rule.billing_type == "TOKEN":
-                            actual_units = ctx.usage["total_tokens"]
-                        else:
-                            actual_units = 1.0
+                        db.commit()
+                        reservation_created = False
+                        return result
 
-                        with db.begin_nested():
-                            billing_service.token_service.finalize_feature_credits(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                actual_units=float(actual_units)
-                            )
+                    # Settle: deduct actual provider tokens, not the reservation estimate
+                    billing_service.token_service.settle_from_provider_usage(
+                        db=db,
+                        reservation_id=ctx.reservation_id,
+                        usage=provider_usage,
+                        feature_key=ctx.feature_key,
+                        execution_id=ctx.execution_id,
+                    )
+                    logger.info(
+                        f"[AIExecutionService] Settled | execution={ctx.execution_id} "
+                        f"provider={provider_usage['provider']} model={provider_usage['model']} "
+                        f"tokens={provider_usage['total_tokens']}"
+                    )
                     reservation_created = False
 
             return result
@@ -459,21 +453,46 @@ class AIExecutionService:
                 ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
                 yield {"content": result.get("text", "")}
 
-            # Finalize Billing
+            # Settle Billing from Provider Usage (streaming — root level only)
             if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested:
-                rule = FeatureBillingService.get_rule(db, ctx.feature_key)
-                if rule.billing_type == "TOKEN":
-                    actual_units = ctx.usage["total_tokens"]
-                else:
-                    actual_units = 1.0
-
-                with db.begin_nested():
-                    billing_service.token_service.finalize_feature_credits(
-                        db=db,
-                        reservation_id=ctx.reservation_id,
-                        actual_units=float(actual_units)
+                from app.services.ai.llm_utils import extract_usage, ProviderUsageMissingError
+                try:
+                    aggregated_result = {
+                        "provider": ctx.provider or "unknown",
+                        "model":    ctx.model    or "unknown",
+                        "usage": {
+                            "input_tokens":  ctx.usage["input_tokens"],
+                            "output_tokens": ctx.usage["output_tokens"],
+                            "total_tokens":  ctx.usage["total_tokens"],
+                        },
+                    }
+                    provider_usage = extract_usage(aggregated_result)
+                except ProviderUsageMissingError as pume:
+                    logger.error(
+                        f"[AIExecutionService] Stream provider returned no usage for {ctx.execution_id}: {pume}. "
+                        "Releasing reservation — workspace will NOT be charged."
                     )
-                logger.info(f"[AIExecutionService] Finalized streaming billing for {ctx.execution_id}. Charged units: {actual_units}")
+                    with db.begin_nested():
+                        billing_service.token_service.release_token_reservation(
+                            db=db,
+                            reservation_id=ctx.reservation_id,
+                            reason=f"Provider usage missing: {pume}",
+                        )
+                    db.commit()
+                    reservation_created = False
+                    return
+
+                billing_service.token_service.settle_from_provider_usage(
+                    db=db,
+                    reservation_id=ctx.reservation_id,
+                    usage=provider_usage,
+                    feature_key=ctx.feature_key,
+                    execution_id=ctx.execution_id,
+                )
+                logger.info(
+                    f"[AIExecutionService] Stream settled | execution={ctx.execution_id} "
+                    f"provider={provider_usage['provider']} tokens={provider_usage['total_tokens']}"
+                )
                 reservation_created = False
 
         except asyncio.CancelledError as e:
