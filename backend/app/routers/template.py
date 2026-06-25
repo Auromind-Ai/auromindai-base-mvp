@@ -15,10 +15,6 @@ from app.models.workspace import Workspace
 from app.services.template import submit_to_meta
 from app.routers.auth import get_current_user
 
-load_dotenv()
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client = Groq(api_key=GROQ_API_KEY)
 router = APIRouter()
 
 class TemplateCreate(BaseModel):
@@ -221,8 +217,13 @@ Return JSON only.
     """
 
     async def run_template_generation():
+        from app.services.config_service import config_service
+        groq_api_key = config_service.get("groq_api_key")
+        if not groq_api_key:
+            raise HTTPException(500, "Groq API key is not configured")
+        dynamic_client = Groq(api_key=groq_api_key)
         response = await asyncio.to_thread(
-            client.chat.completions.create,
+            dynamic_client.chat.completions.create,
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},

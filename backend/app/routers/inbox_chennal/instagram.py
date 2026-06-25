@@ -1,7 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
@@ -25,9 +24,10 @@ def connect_instagram(
 
 @router.get("/webhook")
 async def verify_instagram(request: Request):
+    from app.services.config_service import config_service
     result = WebhookService.verify_meta_subscription(
         request.query_params,
-        settings.META_VERIFY_TOKEN,
+        config_service.get("meta_verify_token"),
     )
     if result == {"status": "failed"}:
         raise HTTPException(status_code=403, detail="Verification failed")

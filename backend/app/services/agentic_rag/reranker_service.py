@@ -5,20 +5,16 @@ from typing import Optional
 
 from sentence_transformers import CrossEncoder
 
-from app.core.config import settings
-
 logger = logging.getLogger(__name__)
 
 
-_reranker_instance: Optional["RerankerService"] = None
-_reranker_lock = threading.Lock()
-
-RERANKER_MODEL_NAME: str = getattr(settings, "RERANKER_MODEL_NAME", "BAAI/bge-reranker-large")
+_reranker_cache = {}
+_reranker_cache_lock = threading.Lock()
 
 
 class RerankerService:
  
-    def __init__(self, model_name: str = RERANKER_MODEL_NAME) -> None:
+    def __init__(self, model_name: str) -> None:
         logger.info("Loading reranker model: %s", model_name)
         self._model = CrossEncoder(model_name)
         logger.info("Reranker model loaded successfully: %s", model_name)
@@ -28,10 +24,14 @@ class RerankerService:
 
 
 def get_reranker() -> RerankerService:
+    from app.services.config_service import config_service
+    model_name = config_service.get("reranker_model_name", "BAAI/bge-reranker-large")
 
-    global _reranker_instance
-    if _reranker_instance is None:       
-        with _reranker_lock:
-            if _reranker_instance is None: 
-                _reranker_instance = RerankerService()
-    return _reranker_instance
+    global _reranker_cache
+    if model_name not in _reranker_cache:
+        with _reranker_cache_lock:
+            if model_name not in _reranker_cache:
+                # Clear existing cache entries to free memory before loading a new model
+                _reranker_cache.clear()
+                _reranker_cache[model_name] = RerankerService(model_name)
+    return _reranker_cache[model_name]

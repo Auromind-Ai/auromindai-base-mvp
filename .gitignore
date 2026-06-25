@@ -20,3 +20,6 @@ frontend/.env.production
 backend/.env
 
 hf_cache/
+__pycache__/
+*.pyc
+*.pyo

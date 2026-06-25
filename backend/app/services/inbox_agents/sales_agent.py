@@ -147,7 +147,7 @@ class SalesAgent:
             self._log_prompt_token_breakdown(prompt, message, rag_answer, history_text)
             self.logger.info("SalesAgent sending prompt to LLM...")
 
-            result = await self.llm.generate_json(prompt)
+            result = self.llm.generate_json(prompt)
             if not result:
                 raise ValueError("LLM returned empty JSON")
             self.logger.info(f"SalesAgent LLM Result: {result}")
@@ -185,7 +185,7 @@ class SalesAgent:
                         is_first_message=is_first_message,
                     )
                     self._log_prompt_token_breakdown(prompt2, message, rag_answer2, history_text)
-                    result = await self.llm.generate_json(prompt2)
+                    result = self.llm.generate_json(prompt2)
                     if not result:
                         raise ValueError("LLM returned empty JSON on retry")
                 except Exception:

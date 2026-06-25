@@ -16,7 +16,7 @@ from app.core.security import verify_workspace_access
 from app.schemas.automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse, FlowStatusUpdateRequest
 from sqlalchemy import func
 from app.services.billing.entitlement_service import EntitlementService
-from app.models.automation import PurchasedFlowPack
+from app.models.flow_pack import FlowPackPurchase
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 engine = AutomationEngine()
@@ -135,8 +135,9 @@ async def save_flow(
             AutomationFlow.workspace_id == workspace_id
         ).count()
         
-        purchased_flows = db.query(func.sum(PurchasedFlowPack.flows)).filter(
-            PurchasedFlowPack.workspace_id == workspace_id
+        purchased_flows = db.query(func.sum(FlowPackPurchase.flows_count)).filter(
+            FlowPackPurchase.workspace_id == workspace_id,
+            FlowPackPurchase.status == "success"
         ).scalar() or 0
         
         allowed_flows = plan_limit + purchased_flows

@@ -1,4 +1,3 @@
-from app.core.config import settings
 import asyncio
 from app.core.logger import logger
 from anthropic import AsyncAnthropic
@@ -26,20 +25,11 @@ class LLMRouter:
         self._cache_ttl = 10   
 
     def _get_api_key(self, env_name: str, db_key: str) -> str:
-        from app.services.platform_settings_service import get_setting
-        db = SessionLocal()
-        try:
-            key = get_setting(db, db_key)
-            if key and isinstance(key, str) and key.strip():
-                return key
-            
-            key = getattr(settings, env_name, None)
-            if key and isinstance(key, str) and key.strip():
-                return key
-                
-            raise Exception(f"{env_name} is not set in DB or .env")
-        finally:
-            db.close()
+        from app.services.config_service import config_service
+        key = config_service.get(db_key)
+        if key and isinstance(key, str) and key.strip():
+            return key
+        raise Exception(f"{db_key} is not set in ConfigService")
 
     def _get_config(self, model_name: str):
         current_time = time.time()  
@@ -78,24 +68,24 @@ class LLMRouter:
                 try:
                     config = self._get_config(resolved_model_name)
                     provider = config["provider"]
-
+                    from app.services.config_service import config_service
                     if provider == "claude":
-                        if not settings.ANTHROPIC_API_KEY:
+                        if not config_service.get("anthropic_api_key"):
                             raise Exception("Claude key missing")
                         return await self._claude_call(prompt, config)
 
                     elif provider == "openai":
-                        if not settings.OPENAI_API_KEY:
+                        if not config_service.get("openai_api_key"):
                             raise Exception("OpenAI key missing")
                         return await self._openai_call(prompt, config, media_data, mime_type)
 
                     elif provider == "gemini":
-                        if not settings.GOOGLE_API_KEY:
+                        if not config_service.get("google_api_key"):
                             raise Exception("Gemini key missing")
                         return await self._gemini_call(prompt, config, media_data, mime_type)
 
                     elif provider == "groq":
-                        if not settings.GROQ_API_KEY:
+                        if not config_service.get("groq_api_key"):
                             raise Exception("Groq key missing")
                         return await self._groq_call(prompt, config)
 
@@ -103,8 +93,9 @@ class LLMRouter:
                     logger.warning(f"{resolved_model_name} not available → fallback AUTO: {e}")
 
             # Fallbacks for 'auto' or when specific provider fails
+            from app.services.config_service import config_service
             try:
-                if settings.ANTHROPIC_API_KEY:
+                if config_service.get("anthropic_api_key"):
                     logger.info("AUTO → Claude Sonnet")
                     config = self._get_config("sonnet")
                     return await self._claude_call(prompt, config)
@@ -112,7 +103,7 @@ class LLMRouter:
                 logger.warning(f"Claude fallback failed: {e}")
 
             try:
-                if settings.OPENAI_API_KEY:
+                if config_service.get("openai_api_key"):
                     logger.info("AUTO → OpenAI gpt-4o-mini")
                     config = self._get_config("gpt-4o-mini")
                     return await self._openai_call(prompt, config, media_data, mime_type)
@@ -120,7 +111,7 @@ class LLMRouter:
                 logger.warning(f"OpenAI fallback failed: {e}")
 
             try:
-                if settings.GOOGLE_API_KEY:
+                if config_service.get("google_api_key"):
                     logger.info("AUTO → Gemini")
                     config = self._get_config("gemini")
                     return await self._gemini_call(prompt, config, media_data, mime_type)

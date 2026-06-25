@@ -6,14 +6,12 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.models.integration import Integration
 from app.services.email_automation.email_automation_engine import AutomationEngine
 from app.services.email_automation.email_mcp_service import EmailMCPService
 from app.services.email_automation.emails_crawler_service import EmailsCrawlerService
 
-GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
+# Dynamic settings will be loaded at runtime
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +89,13 @@ class EmailMonitor:
             for integration in integrations:
 
                 try:
+                    from app.services.config_service import config_service
                     creds = Credentials(
                         token=integration.access_token,
                         refresh_token=integration.refresh_token,
                         token_uri="https://oauth2.googleapis.com/token",
-                        client_id=GOOGLE_CLIENT_ID,
-                        client_secret=GOOGLE_CLIENT_SECRET
+                        client_id=config_service.get("google_client_id"),
+                        client_secret=config_service.get("google_client_secret")
                     )
 
                     #AUTO REFRESH TOKEN
@@ -142,12 +141,13 @@ class EmailMonitor:
         email = config["email"]
 
         # Build Gmail service
+        from app.services.config_service import config_service
         creds = Credentials(
             token=access_token,
             refresh_token=refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=GOOGLE_CLIENT_ID,
-            client_secret=GOOGLE_CLIENT_SECRET
+            client_id=config_service.get("google_client_id"),
+            client_secret=config_service.get("google_client_secret")
         )
 
         service = build("gmail", "v1", credentials=creds)

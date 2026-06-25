@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, Any, Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class PlanEntitlementBase(BaseModel):
@@ -23,6 +23,13 @@ class PlanEntitlementBase(BaseModel):
     included_wallet_reset_policy: str = Field("EXPIRE", description="WCC wallet renewal reset policy: EXPIRE or ROLLOVER")
 
     feature_flags: Dict[str, Any] = Field(default_factory=dict, description="Custom feature toggles")
+
+    @validator("flow")
+    def validate_flow_quota(cls, v):
+        if v < 0:
+            raise ValueError("Flow quota must be a non-negative integer")
+        return v
+
 
 
 class PlanEntitlementCreate(PlanEntitlementBase):
@@ -47,6 +54,13 @@ class PlanEntitlementUpdate(BaseModel):
     included_wallet_reset_policy: Optional[str] = None
 
     feature_flags: Optional[Dict[str, Any]] = None
+
+    @validator("flow")
+    def validate_flow_quota(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("Flow quota must be a non-negative integer")
+        return v
+
 
 
 class PlanEntitlementResponse(PlanEntitlementBase):

@@ -184,3 +184,7 @@
 //         </div>
 //     );
 // }
+
+export default function AIControlPage() {
+    return <div className="p-8 text-gray-500 text-sm font-medium">AI Control Page is currently under maintenance.</div>;
+}

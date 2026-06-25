@@ -2462,3 +2462,612 @@ TOTAL TOKENS USED: 2169
 Final Reply Text: '**Explanation: Artificial Intelligence (AI)**\n\nArtificial Intelligence (AI) refers to the development of computer systems that can perform tasks that typically require human intelligence, such as:\n\n1. **Learning**: AI systems can learn from data and adapt to new information.\n2. **Problem-solving**: AI systems can solve complex problems and make decisions based on data.\n3. **Perception**: AI systems can interpret and understand data from sensors, such as images, speech, and text.\n4. **Reasoning**: AI systems can draw conclusions and make inferences based on data and logic.\n5. **Action**: AI systems can interact with the physical world through robots, autonomous vehicles, and other devices.\n\n**Types of AI:**\n\n1. **Narrow or Weak AI**: Designed to perform a specific task, such as facial recognition, language translation, or playing chess.\n2. **General or Strong AI**: A hypothetical AI system that possesses human-like intelligence and can perform any intellectual task.\n3. **Superintelligence**: A hypothetical AI system that significantly surpasses human intelligence in all domains.\n\n**AI Applications:**\n\n1. **Virtual Assistants**: Siri, Google Assistant, Alexa, and Cortana.\n2. **Image Recognition**: Self-driving cars, facial recognition, and medical diagnosis.\n3. **Natural Language Processing**: Chatbots, language translation, and text summarization.\n4. **Predictive Maintenance**: Predicting equipment failures and scheduling maintenance.\n5. **Healthcare**: Personalized medicine, disease diagnosis, and patient monitoring.\n\n**Challenges and Future Directions:**\n\n1. **Ethics**: Ensuring AI systems are transparent, accountable, and fair.\n2. **Security**: Protecting AI systems from cyber threats and data breaches.\n3. **Explainability**: Understanding how AI systems make decisions and predictions.\n4. **Integration**: Seamlessly integrating AI with human decision-making processes.\n5. **Long-term Viability**: Ensuring AI systems continue to learn and improve over time.\n\nFollow-up question:\nHow do narrow or weak AI systems balance accuracy with the risk of bias?'
 Final Reply Token Count (Estimate): 279
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T05:51:20.032375Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 348
+   Input/Query Tokens: 17
+   Output Tokens: 6
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: Recent developments in Aura AI
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 602
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 621
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Recent developments in Aura AI
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 113
+   Input/Query Tokens: 1213
+   Output Tokens: 136
+   Total Tokens: 1462
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: Aura AI is a purpose-built AI assistant for Unreal Editor, which understands the specific, visual, n...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 102
+   Input/Query Tokens: 201
+   Output Tokens: 10
+   Total Tokens: 313
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      Aura AI is a purpos...
+   [LLM Output Snippet]: How does Claude Code integration enhance Aura AI?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1165
+Total Input/Query Tokens: 1447
+Total Output Tokens: 155
+TOTAL TOKENS USED: 2767
+-----------------------------------------
+Final Reply Text: '\n            Aura AI is a purpose-built AI assistant for Unreal Editor, which understands the specific, visual, node-based world of Unreal Engine Blueprint development. Recent updates include major bug fixes, improvements on accuracy, and new features such as Claude Code integration. Some key points about Aura AI include:\n* Purpose-built for Unreal Editor\n* Understands the codebase and workflow\n* Offers Blueprint generation and deep project understanding\n* Available in public beta with a free 2-week trial and credits. \nAdditionally, Ramen, the developer of Aura, has acquired Coplay, making Aura the first AI assistant to support both Unity and Unreal Engine, covering 80% of all game platforms.\n\n            Sources:\n            • dredyson.com\n• forums.unrealengine.com\n• ramenvr.com\n            \n\nFollow-up question:\nHow does Claude Code integration enhance Aura AI?'
+Final Reply Token Count (Estimate): 122
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T05:51:45.046326Z
+User Query: 'How does Claude Code integration enhance Aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 346
+   Input/Query Tokens: 21
+   Output Tokens: 8
+   Total Tokens: 375
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        How does Claude Code integration enhance Aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: Aura AI enhancement through Claude Code integration
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 601
+   Input/Query Tokens: 19
+   Output Tokens: 3
+   Total Tokens: 623
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Aura AI enhancement through Claude Code integration
+
+    Selected Tool:
+   [LLM Output Snippet]: vector_db
+
+3. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 224
+   Input/Query Tokens: 68
+   Output Tokens: 2
+   Total Tokens: 294
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          Aura AI enhancement through Claude Code integration          Context:         2. ...
+   [LLM Output Snippet]: NO
+
+4. Function: mcp_layer.py:refine_query
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 270
+   Input/Query Tokens: 70
+   Output Tokens: 20
+   Total Tokens: 360
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Recovery Agent.          The previous retrieval attempt did NOT fully ans...
+   [User Input Snippet]: Question:          Aura AI enhancement through Claude Code integration          Previous Context:   ...
+   [LLM Output Snippet]: Aura AI enhancement using Claude Code integration with Google Generative AI and HuggingFace envHF_TO...
+
+5. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 224
+   Input/Query Tokens: 68
+   Output Tokens: 2
+   Total Tokens: 294
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          Aura AI enhancement through Claude Code integration          Context:         2. ...
+   [LLM Output Snippet]: NO
+
+6. Function: mcp_layer.py:refine_query
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 270
+   Input/Query Tokens: 82
+   Output Tokens: 31
+   Total Tokens: 383
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Recovery Agent.          The previous retrieval attempt did NOT fully ans...
+   [User Input Snippet]: Question:          Aura AI enhancement using Claude Code integration with Google Generative AI and H...
+   [LLM Output Snippet]: Aura AI enhancement using Claude Code integration with Google Generative AI and HuggingFace envHF_TO...
+
+7. Function: orchestrator_layer_support.py:synthesize_information
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 320
+   Input/Query Tokens: 71
+   Output Tokens: 6
+   Total Tokens: 397
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          ROLE:         From the Retrieved C...
+   [User Input Snippet]: Question:          How does Claude Code integration enhance Aura AI?          Retrieved Context:    ...
+   [LLM Output Snippet]: No relevant information found.
+
+8. Function: orchestrator_layer_support.py:generate_final_output
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 275
+   Input/Query Tokens: 33
+   Output Tokens: 8
+   Total Tokens: 316
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          OBJECTIVE:         Identify and ex...
+   [User Input Snippet]: USER QUESTION:          How does Claude Code integration enhance Aura AI?          VERIFIED INFORMAT...
+   [LLM Output Snippet]: Information not available in provided documents.
+
+9. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 118
+   Input/Query Tokens: 34
+   Output Tokens: 10
+   Total Tokens: 162
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          How does Claude Code integration enhance Aura AI?          Answer:         Inform...
+   [LLM Output Snippet]: What other integrations enhance Aura AI functionality?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 9
+Total System Tokens: 2648
+Total Input/Query Tokens: 466
+Total Output Tokens: 90
+TOTAL TOKENS USED: 3204
+-----------------------------------------
+Final Reply Text: 'Information not available in provided documents.\n\nFollow-up question:\nWhat other integrations enhance Aura AI functionality?'
+Final Reply Token Count (Estimate): 15
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T05:52:02.007477Z
+User Query: 'What other integrations enhance Aura AI functionality?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 348
+   Input/Query Tokens: 19
+   Output Tokens: 9
+   Total Tokens: 376
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query:          What other integrations enhance Aura AI functionality?          Rewritten Query...
+   [LLM Output Snippet]: Aura AI additional integrations and functionality enhancements
+
+2. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 107
+   Input/Query Tokens: 1042
+   Output Tokens: 58
+   Total Tokens: 1207
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What other integrations enhance Aura AI functionality?              Context: ...
+   [LLM Output Snippet]: No recent information found. The provided context does not mention other integrations that enhance A...
+
+3. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 112
+   Input/Query Tokens: 115
+   Output Tokens: 11
+   Total Tokens: 238
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What other integrations enhance Aura AI functionality?          Answer:          ...
+   [LLM Output Snippet]: What are Aura AI's core features and limitations?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 567
+Total Input/Query Tokens: 1176
+Total Output Tokens: 78
+TOTAL TOKENS USED: 1821
+-----------------------------------------
+Final Reply Text: "\n            No recent information found. The provided context does not mention other integrations that enhance Aura AI functionality. It only discusses the installation, system requirements, and core features of Aura AI, as well as a review of SolidWorks AURA. There is no information available on additional integrations.\n\n            Sources:\n            • aurainc.co\n• docs.aura-ai.me\n• getleo.ai\n            \n\nFollow-up question:\nWhat are Aura AI's core features and limitations?"
+Final Reply Token Count (Estimate): 63
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T08:31:04.905768Z
+User Query: 'automation'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 363
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        automation
+
+        Rewritten Query:
+   [LLM Output Snippet]: automation technology
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 604
+   Input/Query Tokens: 11
+   Output Tokens: 3
+   Total Tokens: 618
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    automation technology
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 111
+   Input/Query Tokens: 990
+   Output Tokens: 162
+   Total Tokens: 1263
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              automation              Context:                                      Title: ...
+   [LLM Output Snippet]: Automation refers to the use of technology, programs, robotics, or processes to achieve outcomes wit...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 103
+   Input/Query Tokens: 218
+   Output Tokens: 9
+   Total Tokens: 330
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          automation          Answer:                      Automation refers to the use of ...
+   [LLM Output Snippet]: What are the benefits of basic automation?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1169
+Total Input/Query Tokens: 1228
+Total Output Tokens: 177
+TOTAL TOKENS USED: 2574
+-----------------------------------------
+Final Reply Text: '\n            Automation refers to the use of technology, programs, robotics, or processes to achieve outcomes with minimal human input. It involves predetermining decision criteria, subprocess relationships, and related actions, and embodying those predeterminations in machines. Automation can be achieved through various means, including mechanical, hydraulic, pneumatic, electrical, and electronic devices. The main goal of automation is to reduce human intervention in processes. Some key aspects of automation include:\n* Increasing productivity and profitability\n* Improving customer service and satisfaction\n* Reducing costs and operational errors\n* Adhering to compliance standards\n* Optimizing operational efficiency. Automation is used in various industries, such as finance, healthcare, and manufacturing, and can be categorized into different types, including basic automation, which automates simple, routine tasks.\n\n            Sources:\n            • en.wikipedia.org\n• grokipedia.com\n• ibm.com\n            \n\nFollow-up question:\nWhat are the benefits of basic automation?'
+Final Reply Token Count (Estimate): 136
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T08:31:30.197490Z
+User Query: 'automation'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 351
+   Input/Query Tokens: 9
+   Output Tokens: 6
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        automation
+
+        Rewritten Query:
+   [LLM Output Snippet]: automation systems or automation technology
+
+2. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 253
+   Input/Query Tokens: 477
+   Output Tokens: 2
+   Total Tokens: 732
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          automation systems or automation technology          Context:         automation ...
+   [LLM Output Snippet]: NO
+
+3. Function: mcp_layer.py:refine_query
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 303
+   Input/Query Tokens: 475
+   Output Tokens: 17
+   Total Tokens: 795
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Recovery Agent.          The previous retrieval attempt did NOT fully ans...
+   [User Input Snippet]: Question:          automation systems or automation technology          Previous Context:         au...
+   [LLM Output Snippet]: automation systems or automation technology using react and framer motion and lucide react icons
+
+4. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 320
+   Input/Query Tokens: 1327
+   Output Tokens: 2
+   Total Tokens: 1649
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          automation systems or automation technology          Context:         automation ...
+   [LLM Output Snippet]: NO
+
+5. Function: mcp_layer.py:refine_query
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 379
+   Input/Query Tokens: 1327
+   Output Tokens: 20
+   Total Tokens: 1726
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Recovery Agent.          The previous retrieval attempt did NOT fully ans...
+   [User Input Snippet]: Question:          automation systems or automation technology using react and framer motion and luc...
+   [LLM Output Snippet]: automation systems or automation technology using react library and framer motion library and lucide...
+
+6. Function: orchestrator_layer_support.py:synthesize_information
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 454
+   Input/Query Tokens: 1287
+   Output Tokens: 500
+   Total Tokens: 2241
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          ROLE:         From the Retrieved C...
+   [User Input Snippet]: Question:          automation          Retrieved Context:         automation  'use client';  import ...
+   [LLM Output Snippet]: automation  const TRIGGERS = [   { id: 'new_lead', label: 'New Lead', icon: UserPlus, color: 'text-b...
+
+7. Function: orchestrator_layer_support.py:generate_final_output
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 347
+   Input/Query Tokens: 450
+   Output Tokens: 499
+   Total Tokens: 1296
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          OBJECTIVE:         Identify and ex...
+   [User Input Snippet]: USER QUESTION:          automation          VERIFIED INFORMATION:         automation  const TRIGGERS...
+   [LLM Output Snippet]: automation  const TRIGGERS = [   { id: 'new_lead', label: 'New Lead', icon: UserPlus, color: 'text-b...
+
+8. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 154
+   Input/Query Tokens: 482
+   Output Tokens: 8
+   Total Tokens: 644
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          automation          Answer:         automation  const TRIGGERS = [   { id: 'new_l...
+   [LLM Output Snippet]: How to implement triggers and actions?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 8
+Total System Tokens: 2561
+Total Input/Query Tokens: 5834
+Total Output Tokens: 1054
+TOTAL TOKENS USED: 9449
+-----------------------------------------
+Final Reply Text: 'automation \nconst TRIGGERS = [ \n { id: \'new_lead\', label: \'New Lead\', icon: UserPlus, color: \'text-blue-400\' }, \n { id: \'msg_recv\', label: \'Message Received\', icon: MessageSquare, color: \'text-indigo-400\' }, \n { id: \'flow_done\', label: \'Flow Done\', icon: Zap, color: \'text-amber-400\' }, \n { id: \'no_reply\', label: \'Inactivity\', icon: Clock, color: \'text-rose-400\' }, \n]; \nconst ACTIONS = [ \n { id: \'send_msg\', label: \'Send Message\', icon: Send }, \n { id: \'assign_agent\', label: \'Assign Agent\', icon: Users }, \n { id: \'brain_query\', label: \'Brain Query\', icon: Sparkles }, \n { id: \'ask_question\', label: \'Ask Question\', icon: HelpCircle }, \n { id: \'move_stage\', label: \'Move Deal\', icon: Split }, \n { id: \'notification\', label: \'Notify\', icon: Bell }, \n]; \nconst getIcon = (type) => { \n const all = [.TRIGGERS, .ACTIONS, { id: \'condition\', icon: Filter }, { id: \'trigger\', icon: Zap }]; \n <Zap size={20} /> \n <div className="flex-1 min-w-0"> \n <p className={`text-sm font-black truncate uppercase tracking-tight ${selectedItem.id === item.id ? \'text-white\' : \'text-zinc-400\'}`}>{item.name}</p> \n <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">Active Wire</p> \n <Settings size={18} className="text-indigo-400" /> \n <h2 className="text-xs font-black text-zinc-400 uppercase tracking-[2px]">Configuration</h2> \n <X size={20} className="text-zinc-600 cursor-pointer hover:text-white" onClick={() => setActiveNodeId(null)} /> \n <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-3">Step Label</label> \n value={activeNode.label} \n <Plus size={9} className="text-white" />\n\nFollow-up question:\nHow to implement triggers and actions?'
+Final Reply Token Count (Estimate): 197
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T09:32:53.043707Z
+User Query: 'explain about cricket'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 7
+   Total Tokens: 369
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        explain about cricket
+
+        Rewritten Query:
+   [LLM Output Snippet]: information about the sport of cricket
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 601
+   Input/Query Tokens: 18
+   Output Tokens: 3
+   Total Tokens: 622
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    information about the sport of cricket
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 110
+   Input/Query Tokens: 1157
+   Output Tokens: 188
+   Total Tokens: 1455
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              explain about cricket              Context:                                  ...
+   [LLM Output Snippet]: Cricket is a team sport played with a bat and ball. It is known as the "Gentlemen's Game" and has a ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 97
+   Input/Query Tokens: 253
+   Output Tokens: 10
+   Total Tokens: 360
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          explain about cricket          Answer:                      Cricket is a team spo...
+   [LLM Output Snippet]: What are the main types of cricket matches?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1158
+Total Input/Query Tokens: 1440
+Total Output Tokens: 208
+TOTAL TOKENS USED: 2806
+-----------------------------------------
+Final Reply Text: '\n            Cricket is a team sport played with a bat and ball. It is known as the "Gentlemen\'s Game" and has a rich history, dating back to the 16th century in South East England. The game is played with 11 players per side, and the objective is to score runs by hitting the ball with a bat. Some key aspects of cricket include:\n* The use of a cricket ball, bat, and wicket (stumps and bails)\n* The game is played on a cricket field with specific dimensions and markings\n* There are various methods of dismissal, such as bowled, caught, and run out\n* Different types of cricket balls and bats are used, including red, white, and pink balls, and English willow and Kashmir willow bats. Cricket is a popular sport worldwide, with a significant following in the Commonwealth, and is governed by the International Cricket Council (ICC).\n\n            Sources:\n            • en.wikipedia.org\n• wantcricket.com\n• icc-cricket.com\n            \n\nFollow-up question:\nWhat are the main types of cricket matches?'
+Final Reply Token Count (Estimate): 165
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T09:34:42.835823Z
+User Query: 'who is dhoni'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 351
+   Input/Query Tokens: 12
+   Output Tokens: 5
+   Total Tokens: 368
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is dhoni
+
+        Rewritten Query:
+   [LLM Output Snippet]: MS Dhoni biography
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 605
+   Input/Query Tokens: 12
+   Output Tokens: 3
+   Total Tokens: 620
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    MS Dhoni biography
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 117
+   Input/Query Tokens: 1288
+   Output Tokens: 150
+   Total Tokens: 1555
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is dhoni              Context:                                      Title...
+   [LLM Output Snippet]: MS Dhoni is a legendary Indian cricketer, widely regarded as one of the greatest cricketing icons of...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 105
+   Input/Query Tokens: 206
+   Output Tokens: 8
+   Total Tokens: 319
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is dhoni          Answer:                      MS Dhoni is a legendary Indian...
+   [LLM Output Snippet]: What are his major cricket achievements?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1178
+Total Input/Query Tokens: 1518
+Total Output Tokens: 166
+TOTAL TOKENS USED: 2862
+-----------------------------------------
+Final Reply Text: '\n            MS Dhoni is a legendary Indian cricketer, widely regarded as one of the greatest cricketing icons of all time. He was born on July 7, 1981, in Ranchi, India. Some key points about MS Dhoni include:\n* He is a former captain of the Indian cricket team\n* He is a wicketkeeper-batsman and is known for his exceptional skill and leadership\n* He has played for various teams, including the Chennai Super Kings and the Indian national team\n* He is also known by his nicknames, such as "Mahi", "Thala", and "Captain Cool"\n* He has received numerous awards, including the Padma Bhushan and the Padma Shri.\n\n            Sources:\n            • en.wikipedia.org\n• infinitylearn.com\n• unstop.com\n            \n\nFollow-up question:\nWhat are his major cricket achievements?'
+Final Reply Token Count (Estimate): 122
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T10:20:30.798053Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 348
+   Input/Query Tokens: 17
+   Output Tokens: 6
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: Recent developments in Aura AI
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 602
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 621
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Recent developments in Aura AI
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 109
+   Input/Query Tokens: 891
+   Output Tokens: 58
+   Total Tokens: 1058
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: No recent information found regarding what is new in Aura AI. The provided context mentions Aura in ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 107
+   Input/Query Tokens: 113
+   Output Tokens: 10
+   Total Tokens: 230
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      No recent informati...
+   [LLM Output Snippet]: What is Aura used for in those contexts?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1166
+Total Input/Query Tokens: 1037
+Total Output Tokens: 77
+TOTAL TOKENS USED: 2280
+-----------------------------------------
+Final Reply Text: '\n            No recent information found regarding what is new in Aura AI. The provided context mentions Aura in different contexts, such as Aura development in a YouTube video, Project Aura by XREAL, and Re Aura codes for a Roblox game. However, there is no information about Aura AI specifically.\n\n            Sources:\n            • youtube.com\n• xreal.com\n• earnaldo.com\n            \n\nFollow-up question:\nWhat is Aura used for in those contexts?'
+Final Reply Token Count (Estimate): 65
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-25T10:20:44.944444Z
+User Query: 'how r u'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 350
+   Input/Query Tokens: 12
+   Output Tokens: 4
+   Total Tokens: 366
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        how r u
+
+        Rewritten Query:
+   [LLM Output Snippet]: how are you
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 604
+   Input/Query Tokens: 12
+   Output Tokens: 3
+   Total Tokens: 619
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    how are you
+
+    Selected Tool:
+   [LLM Output Snippet]: direct_answer
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 954
+Total Input/Query Tokens: 24
+Total Output Tokens: 7
+TOTAL TOKENS USED: 985
+-----------------------------------------
+Final Reply Text: "I'm doing great! Thanks for asking 😊 How about you?"
+Final Reply Token Count (Estimate): 10
+=========================================
