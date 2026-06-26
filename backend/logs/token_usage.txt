@@ -3257,3 +3257,65 @@ TOTAL TOKENS USED: 2623
 Final Reply Text: '\n            MSD can refer to different entities. Some of the notable meanings include:\n* Mahendra Singh Dhoni, an Indian cricketer\n* Merck Sharp and Dohme, an international name of Merck & Co., a pharmaceutical company\n* Mass storage device, like a USB key\n* Microsoft Diagnostics, a computer diagnostic program\n* Marjory Stoneman Douglas High School, a school in Florida, United States\n* MSD can also stand for other organizations, companies, and terms. \nWithout more specific information, it is difficult to determine which MSD is being referred to.\n\n            Sources:\n            • en.wikipedia.org\n• abbreviationfinder.org\n• msd.com\n            \n\nFollow-up question:\nWhat context is MSD being used in?'
 Final Reply Token Count (Estimate): 103
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-26T04:48:05.777834Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 348
+   Input/Query Tokens: 17
+   Output Tokens: 6
+   Total Tokens: 371
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: Recent developments in Aura AI
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 602
+   Input/Query Tokens: 16
+   Output Tokens: 3
+   Total Tokens: 621
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Recent developments in Aura AI
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 104
+   Input/Query Tokens: 1119
+   Output Tokens: 166
+   Total Tokens: 1389
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: There is no specific information about what is new in Aura AI. The provided context mentions differe...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 97
+   Input/Query Tokens: 235
+   Output Tokens: 9
+   Total Tokens: 341
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      There is no specifi...
+   [LLM Output Snippet]: What are Aura AI's potential applications?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1151
+Total Input/Query Tokens: 1387
+Total Output Tokens: 184
+TOTAL TOKENS USED: 2722
+-----------------------------------------
+Final Reply Text: "\n            There is no specific information about what is new in Aura AI. The provided context mentions different projects and developments related to Aura, such as Aura AI for Unreal Engine, XREAL AURA spatial computing glasses, and AdEx AURA development updates. However, it does not provide a clear answer to what is new in Aura AI. \n\nSome key points about Aura from the context include:\n* Aura AI for Unreal Engine is designed to boost productivity and streamline workflows for game developers.\n* XREAL AURA is a spatial computing glasses product with AI assistance, coming in Fall 2026.\n* AdEx AURA had development updates in 2025, including API launch and integration with Vaults.fyi.\n\nSince the context does not provide a direct answer to the question, the most accurate response would be: No recent information found.\n\n            Sources:\n            • unreal-university.blog\n• xreal.com\n• blog.heyaura.com\n            \n\nFollow-up question:\nWhat are Aura AI's potential applications?"
+Final Reply Token Count (Estimate): 149
+=========================================
