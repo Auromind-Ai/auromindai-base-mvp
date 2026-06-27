@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useBranding } from "@/context/BrandingContext";
 
 export default function Preloader() {
   const [isLoading, setIsLoading] = useState(true);
+  const { appName } = useBranding();
 
   useEffect(() => {
     // Hide the preloader after the app is mounted
@@ -48,7 +50,7 @@ export default function Preloader() {
               transition={{ delay: 0.3, duration: 0.6 }}
             >
               <span className="text-white/60 text-xs font-mono uppercase tracking-[0.2em]">
-                Auromind
+                {appName}
               </span>
               <span className="text-white text-xs font-mono uppercase tracking-[0.2em] font-bold">
                 AI
