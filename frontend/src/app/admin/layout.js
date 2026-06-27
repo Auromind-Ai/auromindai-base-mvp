@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 
@@ -11,9 +12,42 @@ export default function AdminLayout({ children }) {
 
   const isLoginPage = pathname === "/admin"
 
+  const [authVerified, setAuthVerified] = useState(isLoginPage)
+
+  useEffect(() => {
+    if (isLoginPage) {
+      setAuthVerified(true)
+      return
+    }
+
+    let active = true
+    const checkAuth = async () => {
+      try {
+        await api.getPlatformDashboard()
+        if (active) setAuthVerified(true)
+      } catch (err) {
+        if (active && (err.status === 404 || err.status === 401 || err.status === 403)) {
+          router.push("/admin")
+        }
+      }
+    }
+    checkAuth()
+    return () => {
+      active = false
+    }
+  }, [pathname, isLoginPage, router])
+
   // For admin login page - render without the sidebar/layout
   if (isLoginPage) {
     return <>{children}</>
+  }
+
+  if (!authVerified) {
+    return (
+      <div className="min-h-screen bg-[#020202] flex items-center justify-center text-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
+      </div>
+    )
   }
 
   const handleSignOut = async () => {

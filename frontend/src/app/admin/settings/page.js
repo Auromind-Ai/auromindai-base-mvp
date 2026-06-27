@@ -29,6 +29,7 @@ import {
   HardDrive
 } from "lucide-react"
 import api from "@/lib/api"
+import { useBranding } from "@/context/BrandingContext"
 
 function Toast({ toasts, onClose }) {
   return (
@@ -95,7 +96,12 @@ function SecretInput({ label, value, onChange, placeholder }) {
 }
 
 export default function SettingsPage() {
+  const { refreshBranding } = useBranding()
   const [settings, setSettings] = useState({
+    // ---------------- Brand ----------------
+    app_name: "Auromind",
+    app_logo_url: "/logo.png",
+
     // ---------------- Pricing ----------------
     free_plan_price: 0.0,
     pro_plan_price: 1000.0,
@@ -173,9 +179,10 @@ export default function SettingsPage() {
     copyright: "@2026 Auromind",
     last_updated: "June 05, 2026, 10:30 AM",
 
-    // ---------------- Credentials ----------------
+    // ---------------- AI Credentials ----------------
     openai_api_key: "",
-    gemini_api_key: "",
+    google_api_key: "",      // Gemini / Google AI
+    gemini_api_key: "",      // alias kept for UI provider card
     anthropic_api_key: "",
     groq_api_key: "",
 
@@ -197,14 +204,22 @@ export default function SettingsPage() {
     meta_app_id: "",
     meta_app_secret: "",
     meta_system_user_token: "",
+    meta_redirect_uri: "",
     ig_app_id: "",
     ig_app_secret: "",
     ig_redirect_uri: "",
+
+    // ---------------- Twilio ----------------
+    twilio_account_sid: "",
+    twilio_auth_token: "",
+    twilio_phone_number: "",
+    twilio_status_callback_url: "",
 
     // ---------------- Storage ----------------
     storage_provider: "SUPABASE",
     supabase_url: "",
     supabase_service_role_key: "",
+    supabase_anon_key: "",
     supabase_bucket: "",
     aws_access_key_id: "",
     aws_secret_access_key: "",
@@ -215,12 +230,20 @@ export default function SettingsPage() {
 
     // ---------------- AI/Model ----------------
     hf_token: "",
+    hf_home: "",
+    transformers_cache: "",
 
     // ---------------- Payments ----------------
     razorpay_key: "",
     razorpay_secret: "",
+    razorpay_webhook_secret: "",
+    razorpay_pro_plan_id: "",
+    razorpay_enterprise_plan_id: "",
     payu_merchant_key: "",
     payu_salt: "",
+    payu_webhook_secret: "",
+    payu_pro_plan_id: "",
+    payu_enterprise_plan_id: "",
   })
   
   const [loading, setLoading] = useState(true)
@@ -279,10 +302,29 @@ export default function SettingsPage() {
   }
 
   const handleSave = async () => {
+    // Client-side validations
+    const provider = settings.storage_provider || "SUPABASE"
+    if (provider === "SUPABASE") {
+      if (!settings.supabase_url || !settings.supabase_service_role_key || !settings.supabase_bucket) {
+        const errorMsg = "Supabase URL, Service Role Key, and Supabase Bucket are required when SUPABASE is the selected Storage Provider."
+        setError(errorMsg)
+        showToast(errorMsg, "error")
+        return
+      }
+    } else if (provider === "S3") {
+      if (!settings.aws_access_key_id || !settings.aws_secret_access_key || !settings.aws_region || !settings.aws_s3_bucket) {
+        const errorMsg = "AWS Access Key ID, Secret Access Key, Region, and Bucket are required when S3 is the selected Storage Provider."
+        setError(errorMsg)
+        showToast(errorMsg, "error")
+        return
+      }
+    }
+
     try {
       setSaving(true)
       const updatedSettings = await api.updatePlatformSettings(settings)
       setSettings(updatedSettings)
+      await refreshBranding()
       showToast("Configuration saved and synchronized! 🚀", "success")
       setError(null)
     } catch (err) {
@@ -360,10 +402,10 @@ export default function SettingsPage() {
   ]
 
   const AI_PROVIDERS = [
-    { id: "openai", name: "OpenAI", models: ["gpt-4o", "gpt-4-turbo"], key: "openai_api_key", color: "bg-emerald-500" },
-    { id: "google", name: "Google Gemini", models: ["gemini-1.5-pro", "gemini-1.5-flash"], key: "gemini_api_key", color: "bg-blue-500" },
-    { id: "anthropic", name: "Anthropic", models: ["claude-3-5-sonnet"], key: "anthropic_api_key", color: "bg-orange-500" },
-    { id: "groq", name: "Groq (Llama)", models: ["llama-3.1-70b"], key: "groq_api_key", color: "bg-red-500" },
+    { id: "openai",     name: "OpenAI",         models: ["gpt-4o", "gpt-4-turbo"],                    key: "openai_api_key",     color: "bg-emerald-500" },
+    { id: "google",    name: "Google Gemini",   models: ["gemini-1.5-pro", "gemini-1.5-flash"],       key: "google_api_key",     color: "bg-blue-500" },
+    { id: "anthropic", name: "Anthropic Claude",models: ["claude-3-5-sonnet", "claude-3-opus"],       key: "anthropic_api_key",  color: "bg-orange-500" },
+    { id: "groq",      name: "Groq (Llama)",    models: ["llama-3.3-70b-versatile", "llama-3.1-70b"],key: "groq_api_key",        color: "bg-red-500" },
   ]
 
   return (
@@ -444,6 +486,40 @@ export default function SettingsPage() {
             {/* Tab: General */}
             {activeTab === "general" && (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                      <Globe className="text-indigo-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Branding Configuration</h3>
+                      <p className="text-xs text-gray-500">Customize platform title and logo</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <p className="text-xs font-bold text-gray-500 uppercase px-2">Application Name</p>
+                       <input 
+                        type="text"
+                        value={settings.app_name || ""}
+                        onChange={(e) => handleInputChange("app_name", e.target.value)}
+                        placeholder="Auromind"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-xs font-bold text-gray-500 uppercase px-2">Logo URL / Image Source</p>
+                       <input 
+                        type="text"
+                        value={settings.app_logo_url || ""}
+                        onChange={(e) => handleInputChange("app_logo_url", e.target.value)}
+                        placeholder="/logo.png"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none"
+                      />
+                    </div>
+                  </div>
+                </section>
+
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
@@ -802,22 +878,44 @@ export default function SettingsPage() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Key ID</p>
-                           <input 
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Key ID</p>
+                          <input
                             type="text"
-                            value={settings.razorpay_key}
+                            value={settings.razorpay_key || ""}
                             onChange={(e) => handleInputChange("razorpay_key", e.target.value)}
                             placeholder="rzp_live_..."
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
+                        <SecretInput
+                          label="Secret Key"
+                          value={settings.razorpay_secret}
+                          onChange={(val) => handleInputChange("razorpay_secret", val)}
+                          placeholder="••••••••••••••••"
+                        />
+                        <SecretInput
+                          label="Webhook Secret (HMAC)"
+                          value={settings.razorpay_webhook_secret}
+                          onChange={(val) => handleInputChange("razorpay_webhook_secret", val)}
+                          placeholder="••••••••••••••••"
+                        />
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Secret Key</p>
-                           <input 
-                            type="password"
-                            value={settings.razorpay_secret}
-                            onChange={(e) => handleInputChange("razorpay_secret", e.target.value)}
-                            placeholder="••••••••••••••••"
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Pro Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.razorpay_pro_plan_id || ""}
+                            onChange={(e) => handleInputChange("razorpay_pro_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Enterprise Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.razorpay_enterprise_plan_id || ""}
+                            onChange={(e) => handleInputChange("razorpay_enterprise_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
@@ -832,28 +930,49 @@ export default function SettingsPage() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Merchant Key</p>
-                           <input 
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Merchant Key</p>
+                          <input
                             type="text"
-                            value={settings.payu_merchant_key}
+                            value={settings.payu_merchant_key || ""}
                             onChange={(e) => handleInputChange("payu_merchant_key", e.target.value)}
                             placeholder="merchant_key"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
+                        <SecretInput
+                          label="Salt"
+                          value={settings.payu_salt}
+                          onChange={(val) => handleInputChange("payu_salt", val)}
+                          placeholder="••••••••••••••••"
+                        />
+                        <SecretInput
+                          label="Webhook Secret"
+                          value={settings.payu_webhook_secret}
+                          onChange={(val) => handleInputChange("payu_webhook_secret", val)}
+                          placeholder="••••••••••••••••"
+                        />
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Salt</p>
-                           <input 
-                            type="password"
-                            value={settings.payu_salt}
-                            onChange={(e) => handleInputChange("payu_salt", e.target.value)}
-                            placeholder="••••••••••••••••"
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Pro Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.payu_pro_plan_id || ""}
+                            onChange={(e) => handleInputChange("payu_pro_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Enterprise Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.payu_enterprise_plan_id || ""}
+                            onChange={(e) => handleInputChange("payu_enterprise_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
                       </div>
                     </div>
-                  
                   </div>
                 </section>
               </div>
@@ -1033,6 +1152,16 @@ export default function SettingsPage() {
                       placeholder="••••••••••••••••"
                     />
                     <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Meta Redirect URI</p>
+                       <input
+                        type="text"
+                        value={settings.meta_redirect_uri || ""}
+                        onChange={(e) => handleInputChange("meta_redirect_uri", e.target.value)}
+                        placeholder="https://app.auromind.ai/meta/callback"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Instagram App ID</p>
                        <input 
                         type="text"
@@ -1048,6 +1177,16 @@ export default function SettingsPage() {
                       onChange={(val) => handleInputChange("ig_app_secret", val)}
                       placeholder="••••••••••••••••"
                     />
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Instagram Redirect URI</p>
+                       <input
+                        type="text"
+                        value={settings.ig_redirect_uri || ""}
+                        onChange={(e) => handleInputChange("ig_redirect_uri", e.target.value)}
+                        placeholder="https://app.auromind.ai/instagram/callback"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-end mt-4">
                     <button
@@ -1065,6 +1204,57 @@ export default function SettingsPage() {
                         "Test Meta Integration"
                       )}
                     </button>
+                  </div>
+                </section>
+
+                {/* Twilio card */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                      <Phone className="text-red-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Twilio (SMS / Voice)</h3>
+                      <p className="text-xs text-gray-500">WhatsApp & SMS delivery configuration</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Account SID</p>
+                      <input
+                        type="text"
+                        value={settings.twilio_account_sid || ""}
+                        onChange={(e) => handleInputChange("twilio_account_sid", e.target.value)}
+                        placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <SecretInput
+                      label="Auth Token"
+                      value={settings.twilio_auth_token}
+                      onChange={(val) => handleInputChange("twilio_auth_token", val)}
+                      placeholder="••••••••••••••••"
+                    />
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Phone Number</p>
+                      <input
+                        type="text"
+                        value={settings.twilio_phone_number || ""}
+                        onChange={(e) => handleInputChange("twilio_phone_number", e.target.value)}
+                        placeholder="+1234567890"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Status Callback URL</p>
+                      <input
+                        type="text"
+                        value={settings.twilio_status_callback_url || ""}
+                        onChange={(e) => handleInputChange("twilio_status_callback_url", e.target.value)}
+                        placeholder="https://app.auromind.ai/twilio/status-callback"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
                   </div>
                 </section>
 
@@ -1105,7 +1295,7 @@ export default function SettingsPage() {
                       <>
                         <div className="space-y-2 md:col-span-2">
                            <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Supabase URL</p>
-                           <input 
+                           <input
                             type="text"
                             value={settings.supabase_url || ""}
                             onChange={(e) => handleInputChange("supabase_url", e.target.value)}
@@ -1114,20 +1304,28 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <SecretInput 
+                          <SecretInput
                             label="Supabase Service Role Key"
                             value={settings.supabase_service_role_key}
                             onChange={(val) => handleInputChange("supabase_service_role_key", val)}
                             placeholder="••••••••••••••••"
                           />
                         </div>
+                        <div className="md:col-span-2">
+                          <SecretInput
+                            label="Supabase Anon Key"
+                            value={settings.supabase_anon_key}
+                            onChange={(val) => handleInputChange("supabase_anon_key", val)}
+                            placeholder="••••••••••••••••"
+                          />
+                        </div>
                         <div className="space-y-2 md:col-span-2">
                            <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Supabase Bucket</p>
-                           <input 
+                           <input
                             type="text"
                             value={settings.supabase_bucket || ""}
                             onChange={(e) => handleInputChange("supabase_bucket", e.target.value)}
-                            placeholder="uploads"
+                            placeholder="media"
                             className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
                           />
                         </div>
@@ -1227,12 +1425,32 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <SecretInput 
-                      label="HuggingFace Token"
+                    <SecretInput
+                      label="HuggingFace Token (HF_TOKEN)"
                       value={settings.hf_token}
                       onChange={(val) => handleInputChange("hf_token", val)}
-                      placeholder="••••••••••••••••"
+                      placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
                     />
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">HF Home / Cache Dir</p>
+                      <input
+                        type="text"
+                        value={settings.hf_home || ""}
+                        onChange={(e) => handleInputChange("hf_home", e.target.value)}
+                        placeholder="/models/huggingface"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Transformers Cache Dir</p>
+                      <input
+                        type="text"
+                        value={settings.transformers_cache || ""}
+                        onChange={(e) => handleInputChange("transformers_cache", e.target.value)}
+                        placeholder="/models/huggingface"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
                   </div>
                 </section>
               </div>

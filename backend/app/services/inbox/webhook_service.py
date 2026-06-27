@@ -93,8 +93,8 @@ class WebhookService:
         token = query_params.get("hub.verify_token")
         challenge = query_params.get("hub.challenge")
         if mode == "subscribe" and token == verify_token:
-            return int(challenge)
-        return {"status": "failed"}
+            return challenge
+        return None
         
     @staticmethod
     async def handle_twilio_webhook(form_data, db: Session):

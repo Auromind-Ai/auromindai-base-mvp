@@ -123,6 +123,10 @@ def clear_settings_cache():
 def seed_settings_from_env(db: Session):
     import os
     env_map = {
+        # Brand Configuration
+        "APP_NAME": "app_name",
+        "APP_LOGO_URL": "app_logo_url",
+        
         # AI
         "OPENAI_API_KEY": "openai_api_key",
         "GOOGLE_API_KEY": "google_api_key",
@@ -224,6 +228,21 @@ def seed_settings_from_env(db: Session):
                 )
                 db.add(setting)
                 updates_made = True
+
+    # Seed default branding configs if not present in DB
+    default_brand = {
+        "app_name": "Auromind",
+        "app_logo_url": "/logo.png"
+    }
+    for k, v in default_brand.items():
+        if k not in existing_keys:
+            setting = PlatformSetting(
+                key=k,
+                value=v,
+                value_type="string"
+            )
+            db.add(setting)
+            updates_made = True
 
     if updates_made:
         db.commit()
