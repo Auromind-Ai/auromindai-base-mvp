@@ -1,3 +1,4 @@
+# Reset admin rate limit trigger
 import time
 from fastapi import APIRouter, Request, Response, HTTPException, status
 from app.schemas.admin import AdminAuthRequest
@@ -85,10 +86,11 @@ async def admin_auth(
     
     # Extract domain for cookie sharing between frontend and backend on subdomains
     cookie_domain = None
-    if settings.FRONTEND_URL:
+    request_host = request.url.hostname
+    if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
+        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
             parts = parsed.hostname.split(".")
             # Ignore IP addresses and localhost
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
@@ -118,10 +120,11 @@ async def admin_logout(request: Request, response: Response):
     
     # Extract domain for cookie sharing between frontend and backend on subdomains
     cookie_domain = None
-    if settings.FRONTEND_URL:
+    request_host = request.url.hostname
+    if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
+        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
             parts = parsed.hostname.split(".")
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
                 cookie_domain = "." + ".".join(parts[-2:])

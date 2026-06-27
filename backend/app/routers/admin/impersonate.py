@@ -11,6 +11,10 @@ from app.models.impersonation import ImpersonationSession
 from app.utils.auth import create_access_token
 from app.routers.auth import get_current_user
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 # In-memory fallback for environments with DB restrictions
@@ -30,9 +34,8 @@ def create_impersonation_session(
     if not admin:
         raise HTTPException(status_code=404, detail="Platform admin not found")
 
-    print(f"🚀 CREATING IMPERSONATION SESSION for user {user_id}")
+    logger.info(f"Creating impersonation session for user {user_id}")
     session_id = str(uuid.uuid4())
-    print(f"🧠 Generated Session ID: {session_id}")
 
     session = ImpersonationSession(
         session_id=session_id,
@@ -44,9 +47,9 @@ def create_impersonation_session(
     try:
         db.add(session)
         db.commit()
-        print("Session saved to DB")
+        logger.info("Impersonation session saved to database")
     except Exception as e:
-        print(f"⚠️ FAILED to save session to DB (using in-memory fallback): {e}")
+        logger.error(f"Failed to save impersonation session to database: {e}")
         db.rollback()
     
     # Always save to in-memory fallback to be safe
@@ -68,8 +71,7 @@ def start_impersonation(
     db: Session = Depends(get_db)
 ):
 
-    print("🚀 START IMPERSONATION SESSION")
-    print("Session ID:", session_id)
+    logger.info("Consuming impersonation session")
 
     # Try DB first
     session = None
@@ -78,7 +80,7 @@ def start_impersonation(
             ImpersonationSession.session_id == str(session_id)
         ).first()
     except Exception as e:
-        print(f"⚠️ FAILED to query DB for session: {e}")
+        logger.error(f"Failed to query database for session: {e}")
         db.rollback()
 
     admin_id = None
@@ -96,7 +98,7 @@ def start_impersonation(
         admin_id = cached["admin_id"]
         user_id = cached["user_id"]
         expires_at = cached["expires_at"]
-        print(f"📦 Using cached session for {user_id}")
+        logger.info(f"Using cached impersonation session for user {user_id}")
     
     if not admin_id or not user_id:
         raise HTTPException(status_code=404, detail="Session not found or expired")
@@ -147,10 +149,11 @@ def start_impersonation(
     # Extract domain for cookie sharing between frontend and backend on subdomains
     from app.core.config import settings
     cookie_domain = None
-    if settings.FRONTEND_URL:
+    request_host = request.url.hostname
+    if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
+        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
             parts = parsed.hostname.split(".")
             # Ignore IP addresses and localhost
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:

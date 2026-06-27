@@ -8,6 +8,7 @@ import {
 } from "recharts";
 
 import api from "@/lib/api";
+import { useBranding } from "@/context/BrandingContext";
 
 const TOOL_COLORS = {
   vector_db:     "#6366f1",
@@ -55,6 +56,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 // ─ MAIN COMPONENT ─
 export default function AdminDashboard() {
+  const { appName } = useBranding();
   const [data,         setData]         = useState(null);
   const [stats,        setStats]        = useState(null);
   const [failures,     setFailures]     = useState(null);
@@ -226,7 +228,7 @@ export default function AdminDashboard() {
         <div style={S.headerLeft}>
           <div style={S.logo}>
             <span style={S.logoDot} />
-            <span style={S.logoText}>Auromind</span>
+            <span style={S.logoText}>{appName}</span>
             <span style={S.logoBadge}>Analytics</span>
           </div>
           <p style={S.headerSub}>RAG Intelligence Dashboard</p>

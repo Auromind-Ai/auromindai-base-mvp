@@ -3,7 +3,8 @@ import logging
 import uuid
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 from groq import Groq
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,9 @@ class AgenticWiringServiceV2:
         self.google_api_key = config_service.get("google_api_key")
         self.groq_api_key = config_service.get("groq_api_key")
         if self.google_api_key:
-            genai.configure(api_key=self.google_api_key)
+            self._genai_client = genai.Client(api_key=self.google_api_key)
+        else:
+            self._genai_client = None
         self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
     #  PUBLIC                                                              
  
@@ -65,24 +68,24 @@ class AgenticWiringServiceV2:
                             "provider": "groq",
                             "model": "llama-3.3-70b-versatile"
                         }
-                    elif self.google_api_key:
-                        model = genai.GenerativeModel("gemini-1.5-flash")
+                    elif self._genai_client:
                         response = await asyncio.to_thread(
-                            model.generate_content,
-                            f"{system_prompt}\n\n{user_prompt}",
-                            generation_config={
-                                "temperature": 0.15,
-                                "response_mime_type": "application/json",
-                            },
+                            self._genai_client.models.generate_content,
+                            model="gemini-1.5-flash",
+                            contents=f"{system_prompt}\n\n{user_prompt}",
+                            config=genai_types.GenerateContentConfig(
+                                temperature=0.15,
+                                response_mime_type="application/json",
+                            ),
                         )
                         content = response.text.strip()
                         if "```json" in content:
                             content = content.split("```json")[1].split("```")[0].strip()
-                        
-                        usage = response.usage_metadata if hasattr(response, "usage_metadata") else None
-                        input_tokens = usage.prompt_token_count if usage else 0
-                        output_tokens = usage.candidates_token_count if usage else 0
-                        total_tokens = usage.total_token_count if usage else 0
+
+                        usage = getattr(response, "usage_metadata", None)
+                        input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+                        output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+                        total_tokens = getattr(usage, "total_token_count", 0) or 0
 
                         return {
                             "text": content,

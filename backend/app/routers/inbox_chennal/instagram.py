@@ -22,16 +22,18 @@ def connect_instagram(
     return ChannelConnectionService.connect_instagram(db, data)
 
 
+from fastapi.responses import PlainTextResponse
+
 @router.get("/webhook")
 async def verify_instagram(request: Request):
     from app.services.config_service import config_service
-    result = WebhookService.verify_meta_subscription(
+    challenge = WebhookService.verify_meta_subscription(
         request.query_params,
         config_service.get("meta_verify_token"),
     )
-    if result == {"status": "failed"}:
-        raise HTTPException(status_code=403, detail="Verification failed")
-    return result
+    if challenge is not None:
+        return PlainTextResponse(str(challenge))
+    raise HTTPException(status_code=403, detail="Verification failed")
 
 
 @router.post("/webhook")

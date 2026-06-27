@@ -281,8 +281,6 @@ class AuthService:
             import logging
             logger = logging.getLogger("auromind")
             logger.error(f"Failed to send verification email via SMTP: {str(e)}. Falling back to console logging.")
-        # Log to console for local testing since we don't have real SMTP
-        print(f"=============================\nOTP for {email}: {otp}\n=============================")
         return True
 
     @staticmethod
