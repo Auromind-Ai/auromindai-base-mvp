@@ -1101,3 +1101,319 @@ TOTAL TOKENS USED: 2877
 Final Reply Text: '\n            Mahendra Singh Dhoni is a renowned Indian cricket player, also known as "Mahi" and "The Helicopter Shot" expert. He is a former captain of the Indian national team and is widely regarded for his exceptional leadership and batting skills. \n\nSome key facts about him include:\n* He is known for his calm, composed, and cool-headed demeanor on the field.\n* He has a distinctive hairstyle and charming smile.\n* He led India to win the inaugural T-20 World Cup.\n* He was a regular visitor to a salon in Ranchi called the "Manly Beauty Parlour" earlier in his career.\n\nNo recent information found.\n\n            Sources:\n            • storymirror.com\n• indianexpress.com\n• astrosage.com\n            \n\nFollow-up question:\nWhat were some notable achievements of MS Dhoni\'s captaincy in Indian cricket?'
 Final Reply Token Count (Estimate): 124
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:45:48.751154Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 321
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 345
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What is new in Aura AI?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 579
+   Input/Query Tokens: 17
+   Output Tokens: 3
+   Total Tokens: 599
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What is new in Aura AI?
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 111
+   Input/Query Tokens: 807
+   Output Tokens: 216
+   Total Tokens: 1134
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: Here's what's new in Aura AI:  Aura AI has released its biggest update to date, version 0.15, which ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 93
+   Input/Query Tokens: 265
+   Output Tokens: 15
+   Total Tokens: 373
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      Here's what's new i...
+   [LLM Output Snippet]: What are the potential benefits of Aura Skills compatibility with Claude Code skills?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1104
+Total Input/Query Tokens: 1105
+Total Output Tokens: 242
+TOTAL TOKENS USED: 2451
+-----------------------------------------
+Final Reply Text: "\n            Here's what's new in Aura AI:\n\nAura AI has released its biggest update to date, version 0.15, which brings significant improvements to the experience. The key highlights of this update are:\n\n* **Faster, more accurate, and more capable**: Aura AI has been optimized for better performance and accuracy.\n* **Three major new features**:\n\t+ **Sandboxes (UE 5.8 only)**: Aura AI now supports sandboxes in Unreal Engine 5.8.\n\t+ **Shell/CLI commands**: Users can now interact with Aura AI using shell or command-line interface commands.\n\t+ **Aura Skills (compatible with Claude Code skills)**: Aura AI's skills are now compatible with Claude Code skills.\n* **Unlimited usage for all tiers**: Every tier, including the free trial, now gets unlimited usage.\n* **Premium credits bump**: Existing paid tiers will receive a bump in premium credits every month at no additional cost.\n\nThese updates aim to make Aura AI more efficient and effective for game developers, allowing them to build and ship their games faster.\n\n            Sources:\n            • forums.unrealengine.com\n• tryaura.dev\n• aura.youniverse.ai\n            \n\nFollow-up question:\nWhat are the potential benefits of Aura Skills compatibility with Claude Code skills?"
+Final Reply Token Count (Estimate): 182
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:51:28.312655Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 321
+   Input/Query Tokens: 16
+   Output Tokens: 9
+   Total Tokens: 346
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What is new in aura AI technology?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 578
+   Input/Query Tokens: 19
+   Output Tokens: 3
+   Total Tokens: 600
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What is new in aura AI technology?
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 109
+   Input/Query Tokens: 1012
+   Output Tokens: 214
+   Total Tokens: 1335
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: There are several developments related to "Aura AI" across different domains:  * **Aura: Mental Heal...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 89
+   Input/Query Tokens: 262
+   Output Tokens: 14
+   Total Tokens: 365
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      There are several d...
+   [LLM Output Snippet]: What specific Aura AI application interests you the most for further information?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1097
+Total Input/Query Tokens: 1309
+Total Output Tokens: 240
+TOTAL TOKENS USED: 2646
+-----------------------------------------
+Final Reply Text: '\n            There are several developments related to "Aura AI" across different domains:\n\n* **Aura: Mental Health Chatbot**: An AI companion designed to provide empathetic support and guidance for individuals experiencing emotional challenges. It uses natural language processing and machine learning to understand and respond to user queries, detecting potential mental health concerns and offering coping strategies.\n* **AURA: Agent Autonomy Risk Assessment Framework**: A unified framework for detecting, quantifying, and mitigating risks arising from agentic AI systems. It provides a gamma-based risk scoring methodology and supports Human-in-the-Loop oversight.\n* **Aura Intelligence Platform Update**: A game-changing platform update that redefines workforce analytics using AI-driven insights. The updated platform is powered by Anthropic\'s Claude AI model and Aura\'s proprietary machine learning models, processing over 1 billion workforce profiles in real-time.\n\nNo recent information found on a single, specific "new" development in Aura AI. These updates seem to be across different applications and domains. \n\nIf you are looking for information on a specific Aura AI project, please provide more context.\n\n            Sources:\n            • ai.google.dev\n• arxiv.org\n• prnewswire.com\n            \n\nFollow-up question:\nWhat specific Aura AI application interests you the most for further information?'
+Final Reply Token Count (Estimate): 187
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T10:02:30.270152Z
+User Query: 'who is ms dhoni'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 13
+   Output Tokens: 8
+   Total Tokens: 344
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is ms dhoni
+
+        Rewritten Query:
+   [LLM Output Snippet]: who is Mahendra Singh Dhoni
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 15
+   Output Tokens: 3
+   Total Tokens: 600
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    who is Mahendra Singh Dhoni
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 127
+   Input/Query Tokens: 1415
+   Output Tokens: 234
+   Total Tokens: 1776
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is ms dhoni              Context:                                      Ti...
+   [LLM Output Snippet]: Mahendra Singh Dhoni, commonly known as MS Dhoni, is a former Indian cricketer and captain of the In...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 99
+   Input/Query Tokens: 274
+   Output Tokens: 17
+   Total Tokens: 390
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is ms dhoni          Answer:                      Mahendra Singh Dhoni, commo...
+   [LLM Output Snippet]: What were MS Dhoni's notable achievements as captain of the Indian cricket team?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1131
+Total Input/Query Tokens: 1717
+Total Output Tokens: 262
+TOTAL TOKENS USED: 3110
+-----------------------------------------
+Final Reply Text: '\n            Mahendra Singh Dhoni, commonly known as MS Dhoni, is a former Indian cricketer and captain of the Indian national team. He was born on July 7, 1981, in Ranchi, Bihar (now Jharkhand), India. Dhoni is a wicket-keeper batter and is nicknamed "Mahi," "Thala," and "Captain Cool." He has received several awards, including the Padma Bhushan, Padma Shri, and Major Dhyan Chand Khel Ratna Award.\n\nSome key facts about MS Dhoni:\n* He made his international debut in 2004 and played for India until his retirement in 2020.\n* Dhoni led the Indian team to victories in all three formats: Test, ODI, and T20.\n* He is known for his calm and composed nature on the field.\n* Dhoni has played for various teams, including Bihar, Jharkhand, Chennai Super Kings, and Rising Pune Supergiant.\n\nDhoni\'s cricket career spans over 15 years, and he is considered one of the greatest captains and wicket-keeper batters in Indian cricket history.\n\n            Sources:\n            • en.wikipedia.org\n• starsunfolded.com\n• cricbuzz.com\n            \n\nFollow-up question:\nWhat were MS Dhoni\'s notable achievements as captain of the Indian cricket team?'
+Final Reply Token Count (Estimate): 178
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T10:18:42.808488Z
+User Query: 'Writing meeting agenda'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 11
+   Output Tokens: 6
+   Total Tokens: 340
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Writing meeting agenda
+
+        Rewritten Query:
+   [LLM Output Snippet]: Writing a meeting agenda template
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 580
+   Input/Query Tokens: 15
+   Output Tokens: 3
+   Total Tokens: 598
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Writing a meeting agenda template
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 184
+   Input/Query Tokens: 12
+   Output Tokens: 531
+   Total Tokens: 727
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    Writing meeting agenda
+
+    Final Answer:
+   [LLM Output Snippet]: **Meeting Agenda Template**  A well-structured meeting agenda is essential for productive and effici...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 96
+   Input/Query Tokens: 548
+   Output Tokens: 12
+   Total Tokens: 656
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Writing meeting agenda          Answer:         **Meeting Agenda Template**  A we...
+   [LLM Output Snippet]: How can I customize this template for a virtual meeting?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1183
+Total Input/Query Tokens: 586
+Total Output Tokens: 552
+TOTAL TOKENS USED: 2321
+-----------------------------------------
+Final Reply Text: "**Meeting Agenda Template**\n\nA well-structured meeting agenda is essential for productive and efficient meetings. Here's a general template to help you write a clear and effective meeting agenda:\n\n**I. Meeting Details**\n\n* **Meeting Name:** [Specify meeting name or purpose]\n* **Date:** [Insert date]\n* **Time:** [Insert time]\n* **Location:** [Insert location or virtual meeting link]\n\n**II. Objectives**\n\n* Clearly state the meeting's primary objectives and expected outcomes\n\n**III. Agenda Items**\n\n* **Item 1: Introduction and Welcome** (5 minutes)\n\t+ Brief overview of the meeting's purpose and objectives\n* **Item 2: [Topic 1]** ( [Insert time] minutes)\n\t+ Discussion of [topic 1] and related updates\n* **Item 3: [Topic 2]** ( [Insert time] minutes)\n\t+ Discussion of [topic 2] and related updates\n* **Item 4: [Topic 3]** ( [Insert time] minutes)\n\t+ Discussion of [topic 3] and related updates\n\n**IV. Action Items and Decisions**\n\n* Clearly outline action items, responsible individuals, and deadlines\n\n**V. Conclusion and Next Steps**\n\n* Recap the meeting's key takeaways and action items\n* Outline next steps and future meeting plans (if applicable)\n\n**VI. Adjournment**\n\n* Time for adjournment\n\n**Tips:**\n\n* Distribute the agenda to attendees in advance to ensure everyone is prepared\n* Leave space for notes and comments\n* Be flexible and adjust the agenda as needed during the meeting\n\n**Example Use Case:**\n\nSuppose you're organizing a team meeting to discuss a new project. Your meeting agenda might look like this:\n\n**I. Meeting Details**\n\n* **Meeting Name:** New Project Kickoff\n* **Date:** 2023-02-20\n* **Time:** 10:00 AM\n* **Location:** Conference Room\n\n**II. Objectives**\n\n* Introduce the new project and its objectives\n* Discuss project scope, timelines, and resource allocation\n\n**III. Agenda Items**\n\n* **Item 1: Introduction and Welcome** (5 minutes)\n* **Item 2: Project Overview** (15 minutes)\n* **Item 3: Project Scope and Timelines** (20 minutes)\n* **Item 4: Resource Allocation and Next Steps** (20 minutes)\n\n**IV. Action Items and Decisions**\n\n* Assign action items to team members and establish deadlines\n\nBy following this template, you'll be able to create a clear and effective meeting agenda that helps ensure a productive and successful meeting.\n\nFollow-up question:\nHow can I customize this template for a virtual meeting?"
+Final Reply Token Count (Estimate): 361
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T10:28:22.760642Z
+User Query: 'Writing meeting agenda'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 11
+   Output Tokens: 6
+   Total Tokens: 340
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Writing meeting agenda
+
+        Rewritten Query:
+   [LLM Output Snippet]: Writing a meeting agenda template
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 580
+   Input/Query Tokens: 15
+   Output Tokens: 3
+   Total Tokens: 598
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Writing a meeting agenda template
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 184
+   Input/Query Tokens: 12
+   Output Tokens: 409
+   Total Tokens: 605
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    Writing meeting agenda
+
+    Final Answer:
+   [LLM Output Snippet]: **Meeting Agenda Template**  A well-structured meeting agenda is essential for productive discussion...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 93
+   Input/Query Tokens: 429
+   Output Tokens: 12
+   Total Tokens: 534
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Writing meeting agenda          Answer:         **Meeting Agenda Template**  A we...
+   [LLM Output Snippet]: How can I customize this template for a virtual meeting?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1180
+Total Input/Query Tokens: 467
+Total Output Tokens: 430
+TOTAL TOKENS USED: 2077
+-----------------------------------------
+Final Reply Text: "**Meeting Agenda Template**\n\nA well-structured meeting agenda is essential for productive discussions and effective decision-making. Below is a general template that can be tailored to suit various meeting types.\n\n### I. Meeting Details\n\n- **Meeting Name:** [Specify the meeting name or purpose]\n- **Date:** [Insert Date]\n- **Time:** [Insert Time]\n- **Location:** [Insert Location/Virtual Meeting Link]\n- **Attendees:** [List names and titles of attendees]\n\n### II. Agenda\n\n1. **Introduction and Objectives** (5 minutes)\n   - Brief overview of the meeting's purpose and expected outcomes.\n\n2. **Review of Previous Action Items** (10 minutes)\n   - Discuss the status of action items from previous meetings.\n\n3. **Main Discussion Topics** (Variable time)\n   - **Topic 1:** [Insert topic name] (Discussion, Decision, or Information Sharing)\n   - **Topic 2:** [Insert topic name] (Discussion, Decision, or Information Sharing)\n   - ...\n\n4. **New Business/Additional Topics** (Variable time)\n   - Open discussion on any new topics not previously listed.\n\n5. **Conclusion and Next Steps** (5 minutes)\n   - Recap the decisions made and outline the action items.\n\n6. **Adjournment** (1 minute)\n   - Official end of the meeting.\n\n### III. Action Items and Decisions\n\n- **Responsibilities:** List who is responsible for each action item.\n- **Deadlines:** Specify deadlines for completing action items.\n\n### IV. Documentation and Follow-Up\n\n- Ensure meeting minutes are taken and distributed to attendees.\n- Schedule a follow-up meeting if necessary.\n\n### Tips for Writing a Meeting Agenda:\n\n- **Be Clear:** Ensure each agenda item is clearly described.\n- **Prioritize:** Order agenda items by priority or logical flow.\n- **Time Management:** Allocate realistic time slots for each item.\n\nAdjust this template according to the specific needs and goals of your meeting. Effective agendas lead to more productive meetings and better outcomes.\n\nFollow-up question:\nHow can I customize this template for a virtual meeting?"
+Final Reply Token Count (Estimate): 292
+=========================================
