@@ -33,3 +33,7 @@ export async function streamChat(body, signal = null) {
     signal
   });
 }
+
+export async function getChatModels() {
+  return client.get('/chat/models');
+}

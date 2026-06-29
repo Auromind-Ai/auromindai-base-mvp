@@ -191,7 +191,7 @@ RETURN STRICT JSON ONLY (no extra text, no markdown):
 """
 
             self.logger.info("Sending support agent prompt to LLM...")
-            result = self.llm.generate_json(prompt)
+            result = await self.llm.generate_json(prompt)
             self.logger.info(f"[SUPPORT] LLM raw result: {result}")
 
             if not result:

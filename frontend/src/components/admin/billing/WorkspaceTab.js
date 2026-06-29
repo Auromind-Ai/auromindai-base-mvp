@@ -644,8 +644,17 @@ export default function WorkspaceTab({
                               {log.balance_source}
                             </span>
                           </td>
-                          <td className={`py-2 text-right font-bold ${log.credits_delta >= 0 ? "text-green-400" : "text-red-400"}`}>
-                            {log.credits_delta >= 0 ? "+" : ""}{Number(log.credits_delta ?? 0).toFixed(2)}
+                          <td className={`py-2 text-right font-bold ${Number(log.credits_delta) < 0 ? "text-red-400" : "text-green-400"}`}>
+                            {(() => {
+                              const value = Number(log.credits_delta ?? 0);
+                              const isDeduction = value < 0;
+                              const isZero = Math.abs(value) < 0.0000001;
+                              const formatted = value.toLocaleString(undefined, {
+                                minimumFractionDigits: 4,
+                                maximumFractionDigits: 4
+                              });
+                              return `${isDeduction || isZero ? "" : "+"}${formatted}`;
+                            })()}
                           </td>
                           <td className="py-2 pl-4 text-gray-400 max-w-xs truncate" title={log.description}>{log.description}</td>
                         </tr>

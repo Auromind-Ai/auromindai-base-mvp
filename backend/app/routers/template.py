@@ -15,10 +15,6 @@ from app.models.workspace import Workspace
 from app.services.template import submit_to_meta
 from app.routers.auth import get_current_user
 
-load_dotenv()
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client = Groq(api_key=GROQ_API_KEY)
 router = APIRouter()
 
 class TemplateCreate(BaseModel):
@@ -78,11 +74,21 @@ def format_template_variables(text: str | None) -> str | None:
     return formatted
 
 @router.post("/templates/generate")
-def generate_template(data: GenerateRequest):
+async def generate_template(
+    data: GenerateRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
 
     if not data.prompt or data.prompt.strip() == "":
         raise HTTPException(400, "Prompt is required")
     
+    from app.core.exceptions import BillingError, WorkspaceAccessError
+    from app.core.security import verify_workspace_access
+    from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+    import asyncio
+
+    workspace_id = verify_workspace_access(current_user, db)
 
     lang_name = map_language(data.language)
     system_prompt = f"""
@@ -210,27 +216,39 @@ Return JSON only.
     Tone: {data.tone}
     """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.7,
-        response_format={"type": "json_object"},
-    )
-    message = response.choices[0].message.content
-    import json
     try:
-        data_dict = json.loads(message)
-        if "templates" in data_dict:
-            for tpl in data_dict["templates"]:
-                if "text" in tpl:
-                    tpl["text"] = format_template_variables(tpl["text"])
-        message = json.dumps(data_dict)
-    except Exception:
-        message = format_template_variables(message)
-    return {"message": message}
+        res = await AIExecutionService.execute(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=current_user.id,
+            feature_key=AIFeatureRegistry.TEMPLATE,
+            prompt=user_prompt,
+            system_prompt=system_prompt,
+            structured_output=True,
+            model="auto",
+            description="Generate WhatsApp template variations"
+        )
+
+        message = res.get("text", "")
+        import json
+        try:
+            data_dict = json.loads(message)
+            if "templates" in data_dict:
+                for tpl in data_dict["templates"]:
+                    if "text" in tpl:
+                        tpl["text"] = format_template_variables(tpl["text"])
+            message = json.dumps(data_dict)
+        except Exception:
+            message = format_template_variables(message)
+        return {"message": message}
+
+    except (BillingError, WorkspaceAccessError) as e:
+        raise e
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Template generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
 
 @router.post("/templates/create")
 def create_template(

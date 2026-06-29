@@ -63,6 +63,14 @@ export default function CreditRingDropdown({ user, size = 36 }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const formatCredits = (value, precision = 2) => {
+    if (value === undefined || value === null || isNaN(Number(value))) return '—';
+    return Number(value).toLocaleString(undefined, {
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision
+    });
+  };
+
   const balance = credits?.credits_balance ?? 2450;
   const added = credits?.credits_added ?? 3000;
   const used = Math.max(0, added - balance);
@@ -74,7 +82,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   const strokeDashoffset = circumference - (percentRemaining / 100) * circumference;
 
   // Calculate estimated WhatsApp marketing messages
-  const estMarketingMsgs = Math.floor(wccBalance / 1.09);
+  const estMarketingMsgs = Math.floor(wccBalance / 1.25);
 
   return (
     <div className="relative font-sans" ref={dropdownRef}>
@@ -124,8 +132,8 @@ export default function CreditRingDropdown({ user, size = 36 }) {
             
             <div className="space-y-2">
               <div className="flex items-baseline justify-between">
-                <span className="text-lg font-black text-white">{balance.toLocaleString()}</span>
-                <span className="text-zinc-500 text-xs font-semibold">/ {added.toLocaleString()} AI Messages</span>
+                <span className="text-lg font-black text-white">{formatCredits(balance, 2)}</span>
+                <span className="text-zinc-500 text-xs font-semibold">/ {formatCredits(added, 2)} AI Messages</span>
               </div>
               
               {/* ElevenLabs Progress Bar */}

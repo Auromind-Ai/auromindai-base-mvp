@@ -76,17 +76,11 @@ function BillingContent() {
         DEFAULT_PROVIDER
       )
 
-      if (!window.Razorpay) {
-        throw new Error("Razorpay checkout is still loading.")
-      }
-
-      const razorpay = new window.Razorpay({
-        key: checkout.public_key,
-        subscription_id: checkout.subscription_id,
+      api.openRazorpayCheckout({
+        orderData: checkout,
         name: "Auromind",
         description: `${checkout.plan_label || "Pro"} subscription`,
         prefill: checkout.prefill,
-
         handler: async (response) => {
           const payload = {
             workspace_id: workspaceId,
@@ -118,10 +112,8 @@ function BillingContent() {
           } catch (error) {
             console.error(LOG_PREFIX, "Payment verification failed:", error)
           }
-        },
+        }
       })
-
-      razorpay.open()
     } catch (error) {
       console.error(LOG_PREFIX, "Unable to start upgrade:", error)
     }

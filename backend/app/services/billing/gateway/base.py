@@ -1,13 +1,41 @@
-from app.core.config import settings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 from app.models.workspace import Workspace
 
 
-RESERVATION_TTL_MINUTES = settings.BILLING_RESERVATION_TTL_MINUTES if hasattr(settings, 'BILLING_RESERVATION_TTL_MINUTES') else 30
-RESERVATION_MAX_PER_WORKSPACE = settings.BILLING_MAX_CONCURRENT_RESERVATIONS if hasattr(settings, 'BILLING_MAX_CONCURRENT_RESERVATIONS') else 10
-TOKENS_PER_CREDIT = settings.TOKENS_PER_CREDIT if hasattr(settings, 'TOKENS_PER_CREDIT') else 1000
+def __getattr__(name: str) -> Any:
+    if name == "RESERVATION_TTL_MINUTES":
+        try:
+            from app.services.config_service import config_service
+            ttl = config_service.get("billing_reservation_ttl_seconds")
+            if ttl is not None:
+                return int(ttl / 60)
+        except Exception:
+            pass
+        return 30
+
+    if name == "RESERVATION_MAX_PER_WORKSPACE":
+        try:
+            from app.services.config_service import config_service
+            val = config_service.get("billing_max_concurrent_reservations")
+            if val is not None:
+                return val
+        except Exception:
+            pass
+        return 10
+
+    if name == "TOKENS_PER_CREDIT":
+        try:
+            from app.services.config_service import config_service
+            val = config_service.get("tokens_per_credit")
+            if val is not None:
+                return val
+        except Exception:
+            pass
+        return 1000
+
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
 @dataclass

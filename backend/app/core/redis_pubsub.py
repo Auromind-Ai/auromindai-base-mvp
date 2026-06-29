@@ -107,6 +107,8 @@ class RedisPubSubService:
                         settings.REDIS_URL,
                         encoding="utf-8",
                         decode_responses=True,
+                        socket_timeout=2.0,
+                        socket_connect_timeout=2.0,
                     )
                     self._pubsub = self._redis.pubsub(
                         ignore_subscribe_messages=True

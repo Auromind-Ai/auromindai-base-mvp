@@ -14,6 +14,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.security import verify_workspace_access
 from app.schemas.automation import FlowPromptRequest, FlowSaveRequest, FlowResponseModel, DeleteFlowResponse, ApproveResponse, GenerateFlowResponse, FlowStatusUpdateRequest
+from sqlalchemy import func
+from app.services.billing.entitlement_service import EntitlementService
+from app.models.flow_pack import FlowPackPurchase
 
 router = APIRouter(prefix="/automation", tags=["automation"])
 engine = AutomationEngine()
@@ -43,10 +46,15 @@ async def generate_flow(
     current_user=Depends(get_current_user)
 ):
    
-    verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db)
     
     try:
-        flow = agentic_wiring_service.generate_flow(request.prompt)
+        flow = await agentic_wiring_service.generate_flow(
+            prompt=request.prompt,
+            db=db,
+            workspace_id=workspace_id,
+            user_id=current_user.id
+        )
         return flow
     except Exception as e:
         logger.exception("[Router] Flow generation failed: %s", e)
@@ -63,6 +71,8 @@ async def get_flows(
 ):
 
     workspace_id = verify_workspace_access(current_user, db)
+    if isinstance(workspace_id, str):
+        workspace_id = uuid.UUID(workspace_id)
     
     # Query flows filtered by workspace_id (security boundary)
     flows = db.query(AutomationFlow).filter(
@@ -79,6 +89,8 @@ async def save_flow(
 ):
     
     workspace_id = verify_workspace_access(current_user, db)
+    if isinstance(workspace_id, str):
+        workspace_id = uuid.UUID(workspace_id)
     
     # Validate flow structure
     validation = FlowValidationService.validate_flow(request.nodes, request.edges)
@@ -115,6 +127,26 @@ async def save_flow(
         return flow
     
     # Create new flow
+    entitlement = EntitlementService.get_workspace_entitlement(db, workspace_id)
+    plan_limit = entitlement.flow if hasattr(entitlement, "flow") else 5
+    
+    if plan_limit != -1:
+        current_flows = db.query(AutomationFlow).filter(
+            AutomationFlow.workspace_id == workspace_id
+        ).count()
+        
+        purchased_flows = db.query(func.sum(FlowPackPurchase.flows_count)).filter(
+            FlowPackPurchase.workspace_id == workspace_id,
+            FlowPackPurchase.status == "success"
+        ).scalar() or 0
+        
+        allowed_flows = plan_limit + purchased_flows
+        if current_flows >= allowed_flows:
+            raise HTTPException(
+                status_code=400,
+                detail="Flow quota exceeded. Upgrade your plan or purchase additional flow packs."
+            )
+    
     new_flow = AutomationFlow(
         id=uuid.uuid4(),
         name=request.name,
@@ -137,6 +169,8 @@ async def get_flow(
 ):
     
     workspace_id = verify_workspace_access(current_user, db)
+    if isinstance(workspace_id, str):
+        workspace_id = uuid.UUID(workspace_id)
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(
@@ -160,6 +194,8 @@ async def delete_flow(
 ):
     
     workspace_id = verify_workspace_access(current_user, db)
+    if isinstance(workspace_id, str):
+        workspace_id = uuid.UUID(workspace_id)
     
     # Query flow with workspace boundary check
     flow = db.query(AutomationFlow).filter(
@@ -186,6 +222,8 @@ async def update_flow_status(
     current_user=Depends(get_current_user)
 ):
     workspace_id = verify_workspace_access(current_user, db)
+    if isinstance(workspace_id, str):
+        workspace_id = uuid.UUID(workspace_id)
 
     flow = db.query(AutomationFlow).filter(
         AutomationFlow.id == flow_id,

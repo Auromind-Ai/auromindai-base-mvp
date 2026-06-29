@@ -93,8 +93,8 @@ class WebhookService:
         token = query_params.get("hub.verify_token")
         challenge = query_params.get("hub.challenge")
         if mode == "subscribe" and token == verify_token:
-            return int(challenge)
-        return {"status": "failed"}
+            return challenge
+        return None
         
     @staticmethod
     async def handle_twilio_webhook(form_data, db: Session):
@@ -222,6 +222,22 @@ class WebhookService:
                 if statuses:
                     print("WHATSAPP STATUS UPDATE")
                     print(json.dumps(payload, indent=2))
+                    
+                    # Pre-fetch and cache active rate cards for region 'IN' to eliminate N+1 queries
+                    active_cards = {}
+                    try:
+                        from datetime import datetime, timezone
+                        now = datetime.now(timezone.utc)
+                        rates = db.query(WCCRateCard).filter(
+                            WCCRateCard.is_active == True,
+                            WCCRateCard.effective_from <= now,
+                            (WCCRateCard.effective_to == None) | (WCCRateCard.effective_to > now)
+                        ).all()
+                        for r in rates:
+                            active_cards[(r.category.lower(), r.region.upper())] = r
+                    except Exception as rates_exc:
+                        logger.error(f"Failed to pre-fetch WCC rate cards in webhook: {rates_exc}")
+                        
                     for status_update in statuses:
                         wamid = status_update.get("id")
                         status_str = status_update.get("status")
@@ -250,30 +266,43 @@ class WebhookService:
                             conversation = status_update.get("conversation")
                             if pricing and conversation:
                                 try:
-                                   
-                                    
                                     billable = pricing.get("billable", False)
                                     category = pricing.get("category", "service").lower()
                                     meta_session_id = conversation.get("id")
                                     
-                                    rate_applied = Decimal("0.00")
+                                    meta_cost = Decimal("0.00")
+                                    customer_price = Decimal("0.00")
                                     if billable:
-                                        rate_card = db.query(WCCRateCard).filter(
-                                            WCCRateCard.category == category,
-                                            WCCRateCard.is_active == True
-                                        ).first()
+                                        # Retrieve from pre-fetched cache
+                                        rate_card = active_cards.get((category, "IN"))
                                         if rate_card:
-                                            rate_applied = rate_card.rate_per_message
+                                            meta_cost = rate_card.meta_cost
+                                            customer_price = rate_card.customer_price
                                         else:
-                                            logger.warning(f"No active WCC rate card found for category '{category}' during webhook debit.")
+                                            # Fallback query
+                                            try:
+                                                rate_card = WCCService.get_active_rate(db, category, "IN")
+                                                meta_cost = rate_card.meta_cost
+                                                customer_price = rate_card.customer_price
+                                            except Exception as rate_err:
+                                                logger.warning(f"No active WCC rate card found for category '{category}' during webhook debit: {rate_err}")
+                                                # Absolute safety fallbacks based on Meta expected charges if not configured
+                                                fallbacks = {
+                                                    "marketing": (Decimal("1.09"), Decimal("1.25")),
+                                                    "utility": (Decimal("0.145"), Decimal("0.18")),
+                                                    "authentication": (Decimal("0.145"), Decimal("0.18")),
+                                                    "service": (Decimal("0.00"), Decimal("0.05"))
+                                                }
+                                                meta_cost, customer_price = fallbacks.get(category, (Decimal("0.00"), Decimal("0.05")))
 
-                                    # Perform the atomic debit
+                                    # Perform the atomic debit using reseller prices
                                     WCCService.debit_conversation_charge(
                                         db=db,
                                         workspace_id=workspace.id,
                                         meta_session_id=meta_session_id,
                                         category=category,
-                                        rate_applied=rate_applied,
+                                        meta_cost=meta_cost,
+                                        customer_price=customer_price,
                                         raw_payload=status_update
                                     )
                                 except Exception as debit_exc:

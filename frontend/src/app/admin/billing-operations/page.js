@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Database,
   ArrowRightLeft,
-  Shield
+  Shield,
+  Workflow
 } from "lucide-react"
 
 import api from "@/lib/api"
@@ -22,6 +23,7 @@ import DiagnosticsTab from "@/components/admin/billing/DiagnosticsTab"
 import PaymentsTab from "@/components/admin/billing/PaymentsTab"
 import FeatureRulesTab from "@/components/admin/billing/FeatureRulesTab"
 import CreditPacksTab from "@/components/admin/billing/CreditPacksTab"
+import FlowPacksTab from "@/components/admin/billing/FlowPacksTab"
 import PlanEntitlementsTab from "@/components/admin/billing/PlanEntitlementsTab"
 import RateCardsTab from "@/components/admin/billing/RateCardsTab"
 import AuditLogsTab from "@/components/admin/billing/AuditLogsTab"
@@ -37,6 +39,7 @@ export default function BillingOperationsPage() {
   const [diagnostics, setDiagnostics] = useState(null)
   const [featureRules, setFeatureRules] = useState([])
   const [creditPacks, setCreditPacks] = useState([])
+  const [flowPacks, setFlowPacks] = useState([])
   const [planEntitlements, setPlanEntitlements] = useState([])
   const [rateCards, setRateCards] = useState([])
 
@@ -58,6 +61,9 @@ export default function BillingOperationsPage() {
       } else if (activeTab === "credit-packs") {
         const packs = await api.getCreditPacksAdmin()
         setCreditPacks(packs)
+      } else if (activeTab === "flow-packs") {
+        const packs = await api.getFlowPacksAdmin()
+        setFlowPacks(packs)
       } else if (activeTab === "plan-entitlements") {
         const entitlements = await api.getPlanEntitlementsAdmin()
         setPlanEntitlements(entitlements)
@@ -124,6 +130,7 @@ export default function BillingOperationsPage() {
           { id: "payments", name: "Payment Operations", icon: ArrowRightLeft },
           { id: "rules", name: "Feature Billing Rules", icon: Settings },
           { id: "credit-packs", name: "Credit Packs", icon: Coins },
+          { id: "flow-packs", name: "Flow Packs", icon: Workflow },
           { id: "plan-entitlements", name: "Plan Entitlements", icon: Shield },
           { id: "rate-cards", name: "WCC Rate Cards", icon: Wallet },
           { id: "audit-logs", name: "Admin Audit Logs", icon: FileText }
@@ -193,6 +200,16 @@ export default function BillingOperationsPage() {
           <CreditPacksTab
             creditPacks={creditPacks}
             setCreditPacks={setCreditPacks}
+            setError={setError}
+            setSuccess={setSuccess}
+            setActionLoading={setActionLoading}
+          />
+        )}
+
+        {activeTab === "flow-packs" && (
+          <FlowPacksTab
+            flowPacks={flowPacks}
+            setFlowPacks={setFlowPacks}
             setError={setError}
             setSuccess={setSuccess}
             setActionLoading={setActionLoading}

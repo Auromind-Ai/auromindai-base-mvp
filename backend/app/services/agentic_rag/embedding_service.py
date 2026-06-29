@@ -8,18 +8,12 @@ from typing import Optional
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from app.core.config import settings
-
 logger = logging.getLogger(__name__)
 
 
-#  Module-level singleton state (per OS process)
-
-_embedding_instance: Optional["EmbeddingGenerator"] = None
-_embedding_lock = threading.Lock()
-
-EMBEDDING_MODEL_NAME: str = getattr(settings, "EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
-EMBEDDING_DEVICE: str = getattr(settings, "EMBEDDING_DEVICE", "cpu")
+#  Module-level singleton cache state (per OS process)
+_embedding_cache = {}
+_embedding_cache_lock = threading.Lock()
 
 
 class EmbeddingGenerator:
@@ -27,8 +21,8 @@ class EmbeddingGenerator:
 
     def __init__(
         self,
-        model_name: str = EMBEDDING_MODEL_NAME,
-        device: str = EMBEDDING_DEVICE,
+        model_name: str,
+        device: str,
     ) -> None:
         logger.info("Loading embedding model: %s on %s", model_name, device)
         self._model = SentenceTransformer(model_name, device=device)
@@ -79,6 +73,10 @@ class EmbeddingGenerator:
             raise ValueError("Query embedding dimension mismatch")
         return embedding
 
+    async def generate_query_embedding_async(self, query: str) -> np.ndarray:
+        import asyncio
+        return await asyncio.to_thread(self.generate_query_embedding, query)
+
     def generate_batch_embeddings(self, texts: list) -> np.ndarray:
         embeddings = self._model.encode(
             texts,
@@ -91,10 +89,17 @@ class EmbeddingGenerator:
 
 
 def get_embedding_generator() -> EmbeddingGenerator:
-    """Return the process-level EmbeddingGenerator singleton (thread-safe)."""
-    global _embedding_instance
-    if _embedding_instance is None:
-        with _embedding_lock:
-            if _embedding_instance is None:
-                _embedding_instance = EmbeddingGenerator()
-    return _embedding_instance
+    """Return the process-level EmbeddingGenerator singleton matching current config (thread-safe)."""
+    from app.services.config_service import config_service
+    model_name = config_service.get("embedding_model_name", "BAAI/bge-small-en-v1.5")
+    device = config_service.get("embedding_device", "cpu")
+    cache_key = (model_name, device)
+
+    global _embedding_cache
+    if cache_key not in _embedding_cache:
+        with _embedding_cache_lock:
+            if cache_key not in _embedding_cache:
+                # Clear existing cache entries to free memory before loading a new model
+                _embedding_cache.clear()
+                _embedding_cache[cache_key] = EmbeddingGenerator(model_name, device)
+    return _embedding_cache[cache_key]

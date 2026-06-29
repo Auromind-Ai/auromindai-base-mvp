@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any
+import uuid
 from sqlalchemy.orm import Session
 from app.core.enums import PaymentStatus, SubscriptionStatus
 from app.models.billing import Payment
@@ -46,7 +47,6 @@ class WebhookService:
             lock_token = None
             if core_redis:
                 try:
-                    import uuid
                     lock_token = str(uuid.uuid4())
                     acquired = core_redis.set(lock_key, lock_token, nx=True, ex=60)
                     if not acquired:
