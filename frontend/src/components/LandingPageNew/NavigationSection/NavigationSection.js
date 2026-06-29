@@ -19,6 +19,12 @@ const NavigationSection = () => {
   const { user, loading } = useAuth();
   const isLogged = !loading && !!user;
 
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [appLogoUrl]);
+
   return (
     <nav
       className={`${poppins.className} fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-md border-b border-white/10 py-3 sm:py-4 px-4 sm:px-6`}
@@ -26,8 +32,13 @@ const NavigationSection = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center group-hover:scale-105 transition-all">
-            {appLogoUrl && appLogoUrl !== "/logo.png" ? (
-              <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+            {appLogoUrl && !logoError ? (
+              <img 
+                src={appLogoUrl} 
+                alt={appName} 
+                className="w-5 h-5 object-contain" 
+                onError={() => setLogoError(true)}
+              />
             ) : (
               <Zap size={18} fill="currentColor" />
             )}

@@ -1,5 +1,6 @@
 "use client";
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { useBranding } from '@/context/BrandingContext';
 
 const footerLinks = {
@@ -26,6 +27,11 @@ const footerLinks = {
 
 export default function Footer() {
   const { appName, appLogoUrl } = useBranding();
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [appLogoUrl]);
 
   return (
     <footer
@@ -48,8 +54,13 @@ export default function Footer() {
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
                 style={{ background: "#814AC8" }}
               >
-                {appLogoUrl && appLogoUrl !== "/logo.png" ? (
-                  <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+                {appLogoUrl && !logoError ? (
+                  <img 
+                    src={appLogoUrl} 
+                    alt={appName} 
+                    className="w-5 h-5 object-contain" 
+                    onError={() => setLogoError(true)}
+                  />
                 ) : (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
