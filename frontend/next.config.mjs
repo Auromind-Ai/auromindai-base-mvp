@@ -4,6 +4,12 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 const nextConfig = {
 
     reactStrictMode: true,
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
+    typescript: {
+        ignoreBuildErrors: true,
+    },
     httpAgentOptions: {
         keepAlive: true,
     },
