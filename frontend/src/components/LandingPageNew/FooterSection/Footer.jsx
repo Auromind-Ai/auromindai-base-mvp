@@ -50,31 +50,33 @@ export default function Footer() {
           <div className="flex flex-col gap-5">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                style={{ background: "#814AC8" }}
-              >
+              <div className="w-10 h-10 flex items-center justify-center">
                 {appLogoUrl && !logoError ? (
                   <img 
                     src={appLogoUrl} 
                     alt={appName} 
-                    className="w-5 h-5 object-contain" 
+                    className="w-8 h-8 object-contain" 
                     onError={() => setLogoError(true)}
                   />
                 ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: "#814AC8" }}
                   >
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                  </svg>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+                  </div>
                 )}
               </div>
               <span

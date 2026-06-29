@@ -63,16 +63,18 @@ export default function AdminSidebar() {
 
       {/* Logo Section */}
       <div className="p-8 flex items-center gap-3 relative">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <div className="w-10 h-10 flex items-center justify-center">
           {appLogoUrl && !logoError ? (
             <img 
               src={appLogoUrl} 
               alt={appName} 
-              className="w-5 h-5 object-contain" 
+              className="w-8 h-8 object-contain" 
               onError={() => setLogoError(true)}
             />
           ) : (
-            <BrainCircuit className="text-white w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <BrainCircuit className="text-white w-5 h-5" />
+            </div>
           )}
         </div>
         <div className="flex flex-col">
