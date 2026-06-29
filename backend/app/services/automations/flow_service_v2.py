@@ -11,7 +11,6 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.exc import IntegrityError
 from collections import OrderedDict
-from app.core.config import settings
 from app.models.automation import AutomationFlow
 from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
@@ -62,7 +61,9 @@ class _LRULockCache:
 _conversation_locks = _LRULockCache(max_size=10_000)
 
 # Configurable fallback message
-FLOW_FALLBACK_MESSAGE = settings.FLOW_FALLBACK_MESSAGE or "Sorry, something went wrong. Please try again."
+def get_flow_fallback_message() -> str:
+    from app.services.config_service import config_service
+    return config_service.get("flow_fallback_message") or "Sorry, something went wrong. Please try again."
 EXECUTION_LEASE_SECONDS = 120
 
 class ConversationExecutionBusy(Exception):
@@ -289,7 +290,7 @@ class FlowServiceV2:
                             db=db,
                             conversation_id=conversation.id,
                             to_number=self._get_conversation_destination(conversation),
-                            body=FLOW_FALLBACK_MESSAGE,
+                            body=get_flow_fallback_message(),
                             metadata={
                                 "source": "button_mismatch_fallback",
                             },
@@ -1233,7 +1234,7 @@ class FlowServiceV2:
                             db=db,
                             conversation_id=conversation.id,
                             to_number=self._get_conversation_destination(conversation),
-                            body=FLOW_FALLBACK_MESSAGE,
+                            body=get_flow_fallback_message(),
                             metadata={
                                 "source": "node_error_fallback",
                                 "node_id": current_node_id,

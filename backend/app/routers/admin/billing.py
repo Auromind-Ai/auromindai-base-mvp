@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from sqlalchemy import func, or_, desc, String
 from sqlalchemy.orm import Session
 
@@ -1897,12 +1897,19 @@ async def get_wcc_rate_cards(db: Session = Depends(get_db)):
     cards = db.query(WCCRateCard).order_by(WCCRateCard.category.asc()).all()
     
     if not cards:
-        categories = ["marketing", "utility", "authentication", "service"]
-        for cat in categories:
+        categories = [
+            ("marketing", Decimal("1.09"), Decimal("1.25")),
+            ("utility", Decimal("0.145"), Decimal("0.18")),
+            ("authentication", Decimal("0.145"), Decimal("0.18")),
+            ("service", Decimal("0.00"), Decimal("0.05"))
+        ]
+        for cat, meta, cust in categories:
             card = WCCRateCard(
                 category=cat,
                 region="IN",
-                rate_per_message=Decimal("0.75"),
+                rate_per_message=cust,
+                meta_cost=meta,
+                customer_price=cust,
                 is_active=True
             )
             db.add(card)
@@ -1914,7 +1921,11 @@ async def get_wcc_rate_cards(db: Session = Depends(get_db)):
             "id": str(c.id),
             "category": c.category,
             "region": c.region,
-            "rate_per_message": float(c.rate_per_message),
+            "rate_per_message": float(c.customer_price),
+            "meta_cost": float(c.meta_cost),
+            "customer_price": float(c.customer_price),
+            "profit": float(c.customer_price - c.meta_cost),
+            "margin_percent": float(((c.customer_price - c.meta_cost) / c.customer_price) * 100) if c.customer_price > 0 else 0.0,
             "is_active": c.is_active,
             "created_at": c.created_at.isoformat() if c.created_at else None
         }
@@ -1923,8 +1934,22 @@ async def get_wcc_rate_cards(db: Session = Depends(get_db)):
 
 
 class WCCRateCardUpdateRequest(BaseModel):
-    rate_per_message: float
+    meta_cost: float
+    customer_price: float
     is_active: Optional[bool] = None
+
+    @validator("customer_price")
+    def validate_customer_markup(cls, customer_price, values):
+        meta_cost = values.get("meta_cost")
+        if meta_cost is not None and customer_price < meta_cost:
+            raise ValueError("Customer Price must be greater than or equal to Meta Cost")
+        if customer_price <= 0:
+            raise ValueError("Customer Price must be strictly positive")
+        if meta_cost is not None and meta_cost < 0:
+            raise ValueError("Meta Cost must be non-negative")
+        if customer_price > 1000.0 or (meta_cost is not None and meta_cost > 1000.0):
+            raise ValueError("Pricing values cannot exceed ₹1000.00")
+        return customer_price
 
 
 @router.put("/billing/wcc/rate-cards/{id}")
@@ -1941,11 +1966,14 @@ async def update_wcc_rate_card(
         
     old_val = {
         "category": card.category,
-        "rate_per_message": float(card.rate_per_message),
+        "meta_cost": float(card.meta_cost or 0.0),
+        "customer_price": float(card.customer_price or 0.0),
         "is_active": card.is_active
     }
     
-    card.rate_per_message = Decimal(str(payload.rate_per_message))
+    card.meta_cost = Decimal(str(payload.meta_cost))
+    card.customer_price = Decimal(str(payload.customer_price))
+    card.rate_per_message = Decimal(str(payload.customer_price))
     if payload.is_active is not None:
         card.is_active = payload.is_active
         
@@ -1954,7 +1982,8 @@ async def update_wcc_rate_card(
     
     new_val = {
         "category": card.category,
-        "rate_per_message": float(card.rate_per_message),
+        "meta_cost": float(card.meta_cost),
+        "customer_price": float(card.customer_price),
         "is_active": card.is_active
     }
     
@@ -1971,6 +2000,40 @@ async def update_wcc_rate_card(
     return {"message": "WCC Rate card updated successfully"}
 
 
+@router.get("/billing/wcc/analytics")
+async def get_wcc_analytics(
+    workspace_id: Optional[uuid.UUID] = None,
+    db: Session = Depends(get_db),
+    admin_user: str = Depends(get_admin_identity)
+):
+    """
+    Returns platform-wide or workspace-specific WCC financial analytics:
+    Revenue (sum of customer_price_applied), Meta Cost (sum of meta_cost_applied),
+    Profit (dynamic sum), and Margin %.
+    """
+    query = db.query(
+        func.sum(WCCTransaction.customer_price_applied).label("revenue"),
+        func.sum(WCCTransaction.meta_cost_applied).label("meta_cost")
+    ).filter(WCCTransaction.status == "success")
+    
+    if workspace_id:
+        query = query.filter(WCCTransaction.workspace_id == workspace_id)
+        
+    result = query.first()
+    
+    revenue = Decimal(str(result.revenue or "0.00"))
+    meta_cost = Decimal(str(result.meta_cost or "0.00"))
+    profit = revenue - meta_cost
+    margin_percent = (profit / revenue) * Decimal("100.00") if revenue > 0 else Decimal("0.00")
+    
+    return {
+        "revenue": float(revenue),
+        "meta_cost": float(meta_cost),
+        "profit": float(profit),
+        "margin_percent": float(margin_percent)
+    }
+
+
 class PlanEntitlementUpdateRequest(BaseModel):
     included_ai_credits: int
     included_wcc_wallet: float
@@ -1981,14 +2044,21 @@ class PlanEntitlementUpdateRequest(BaseModel):
     lead_limit: int
     meeting_limit: int
     automation_limit: int
+    flow: int
     allow_ai_topup: bool
     allow_wcc_recharge: bool
     included_credit_reset_policy: str
     included_wallet_reset_policy: str
     feature_flags: Dict[str, Any]
 
+    @validator("flow")
+    def validate_flow_quota(cls, v):
+        if v < 0:
+            raise ValueError("Flow quota must be a non-negative integer")
+        return v
 
-@router.get("/admin/plan-entitlements")
+
+@router.get("/plan-entitlements")
 async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
     plans = db.query(Plan).all()
     entitlements_list = []
@@ -2008,6 +2078,7 @@ async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
                 lead_limit=100,
                 meeting_limit=10,
                 automation_limit=2,
+                flow=5,
                 allow_ai_topup=True,
                 allow_wcc_recharge=True,
                 included_credit_reset_policy="EXPIRE",
@@ -2031,6 +2102,7 @@ async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
             "lead_limit": ent.lead_limit,
             "meeting_limit": ent.meeting_limit,
             "automation_limit": ent.automation_limit,
+            "flow": ent.flow,
             "allow_ai_topup": ent.allow_ai_topup,
             "allow_wcc_recharge": ent.allow_wcc_recharge,
             "included_credit_reset_policy": ent.included_credit_reset_policy,
@@ -2043,7 +2115,7 @@ async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
     return entitlements_list
 
 
-@router.put("/admin/plan-entitlements/{plan_id}")
+@router.put("/plan-entitlements/{plan_id}")
 async def update_plan_entitlement_admin(
     plan_id: uuid.UUID,
     payload: PlanEntitlementUpdateRequest,
@@ -2070,6 +2142,7 @@ async def update_plan_entitlement_admin(
         "lead_limit": ent.lead_limit,
         "meeting_limit": ent.meeting_limit,
         "automation_limit": ent.automation_limit,
+        "flow": ent.flow,
         "allow_ai_topup": ent.allow_ai_topup,
         "allow_wcc_recharge": ent.allow_wcc_recharge,
         "included_credit_reset_policy": ent.included_credit_reset_policy,
@@ -2087,6 +2160,7 @@ async def update_plan_entitlement_admin(
     ent.lead_limit = payload.lead_limit
     ent.meeting_limit = payload.meeting_limit
     ent.automation_limit = payload.automation_limit
+    ent.flow = payload.flow
     ent.allow_ai_topup = payload.allow_ai_topup
     ent.allow_wcc_recharge = payload.allow_wcc_recharge
     ent.included_credit_reset_policy = payload.included_credit_reset_policy
@@ -2108,6 +2182,7 @@ async def update_plan_entitlement_admin(
         "lead_limit": ent.lead_limit,
         "meeting_limit": ent.meeting_limit,
         "automation_limit": ent.automation_limit,
+        "flow": ent.flow,
         "allow_ai_topup": ent.allow_ai_topup,
         "allow_wcc_recharge": ent.allow_wcc_recharge,
         "included_credit_reset_policy": ent.included_credit_reset_policy,

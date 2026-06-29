@@ -1,5 +1,4 @@
 from typing import Any
-from app.core.config import settings
 from app.models.workspace import Workspace
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
 
@@ -14,14 +13,16 @@ class PayUGateway(PaymentGateway):
 
     @classmethod
     def from_env(cls) -> "PayUGateway":
-        key = settings.PAYU_MERCHANT_KEY
-        salt = settings.PAYU_SALT
+        from app.services.config_service import config_service
+        key = config_service.get("payu_merchant_key")
+        salt = config_service.get("payu_salt")
+        webhook_secret = config_service.get("payu_webhook_secret")
         if not key or not salt:
             raise ValueError("PayU is not configured")
         return cls(
             merchant_key=key,
             salt=salt,
-            webhook_secret=settings.PAYU_WEBHOOK_SECRET or salt,
+            webhook_secret=webhook_secret or salt,
         )
 
     def get_public_key(self) -> str | None:

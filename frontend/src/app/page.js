@@ -7,13 +7,13 @@ import NavigationSection from '../components/LandingPageNew/NavigationSection/Na
 import ModernSaaSBackground from '../components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import BeforeAfterSection from '../components/LandingPageNew/BeforeAfterSection/BeforeAfterSection';
 import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
-import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
+// import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
 import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
 import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
 import MessageManagementSection from '../components/LandingPageNew/MessageManagementSection/Messagemanagementsection';
 import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks';
 import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
-import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
+// import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import CtaSection from '@/components/LandingPageNew/FinalCTASection/ctasection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 
@@ -81,11 +81,11 @@ export default function LandingPage() {
           <HowItWorks />
           
           <PricingSectionNew />
-          <TestimonialsSection />
+          {/* <TestimonialsSection /> */}
    
           <FAQSection />
           <ProductDemoSection />
-          <SocialProofSection />
+          {/* <SocialProofSection /> */}
 
           <CtaSection />
           <FooterSection />

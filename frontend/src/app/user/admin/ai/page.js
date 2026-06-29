@@ -121,7 +121,7 @@ const GET_STARTED_CARDS = [
         borderColor: "rgba(34,67,130,0.18)",
     }
 ];
-const MODELS = [
+const DEFAULT_MODELS = [
     { id: "auto",         name: "✨ Auto",             plan: "free" },
     { id: "groq",         name: "⚡ Fast (Groq)",       plan: "free" },
     { id: "sonnet",       name: "🧠 Smart (Sonnet)",    plan: "free" },
@@ -136,6 +136,7 @@ const SOURCE_OPTIONS = [
 ];
 //  Page ─
 export default function AuromindAIPage() {
+    const [models, setModels] = useState(DEFAULT_MODELS);
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -172,7 +173,7 @@ export default function AuromindAIPage() {
     const [userPlan, setUserPlan] = useState("free");
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const getModelName = () => {
-        const model = MODELS.find(m => m.id === selectedModel);
+        const model = models.find(m => m.id === selectedModel);
         return model ? model.name : "✨ Auto";
     };
     const getSourceLabel = () => {
@@ -253,12 +254,37 @@ export default function AuromindAIPage() {
         }
     }, [workspaceId]);
     useEffect(() => {
-        const currentModelObj = MODELS.find(m => m.id === selectedModel);
+        const fetchModels = async () => {
+            try {
+                const res = await api.getChatModels();
+                if (res && Array.isArray(res)) {
+                    const mapped = res.map(m => {
+                        let plan = "free";
+                        if (m.id === "opus" || m.id === "premium" || m.id === "expert" || m.id === "smart") {
+                            plan = "pro";
+                        }
+                        return {
+                            id: m.id,
+                            name: m.name,
+                            plan: plan
+                        };
+                    });
+                    setModels(mapped);
+                }
+            } catch (err) {
+                console.error("Failed to fetch dynamic chat models:", err);
+            }
+        };
+        fetchModels();
+    }, []);
+
+    useEffect(() => {
+        const currentModelObj = models.find(m => m.id === selectedModel);
         const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
         if (currentModelObj?.plan === "pro" && !hasPremiumAccess) {
             setSelectedModel("auto");
         }
-    }, [userPlan, selectedModel, setSelectedModel]);
+    }, [userPlan, selectedModel, setSelectedModel, models]);
     // FIX 3: currentSessionId effect — only fetch if we deliberately selected one
     useEffect(() => {
         if (!currentSessionId) return;
@@ -1070,7 +1096,7 @@ export default function AuromindAIPage() {
                                                 </button>
                                                 {isModelDropdownOpen && (
                                                     <div className="absolute bottom-10 left-0 bg-[#12121c] border border-white/10 rounded-xl shadow-xl w-52 p-2 z-50">
-                                                        {MODELS.map((model) => {
+                                                        {models.map((model) => {
                                                             const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
                                                             return (
                                                                 <button

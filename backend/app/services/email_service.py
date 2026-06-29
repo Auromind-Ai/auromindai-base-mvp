@@ -10,15 +10,11 @@ logger = logging.getLogger("auromind")
 class EmailService:
     @staticmethod
     def send_email(to_email: str, subject: str, body: str, metadata: Dict[str, Any] = None):
-        from app.database import SessionLocal
-        from app.services.platform_settings_service import get_setting
-        from app.core.config import settings
-       
-        with SessionLocal() as db:
-            smtp_server = get_setting(db, "smtp_host", settings.SMTP_HOST or "smtp.gmail.com")
-            smtp_port = int(get_setting(db, "smtp_port", settings.SMTP_PORT or 587))
-            smtp_user = get_setting(db, "smtp_user", settings.SMTP_USER or "")
-            smtp_password = get_setting(db, "smtp_password", settings.SMTP_PASS or "")
+        from app.services.config_service import config_service
+        smtp_server = config_service.get("smtp_host", "smtp.gmail.com")
+        smtp_port = int(config_service.get("smtp_port", 587))
+        smtp_user = config_service.get("smtp_user", "")
+        smtp_password = config_service.get("smtp_password", "")
        
         logger.info(f"SMTP Host Loaded: {smtp_server}")
         logger.info(f"SMTP User Loaded: {smtp_user}")

@@ -14,6 +14,7 @@ from app.models.brain import BrainEntry
 from app.models.integration import Integration, CalendarEvent
 from app.models.ai_action import Lead
 from app.models.automation import AutomationFlow
+from app.models.flow_pack import FlowPackPurchase
 
 
 class EntitlementService:
@@ -24,6 +25,8 @@ class EntitlementService:
 
     @classmethod
     def get_workspace_entitlement(cls, db: Session, workspace_id: uuid.UUID) -> PlanEntitlement:
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
 
         # 1. Fetch active subscription
         subscription = (
@@ -57,6 +60,8 @@ class EntitlementService:
     def check_entitlement(
         cls, db: Session, workspace_id: uuid.UUID, resource: str, value: int = 1
     ) -> Dict[str, Any]:
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
         entitlement = cls.get_workspace_entitlement(db, workspace_id)
         resource = resource.lower()
 
@@ -106,6 +111,19 @@ class EntitlementService:
                 AutomationFlow.workspace_id == workspace_id, AutomationFlow.status == "Active"
             ).count()
             limit = entitlement.automation_limit
+        elif resource == "flow":
+            usage = db.query(AutomationFlow).filter(
+                AutomationFlow.workspace_id == workspace_id
+            ).count()
+            plan_limit = getattr(entitlement, "max_flows", None) or getattr(entitlement, "flow", 5)
+            if plan_limit == -1:
+                limit = -1
+            else:
+                purchased = db.query(func.sum(FlowPackPurchase.flows_count)).filter(
+                    FlowPackPurchase.workspace_id == workspace_id,
+                    FlowPackPurchase.status == "success"
+                ).scalar() or 0
+                limit = plan_limit + purchased
         else:
             raise ValueError(f"Unknown entitlement resource type: {resource}")
 
@@ -132,3 +150,80 @@ class EntitlementService:
             "remaining": remaining,
             "reason": reason,
         }
+
+    @classmethod
+    def seed_default_entitlements(cls, db: Session) -> dict[str, Any]:
+        """Seed default plans and entitlements in the database."""
+        from app.services.billing.plan_service import PlanService
+        plan_service = PlanService()
+        plans = {}
+        for plan_key in ["free", "pro", "enterprise"]:
+            config = plan_service._get_plan_config(db, plan_key)
+            plans[plan_key] = plan_service._get_or_create_plan(db, config)
+        db.commit()
+
+        seeded_count = 0
+        for name, plan in plans.items():
+            exist_check = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == plan.id).first()
+            if not exist_check:
+                if name == "free":
+                    ent = PlanEntitlement(
+                        id=uuid.uuid4(),
+                        plan_id=plan.id,
+                        included_ai_credits=1000,
+                        included_wcc_wallet=0.00,
+                        storage_limit_mb=500,
+                        team_limit=2,
+                        knowledge_base_limit=5,
+                        gmail_limit=1,
+                        lead_limit=100,
+                        meeting_limit=10,
+                        automation_limit=2,
+                        allow_ai_topup=True,
+                        allow_wcc_recharge=True,
+                        included_credit_reset_policy='EXPIRE',
+                        included_wallet_reset_policy='EXPIRE',
+                        feature_flags={"has_rag": False, "has_leads": True, "has_gmail": True}
+                    )
+                elif name == "pro":
+                    ent = PlanEntitlement(
+                        id=uuid.uuid4(),
+                        plan_id=plan.id,
+                        included_ai_credits=100000,
+                        included_wcc_wallet=0.00,
+                        storage_limit_mb=10240,
+                        team_limit=10,
+                        knowledge_base_limit=100,
+                        gmail_limit=5,
+                        lead_limit=10000,
+                        meeting_limit=-1,
+                        automation_limit=20,
+                        allow_ai_topup=True,
+                        allow_wcc_recharge=True,
+                        included_credit_reset_policy='EXPIRE',
+                        included_wallet_reset_policy='EXPIRE',
+                        feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
+                    )
+                elif name == "enterprise":
+                    ent = PlanEntitlement(
+                        id=uuid.uuid4(),
+                        plan_id=plan.id,
+                        included_ai_credits=500000,
+                        included_wcc_wallet=500.00,
+                        storage_limit_mb=102400,
+                        team_limit=50,
+                        knowledge_base_limit=1000,
+                        gmail_limit=-1,
+                        lead_limit=-1,
+                        meeting_limit=-1,
+                        automation_limit=-1,
+                        allow_ai_topup=True,
+                        allow_wcc_recharge=True,
+                        included_credit_reset_policy='ROLLOVER',
+                        included_wallet_reset_policy='ROLLOVER',
+                        feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
+                    )
+                db.add(ent)
+                seeded_count += 1
+        db.commit()
+        return {"status": "success", "message": f"Successfully seeded {seeded_count} entitlements."}

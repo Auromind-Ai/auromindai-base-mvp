@@ -265,7 +265,7 @@ class AuthService:
        
         try:
             import redis
-            r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             r.setex(f"otp:{email}", 300, otp)  # 5 mins expiry
         except Exception as e:
             # Fallback for local
@@ -281,8 +281,6 @@ class AuthService:
             import logging
             logger = logging.getLogger("auromind")
             logger.error(f"Failed to send verification email via SMTP: {str(e)}. Falling back to console logging.")
-        # Log to console for local testing since we don't have real SMTP
-        print(f"=============================\nOTP for {email}: {otp}\n=============================")
         return True
 
     @staticmethod
@@ -290,15 +288,15 @@ class AuthService:
         from app.core.config import settings
         try:
             import redis
-            r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             saved_otp = r.get(f"otp:{email}")
             if not saved_otp or saved_otp != otp:
-                if otp != "123456": # backdoor for testing
-                    raise ValueError("Invalid or expired OTP")
+                raise ValueError("Invalid or expired OTP")
             r.delete(f"otp:{email}")
         except Exception as e:
-            if otp != "123456":
-                raise ValueError("Invalid or expired OTP")
+            import logging
+            logging.getLogger("auromind").error(f"OTP verification failed: {str(e)}")
+            raise ValueError("Invalid or expired OTP")
                
         if auth_type == "signup":
             user = db.query(User).filter(User.email == email).first()
@@ -317,7 +315,7 @@ class AuthService:
                 import redis as _redis
                 pending_token = str(_uuid.uuid4())
                 try:
-                    r = _redis.from_url(settings.REDIS_URL, decode_responses=True)
+                    r = _redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
                     r.setex(f"pending_2fa:{pending_token}", 300, email)   # 5 min TTL
                 except Exception:
                     raise ValueError("Authentication service temporarily unavailable. Please try again.")

@@ -1,16 +1,13 @@
 from sqlalchemy.orm import Session
 from app.models.integration import Integration
 from app.services.platform_settings_service import get_setting
-from app.core.config import settings
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from datetime import datetime
 from app.services.email_automation.email_monitor_service import EmailMonitor
 
 
-GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
-REDIRECT_URI = settings.GOOGLE_INTEGRATION_REDIRECT_URI
+# Dynamic settings will be loaded at runtime
 
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/calendar",
@@ -39,24 +36,29 @@ class IntegrationService:
         if not integration_flags.get(integration_type, True):
             raise PermissionError(f"{integration_type.capitalize()} integration disabled by admin")
 
-        if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-            raise RuntimeError("Google OAuth not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env")
+        from app.services.config_service import config_service
+        google_client_id = config_service.get("google_client_id")
+        google_client_secret = config_service.get("google_client_secret")
+        redirect_uri = config_service.get("google_integration_redirect_uri")
+
+        if not google_client_id or not google_client_secret:
+            raise RuntimeError("Google OAuth not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET")
         
         flow = Flow.from_client_config(
             {
                 "web": {
-                    "client_id": GOOGLE_CLIENT_ID,
-                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "client_id": google_client_id,
+                    "client_secret": google_client_secret,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": [REDIRECT_URI]
+                    "redirect_uris": [redirect_uri]
                 }
             },
             scopes=SCOPES[integration_type],
             autogenerate_code_verifier=False
         )
         
-        flow.redirect_uri = REDIRECT_URI
+        flow.redirect_uri = redirect_uri
         
         authorization_url, state = flow.authorization_url(
             access_type='offline',
@@ -71,19 +73,24 @@ class IntegrationService:
     def handle_google_oauth_callback(db: Session, code: str, state: str):
         integration_type, workspace_id = state.split(":")
         
+        from app.services.config_service import config_service
+        google_client_id = config_service.get("google_client_id")
+        google_client_secret = config_service.get("google_client_secret")
+        redirect_uri = config_service.get("google_integration_redirect_uri")
+
         flow = Flow.from_client_config(
             {
                 "web": {
-                    "client_id": GOOGLE_CLIENT_ID,
-                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "client_id": google_client_id,
+                    "client_secret": google_client_secret,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": [REDIRECT_URI]
+                    "redirect_uris": [redirect_uri]
                 }
             },
             scopes=SCOPES[integration_type]
         )
-        flow.redirect_uri = REDIRECT_URI
+        flow.redirect_uri = redirect_uri
         flow.fetch_token(code=code)
         
         credentials = flow.credentials

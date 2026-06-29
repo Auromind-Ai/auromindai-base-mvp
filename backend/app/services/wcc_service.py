@@ -43,6 +43,31 @@ class WCCService:
         return db.query(WCCRateCard).filter(WCCRateCard.is_active == True).all()
 
     @classmethod
+    def get_active_rate(cls, db: Session, category: str, region: str = "IN") -> WCCRateCard:
+        """
+        Lookup the single active rate card matching category, region, and current time.
+        Raises ValueError if none are found or if overlapping ranges exist.
+        """
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        rate_cards = db.query(WCCRateCard).filter(
+            WCCRateCard.category == category,
+            WCCRateCard.region == region,
+            WCCRateCard.is_active == True,
+            WCCRateCard.effective_from <= now,
+            (WCCRateCard.effective_to == None) | (WCCRateCard.effective_to > now)
+        ).all()
+
+        if not rate_cards:
+            raise ValueError(f"No active WCC rate card found for category '{category}' in region '{region}' at this time.")
+
+        if len(rate_cards) > 1:
+            logger.error(f"Inconsistent pricing setup: Multiple overlapping active rate cards found for '{category}' in region '{region}'.")
+            raise ValueError(f"Pricing configuration error: Overlapping rate cards found for category '{category}'.")
+
+        return rate_cards[0]
+
+    @classmethod
     def calculate_estimate(
         cls,
         db: Session,
@@ -54,24 +79,22 @@ class WCCService:
         Calculate estimated campaign cost based on active WCC rate card.
         """
         workspace_id = normalize_workspace_id(workspace_id)
-        rate_card = db.query(WCCRateCard).filter(
-            WCCRateCard.category == category,
-            WCCRateCard.is_active == True
-        ).first()
+        rate_card = cls.get_active_rate(db, category, "IN")
 
-        if not rate_card:
-            raise ValueError(f"No active WCC rate card found for category '{category}'")
-
-        rate = rate_card.rate_per_message
-        estimated_cost = Decimal(audience_size) * rate
+        customer_rate = rate_card.customer_price
+        meta_rate = rate_card.meta_cost
+        
+        estimated_cost = Decimal(audience_size) * customer_rate
+        estimated_meta_cost = Decimal(audience_size) * meta_rate
 
         wallet = cls.get_balance(db, workspace_id)
         balance_sufficient = wallet.balance >= estimated_cost
 
         return {
             "estimated_cost": estimated_cost,
+            "estimated_meta_cost": estimated_meta_cost,
             "balance_sufficient": balance_sufficient,
-            "rate_applied": rate
+            "rate_applied": customer_rate
         }
 
     @classmethod
@@ -325,8 +348,10 @@ class WCCService:
         workspace_id: uuid.UUID | str,
         meta_session_id: str,
         category: str,
-        rate_applied: Decimal,
-        raw_payload: dict
+        meta_cost: Decimal,
+        customer_price: Decimal,
+        raw_payload: dict,
+        rate_applied: Optional[Decimal] = None
     ) -> WCCTransaction:
         """
         Atomically debit the wallet for a WhatsApp conversation.
@@ -349,7 +374,11 @@ class WCCService:
             except IntegrityError:
                 nested_wallet.rollback()
 
-        debit_amount = rate_applied
+        # Fallback logic for backward compatibility
+        if customer_price is None and rate_applied is not None:
+            customer_price = rate_applied
+        if meta_cost is None:
+            meta_cost = Decimal("0.00")
 
         # 2. Use a savepoint to isolate transaction insert & debit logic
         nested_tx = db.begin_nested()
@@ -358,10 +387,13 @@ class WCCService:
                 workspace_id=workspace_id,
                 meta_session_id=meta_session_id,
                 category=category,
-                status="success" if debit_amount > Decimal("0.00") else "free_session",
+                status="success" if customer_price > Decimal("0.00") else "free_session",
                 message_count=1,
-                debit_amount=debit_amount,
-                rate_applied=rate_applied,
+                debit_amount=customer_price,  # Deprecated
+                rate_applied=customer_price,  # Deprecated
+                meta_cost_applied=meta_cost,
+                customer_price_applied=customer_price,
+                pricing_version=2,
                 raw_payload=raw_payload
             )
             db.add(transaction)
@@ -370,11 +402,11 @@ class WCCService:
             # 3. Perform atomic wallet debit
             # We allow the balance to go negative for Meta webhook debits to handle race conditions safely,
             # ensuring all sent conversations are eventually billed, while future checks will immediately fail.
-            if debit_amount > Decimal("0.00"):
+            if customer_price > Decimal("0.00"):
                 stmt = (
                     update(WCCWallet)
                     .where(WCCWallet.workspace_id == workspace_id)
-                    .values(balance=WCCWallet.balance - debit_amount, updated_at=func.now())
+                    .values(balance=WCCWallet.balance - customer_price, updated_at=func.now())
                 )
                 db.execute(stmt)
 
