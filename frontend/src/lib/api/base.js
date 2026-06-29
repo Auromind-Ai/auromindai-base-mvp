@@ -1,5 +1,12 @@
 console.log("API INFRASTRUCTURE VERSION: 2.0.0");
 
+function getCSRFToken() {
+  if (typeof window === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|; )admin_csrf_token=([^;]*)/);
+  if (match) return decodeURIComponent(match[1]);
+  return window.sessionStorage?.getItem('admin_csrf_token');
+}
+
 export class APIClient {
   constructor(baseURL = '/api') {
     this.baseURL = baseURL;
@@ -21,7 +28,8 @@ export class APIClient {
       ? endpoint
       : `${this.baseURL}${endpoint}`;
 
-    const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes((options.method || 'GET').toUpperCase());
+    const method = (options.method || 'GET').toUpperCase();
+    const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
     const { signal: optSignal, ...restOptions } = options;
 
     const config = {
@@ -33,6 +41,16 @@ export class APIClient {
         ...options.headers,
       },
     };
+
+    const isMutatingAdmin = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && 
+      (endpoint.startsWith('/admin') || url.includes('/admin'));
+
+    if (isMutatingAdmin) {
+      const csrfToken = getCSRFToken();
+      if (csrfToken) {
+        config.headers['X-Admin-CSRF-Token'] = csrfToken;
+      }
+    }
 
     // 3. Request Hooks
     for (const hook of this.requestHooks) {

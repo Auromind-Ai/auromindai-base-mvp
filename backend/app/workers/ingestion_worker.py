@@ -9,6 +9,8 @@ from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.utils.text_chunker import Schunker
 from app.services.document_service import get_document_service
 from app.services.billing.billing_service import BillingService
+from app.services.billing.feature_billing_service import FeatureBillingService
+from app.services.ai.execution_service import AIFeatureRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +126,8 @@ async def process_document_background(
             )
             final_credits_charged = abs(float(ledger_entry.credits_delta))
         else:
-            from app.services.billing.feature_billing_service import FeatureBillingService
             try:
-                final_credits_charged = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", actual_units))
+                final_credits_charged = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, actual_units))
             except Exception:
                 final_credits_charged = round(actual_units * 10.0, 4)
 
@@ -207,4 +208,4 @@ async def process_document_background(
         #  CLEANUP 
         if os.path.exists(file_path):
             os.remove(file_path)
-
+

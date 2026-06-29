@@ -6,7 +6,7 @@ from app.services.agentic_rag.embedding_service import EmbeddingGenerator
 import json
 from app.models.integration import Integration
 from app.services.ai.llm_utils import safe_llm_call
-
+from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
 
 class EmailMCPService:
 
@@ -563,13 +563,13 @@ class EmailMCPService:
 
             prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
 
-            from app.services.ai.execution_service import AIExecutionService
+          
             if db and workspace_id:
                 res = await AIExecutionService.execute(
                     db=db,
                     workspace_id=workspace_id,
                     user_id="system",
-                    feature_key="gmail_draft",
+                    feature_key=AIFeatureRegistry.TEMPLATE,
                     prompt=prompt
                 )
                 response = {

@@ -73,8 +73,10 @@ async def admin_auth(
     # Generate admin JWT
     from datetime import timedelta
     from app.utils.auth import create_access_token
+    import secrets
+    csrf_token = secrets.token_urlsafe(32)
     token = create_access_token(
-        data={"role": "platform_admin", "sub": "platform_admin"},
+        data={"role": "platform_admin", "sub": "platform_admin", "csrf_token": csrf_token},
         expires_delta=timedelta(hours=2)
     )
     
@@ -108,7 +110,7 @@ async def admin_auth(
         domain=cookie_domain,
     )
     
-    return {"status": "success", "message": "Authenticated"}
+    return {"status": "success", "message": "Authenticated", "csrf_token": csrf_token}
 
 @router.post("/logout", include_in_schema=False)
 async def admin_logout(request: Request, response: Response):

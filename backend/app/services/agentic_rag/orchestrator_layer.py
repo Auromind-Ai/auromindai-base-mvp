@@ -756,7 +756,7 @@ class OrchestratorLayer:
         for i in range(max_iterations):
 
             #Retrieve
-            result = self.retrieval.retrieve_context(db, workspace_id, current_query, entry_ids=entry_ids, collection=collection)
+            result = await self.retrieval.retrieve_context_async(db, workspace_id, current_query, entry_ids=entry_ids, collection=collection)
 
             context = result.get("context", "")
             docs = result.get("docs", [])

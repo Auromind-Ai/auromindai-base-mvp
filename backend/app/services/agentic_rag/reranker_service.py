@@ -22,6 +22,10 @@ class RerankerService:
     def predict(self, pairs: list) -> list:
         return self._model.predict(pairs)
 
+    async def predict_async(self, pairs: list) -> list:
+        import asyncio
+        return await asyncio.to_thread(self.predict, pairs)
+
 
 def get_reranker() -> RerankerService:
     from app.services.config_service import config_service

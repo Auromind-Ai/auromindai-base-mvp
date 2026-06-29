@@ -7,6 +7,7 @@ from app.utils.crypto import is_encrypted, decrypt_value
 from app.models.admin_audit_log import AdminAuditLog
 from jose import jwt
 from app.core.config import settings as core_settings
+from app.services.platform_settings_service import get_prospective_settings
 
 router = APIRouter()
 
@@ -242,7 +243,7 @@ async def test_google_connection(
     start_time = time.time()
     admin_user, ip = _get_audit_details(request)
     
-    from app.services.platform_settings_service import get_prospective_settings
+    
     settings = get_prospective_settings(db, updates)
     
     client_id = settings.get("google_client_id")

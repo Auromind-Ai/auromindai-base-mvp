@@ -81,7 +81,7 @@ class AgentOrchestration:
         ctx = AIExecutionContext(
             workspace_id=workspace_id,
             user_id=user_id or "system",
-            feature_key=AIFeatureRegistry.AGENT,
+            feature_key=AIFeatureRegistry.INBOX,
             stream=False
         )
         token_token = current_execution_context.set(ctx)
@@ -144,6 +144,11 @@ class AgentOrchestration:
             
             current_execution_context.reset(token_token)
             if db_created:
+                try:
+                    db.commit()
+                except Exception as commit_err:
+                    db.rollback()
+                    self.logger.error(f"Failed to commit orchestration db: {commit_err}")
                 self.db.close()
                 self.db = None
 
