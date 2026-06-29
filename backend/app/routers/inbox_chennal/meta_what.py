@@ -37,18 +37,17 @@ async def verify_webhook(request: Request):
     logger.info("=== META WHATSAPP WEBHOOK VERIFICATION REQUEST ===")
     logger.info(f"Query Params: {request.query_params}")
     from app.services.config_service import config_service
-    return WebhookService.verify_meta_subscription(
+    challenge = WebhookService.verify_meta_subscription(
         request.query_params,
         config_service.get("meta_verify_token"),
     )
-    if isinstance(challenge, int):
+    if challenge is not None:
         return PlainTextResponse(str(challenge))
-    return challenge
+    raise HTTPException(status_code=403, detail="Verification failed")
 
 
 @router.post("/whatsapp/webhook")
 async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
-    print("🔥 WEBHOOK HIT")
     logger.info("=== INCOMING META WHATSAPP WEBHOOK ===")
     try:
         data = await request.json()

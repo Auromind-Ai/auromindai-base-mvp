@@ -157,3 +157,32 @@ async def stream_chat(
             except Exception as release_err:
                 logger.error(f"Failed to defensively release reservation in router: {release_err}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/models")
+def get_chat_models(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    verify_workspace_access(current_user, db)
+    from app.services.model_config_service import ModelConfigService
+    service = ModelConfigService(db)
+    configs = service.get_all_configs(active_only=True)
+    
+    unique_levels = {}
+    # Always include the "Auto" model
+    unique_levels["auto"] = {"id": "auto", "name": "✨ Auto", "provider": "auto"}
+    
+    for c in configs:
+        if c.get("feature_key") == "chat" or c.get("feature_key") == "auto":
+            level = c.get("experience_level")
+            if level not in unique_levels:
+                display_name = c.get("display_name")
+                if not display_name:
+                    display_name = f"{level.capitalize()} ({c.get('provider').capitalize()})"
+                unique_levels[level] = {
+                    "id": level,
+                    "name": display_name,
+                    "provider": c.get("provider"),
+                }
+    
+    return list(unique_levels.values())

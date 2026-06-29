@@ -216,39 +216,6 @@ Return JSON only.
     Tone: {data.tone}
     """
 
-    async def run_template_generation():
-        from app.services.config_service import config_service
-        groq_api_key = config_service.get("groq_api_key")
-        if not groq_api_key:
-            raise HTTPException(500, "Groq API key is not configured")
-        dynamic_client = Groq(api_key=groq_api_key)
-        response = await asyncio.to_thread(
-            dynamic_client.chat.completions.create,
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.7,
-            response_format={"type": "json_object"},
-        )
-        message = response.choices[0].message.content or ""
-        usage = response.usage
-        input_tokens = usage.prompt_tokens if usage else 0
-        output_tokens = usage.completion_tokens if usage else 0
-        total_tokens = usage.total_tokens if usage else 0
-
-        return {
-            "text": message,
-            "usage": {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": total_tokens
-            },
-            "provider": "groq",
-            "model": "llama-3.3-70b-versatile"
-        }
-
     try:
         res = await AIExecutionService.execute(
             db=db,
@@ -256,8 +223,10 @@ Return JSON only.
             user_id=current_user.id,
             feature_key=AIFeatureRegistry.TEMPLATE,
             prompt=user_prompt,
-            description="Generate WhatsApp template variations",
-            execute_fn=run_template_generation
+            system_prompt=system_prompt,
+            structured_output=True,
+            model="auto",
+            description="Generate WhatsApp template variations"
         )
 
         message = res.get("text", "")

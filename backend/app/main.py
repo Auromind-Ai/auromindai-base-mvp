@@ -37,13 +37,18 @@ from app.routers.account import router as account_router
 async def lifespan(app: FastAPI):
     logger.info("Auromind Production System Starting...")
     
-    # Seed platform settings from environment variables on startup
+    # Seed platform settings and model configurations on startup
     from app.database import SessionLocal
     from app.services.platform_settings_service import seed_settings_from_env, migrate_sensitive_settings
+    from app.services.model_config_service import ModelConfigService
     db = SessionLocal()
     try:
         seed_settings_from_env(db)
         migrate_sensitive_settings(db)
+        # Seed model configs
+        config_service = ModelConfigService(db)
+        config_service.seed_default_configs()
+        logger.info("Model configurations seeded successfully.")
     except Exception as e:
         logger.error(f"Failed to seed or migrate settings: {e}")
     finally:
@@ -96,6 +101,11 @@ fallback_origins = [
     "http://growwdigitel.cloud",
     "https://www.growwdigitel.cloud",
     "http://www.growwdigitel.cloud",
+    # Local development
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 for origin in fallback_origins:
     if origin not in allowed_origins:

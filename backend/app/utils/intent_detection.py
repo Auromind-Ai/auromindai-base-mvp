@@ -374,3 +374,7 @@ def detect_intent_signals(message: str) -> dict[str, Any]:
         "word_count": word_count,
         "message_length": message_length,
     }
+
+async def detect_intent_signals_async(message: str) -> dict[str, Any]:
+    import asyncio
+    return await asyncio.to_thread(detect_intent_signals, message)

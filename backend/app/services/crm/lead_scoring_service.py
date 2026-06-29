@@ -598,3 +598,20 @@ def calculate_avg_reply_minutes(conversation_id: UUID, db: Session) -> float | N
 
     return sum(delays) / len(delays)
 
+async def recalculate_lead_score_async(
+    lead: Lead,
+    db: Session,
+    *,
+    reason: str = "recalculation",
+    commit: bool = True,
+) -> dict[str, Any]:
+    import asyncio
+    return await asyncio.to_thread(recalculate_lead_score, lead, db, reason=reason, commit=commit)
+
+async def recalculate_workspace_scores_async(
+    workspace_id: UUID,
+    db: Session,
+) -> list[dict[str, Any]]:
+    import asyncio
+    return await asyncio.to_thread(recalculate_workspace_scores, workspace_id, db)
+
