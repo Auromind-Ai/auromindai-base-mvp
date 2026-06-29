@@ -20,7 +20,7 @@ from app.services.agentic_rag.rag_service import get_rag_service
 from app.services.billing import BillingService
 from app.services.ai.llm_router import LLMRouter
 from app.database import SessionLocal
-from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, AIExecutionContext
+from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, AIExecutionContext, current_execution_context
 
 class ChatServiceConfig(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
@@ -134,7 +134,10 @@ class ChatService:
 
             if not rag_answered:
                 router = LLMRouter()
-                result = await router.generate(safe_query, model=model)
+                # Use the provider already resolved by execute() — no independent re-discovery.
+                _ctx = current_execution_context.get()
+                _config = _ctx.resolved_config if _ctx else None
+                result = await router.generate(safe_query, model=model, config=_config)
                 full_response = result.get("text", "")
                 
                 # Manually track usage on the active context since LLMRouter returns usage details
@@ -143,6 +146,8 @@ class ChatService:
                 if ctx:
                     usage = result.get("usage", {})
                     ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+                    ctx.provider = result.get("provider") or ctx.provider
+                    ctx.model = result.get("model") or ctx.model
 
                 meta = {
                     "query": message,
@@ -337,8 +342,11 @@ class ChatService:
 
             if not rag_answered:
                 router = LLMRouter()
+             
+                _ctx = current_execution_context.get()
+                _config = _ctx.resolved_config if _ctx else None
                 result = await asyncio.wait_for(
-                    router.generate(safe_query, model=model),
+                    router.generate(safe_query, model=model, config=_config),
                     timeout=30,
                 )
                 text = result.get("text", "")
@@ -347,6 +355,8 @@ class ChatService:
                 # Accumulate token usage from generator into active context
                 usage = result.get("usage", {})
                 ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
+                ctx.provider = result.get("provider") or ctx.provider
+                ctx.model = result.get("model") or ctx.model
                 
                 meta_payload = {
                     "query": message,

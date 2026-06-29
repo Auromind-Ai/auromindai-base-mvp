@@ -515,7 +515,7 @@ class TokenService:
                     "entry_type": e.entry_type,
                     "status": e.status,
                     "tokens_delta": int(float(e.credits_delta) * 1000),
-                    "credits_delta": round(float(e.credits_delta), 2),
+                    "credits_delta": float(e.credits_delta),
                     "description": e.description,
                     "created_at": e.created_at.isoformat() if e.created_at else None,
                 }
@@ -549,7 +549,7 @@ class TokenService:
             {
                 "date": row.day.isoformat() if row.day else None,
                 "tokens_used": int(float(row.credits_used or 0) * 1000),
-                "credits_used": round(float(row.credits_used or 0), 2),
+                "credits_used": float(row.credits_used or 0),
             }
             for row in rows
         ]
@@ -573,7 +573,7 @@ class TokenService:
             )
             .scalar() or 0
         )
-        return round(float(total_used) / 7, 2)
+        return float(total_used) / 7
 
     def reserve_feature_credits(
         self,

@@ -7,12 +7,11 @@ class ConfigService:
         # Import inside to avoid circular dependencies
         from app.services.platform_settings_service import get_setting as db_get_setting
 
-        # 1. Fetch from PlatformSettingsService (which handles cache/DB/decryption)
+     
         val = db_get_setting(None, db_key, None)
         if val is not None:
             return val
 
-        # 2. Fallback to bootstrap settings (uppercased key)
         bootstrap_key = key.upper()
         if hasattr(settings, bootstrap_key):
             return getattr(settings, bootstrap_key)

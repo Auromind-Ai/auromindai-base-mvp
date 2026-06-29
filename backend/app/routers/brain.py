@@ -17,6 +17,11 @@ from app.utils.website_scraper import Webscrapper
 from app.core.exceptions import BillingError, WorkspaceAccessError
 from app.core.security import verify_workspace_access
 from app.schemas.brain import *
+from app.services.billing.billing_service import BillingService
+from app.services.billing.feature_billing_service import FeatureBillingService
+from app.services.ai.execution_service import AIFeatureRegistry,AIExecutionService
+
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/brain", tags=["brain"])
@@ -64,13 +69,12 @@ async def ingest_document(
             shutil.copyfileobj(file.file, buffer)
 
         file_size = os.path.getsize(temp_file_path)
-        from app.services.billing.billing_service import BillingService
-        from app.services.billing.feature_billing_service import FeatureBillingService
+      
 
         billing_service = BillingService()
 
         size_mb = file_size / 1_000_000.0
-        credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
+        credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
         print(f"\n>>> [BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
@@ -78,7 +82,7 @@ async def ingest_document(
         reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
             workspace_id=workspace_id,
-            feature_key="knowledge_base_upload",
+            feature_key=AIFeatureRegistry.KNOWLEDGE,
             unit_amount=float(size_mb),
             reference_key=f"kb:{entry_id}",
             description=f"Knowledge Upload: {file.filename}"
@@ -205,13 +209,12 @@ async def ingest_sales_document(
             shutil.copyfileobj(file.file, buffer)
 
         file_size = os.path.getsize(temp_file_path)
-        from app.services.billing.billing_service import BillingService
-        from app.services.billing.feature_billing_service import FeatureBillingService
+    
 
         billing_service = BillingService()
 
         size_mb = file_size / 1_000_000.0
-        credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
+        credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
         print(f"\n>>> [BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
@@ -219,7 +222,7 @@ async def ingest_sales_document(
         reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
             workspace_id=workspace_id,
-            feature_key="knowledge_base_upload",
+            feature_key=AIFeatureRegistry.KNOWLEDGE,
             unit_amount=float(size_mb),
             reference_key=f"kb:{entry_id}",
             description=f"Sales Knowledge Upload: {file.filename}"
@@ -342,13 +345,10 @@ async def ingest_support_document(
             shutil.copyfileobj(file.file, buffer)
 
         file_size = os.path.getsize(temp_file_path)
-        from app.services.billing.billing_service import BillingService
-        from app.services.billing.feature_billing_service import FeatureBillingService
-
         billing_service = BillingService()
 
         size_mb = file_size / 1_000_000.0
-        credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
+        credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
         print(f"\n>>> [BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
@@ -356,7 +356,7 @@ async def ingest_support_document(
         reservation = billing_service.token_service.reserve_feature_credits(
             db=db,
             workspace_id=workspace_id,
-            feature_key="knowledge_base_upload",
+            feature_key=AIFeatureRegistry.KNOWLEDGE,
             unit_amount=float(size_mb),
             reference_key=f"kb:{entry_id}",
             description=f"Support Knowledge Upload: {file.filename}"
@@ -471,8 +471,7 @@ async def ingest_url(
         size_mb = url_bytes / 1_000_000.0
 
         async def run_ingestion():
-            from app.services.billing.feature_billing_service import FeatureBillingService
-            credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
+            credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
             rag = get_rag_service()
             return rag.ingest_document(
                 db=db,
@@ -488,12 +487,11 @@ async def ingest_url(
                 embedding_status="completed"
             )
 
-        from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
         result = await AIExecutionService.execute(
             db=db,
             workspace_id=workspace_id,
             user_id=current_user.id,
-            feature_key=AIFeatureRegistry.KNOWLEDGE_BASE_UPLOAD,
+            feature_key=AIFeatureRegistry.KNOWLEDGE,
             prompt="",
             custom_unit_amount=size_mb,
             description=f"URL Ingestion: {request.url}",
@@ -565,8 +563,7 @@ async def ingest_text(
         size_mb = text_bytes / 1_000_000.0
 
         async def run_ingestion():
-            from app.services.billing.feature_billing_service import FeatureBillingService
-            credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
+            credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
             rag = get_rag_service()
             return rag.ingest_document(
                 db=db,
@@ -582,12 +579,12 @@ async def ingest_text(
                 embedding_status="completed"
             )
 
-        from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+
         result = await AIExecutionService.execute(
             db=db,
             workspace_id=workspace_id,
             user_id=current_user.id,
-            feature_key=AIFeatureRegistry.KNOWLEDGE_BASE_UPLOAD,
+            feature_key=AIFeatureRegistry.KNOWLEDGE,
             prompt="",
             custom_unit_amount=size_mb,
             description=f"Text Ingestion: {request.title}",
@@ -661,8 +658,8 @@ async def crawl_website(
                 page_title = page.get('title', '') or url
 
                 async def run_page_ingestion():
-                    from app.services.billing.feature_billing_service import FeatureBillingService
-                    credits_cost = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", size_mb))
+    
+                    credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
                     return rag.ingest_document(
                         db=db,
                         workspace_id=workspace_id,
@@ -677,12 +674,12 @@ async def crawl_website(
                         embedding_status="completed"
                     )
 
-                from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+           
                 result = await AIExecutionService.execute(
                     db=db,
                     workspace_id=workspace_id,
                     user_id=current_user.id,
-                    feature_key=AIFeatureRegistry.KNOWLEDGE_BASE_UPLOAD,
+                    feature_key=AIFeatureRegistry.KNOWLEDGE,
                     prompt="",
                     custom_unit_amount=size_mb,
                     description=f"Website Page Crawl: {page_title}",
