@@ -2,7 +2,6 @@ import asyncio
 from groq import Groq
 from app.services.ai.llm_router import LLMRouter
 from app.services.ai.chat_service import ChatService, ChatServiceConfig
-from app.core.config import settings
 from app.core.logger import logger
 
 #  LLMRouter singleton
@@ -37,7 +36,8 @@ async def get_chat_service() -> ChatService:
     if _chat_service_instance is None:
         async with _chat_lock:
             if _chat_service_instance is None:
-                GROQ_API_KEY = settings.GROQ_API_KEY
+                from app.services.config_service import config_service
+                GROQ_API_KEY = config_service.get("groq_api_key")
 
                 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 

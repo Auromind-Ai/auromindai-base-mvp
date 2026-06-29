@@ -28,7 +28,7 @@ class AIBillingProvisioner(IAIBillingProvisioner):
         subscription = (
             db.query(Subscription)
             .filter(
-                Subscription.workspace_id == str(workspace_id),
+                Subscription.workspace_id == workspace_id,
                 Subscription.status == SubscriptionStatus.active
             )
             .order_by(Subscription.created_at.desc())
@@ -43,7 +43,7 @@ class AIBillingProvisioner(IAIBillingProvisioner):
         if not existing:
             grant = TokenLedger(
                 id=uuid.uuid4(),
-                workspace_id=str(workspace_id),
+                workspace_id=workspace_id,
                 subscription_id=subscription.id,
                 entry_type="token_grant",
                 status="posted",
@@ -65,7 +65,7 @@ class WCCBillingProvisioner(IWCCBillingProvisioner):
         subscription = (
             db.query(Subscription)
             .filter(
-                Subscription.workspace_id == str(workspace_id),
+                Subscription.workspace_id == workspace_id,
                 Subscription.status == SubscriptionStatus.active
             )
             .order_by(Subscription.created_at.desc())
@@ -109,7 +109,7 @@ class EntitlementOrchestrator:
         existing_sub = (
             db.query(Subscription)
             .filter(
-                Subscription.workspace_id == str(workspace_id),
+                Subscription.workspace_id == workspace_id,
                 Subscription.status == SubscriptionStatus.active
             )
             .first()
@@ -118,7 +118,7 @@ class EntitlementOrchestrator:
             # Create subscription
             subscription = Subscription(
                 id=uuid.uuid4(),
-                workspace_id=str(workspace_id),
+                workspace_id=workspace_id,
                 plan_id=plan.id,
                 status=SubscriptionStatus.active,
                 billing_cycle="monthly",
@@ -160,7 +160,7 @@ class EntitlementOrchestrator:
         subscription = (
             db.query(Subscription)
             .filter(
-                Subscription.workspace_id == str(workspace_id),
+                Subscription.workspace_id == workspace_id,
                 Subscription.status == SubscriptionStatus.active
             )
             .order_by(Subscription.created_at.desc())
@@ -173,7 +173,7 @@ class EntitlementOrchestrator:
 
         # 1. AI Credits Reset Policy
         included_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
-            TokenLedger.workspace_id == str(workspace_id),
+            TokenLedger.workspace_id == workspace_id,
             TokenLedger.status == "posted",
             TokenLedger.balance_source == "INCLUDED"
         ).scalar() or Decimal("0.0000")
@@ -181,7 +181,7 @@ class EntitlementOrchestrator:
         if entitlement.included_credit_reset_policy == "EXPIRE" and included_pool > 0:
             expire_entry = TokenLedger(
                 id=uuid.uuid4(),
-                workspace_id=str(workspace_id),
+                workspace_id=workspace_id,
                 subscription_id=subscription.id,
                 entry_type="token_expiration",
                 status="posted",
@@ -204,7 +204,7 @@ class EntitlementOrchestrator:
         if not existing:
             grant = TokenLedger(
                 id=uuid.uuid4(),
-                workspace_id=str(workspace_id),
+                workspace_id=workspace_id,
                 subscription_id=subscription.id,
                 payment_id=payment.id if payment else None,
                 entry_type="token_grant",
@@ -254,12 +254,41 @@ class EntitlementOrchestrator:
         active_sub = (
             db.query(Subscription)
             .filter(
-                Subscription.workspace_id == str(workspace_id),
+                Subscription.workspace_id == workspace_id,
                 Subscription.status == SubscriptionStatus.active
             )
             .first()
         )
         if active_sub:
+            current_entitlement = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == active_sub.plan_id).first()
+            if current_entitlement:
+                included_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
+                    TokenLedger.workspace_id == workspace_id,
+                    TokenLedger.status == "posted",
+                    TokenLedger.balance_source == "INCLUDED"
+                ).scalar() or Decimal("0.0000")
+
+                if current_entitlement.included_credit_reset_policy == "EXPIRE" and included_pool > 0:
+                    expire_entry = TokenLedger(
+                        id=uuid.uuid4(),
+                        workspace_id=workspace_id,
+                        subscription_id=active_sub.id,
+                        entry_type="token_expiration",
+                        status="posted",
+                        tokens_delta=0,
+                        credits_delta=-Decimal(str(included_pool)),
+                        balance_source="INCLUDED",
+                        reference_key=f"token_expire:{workspace_id}:{active_sub.id}:{datetime.now(timezone.utc).timestamp()}",
+                        description="Expired unused plan credits on plan change"
+                    )
+                    db.add(expire_entry)
+                    db.flush()
+
+                if current_entitlement.included_wallet_reset_policy == "EXPIRE":
+                    wallet = WCCService.get_balance(db, workspace_id)
+                    wallet.balance = Decimal("0.00")
+                    db.flush()
+
             active_sub.status = SubscriptionStatus.cancelled
             active_sub.canceled_at = datetime.now(timezone.utc)
             db.flush()
@@ -272,7 +301,7 @@ class EntitlementOrchestrator:
         # 3. Create new active subscription
         new_sub = Subscription(
             id=uuid.uuid4(),
-            workspace_id=str(workspace_id),
+            workspace_id=workspace_id,
             plan_id=new_plan.id,
             status=SubscriptionStatus.active,
             billing_cycle="monthly",

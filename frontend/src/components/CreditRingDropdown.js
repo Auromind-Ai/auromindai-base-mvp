@@ -74,7 +74,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   const strokeDashoffset = circumference - (percentRemaining / 100) * circumference;
 
   // Calculate estimated WhatsApp marketing messages
-  const estMarketingMsgs = Math.floor(wccBalance / 1.09);
+  const estMarketingMsgs = Math.floor(wccBalance / 1.25);
 
   return (
     <div className="relative font-sans" ref={dropdownRef}>

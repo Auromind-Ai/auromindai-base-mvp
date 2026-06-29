@@ -492,6 +492,25 @@ class BillingService:
     ) -> TokenLedger:
         return self.token_service.finalize_token_usage(db, reservation_id, tokens_used)
 
+    def settle_from_provider_usage(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        usage: dict,
+        feature_key: str,
+        execution_id: str,
+        request_id: str | None = None,
+    ) -> TokenLedger:
+       
+        return self.token_service.settle_from_provider_usage(
+            db=db,
+            reservation_id=reservation_id,
+            usage=usage,
+            feature_key=feature_key,
+            execution_id=execution_id,
+            request_id=request_id,
+        )
+
     def release_token_reservation(
         self,
         db: Session,
@@ -610,7 +629,7 @@ class BillingService:
             period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
             tokens_used = (
-                db.query(func.sum(-TokenLedger.tokens_delta))
+                db.query(func.sum(TokenLedger.tokens_used))
                 .filter(
                     TokenLedger.workspace_id == workspace_id,
                     TokenLedger.status == "posted",

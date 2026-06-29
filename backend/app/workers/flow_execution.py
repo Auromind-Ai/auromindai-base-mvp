@@ -672,6 +672,7 @@ def sweep_stuck_messages():
 
     db = SessionLocal()
     try:
+        db.rollback()  # Clear stale connection pool state on startup
         now = datetime.now(timezone.utc)
 
         stuck_msgs = (
@@ -695,6 +696,9 @@ def sweep_stuck_messages():
                 countdown=1
             )
 
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[sweep_stuck_messages] Error sweeping stuck messages: {e}")
     finally:
         db.close()
 
@@ -708,6 +712,7 @@ def poll_scheduled_resumes():
 
     db = SessionLocal()
     try:
+        db.rollback()  # Clear stale connection pool state before FOR UPDATE SKIP LOCKED
         now = datetime.now(timezone.utc)
         due_rows = (
             db.query(ScheduledResume)

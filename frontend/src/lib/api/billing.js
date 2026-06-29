@@ -240,6 +240,22 @@ export async function deleteCreditPackAdmin(id) {
   return client.delete(`/admin/billing/credit-packs/${id}`);
 }
 
+export async function getFlowPacksAdmin() {
+  return client.get(`/admin/flow-packs`);
+}
+
+export async function createFlowPackAdmin(payload) {
+  return client.post(`/admin/flow-packs`, payload);
+}
+
+export async function updateFlowPackAdmin(id, payload) {
+  return client.patch(`/admin/flow-packs/${id}`, payload);
+}
+
+export async function deleteFlowPackAdmin(id) {
+  return client.delete(`/admin/flow-packs/${id}`);
+}
+
 export async function getWccRateCardsAdmin() {
   return client.get(`/admin/billing/wcc/rate-cards`);
 }
@@ -255,6 +271,9 @@ export async function getFeatureRulesAdmin() {
 export async function updateFeatureRuleAdmin(id, payload) {
   return client.put(`/admin/feature-rules/${id}`, payload);
 }
+export async function createFeatureRuleAdmin(payload) {
+    return client.post("/admin/feature-rules", payload);
+}
 
 export async function getPlanEntitlementsAdmin() {
   return client.get('/admin/plan-entitlements');
@@ -263,4 +282,60 @@ export async function getPlanEntitlementsAdmin() {
 export async function updatePlanEntitlementAdmin(planId, payload) {
   return client.put(`/admin/plan-entitlements/${planId}`, payload);
 }
+
+export async function getFlowPackOptions() {
+  return client.get('/flow-packs/options');
+}
+
+export async function initiateFlowPackPurchase(workspace_id, pack_id, provider = 'razorpay', options = {}) {
+  const headers = { ...options.headers, 'X-Workspace-Id': workspace_id };
+  return client.post('/flow-packs/purchase/initiate', {
+    workspace_id,
+    pack_id,
+    provider,
+  }, { ...options, headers });
+}
+
+export async function verifyFlowPackPayment(payload, options = {}) {
+  const headers = { ...options.headers, 'X-Workspace-Id': payload.workspace_id };
+  return client.post('/flow-packs/purchase/verify', payload, { ...options, headers });
+}
+
+export async function getFlowQuota(workspace_id, options = {}) {
+  const headers = { ...options.headers, 'X-Workspace-Id': workspace_id };
+  return client.get(`/flow-packs/quota?workspace_id=${workspace_id}`, { ...options, headers });
+}
+
+export function openRazorpayCheckout({
+  orderData,
+  name = "Auromind",
+  description = "",
+  prefill = {},
+  handler,
+  ondismiss
+}) {
+  if (!window.Razorpay) {
+    throw new Error("Razorpay checkout is still loading. Please retry in a few seconds.");
+  }
+
+  const options = {
+    key: orderData.public_key,
+    order_id: orderData.gateway_order_id,
+    subscription_id: orderData.subscription_id,
+    amount: orderData.amount,
+    currency: orderData.currency || 'INR',
+    name,
+    description,
+    prefill,
+    handler,
+    modal: {
+      ondismiss
+    }
+  };
+
+  const razorpay = new window.Razorpay(options);
+  razorpay.open();
+  return razorpay;
+}
+
 

@@ -36,13 +36,6 @@ async def update_preferences(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Merge-update the user's preferences JSONB.
-
-    IMPORTANT: We never mutate user.preferences in place — SQLAlchemy won't
-    detect in-place dict mutations on JSONB columns.  Instead we build a
-    brand-new dict and reassign, then call flag_modified() as a safety net.
-    """
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

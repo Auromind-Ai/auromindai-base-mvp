@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { Poppins } from "next/font/google";
 import { Zap, Menu, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { isAuthenticated } from '@/lib/auth';
+import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useBranding } from '@/context/BrandingContext';
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -12,29 +13,30 @@ const poppins = Poppins({
 });
 
 const NavigationSection = () => {
+  const { appName, appLogoUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isLogged, setIsLogged] = useState(false);
-
-  useEffect(() => {
-    setIsLogged(isAuthenticated());
-  }, []);
+  const { user, loading } = useAuth();
+  const isLogged = !loading && !!user;
 
   return (
     <nav
       className={`${poppins.className} fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-md border-b border-white/10 py-3 sm:py-4 px-4 sm:px-6`}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-12">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center group-hover:scale-105 transition-all">
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center group-hover:scale-105 transition-all">
+            {appLogoUrl && appLogoUrl !== "/logo.png" ? (
+              <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+            ) : (
               <Zap size={18} fill="currentColor" />
-            </div>
+            )}
+          </div>
 
-            <span className="text-[15px] font-bold tracking-normal text-white">
-              Auromind
-            </span>
-          </Link>
+          <span className="text-[15px] font-bold tracking-normal text-white">
+            {appName}
+          </span>
+        </Link>
 
           <div className="hidden lg:flex items-center gap-8">
           {/* Product Dropdown */}
@@ -261,14 +263,13 @@ const NavigationSection = () => {
             </div>
           </div>
         </div>
-        </div>
 
         <div className="flex items-center gap-3 sm:gap-6">
           
           {isLogged ? (
             <Link
               href="/user/admin/dashboard"
-              className="group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95"
+              className="hidden lg:inline-flex group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95"
             >
               Dashboard
             </Link>
@@ -276,12 +277,12 @@ const NavigationSection = () => {
             <>
               <Link
                 href="/login"
-                className="text-[15px] font-medium text-white/90 transition-colors hover:text-white"
+                className="hidden lg:inline-block text-[15px] font-medium text-white/90 transition-colors hover:text-white"
               >  
                 Log In
               </Link>
 
-              <Link href="/signup" className="group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-3 py-2 sm:px-6 sm:py-3 text-[13px] sm:text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
+              <Link href="/signup" className="hidden lg:inline-flex group relative overflow-hidden rounded-[8px] bg-[#814AC8] px-6 py-3 text-[15px] font-semibold text-white transition-all hover:bg-[#8d58d1] active:scale-95">
                 <span className="flex items-center justify-center gap-2">
                   
                   {/* Text slide */}
@@ -307,27 +308,56 @@ const NavigationSection = () => {
           </button>
         </div>
       </div>
-      {menuOpen && (
-  <div className="lg:hidden absolute right-4 top-[70px] w-[220px] rounded-2xl border border-white/10 bg-[#0B0B0F] shadow-[0_20px_60px_rgba(0,0,0,0.6)] px-5 py-5 space-y-4 z-[99]">
-    
-    <Link href="#product" className="block text-white text-[16px] font-medium">
-      Product
-    </Link>
+          {menuOpen && (
+        <div className="lg:hidden absolute left-4 right-4 top-[70px] rounded-2xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] px-6 py-8 space-y-6 z-[99] flex flex-col">
+          
+          <Link href="#product" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
+            Product
+          </Link>
 
-    <Link href="#solutions" className="block text-white text-[16px] font-medium">
-      Solutions
-    </Link>
+          <Link href="#solutions" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
+            Solutions
+          </Link>
 
-    <Link href="#pricing" className="block text-white text-[16px] font-medium">
-      Pricing
-    </Link>
+          <Link href="#pricing" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
+            Pricing
+          </Link>
 
-    <Link href="#resources" className="block text-white text-[16px] font-medium">
-      Resources
-    </Link>
+          <Link href="#resources" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
+            Resources
+          </Link>
 
-  </div>
-)}
+          <div className="h-px bg-white/10 my-2" />
+
+          {isLogged ? (
+            <Link
+              href="/user/admin/dashboard"
+              className="w-full text-center rounded-xl bg-[#814AC8] py-3.5 text-[16px] font-bold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
+              onClick={() => setMenuOpen(false)}
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <Link
+                href="/login"
+                className="w-full text-center text-[16px] font-semibold text-white border border-white/10 rounded-xl py-3.5 hover:bg-white/5 transition-all"
+                onClick={() => setMenuOpen(false)}
+              >
+                Log In
+              </Link>
+              <Link
+                href="/signup"
+                className="w-full text-center rounded-xl bg-[#814AC8] py-3.5 text-[16px] font-bold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
+                onClick={() => setMenuOpen(false)}
+              >
+                Get Started Free
+              </Link>
+            </div>
+          )}
+
+        </div>
+      )}
     </nav>
   );
 };
