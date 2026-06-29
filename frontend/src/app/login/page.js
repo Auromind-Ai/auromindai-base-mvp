@@ -342,16 +342,18 @@ function LoginContent() {
                 <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-fuchsia-900/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="relative z-10">
                     <Link href="/" className="inline-flex items-center gap-2 group">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
+                        <div className="w-10 h-10 flex items-center justify-center">
                             {appLogoUrl && !logoError ? (
                                 <img 
                                     src={appLogoUrl} 
                                     alt={appName} 
-                                    className="w-5 h-5 object-contain" 
+                                    className="w-8 h-8 object-contain" 
                                     onError={() => setLogoError(true)}
                                 />
                             ) : (
-                                <Cpu className="text-white" size={18} strokeWidth={2.5} />
+                                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
+                                    <Cpu className="text-white" size={18} strokeWidth={2.5} />
+                                </div>
                             )}
                         </div>
                         <span className="font-semibold text-lg tracking-tight">{appName}</span>

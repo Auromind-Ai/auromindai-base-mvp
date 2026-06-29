@@ -31,16 +31,18 @@ const NavigationSection = () => {
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center group-hover:scale-105 transition-all">
+          <div className="w-10 h-10 flex items-center justify-center group-hover:scale-105 transition-all">
             {appLogoUrl && !logoError ? (
               <img 
                 src={appLogoUrl} 
                 alt={appName} 
-                className="w-5 h-5 object-contain" 
+                className="w-8 h-8 object-contain" 
                 onError={() => setLogoError(true)}
               />
             ) : (
-              <Zap size={18} fill="currentColor" />
+              <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center">
+                <Zap size={18} fill="currentColor" />
+              </div>
             )}
           </div>
 
