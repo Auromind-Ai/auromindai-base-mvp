@@ -235,6 +235,59 @@ class AIExecutionService:
             logger.error(f"CRITICAL: Failed to {'finalize' if success else 'release'} reservation {reservation_id}: {err}")
 
     @staticmethod
+    def _cleanup_or_settle_stream_reservation(
+        db: Session,
+        reservation_id: str,
+        is_internal_db: bool,
+        ctx: AIExecutionContext,
+        reason: str,
+    ) -> None:
+        """
+        Helper method to either settle the reservation if tokens were generated/yielded,
+        or release it if no token usage occurred during stream cancellation/exit.
+        """
+        if not reservation_id:
+            return
+
+        from app.services.billing.billing_service import BillingService
+        billing_service = BillingService()
+
+        try:
+            tokens = ctx.usage.get("total_tokens", 0)
+            if tokens > 0:
+                from app.services.ai.llm_utils import extract_usage
+                aggregated_result = {
+                    "provider": ctx.provider or "unknown",
+                    "model":    ctx.model    or "unknown",
+                    "usage": {
+                        "input_tokens":  ctx.usage["input_tokens"],
+                        "output_tokens": ctx.usage["output_tokens"],
+                        "total_tokens":  tokens,
+                    },
+                }
+                provider_usage = extract_usage(aggregated_result)
+                billing_service.token_service.settle_from_provider_usage(
+                    db=db,
+                    reservation_id=reservation_id,
+                    usage=provider_usage,
+                    feature_key=ctx.feature_key,
+                    execution_id=ctx.execution_id,
+                    commit=is_internal_db
+                )
+                logger.info(f"[AIExecutionService] Stream reservation {reservation_id} settled on cancel/exit with {tokens} tokens.")
+            else:
+                billing_service.token_service.release_token_reservation(
+                    db=db,
+                    reservation_id=reservation_id,
+                    reason=reason
+                )
+                if is_internal_db:
+                    db.commit()
+                logger.info(f"[AIExecutionService] Stream reservation {reservation_id} released on cancel/exit (usage was 0).")
+        except Exception as err:
+            logger.error(f"CRITICAL: Failed to settle or release stream reservation {reservation_id}: {err}")
+
+    @staticmethod
     async def execute(
         db: Optional[Session] = None,
         workspace_id: Optional[str] = None,
@@ -805,30 +858,33 @@ class AIExecutionService:
             except asyncio.CancelledError as e:
                 logger.info(f"[AIExecutionService] Stream cancelled ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    AIExecutionService._handle_reservation_cleanup(
+                    AIExecutionService._cleanup_or_settle_stream_reservation(
                         db=db,
                         reservation_id=ctx.reservation_id,
                         is_internal_db=is_internal_db,
+                        ctx=ctx,
                         reason=f"Stream cancelled: {type(e).__name__}"
                     )
                 raise e
             except GeneratorExit as e:
                 logger.info(f"[AIExecutionService] Stream exited ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    AIExecutionService._handle_reservation_cleanup(
+                    AIExecutionService._cleanup_or_settle_stream_reservation(
                         db=db,
                         reservation_id=ctx.reservation_id,
                         is_internal_db=is_internal_db,
+                        ctx=ctx,
                         reason=f"Stream exited: {type(e).__name__}"
                     )
                 raise e
             except Exception as e:
                 logger.error(f"[AIExecutionService] Failure in stream execution {ctx.execution_id}: {e}", exc_info=True)
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    AIExecutionService._handle_reservation_cleanup(
+                    AIExecutionService._cleanup_or_settle_stream_reservation(
                         db=db,
                         reservation_id=ctx.reservation_id,
                         is_internal_db=is_internal_db,
+                        ctx=ctx,
                         reason=f"Stream execution failed: {type(e).__name__}"
                     )
                 raise e
