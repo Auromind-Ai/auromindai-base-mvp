@@ -10,6 +10,8 @@ from app.services.auth_service import AuthService
 from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent
 import uuid
 from datetime import datetime, timezone
+from app.core.config import settings
+from app.services.config_service import config_service
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -269,8 +271,7 @@ import httpx
 @router.get("/google/login")
 async def google_login(request: Request, type: str = "login"):
     import secrets
-    from app.core.config import settings
-    from app.services.config_service import config_service
+  
     redirect_uri = config_service.get("oauth_redirect_uri")
 
     state_token = secrets.token_urlsafe(32)

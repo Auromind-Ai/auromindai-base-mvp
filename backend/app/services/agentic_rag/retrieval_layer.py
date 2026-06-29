@@ -92,3 +92,15 @@ class RetrievalLayer:
                 filtered.append(block)
 
         return "\n\n".join(filtered)
+
+    async def semantic_search_async(self, db, workspace_id, query, entry_ids=None, collection=None, top_k=None):
+        import asyncio
+        return await asyncio.to_thread(self.semantic_search, db, workspace_id, query, entry_ids, collection, top_k)
+
+    async def rerank_async(self, query, documents):
+        import asyncio
+        return await asyncio.to_thread(self.rerank, query, documents)
+
+    async def retrieve_context_async(self, db, workspace_id, query, entry_ids=None, collection=None):
+        import asyncio
+        return await asyncio.to_thread(self.retrieve_context, db, workspace_id, query, entry_ids, collection)

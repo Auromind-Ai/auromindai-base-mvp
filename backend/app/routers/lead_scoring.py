@@ -13,7 +13,7 @@ from app.models.ai_action import Lead
 from app.routers.auth import get_current_user
 from app.core.security import verify_workspace_access
 from app.services.crm import lead_scoring_service
-from app.utils.intent_detection import detect_intent_signals
+from app.utils.intent_detection import detect_intent_signals, detect_intent_signals_async
 from app.utils.scoring_config import get_scoring_config
 from app.schemas.lead_scoring import (
     BulkRecalcResponse,
@@ -101,7 +101,7 @@ async def recalculate_lead(
 
     old_score = lead.score or 0
 
-    breakdown = lead_scoring_service.recalculate_lead_score(
+    breakdown = await lead_scoring_service.recalculate_lead_score_async(
         lead, db, reason="manual_recalculation"
     )
 
@@ -179,7 +179,7 @@ async def update_lead_labels(
 
     # Recalculate score
     old_score = lead.score or 0
-    breakdown = lead_scoring_service.recalculate_lead_score(
+    breakdown = await lead_scoring_service.recalculate_lead_score_async(
         lead, db, reason="label_update", commit=False
     )
     new_score = lead.score or 0
@@ -313,13 +313,13 @@ async def message_intent(
             previous_score=old_score,
         )
 
-    result = detect_intent_signals(body.message)
+    result = await detect_intent_signals_async(body.message)
     new_intent_score = result["semantic_intent_score"]
     lead.semantic_intent_score = new_intent_score
     lead.intent_signals = result["signals"]
     lead.last_activity_at = datetime.now(timezone.utc)
 
-    breakdown = lead_scoring_service.recalculate_lead_score(
+    breakdown = await lead_scoring_service.recalculate_lead_score_async(
         lead, db, reason="message_intent", commit=False
     )
     db.commit()
@@ -382,7 +382,7 @@ async def node_progress(
     else:
         reason = f"node_progress_{body.current_node}_of_{body.total_nodes}"
 
-    breakdown = lead_scoring_service.recalculate_lead_score(
+    breakdown = await lead_scoring_service.recalculate_lead_score_async(
         lead, db, reason=reason, commit=False
     )
     db.commit()
@@ -417,7 +417,7 @@ async def bulk_recalculate(
 ):
     wid = verify_workspace_access(current_user, db, workspace_id)
 
-    results = lead_scoring_service.recalculate_workspace_scores(wid, db)
+    results = await lead_scoring_service.recalculate_workspace_scores_async(wid, db)
 
     return BulkRecalcResponse(
         recalculated=len(results),
@@ -509,9 +509,9 @@ async def list_leads_with_scores(
 # 6. Lead detail with conversation log
 
 
-def _build_lead_detail_response(lead: Lead, db: Session) -> LeadDetailResponse:
+async def _build_lead_detail_response(lead: Lead, db: Session) -> LeadDetailResponse:
     # Recalculate lead score dynamically and commit to DB to avoid stale data display (Task 3)
-    breakdown = lead_scoring_service.recalculate_lead_score(
+    breakdown = await lead_scoring_service.recalculate_lead_score_async(
         lead, db, reason="recalculation", commit=True
     )
 
@@ -607,7 +607,7 @@ async def lead_detail(
             detail="Lead not found in this workspace",
         )
 
-    return _build_lead_detail_response(lead, db)
+    return await _build_lead_detail_response(lead, db)
 
 
 @router.post(
@@ -653,7 +653,7 @@ async def toggle_lead_favorite(
         conversation_id=str(lead.conversation_id),
     )
 
-    return _build_lead_detail_response(lead, db)
+    return await _build_lead_detail_response(lead, db)
 
 
 
@@ -691,7 +691,7 @@ async def convert_lead(
     lead.converted_at = datetime.now(timezone.utc)
     
     # Recalculate lead score with reason "converted"
-    lead_scoring_service.recalculate_lead_score(lead, db, reason="converted", commit=False)
+    await lead_scoring_service.recalculate_lead_score_async(lead, db, reason="converted", commit=False)
     db.commit()
 
     # Realtime pubsub (Task 7)
@@ -836,7 +836,7 @@ async def create_manual_lead(
         db.add(msg)
 
     # 9. Recalculate lead score
-    lead_scoring_service.recalculate_lead_score(
+    await lead_scoring_service.recalculate_lead_score_async(
         lead, db, reason="manual_creation", commit=False
     )
     db.commit()
