@@ -342,12 +342,12 @@ function LoginContent() {
                 <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-fuchsia-900/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="relative z-10">
                     <Link href="/" className="inline-flex items-center gap-2 group">
-                        <div className="w-10 h-10 flex items-center justify-center">
+                        <div className="w-14 h-14 flex items-center justify-center">
                             {appLogoUrl && !logoError ? (
                                 <img 
                                     src={appLogoUrl} 
                                     alt={appName} 
-                                    className="w-8 h-8 object-contain" 
+                                    className="w-12 h-12 object-contain" 
                                     onError={() => setLogoError(true)}
                                 />
                             ) : (
