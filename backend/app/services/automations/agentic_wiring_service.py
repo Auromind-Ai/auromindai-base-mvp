@@ -3,8 +3,6 @@ import logging
 import uuid
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
-import google.generativeai as genai
-from groq import Groq
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +10,7 @@ logger = logging.getLogger(__name__)
 class AgenticWiringServiceV2:
 
     def __init__(self):
-        from app.services.config_service import config_service
-        self.google_api_key = config_service.get("google_api_key")
-        self.groq_api_key = config_service.get("groq_api_key")
-        if self.google_api_key:
-            genai.configure(api_key=self.google_api_key)
-        self.groq_client = Groq(api_key=self.groq_api_key) if self.groq_api_key else None
+        pass
     #  PUBLIC                                                              
  
 
@@ -33,78 +26,20 @@ class AgenticWiringServiceV2:
 
         try:
             if db is not None and workspace_id is not None and user_id is not None:
-                import asyncio
                 from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
                 from app.core.exceptions import BillingError, WorkspaceAccessError
 
-                async def run_flow_generation():
-                    if self.groq_client:
-                        response = await asyncio.to_thread(
-                            self.groq_client.chat.completions.create,
-                            messages=[
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_prompt},
-                            ],
-                            model="llama-3.3-70b-versatile",
-                            temperature=0.15,
-                            response_format={"type": "json_object"},
-                            timeout=30.0,
-                        )
-                        content = response.choices[0].message.content or ""
-                        usage = response.usage
-                        input_tokens = usage.prompt_tokens if usage else 0
-                        output_tokens = usage.completion_tokens if usage else 0
-                        total_tokens = usage.total_tokens if usage else 0
-                        return {
-                            "text": content,
-                            "usage": {
-                                "input_tokens": input_tokens,
-                                "output_tokens": output_tokens,
-                                "total_tokens": total_tokens
-                            },
-                            "provider": "groq",
-                            "model": "llama-3.3-70b-versatile"
-                        }
-                    elif self.google_api_key:
-                        model = genai.GenerativeModel("gemini-1.5-flash")
-                        response = await asyncio.to_thread(
-                            model.generate_content,
-                            f"{system_prompt}\n\n{user_prompt}",
-                            generation_config={
-                                "temperature": 0.15,
-                                "response_mime_type": "application/json",
-                            },
-                        )
-                        content = response.text.strip()
-                        if "```json" in content:
-                            content = content.split("```json")[1].split("```")[0].strip()
-                        
-                        usage = response.usage_metadata if hasattr(response, "usage_metadata") else None
-                        input_tokens = usage.prompt_token_count if usage else 0
-                        output_tokens = usage.candidates_token_count if usage else 0
-                        total_tokens = usage.total_token_count if usage else 0
-
-                        return {
-                            "text": content,
-                            "usage": {
-                                "input_tokens": input_tokens,
-                                "output_tokens": output_tokens,
-                                "total_tokens": total_tokens
-                            },
-                            "provider": "gemini",
-                            "model": "gemini-1.5-flash"
-                        }
-                    else:
-                        raise Exception("No AI provider configured (set GOOGLE_API_KEY or GROQ_API_KEY)")
-
+                # Direct centralized execution without hardcoded custom SDK wrappers
                 res = await AIExecutionService.execute(
                     db=db,
                     workspace_id=workspace_id,
                     user_id=user_id,
                     feature_key=AIFeatureRegistry.FLOW,
                     prompt=user_prompt,
-                    description="Generate WhatsApp flow",
-                    execute_fn=run_flow_generation
+                    system_prompt=system_prompt,
+                    structured_output=True,
+                    model="auto",
+                    description="Generate WhatsApp flow"
                 )
                 flow_data = json.loads(res.get("text", "{}"))
 

@@ -313,12 +313,21 @@ export default function CreditsPage() {
         }
     };
 
+    // Helper to format credits safely with configurable precision
+    const formatCredits = (value, precision = 2) => {
+        if (value === undefined || value === null || isNaN(Number(value))) return '—';
+        return Number(value).toLocaleString(undefined, {
+            minimumFractionDigits: precision,
+            maximumFractionDigits: precision
+        });
+    };
+
     // Helper to calculate Used Today from daily_usage
     const getUsedToday = () => {
         if (!creditSummary || !creditSummary.daily_usage) return '—';
         const todayStr = new Date().toISOString().split('T')[0];
         const todayUsage = creditSummary.daily_usage.find(item => (item.date || item.day) === todayStr);
-        return todayUsage ? todayUsage.credits_used.toLocaleString() : '0';
+        return todayUsage ? formatCredits(todayUsage.credits_used, 2) : '0.00';
     };
 
     return (
@@ -393,7 +402,7 @@ export default function CreditsPage() {
                                     <p className="text-purple-300/80 text-[10px] font-black uppercase tracking-[0.2em]">Available AI Workspace Credits</p>
                                     <div className="flex flex-col gap-2">
                                         <div className="text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-none">
-                                            {creditSummaryLoading ? '...' : (creditSummary?.credits_balance ?? '—').toLocaleString()}
+                                            {creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_balance, 2)}
                                         </div>
                                         <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-md w-fit">
                                             AI Model credits remaining
@@ -402,7 +411,7 @@ export default function CreditsPage() {
                                     <div className="flex items-center gap-2 pt-2 border-t border-purple-500/10">
                                         <div className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
                                         <p className="text-zinc-400 text-xs font-medium">
-                                            {creditSummaryLoading ? 'Loading details...' : `Reserved: ${(creditSummary?.credits_reserved ?? 0).toLocaleString()} • Automatic reset on monthly cycle`}
+                                            {creditSummaryLoading ? 'Loading details...' : `Reserved: ${formatCredits(creditSummary?.credits_reserved ?? 0, 2)} • Automatic reset on monthly cycle`}
                                         </p>
                                     </div>
                                 </div>
@@ -432,7 +441,7 @@ export default function CreditsPage() {
                                     <TrendingUp size={20} />
                                 </div>
                                 <div>
-                                    <div className="text-xl font-bold text-white">{creditSummaryLoading ? '...' : (creditSummary?.credits_used ?? '—').toLocaleString()}</div>
+                                    <div className="text-xl font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_used, 2)}</div>
                                     <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mt-0.5">Used This Month</div>
                                 </div>
                             </div>
@@ -507,13 +516,15 @@ export default function CreditsPage() {
                                         </thead>
                                         <tbody className="divide-y divide-white/[0.02] text-zinc-300">
                                            {creditHistory.slice(0, creditHistoryVisible).map((item) => {
-                                                const isDeduction = item.credits_delta < 0;
+                                                const value = Number(item.credits_delta ?? 0);
+                                                const isDeduction = value < 0;
+                                                const isZero = Math.abs(value) < 0.0000001;
                                                 return (
                                                     <tr key={item.id} className="hover:bg-white/[0.01] transition-colors">
                                                         <td className="p-4 text-zinc-400 font-medium">{formatDate(item.created_at)}</td>
                                                         <td className="p-4 font-semibold text-zinc-200">{item.description || 'System Process'}</td>
                                                         <td className={`p-4 font-bold ${isDeduction ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                            {isDeduction ? '' : '+'}{item.credits_delta.toLocaleString()}
+                                                            {isDeduction || isZero ? '' : '+'}{formatCredits(item.credits_delta, 4)}
                                                         </td>
                                                         <td className="p-4 capitalize font-medium text-zinc-400">{item.entry_type.replace('_', ' ')}</td>
                                                         <td className="p-4 text-zinc-500">—</td>

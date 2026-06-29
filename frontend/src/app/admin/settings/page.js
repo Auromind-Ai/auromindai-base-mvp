@@ -135,26 +135,14 @@ export default function SettingsPage() {
       enterprise: 1000000 
     },
 
-    // ---------------- AI Controls ----------------
-    temperature: 0.8,
-    max_tokens: 4096,
-    rpm_limit: 60,
-    context_window: 8192,
-
     // ---------------- Rate Limits ----------------
     api_rpm_limit: 60,
     api_tpm_limit: 100000,
     workspace_token_limit: 1000000,
 
-    // ---------------- AI Model ----------------
-    model_name: "gpt-4o",
-
     // ---------------- Announcement ----------------
     announcement_enabled: false,
     announcement_message: "",
-
-    // ---------------- AI Kill Switch ----------------
-    ai_enabled: true,
 
     // ---------------- Feature Toggles ----------------
     enable_gmail_integration: true,
@@ -351,7 +339,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: "general", name: "General", icon: Settings },
-    { id: "ai", name: "AI Intelligence", icon: Cpu },
+    { id: "ai", name: "AI Providers", icon: Cpu },
     { id: "pricing", name: "Pricing & Plans", icon: CreditCard },
     { id: "payments", name: "Payments", icon: Layers },
     { id: "infra", name: "Infrastructure", icon: Globe },
@@ -360,10 +348,10 @@ export default function SettingsPage() {
   ]
 
   const AI_PROVIDERS = [
-    { id: "openai", name: "OpenAI", models: ["gpt-4o", "gpt-4-turbo"], key: "openai_api_key", color: "bg-emerald-500" },
-    { id: "google", name: "Google Gemini", models: ["gemini-1.5-pro", "gemini-1.5-flash"], key: "gemini_api_key", color: "bg-blue-500" },
-    { id: "anthropic", name: "Anthropic", models: ["claude-3-5-sonnet"], key: "anthropic_api_key", color: "bg-orange-500" },
-    { id: "groq", name: "Groq (Llama)", models: ["llama-3.1-70b"], key: "groq_api_key", color: "bg-red-500" },
+    { id: "openai", name: "OpenAI", key: "openai_api_key", color: "bg-emerald-500" },
+    { id: "google", name: "Google Gemini", key: "gemini_api_key", color: "bg-blue-500" },
+    { id: "anthropic", name: "Anthropic", key: "anthropic_api_key", color: "bg-orange-500" },
+    { id: "groq", name: "Groq (Llama)", key: "groq_api_key", color: "bg-red-500" },
   ]
 
   return (
@@ -511,7 +499,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Tab: AI Intelligence */}
+            {/* Tab: AI Providers */}
             {activeTab === "ai" && (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
                 <section>
@@ -521,28 +509,18 @@ export default function SettingsPage() {
                         <Cpu className="text-indigo-500 w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold">AI Provider Hub</h3>
-                        <p className="text-xs text-gray-500">Select model and configure keys</p>
+                        <h3 className="text-lg font-bold">AI Providers</h3>
+                        <p className="text-xs text-gray-500">Manage provider credentials used by the AI platform.</p>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.05] rounded-2xl">
-                        <span className="text-xs font-bold text-gray-500">AI ENABLED</span>
-                        <input 
-                          type="checkbox"
-                          checked={settings.ai_enabled}
-                          onChange={(e) => handleInputChange("ai_enabled", e.target.checked)}
-                          className="w-5 h-5 accent-red-500 rounded-lg" 
-                        />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {AI_PROVIDERS.map(provider => {
                       const isConfigured = settings[provider.key]?.length > 0;
-                      const isActive = provider.models.includes(settings.model_name);
 
                       return (
-                        <div key={provider.id} className={`p-6 rounded-3xl border transition-all ${isActive ? 'bg-indigo-500/5 border-indigo-500/30' : 'bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03]'}`}>
+                        <div key={provider.id} className="p-6 rounded-3xl border transition-all bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03]">
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-3">
                               <div className={`w-8 h-8 rounded-lg ${provider.color} opacity-20`} />
@@ -563,51 +541,10 @@ export default function SettingsPage() {
                               placeholder={`Enter ${provider.name} API Key`}
                               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                             />
-                            <select
-                              value={isActive ? settings.model_name : ""}
-                              onChange={(e) => handleInputChange("model_name", e.target.value)}
-                              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none appearance-none"
-                            >
-                              <option value="" disabled>Select Model...</option>
-                              {provider.models.map(m => (
-                                <option key={m} value={m}>{m}</option>
-                              ))}
-                            </select>
                           </div>
                         </div>
                       )
                     })}
-                  </div>
-                </section>
-
-                <section>
-                   <div className="flex items-center gap-3 mb-6 pt-4">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                      <Layers className="text-blue-500 w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold">Response Tuning</h3>
-                      <p className="text-xs text-gray-500">Fine-tune AI output behavior</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    {[
-                      { label: "Temp", key: "temperature", step: 0.1 },
-                      { label: "Max Output", key: "max_tokens" },
-                      { label: "RPM Limit", key: "rpm_limit" },
-                      { label: "Ctx Window", key: "context_window" }
-                    ].map(item => (
-                      <div key={item.key} className="space-y-2">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
-                        <input 
-                          type="number"
-                          step={item.step || 1}
-                          value={settings[item.key]}
-                          onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
-                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
-                        />
-                      </div>
-                    ))}
                   </div>
                 </section>
               </div>

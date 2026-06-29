@@ -690,19 +690,18 @@ class BillingService:
         burn_rate = self.token_service.get_burn_rate(db, str(workspace.id))
         daily_usage = self.token_service.get_daily_usage(db, str(workspace.id), days=30)
 
-        credits_balance = round(float(balance.balance), 2)
-        credits_added = round(float(balance.tokens_added), 2)
-        credits_used = round(float(balance.tokens_used), 2)
-        credits_reserved = round(float(balance.tokens_reserved), 2)
+        credits_balance = float(balance.balance)
+        credits_added = float(balance.tokens_added)
+        credits_used = float(balance.tokens_used)
+        credits_reserved = float(balance.tokens_reserved)
 
-
-        days_remaining = round(credits_balance / burn_rate, 1) if burn_rate > 0 else -1
+        days_remaining = float(credits_balance / burn_rate) if burn_rate > 0 else -1.0
 
         # Determine health status
         if credits_added > 0:
-            usage_pct = round((credits_used / credits_added) * 100, 1)
+            usage_pct = float((credits_used / credits_added) * 100)
         else:
-            usage_pct = 0
+            usage_pct = 0.0
 
         if usage_pct >= 80:
             health = "critical"
