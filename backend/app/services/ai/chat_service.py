@@ -407,7 +407,17 @@ class ChatService:
                     yield f"{json.dumps({'content': content})}\n"
                 if meta:
                     yield f"{json.dumps({'meta': meta})}\n"
+            
+            db.commit()
+
+        except (asyncio.CancelledError, GeneratorExit) as e:
+            try:
+                db.commit()
+            except Exception as commit_err:
+                logger.error(f"Failed to commit db session on stream cancel/exit: {commit_err}")
+            raise e
         except Exception as e:
+            db.rollback()
             logger.error(f"Stream execution failed: {e}")
             yield f"{json.dumps({'error': str(e)})}\n"
         finally:
