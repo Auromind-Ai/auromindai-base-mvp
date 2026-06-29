@@ -195,6 +195,46 @@ class AIExecutionContext:
 
 class AIExecutionService:
     @staticmethod
+    def _handle_reservation_cleanup(
+        db: Session,
+        reservation_id: str,
+        is_internal_db: bool,
+        reason: str,
+        success: bool = False,
+        actual_units: float = None,
+    ) -> None:
+        """
+        Helper method to centralize token reservation release/finalization.
+        Ensures that if is_internal_db is True, db.commit() is executed exactly once
+        at the end of the transaction. Otherwise, transaction control is left to the caller.
+        """
+        if not reservation_id:
+            return
+
+        from app.services.billing.billing_service import BillingService
+        billing_service = BillingService()
+
+        try:
+            with db.begin_nested():
+                if success:
+                    billing_service.token_service.finalize_feature_credits(
+                        db=db,
+                        reservation_id=reservation_id,
+                        actual_units=float(actual_units) if actual_units is not None else 0.0
+                    )
+                else:
+                    billing_service.token_service.release_token_reservation(
+                        db=db,
+                        reservation_id=reservation_id,
+                        reason=reason
+                    )
+            if is_internal_db:
+                db.commit()
+            logger.info(f"[AIExecutionService] Successfully {'finalized' if success else 'released'} reservation {reservation_id}.")
+        except Exception as err:
+            logger.error(f"CRITICAL: Failed to {'finalize' if success else 'release'} reservation {reservation_id}: {err}")
+
+    @staticmethod
     async def execute(
         db: Optional[Session] = None,
         workspace_id: Optional[str] = None,
@@ -463,13 +503,12 @@ class AIExecutionService:
                                 f"[AIExecutionService] Provider returned no usage for {ctx.execution_id}: {pume}. "
                                 "Releasing reservation — workspace will NOT be charged."
                             )
-                            with db.begin_nested():
-                                billing_service.token_service.release_token_reservation(
-                                    db=db,
-                                    reservation_id=ctx.reservation_id,
-                                    reason=f"Provider usage missing: {pume}",
-                                )
-                            db.commit()
+                            AIExecutionService._handle_reservation_cleanup(
+                                db=db,
+                                reservation_id=ctx.reservation_id,
+                                is_internal_db=is_internal_db,
+                                reason=f"Provider usage missing: {pume}"
+                            )
                             reservation_created = False
                             return result
 
@@ -480,6 +519,7 @@ class AIExecutionService:
                             usage=provider_usage,
                             feature_key=ctx.feature_key,
                             execution_id=ctx.execution_id,
+                            commit=is_internal_db
                         )
                         logger.info(
                             f"[AIExecutionService] Settled | execution={ctx.execution_id} "
@@ -493,45 +533,33 @@ class AIExecutionService:
             except asyncio.CancelledError as e:
                 logger.info(f"[AIExecutionService] Execution cancelled ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    try:
-                        with db.begin_nested():
-                            billing_service.token_service.release_token_reservation(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                reason=f"Execution cancelled: {type(e).__name__}"
-                            )
-                        logger.info(f"[AIExecutionService] Released reservation {ctx.reservation_id} successfully.")
-                    except Exception as release_err:
-                        logger.error(f"CRITICAL: Failed to release reservation {ctx.reservation_id} on fallback: {release_err}")
+                    AIExecutionService._handle_reservation_cleanup(
+                        db=db,
+                        reservation_id=ctx.reservation_id,
+                        is_internal_db=is_internal_db,
+                        reason=f"Execution cancelled: {type(e).__name__}"
+                    )
                 raise e
             except GeneratorExit as e:
                 logger.info(f"[AIExecutionService] Execution exited ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    try:
-                        with db.begin_nested():
-                            billing_service.token_service.release_token_reservation(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                reason=f"Execution exited: {type(e).__name__}"
-                            )
-                        logger.info(f"[AIExecutionService] Released reservation {ctx.reservation_id} successfully.")
-                    except Exception as release_err:
-                        logger.error(f"CRITICAL: Failed to release reservation {ctx.reservation_id} on fallback: {release_err}")
+                    AIExecutionService._handle_reservation_cleanup(
+                        db=db,
+                        reservation_id=ctx.reservation_id,
+                        is_internal_db=is_internal_db,
+                        reason=f"Execution exited: {type(e).__name__}"
+                    )
                 raise e
             except Exception as e:
                 logger.error(f"[AIExecutionService] Failure in execution {ctx.execution_id}: {e}", exc_info=True)
                 # 8. Release Reservation on Failure
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    try:
-                        with db.begin_nested():
-                            billing_service.token_service.release_token_reservation(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                reason=f"Execution failed: {type(e).__name__}"
-                            )
-                        logger.info(f"[AIExecutionService] Released reservation {ctx.reservation_id} successfully.")
-                    except Exception as release_err:
-                        logger.error(f"CRITICAL: Failed to release reservation {ctx.reservation_id} on fallback: {release_err}")
+                    AIExecutionService._handle_reservation_cleanup(
+                        db=db,
+                        reservation_id=ctx.reservation_id,
+                        is_internal_db=is_internal_db,
+                        reason=f"Execution failed: {type(e).__name__}"
+                    )
                 raise e
             finally:
                 current_execution_context.reset(token_token)
@@ -751,13 +779,12 @@ class AIExecutionService:
                             f"[AIExecutionService] Stream provider returned no usage for {ctx.execution_id}: {pume}. "
                             "Releasing reservation — workspace will NOT be charged."
                         )
-                        with db.begin_nested():
-                            billing_service.token_service.release_token_reservation(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                reason=f"Provider usage missing: {pume}",
-                            )
-                        db.commit()
+                        AIExecutionService._handle_reservation_cleanup(
+                            db=db,
+                            reservation_id=ctx.reservation_id,
+                            is_internal_db=is_internal_db,
+                            reason=f"Provider usage missing: {pume}"
+                        )
                         reservation_created = False
                         return
 
@@ -767,6 +794,7 @@ class AIExecutionService:
                         usage=provider_usage,
                         feature_key=ctx.feature_key,
                         execution_id=ctx.execution_id,
+                        commit=is_internal_db
                     )
                     logger.info(
                         f"[AIExecutionService] Stream settled | execution={ctx.execution_id} "
@@ -777,44 +805,32 @@ class AIExecutionService:
             except asyncio.CancelledError as e:
                 logger.info(f"[AIExecutionService] Stream cancelled ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    try:
-                        with db.begin_nested():
-                            billing_service.token_service.release_token_reservation(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                reason=f"Stream cancelled: {type(e).__name__}"
-                            )
-                        logger.info(f"[AIExecutionService] Released reservation {ctx.reservation_id} successfully.")
-                    except Exception as release_err:
-                        logger.error(f"CRITICAL: Failed to release reservation {ctx.reservation_id} on stream fallback: {release_err}")
+                    AIExecutionService._handle_reservation_cleanup(
+                        db=db,
+                        reservation_id=ctx.reservation_id,
+                        is_internal_db=is_internal_db,
+                        reason=f"Stream cancelled: {type(e).__name__}"
+                    )
                 raise e
             except GeneratorExit as e:
                 logger.info(f"[AIExecutionService] Stream exited ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    try:
-                        with db.begin_nested():
-                            billing_service.token_service.release_token_reservation(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                reason=f"Stream exited: {type(e).__name__}"
-                            )
-                        logger.info(f"[AIExecutionService] Released reservation {ctx.reservation_id} successfully.")
-                    except Exception as release_err:
-                        logger.error(f"CRITICAL: Failed to release reservation {ctx.reservation_id} on stream fallback: {release_err}")
+                    AIExecutionService._handle_reservation_cleanup(
+                        db=db,
+                        reservation_id=ctx.reservation_id,
+                        is_internal_db=is_internal_db,
+                        reason=f"Stream exited: {type(e).__name__}"
+                    )
                 raise e
             except Exception as e:
                 logger.error(f"[AIExecutionService] Failure in stream execution {ctx.execution_id}: {e}", exc_info=True)
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    try:
-                        with db.begin_nested():
-                            billing_service.token_service.release_token_reservation(
-                                db=db,
-                                reservation_id=ctx.reservation_id,
-                                reason=f"Stream execution failed: {type(e).__name__}"
-                            )
-                        logger.info(f"[AIExecutionService] Released reservation {ctx.reservation_id} successfully.")
-                    except Exception as release_err:
-                        logger.error(f"CRITICAL: Failed to release reservation {ctx.reservation_id} on stream fallback: {release_err}")
+                    AIExecutionService._handle_reservation_cleanup(
+                        db=db,
+                        reservation_id=ctx.reservation_id,
+                        is_internal_db=is_internal_db,
+                        reason=f"Stream execution failed: {type(e).__name__}"
+                    )
                 raise e
             finally:
                 current_execution_context.reset(token_token)

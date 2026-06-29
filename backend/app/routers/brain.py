@@ -835,7 +835,7 @@ async def search_knowledge(
             f"query={request.query} collection={request.collection} entry_ids={request.entry_ids}"
         )
         rag = get_rag_service()
-        results = rag.retrieval.semantic_search(
+        results = await rag.retrieval.semantic_search_async(
             db=db,
             workspace_id=workspace_id,
             query=request.query,

@@ -97,6 +97,7 @@ class TokenService:
         feature_key: str,
         execution_id: str,
         request_id: str | None = None,
+        commit: bool = True,
     ) -> TokenLedger:
       
      
@@ -138,7 +139,8 @@ class TokenService:
         ledger_row.feature_key       = feature_key
 
         db.flush()
-        db.commit()
+        if commit:
+            db.commit()
 
         return ledger_row
 

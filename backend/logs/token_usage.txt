@@ -553,3 +553,551 @@ TOTAL TOKENS USED: 1711
 Final Reply Text: '**Meeting Agenda Template**\n\n**Meeting Title:** [Insert Meeting Title]\n\n**Date:** [Insert Date]\n**Time:** [Insert Time]\n**Duration:** [Insert Duration]\n\n**Objective:** \n[ Briefly describe the purpose of the meeting ]\n\n**Agenda:**\n\n1. **Introduction and Welcome** (5 minutes)\n\t* Welcome participants\n\t* Review meeting objectives\n\n2. **Review of Current Status** (15 minutes)\n\t* Overview of current projects and progress\n\n3. **Key Discussion Points** (30 minutes)\n\t* [Topic 1]: [Discussion points]\n\t* [Topic 2]: [Discussion points]\n\n4. **Action Items and Decisions** (15 minutes)\n\t* Review action items assigned\n\t* Document decisions made\n\n5. **Next Steps and Conclusion** (5 minutes)\n\t* Recap meeting outcomes\n\t* Outline next steps\n\n**Attendees:**\n[List names and titles of attendees]\n\n**Pre-Meeting Preparation:**\n[Insert any pre-meeting tasks or materials]\n\n**Post-Meeting Follow-up:**\n[Insert any post-meeting tasks or responsibilities]\n\nFollow-up question:\nWhat are the essential elements to include in a meeting objective statement?'
 Final Reply Token Count (Estimate): 139
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T06:34:10.590098Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 321
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 345
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What is new in Aura AI?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 579
+   Input/Query Tokens: 17
+   Output Tokens: 3
+   Total Tokens: 599
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What is new in Aura AI?
+
+    Selected Tool:
+   [LLM Output Snippet]: vector_db
+
+3. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 316
+   Input/Query Tokens: 667
+   Output Tokens: 2
+   Total Tokens: 985
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          What is new in Aura AI?          Context:         -none"   <option value="send_ms...
+   [LLM Output Snippet]: NO
+
+4. Function: mcp_layer.py:refine_query
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 373
+   Input/Query Tokens: 657
+   Output Tokens: 11
+   Total Tokens: 1041
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Recovery Agent.          The previous retrieval attempt did NOT fully ans...
+   [User Input Snippet]: Question:          What is new in Aura AI?          Previous Context:         -none"   <option value...
+   [LLM Output Snippet]: What are the recent updates or features in Aura AI
+
+5. Function: mcp_layer.py:evaluate_context
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 302
+   Input/Query Tokens: 529
+   Output Tokens: 2
+   Total Tokens: 833
+   [Sys Prompt Snippet]: You are a retrieval validation agent.          Your task is to determine whether the provided Contex...
+   [User Input Snippet]: Question:          What is new in Aura AI?          Context:         -none"   <option value="send_ms...
+   [LLM Output Snippet]: NO
+
+6. Function: mcp_layer.py:refine_query
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 354
+   Input/Query Tokens: 528
+   Output Tokens: 16
+   Total Tokens: 898
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Recovery Agent.          The previous retrieval attempt did NOT fully ans...
+   [User Input Snippet]: Question:          What are the recent updates or features in Aura AI          Previous Context:    ...
+   [LLM Output Snippet]: What are recent updates or new features in Aura AI software or Aura AI technology
+
+7. Function: orchestrator_layer_support.py:synthesize_information
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 419
+   Input/Query Tokens: 510
+   Output Tokens: 6
+   Total Tokens: 935
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          ROLE:         From the Retrieved C...
+   [User Input Snippet]: Question:          What is new in aura AI?          Retrieved Context:         -none"   <option valu...
+   [LLM Output Snippet]: No relevant information found.
+
+8. Function: orchestrator_layer_support.py:generate_final_output
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 254
+   Input/Query Tokens: 27
+   Output Tokens: 8
+   Total Tokens: 289
+   [Sys Prompt Snippet]: You are a highly accurate Information Extraction Engine.          OBJECTIVE:         Identify and ex...
+   [User Input Snippet]: USER QUESTION:          What is new in aura AI?          VERIFIED INFORMATION:         No relevant i...
+   [LLM Output Snippet]: Information not available in provided documents.
+
+9. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 99
+   Input/Query Tokens: 25
+   Output Tokens: 14
+   Total Tokens: 138
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:         Information not available in pro...
+   [LLM Output Snippet]: What specific features or updates are you looking for in Aura AI?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 9
+Total System Tokens: 3017
+Total Input/Query Tokens: 2976
+Total Output Tokens: 70
+TOTAL TOKENS USED: 6063
+-----------------------------------------
+Final Reply Text: 'Information not available in provided documents.\n\nFollow-up question:\nWhat specific features or updates are you looking for in Aura AI?'
+Final Reply Token Count (Estimate): 20
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T06:37:13.931892Z
+User Query: 'who is ms dhoni'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 13
+   Output Tokens: 8
+   Total Tokens: 344
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is ms dhoni
+
+        Rewritten Query:
+   [LLM Output Snippet]: who is Mahendra Singh Dhoni
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 15
+   Output Tokens: 3
+   Total Tokens: 600
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    who is Mahendra Singh Dhoni
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 128
+   Input/Query Tokens: 976
+   Output Tokens: 246
+   Total Tokens: 1350
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is ms dhoni              Context:                                      Ti...
+   [LLM Output Snippet]: MS Dhoni, also known as Mahendra Singh Dhoni, is a former Indian cricketer born on July 7, 1981, in ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 100
+   Input/Query Tokens: 282
+   Output Tokens: 15
+   Total Tokens: 397
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is ms dhoni          Answer:                      MS Dhoni, also known as Mah...
+   [LLM Output Snippet]: What are MS Dhoni's achievements as Captain Cool in international cricket?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1133
+Total Input/Query Tokens: 1286
+Total Output Tokens: 272
+TOTAL TOKENS USED: 2691
+-----------------------------------------
+Final Reply Text: '\n            MS Dhoni, also known as Mahendra Singh Dhoni, is a former Indian cricketer born on July 7, 1981, in Ranchi, Bihar (now Jharkhand), India. He is a right-handed wicket-keeper-batter and is often referred to by his nicknames "Mahi," "Thala," and "Captain Cool." Dhoni has had a distinguished cricket career, serving as the captain of the Indian national team in various formats, including Test matches, One-Day Internationals (ODIs), and Twenty20 Internationals (T20Is).\n\nSome of his notable achievements include:\n\n* Receiving several prestigious awards, such as the Padma Bhushan (2018), Padma Shri (2009), and Major Dhyan Chand Khel Ratna Award (2008)\n* Holding the rank of Lieutenant Colonel (Honorary) in the Indian Army\'s Territorial Army Parachute Regiment\n* Leading the Chennai Super Kings to multiple Indian Premier League (IPL) championships\n\nDhoni is also active on social media, with a large following on Facebook, where he shares his interests in biking, gaming, and Hindi retro music, as well as his love for pets.\n\n            Sources:\n            • en.wikipedia.org\n• cricbuzz.com\n• facebook.com\n            \n\nFollow-up question:\nWhat are MS Dhoni\'s achievements as Captain Cool in international cricket?'
+Final Reply Token Count (Estimate): 180
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T06:37:47.619785Z
+User Query: 'who is ms dhoni'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 13
+   Output Tokens: 8
+   Total Tokens: 344
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is ms dhoni
+
+        Rewritten Query:
+   [LLM Output Snippet]: who is Mahendra Singh Dhoni
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 15
+   Output Tokens: 3
+   Total Tokens: 600
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    who is Mahendra Singh Dhoni
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 130
+   Input/Query Tokens: 1404
+   Output Tokens: 214
+   Total Tokens: 1748
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is ms dhoni              Context:                                      Ti...
+   [LLM Output Snippet]: MS Dhoni, also known as Mahendra Singh Dhoni, is a former Indian cricketer born on July 7, 1981, in ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 104
+   Input/Query Tokens: 247
+   Output Tokens: 17
+   Total Tokens: 368
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is ms dhoni          Answer:                      MS Dhoni, also known as Mah...
+   [LLM Output Snippet]: What were MS Dhoni's notable achievements as captain of the Indian cricket team?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1139
+Total Input/Query Tokens: 1679
+Total Output Tokens: 242
+TOTAL TOKENS USED: 3060
+-----------------------------------------
+Final Reply Text: '\n            MS Dhoni, also known as Mahendra Singh Dhoni, is a former Indian cricketer born on July 7, 1981, in Ranchi, Bihar (present-day Jharkhand), India. He is a right-handed batsman and wicket-keeper, who played for the Indian national team from 2004 to 2019. Dhoni is nicknamed "Mahi," "Thala," and "Captain Cool." He has received several awards, including the Padma Bhushan (2018), Padma Shri (2009), and Major Dhyan Chand Khel Ratna Award (2008). \n\nSome of his key achievements include:\n* Serving as a lieutenant colonel in the Indian Army\'s Territorial Army Parachute Regiment since 2011\n* Leading the Chennai Super Kings team in the Indian Premier League (IPL) \n* Playing for the Indian national team in various formats, including Test, ODI, and T20I cricket \n\nDhoni is widely regarded for his exceptional leadership and wicket-keeping skills.\n\n            Sources:\n            • en.wikipedia.org\n• simple.wikipedia.org\n• cricbuzz.com\n            \n\nFollow-up question:\nWhat were MS Dhoni\'s notable achievements as captain of the Indian cricket team?'
+Final Reply Token Count (Estimate): 155
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:23:01.607092Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 321
+   Input/Query Tokens: 16
+   Output Tokens: 9
+   Total Tokens: 346
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What is new in aura AI technology?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 578
+   Input/Query Tokens: 19
+   Output Tokens: 3
+   Total Tokens: 600
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What is new in aura AI technology?
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 104
+   Input/Query Tokens: 949
+   Output Tokens: 229
+   Total Tokens: 1282
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: Here is the information about what's new in Aura AI:  There are multiple projects and products with ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 92
+   Input/Query Tokens: 274
+   Output Tokens: 15
+   Total Tokens: 381
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      Here is the informa...
+   [LLM Output Snippet]: What are the potential applications of XREAL AURA's XR technology?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1095
+Total Input/Query Tokens: 1258
+Total Output Tokens: 256
+TOTAL TOKENS USED: 2609
+-----------------------------------------
+Final Reply Text: '\n            Here is the information about what\'s new in Aura AI:\n\nThere are multiple projects and products with "Aura" in their name. Here are the recent updates:\n\n* **XREAL AURA**: XREAL\'s first wired XR glasses, powered by Android XR and using the Snapdragon Reality Elite Platform, are now open for reservations and are set to be released this fall.\n* **Aura Intelligence**: Aura Intelligence is an AI platform that collects, analyzes, and visualizes workforce data. It provides expert-level workforce insights, automating analysis across billions of workforce data points.\n* **Project Aura**: Google\'s Project Aura, also known as XREAL AURA, is a next-generation XR glasses developed by Google in partnership with XREAL. It features:\n  + Micro-OLED display with high brightness and resolution\n  + 70-degree field of view\n  + Snapdragon XR2 Gen 2 Plus and XREAL X1S chip\n  + 3-camera array for room tracking and hand tracking\n  + Hand gestures, touchpad puck, and voice input\n\nNo recent information found on other new features or updates in Aura AI beyond these projects.\n\n            Sources:\n            • blog.google\n• getaura.ai\n• wearablexp.com\n            \n\nFollow-up question:\nWhat are the potential applications of XREAL AURA\'s XR technology?'
+Final Reply Token Count (Estimate): 187
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:23:27.540210Z
+User Query: 'follow up'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 10
+   Output Tokens: 3
+   Total Tokens: 336
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        follow up
+
+        Rewritten Query:
+   [LLM Output Snippet]: follow up
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 10
+   Output Tokens: 3
+   Total Tokens: 595
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    follow up
+
+    Selected Tool:
+   [LLM Output Snippet]: direct_answer
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 905
+Total Input/Query Tokens: 20
+Total Output Tokens: 6
+TOTAL TOKENS USED: 931
+-----------------------------------------
+Final Reply Text: 'Hello! How can I help you today?'
+Final Reply Token Count (Estimate): 7
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:24:39.562586Z
+User Query: 'follow up'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 10
+   Output Tokens: 3
+   Total Tokens: 336
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        follow up
+
+        Rewritten Query:
+   [LLM Output Snippet]: follow up
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 10
+   Output Tokens: 3
+   Total Tokens: 595
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    follow up
+
+    Selected Tool:
+   [LLM Output Snippet]: direct_answer
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 905
+Total Input/Query Tokens: 20
+Total Output Tokens: 6
+TOTAL TOKENS USED: 931
+-----------------------------------------
+Final Reply Text: 'Hello! How can I help you today?'
+Final Reply Token Count (Estimate): 7
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:27:44.781372Z
+User Query: 'who is ms dhoni'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 13
+   Output Tokens: 8
+   Total Tokens: 344
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is ms dhoni
+
+        Rewritten Query:
+   [LLM Output Snippet]: who is Mahendra Singh Dhoni
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 15
+   Output Tokens: 3
+   Total Tokens: 600
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    who is Mahendra Singh Dhoni
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 131
+   Input/Query Tokens: 1401
+   Output Tokens: 234
+   Total Tokens: 1766
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is ms dhoni              Context:                                      Ti...
+   [LLM Output Snippet]: MS Dhoni, also known as Mahendra Singh Dhoni, is a former Indian cricketer born on July 7, 1981, in ...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 121
+   Input/Query Tokens: 250
+   Output Tokens: 16
+   Total Tokens: 387
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is ms dhoni          Answer:                      MS Dhoni, also known as Mah...
+   [LLM Output Snippet]: What were MS Dhoni's notable achievements as the Indian cricket team captain?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1157
+Total Input/Query Tokens: 1679
+Total Output Tokens: 261
+TOTAL TOKENS USED: 3097
+-----------------------------------------
+Final Reply Text: "\n            MS Dhoni, also known as Mahendra Singh Dhoni, is a former Indian cricketer born on July 7, 1981, in Ranchi, Bihar (now Jharkhand), India. He is a right-handed batsman and wicket-keeper, and his cricket career spanned from 1999 to 2019. Here are some key facts about MS Dhoni:\n\n* **Nicknames**: Mahi, Thala, and Captain Cool\n* **Awards**: \n  + Padma Bhushan (2018)\n  + Padma Shri (2009)\n  + Major Dhyan Chand Khel Ratna Award (2008)\n* **Military Service**: Lieutenant Colonel (Honorary) in the Indian Army's Territorial Army Parachute Regiment (2011-present)\n* **Cricket Career**:\n  + Played for India (2004-2019)\n  + Domestic teams: Bihar (1999-2004), Jharkhand (2004-2017), Chennai Super Kings (2008-2015, 2018-present), and Rising Pune Supergiant (2016-2017)\n\n            Sources:\n            • en.wikipedia.org\n• simple.wikipedia.org\n• cricbuzz.com\n            \n\nFollow-up question:\nWhat were MS Dhoni's notable achievements as the Indian cricket team captain?"
+Final Reply Token Count (Estimate): 134
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:27:54.838674Z
+User Query: 'how r u'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 11
+   Output Tokens: 4
+   Total Tokens: 338
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        how r u
+
+        Rewritten Query:
+   [LLM Output Snippet]: how r u
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 581
+   Input/Query Tokens: 12
+   Output Tokens: 3
+   Total Tokens: 596
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    how r u
+
+    Selected Tool:
+   [LLM Output Snippet]: direct_answer
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 2
+Total System Tokens: 904
+Total Input/Query Tokens: 23
+Total Output Tokens: 7
+TOTAL TOKENS USED: 934
+-----------------------------------------
+Final Reply Text: 'Hello! How can I help you today?'
+Final Reply Token Count (Estimate): 7
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T09:34:24.400101Z
+User Query: 'who is ms dhoni'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 323
+   Input/Query Tokens: 13
+   Output Tokens: 8
+   Total Tokens: 344
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        who is ms dhoni
+
+        Rewritten Query:
+   [LLM Output Snippet]: who is Mahendra Singh Dhoni
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 15
+   Output Tokens: 3
+   Total Tokens: 600
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    who is Mahendra Singh Dhoni
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 125
+   Input/Query Tokens: 1384
+   Output Tokens: 135
+   Total Tokens: 1644
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              who is ms dhoni              Context:                                      Ti...
+   [LLM Output Snippet]: Mahendra Singh Dhoni is a renowned Indian cricket player, also known as "Mahi" and "The Helicopter S...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 94
+   Input/Query Tokens: 178
+   Output Tokens: 17
+   Total Tokens: 289
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          who is ms dhoni          Answer:                      Mahendra Singh Dhoni is a r...
+   [LLM Output Snippet]: What were some notable achievements of MS Dhoni's captaincy in Indian cricket?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1124
+Total Input/Query Tokens: 1590
+Total Output Tokens: 163
+TOTAL TOKENS USED: 2877
+-----------------------------------------
+Final Reply Text: '\n            Mahendra Singh Dhoni is a renowned Indian cricket player, also known as "Mahi" and "The Helicopter Shot" expert. He is a former captain of the Indian national team and is widely regarded for his exceptional leadership and batting skills. \n\nSome key facts about him include:\n* He is known for his calm, composed, and cool-headed demeanor on the field.\n* He has a distinctive hairstyle and charming smile.\n* He led India to win the inaugural T-20 World Cup.\n* He was a regular visitor to a salon in Ranchi called the "Manly Beauty Parlour" earlier in his career.\n\nNo recent information found.\n\n            Sources:\n            • storymirror.com\n• indianexpress.com\n• astrosage.com\n            \n\nFollow-up question:\nWhat were some notable achievements of MS Dhoni\'s captaincy in Indian cricket?'
+Final Reply Token Count (Estimate): 124
+=========================================
