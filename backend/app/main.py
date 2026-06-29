@@ -35,7 +35,7 @@ from app.routers.account import router as account_router
 # Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Auromind Production System Starting...")
+    logger.info("Orbionagents Production System Starting...")
     
     # Seed platform settings and model configurations on startup
     from app.database import SessionLocal
@@ -81,12 +81,12 @@ async def lifespan(app: FastAPI):
     await shutdown_pubsub(app)
     await shutdown_metrics(app)          # close metrics Redis client
     shutdown_schedulers(app)
-    logger.info("Auromind Production System Stopped")
+    logger.info("Orbionagents Production System Stopped")
 
 
 # App
 app = FastAPI(
-    title="Auromind API",
+    title="Orbionagents API",
     description="AI-Powered Business Assistant Platform (Production)",
     version="2.0.0",
     lifespan=lifespan,
@@ -97,6 +97,10 @@ register_exception_handlers(app)
 # Middleware
 allowed_origins = []
 fallback_origins = [
+    "https://orbionagents.com",
+    "http://orbionagents.com",
+    "https://www.orbionagents.com",
+    "http://www.orbionagents.com",
     "https://growwdigitel.cloud",
     "http://growwdigitel.cloud",
     "https://www.growwdigitel.cloud",
@@ -127,7 +131,7 @@ app.add_middleware(AdminConsoleMiddleware)
 # Health 
 @app.get("/")
 async def root():
-    return {"message": "Auromind API", "version": "2.0.0", "status": "running"}
+    return {"message": "Orbionagents API", "version": "2.0.0", "status": "running"}
 
 @app.get("/health")
 async def health_check():

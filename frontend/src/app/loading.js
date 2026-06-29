@@ -46,7 +46,7 @@ export default function GlobalLoading() {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <span className="text-white/60 text-[10px] font-mono uppercase tracking-[0.25em] font-medium">
-            Auromind
+            Orbionagents
           </span>
           <span className="text-violet-400 text-[10px] font-mono uppercase tracking-[0.25em] font-bold">
             AI
