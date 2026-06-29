@@ -7,13 +7,11 @@ import NavigationSection from '../components/LandingPageNew/NavigationSection/Na
 import ModernSaaSBackground from '../components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import BeforeAfterSection from '../components/LandingPageNew/BeforeAfterSection/BeforeAfterSection';
 import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
-// import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
 import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
 import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
 import MessageManagementSection from '../components/LandingPageNew/MessageManagementSection/Messagemanagementsection';
 import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks';
 import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
-// import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import CtaSection from '@/components/LandingPageNew/FinalCTASection/ctasection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 
@@ -31,6 +29,20 @@ export default function LandingPage() {
   const containerRef = useRef(null);
 
   useEffect(() => {
+    // ─── Mobile check ────────────────────────────────────────────────
+    // Mobile browsers have native GPU-accelerated inertia scroll.
+    // Lenis replaces it with JS-driven scroll on the main thread → lag.
+    // Detect: touch-capable device OR narrow screen → skip Lenis entirely.
+    const isMobile =
+      window.matchMedia("(pointer: coarse)").matches ||
+      window.innerWidth <= 1024;
+
+    if (isMobile) {
+      // Native scroll — nothing to set up or tear down
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────
+
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -39,24 +51,26 @@ export default function LandingPage() {
       lerp: 0.1,
     });
 
+    let rafId;
     function raf(time) {
       lenis.raf(time);
-      requestAnimationFrame(raf);
+      rafId = requestAnimationFrame(raf);
     }
 
-    requestAnimationFrame(raf);
+    rafId = requestAnimationFrame(raf);
     const onLock = () => lenis.stop();
     const onUnlock = () => lenis.start();
 
-  window.addEventListener("section-scroll-lock", onLock);
-  window.addEventListener("section-scroll-unlock", onUnlock);
+    window.addEventListener("section-scroll-lock", onLock);
+    window.addEventListener("section-scroll-unlock", onUnlock);
 
-  return () => {
-    lenis.destroy();
-    window.removeEventListener("section-scroll-lock", onLock);
-    window.removeEventListener("section-scroll-unlock", onUnlock);
-  };
-}, []);
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+      window.removeEventListener("section-scroll-lock", onLock);
+      window.removeEventListener("section-scroll-unlock", onUnlock);
+    };
+  }, []);
 
   return (
     <main ref={containerRef} className="min-h-screen bg-white relative">

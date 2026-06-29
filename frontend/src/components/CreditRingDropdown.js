@@ -31,7 +31,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
           if (activeWs) setWorkspace(activeWs);
         }
       } catch (err) {
-        console.error("Failed to fetch credits", err);
+        console.warn("Failed to fetch credits:", err?.message || err);
       }
     }
     fetchCredits();
@@ -45,7 +45,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
         const res = await api.getWccBalance(workspaceId);
         setWccBalance(parseFloat(res.balance ?? res.data?.balance ?? 0));
       } catch (err) {
-        console.error("Failed to fetch WCC balance", err);
+        console.warn("Failed to fetch WCC balance:", err?.message || err);
       }
     }
     if (isOpen) {

@@ -99,7 +99,7 @@ export class APIClient {
         if (response.status >= 400 && response.status < 500) {
           console.warn(`[API Client Error] ${response.status}:`, errorMessage);
         } else {
-          console.error(`[API Server Error] ${response.status}:`, errorMessage);
+          console.warn(`[API Server Error] ${response.status}:`, errorMessage);
         }
 
         throw errorObj;

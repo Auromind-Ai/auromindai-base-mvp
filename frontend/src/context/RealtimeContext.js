@@ -262,7 +262,7 @@ export function RealtimeProvider({ user, workspace, children }) {
       clearTimeout(timer);
       disconnect();
     };
-  }, [connect, disconnect, user?.id, workspace?.id]);
+  }, [connect, disconnect, user?.id]);
 
   useEffect(() => {
     const handleOnline = () => {

@@ -1679,8 +1679,7 @@ export default function SettingsContent({ email }) {
           {/* ════════════════════════════════════════
               MOBILE: top bar with section name + hamburger
           ════════════════════════════════════════ */}
-          <div className="xl:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
-            <span className="text-sm font-semibold text-white">{activeLabel}</span>
+          <div className="xl:hidden flex items-center gap-2 px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
             <button
               type="button"
               onClick={() => setSidebarOpen((v) => !v)}
@@ -1697,6 +1696,7 @@ export default function SettingsContent({ email }) {
                 className={`block w-5 h-0.5 bg-zinc-300 transition-transform duration-200 ${sidebarOpen ? '-translate-y-1.5 -rotate-45' : ''}`}
               />
             </button>
+            <span className="text-sm font-semibold text-white ml-1">{activeLabel}</span>
           </div>
 
           {/* ════════════════════════════════════════
@@ -1709,7 +1709,7 @@ export default function SettingsContent({ email }) {
                 xl:block
                 border-b xl:border-b-0 border-[rgba(157,157,157,0.43)]
                 bg-[#070012] p-3
-                ${sidebarOpen ? 'block' : 'hidden'}
+                ${sidebarOpen ? 'block flex-1' : 'hidden'}
                 xl:!block
               `}
             >
@@ -1770,7 +1770,7 @@ export default function SettingsContent({ email }) {
           {/* ════════════════════════════════════════
               RIGHT CONTENT AREA
           ════════════════════════════════════════ */}
-          <main className="flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto">
+          <main className={`flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden xl:block' : 'block'}`}>
             {renderContent()}
           </main>
         </div>

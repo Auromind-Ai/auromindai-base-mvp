@@ -49,22 +49,23 @@ function AnimatedText({ text, delay = 0 }) {
 export default function HeroSectionNew() {
   const [mounted, setMounted] = useState(false);
   const [showContent, setShowContent] = useState(false);
+  const [showBg, setShowBg] = useState(false); 
 
   useEffect(() => {
     setMounted(true);
-
-    const timer = setTimeout(() => {
-      setShowContent(true);
-    }, 200); 
-
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => setShowContent(true), 200);
+    const bgTimer = setTimeout(() => setShowBg(true), 600); 
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(bgTimer); 
+    };
   }, []);
 
   return (
     <section
       className={`${poppins.className} relative min-h-screen overflow-hidden bg-[#050505]`}
     >
-      {showContent && <HeroBackgroundNew />}
+      {showBg && <HeroBackgroundNew />}
       {showContent && (
         <>
       <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center translate-y-16">

@@ -34,7 +34,9 @@ function generateParticles(count = 1100) {
   });
 }
 
-const PARTICLES = generateParticles(220);
+const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+const PARTICLES = generateParticles(isMobile ? 80 : 220);
 
 // ─ HeroBackground ─
 
@@ -42,6 +44,8 @@ export default function HeroBackground() {
   const containerRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef(null);
+
+  const frameCountRef = useRef(0);
 
   // Parallax mouse handler
   const handleMouseMove = useCallback((e) => {
@@ -53,13 +57,40 @@ export default function HeroBackground() {
     };
   }, []);
 
+  const dimensionsRef = useRef({ width: 1920, height: 1080 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        dimensionsRef.current = {
+          width: containerRef.current.clientWidth || window.innerWidth,
+          height: containerRef.current.clientHeight || window.innerHeight,
+        };
+      }
+    };
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions, { passive: true });
+    return () => {
+      window.removeEventListener("resize", updateDimensions);
+    };
+  }, []);
+
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
 
     const stars = containerRef.current?.querySelectorAll("[data-star]");
 
     function tick() {
+
+      if (isMobile) {
+        frameCountRef.current = (frameCountRef.current || 0) + 1;
+        if (frameCountRef.current % 2 !== 0) {
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+      }
       const { x: mx, y: my } = mouseRef.current;
+      const { width: w, height: h } = dimensionsRef.current;
 
       stars?.forEach((el, i) => {
         const p = PARTICLES[i];
@@ -72,9 +103,10 @@ export default function HeroBackground() {
         const offsetX = mx * p.parallaxDepth * -30;
         const offsetY = my * p.parallaxDepth * -30;
 
-        el.style.left = `${p.x}%`;
-        el.style.top = `${p.y}%`;
-        el.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
+        const posX = (p.x / 100) * w;
+        const posY = (p.y / 100) * h;
+
+        el.style.transform = `translate3d(${posX + offsetX}px, ${posY + offsetY}px, 0)`;
 
         // when particle reaches center zone → respawn on outer edge
         const dx = p.x - 50;
@@ -141,16 +173,12 @@ export default function HeroBackground() {
             data-star
             className={styles.star}
             style={{
-              left: `${p.x}%`,
-              top: `${p.y}%`,
+              left: "0px",
+              top: "0px",
               width: `${p.size}px`,
               height: `${p.size}px`,
               opacity: p.opacity,
-
-              "--duration": `${p.duration}s`,
-              "--delay": `${p.delay}s`,
-              "--pull-x": `${p.pullX}px`,
-              "--pull-y": `${p.pullY}px`,
+              transform: `translate3d(${p.x}vw, ${p.y}vh, 0)`,
             }}
           />
         ))}

@@ -246,7 +246,7 @@ export default function AuromindAIPage() {
                     const res = await api.getBillingStatus(workspaceId);
                     setUserPlan(res.current_plan || "free");
                 } catch (error) {
-                    console.error("Failed to check plan:", error);
+                    console.warn("Failed to check plan:", error?.message || error);
                 }
             };
             checkPlan();

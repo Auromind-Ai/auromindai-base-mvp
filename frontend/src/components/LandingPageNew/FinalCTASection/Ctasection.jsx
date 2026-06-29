@@ -48,7 +48,7 @@ export default function CTASection() {
 
           {/* Heading */}
           <h2
-            className="relative text-[50px] font-medium text-white leading-[1.1] tracking-[-0.04em] text-center"
+            className="relative text-[28px] sm:text-[38px] md:text-[50px] font-medium text-white leading-[1.1] tracking-[-0.04em] text-center"
             style={{ fontFamily: "'Poppins', sans-serif" }}
             >
             Start closing more sales today
