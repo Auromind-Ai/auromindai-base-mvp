@@ -12,13 +12,18 @@ export default function AdminLayout({ children }) {
 
   const isLoginPage = pathname === "/admin"
 
-  const [authVerified, setAuthVerified] = useState(isLoginPage)
+  const [mounted, setMounted] = useState(false)
+  const [authVerified, setAuthVerified] = useState(false)
 
   useEffect(() => {
-    if (isLoginPage) {
-      setAuthVerified(true)
-      return
-    }
+    const timer = setTimeout(() => {
+      setMounted(true)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || isLoginPage) return
 
     let active = true
     const checkAuth = async () => {
@@ -35,7 +40,15 @@ export default function AdminLayout({ children }) {
     return () => {
       active = false
     }
-  }, [pathname, isLoginPage, router])
+  }, [mounted, isLoginPage, router])
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#020202] flex items-center justify-center text-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
+      </div>
+    )
+  }
 
   // For admin login page - render without the sidebar/layout
   if (isLoginPage) {
