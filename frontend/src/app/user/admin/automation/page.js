@@ -3,7 +3,13 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, Save, Sparkles, ChevronLeft, Layers, Settings, X, Trash2, Zap, CheckCircle2, AlertCircle, Eye, EyeOff
+  Search, Plus, Filter, Zap, MessageSquare, Users,
+  CheckCircle2, Play, Save, MoreHorizontal, Sparkles,
+  ChevronDown, ArrowDown, Shield, Bot, Send,
+  Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
+  Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
+  Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
+  ZoomIn, ZoomOut, Upload, Timer, HelpCircle, FileText, Pencil
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken, getUser } from '@/lib/auth';
@@ -55,6 +61,19 @@ export default function AutomationCanvas() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [infoModal, setInfoModal] = useState({ open: false, title: '', message: '' });
   const [newFlowName, setNewFlowName] = useState('');
+  const [customModal, setCustomModal] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+    isConfirm: true,
+    onConfirm: null,
+  });
+  const [flowQuota, setFlowQuota] = useState({ plan_base: 5, purchased: 0, total: 5, used: 0 });
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState('');
 
   // ─ MODAL & TOAST STATE ─
   const [toasts, setToasts] = useState([]);
@@ -97,6 +116,29 @@ export default function AutomationCanvas() {
     wiringRef.current = null;
   }, []);
 
+  const handleGenerateAI = async () => {
+    if (!aiInput.trim()) return;
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const data = await api.generateAIFlow(aiInput);
+      if (data.nodes && data.nodes.length > 0) {
+        setNodes(data.nodes);
+        setEdges(data.edges || []);
+        setCanvasOffset({ x: 0, y: 0 });
+        setActiveNodeId(null);
+        setTimeout(() => setActiveNodeId(data.nodes[0].id), 100);
+      } else {
+        setError("AI returned invalid format. Try a different prompt.");
+      }
+    } catch (e) {
+      console.error(e);
+      setError(e.message || "Failed to connect to AI engine.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const canvasRef = useRef(null);
   const gridRef = useRef(null);
   const nodeHeightsRef = useRef({});
@@ -136,20 +178,18 @@ export default function AutomationCanvas() {
     return { sx, sy, tx, ty };
   }, [zoom, edgeTick, nodes]);
 
-  useEffect(() => {
-    setIsMounted(true);
-    fetchFlows();
-    const handleKeyDown = (e) => { if (e.code === 'Space') setIsSpacePressed(true); };
-    const handleKeyUp = (e) => { if (e.code === 'Space') setIsSpacePressed(false); };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
+  const fetchFlowQuota = useCallback(async () => {
+    const wsId = getWorkspaceIdFromToken();
+    if (!wsId) return;
+    try {
+      const quota = await api.getFlowQuota(wsId);
+      setFlowQuota(quota);
+    } catch (e) {
+      console.error("Failed to fetch flow quota:", e);
+    }
   }, []);
 
-  const fetchFlows = async () => {
+  async function fetchFlows() {
     try {
       const data = await api.getFlows();
       console.log('fetchFlows received:', data?.length, data);
@@ -171,9 +211,25 @@ export default function AutomationCanvas() {
         }
       }
     } catch (e) { console.error(e); }
-  };
+  }
 
-  const handleSelectAutomation = async (item) => {
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMounted(true);
+    fetchFlows();
+    fetchFlowQuota();
+    const handleKeyDown = (e) => { if (e.code === 'Space') setIsSpacePressed(true); };
+    const handleKeyUp = (e) => { if (e.code === 'Space') setIsSpacePressed(false); };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchFlowQuota]);
+
+  async function handleSelectAutomation(item) {
     if (!item) return;
     try {
       const freshItem = await api.getFlowById(item.id);
@@ -198,59 +254,161 @@ export default function AutomationCanvas() {
       setZoom(1);
       setCurrentView('canvas');
     }
-  };
+  }
 
   const handleToggleStatus = async (flow) => {
     const newStatus = flow.status === 'Active' ? 'Draft' : 'Active';
-    try {
-      const updated = await api.saveFlow({
-        id: flow.id,
-        name: flow.name,
-        trigger_type: flow.trigger_type || 'msg_recv',
-        nodes: flow.nodes || [],
-        edges: flow.edges || [],
-        status: newStatus
-      });
-      setAutomations(prev => prev.map(a => a.id === updated.id ? updated : a));
-      if (selectedItem?.id === flow.id) {
-        setSelectedItem(updated);
+
+    const performToggle = async () => {
+      try {
+        const updated = await api.saveFlow({
+          id: flow.id,
+          name: flow.name,
+          trigger_type: flow.trigger_type || 'msg_recv',
+          nodes: flow.nodes || [],
+          edges: flow.edges || [],
+          status: newStatus
+        });
+        setAutomations(prev => prev.map(a => a.id === updated.id ? updated : a));
+        if (selectedItem?.id === flow.id) {
+          setSelectedItem(updated);
+        }
+        fetchFlowQuota();
+      } catch (e) {
+        console.error(e);
+        setCustomModal({
+          open: true,
+          title: 'Status Update Failed',
+          message: 'Failed to update status: ' + e.message,
+          confirmText: 'Dismiss',
+          isConfirm: false,
+          confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
       }
-    } catch (e) {
-      console.error(e);
-      alert("Failed to update status: " + e.message);
+    };
+
+    if (newStatus === 'Active') {
+      setCustomModal({
+        open: true,
+        title: 'Deploy Flow',
+        message: `Are you sure you want to deploy and activate the flow "${flow.name}"? This will enable automated triggers.`,
+        confirmText: 'Deploy',
+        cancelText: 'Cancel',
+        confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+        isConfirm: true,
+        onConfirm: () => {
+          setCustomModal(prev => ({ ...prev, open: false }));
+          performToggle();
+        }
+      });
+    } else {
+      setCustomModal({
+        open: true,
+        title: 'Deactivate Flow',
+        message: `Are you sure you want to pause and deactivate the flow "${flow.name}"? Active executions will stop.`,
+        confirmText: 'Deactivate',
+        cancelText: 'Cancel',
+        confirmColor: 'bg-zinc-700 hover:bg-zinc-650 text-white border border-white/10',
+        isConfirm: true,
+        onConfirm: () => {
+          setCustomModal(prev => ({ ...prev, open: false }));
+          performToggle();
+        }
+      });
     }
   };
 
   const handleDuplicateFlow = async (flow) => {
-    try {
-      const newFlow = await api.saveFlow({
-        name: `Copy of ${flow.name}`,
-        trigger_type: flow.trigger_type || 'msg_recv',
-        nodes: flow.nodes || [],
-        edges: flow.edges || [],
-        status: 'Draft'
-      });
-      setAutomations(prev => [...prev, newFlow]);
-      alert(`Flow duplicated successfully as "Copy of ${flow.name}"!`);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to duplicate flow: " + e.message);
-    }
+    const performDuplicate = async () => {
+      try {
+        const newFlow = await api.saveFlow({
+          name: `Copy of ${flow.name}`,
+          trigger_type: flow.trigger_type || 'msg_recv',
+          nodes: flow.nodes || [],
+          edges: flow.edges || [],
+          status: 'Draft'
+        });
+        setAutomations(prev => [...prev, newFlow]);
+        fetchFlowQuota();
+        setCustomModal({
+          open: true,
+          title: 'Flow Duplicated',
+          message: `Flow duplicated successfully as "Copy of ${flow.name}"!`,
+          confirmText: 'Done',
+          isConfirm: false,
+          confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
+      } catch (e) {
+        console.error(e);
+        setCustomModal({
+          open: true,
+          title: 'Duplication Failed',
+          message: 'Failed to duplicate flow: ' + e.message,
+          confirmText: 'Dismiss',
+          isConfirm: false,
+          confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
+      }
+    };
+
+    setCustomModal({
+      open: true,
+      title: 'Duplicate Flow',
+      message: `Are you sure you want to duplicate "${flow.name}"?`,
+      confirmText: 'Duplicate',
+      cancelText: 'Cancel',
+      confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+      isConfirm: true,
+      onConfirm: () => {
+        setCustomModal(prev => ({ ...prev, open: false }));
+        performDuplicate();
+      }
+    });
   };
 
   const handleDeleteFlow = async (flowId) => {
-    if (!confirm("Are you sure you want to delete this flow? This action cannot be undone.")) return;
-    try {
-      await api.deleteFlow(flowId);
-      setAutomations(prev => prev.filter(a => a.id !== flowId));
-      if (selectedItem?.id === flowId) {
-        setSelectedItem(null);
-        setCurrentView('dashboard');
+    const flow = automations.find(a => a.id === flowId);
+    const flowName = flow ? flow.name : 'this flow';
+
+    const performDelete = async () => {
+      try {
+        await api.deleteFlow(flowId);
+        setAutomations(prev => prev.filter(a => a.id !== flowId));
+        if (selectedItem?.id === flowId) {
+          setSelectedItem(null);
+          setCurrentView('dashboard');
+        }
+        fetchFlowQuota();
+      } catch (e) {
+        console.error(e);
+        setCustomModal({
+          open: true,
+          title: 'Deletion Failed',
+          message: 'Failed to delete flow: ' + e.message,
+          confirmText: 'Dismiss',
+          isConfirm: false,
+          confirmColor: 'bg-rose-600 hover:bg-rose-500',
+          onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+        });
       }
-    } catch (e) {
-      console.error(e);
-      alert("Failed to delete flow: " + e.message);
-    }
+    };
+
+    setCustomModal({
+      open: true,
+      title: 'Delete Flow',
+      message: `Are you sure you want to delete the flow "${flowName}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      confirmColor: 'bg-rose-600 hover:bg-rose-500',
+      isConfirm: true,
+      onConfirm: () => {
+        setCustomModal(prev => ({ ...prev, open: false }));
+        performDelete();
+      }
+    });
   };
 
   const handleCreateFlowSubmit = async () => {
@@ -275,9 +433,18 @@ export default function AutomationCanvas() {
       setNewFlowName('');
       setIsCreateModalOpen(false);
       handleSelectAutomation(newFlow);
+      fetchFlowQuota();
     } catch (e) {
       console.error(e);
-      alert("Failed to create flow: " + e.message);
+      setCustomModal({
+        open: true,
+        title: 'Creation Failed',
+        message: 'Failed to create flow: ' + e.message,
+        confirmText: 'Dismiss',
+        isConfirm: false,
+        confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
+        onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
+      });
     }
   };
 
@@ -907,6 +1074,10 @@ export default function AutomationCanvas() {
         newFlowName={newFlowName}
         setNewFlowName={setNewFlowName}
         handleCreateFlowSubmit={handleCreateFlowSubmit}
+        customModal={customModal}
+        setCustomModal={setCustomModal}
+        flowQuota={flowQuota}
+        fetchFlowQuota={fetchFlowQuota}
       />
     );
   }
@@ -943,7 +1114,45 @@ export default function AutomationCanvas() {
             </div>
             <div className="flex flex-col">
               <span className="text-[14px] font-semiBold text-white tracking-widest leading-none mb-2">Agentic Orchestrator</span>
-              <span className="text-[12px] font-medium text-white/75 leading-none">{selectedItem?.name || "Untitled Wire"}</span>
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onBlur={() => {
+                    if (tempName.trim()) {
+                      setSelectedItem(prev => ({ ...prev, name: tempName.trim() }));
+                    }
+                    setIsEditingName(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (tempName.trim()) {
+                        setSelectedItem(prev => ({ ...prev, name: tempName.trim() }));
+                      }
+                      setIsEditingName(false);
+                    } else if (e.key === 'Escape') {
+                      setIsEditingName(false);
+                    }
+                  }}
+                  className="bg-black/35 border border-white/10 rounded px-2 py-0.5 text-[12px] font-medium text-white outline-none focus:border-purple-500/50 w-48 font-sans"
+                  autoFocus
+                />
+              ) : (
+                <div className="flex items-center gap-1.5 group/name">
+                  <span className="text-[12px] font-medium text-white/75 leading-none">{selectedItem?.name || "Untitled Wire"}</span>
+                  <button
+                    onClick={() => {
+                      setTempName(selectedItem?.name || "Untitled Wire");
+                      setIsEditingName(true);
+                    }}
+                    className="p-1 opacity-0 group-hover/name:opacity-100 hover:text-white transition-opacity text-white/40"
+                    title="Rename Flow"
+                  >
+                    <Pencil size={11} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

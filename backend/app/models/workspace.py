@@ -55,6 +55,7 @@ class Workspace(Base):
 
     members = relationship("WorkspaceMember", backref="workspace", cascade="all, delete-orphan")
     subscription = relationship("Subscription", backref="workspace")
+    flow_pack_purchases = relationship("FlowPackPurchase", backref="workspace", cascade="all, delete-orphan")
 
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"

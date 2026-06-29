@@ -54,7 +54,7 @@ async def process_document_background(
         #  PROCESS DOCUMENT 
         doc_service = get_document_service()
 
-        doc_result = doc_service.process_file(
+        doc_result = await doc_service.process_file(
             content,
             original_filename,
             db=db
@@ -120,11 +120,15 @@ async def process_document_background(
             ledger_entry = billing_service.token_service.finalize_feature_credits(
                 db=db,
                 reservation_id=reservation_id,
-                actual_units=float(required_credits or 0.0)
+                actual_units=float(actual_units)
             )
             final_credits_charged = abs(float(ledger_entry.credits_delta))
         else:
-            final_credits_charged = round(actual_units * 10.0, 4)
+            from app.services.billing.feature_billing_service import FeatureBillingService
+            try:
+                final_credits_charged = float(FeatureBillingService.calculate_cost(db, "knowledge_base_upload", actual_units))
+            except Exception:
+                final_credits_charged = round(actual_units * 10.0, 4)
 
         print(f"\n>>> [BILLING SUCCESS] Finalized charge of {final_credits_charged:.4f} credits for entry '{entry_id}' (file: '{original_filename}', size: {file_size} bytes / {actual_units:.4f} MB)\n")
         logger.info(
@@ -153,6 +157,14 @@ async def process_document_background(
         )
 
     except Exception as e:
+        logger.error(f"Background processing failed: {e}")
+        traceback.print_exc()
+
+        try:
+            db.rollback()
+        except Exception as rb_err:
+            logger.error(f"Failed to rollback database session: {rb_err}")
+
         if reservation_id:
             try:
                 billing_service.release_token_reservation(
@@ -160,32 +172,34 @@ async def process_document_background(
                     reservation_id=reservation_id,
                     reason="knowledge_base_processing_failed"
                 )
+                db.commit()
                 print(f"\n>>> [BILLING FAILURE] Released reservation for entry '{entry_id}' (file: '{original_filename}', reason: 'knowledge_base_processing_failed')\n")
-                logger.info(
-                    f"[INGEST BILLING FAILURE] Released reservation for entry '{entry_id}' (file: '{original_filename}', reason: 'knowledge_base_processing_failed')"
-                )
+            except Exception as release_err:
+                logger.error(f"Failed to release reservation {reservation_id} on worker failure: {release_err}")
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
+        # FAIL SAFE status update
+        try:
+            entry = db.query(BrainEntry).filter(
+                BrainEntry.id == entry_id
+            ).first()
+
+            if entry:
+                entry.status = "failed"
+                entry.embedding_status = "failed"
+                entry.credits_charged = 0.0
+                entry.error_message = str(e)[:500]
+                db.commit()
+                logger.info(f"Updated entry {entry_id} status to failed")
+        except Exception as update_err:
+            logger.error(f"Failed to update entry {entry_id} status to failed: {update_err}")
+            try:
+                db.rollback()
             except Exception:
                 pass
-
-
-        logger.error(
-            f"Background processing failed: {e}"
-        )
-
-        traceback.print_exc()
-
-        #  FAIL SAFE 
-        entry = db.query(BrainEntry).filter(
-            BrainEntry.id == entry_id
-        ).first()
-
-        if entry:
-            entry.status = "failed"
-            entry.embedding_status = "failed"
-            entry.credits_charged = 0.0
-            entry.error_message = str(e)[:500]
-
-            db.commit()
 
     finally:
         db.close()

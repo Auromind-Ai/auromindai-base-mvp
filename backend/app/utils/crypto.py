@@ -32,3 +32,19 @@ def decrypt_value(encrypted_value: str) -> str:
         return fernet.decrypt(encrypted_value.encode()).decode()
     except Exception:
         raise RuntimeError(" Failed to decrypt value — wrong key or corrupted data")
+
+
+def is_encrypted(value: str) -> bool:
+    if not value or not isinstance(value, str):
+        return False
+    if not value.startswith("gAAAAA"):
+        return False
+    try:
+        import base64
+        missing_padding = len(value) % 4
+        if missing_padding:
+            value += '=' * (4 - missing_padding)
+        decoded = base64.urlsafe_b64decode(value.encode('ascii'))
+        return len(decoded) > 0 and decoded[0] == 0x80
+    except Exception:
+        return False

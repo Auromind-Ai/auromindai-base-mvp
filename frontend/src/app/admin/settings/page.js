@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { 
   Settings, 
   Cpu, 
@@ -18,12 +18,90 @@ import {
   Plus,
   Trash2,
   Mail,
-  Info
+  Info,
+  Chrome,
+  Facebook,
+  Eye,
+  EyeOff,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  HardDrive
 } from "lucide-react"
 import api from "@/lib/api"
+import { useBranding } from "@/context/BrandingContext"
+
+function Toast({ toasts, onClose }) {
+  return (
+    <div className="fixed bottom-5 right-5 z-[999] flex flex-col gap-2 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl text-sm font-semibold border pointer-events-auto transition-all duration-300 animate-in slide-in-from-bottom-5
+            ${t.type === "success"
+              ? "bg-[#0c160c] border-emerald-500/20 text-emerald-400"
+              : "bg-[#180c0c] border-red-500/20 text-red-400"
+            }`}
+        >
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+            t.type === "success" ? "bg-emerald-500/10" : "bg-red-500/10"
+          }`}>
+            {t.type === "success" ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <AlertCircle className="w-3.5 h-3.5 text-red-400" />
+            )}
+          </div>
+          <span>{t.message}</span>
+          <button 
+            onClick={() => onClose(t.id)} 
+            className="ml-2 text-white/40 hover:text-white transition-colors text-base leading-none font-bold"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SecretInput({ label, value, onChange, placeholder }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{label}</p>
+      <div className="relative">
+        <input 
+          type={visible ? "text" : "password"}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder || "••••••••••••••••"}
+          spellCheck={false}
+          autoComplete="new-password"
+          autoCapitalize="none"
+          autoCorrect="off"
+          className="w-full bg-[#050505] border border-white/10 rounded-xl pl-4 pr-11 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 transition-colors"
+        />
+        <button
+          type="button"
+          onClick={() => setVisible(!visible)}
+          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+          tabIndex={-1}
+        >
+          {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
+  const { refreshBranding } = useBranding()
   const [settings, setSettings] = useState({
+    // ---------------- Brand ----------------
+    app_name: "Auromind",
+    app_logo_url: "/logo.png",
+
     // ---------------- Pricing ----------------
     free_plan_price: 0.0,
     pro_plan_price: 1000.0,
@@ -101,12 +179,10 @@ export default function SettingsPage() {
     copyright: "@2026 Auromind",
     last_updated: "June 05, 2026, 10:30 AM",
 
-    // ---------------- Credentials ----------------
-    twilio_account_sid: "",
-    twilio_auth_token: "",
-    twilio_from_number: "",
+    // ---------------- AI Credentials ----------------
     openai_api_key: "",
-    gemini_api_key: "",
+    google_api_key: "",      // Gemini / Google AI
+    gemini_api_key: "",      // alias kept for UI provider card
     anthropic_api_key: "",
     groq_api_key: "",
 
@@ -115,12 +191,59 @@ export default function SettingsPage() {
     smtp_port: "587",
     smtp_user: "",
     smtp_password: "",
+    from_email: "",
+
+    // ---------------- Google OAuth ----------------
+    google_client_id: "",
+    google_client_secret: "",
+    oauth_redirect_uri: "",
+    google_integration_redirect_uri: "",
+
+    // ---------------- Meta & Instagram ----------------
+    meta_verify_token: "",
+    meta_app_id: "",
+    meta_app_secret: "",
+    meta_system_user_token: "",
+    meta_redirect_uri: "",
+    ig_app_id: "",
+    ig_app_secret: "",
+    ig_redirect_uri: "",
+
+    // ---------------- Twilio ----------------
+    twilio_account_sid: "",
+    twilio_auth_token: "",
+    twilio_phone_number: "",
+    twilio_status_callback_url: "",
+
+    // ---------------- Storage ----------------
+    storage_provider: "SUPABASE",
+    supabase_url: "",
+    supabase_service_role_key: "",
+    supabase_anon_key: "",
+    supabase_bucket: "",
+    aws_access_key_id: "",
+    aws_secret_access_key: "",
+    aws_region: "",
+    aws_s3_bucket: "",
+    aws_s3_endpoint_url: "",
+    aws_s3_public_base_url: "",
+
+    // ---------------- AI/Model ----------------
+    hf_token: "",
+    hf_home: "",
+    transformers_cache: "",
 
     // ---------------- Payments ----------------
     razorpay_key: "",
     razorpay_secret: "",
+    razorpay_webhook_secret: "",
+    razorpay_pro_plan_id: "",
+    razorpay_enterprise_plan_id: "",
     payu_merchant_key: "",
     payu_salt: "",
+    payu_webhook_secret: "",
+    payu_pro_plan_id: "",
+    payu_enterprise_plan_id: "",
   })
   
   const [loading, setLoading] = useState(true)
@@ -128,6 +251,38 @@ export default function SettingsPage() {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
+  const [toasts, setToasts] = useState([])
+  const [testing, setTesting] = useState({})
+
+  const showToast = useCallback((message, type = "success") => {
+    const id = Date.now()
+    setToasts((prev) => [...prev, { id, message, type }])
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000)
+  }, [])
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }, [])
+
+  const handleTest = async (service) => {
+    const targetService = service === "storage"
+      ? (settings.storage_provider === "S3" ? "s3" : "supabase")
+      : service;
+
+    try {
+      setTesting((prev) => ({ ...prev, [service]: true }))
+      const response = await api.testConnection(targetService, settings)
+      if (response.success) {
+        showToast(`${service.toUpperCase()} connection successful! ⚡ (${response.latency_ms}ms)`, "success")
+      } else {
+        showToast(`${service.toUpperCase()} connection failed: ${response.message}`, "error")
+      }
+    } catch (err) {
+      showToast(`${service.toUpperCase()} connection error: ${err.message || err}`, "error")
+    } finally {
+      setTesting((prev) => ({ ...prev, [service]: false }))
+    }
+  }
 
   useEffect(() => {
     fetchSettings()
@@ -147,15 +302,34 @@ export default function SettingsPage() {
   }
 
   const handleSave = async () => {
+    // Client-side validations
+    const provider = settings.storage_provider || "SUPABASE"
+    if (provider === "SUPABASE") {
+      if (!settings.supabase_url || !settings.supabase_service_role_key || !settings.supabase_bucket) {
+        const errorMsg = "Supabase URL, Service Role Key, and Supabase Bucket are required when SUPABASE is the selected Storage Provider."
+        setError(errorMsg)
+        showToast(errorMsg, "error")
+        return
+      }
+    } else if (provider === "S3") {
+      if (!settings.aws_access_key_id || !settings.aws_secret_access_key || !settings.aws_region || !settings.aws_s3_bucket) {
+        const errorMsg = "AWS Access Key ID, Secret Access Key, Region, and Bucket are required when S3 is the selected Storage Provider."
+        setError(errorMsg)
+        showToast(errorMsg, "error")
+        return
+      }
+    }
+
     try {
       setSaving(true)
       const updatedSettings = await api.updatePlatformSettings(settings)
       setSettings(updatedSettings)
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
+      await refreshBranding()
+      showToast("Configuration saved and synchronized! 🚀", "success")
       setError(null)
     } catch (err) {
       setError(err.message)
+      showToast(err.message || "Failed to save configuration", "error")
     } finally {
       setSaving(false)
     }
@@ -177,9 +351,42 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-96">
-        <div className="w-12 h-12 rounded-full border-t-2 border-indigo-500 animate-spin mb-4" />
-        <p className="text-gray-400 font-medium">Loading environment...</p>
+      <div className="space-y-8 animate-pulse p-2">
+        {/* Header Skeleton */}
+        <div className="flex flex-col md:flex-row justify-between gap-6 pb-6 border-b border-white/[0.05]">
+          <div className="space-y-2">
+            <div className="h-9 w-48 bg-white/10 rounded-lg" />
+            <div className="h-4 w-72 bg-white/5 rounded-lg" />
+          </div>
+          <div className="h-12 w-36 bg-white/10 rounded-2xl" />
+        </div>
+        {/* Content Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Tabs Sidebar */}
+          <div className="lg:col-span-3 space-y-2">
+            {[1, 2, 3, 4, 5, 6, 7].map(i => (
+              <div key={i} className="h-12 bg-white/5 rounded-2xl" />
+            ))}
+          </div>
+          {/* Main Panel */}
+          <div className="lg:col-span-9 bg-[#0c0c0c] border border-white/[0.03] rounded-[32px] p-8 space-y-8 min-h-[500px]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/5 rounded-xl" />
+              <div className="space-y-2">
+                <div className="h-5 w-36 bg-white/10 rounded" />
+                <div className="h-3 w-48 bg-white/5 rounded" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="space-y-2">
+                  <div className="h-3 w-20 bg-white/5 rounded ml-2" />
+                  <div className="h-11 bg-white/10 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -195,10 +402,10 @@ export default function SettingsPage() {
   ]
 
   const AI_PROVIDERS = [
-    { id: "openai", name: "OpenAI", models: ["gpt-4o", "gpt-4-turbo"], key: "openai_api_key", color: "bg-emerald-500" },
-    { id: "google", name: "Google Gemini", models: ["gemini-1.5-pro", "gemini-1.5-flash"], key: "gemini_api_key", color: "bg-blue-500" },
-    { id: "anthropic", name: "Anthropic", models: ["claude-3-5-sonnet"], key: "anthropic_api_key", color: "bg-orange-500" },
-    { id: "groq", name: "Groq (Llama)", models: ["llama-3.1-70b"], key: "groq_api_key", color: "bg-red-500" },
+    { id: "openai",     name: "OpenAI",         models: ["gpt-4o", "gpt-4-turbo"],                    key: "openai_api_key",     color: "bg-emerald-500" },
+    { id: "google",    name: "Google Gemini",   models: ["gemini-1.5-pro", "gemini-1.5-flash"],       key: "google_api_key",     color: "bg-blue-500" },
+    { id: "anthropic", name: "Anthropic Claude",models: ["claude-3-5-sonnet", "claude-3-opus"],       key: "anthropic_api_key",  color: "bg-orange-500" },
+    { id: "groq",      name: "Groq (Llama)",    models: ["llama-3.3-70b-versatile", "llama-3.1-70b"],key: "groq_api_key",        color: "bg-red-500" },
   ]
 
   return (
@@ -267,9 +474,52 @@ export default function SettingsPage() {
           <div className="bg-[#0c0c0c] border border-white/[0.03] rounded-[32px] p-8 min-h-[500px] shadow-2xl overflow-hidden relative group/pane">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             
+            {saving && (
+              <div className="absolute inset-0 bg-[#0c0c0c]/60 backdrop-blur-[1px] z-40 flex flex-col items-center justify-center transition-all duration-300">
+                <div className="flex items-center gap-3 px-5 py-3.5 bg-black/85 border border-white/10 rounded-2xl shadow-2xl text-sm font-bold text-gray-200">
+                  <RefreshCw className="animate-spin w-4 h-4 text-indigo-500" />
+                  Saving and synchronizing...
+                </div>
+              </div>
+            )}
+            
             {/* Tab: General */}
             {activeTab === "general" && (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                      <Globe className="text-indigo-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Branding Configuration</h3>
+                      <p className="text-xs text-gray-500">Customize platform title and logo</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <p className="text-xs font-bold text-gray-500 uppercase px-2">Application Name</p>
+                       <input 
+                        type="text"
+                        value={settings.app_name || ""}
+                        onChange={(e) => handleInputChange("app_name", e.target.value)}
+                        placeholder="Auromind"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-xs font-bold text-gray-500 uppercase px-2">Logo URL / Image Source</p>
+                       <input 
+                        type="text"
+                        value={settings.app_logo_url || ""}
+                        onChange={(e) => handleInputChange("app_logo_url", e.target.value)}
+                        placeholder="/logo.png"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none"
+                      />
+                    </div>
+                  </div>
+                </section>
+
                 <section>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
@@ -628,22 +878,44 @@ export default function SettingsPage() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Key ID</p>
-                           <input 
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Key ID</p>
+                          <input
                             type="text"
-                            value={settings.razorpay_key}
+                            value={settings.razorpay_key || ""}
                             onChange={(e) => handleInputChange("razorpay_key", e.target.value)}
                             placeholder="rzp_live_..."
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
+                        <SecretInput
+                          label="Secret Key"
+                          value={settings.razorpay_secret}
+                          onChange={(val) => handleInputChange("razorpay_secret", val)}
+                          placeholder="••••••••••••••••"
+                        />
+                        <SecretInput
+                          label="Webhook Secret (HMAC)"
+                          value={settings.razorpay_webhook_secret}
+                          onChange={(val) => handleInputChange("razorpay_webhook_secret", val)}
+                          placeholder="••••••••••••••••"
+                        />
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Secret Key</p>
-                           <input 
-                            type="password"
-                            value={settings.razorpay_secret}
-                            onChange={(e) => handleInputChange("razorpay_secret", e.target.value)}
-                            placeholder="••••••••••••••••"
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Pro Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.razorpay_pro_plan_id || ""}
+                            onChange={(e) => handleInputChange("razorpay_pro_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Enterprise Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.razorpay_enterprise_plan_id || ""}
+                            onChange={(e) => handleInputChange("razorpay_enterprise_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
@@ -658,28 +930,49 @@ export default function SettingsPage() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Merchant Key</p>
-                           <input 
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Merchant Key</p>
+                          <input
                             type="text"
-                            value={settings.payu_merchant_key}
+                            value={settings.payu_merchant_key || ""}
                             onChange={(e) => handleInputChange("payu_merchant_key", e.target.value)}
                             placeholder="merchant_key"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
+                        <SecretInput
+                          label="Salt"
+                          value={settings.payu_salt}
+                          onChange={(val) => handleInputChange("payu_salt", val)}
+                          placeholder="••••••••••••••••"
+                        />
+                        <SecretInput
+                          label="Webhook Secret"
+                          value={settings.payu_webhook_secret}
+                          onChange={(val) => handleInputChange("payu_webhook_secret", val)}
+                          placeholder="••••••••••••••••"
+                        />
                         <div className="space-y-2">
-                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Salt</p>
-                           <input 
-                            type="password"
-                            value={settings.payu_salt}
-                            onChange={(e) => handleInputChange("payu_salt", e.target.value)}
-                            placeholder="••••••••••••••••"
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Pro Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.payu_pro_plan_id || ""}
+                            onChange={(e) => handleInputChange("payu_pro_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Enterprise Plan ID</p>
+                          <input
+                            type="text"
+                            value={settings.payu_enterprise_plan_id || ""}
+                            onChange={(e) => handleInputChange("payu_enterprise_plan_id", e.target.value)}
+                            placeholder="plan_xxxxxx"
                             className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
                           />
                         </div>
                       </div>
                     </div>
-                  
                   </div>
                 </section>
               </div>
@@ -688,52 +981,9 @@ export default function SettingsPage() {
             {/* Tab: Infrastructure */}
             {activeTab === "infra" && (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                {/* Email (SMTP) card */}
                 <section>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-                      <Phone className="text-red-500 w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold">Twilio Integration</h3>
-                      <p className="text-xs text-gray-500">WhatsApp and SMS provider</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Account SID</p>
-                       <input 
-                        type="text"
-                        value={settings.twilio_account_sid}
-                        onChange={(e) => handleInputChange("twilio_account_sid", e.target.value)}
-                        placeholder="ACxxxxxxxxxxxxxxxx..."
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Auth Token</p>
-                       <input 
-                        type="password"
-                        value={settings.twilio_auth_token}
-                        onChange={(e) => handleInputChange("twilio_auth_token", e.target.value)}
-                        placeholder="••••••••••••••••"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">From Number</p>
-                       <input 
-                        type="text"
-                        value={settings.twilio_from_number}
-                        onChange={(e) => handleInputChange("twilio_from_number", e.target.value)}
-                        placeholder="+1234567890"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <div className="flex items-center gap-3 mb-6 pt-4 border-t border-white/5">
                     <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
                       <Mail className="text-orange-500 w-5 h-5" />
                     </div>
@@ -750,7 +1000,7 @@ export default function SettingsPage() {
                         value={settings.smtp_host || ""}
                         onChange={(e) => handleInputChange("smtp_host", e.target.value)}
                         placeholder="smtp.gmail.com"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -760,7 +1010,7 @@ export default function SettingsPage() {
                         value={settings.smtp_port || ""}
                         onChange={(e) => handleInputChange("smtp_port", e.target.value)}
                         placeholder="587"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
@@ -770,17 +1020,435 @@ export default function SettingsPage() {
                         value={settings.smtp_user || ""}
                         onChange={(e) => handleInputChange("smtp_user", e.target.value)}
                         placeholder="hello@auromind.ai"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <SecretInput 
+                      label="SMTP Password"
+                      value={settings.smtp_password}
+                      onChange={(val) => handleInputChange("smtp_password", val)}
+                      placeholder="••••••••••••••••"
+                    />
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.smtp}
+                      onClick={() => handleTest("smtp")}
+                      className="px-4 py-2 border border-white/10 hover:border-orange-500/30 hover:bg-orange-500/5 text-orange-400 disabled:text-orange-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.smtp ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        "Test SMTP Connection"
+                      )}
+                    </button>
+                  </div>
+                </section>
+
+                {/* Google OAuth card */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                      <Chrome className="text-blue-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Google OAuth</h3>
+                      <p className="text-xs text-gray-500">Configure single sign-on and integration permissions</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Google Client ID</p>
+                       <input 
+                        type="text"
+                        value={settings.google_client_id || ""}
+                        onChange={(e) => handleInputChange("google_client_id", e.target.value)}
+                        placeholder="123456-xxxx.apps.googleusercontent.com"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <SecretInput 
+                      label="Google Client Secret"
+                      value={settings.google_client_secret}
+                      onChange={(val) => handleInputChange("google_client_secret", val)}
+                      placeholder="••••••••••••••••"
+                    />
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">OAuth Redirect URI</p>
+                       <input 
+                        type="text"
+                        value={settings.oauth_redirect_uri || ""}
+                        onChange={(e) => handleInputChange("oauth_redirect_uri", e.target.value)}
+                        placeholder="https://app.auromind.ai/api/auth/callback/google"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.google}
+                      onClick={() => handleTest("google")}
+                      className="px-4 py-2 border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/5 text-indigo-400 disabled:text-indigo-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.google ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        "Test Google OAuth"
+                      )}
+                    </button>
+                  </div>
+                </section>
+
+                {/* Meta & Instagram card */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center">
+                      <Facebook className="text-pink-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Meta & Instagram</h3>
+                      <p className="text-xs text-gray-500">Configure Webhooks and Messenger integrations</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Meta Verify Token</p>
+                       <input 
+                        type="text"
+                        value={settings.meta_verify_token || ""}
+                        onChange={(e) => handleInputChange("meta_verify_token", e.target.value)}
+                        placeholder="verify_token_value"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
                       />
                     </div>
                     <div className="space-y-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">SMTP Password</p>
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Meta App ID</p>
                        <input 
-                        type="password"
-                        value={settings.smtp_password || ""}
-                        onChange={(e) => handleInputChange("smtp_password", e.target.value)}
-                        placeholder="••••••••••••••••"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
+                        type="text"
+                        value={settings.meta_app_id || ""}
+                        onChange={(e) => handleInputChange("meta_app_id", e.target.value)}
+                        placeholder="1234567890"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <SecretInput 
+                      label="Meta App Secret"
+                      value={settings.meta_app_secret}
+                      onChange={(val) => handleInputChange("meta_app_secret", val)}
+                      placeholder="••••••••••••••••"
+                    />
+                    <SecretInput 
+                      label="Meta System User Token"
+                      value={settings.meta_system_user_token}
+                      onChange={(val) => handleInputChange("meta_system_user_token", val)}
+                      placeholder="••••••••••••••••"
+                    />
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Meta Redirect URI</p>
+                       <input
+                        type="text"
+                        value={settings.meta_redirect_uri || ""}
+                        onChange={(e) => handleInputChange("meta_redirect_uri", e.target.value)}
+                        placeholder="https://app.auromind.ai/meta/callback"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Instagram App ID</p>
+                       <input 
+                        type="text"
+                        value={settings.ig_app_id || ""}
+                        onChange={(e) => handleInputChange("ig_app_id", e.target.value)}
+                        placeholder="1234567890"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <SecretInput 
+                      label="Instagram App Secret"
+                      value={settings.ig_app_secret}
+                      onChange={(val) => handleInputChange("ig_app_secret", val)}
+                      placeholder="••••••••••••••••"
+                    />
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Instagram Redirect URI</p>
+                       <input
+                        type="text"
+                        value={settings.ig_redirect_uri || ""}
+                        onChange={(e) => handleInputChange("ig_redirect_uri", e.target.value)}
+                        placeholder="https://app.auromind.ai/instagram/callback"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.meta}
+                      onClick={() => handleTest("meta")}
+                      className="px-4 py-2 border border-white/10 hover:border-pink-500/30 hover:bg-pink-500/5 text-pink-400 disabled:text-pink-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.meta ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        "Test Meta Integration"
+                      )}
+                    </button>
+                  </div>
+                </section>
+
+                {/* Twilio card */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                      <Phone className="text-red-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Twilio (SMS / Voice)</h3>
+                      <p className="text-xs text-gray-500">WhatsApp & SMS delivery configuration</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Account SID</p>
+                      <input
+                        type="text"
+                        value={settings.twilio_account_sid || ""}
+                        onChange={(e) => handleInputChange("twilio_account_sid", e.target.value)}
+                        placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <SecretInput
+                      label="Auth Token"
+                      value={settings.twilio_auth_token}
+                      onChange={(val) => handleInputChange("twilio_auth_token", val)}
+                      placeholder="••••••••••••••••"
+                    />
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Phone Number</p>
+                      <input
+                        type="text"
+                        value={settings.twilio_phone_number || ""}
+                        onChange={(e) => handleInputChange("twilio_phone_number", e.target.value)}
+                        placeholder="+1234567890"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Status Callback URL</p>
+                      <input
+                        type="text"
+                        value={settings.twilio_status_callback_url || ""}
+                        onChange={(e) => handleInputChange("twilio_status_callback_url", e.target.value)}
+                        placeholder="https://app.auromind.ai/twilio/status-callback"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Storage Configuration card */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <HardDrive className="text-emerald-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Storage Configuration</h3>
+                      <p className="text-xs text-gray-500">Manage global object storage for file uploads</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2 md:col-span-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Storage Provider</p>
+                      <div className="relative">
+                        <select
+                          value={settings.storage_provider || "SUPABASE"}
+                          onChange={(e) => handleInputChange("storage_provider", e.target.value)}
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none appearance-none text-white font-mono"
+                        >
+                          {(settings._supported_storage_providers || ["SUPABASE", "S3"]).map((prov) => (
+                            <option key={prov} value={prov} className="bg-[#050505] text-white">
+                              {prov === "S3" ? "AWS S3" : prov}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                          ▼
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Supabase fields (Only rendered if storage_provider is SUPABASE) */}
+                    {(settings.storage_provider === "SUPABASE" || !settings.storage_provider) && (
+                      <>
+                        <div className="space-y-2 md:col-span-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Supabase URL</p>
+                           <input
+                            type="text"
+                            value={settings.supabase_url || ""}
+                            onChange={(e) => handleInputChange("supabase_url", e.target.value)}
+                            placeholder="https://xxxx.supabase.co"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <SecretInput
+                            label="Supabase Service Role Key"
+                            value={settings.supabase_service_role_key}
+                            onChange={(val) => handleInputChange("supabase_service_role_key", val)}
+                            placeholder="••••••••••••••••"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <SecretInput
+                            label="Supabase Anon Key"
+                            value={settings.supabase_anon_key}
+                            onChange={(val) => handleInputChange("supabase_anon_key", val)}
+                            placeholder="••••••••••••••••"
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Supabase Bucket</p>
+                           <input
+                            type="text"
+                            value={settings.supabase_bucket || ""}
+                            onChange={(e) => handleInputChange("supabase_bucket", e.target.value)}
+                            placeholder="media"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* AWS S3 fields (Only rendered if storage_provider is S3) */}
+                    {settings.storage_provider === "S3" && (
+                      <>
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">AWS Access Key ID</p>
+                           <input 
+                            type="text"
+                            value={settings.aws_access_key_id || ""}
+                            onChange={(e) => handleInputChange("aws_access_key_id", e.target.value)}
+                            placeholder="AKIA..."
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                          />
+                        </div>
+                        <SecretInput 
+                          label="AWS Secret Access Key"
+                          value={settings.aws_secret_access_key}
+                          onChange={(val) => handleInputChange("aws_secret_access_key", val)}
+                          placeholder="••••••••••••••••"
+                        />
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">AWS Region</p>
+                           <input 
+                            type="text"
+                            value={settings.aws_region || ""}
+                            onChange={(e) => handleInputChange("aws_region", e.target.value)}
+                            placeholder="us-east-1"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">AWS Bucket</p>
+                           <input 
+                            type="text"
+                            value={settings.aws_s3_bucket || ""}
+                            onChange={(e) => handleInputChange("aws_s3_bucket", e.target.value)}
+                            placeholder="my-bucket"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">AWS Endpoint URL</p>
+                           <input 
+                            type="text"
+                            value={settings.aws_s3_endpoint_url || ""}
+                            onChange={(e) => handleInputChange("aws_s3_endpoint_url", e.target.value)}
+                            placeholder="https://s3.amazonaws.com"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                           <p className="text-[10px] font-bold text-gray-500 uppercase px-2">AWS Public Base URL</p>
+                           <input 
+                            type="text"
+                            value={settings.aws_s3_public_base_url || ""}
+                            onChange={(e) => handleInputChange("aws_s3_public_base_url", e.target.value)}
+                            placeholder="https://my-bucket.s3.amazonaws.com"
+                            className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700 animate-in fade-in duration-300"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.storage}
+                      onClick={() => handleTest("storage")}
+                      className="px-4 py-2 border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/5 text-emerald-400 disabled:text-emerald-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.storage ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        `Test ${settings.storage_provider === "S3" ? "S3" : "Supabase"} Connection`
+                      )}
+                    </button>
+                  </div>
+                </section>
+
+                {/* HuggingFace AI Model card */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center">
+                      <Sparkles className="text-yellow-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">AI / Model Configuration</h3>
+                      <p className="text-xs text-gray-500">Configure global model platform tokens</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <SecretInput
+                      label="HuggingFace Token (HF_TOKEN)"
+                      value={settings.hf_token}
+                      onChange={(val) => handleInputChange("hf_token", val)}
+                      placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
+                    />
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">HF Home / Cache Dir</p>
+                      <input
+                        type="text"
+                        value={settings.hf_home || ""}
+                        onChange={(e) => handleInputChange("hf_home", e.target.value)}
+                        placeholder="/models/huggingface"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Transformers Cache Dir</p>
+                      <input
+                        type="text"
+                        value={settings.transformers_cache || ""}
+                        onChange={(e) => handleInputChange("transformers_cache", e.target.value)}
+                        placeholder="/models/huggingface"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
                       />
                     </div>
                   </div>
@@ -898,6 +1566,7 @@ export default function SettingsPage() {
           animation-fill-mode: both;
         }
       `}</style>
+      <Toast toasts={toasts} onClose={removeToast} />
     </div>
   )
 }

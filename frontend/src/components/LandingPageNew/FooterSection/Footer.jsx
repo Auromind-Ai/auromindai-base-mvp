@@ -1,6 +1,6 @@
 "use client";
-
 import Link from 'next/link';
+import { useBranding } from '@/context/BrandingContext';
 
 const footerLinks = {
   Links: [
@@ -25,6 +25,8 @@ const footerLinks = {
 };
 
 export default function Footer() {
+  const { appName, appLogoUrl } = useBranding();
+
   return (
     <footer
       className="w-full"
@@ -46,25 +48,29 @@ export default function Footer() {
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
                 style={{ background: "#814AC8" }}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                </svg>
+                {appLogoUrl && appLogoUrl !== "/logo.png" ? (
+                  <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                  </svg>
+                )}
               </div>
               <span
                 className="text-white text-2xl font-bold tracking-tight"
                 style={{ fontFamily: "'Poppins', sans-serif" }}
               >
-                Auromind
+                {appName}
               </span>
             </div>
 
@@ -73,7 +79,7 @@ export default function Footer() {
               className="text-sm leading-relaxed max-w-[260px]"
               style={{ color: "#A1A1AA", fontFamily: "'Poppins', sans-serif" }}
             >
-              Auromind – Automate Smarter, Optimize Faster, and Grow Stronger.
+              {appName} – Automate Smarter, Optimize Faster, and Grow Stronger.
             </p>
 
             {/* Contact */}

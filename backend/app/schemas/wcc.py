@@ -13,6 +13,7 @@ class WCCRateItem(BaseModel):
     category: str
     region: str
     rate_per_message: Decimal
+    customer_price: Decimal
     is_active: bool
 
     class Config:

@@ -3,17 +3,32 @@ from app.models.platform_setting import PlatformSetting
 from typing import Dict, Any
 import json
 import time
-from app.utils.crypto import encrypt_value, decrypt_value
+import logging
+from app.utils.crypto import encrypt_value, decrypt_value, is_encrypted
+
+logger = logging.getLogger(__name__)
 
 SENSITIVE_KEYS = {
-    "payu_salt",
-    "razorpay_secret",
-    "twilio_auth_token",
-    "openai_api_key",    
+    "openai_api_key",
+    "google_api_key",
     "gemini_api_key",
-    "anthropic_api_key",
     "groq_api_key",
+    "anthropic_api_key",
+    "hf_token",
+    "razorpay_secret",
+    "payu_salt",
+    "payu_merchant_key",
+    "razorpay_webhook_secret",
+    "payu_webhook_secret",
+    "google_client_secret",
+    "meta_app_secret",
+    "meta_system_user_token",
+    "ig_app_secret",
     "smtp_password",
+    "gmail_app_password",
+    "supabase_service_role_key",
+    "aws_secret_access_key",
+    "twilio_auth_token",
 }
 
 # Simple in-memory cache
@@ -63,24 +78,251 @@ def get_all_settings(db: Session) -> Dict[str, Any]:
 
         # decrypt only for sensitive
         if setting.key in SENSITIVE_KEYS and value:
-            value = decrypt_value(value)
+            if is_encrypted(value):
+                try:
+                    value = decrypt_value(value)
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt sensitive setting '{setting.key}': {e}. Returning value as-is.")
+            else:
+                logger.warning(f"Sensitive setting '{setting.key}' is stored as plain-text. Returning value as-is.")
         else:
             value = _parse_value(value, setting.value_type)
 
         result[setting.key] = value
 
+    result["_supported_storage_providers"] = ["SUPABASE", "S3"]
     _cache = result
     _cache_timestamp = current_time
 
     return result.copy()
 
 
-def get_setting(db: Session, key: str, default: Any = None) -> Any:
-    settings = get_all_settings(db)
-    return settings.get(key, default)
+def get_setting(db: Session | None, key: str, default: Any = None) -> Any:
+    global _cache, _cache_timestamp
+    current_time = time.time()
+
+    if current_time - _cache_timestamp < CACHE_TTL and _cache:
+        return _cache.get(key, default)
+
+    if db is None:
+        from app.database import SessionLocal
+        with SessionLocal() as db_session:
+            settings = get_all_settings(db_session)
+            return settings.get(key, default)
+    else:
+        settings = get_all_settings(db)
+        return settings.get(key, default)
+
+
+def clear_settings_cache():
+    global _cache, _cache_timestamp
+    _cache = {}
+    _cache_timestamp = 0
+
+
+def seed_settings_from_env(db: Session):
+    import os
+    env_map = {
+        # Brand Configuration
+        "APP_NAME": "app_name",
+        "APP_LOGO_URL": "app_logo_url",
+        
+        # AI
+        "OPENAI_API_KEY": "openai_api_key",
+        "GOOGLE_API_KEY": "google_api_key",
+        "GROQ_API_KEY": "groq_api_key",
+        "ANTHROPIC_API_KEY": "anthropic_api_key",
+        "HF_TOKEN": "hf_token",
+        "HF_HOME": "hf_home",
+        "TRANSFORMERS_CACHE": "transformers_cache",
+        "HF_HUB_ENABLE_HF_TRANSFER": "hf_hub_enable_hf_transfer",
+        
+        # Payments
+        "RAZORPAY_PRO_PLAN_ID": "razorpay_pro_plan_id",
+        "RAZORPAY_ENTERPRISE_PLAN_ID": "razorpay_enterprise_plan_id",
+        "RAZORPAY_WEBHOOK_SECRET": "razorpay_webhook_secret",
+        "RAZORPAY_KEY": "razorpay_key",
+        "RAZORPAY_SECRET": "razorpay_secret",
+        "PAYU_PRO_PLAN_ID": "payu_pro_plan_id",
+        "PAYU_ENTERPRISE_PLAN_ID": "payu_enterprise_plan_id",
+        "PAYU_MERCHANT_KEY": "payu_merchant_key",
+        "PAYU_SALT": "payu_salt",
+        "PAYU_WEBHOOK_SECRET": "payu_webhook_secret",
+        
+        # OAuth
+        "GOOGLE_CLIENT_ID": "google_client_id",
+        "GOOGLE_CLIENT_SECRET": "google_client_secret",
+        "OAUTH_REDIRECT_URI": "oauth_redirect_uri",
+        "GOOGLE_INTEGRATION_REDIRECT_URI": "google_integration_redirect_uri",
+        
+        # Meta
+        "TWILIO_ACCOUNT_SID": "twilio_account_sid",
+        "TWILIO_AUTH_TOKEN": "twilio_auth_token",
+        "TWILIO_PHONE_NUMBER": "twilio_phone_number",
+        "META_VERIFY_TOKEN": "meta_verify_token",
+        "META_PAGE_ID": "meta_page_id",
+        "META_PAGE_ACCESS_TOKEN": "meta_page_access_token",
+        "META_APP_ID": "meta_app_id",
+        "META_APP_SECRET": "meta_app_secret",
+        "META_SYSTEM_USER_TOKEN": "meta_system_user_token",
+        "META_REDIRECT_URI": "meta_redirect_uri",
+        "IG_APP_ID": "ig_app_id",
+        "IG_APP_SECRET": "ig_app_secret",
+        "IG_REDIRECT_URI": "ig_redirect_uri",
+        
+        # SMTP
+        "GMAIL_USER": "gmail_user",
+        "GMAIL_APP_PASSWORD": "gmail_app_password",
+        "SMTP_HOST": "smtp_host",
+        "SMTP_PORT": "smtp_port",
+        "SMTP_USER": "smtp_user",
+        "SMTP_PASS": "smtp_password",
+        "FROM_EMAIL": "from_email",
+        
+        # Storage
+        "STORAGE_PROVIDER": "storage_provider",
+        "SUPABASE_URL": "supabase_url",
+        "SUPABASE_SERVICE_ROLE_KEY": "supabase_service_role_key",
+        "SUPABASE_ANON_KEY": "supabase_anon_key",
+        "SUPABASE_BUCKET": "supabase_bucket",
+        "AWS_S3_BUCKET": "aws_s3_bucket",
+        "AWS_REGION": "aws_region",
+        "AWS_ACCESS_KEY_ID": "aws_access_key_id",
+        "AWS_SECRET_ACCESS_KEY": "aws_secret_access_key",
+        "AWS_S3_ENDPOINT_URL": "aws_s3_endpoint_url",
+        "AWS_S3_PUBLIC_BASE_URL": "aws_s3_public_base_url",
+        
+        # Platform Settings
+        "FLOW_FALLBACK_MESSAGE": "flow_fallback_message",
+        "TWILIO_STATUS_CALLBACK_URL": "twilio_status_callback_url",
+        "ALLOWED_ORIGINS": "allowed_origins",
+        "SCHEDULER_ENABLED": "scheduler_enabled",
+        "SYSTEM_METRICS_UPDATE_INTERVAL": "system_metrics_update_interval",
+        "BILLING_RESERVATION_TTL_SECONDS": "billing_reservation_ttl_seconds",
+    }
+
+    existing_keys = {s.key for s in db.query(PlatformSetting.key).all()}
+    updates_made = False
+
+    for env_var, db_key in env_map.items():
+        if db_key not in existing_keys:
+            val = os.getenv(env_var)
+            if val is not None:
+                str_value, value_type = _serialize_value(val)
+                if db_key in ["smtp_port", "system_metrics_update_interval", "billing_reservation_ttl_seconds"]:
+                    try:
+                        str_value, value_type = _serialize_value(int(val))
+                    except ValueError:
+                        pass
+                elif db_key == "scheduler_enabled":
+                    str_value, value_type = _serialize_value(val.lower() in ("true", "1", "yes"))
+                
+                if db_key in SENSITIVE_KEYS:
+                    if str_value and not is_encrypted(str_value):
+                        str_value = encrypt_value(str_value)
+
+                setting = PlatformSetting(
+                    key=db_key,
+                    value=str_value,
+                    value_type=value_type
+                )
+                db.add(setting)
+                updates_made = True
+
+    # Seed default branding configs if not present in DB
+    default_brand = {
+        "app_name": "Auromind",
+        "app_logo_url": "/logo.png"
+    }
+    for k, v in default_brand.items():
+        if k not in existing_keys:
+            setting = PlatformSetting(
+                key=k,
+                value=v,
+                value_type="string"
+            )
+            db.add(setting)
+            updates_made = True
+
+    if updates_made:
+        db.commit()
+        clear_settings_cache()
+
+
+def get_prospective_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
+    # Fetch current settings to form the prospective settings dictionary
+    current_settings = {}
+    for s in db.query(PlatformSetting).all():
+        val = s.value
+        if s.key in SENSITIVE_KEYS and val:
+            if is_encrypted(val):
+                try:
+                    val = decrypt_value(val)
+                except Exception:
+                    pass
+        else:
+            val = _parse_value(val, s.value_type)
+        current_settings[s.key] = val
+
+    # Merge updates to form prospective settings
+    # For sensitive keys, if the update value is the mask placeholder or empty,
+    # use the existing DB value so validations/tests work against real data.
+    prospective = {**current_settings}
+    for key, value in updates.items():
+        if key in SENSITIVE_KEYS and (not value or str(value) == "••••••••"):
+            # Keep existing decrypted value
+            continue
+        prospective[key] = value
+    return prospective
 
 
 def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
+    # 1. Get prospective settings
+    prospective = get_prospective_settings(db, updates)
+
+    # 2. Perform validations on prospective settings
+    # 2.1 Google Client ID / Secret together
+    google_id = prospective.get("google_client_id")
+    google_secret = prospective.get("google_client_secret")
+    if (google_id or google_secret) and not (google_id and google_secret):
+        raise ValueError("Google Client ID and Google Client Secret must be configured together.")
+
+    # 2.2 Meta App ID / Secret together
+    meta_id = prospective.get("meta_app_id")
+    meta_secret = prospective.get("meta_app_secret")
+    if (meta_id or meta_secret) and not (meta_id and meta_secret):
+        raise ValueError("Meta App ID and Meta App Secret must be configured together.")
+
+    # 2.3 SMTP Port integer validation
+    smtp_port = prospective.get("smtp_port")
+    if smtp_port is not None and smtp_port != "":
+        try:
+            int(smtp_port)
+        except (ValueError, TypeError):
+            raise ValueError("SMTP Port must be a valid integer.")
+
+    # 2.4 Storage Provider validation
+    storage_provider = prospective.get("storage_provider")
+    if storage_provider:
+        prov_upper = str(storage_provider).upper()
+        if prov_upper not in ["SUPABASE", "S3"]:
+            raise ValueError(f"Storage Provider must be either SUPABASE or S3. Received: {storage_provider}")
+        
+        # 2.5 Conditionally validate active storage provider config
+        if prov_upper == "S3":
+            aws_key = prospective.get("aws_access_key_id")
+            aws_secret = prospective.get("aws_secret_access_key")
+            aws_region = prospective.get("aws_region")
+            aws_bucket = prospective.get("aws_s3_bucket")
+            if not (aws_key and aws_secret and aws_region and aws_bucket):
+                raise ValueError("AWS Access Key ID, Secret Access Key, Region, and Bucket are required when S3 is the selected Storage Provider.")
+        elif prov_upper == "SUPABASE":
+            sub_url = prospective.get("supabase_url")
+            sub_key = prospective.get("supabase_service_role_key")
+            sub_bucket = prospective.get("supabase_bucket")
+            if not (sub_url and sub_key and sub_bucket):
+                raise ValueError("Supabase URL, Service Role Key, and Supabase Bucket are required when SUPABASE is the selected Storage Provider.")
+
     for key, value in updates.items():
         str_value, value_type = _serialize_value(value)
 
@@ -88,10 +330,11 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
 
         #  HANDLE SENSITIVE KEYS SAFELY
         if key in SENSITIVE_KEYS:
-            if not str_value:
-                # ❗ skip empty → DON'T overwrite existing secret
+            if not str_value or str_value == "••••••••":
+                # ❗ skip empty or masked placeholder → DON'T overwrite existing secret
                 continue
-            str_value = encrypt_value(str_value)
+            if not is_encrypted(str_value):
+                str_value = encrypt_value(str_value)
 
         if setting:
             setting.value = str_value
@@ -111,87 +354,70 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
     _cache = {}
     _cache_timestamp = 0
 
+    try:
+        from app.services.config_service import config_service
+        config_service.clear_cache()
+    except Exception:
+        pass
+
     return get_all_settings(db)
 
 
-# def initialize_default_settings(db: Session):
-#     defaults = {
-#         # Pricing
-#         "free_plan_price": 0.0,
-#         "pro_plan_price": 1000.0,
-#         "enterprise_plan_price": 10000.0,
-#         "token_limit_per_plan": {
-#             "free": 10000,
-#             "pro": 100000,
-#             "enterprise": 1000000
-#         },
-#         "free_plan_name": "Free",
-#         "pro_plan_name": "Pro",
-#         "enterprise_plan_name": "Enterprise",
+def migrate_sensitive_settings(db: Session) -> dict[str, int]:
+    """
+    Idempotent one-time migration that:
+    1. Renames any legacy 'smtp_pass' key to 'smtp_password' if 'smtp_password' doesn't exist yet,
+       and deletes 'smtp_pass' to avoid duplicate configuration entries.
+    2. Scans the DB for sensitive keys and encrypts any unencrypted plain-text values.
+    """
+    # 1. Handle renaming smtp_pass to smtp_password
+    legacy_smtp_pass = db.query(PlatformSetting).filter(PlatformSetting.key == "smtp_pass").first()
+    if legacy_smtp_pass:
+        canonical_smtp_password = db.query(PlatformSetting).filter(PlatformSetting.key == "smtp_password").first()
+        if not canonical_smtp_password:
+            legacy_smtp_pass.key = "smtp_password"
+            logger.info("[MIGRATION] Renamed legacy 'smtp_pass' setting to 'smtp_password'")
+        else:
+            db.delete(legacy_smtp_pass)
+            logger.info("[MIGRATION] Deleted duplicate legacy 'smtp_pass' setting")
+        db.commit()
 
-#         "free_plan_desc": "",
-#         "pro_plan_desc": "",
-#         "enterprise_plan_desc": "",
+    settings = db.query(PlatformSetting).filter(PlatformSetting.key.in_(SENSITIVE_KEYS)).all()
+    migrated_count = 0
+    skipped_count = 0
+    invalid_count = 0
 
-#         "free_plan_features": [],
-#         "pro_plan_features": [],
-#         "enterprise_plan_features": [],
-#         # AI Controls
-#         "temperature": 0.7,
-#         "max_tokens": 4096,
-#         "rpm_limit": 60,
-#         "context_window": 8192,
+    for setting in settings:
+        val = setting.value
+        if not val:
+            skipped_count += 1
+            continue
 
-#         # Rate Limits
-#         "api_rpm_limit": 60,
-#         "api_tpm_limit": 100000,
-#         "workspace_token_limit": 1000000,
+        if is_encrypted(val):
+            skipped_count += 1
+            continue
 
-#         # AI Config
-#         "model_name": "gpt-4o",
-#         "ai_enabled": True,
+        # If it is plain text, encrypt it!
+        try:
+            encrypted_val = encrypt_value(val)
+            setting.value = encrypted_val
+            migrated_count += 1
+            logger.info(f"[MIGRATION] Encrypted plain-text sensitive setting key: '{setting.key}'")
+        except Exception as e:
+            invalid_count += 1
+            logger.error(f"[MIGRATION] Failed to encrypt sensitive setting key '{setting.key}': {e}")
 
-#         # Announcement
-#         "announcement_enabled": False,
-#         "announcement_message": "",
+    if migrated_count > 0:
+        db.commit()
+        clear_settings_cache()
+        logger.info(f"[MIGRATION] Database settings migration completed: {migrated_count} migrated, {skipped_count} skipped, {invalid_count} failed.")
+    else:
+        logger.info("[MIGRATION] Database settings migration completed: all sensitive settings are already encrypted.")
 
-#         # Features
-#         "enable_gmail_integration": True,
-#         "enable_calendar_integration": True,
-#         "enable_rag": True,
-#         "enable_ai_learning": True,
+    return {
+        "migrated": migrated_count,
+        "skipped": skipped_count,
+        "failed": invalid_count,
+        "total_sensitive_found": len(settings),
+    }
 
-#         # Limits
-#         "max_workspaces": 10,
-#         "max_users_per_workspace": 50,
-#         "max_conversations": 1000,
-
-#         # Infra
-#         "twilio_account_sid": "",
-#         "twilio_auth_token": "",
-#         "twilio_from_number": "",
-#         "openai_api_key": "",
-#         "gemini_api_key": "",
-#         "anthropic_api_key": "",
-#         "groq_api_key": "",
-
-#         # Payments
-#         "razorpay_key": "",
-#         "razorpay_secret": "",
-#         "payu_merchant_key": "",
-#         "payu_salt": "",
-#     }
-
-#     existing_keys = {s.key for s in db.query(PlatformSetting.key).all()}
-
-#     for key, value in defaults.items():
-#         if key not in existing_keys:
-#             str_value, value_type = _serialize_value(value)
-#             setting = PlatformSetting(
-#                 key=key,
-#                 value=str_value,
-#                 value_type=value_type
-#             )
-#             db.add(setting)
-
-#     db.commit()

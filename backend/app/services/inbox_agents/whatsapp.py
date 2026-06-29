@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 class WhatsAppService:
 
     def __init__(self, access_token: str, phone_number_id: str):
-        from app.core.config import settings
+        from app.services.config_service import config_service
         # Meta Embedded Signup strictly requires the Solution Provider's System User Token to send messages.
-        self.access_token = settings.META_SYSTEM_USER_TOKEN or access_token
+        self.access_token = config_service.get("meta_system_user_token") or access_token
         self.phone_number_id = phone_number_id
         self.base_url = f"https://graph.facebook.com/v19.0/{phone_number_id}/messages"
 

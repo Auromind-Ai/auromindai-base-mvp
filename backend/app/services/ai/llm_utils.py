@@ -12,11 +12,42 @@ _router = LLMRouter()
 # Context variable to collect token usage logs for the current request
 token_log_context = contextvars.ContextVar("token_log_context", default=None)
 
+
+# ── Provider usage extraction ─────────────────────────────────────────────────
+
+class ProviderUsageMissingError(Exception):
+    """Raised when an AI provider returns no token usage and billing cannot proceed."""
+
+
+def extract_usage(result: dict) -> dict:
+   
+    if not result:
+        raise ProviderUsageMissingError("Provider returned no result")
+
+    usage = result.get("usage") or {}
+    prompt_tokens     = int(usage.get("input_tokens",  0))
+    completion_tokens = int(usage.get("output_tokens", 0))
+    total_tokens      = int(usage.get("total_tokens",  0))
+
+    provider = result.get("provider") or "unknown"
+    model    = result.get("model")    or "unknown"
+
+    if total_tokens == 0:
+        raise ProviderUsageMissingError(
+            f"Provider '{provider}' returned total_tokens=0. "
+            "Cannot bill without verified token usage."
+        )
+
+    return {
+        "provider":          provider,
+        "model":             model,
+        "prompt_tokens":     prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens":      total_tokens,
+    }
+
+
 def split_prompt(prompt: str):
-    """
-    Splits the prompt into System Prompt (instructions) and User Input (context, queries, etc.)
-    using common delimiters.
-    """
     split_keys = [
         "User Query:",
         "Question:",
@@ -35,10 +66,6 @@ def split_prompt(prompt: str):
     return prompt.strip(), ""
 
 def get_caller_function_name():
-    """
-    Detects the calling function name by traversing the stack, skipping
-    retry decorators and framework internals.
-    """
     stack = inspect.stack()
     for frame_info in stack:
         filename = frame_info.filename
@@ -56,9 +83,6 @@ def get_caller_function_name():
     return "unknown"
 
 def write_to_token_log_file(message: str):
-    """
-    Writes token reports and messages to dedicated files: logs/token_usage.log and logs/token_usage.txt
-    """
     try:
         from app.core.logger import BASE_DIR
         log_dir = os.path.join(BASE_DIR, "logs")
@@ -79,12 +103,28 @@ def write_to_token_log_file(message: str):
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
 async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
-    result = await _router.generate(prompt, model=model)
+    from app.services.ai.execution_service import AIExecutionService, current_execution_context
+    
+    ctx = current_execution_context.get()
+    if ctx:
+        result = await AIExecutionService.execute(
+            db=None,
+            workspace_id=ctx.workspace_id,
+            user_id=ctx.user_id,
+            feature_key=ctx.feature_key,
+            prompt=prompt,
+            model=model
+        )
+    else:
+        logger.warning(f"safe_llm_call called without active execution context for model: {model}")
+        result = await _router.generate(prompt, model=model)
     
     # Calculate tokens
-    input_tokens = result.get("input_tokens") or 0
-    output_tokens = result.get("output_tokens") or 0
-    total_tokens = result.get("total_tokens") or 0
+    usage = result.get("usage", {})
+    input_tokens = usage.get("input_tokens", 0)
+    output_tokens = usage.get("output_tokens", 0)
+    total_tokens = usage.get("total_tokens", 0)
+    content = result.get("text", "")
     
     # Split prompt into System Prompt and Input Query
     system_prompt, user_input = split_prompt(prompt)
@@ -113,7 +153,7 @@ async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
         "input_tokens": user_input_tokens,
         "output_tokens": output_tokens,
         "total_tokens": total_tokens,
-        "content": result.get("content")
+        "content": content
     }
     
     # Log individual call to general logger
@@ -128,7 +168,7 @@ async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
         logs_list.append(log_entry)
         
     return {
-        "content": result["content"],
+        "content": content,
         "model": result.get("model"),
         "provider": result.get("provider"),
         "tokens": total_tokens,

@@ -11,7 +11,7 @@ from app.models.token_ledger import TokenLedger
 from app.models.usage import Usage
 from app.services.billing.gateway.base import TokenBalance
 from app.models.billing import Payment
-
+from app.services.billing.feature_billing_service import FeatureBillingService
 from .gateway.base import RESERVATION_MAX_PER_WORKSPACE, RESERVATION_TTL_MINUTES, TOKENS_PER_CREDIT
 
 
@@ -27,10 +27,10 @@ class TokenService:
         reference_key: str,
         description: str,
     ) -> TokenLedger:
-        try:
-            if credits <= 0:
-                raise ValueError("Credit reservation amount must be positive")
+        if credits <= 0:
+            raise ValueError("Credit reservation amount must be positive")
 
+        with db.begin_nested():
             self._lock_workspace(db, workspace_id)
 
             # Limit concurrent pending reservations per workspace to prevent abuse/DoS
@@ -53,7 +53,6 @@ class TokenService:
             )
             if existing:
                 if existing.status == "reserved":
-                    db.commit()
                     return existing
                 raise ValueError("Reference key has already been finalized")
 
@@ -76,11 +75,8 @@ class TokenService:
             )
             db.add(reservation)
             db.flush()
-            db.commit()
-            return reservation
-        except Exception:
-            db.rollback()
-            raise
+            
+        return reservation
 
     def reserve_tokens(
         self,
@@ -93,6 +89,59 @@ class TokenService:
         credits = float(amount) / TOKENS_PER_CREDIT
         return self.reserve_credits(db, workspace_id, credits, reference_key, description)
 
+    def settle_from_provider_usage(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        usage: dict,
+        feature_key: str,
+        execution_id: str,
+        request_id: str | None = None,
+    ) -> TokenLedger:
+      
+     
+
+        total_tokens      = int(usage.get("total_tokens", 0))
+        prompt_tokens     = int(usage.get("prompt_tokens", 0))
+        completion_tokens = int(usage.get("completion_tokens", 0))
+        provider          = usage.get("provider", "unknown")
+        model             = usage.get("model", "unknown")
+
+        # Determine billing type for this feature
+        rule = FeatureBillingService.get_rule(db, feature_key)
+        if rule and rule.billing_type == "TOKEN":
+            # credits = (total_tokens / unit_value) × credit_cost
+            credits_used = float(FeatureBillingService.calculate_cost(db, feature_key, float(total_tokens)))
+        elif rule and rule.billing_type == "FLAT":
+            # Flat-rate features (e.g. per-request) ignore token count
+            credits_used = float(FeatureBillingService.calculate_cost(db, feature_key, 1.0))
+        else:
+            # Unknown rule — use token count with TOKENS_PER_CREDIT default
+            credits_used = float(total_tokens) / TOKENS_PER_CREDIT
+
+        # Finalise the reservation to the REAL credit amount (not the estimate)
+        ledger_row = self.finalize_credits(
+            db=db,
+            reservation_id=reservation_id,
+            credits_used=credits_used,
+            tokens_used=total_tokens,
+        )
+
+        # Stamp provider metadata — these are the single source of truth columns
+        ledger_row.provider          = provider
+        ledger_row.model             = model
+        ledger_row.prompt_tokens     = prompt_tokens
+        ledger_row.completion_tokens = completion_tokens
+        ledger_row.total_tokens      = total_tokens
+        ledger_row.execution_id      = execution_id
+        ledger_row.request_id        = request_id
+        ledger_row.feature_key       = feature_key
+
+        db.flush()
+        db.commit()
+
+        return ledger_row
+
     def finalize_credits(
         self,
         db: Session,
@@ -100,7 +149,9 @@ class TokenService:
         credits_used: float,
         tokens_used: int | None = None,
     ) -> TokenLedger:
-        try:
+        if isinstance(reservation_id, str):
+            reservation_id = uuid.UUID(reservation_id)
+        with db.begin_nested():
             reservation = (
                 db.query(TokenLedger)
                 .filter(TokenLedger.id == reservation_id)
@@ -109,14 +160,15 @@ class TokenService:
             )
             if not reservation:
                 raise ValueError("Billing reservation not found")
+            
+            workspace_id = reservation.workspace_id
+            self._lock_workspace(db, workspace_id)
+
             if reservation.status == "posted":
-                db.commit()
                 return reservation
             if reservation.status != "reserved":
                 raise ValueError("Billing reservation is not active")
 
-            workspace_id = str(reservation.workspace_id)
-            
             # 1. Calculate pool balances excluding this reservation
             included_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
                 TokenLedger.workspace_id == workspace_id,
@@ -220,11 +272,8 @@ class TokenService:
                 self._update_usage_overage_snapshot(db, reservation, float(drawn_overage))
                 
             db.flush()
-            db.commit()
-            return reservation
-        except Exception:
-            db.rollback()
-            raise
+            
+        return reservation
 
     def finalize_token_usage(
         self,
@@ -257,7 +306,9 @@ class TokenService:
         reservation_id: str | uuid.UUID,
         reason: str,
     ) -> TokenLedger | None:
-        try:
+        if isinstance(reservation_id, str):
+            reservation_id = uuid.UUID(reservation_id)
+        with db.begin_nested():
             reservation = (
                 db.query(TokenLedger)
                 .filter(TokenLedger.id == reservation_id)
@@ -265,20 +316,15 @@ class TokenService:
                 .first()
             )
             if reservation is None:
-                db.commit()
                 return None
             if reservation.status != "reserved":
-                db.commit()
                 return reservation
 
             reservation.status = "released"
             reservation.description = reason
             db.flush()
-            db.commit()
-            return reservation
-        except Exception:
-            db.rollback()
-            raise
+            
+        return reservation
 
     def get_token_balance(self, db: Session, workspace_id: str) -> TokenBalance:
         return self._get_token_balance_locked(db, workspace_id)
@@ -344,6 +390,8 @@ class TokenService:
         )
 
     def _lock_workspace(self, db: Session, workspace_id: str, nowait: bool = False):
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
         from app.models.workspace import Workspace
         workspace = (
             db.query(Workspace)
@@ -536,10 +584,10 @@ class TokenService:
         reference_key: str,
         description: str,
     ) -> TokenLedger:
-        try:
-            if unit_amount <= 0:
-                raise ValueError("Feature usage unit amount must be positive")
+        if unit_amount <= 0:
+            raise ValueError("Feature usage unit amount must be positive")
 
+        with db.begin_nested():
             self._lock_workspace(db, workspace_id)
 
             active_count = (
@@ -561,7 +609,6 @@ class TokenService:
             )
             if existing:
                 if existing.status == "reserved":
-                    db.commit()
                     return existing
                 raise ValueError("Reference key has already been finalized")
 
@@ -591,11 +638,8 @@ class TokenService:
             )
             db.add(reservation)
             db.flush()
-            db.commit()
-            return reservation
-        except Exception:
-            db.rollback()
-            raise
+            
+        return reservation
 
     def finalize_feature_credits(
         self,
@@ -603,44 +647,41 @@ class TokenService:
         reservation_id: str | uuid.UUID,
         actual_units: float = 0.0,
     ) -> TokenLedger:
-        try:
-            reservation = (
-                db.query(TokenLedger)
-                .filter(TokenLedger.id == reservation_id)
-                .with_for_update()
-                .first()
-            )
-            if not reservation:
-                raise ValueError("Billing reservation not found")
-            if reservation.status == "posted":
-                db.commit()
-                return reservation
-            if reservation.status != "reserved":
-                raise ValueError("Billing reservation is not active")
+        if isinstance(reservation_id, str):
+            reservation_id = uuid.UUID(reservation_id)
+        reservation = (
+            db.query(TokenLedger)
+            .filter(TokenLedger.id == reservation_id)
+            .with_for_update()
+            .first()
+        )
+        if not reservation:
+            raise ValueError("Billing reservation not found")
+        if reservation.status == "posted":
+            return reservation
+        if reservation.status != "reserved":
+            raise ValueError("Billing reservation is not active")
 
-            feature_key = None
-            orig_units = 1.0
-            if reservation.metadata_json:
-                try:
-                    meta = json.loads(reservation.metadata_json)
-                    feature_key = meta.get("feature_key")
-                    orig_units = float(meta.get("unit_amount", 1.0))
-                except Exception:
-                    pass
+        feature_key = None
+        orig_units = 1.0
+        if reservation.metadata_json:
+            try:
+                meta = json.loads(reservation.metadata_json)
+                feature_key = meta.get("feature_key")
+                orig_units = float(meta.get("unit_amount", 1.0))
+            except Exception:
+                pass
 
-            if not feature_key:
-                raise ValueError("Feature key metadata missing from reservation")
+        if not feature_key:
+            raise ValueError("Feature key metadata missing from reservation")
 
-            units = actual_units if actual_units > 0 else orig_units
+        units = actual_units if actual_units > 0 else orig_units
 
-            from app.services.billing.feature_billing_service import FeatureBillingService
-            credits_cost = FeatureBillingService.calculate_cost(db, feature_key, units)
+        from app.services.billing.feature_billing_service import FeatureBillingService
+        credits_cost = FeatureBillingService.calculate_cost(db, feature_key, units)
 
-            tokens_used = int(float(credits_cost) * TOKENS_PER_CREDIT)
-            return self.finalize_credits(db, reservation_id, float(credits_cost), tokens_used=tokens_used)
-        except Exception:
-            db.rollback()
-            raise
+        tokens_used = int(float(credits_cost) * TOKENS_PER_CREDIT)
+        return self.finalize_credits(db, reservation_id, float(credits_cost), tokens_used=tokens_used)
 
     def release_feature_reservation(
         self,

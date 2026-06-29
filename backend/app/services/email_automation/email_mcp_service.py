@@ -43,53 +43,59 @@ class EmailMCPService:
         print("MCP: Processing email started")
 
         try:
-
             context = self.retrieve_memory_context(db, workspace_id, email_data)
             print("Memory context fetched")
-            
-            category_result = await self.classify_category(email_data, context)
-            category = category_result.get("category")
-            confidence = category_result.get("confidence", 0)
 
-            print("Category:", category)
-            print("Confidence:", confidence)
+            async def run_pipeline():
+                category_result = await self.classify_category(email_data, context, db, workspace_id)
+                category = category_result.get("category")
+                confidence = category_result.get("confidence", 0)
 
-            entities = await self.extract_entities(email_data, category)
-            print("Entities extracted:", entities)
+                print("Category:", category)
+                print("Confidence:", confidence)
 
-            priority =  self.calculate_priority(email_data, category, entities)
-            print("Priority:", priority)
+                entities = await self.extract_entities(email_data, category, db, workspace_id)
+                print("Entities extracted:", entities)
 
-            summary =   await self.generate_summary(email_data)
-            print("Summary generated")
+                priority = self.calculate_priority(email_data, category, entities)
+                print("Priority:", priority)
 
-            suggested_reply = None
+                summary = await self.generate_summary(email_data, db, workspace_id)
+                print("Summary generated")
 
-            # if category in ["business", "job", "support"]:
-            suggested_reply = await self.generate_suggested_reply(
-                email_data,
-                category,
-                context,
-                db,
-                workspace_id
+                suggested_reply = await self.generate_suggested_reply(
+                    email_data,
+                    category,
+                    context,
+                    db,
+                    workspace_id
+                )
+                print("Suggested reply generated")
+
+                decision = self.build_decision_object(
+                    category=category,
+                    priority=priority,
+                    confidence=confidence,
+                    entities=entities,
+                    summary=summary,
+                    suggested_reply=suggested_reply
+                )
+                return decision
+
+            from app.services.ai.execution_service import AIExecutionService
+            decision = await AIExecutionService.execute(
+                db=db,
+                workspace_id=workspace_id,
+                user_id="system",
+                feature_key="email_processing",
+                prompt=f"Process Email Subject: {email_data.get('subject', '')}",
+                execute_fn=run_pipeline
             )
-            
-            print("Suggested reply generated")
 
-            decision = self.build_decision_object(
-                category=category,
-                priority=priority,
-                confidence=confidence,
-                entities=entities,
-                summary=summary,
-                suggested_reply=suggested_reply
-            )
-
-            self.save_conversation_thread(db, workspace_id, email_data, decision)
-            self.save_mcp_decision(db, workspace_id, email_data, decision)
-
-
-            print("Final MCP decision built")
+            if decision:
+                self.save_conversation_thread(db, workspace_id, email_data, decision)
+                self.save_mcp_decision(db, workspace_id, email_data, decision)
+                print("Final MCP decision built")
 
             return decision
 
@@ -164,7 +170,7 @@ class EmailMCPService:
             return context
         
     # Classify category
-    async def classify_category(self, email_data, context):
+    async def classify_category(self, email_data, context, db=None, workspace_id=None):
 
         print("Classifying email category...")
 
@@ -220,7 +226,21 @@ class EmailMCPService:
 
             prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
 
-            response = await safe_llm_call(prompt)
+            from app.services.ai.execution_service import AIExecutionService
+            if db and workspace_id:
+                res = await AIExecutionService.execute(
+                    db=db,
+                    workspace_id=workspace_id,
+                    user_id="system",
+                    feature_key="email_classification",
+                    prompt=prompt
+                )
+                response = {
+                    "content": res.get("text", ""),
+                    **res
+                }
+            else:
+                response = await safe_llm_call(prompt)
 
             print("Raw LLM response:", response)
 
@@ -246,7 +266,7 @@ class EmailMCPService:
             return {"category": "other", "confidence": 0.0}
     
     #Extract structured entities
-    async def extract_entities(self, email_data, category):
+    async def extract_entities(self, email_data, category, db=None, workspace_id=None):
 
         print("Extracting entities...")
 
@@ -320,7 +340,21 @@ class EmailMCPService:
             """
 
             prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
-            response = await safe_llm_call(prompt)
+            from app.services.ai.execution_service import AIExecutionService
+            if db and workspace_id:
+                res = await AIExecutionService.execute(
+                    db=db,
+                    workspace_id=workspace_id,
+                    user_id="system",
+                    feature_key="email_entity_extraction",
+                    prompt=prompt
+                )
+                response = {
+                    "content": res.get("text", ""),
+                    **res
+                }
+            else:
+                response = await safe_llm_call(prompt)
 
             print("Raw entity response:", response)
 
@@ -401,7 +435,7 @@ class EmailMCPService:
             return "low"
 
     # Generate summary
-    async def generate_summary(self, email_data):
+    async def generate_summary(self, email_data, db=None, workspace_id=None):
 
         print("Generating summary...")
 
@@ -429,7 +463,21 @@ class EmailMCPService:
             """
 
             prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
-            response = await safe_llm_call(prompt)
+            from app.services.ai.execution_service import AIExecutionService
+            if db and workspace_id:
+                res = await AIExecutionService.execute(
+                    db=db,
+                    workspace_id=workspace_id,
+                    user_id="system",
+                    feature_key="email_summary",
+                    prompt=prompt
+                )
+                response = {
+                    "content": res.get("text", ""),
+                    **res
+                }
+            else:
+                response = await safe_llm_call(prompt)
 
             summary = response["content"].strip()
 
@@ -468,7 +516,7 @@ class EmailMCPService:
     
     
     #Generate suggested reply
-    async def generate_suggested_reply(self, email_data, category, context, db, workspace_id):
+    async def generate_suggested_reply(self, email_data, category, context, db=None, workspace_id=None):
         print("Generating suggested reply...")
 
         try:
@@ -515,10 +563,26 @@ class EmailMCPService:
 
             prompt = f"{system_prompt}\n\nUser:\n{user_prompt}"
 
-            response = await safe_llm_call(prompt)
+            from app.services.ai.execution_service import AIExecutionService
+            if db and workspace_id:
+                res = await AIExecutionService.execute(
+                    db=db,
+                    workspace_id=workspace_id,
+                    user_id="system",
+                    feature_key="gmail_draft",
+                    prompt=prompt
+                )
+                response = {
+                    "content": res.get("text", ""),
+                    **res
+                }
+            else:
+                response = await safe_llm_call(prompt)
             reply = response["content"].strip()
 
-            user_name = self.get_workspace_user_name(db, workspace_id)
+            user_name = ""
+            if db and workspace_id:
+                user_name = self.get_workspace_user_name(db, workspace_id)
 
             if user_name:
                 reply = f"{reply}\n\nBest regards,\n{user_name}"

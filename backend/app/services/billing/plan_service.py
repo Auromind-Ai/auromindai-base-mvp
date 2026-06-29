@@ -1,7 +1,6 @@
 import uuid
 from typing import Any
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.models.plan import Plan
 from app.services.billing.gateway.base import BillingPlanConfig
 from app.services.platform_settings_service import get_setting
@@ -26,9 +25,10 @@ class PlanService:
             free_val = token_limits.get("free")
             tokens = free_val if free_val is not None else 100
 
+        from app.services.config_service import config_service
         provider_plan_ids = {
-            "razorpay": getattr(settings, f"RAZORPAY_{key.upper()}_PLAN_ID", None) if key != "free" else None,
-            "payu": getattr(settings, f"PAYU_{key.upper()}_PLAN_ID", None) if key != "free" else None,
+            "razorpay": config_service.get(f"razorpay_{key}_plan_id") if key != "free" else None,
+            "payu": config_service.get(f"payu_{key}_plan_id") if key != "free" else None,
         }
 
         return BillingPlanConfig(
