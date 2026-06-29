@@ -10,7 +10,6 @@ from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.inbox.twilio_service import TwilioService
 from app.models.flow_execution import FlowExecutionState
 from app.models import Conversation, TokenLedger
-from app.core.config import settings
 
 
 class AgentOrchestration:
@@ -19,7 +18,8 @@ class AgentOrchestration:
         self.logger = logger
         self.logger.info("Initializing AgentOrchestration...")
 
-        self.llm = LLMClient(api_key=settings.GROQ_API_KEY)
+        from app.services.config_service import config_service
+        self.llm = LLMClient(api_key=config_service.get("groq_api_key"))
         self.db = db
 
         # Core Services
@@ -45,7 +45,114 @@ class AgentOrchestration:
         user_id      = data.get("user_id")
         workspace_id = data.get("workspace_id")
         message      = data.get("message", "")
-        db           = self.db
+        conversation_id = data.get("conversation_id")
+
+        db = getattr(self.escalation_queue, "db", None)
+        db_created = False
+        if not db and not self.db:
+            from app.database import SessionLocal
+            db = SessionLocal()
+            self.db = db
+            db_created = True
+        else:
+            db = db or self.db
+            self.db = db
+        
+        self.logger.info(
+            f"[AI DEBUG] Orchestration Layer: workspace_id={workspace_id} "
+            f"conversation_id={conversation_id} channel={channel} "
+            f"user_id={user_id}"
+        )
+
+        if not workspace_id or not conversation_id:
+            raise ValueError("workspace_id and conversation_id are required for inbox orchestration")
+
+        self.runtime_context["workspace_id"]    = workspace_id
+        self.runtime_context["user_id"]         = user_id
+        self.runtime_context["channel"]         = channel
+        self.runtime_context["conversation_id"] = conversation_id
+
+        from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, AIExecutionContext, current_execution_context
+        from app.services.billing.feature_billing_service import FeatureBillingService
+        from app.services.billing.billing_service import enforce_execution_policy, BillingService
+        from app.core.exceptions import BillingError
+        import sys
+
+        ctx = AIExecutionContext(
+            workspace_id=workspace_id,
+            user_id=user_id or "system",
+            feature_key=AIFeatureRegistry.AGENT,
+            stream=False
+        )
+        token_token = current_execution_context.set(ctx)
+
+        billing_service = BillingService()
+        reservation_created = False
+        rule = None
+
+        try:
+            # 1. Quota Check & Reservation
+            rule = FeatureBillingService.get_rule(db, ctx.feature_key)
+            if rule:
+                estimated_tokens = BillingService.estimate_reservation_amount(message, use_rag=True)
+                credits_cost = FeatureBillingService.calculate_cost(db, ctx.feature_key, float(estimated_tokens))
+                if not enforce_execution_policy(db, ctx.workspace_id, amount=float(credits_cost)):
+                    raise BillingError("Insufficient quota. Please upgrade your plan or enable overages.")
+                
+                ref_key = f"ai-exec:{ctx.execution_id}"
+                reservation = billing_service.token_service.reserve_feature_credits(
+                    db=db,
+                    workspace_id=ctx.workspace_id,
+                    feature_key=ctx.feature_key,
+                    unit_amount=float(estimated_tokens),
+                    reference_key=ref_key,
+                    description=f"Agent message: {message[:50]}"
+                )
+                if reservation:
+                    ctx.reservation_id = str(reservation.id)
+                    reservation_created = True
+
+            return await self._process_message_internal(payload, channel, skip_send, db)
+
+        finally:
+            exc_type, _, _ = sys.exc_info()
+            if exc_type is None:
+                # Succeeded - Settle Billing
+                if reservation_created and ctx.reservation_id:
+                    try:
+                        with db.begin_nested():
+                            actual_units = ctx.usage["total_tokens"] if (rule and rule.billing_type == "TOKEN") else 1.0
+                            billing_service.token_service.finalize_feature_credits(
+                                db=db,
+                                reservation_id=ctx.reservation_id,
+                                actual_units=float(actual_units)
+                            )
+                    except Exception as finalize_err:
+                        self.logger.error(f"Failed to finalize agent billing: {finalize_err}")
+            else:
+                # Failed - Release Reservation
+                if reservation_created and ctx.reservation_id:
+                    try:
+                        with db.begin_nested():
+                            billing_service.token_service.release_token_reservation(
+                                db=db,
+                                reservation_id=ctx.reservation_id,
+                                reason=f"Agent execution failed: {exc_type.__name__}"
+                            )
+                    except Exception as release_err:
+                        self.logger.error(f"Failed to release agent reservation on error: {release_err}")
+            
+            current_execution_context.reset(token_token)
+            if db_created:
+                self.db.close()
+                self.db = None
+
+    async def _process_message_internal(self, payload, channel, skip_send, db):
+        data = self.normalize_message(payload, channel)
+
+        user_id      = data.get("user_id")
+        workspace_id = data.get("workspace_id")
+        message      = data.get("message", "")
         conversation_id = data.get("conversation_id")
 
         #  LEAD_DEBUG: Log incoming message at orchestration entry 
@@ -53,8 +160,6 @@ class AgentOrchestration:
 
         # Note: We no longer extract or generate a user_id-based memory_key.
         # All state is strictly scoped to workspace_id and conversation_id.
-
-        db = getattr(self.escalation_queue, "db", None)
         
         self.logger.info(
             f"[AI DEBUG] Orchestration Layer: workspace_id={workspace_id} "

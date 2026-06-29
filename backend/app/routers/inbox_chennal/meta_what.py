@@ -1,7 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
@@ -37,18 +36,18 @@ from fastapi.responses import PlainTextResponse
 async def verify_webhook(request: Request):
     logger.info("=== META WHATSAPP WEBHOOK VERIFICATION REQUEST ===")
     logger.info(f"Query Params: {request.query_params}")
-    return WebhookService.verify_meta_subscription(
+    from app.services.config_service import config_service
+    challenge = WebhookService.verify_meta_subscription(
         request.query_params,
-        settings.META_VERIFY_TOKEN,
+        config_service.get("meta_verify_token"),
     )
-    if isinstance(challenge, int):
+    if challenge is not None:
         return PlainTextResponse(str(challenge))
-    return challenge
+    raise HTTPException(status_code=403, detail="Verification failed")
 
 
 @router.post("/whatsapp/webhook")
 async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
-    print("🔥 WEBHOOK HIT")
     logger.info("=== INCOMING META WHATSAPP WEBHOOK ===")
     try:
         data = await request.json()

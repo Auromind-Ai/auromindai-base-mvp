@@ -46,6 +46,7 @@ export default function PlanEntitlementsTab({
         lead_limit: parseInt(editingEntitlement.lead_limit),
         meeting_limit: parseInt(editingEntitlement.meeting_limit),
         automation_limit: parseInt(editingEntitlement.automation_limit),
+        flow: parseInt(editingEntitlement.flow),
         allow_ai_topup: editingEntitlement.allow_ai_topup,
         allow_wcc_recharge: editingEntitlement.allow_wcc_recharge,
         included_credit_reset_policy: editingEntitlement.included_credit_reset_policy,
@@ -87,6 +88,7 @@ export default function PlanEntitlementsTab({
                 <th className="py-2 text-right">Leads</th>
                 <th className="py-2 text-right">Meetings</th>
                 <th className="py-2 text-right">Automation</th>
+                <th className="py-2 text-right">Flow Quota</th>
                 <th className="py-2 text-center">AI Top-up</th>
                 <th className="py-2 text-center">WCC Recharge</th>
                 <th className="py-2 text-right">Actions</th>
@@ -119,6 +121,7 @@ export default function PlanEntitlementsTab({
                   <td className="py-3 text-right font-medium">{Number(ent.lead_limit ?? 0).toLocaleString()}</td>
                   <td className="py-3 text-right font-medium">{ent.meeting_limit}</td>
                   <td className="py-3 text-right font-medium">{ent.automation_limit}</td>
+                  <td className="py-3 text-right font-bold text-indigo-400">{ent.flow}</td>
                   <td className="py-3 text-center">
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                       ent.allow_ai_topup ? "bg-green-900/30 text-green-300" : "bg-red-900/30 text-red-300"
@@ -269,7 +272,7 @@ export default function PlanEntitlementsTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1.5">Meeting Limit</label>
                   <input
@@ -287,6 +290,17 @@ export default function PlanEntitlementsTab({
                     required
                     value={editingEntitlement.automation_limit}
                     onChange={(e) => setEditingEntitlement({ ...editingEntitlement, automation_limit: e.target.value })}
+                    className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1.5">Flow Quota</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={editingEntitlement.flow}
+                    onChange={(e) => setEditingEntitlement({ ...editingEntitlement, flow: e.target.value })}
                     className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-white focus:outline-none"
                   />
                 </div>

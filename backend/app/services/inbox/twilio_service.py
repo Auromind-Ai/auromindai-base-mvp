@@ -90,8 +90,8 @@ class TwilioService:
         return True
 
     def _status_callback_params(self, metadata: dict = None) -> dict:
-        from app.core.config import settings
-        url = settings.TWILIO_STATUS_CALLBACK_URL
+        from app.services.config_service import config_service
+        url = config_service.get("twilio_status_callback_url")
         if not url:
             return {}
         

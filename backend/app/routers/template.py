@@ -15,10 +15,6 @@ from app.models.workspace import Workspace
 from app.services.template import submit_to_meta
 from app.routers.auth import get_current_user
 
-load_dotenv()
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client = Groq(api_key=GROQ_API_KEY)
 router = APIRouter()
 
 class TemplateCreate(BaseModel):
@@ -78,11 +74,21 @@ def format_template_variables(text: str | None) -> str | None:
     return formatted
 
 @router.post("/templates/generate")
-def generate_template(data: GenerateRequest):
+async def generate_template(
+    data: GenerateRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
 
     if not data.prompt or data.prompt.strip() == "":
         raise HTTPException(400, "Prompt is required")
     
+    from app.core.exceptions import BillingError, WorkspaceAccessError
+    from app.core.security import verify_workspace_access
+    from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+    import asyncio
+
+    workspace_id = verify_workspace_access(current_user, db)
 
     lang_name = map_language(data.language)
     system_prompt = f"""
@@ -210,27 +216,70 @@ Return JSON only.
     Tone: {data.tone}
     """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.7,
-        response_format={"type": "json_object"},
-    )
-    message = response.choices[0].message.content
-    import json
+    async def run_template_generation():
+        from app.services.config_service import config_service
+        groq_api_key = config_service.get("groq_api_key")
+        if not groq_api_key:
+            raise HTTPException(500, "Groq API key is not configured")
+        dynamic_client = Groq(api_key=groq_api_key)
+        response = await asyncio.to_thread(
+            dynamic_client.chat.completions.create,
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.7,
+            response_format={"type": "json_object"},
+        )
+        message = response.choices[0].message.content or ""
+        usage = response.usage
+        input_tokens = usage.prompt_tokens if usage else 0
+        output_tokens = usage.completion_tokens if usage else 0
+        total_tokens = usage.total_tokens if usage else 0
+
+        return {
+            "text": message,
+            "usage": {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": total_tokens
+            },
+            "provider": "groq",
+            "model": "llama-3.3-70b-versatile"
+        }
+
     try:
-        data_dict = json.loads(message)
-        if "templates" in data_dict:
-            for tpl in data_dict["templates"]:
-                if "text" in tpl:
-                    tpl["text"] = format_template_variables(tpl["text"])
-        message = json.dumps(data_dict)
-    except Exception:
-        message = format_template_variables(message)
-    return {"message": message}
+        res = await AIExecutionService.execute(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=current_user.id,
+            feature_key=AIFeatureRegistry.TEMPLATE,
+            prompt=user_prompt,
+            description="Generate WhatsApp template variations",
+            execute_fn=run_template_generation
+        )
+
+        message = res.get("text", "")
+        import json
+        try:
+            data_dict = json.loads(message)
+            if "templates" in data_dict:
+                for tpl in data_dict["templates"]:
+                    if "text" in tpl:
+                        tpl["text"] = format_template_variables(tpl["text"])
+            message = json.dumps(data_dict)
+        except Exception:
+            message = format_template_variables(message)
+        return {"message": message}
+
+    except (BillingError, WorkspaceAccessError) as e:
+        raise e
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Template generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
 
 @router.post("/templates/create")
 def create_template(

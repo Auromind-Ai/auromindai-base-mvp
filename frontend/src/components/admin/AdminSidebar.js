@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useBranding } from "@/context/BrandingContext"
 
 import {
   LayoutDashboard,
@@ -12,7 +13,6 @@ import {
   BrainCircuit,
   MessageSquare,
   FileText,
-  Wallet,
   BarChart3,
   CreditCard,
   Activity,
@@ -20,7 +20,6 @@ import {
   Plug,
   Brain,
   Heart,
-  TrendingUp,
   Key,
   Settings,
   LayoutTemplate
@@ -28,6 +27,7 @@ import {
 
 export default function AdminSidebar() {
   const pathname = usePathname()
+  const { appName, appLogoUrl } = useBranding()
 
   const menu = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -58,11 +58,15 @@ export default function AdminSidebar() {
       {/* Logo Section */}
       <div className="p-8 flex items-center gap-3 relative">
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          <BrainCircuit className="text-white w-5 h-5" />
+          {appLogoUrl && appLogoUrl !== "/logo.png" ? (
+            <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+          ) : (
+            <BrainCircuit className="text-white w-5 h-5" />
+          )}
         </div>
         <div className="flex flex-col">
           <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
-            Auromind
+            {appName}
           </span>
           <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-widest leading-tight">
             Admin Portal

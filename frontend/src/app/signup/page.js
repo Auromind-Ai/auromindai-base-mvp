@@ -1,6 +1,5 @@
 import SignupHeroSection from './Signupherosection';
 import SignupFormCard from './Signupformcard';
-
 export default function SignupPage() {
   return (
     <>
@@ -10,7 +9,6 @@ export default function SignupPage() {
         input::placeholder { color: #4b5563; }
         input:focus { border-color: rgba(124,58,237,0.5) !important; outline: none; }
         button:hover { opacity: 0.9; }
-
         .signup-wrapper {
           min-height: 100vh;
           background: #0a0a0a;
@@ -20,7 +18,6 @@ export default function SignupPage() {
           padding: 48px 24px;
           font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
         }
-
         .signup-inner {
           display: flex;
           flex-direction: row;
@@ -29,12 +26,10 @@ export default function SignupPage() {
           width: 100%;
           max-width: 1040px;
         }
-
         .signup-left {
           flex: 1;
           min-width: 0;
         }
-
         .signup-right {
           flex-shrink: 0;
           display: flex;
@@ -49,11 +44,7 @@ export default function SignupPage() {
             gap: 48px;
           }
           .signup-left {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
+            display: none;
           }
           .signup-right {
             width: 100%;

@@ -9,7 +9,6 @@ import base64
 from email.mime.text import MIMEText
 from google.auth.transport.requests import Request
 from app.core.security import verify_workspace_access
-from app.core.config import settings
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -23,12 +22,13 @@ def get_gmail_service(workspace_id: str, db: Session):
     if not integration or not integration.is_active:
         raise HTTPException(status_code=404, detail="Gmail not connected")
 
+    from app.services.config_service import config_service
     creds = Credentials(
         token=integration.access_token,
         refresh_token=integration.refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=settings.GOOGLE_CLIENT_ID,
-        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        client_id=config_service.get("google_client_id"),
+        client_secret=config_service.get("google_client_secret"),
     )
 
     try:

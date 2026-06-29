@@ -25,10 +25,11 @@ def set_auth_cookie(response: Response, request: Request, key: str, value: str, 
     
     # Extract domain for cookie sharing between frontend and backend on subdomains
     cookie_domain = None
-    if settings.FRONTEND_URL:
+    request_host = request.url.hostname
+    if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
+        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
             parts = parsed.hostname.split(".")
             # Ignore IP addresses and localhost
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
@@ -53,10 +54,11 @@ def delete_auth_cookie(response: Response, request: Request, key: str, path: str
     )
     
     cookie_domain = None
-    if settings.FRONTEND_URL:
+    request_host = request.url.hostname
+    if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
+        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
             parts = parsed.hostname.split(".")
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
                 cookie_domain = "." + ".".join(parts[-2:])
@@ -268,14 +270,15 @@ import httpx
 async def google_login(request: Request, type: str = "login"):
     import secrets
     from app.core.config import settings
-    redirect_uri = settings.OAUTH_REDIRECT_URI
+    from app.services.config_service import config_service
+    redirect_uri = config_service.get("oauth_redirect_uri")
 
     state_token = secrets.token_urlsafe(32)
     state = f"{state_token}:{type}"
 
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth?"
-        f"client_id={settings.GOOGLE_CLIENT_ID}&"
+        f"client_id={config_service.get('google_client_id')}&"
         f"redirect_uri={urllib.parse.quote(redirect_uri)}&"
         "response_type=code&"
         "scope=openid%20email%20profile&"
@@ -284,8 +287,8 @@ async def google_login(request: Request, type: str = "login"):
     )
     logger.debug(f"GOOGLE REDIRECT URI = {redirect_uri}")
     logger.debug(f"FRONTEND URL = {settings.FRONTEND_URL}")
-    logger.debug(f"CLIENT ID = {settings.GOOGLE_CLIENT_ID}")
-    logger.debug(f"CLIENT SECRET EXISTS = {bool(settings.GOOGLE_CLIENT_SECRET)}")
+    logger.debug(f"CLIENT ID = {config_service.get('google_client_id')}")
+    logger.debug(f"CLIENT SECRET EXISTS = {bool(config_service.get('google_client_secret'))}")
 
     response = RedirectResponse(url=auth_url)
     set_auth_cookie(
@@ -300,6 +303,7 @@ async def google_login(request: Request, type: str = "login"):
 @router.get("/google/callback")
 async def google_callback(request: Request, code: str = None, state: str = "login", db: Session = Depends(get_db)):
     from app.core.config import settings
+    from app.services.config_service import config_service
     frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
     is_prod = settings.ENVIRONMENT.lower() == "production"
 
@@ -319,15 +323,15 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response
 
-    redirect_uri = settings.OAUTH_REDIRECT_URI
+    redirect_uri = config_service.get("oauth_redirect_uri")
 
     try:
         async with httpx.AsyncClient() as client:
             token_res = await client.post(
                 "https://oauth2.googleapis.com/token",
                 data={
-                    "client_id": settings.GOOGLE_CLIENT_ID,
-                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "client_id": config_service.get("google_client_id"),
+                    "client_secret": config_service.get("google_client_secret"),
                     "code": code,
                     "grant_type": "authorization_code",
                     "redirect_uri": redirect_uri,
