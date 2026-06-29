@@ -31,12 +31,12 @@ const NavigationSection = () => {
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 flex items-center justify-center group-hover:scale-105 transition-all">
+          <div className="w-14 h-14 flex items-center justify-center group-hover:scale-105 transition-all">
             {appLogoUrl && !logoError ? (
               <img 
                 src={appLogoUrl} 
                 alt={appName} 
-                className="w-8 h-8 object-contain" 
+                className="w-12 h-12 object-contain" 
                 onError={() => setLogoError(true)}
               />
             ) : (

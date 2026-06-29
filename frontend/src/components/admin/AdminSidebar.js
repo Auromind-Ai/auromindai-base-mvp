@@ -63,12 +63,12 @@ export default function AdminSidebar() {
 
       {/* Logo Section */}
       <div className="p-8 flex items-center gap-3 relative">
-        <div className="w-10 h-10 flex items-center justify-center">
+        <div className="w-14 h-14 flex items-center justify-center">
           {appLogoUrl && !logoError ? (
             <img 
               src={appLogoUrl} 
               alt={appName} 
-              className="w-8 h-8 object-contain" 
+              className="w-12 h-12 object-contain" 
               onError={() => setLogoError(true)}
             />
           ) : (
