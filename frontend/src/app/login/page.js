@@ -7,6 +7,7 @@ import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles, AlertTriangle } from 
 import { setToken, setUser, setWorkspace, isAuthenticated, getUser } from '@/lib/auth';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useBranding } from '@/context/BrandingContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 
@@ -59,6 +60,7 @@ function LoginContent() {
     const searchParams = useSearchParams();
     const redirectPath = searchParams.get('redirect');
     const { user, loading: authLoading, refreshUser } = useAuth();
+    const { appName, appLogoUrl } = useBranding();
     const [step, setStep] = useState('email');
     const [email, setEmail] = useState('');
     const [otp, setOtp] = useState('');
@@ -335,9 +337,13 @@ function LoginContent() {
                 <div className="relative z-10">
                     <Link href="/" className="inline-flex items-center gap-2 group">
                         <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
-                            <Cpu className="text-white" size={18} strokeWidth={2.5} />
+                            {appLogoUrl && appLogoUrl !== "/logo.png" ? (
+                                <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+                            ) : (
+                                <Cpu className="text-white" size={18} strokeWidth={2.5} />
+                            )}
                         </div>
-                        <span className="font-semibold text-lg tracking-tight">Auromind</span>
+                        <span className="font-semibold text-lg tracking-tight">{appName}</span>
                     </Link>
                 </div>
                 <div className="w-full max-w-[380px] mx-auto relative z-10">

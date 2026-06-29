@@ -144,6 +144,11 @@ class AgentOrchestration:
             
             current_execution_context.reset(token_token)
             if db_created:
+                try:
+                    db.commit()
+                except Exception as commit_err:
+                    db.rollback()
+                    self.logger.error(f"Failed to commit orchestration db: {commit_err}")
                 self.db.close()
                 self.db = None
 

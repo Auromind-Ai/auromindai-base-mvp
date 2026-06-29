@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { Poppins } from "next/font/google";
 import { Zap, Menu, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { isAuthenticated } from '@/lib/auth';
+import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useBranding } from '@/context/BrandingContext';
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -12,13 +13,11 @@ const poppins = Poppins({
 });
 
 const NavigationSection = () => {
+  const { appName, appLogoUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isLogged, setIsLogged] = useState(false);
-
-  useEffect(() => {
-    setIsLogged(isAuthenticated());
-  }, []);
+  const { user, loading } = useAuth();
+  const isLogged = !loading && !!user;
 
   return (
     <nav
@@ -27,11 +26,15 @@ const NavigationSection = () => {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center group-hover:scale-105 transition-all">
-            <Zap size={18} fill="currentColor" />
+            {appLogoUrl && appLogoUrl !== "/logo.png" ? (
+              <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+            ) : (
+              <Zap size={18} fill="currentColor" />
+            )}
           </div>
 
           <span className="text-[15px] font-bold tracking-normal text-white">
-            Auromind
+            {appName}
           </span>
         </Link>
 

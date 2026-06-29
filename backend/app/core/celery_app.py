@@ -93,11 +93,19 @@ celery_app.conf.beat_schedule = {
 
 @worker_process_init.connect
 def preload_rag_models(**kwargs):
-  
     import os
     import logging
     log = logging.getLogger(__name__)
     pid = os.getpid()
+
+    # Dispose of inherited engine pool to force fresh connection per child process
+    try:
+        from app.database import engine
+        engine.dispose(close=True)
+        log.info("[Celery PID %d] Disposed parent database connection pool.", pid)
+    except Exception as exc:
+        log.error("[Celery PID %d] Failed to dispose parent connection pool: %s", pid, exc)
+
     try:
         from app.services.agentic_rag.rag_service import get_rag_service
         get_rag_service()

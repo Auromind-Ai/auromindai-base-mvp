@@ -47,6 +47,15 @@ class AdminConsoleMiddleware:
                     )
                     if payload.get("role") == "platform_admin":
                         is_authorized = True
+                        # Verify CSRF for unsafe methods targeting /admin paths
+                        if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
+                            expected_csrf = payload.get("csrf_token")
+                            header_csrf = request.headers.get("x-admin-csrf-token")
+                            if not expected_csrf or expected_csrf != header_csrf:
+                                logger.warning(
+                                    f"CSRF validation failed for {path} from IP {request.client.host if request.client else 'unknown'}"
+                                )
+                                is_authorized = False
                 except JWTError:
                     pass
             

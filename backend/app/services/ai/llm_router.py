@@ -4,7 +4,8 @@ from app.core.logger import logger
 from anthropic import AsyncAnthropic
 from groq import Groq
 from openai import AsyncOpenAI
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 from app.database import SessionLocal
 from app.services.model_config_service import ModelConfigService
 from app.services.config_service import config_service
@@ -120,43 +121,37 @@ class LLMRouter:
             if api_key_env == "GEMINI_API_KEY":
                 api_key_env = "GOOGLE_API_KEY"
             api_key = self._get_api_key(api_key_env, "gemini_api_key")
-            genai.configure(api_key=api_key)
 
-            model_kwargs = {
-                "model_name": config["model"]
-            }
-            if system_prompt:
-                model_kwargs["system_instruction"] = system_prompt
-
-            model = genai.GenerativeModel(**model_kwargs)
+            client = genai.Client(api_key=api_key)
 
             contents = [prompt]
             if media_data and mime_type:
-                contents.append({
-                    "mime_type": mime_type,
-                    "data": media_data
-                })
+                contents.append(
+                    genai_types.Part.from_bytes(data=media_data, mime_type=mime_type)
+                )
 
-            gen_config = {
-                "temperature": config["temperature"],
-                "max_output_tokens": config["max_tokens"],
-            }
+            generation_config = genai_types.GenerateContentConfig(
+                temperature=config["temperature"],
+                max_output_tokens=config["max_tokens"],
+                system_instruction=system_prompt if system_prompt else None,
+            )
             if structured_output:
-                gen_config["response_mime_type"] = "application/json"
+                generation_config.response_mime_type = "application/json"
 
             response = await asyncio.to_thread(
-                model.generate_content,
-                contents,
-                generation_config=gen_config
+                client.models.generate_content,
+                model=config["model"],
+                contents=contents,
+                config=generation_config,
             )
 
             text = response.text or ""
             usage = getattr(response, "usage_metadata", None)
 
             if usage:
-                input_tokens = usage.prompt_token_count
-                output_tokens = usage.candidates_token_count
-                total_tokens = usage.total_token_count
+                input_tokens = getattr(usage, "prompt_token_count", 0) or 0
+                output_tokens = getattr(usage, "candidates_token_count", 0) or 0
+                total_tokens = getattr(usage, "total_token_count", 0) or 0
             else:
                 # Provider returned no usage_metadata — signal missing usage.
                 # extract_usage() will detect total_tokens=0 and refuse to bill.
@@ -164,8 +159,8 @@ class LLMRouter:
                 input_tokens = 0
                 output_tokens = 0
                 total_tokens = 0
-            
-            logger.info(f"Gemini usage metadata: {response.usage_metadata}")
+
+            logger.info(f"Gemini usage metadata: {usage}")
 
             return {
                 "text": text,
@@ -179,7 +174,7 @@ class LLMRouter:
                 "finish_reason": None,
                 "metadata": {}
             }
-        
+
         except Exception as e:
             raise Exception(f"Gemini error: {e}")
 

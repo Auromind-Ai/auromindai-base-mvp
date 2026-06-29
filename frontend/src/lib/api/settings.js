@@ -11,5 +11,6 @@ export async function updatePlatformSettings(payload) {
 export async function testConnection(service, payload) {
   return client.post(`/admin/settings/test/${service}`, payload);
 }
-
-
+export async function getPublicBranding() {
+  return client.get('/public/branding');
+}

@@ -1,7 +1,7 @@
 """All /2fa/* endpoints — setup, verify-setup, verify-login, disable, status."""
 
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -24,19 +24,21 @@ def _redis():
     return redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
 
 
-def _get_cookie_kwargs() -> dict:
+def _get_cookie_kwargs(request: Request = None) -> dict:
     is_prod = settings.ENVIRONMENT.lower() == "production"
     
     # Extract domain for cookie sharing between frontend and backend on subdomains
     cookie_domain = None
-    if settings.FRONTEND_URL:
-        from urllib.parse import urlparse
-        parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
-            parts = parsed.hostname.split(".")
-            # Ignore IP addresses and localhost
-            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
-                cookie_domain = "." + ".".join(parts[-2:])
+    if request:
+        request_host = request.url.hostname
+        if settings.FRONTEND_URL and request_host:
+            from urllib.parse import urlparse
+            parsed = urlparse(settings.FRONTEND_URL)
+            if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
+                parts = parsed.hostname.split(".")
+                # Ignore IP addresses and localhost
+                if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
+                    cookie_domain = "." + ".".join(parts[-2:])
                 
     return dict(
         httponly=True,
@@ -131,6 +133,7 @@ async def verify_setup(
 async def verify_login(
     req: VerifyLoginRequest,
     response: Response,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """Verify TOTP during login. Issues auth cookie only on success."""
@@ -160,7 +163,7 @@ async def verify_login(
     from app.services.auth_service import AuthService
     result = AuthService.email_login(db, email)
 
-    response.set_cookie(key="auth_token", value=result["access_token"], **_get_cookie_kwargs())
+    response.set_cookie(key="auth_token", value=result["access_token"], **_get_cookie_kwargs(request))
     return result
 
 
