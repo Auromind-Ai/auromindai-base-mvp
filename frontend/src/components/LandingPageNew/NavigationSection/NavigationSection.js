@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Poppins } from "next/font/google";
 import { Zap, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
 
