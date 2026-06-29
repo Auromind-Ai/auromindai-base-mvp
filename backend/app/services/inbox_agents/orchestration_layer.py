@@ -81,7 +81,7 @@ class AgentOrchestration:
         ctx = AIExecutionContext(
             workspace_id=workspace_id,
             user_id=user_id or "system",
-            feature_key=AIFeatureRegistry.AGENT,
+            feature_key=AIFeatureRegistry.INBOX,
             stream=False
         )
         token_token = current_execution_context.set(ctx)
