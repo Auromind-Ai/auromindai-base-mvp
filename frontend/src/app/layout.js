@@ -6,7 +6,7 @@ import { GeistMono } from "geist/font/mono";
 
 
 export const metadata = {
-  title: "Auromind AI - v1.1.16",
+  title: "Orbionagents AI - v1.1.16",
   description: "Secure AI Business Assistant (v1.1.16)",
 };
 
