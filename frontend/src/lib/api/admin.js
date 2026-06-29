@@ -84,6 +84,10 @@ export async function seedModelConfigs() {
   return client.post('/admin/model-configs/seed');
 }
 
+export async function getProviderModels(provider) {
+  return client.get(`/admin/model-configs/providers/${provider}/models`);
+}
+
 export async function adminAuth(password) {
   return client.post('/admin/auth', { password });
 }

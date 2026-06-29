@@ -56,6 +56,9 @@ export default function AdminLayout({ children }) {
     } catch (e) {
       console.error("Sign out failed", e)
     }
+    if (typeof window !== 'undefined') {
+      window.sessionStorage?.removeItem("admin_csrf_token");
+    }
     // Redirect to the admin login page
     router.push("/admin")
   }

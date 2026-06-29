@@ -73,6 +73,10 @@ class EmbeddingGenerator:
             raise ValueError("Query embedding dimension mismatch")
         return embedding
 
+    async def generate_query_embedding_async(self, query: str) -> np.ndarray:
+        import asyncio
+        return await asyncio.to_thread(self.generate_query_embedding, query)
+
     def generate_batch_embeddings(self, texts: list) -> np.ndarray:
         embeddings = self._model.encode(
             texts,

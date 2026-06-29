@@ -65,7 +65,11 @@ services:
       - ./backend/.env
     restart: unless-stopped
 
-    command: celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat
+    command: >
+      sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
+             until PGPASSWORD=Arunjack007@ psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
+             sleep 2 &&
+             celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat"
     environment:
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
@@ -88,7 +92,11 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    command: celery -A app.core.celery_app beat --loglevel=info
+    command: >
+      sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
+             until PGPASSWORD=Arunjack007@ psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
+             sleep 2 &&
+             celery -A app.core.celery_app beat --loglevel=info"
     environment:
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface

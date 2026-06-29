@@ -41,7 +41,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
         try {
             const res = await api.streamChat({
                 message: userMessage.content,
-                model: 'gemini',
+                model: 'auto',
                 use_rag: true
             });
 
