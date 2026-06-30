@@ -3,15 +3,18 @@ backend/node_modules/
 backend/auromind.db
 backend/__pycache__/
 backend/*/__pycache__/
-backend/.env
 
 # Frontend dependencies
 frontend/node_modules/
 frontend/.next/
 frontend/out/
-frontend/.env
-frontend/.env.local
-frontend/.env.production
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
 
 # General
 .DS_Store
