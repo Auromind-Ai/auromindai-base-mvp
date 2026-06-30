@@ -49,6 +49,11 @@ async def lifespan(app: FastAPI):
         config_service = ModelConfigService(db)
         config_service.seed_default_configs()
         logger.info("Model configurations seeded successfully.")
+        
+        # Seed billing plans and entitlements
+        from app.services.billing.entitlement_service import EntitlementService
+        EntitlementService.seed_default_entitlements(db)
+        logger.info("Billing plans and entitlements seeded successfully.")
     except Exception as e:
         logger.error(f"Failed to seed or migrate settings: {e}")
     finally:
