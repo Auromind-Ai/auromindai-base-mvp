@@ -191,7 +191,9 @@ if (!user) {
         pathname === '/user/admin/brain' ||
         pathname.startsWith('/user/admin/brain/') ||
         pathname === '/user/admin/channels' ||
-        pathname.startsWith('/user/admin/channels/')
+        pathname.startsWith('/user/admin/channels/') ||
+        pathname === '/user/admin/settings' ||
+        pathname.startsWith('/user/admin/settings/')
     );
 
     return (

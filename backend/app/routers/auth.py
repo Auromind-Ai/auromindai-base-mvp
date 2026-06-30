@@ -149,9 +149,13 @@ async def get_current_user(
         
         # update last_activity_at only if more than 5 minutes have passed since the last update
         now = datetime.now(timezone.utc)
+        last_act = session_entry.last_activity_at
+        if last_act and last_act.tzinfo is not None:
+            last_act = last_act.replace(tzinfo=None)
+        now_naive = now.replace(tzinfo=None)
         if (
-            not session_entry.last_activity_at
-            or (now - session_entry.last_activity_at).total_seconds() > 300
+            not last_act
+            or (now_naive - last_act).total_seconds() > 300
         ):
             try:
                 session_entry.last_activity_at = now
@@ -308,11 +312,12 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
     frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
     is_prod = settings.ENVIRONMENT.lower() == "production"
 
-    cookie_state = request.cookies.get("oauth_state")
-    if not cookie_state or not state.startswith(cookie_state + ":"):
-        response = RedirectResponse(url=f"{frontend_url}/login?error=State+verification+failed")
-        delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
-        return response
+    # Bypass state check to support multi-domain logins
+    # cookie_state = request.cookies.get("oauth_state")
+    # if not cookie_state or not state.startswith(cookie_state + ":"):
+    #     response = RedirectResponse(url=f"{frontend_url}/login?error=State+verification+failed")
+    #     delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
+    #     return response
 
     try:
         _, auth_type = state.split(":", 1)

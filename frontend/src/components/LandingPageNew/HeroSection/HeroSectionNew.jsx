@@ -114,7 +114,7 @@ export default function HeroSectionNew() {
               transition={{
                 duration: 0.7,
                 delay: 0.5,
-                ease: [0.22, 1, 0.36, 1], // smoother cubic-bezier
+                ease: [0.22, 1, 0.36, 1],
               }}
               className="block text-[12px] md:text-[14px] font-medium text-white/70"
             >
@@ -127,7 +127,7 @@ export default function HeroSectionNew() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.65 }}
-          className="mb-5 md:mb-6 max-w-[980px] text-[45px] md:text-[48px] lg:text-[55px] font-semibold leading-[1.1em] tracking-[-2.2px] text-[#FFFFFF]"
+          className="mb-5 md:mb-6 max-w-[980px] text-[32px] sm:text-[40px] md:text-[48px] lg:text-[55px] font-semibold leading-[1.15em] tracking-[-1.5px] md:tracking-[-2.2px] text-[#FFFFFF]"
         >
           <AnimatedText text="Make the Most Out of Every Single" delay={0.85} />
           <br />
@@ -150,7 +150,7 @@ export default function HeroSectionNew() {
           initial={{ opacity: 0, y: 20, filter: "blur(10px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.9, delay: 1.45 }}
-          className="mb-10 max-w-[650px] text-[16px] md:text-[17px] lg:text-[19px] font-medium leading-[1.9] text-white/72 "
+          className="mb-10 max-w-[650px] text-[14px] sm:text-[16px] md:text-[17px] lg:text-[19px] font-medium leading-[1.9] text-white/72 px-2 sm:px-0"
         >
           Scalable Al Sales Assistant for Instagram and WhatsApp. Automate every conversation to close more sales while you sleep.
         </motion.p>

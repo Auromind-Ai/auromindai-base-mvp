@@ -39,6 +39,7 @@ from .feature_billing_rule import FeatureBillingRule
 from .wcc import WCCWallet, WCCRateCard, WCCTransaction, WCCRechargeLog
 from .automation import AutomationFlow
 from .message_execution import MessageExecution
+from .templates import Template
 from .flow_pack import FlowPack, FlowPackPurchase, PurchaseStatus
 
 
