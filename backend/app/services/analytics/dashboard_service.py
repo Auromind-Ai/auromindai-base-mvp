@@ -140,6 +140,12 @@ def fmt_inr(amount: float | int) -> str:
 # 1. Overview metrics
 
 async def get_overview_metrics(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> list[dict]:
+    import uuid
+    if isinstance(workspace_id, str):
+        try:
+            workspace_id = uuid.UUID(workspace_id)
+        except ValueError:
+            pass
  
     start_dt, end_dt = _resolve_dates(start_date, end_date)
     duration = end_dt - start_dt
@@ -403,6 +409,12 @@ def _fallback_metrics():
 # 2. Revenue chart data
 
 async def get_revenue_chart(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> dict:
+    import uuid
+    if isinstance(workspace_id, str):
+        try:
+            workspace_id = uuid.UUID(workspace_id)
+        except ValueError:
+            pass
  
     start_dt, end_dt = _resolve_dates(start_date, end_date)
     cache_key = f"dashboard:revenue:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
@@ -479,6 +491,12 @@ async def get_revenue_chart(workspace_id: str, db: Session, start_date: date | N
 # 3. Recent activities
 
 async def get_recent_activities(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> list[dict]:
+    import uuid
+    if isinstance(workspace_id, str):
+        try:
+            workspace_id = uuid.UUID(workspace_id)
+        except ValueError:
+            pass
   
     start_dt, end_dt = _resolve_dates(start_date, end_date)
     cache_key = f"dashboard:activities:{workspace_id}:{start_dt.isoformat()}:{end_dt.isoformat()}"
@@ -600,6 +618,12 @@ async def get_recent_activities(workspace_id: str, db: Session, start_date: date
 # 4. AI Insights
 
 async def get_ai_insights(workspace_id: str, db: Session, start_date: date | None = None, end_date: date | None = None) -> list[dict]:
+    import uuid
+    if isinstance(workspace_id, str):
+        try:
+            workspace_id = uuid.UUID(workspace_id)
+        except ValueError:
+            pass
     start_dt, end_dt = _resolve_dates(start_date, end_date)
     duration = end_dt - start_dt
     prev_start_dt = start_dt - duration - timedelta(microseconds=1)

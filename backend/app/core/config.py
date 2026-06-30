@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # FRONTEND & PUBLIC URLS
     FRONTEND_URL: Optional[str] = None
 
+    # GOOGLE OAUTH CONFIGURATION
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    OAUTH_REDIRECT_URI: Optional[str] = None
+
     # APPLICATION SETTINGS
     ENVIRONMENT: str = "development"
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30

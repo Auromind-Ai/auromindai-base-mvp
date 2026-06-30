@@ -117,12 +117,20 @@ class AuthService:
    
     @staticmethod
     def get_user_by_id(db: Session, user_id: str):
-       
+        if isinstance(user_id, str):
+            try:
+                user_id = uuid.UUID(user_id)
+            except ValueError:
+                pass
         return db.query(User).filter(User.id == user_id).first()
    
     @staticmethod
     def get_user_workspaces(db: Session, user_id: str):
-       
+        if isinstance(user_id, str):
+            try:
+                user_id = uuid.UUID(user_id)
+            except ValueError:
+                pass
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
         ).filter(WorkspaceMember.user_id == user_id).all()
