@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StageIndicator from "./StageIndicator";
 import { stages } from "./Data";
+import Image from 'next/image';
 
 export default function InteractiveBrainSection() {
   const [currentStage, setCurrentStage] = useState(1);
@@ -81,14 +82,17 @@ export default function InteractiveBrainSection() {
             >
               {/* Left side — UNCHANGED */}
               <div className="relative w-[58%] h-full flex items-end justify-start overflow-hidden">
-                <img
-                  src="/images/Ai-Girltwo.png"
+                <Image
+                  src="/images/Ai-Girltwo.webp"
                   alt="AI Girl"
+                  width={1200}
+                  height={673}
                   className="absolute bottom-[-12%] left-[-58%] h-[118%] w-auto max-w-none object-contain"
                   style={{
                     filter:
                       "brightness(0.42) saturate(0.75) contrast(1.05) hue-rotate(-8deg) drop-shadow(0 18px 40px rgba(24,10,40,0.45))",
                   }}
+                  sizes="(max-width: 1024px) 50vw, 40vw"
                 />
 
                 <motion.div

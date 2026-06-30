@@ -142,7 +142,7 @@ export default function SalesAutomationPage() {
             <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 rounded-3xl blur-2xl group-hover:scale-105 transition-transform duration-500 opacity-60" />
             <div className="relative rounded-2xl border border-white/10 bg-[#0B0B0F]/85 p-2 overflow-hidden shadow-2xl backdrop-blur-xl">
               <Image 
-                src="/images/sales-automation.png" 
+                src="/images/sales-automation.webp" 
                 alt="Sales Automation Pipeline Visualisation" 
                 width={800} 
                 height={800}

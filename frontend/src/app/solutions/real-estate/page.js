@@ -142,7 +142,7 @@ export default function RealEstatePage() {
             <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 rounded-[40px] blur-2xl group-hover:scale-105 transition-transform duration-500 opacity-60 max-w-[420px]" />
             <div className="relative rounded-[36px] border border-white/10 bg-[#0B0B0F]/85 p-2 overflow-hidden shadow-2xl backdrop-blur-xl max-w-[380px]">
               <Image 
-                src="/images/real-estate.png" 
+                src="/images/real-estate.webp" 
                 alt="Real Estate Chatbot Mobile Visualisation" 
                 width={380} 
                 height={760}

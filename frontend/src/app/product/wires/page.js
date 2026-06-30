@@ -142,7 +142,7 @@ export default function WiresPage() {
             <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 rounded-3xl blur-2xl group-hover:scale-105 transition-transform duration-500 opacity-60" />
             <div className="relative rounded-2xl border border-white/10 bg-[#0B0B0F]/85 p-2 overflow-hidden shadow-2xl backdrop-blur-xl">
               <Image 
-                src="/images/wires-hero.png" 
+                src="/images/wires-hero.webp" 
                 alt="Visual Wires Automation Builder Interface" 
                 width={800} 
                 height={800}

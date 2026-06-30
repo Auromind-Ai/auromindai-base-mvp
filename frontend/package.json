@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "convert-images": "node scripts/convert-images.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -35,6 +36,7 @@
     "react-is": "^19.2.7",
     "react-markdown": "^10.1.0",
     "recharts": "^3.6.0",
+    "sharp": "^0.35.2",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.184.0"

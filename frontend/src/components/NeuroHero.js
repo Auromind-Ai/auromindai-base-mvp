@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import StageIndicator from "./StageIndicator";
 import BrainCanvas from "./BrainCanvas";
+import Image from "next/image";
 
 // ─── AutoVideo: always mounted, never unmounts ────────────────────────────────
 function AutoVideo({ src, active }) {
@@ -18,12 +19,15 @@ function AutoVideo({ src, active }) {
 
   // When stage switches to this video, resume play
   useEffect(() => {
-    const vid = ref.current;
-    if (!vid) return;
-    if (active) {
-      vid.play().catch(() => {});
-    }
-  }, [active]);
+  const vid = ref.current;
+  if (!vid) return;
+  if (active) {
+    vid.dataset.stageActive = "true";
+    vid.play().catch(() => {});
+  } else {
+    vid.dataset.stageActive = "false";
+  }
+}, [active]);
 
   return (
     <video
@@ -65,6 +69,31 @@ export default function NeuroHero() {
   ];
 
   const current = TEXTS[stage - 1] || TEXTS[0];
+
+  // ─── iOS Video Unlock ──────────────────────────────────────────────
+  useEffect(() => {
+    const unlockiOS = () => {
+      document.querySelectorAll("video").forEach((vid) => {
+        vid.muted = true;
+        vid.play()
+          .then(() => {
+            if (vid.dataset.stageActive !== "true") {
+              vid.pause();
+            }
+          })
+          .catch(() => {});
+      });
+      document.removeEventListener("touchstart", unlockiOS);
+    };
+
+    document.addEventListener("touchstart", unlockiOS, {
+      once: true,
+      passive: true,
+    });
+
+    return () => document.removeEventListener("touchstart", unlockiOS);
+  }, []);
+
 
   useEffect(() => {
     const section = document.getElementById("neuro-section");
@@ -148,8 +177,12 @@ export default function NeuroHero() {
               max-md:bottom-0 max-md:left-0
             "
           >
-            <img
-              src="/images/Ai-Girltwo.png"
+            <Image
+              src="/images/Ai-Girltwo.webp"
+              alt="AI Girl Hero Illustration"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 55vw"
               className="
                 h-full w-full
                 object-cover object-[60%_top]
@@ -198,14 +231,14 @@ export default function NeuroHero() {
                   className="absolute inset-0 transition-opacity duration-300"
                   style={{ opacity: stage === 3 ? 1 : 0 }}
                 >
-                  <AutoVideo src="/animations/stage2.mp4" active={stage === 3} />
+                  <AutoVideo src="/animations/stage22.mp4" active={stage === 3} />
                 </div>
 
                 <div
                   className="absolute inset-0 transition-opacity duration-300"
                   style={{ opacity: stage === 4 ? 1 : 0 }}
                 >
-                  <AutoVideo src="/animations/stage5.mp4" active={stage === 4} />
+                  <AutoVideo src="/animations/stage55.mp4" active={stage === 4} />
                 </div>
 
               </div>

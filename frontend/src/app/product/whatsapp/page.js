@@ -91,7 +91,7 @@ export default function WhatsAppAutomationPage() {
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
-              Build trust and close deals on the world's most popular messaging app. Automate inbound support, deliver interactive product recommendations, and broadcast notifications with 98% open rates.
+              Build trust and close deals on the world&apos;s most popular messaging app. Automate inbound support, deliver interactive product recommendations, and broadcast notifications with 98% open rates.
             </motion.p>
 
             {/* CTA Buttons */}
@@ -142,7 +142,7 @@ export default function WhatsAppAutomationPage() {
             <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 rounded-[40px] blur-2xl group-hover:scale-105 transition-transform duration-500 opacity-60 max-w-[420px]" />
             <div className="relative rounded-[36px] border border-white/10 bg-[#0B0B0F]/85 p-2 overflow-hidden shadow-2xl backdrop-blur-xl max-w-[380px]">
               <Image 
-                src="/images/whatsapp-hero.png" 
+                src="/images/whatsapp-hero.webp" 
                 alt="WhatsApp Chatbot Mobile Visualisation" 
                 width={380} 
                 height={760}
