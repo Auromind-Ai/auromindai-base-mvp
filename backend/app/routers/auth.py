@@ -10,6 +10,8 @@ from app.services.auth_service import AuthService
 from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent
 import uuid
 from datetime import datetime, timezone
+from app.core.config import settings
+from app.services.config_service import config_service
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
@@ -25,10 +27,11 @@ def set_auth_cookie(response: Response, request: Request, key: str, value: str, 
     
     # Extract domain for cookie sharing between frontend and backend on subdomains
     cookie_domain = None
-    if settings.FRONTEND_URL:
+    request_host = request.url.hostname
+    if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
+        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
             parts = parsed.hostname.split(".")
             # Ignore IP addresses and localhost
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
@@ -53,10 +56,11 @@ def delete_auth_cookie(response: Response, request: Request, key: str, path: str
     )
     
     cookie_domain = None
-    if settings.FRONTEND_URL:
+    request_host = request.url.hostname
+    if settings.FRONTEND_URL and request_host:
         from urllib.parse import urlparse
         parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname:
+        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
             parts = parsed.hostname.split(".")
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
                 cookie_domain = "." + ".".join(parts[-2:])
@@ -267,8 +271,7 @@ import httpx
 @router.get("/google/login")
 async def google_login(request: Request, type: str = "login"):
     import secrets
-    from app.core.config import settings
-    from app.services.config_service import config_service
+  
     redirect_uri = config_service.get("oauth_redirect_uri")
 
     state_token = secrets.token_urlsafe(32)

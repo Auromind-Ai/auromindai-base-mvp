@@ -11,7 +11,7 @@ from app.models.token_ledger import TokenLedger
 from app.models.usage import Usage
 from app.services.billing.gateway.base import TokenBalance
 from app.models.billing import Payment
-
+from app.services.billing.feature_billing_service import FeatureBillingService
 from .gateway.base import RESERVATION_MAX_PER_WORKSPACE, RESERVATION_TTL_MINUTES, TOKENS_PER_CREDIT
 
 
@@ -88,6 +88,61 @@ class TokenService:
     ) -> TokenLedger:
         credits = float(amount) / TOKENS_PER_CREDIT
         return self.reserve_credits(db, workspace_id, credits, reference_key, description)
+
+    def settle_from_provider_usage(
+        self,
+        db: Session,
+        reservation_id: str | uuid.UUID,
+        usage: dict,
+        feature_key: str,
+        execution_id: str,
+        request_id: str | None = None,
+        commit: bool = True,
+    ) -> TokenLedger:
+      
+     
+
+        total_tokens      = int(usage.get("total_tokens", 0))
+        prompt_tokens     = int(usage.get("prompt_tokens", 0))
+        completion_tokens = int(usage.get("completion_tokens", 0))
+        provider          = usage.get("provider", "unknown")
+        model             = usage.get("model", "unknown")
+
+        # Determine billing type for this feature
+        rule = FeatureBillingService.get_rule(db, feature_key)
+        if rule and rule.billing_type == "TOKEN":
+            # credits = (total_tokens / unit_value) × credit_cost
+            credits_used = float(FeatureBillingService.calculate_cost(db, feature_key, float(total_tokens)))
+        elif rule and rule.billing_type == "FLAT":
+            # Flat-rate features (e.g. per-request) ignore token count
+            credits_used = float(FeatureBillingService.calculate_cost(db, feature_key, 1.0))
+        else:
+            # Unknown rule — use token count with TOKENS_PER_CREDIT default
+            credits_used = float(total_tokens) / TOKENS_PER_CREDIT
+
+        # Finalise the reservation to the REAL credit amount (not the estimate)
+        ledger_row = self.finalize_credits(
+            db=db,
+            reservation_id=reservation_id,
+            credits_used=credits_used,
+            tokens_used=total_tokens,
+        )
+
+        # Stamp provider metadata — these are the single source of truth columns
+        ledger_row.provider          = provider
+        ledger_row.model             = model
+        ledger_row.prompt_tokens     = prompt_tokens
+        ledger_row.completion_tokens = completion_tokens
+        ledger_row.total_tokens      = total_tokens
+        ledger_row.execution_id      = execution_id
+        ledger_row.request_id        = request_id
+        ledger_row.feature_key       = feature_key
+
+        db.flush()
+        if commit:
+            db.commit()
+
+        return ledger_row
 
     def finalize_credits(
         self,
@@ -462,7 +517,7 @@ class TokenService:
                     "entry_type": e.entry_type,
                     "status": e.status,
                     "tokens_delta": int(float(e.credits_delta) * 1000),
-                    "credits_delta": round(float(e.credits_delta), 2),
+                    "credits_delta": float(e.credits_delta),
                     "description": e.description,
                     "created_at": e.created_at.isoformat() if e.created_at else None,
                 }
@@ -496,7 +551,7 @@ class TokenService:
             {
                 "date": row.day.isoformat() if row.day else None,
                 "tokens_used": int(float(row.credits_used or 0) * 1000),
-                "credits_used": round(float(row.credits_used or 0), 2),
+                "credits_used": float(row.credits_used or 0),
             }
             for row in rows
         ]
@@ -520,7 +575,7 @@ class TokenService:
             )
             .scalar() or 0
         )
-        return round(float(total_used) / 7, 2)
+        return float(total_used) / 7
 
     def reserve_feature_credits(
         self,

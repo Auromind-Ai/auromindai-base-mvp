@@ -12,11 +12,42 @@ _router = LLMRouter()
 # Context variable to collect token usage logs for the current request
 token_log_context = contextvars.ContextVar("token_log_context", default=None)
 
+
+# ── Provider usage extraction ─────────────────────────────────────────────────
+
+class ProviderUsageMissingError(Exception):
+    """Raised when an AI provider returns no token usage and billing cannot proceed."""
+
+
+def extract_usage(result: dict) -> dict:
+   
+    if not result:
+        raise ProviderUsageMissingError("Provider returned no result")
+
+    usage = result.get("usage") or {}
+    prompt_tokens     = int(usage.get("input_tokens",  0))
+    completion_tokens = int(usage.get("output_tokens", 0))
+    total_tokens      = int(usage.get("total_tokens",  0))
+
+    provider = result.get("provider") or "unknown"
+    model    = result.get("model")    or "unknown"
+
+    if total_tokens == 0:
+        raise ProviderUsageMissingError(
+            f"Provider '{provider}' returned total_tokens=0. "
+            "Cannot bill without verified token usage."
+        )
+
+    return {
+        "provider":          provider,
+        "model":             model,
+        "prompt_tokens":     prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens":      total_tokens,
+    }
+
+
 def split_prompt(prompt: str):
-    """
-    Splits the prompt into System Prompt (instructions) and User Input (context, queries, etc.)
-    using common delimiters.
-    """
     split_keys = [
         "User Query:",
         "Question:",
@@ -35,10 +66,6 @@ def split_prompt(prompt: str):
     return prompt.strip(), ""
 
 def get_caller_function_name():
-    """
-    Detects the calling function name by traversing the stack, skipping
-    retry decorators and framework internals.
-    """
     stack = inspect.stack()
     for frame_info in stack:
         filename = frame_info.filename
@@ -56,9 +83,6 @@ def get_caller_function_name():
     return "unknown"
 
 def write_to_token_log_file(message: str):
-    """
-    Writes token reports and messages to dedicated files: logs/token_usage.log and logs/token_usage.txt
-    """
     try:
         from app.core.logger import BASE_DIR
         log_dir = os.path.join(BASE_DIR, "logs")

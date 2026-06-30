@@ -8,7 +8,6 @@ backend/.env
 # Frontend dependencies
 frontend/node_modules/
 frontend/.next/
-frontend/out/
 frontend/.env
 frontend/.env.local
 frontend/.env.production
@@ -16,14 +15,8 @@ frontend/.env.production
 # General
 .DS_Store
 *.log
+
 /generated/prisma
+backend/.env
 
-# HuggingFace & Cache
 hf_cache/
-.pytest_cache/
-
-# Python compiled files
-__pycache__/
-*.pyc
-*.pyo
-*.pyd

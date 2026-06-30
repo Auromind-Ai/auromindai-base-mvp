@@ -271,6 +271,9 @@ export async function getFeatureRulesAdmin() {
 export async function updateFeatureRuleAdmin(id, payload) {
   return client.put(`/admin/feature-rules/${id}`, payload);
 }
+export async function createFeatureRuleAdmin(payload) {
+    return client.post("/admin/feature-rules", payload);
+}
 
 export async function getPlanEntitlementsAdmin() {
   return client.get('/admin/plan-entitlements');

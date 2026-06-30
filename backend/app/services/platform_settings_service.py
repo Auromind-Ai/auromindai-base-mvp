@@ -123,6 +123,10 @@ def clear_settings_cache():
 def seed_settings_from_env(db: Session):
     import os
     env_map = {
+        # Brand Configuration
+        "APP_NAME": "app_name",
+        "APP_LOGO_URL": "app_logo_url",
+        
         # AI
         "OPENAI_API_KEY": "openai_api_key",
         "GOOGLE_API_KEY": "google_api_key",
@@ -225,13 +229,28 @@ def seed_settings_from_env(db: Session):
                 db.add(setting)
                 updates_made = True
 
+    # Seed default branding configs if not present in DB
+    default_brand = {
+        "app_name": "Auromind",
+        "app_logo_url": "/logo.png"
+    }
+    for k, v in default_brand.items():
+        if k not in existing_keys:
+            setting = PlatformSetting(
+                key=k,
+                value=v,
+                value_type="string"
+            )
+            db.add(setting)
+            updates_made = True
+
     if updates_made:
         db.commit()
         clear_settings_cache()
 
 
-def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
-    # 1. Fetch current settings to form the prospective settings dictionary
+def get_prospective_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
+    # Fetch current settings to form the prospective settings dictionary
     current_settings = {}
     for s in db.query(PlatformSetting).all():
         val = s.value
@@ -247,13 +266,19 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
 
     # Merge updates to form prospective settings
     # For sensitive keys, if the update value is the mask placeholder or empty,
-    # use the existing DB value so validations work against real data.
+    # use the existing DB value so validations/tests work against real data.
     prospective = {**current_settings}
     for key, value in updates.items():
         if key in SENSITIVE_KEYS and (not value or str(value) == "••••••••"):
-            # Keep existing decrypted value for validation
+            # Keep existing decrypted value
             continue
         prospective[key] = value
+    return prospective
+
+
+def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
+    # 1. Get prospective settings
+    prospective = get_prospective_settings(db, updates)
 
     # 2. Perform validations on prospective settings
     # 2.1 Google Client ID / Secret together

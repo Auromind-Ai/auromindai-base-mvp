@@ -19,7 +19,10 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      await api.adminAuth(password)
+      const res = await api.adminAuth(password)
+      if (res && res.csrf_token) {
+        sessionStorage.setItem("admin_csrf_token", res.csrf_token);
+      }
 
       // Successfully authenticated! Backend set the httpOnly cookie.
       // Redirect to dynamic dashboard route.

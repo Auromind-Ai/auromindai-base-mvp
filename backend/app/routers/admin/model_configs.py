@@ -2,19 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.schemas.admin import ModelConfigCreate, ModelConfigUpdate
 from app.services.model_config_service import ModelConfigService
-
+from app.database import  get_db
+from anthropic import Anthropic
+import google.generativeai as genai
+from openai import OpenAI
 router = APIRouter(prefix="/model-configs")
-
-
-# Dependency to get database session (replace with your actual DB session)
-def get_db():
-    # TODO: Replace with your actual database session logic
-    from app.database import SessionLocal
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("")
 async def get_all_configs(
@@ -217,3 +209,59 @@ async def seed_default_configs(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error seeding configurations: {str(e)}"
         )
+
+@router.get("/providers/{provider}/models")
+async def get_provider_models(provider: str):
+    from app.services.config_service import config_service
+    
+    provider_lower = provider.lower()
+    
+    # Standard fallback lists
+    fallback_models = {
+        "openai": ["gpt-4o", "gpt-4o-mini", "o1", "o1-mini", "o3-mini", "gpt-4-turbo"],
+        "claude": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229", "claude-3-sonnet-20240229"],
+        "anthropic": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229", "claude-3-sonnet-20240229"],
+        "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "gemma2-9b-it"],
+        "gemini": ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"],
+        "google": ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"]
+    }
+    
+    try:
+        if provider_lower in ["openai"]:
+            key = config_service.get("openai_api_key")
+            if key:
+               
+                client = OpenAI(api_key=key)
+                models = client.models.list()
+                return {"success": True, "models": [m.id for m in models.data if "gpt" in m.id or "o1" in m.id or "o3" in m.id]}
+                
+        elif provider_lower in ["claude", "anthropic"]:
+            key = config_service.get("anthropic_api_key")
+            if key:
+                client = Anthropic(api_key=key)
+                models = client.models.list()
+                return {"success": True, "models": [m.id for m in models.data]}
+                
+        elif provider_lower in ["groq"]:
+            key = config_service.get("groq_api_key")
+            if key:
+                from groq import Groq
+                client = Groq(api_key=key)
+                models = client.models.list()
+                return {"success": True, "models": [m.id for m in models.data]}
+                
+        elif provider_lower in ["gemini", "google"]:
+            key = config_service.get("google_api_key")
+            if key:
+                genai.configure(api_key=key)
+                models = genai.list_models()
+                return {"success": True, "models": [m.name.replace("models/", "") for m in models]}
+                
+    except Exception as e:
+        # Fallback to local known models list on any error (like network or bad key)
+        pass
+        
+    return {
+        "success": True,
+        "models": fallback_models.get(provider_lower, [])
+    }

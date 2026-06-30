@@ -17,17 +17,23 @@ async def get_announcement(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 @router.get("/about")
 async def get_about(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    app_name = get_setting(db, "app_name", "Auromind")
     return {
         "platform_version": get_setting(db, "platform_version", "v2.4.1"),
         "release_date": get_setting(db, "release_date", "June 05, 2026"),
-        "copyright": get_setting(db, "copyright", "@2026 Auromind"),
+        "copyright": get_setting(db, "copyright", f"@2026 {app_name}"),
         "last_updated": get_setting(db, "last_updated", "June 05, 2026, 10:30 AM")
+    }
+
+@router.get("/branding")
+async def get_branding(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    return {
+        "app_name": get_setting(db, "app_name", "Auromind"),
+        "app_logo_url": get_setting(db, "app_logo_url", "/logo.png")
     }
 
 @router.get("/pricing")
 async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    settings = get_all_settings(db)
-    print(" SETTINGS:", settings)
     return {
         "free_plan_price":        get_setting(db, "free_plan_price", 0.0),
         "pro_plan_price":         get_setting(db, "pro_plan_price", 1000.0),
