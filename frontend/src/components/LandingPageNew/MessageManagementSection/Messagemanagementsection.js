@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { FeatureScroller } from "./Featurescroller";
 import { IphoneMockup } from "./Iphonemockup";
-import styles from "./section.module.css";
+import styles from "./Section.module.css";
 
 export default function MessageManagementSection() {
   const sectionRef = useRef(null);
