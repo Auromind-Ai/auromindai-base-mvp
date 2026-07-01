@@ -3,7 +3,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { BrandingProvider } from "@/context/BrandingContext";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
   title: "Orbionagents AI - v1.1.16",
@@ -22,6 +22,7 @@ export default function RootLayout({ children }) {
             {children}
           </AuthProvider>
         </BrandingProvider>
+        <Analytics />
       </body>
     </html>
   );
