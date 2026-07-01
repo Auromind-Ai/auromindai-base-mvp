@@ -32,12 +32,15 @@ export class APIClient {
     const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
     const { signal: optSignal, ...restOptions } = options;
 
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+
     const config = {
       credentials: 'include', 
       ...restOptions,
       headers: {
         'ngrok-skip-browser-warning': 'true',
         ...(isPostOrPutOrPatch && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
     };
