@@ -34,7 +34,7 @@ class MessageService:
         "undelivered": ("dispatched", "in_progress", "sent"),
     }
     _TERMINAL_STATES = {"delivered", "failed", "cancelled"}
-    _flow_service = FlowServiceV2()
+
 
     @staticmethod
     def list_messages(
@@ -350,7 +350,8 @@ User Message:
         if not conversation:
             return {"status": "no conversation found"}
 
-        handled = await MessageService._flow_service.execute_incoming_message(
+        flow_service = FlowServiceV2()
+        handled = await flow_service.execute_incoming_message(
             db,
             conversation_id=conversation.id,
             inbound_text=message,
