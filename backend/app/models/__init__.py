@@ -1,4 +1,4 @@
-from .user import User, EmailOTP
+from .user import User
 from .conversation import Conversation, ChannelType, ConversationStatus, ChatSession, ChatMessage
 from .message import Message, SenderType, MessageStatus
 from .ai_action import AIAction
