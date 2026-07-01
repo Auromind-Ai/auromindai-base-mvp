@@ -39,7 +39,7 @@ class IntegrationService:
         from app.services.config_service import config_service
         google_client_id = config_service.get("google_client_id")
         google_client_secret = config_service.get("google_client_secret")
-        redirect_uri = config_service.get("google_integration_redirect_uri")
+        redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
 
         if not google_client_id or not google_client_secret:
             raise RuntimeError("Google OAuth not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET")
@@ -76,7 +76,7 @@ class IntegrationService:
         from app.services.config_service import config_service
         google_client_id = config_service.get("google_client_id")
         google_client_secret = config_service.get("google_client_secret")
-        redirect_uri = config_service.get("google_integration_redirect_uri")
+        redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
 
         flow = Flow.from_client_config(
             {

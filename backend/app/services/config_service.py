@@ -9,7 +9,7 @@ class ConfigService:
 
      
         val = db_get_setting(None, db_key, None)
-        if val is not None:
+        if val is not None and val != "":
             return val
 
         bootstrap_key = key.upper()
