@@ -101,10 +101,15 @@ function LoginContent() {
                 const token = hash.split('=')[1];
                 setToken(token);
                 window.history.replaceState(null, '', window.location.pathname);
-                router.push(redirectPath || '/user/admin/dashboard');
+                refreshUser().then(() => {
+                    router.push(redirectPath || '/user/admin/dashboard');
+                }).catch((err) => {
+                    console.error("Failed to refresh user after OAuth callback:", err);
+                    setError("Failed to initialize session. Please try again.");
+                });
             }
         }
-    }, [router, redirectPath]);
+    }, [router, redirectPath, refreshUser]);
 
     useEffect(() => {
         const err = searchParams.get('error');
