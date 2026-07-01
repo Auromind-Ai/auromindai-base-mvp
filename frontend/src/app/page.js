@@ -14,7 +14,7 @@ import MessageManagementSection from '../components/LandingPageNew/MessageManage
 import HowItWorks from '@/components/LandingPageNew/HowItWorksSection/HowItWorks';
 import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSection/PricingSectionNew';
 // import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
-import CtaSection from '@/components/LandingPageNew/FinalCTASection/ctasection';
+import CtaSection from '@/components/LandingPageNew/FinalCTASection/Ctasection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 
 const ManageChatsSection = dynamic(
