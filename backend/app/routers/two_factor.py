@@ -20,8 +20,8 @@ router = APIRouter()
 # ─ Helpers ─
 
 def _redis():
-    import redis
-    return redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
+    # Deprecated: Redis is no longer used for 2FA caching
+    pass
 
 
 def _get_cookie_kwargs(request: Request = None) -> dict:
@@ -81,10 +81,17 @@ async def setup(
     secret = generate_totp_secret()
     qr_b64 = generate_qr_code(current_user.email, secret)
 
+    from datetime import datetime, timedelta, timezone
+    from app.models.user import EmailOTP
+
     try:
-        r = _redis()
-        r.setex(f"2fa_setup:{current_user.id}", 600, secret)   # 10 min
+        expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+        # Use 2fa_setup:{current_user.id} as the email key, and the secret as the otp value
+        new_setup = EmailOTP(email=f"2fa_setup:{current_user.id}", otp=secret, expires_at=expires)
+        db.merge(new_setup)
+        db.commit()
     except Exception:
+        db.rollback()
         raise HTTPException(status_code=503, detail="Setup service temporarily unavailable.")
 
     return {
@@ -102,14 +109,21 @@ async def verify_setup(
     db: Session = Depends(get_db),
 ):
     """Confirm first TOTP code → persist encrypted secret → enable 2FA."""
+    from app.models.user import EmailOTP
+    from datetime import datetime, timezone
+
     try:
-        r = _redis()
-        temp_secret = r.get(f"2fa_setup:{current_user.id}")
+        setup_record = db.query(EmailOTP).filter(EmailOTP.email == f"2fa_setup:{current_user.id}").first()
+        if not setup_record or setup_record.expires_at < datetime.now(timezone.utc):
+            if setup_record:
+                db.delete(setup_record)
+                db.commit()
+            raise HTTPException(status_code=400, detail="Setup session expired. Please try again.")
+        temp_secret = setup_record.otp
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=503, detail="Setup service temporarily unavailable.")
-
-    if not temp_secret:
-        raise HTTPException(status_code=400, detail="Setup session expired. Please try again.")
 
     if not verify_totp(temp_secret, req.code):
         raise HTTPException(status_code=400, detail="Invalid code. Please try again.")
@@ -120,7 +134,10 @@ async def verify_setup(
     db.commit()
 
     try:
-        r.delete(f"2fa_setup:{current_user.id}")
+        setup_record = db.query(EmailOTP).filter(EmailOTP.email == f"2fa_setup:{current_user.id}").first()
+        if setup_record:
+            db.delete(setup_record)
+            db.commit()
     except Exception:
         pass
 
@@ -137,14 +154,21 @@ async def verify_login(
     db: Session = Depends(get_db),
 ):
     """Verify TOTP during login. Issues auth cookie only on success."""
+    from app.models.user import EmailOTP
+    from datetime import datetime, timezone
+
     try:
-        r = _redis()
-        email = r.get(f"pending_2fa:{req.pending_token}")
+        pending_record = db.query(EmailOTP).filter(EmailOTP.email == f"pending_2fa:{req.pending_token}").first()
+        if not pending_record or pending_record.expires_at < datetime.now(timezone.utc):
+            if pending_record:
+                db.delete(pending_record)
+                db.commit()
+            raise HTTPException(status_code=400, detail="Session expired. Please log in again.")
+        email = pending_record.otp
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=503, detail="Session service temporarily unavailable.")
-
-    if not email:
-        raise HTTPException(status_code=400, detail="Session expired. Please log in again.")
 
     user = db.query(User).filter(User.email == email).first()
     if not user or not user.two_factor_enabled or not user.two_factor_secret:
@@ -155,7 +179,10 @@ async def verify_login(
 
     # Delete used pending token immediately
     try:
-        r.delete(f"pending_2fa:{req.pending_token}")
+        pending_record = db.query(EmailOTP).filter(EmailOTP.email == f"pending_2fa:{req.pending_token}").first()
+        if pending_record:
+            db.delete(pending_record)
+            db.commit()
     except Exception:
         pass
 
