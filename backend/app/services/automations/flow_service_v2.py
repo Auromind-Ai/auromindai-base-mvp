@@ -38,8 +38,7 @@ class SilentUndefined(Undefined):
 
 logger = logging.getLogger(__name__)
 
-# Module-level singletons (avoid re-instantiation per request)
-_rag_singleton = get_rag_service()
+# RAG singleton will be retrieved lazily inside __init__ to avoid import-time database queries
 
 
 class _LRULockCache:
@@ -72,7 +71,7 @@ class ConversationExecutionBusy(Exception):
 
 class FlowServiceV2:
     def __init__(self):
-        self.rag = _rag_singleton
+        self.rag = get_rag_service()
 
         self.tracer = ExecutionTracer()
         self.max_iterations = 50

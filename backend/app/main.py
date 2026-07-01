@@ -37,6 +37,18 @@ from app.routers.account import router as account_router
 async def lifespan(app: FastAPI):
     logger.info("Orbionagents Production System Starting...")
     
+    # Run database migrations automatically
+    try:
+        import alembic.config
+        import alembic.command
+        logger.info("Running database migrations...")
+        alembic_cfg = alembic.config.Config("alembic.ini")
+        # Run in a synchronous context
+        alembic.command.upgrade(alembic_cfg, "head")
+        logger.info("Database migrations completed successfully.")
+    except Exception as e:
+        logger.error(f"Failed to run database migrations: {e}")
+    
     # Seed platform settings and model configurations on startup
     from app.database import SessionLocal
     from app.services.platform_settings_service import seed_settings_from_env, migrate_sensitive_settings
