@@ -29,7 +29,7 @@ class RerankerService:
 
 def get_reranker() -> RerankerService:
     from app.services.config_service import config_service
-    model_name = config_service.get("reranker_model_name", "BAAI/bge-reranker-large")
+    model_name = config_service.get("reranker_model_name", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
     global _reranker_cache
     if model_name not in _reranker_cache:
