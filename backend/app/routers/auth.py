@@ -374,7 +374,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         )
        
         jwt_token = result["access_token"]
-        response = RedirectResponse(url=f"{frontend_url}/user/admin/dashboard")
+        response = RedirectResponse(url=f"{frontend_url}/login#token={jwt_token}")
         
         set_auth_cookie(
             response=response,

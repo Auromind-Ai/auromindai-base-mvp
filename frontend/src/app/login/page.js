@@ -95,6 +95,18 @@ function LoginContent() {
     }, [user, authLoading, router, redirectPath]);
 
     useEffect(() => {
+        if (typeof window !== 'undefined' && window.location.hash) {
+            const hash = window.location.hash.substring(1);
+            if (hash.startsWith('token=')) {
+                const token = hash.split('=')[1];
+                setToken(token);
+                window.history.replaceState(null, '', window.location.pathname);
+                router.push(redirectPath || '/user/admin/dashboard');
+            }
+        }
+    }, [router, redirectPath]);
+
+    useEffect(() => {
         const err = searchParams.get('error');
         if (err) {
             let decodedErr = decodeURIComponent(err);
