@@ -36,10 +36,3 @@ class User(Base):
         "Conversation",
         back_populates="owner"
     )
-
-class EmailOTP(Base):
-    __tablename__ = "email_otps"
-
-    email = Column(String, primary_key=True, index=True)
-    otp = Column(String, nullable=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False)

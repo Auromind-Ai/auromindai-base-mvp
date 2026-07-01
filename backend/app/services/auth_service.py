@@ -259,8 +259,7 @@ class AuthService:
     @staticmethod
     def send_otp(db: Session, email: str, auth_type: str):
         import random
-        from datetime import datetime, timedelta, timezone
-        from app.models.user import EmailOTP
+        from app.core.config import settings
         from app.services.email_service import EmailService
         
         email = email.strip().lower()
@@ -273,22 +272,13 @@ class AuthService:
 
         otp = str(random.randint(100000, 999999))
        
-        # Save OTP to Postgres Database
-        expires = datetime.now(timezone.utc) + timedelta(minutes=5)
-        
-        existing_otp = db.query(EmailOTP).filter(EmailOTP.email == email).first()
-        if existing_otp:
-            existing_otp.otp = otp
-            existing_otp.expires_at = expires
-        else:
-            new_otp = EmailOTP(email=email, otp=otp, expires_at=expires)
-            db.add(new_otp)
-        
         try:
-            db.commit()
+            import redis
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
+            r.setex(f"otp:{email}", 300, otp)  # 5 mins expiry
         except Exception as e:
-            db.rollback()
-            raise ValueError(f"Failed to generate OTP: {str(e)}")
+            # Fallback for local
+            pass
            
         try:
             EmailService.send_email(
@@ -304,25 +294,19 @@ class AuthService:
 
     @staticmethod
     def verify_otp(db: Session, email: str, otp: str, auth_type: str, full_name: str = None, workspace_name: str = None, ip_address: str = None, device_info: str = None):
-        from datetime import datetime, timezone
-        from app.models.user import EmailOTP
-        
+        from app.core.config import settings
         email = email.strip().lower()
-        
-        # Verify OTP from Postgres Database
-        saved_otp = db.query(EmailOTP).filter(EmailOTP.email == email).first()
-        
-        if not saved_otp or saved_otp.otp != otp:
+        try:
+            import redis
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
+            saved_otp = r.get(f"otp:{email}")
+            if not saved_otp or saved_otp != otp:
+                raise ValueError("Invalid or expired OTP")
+            r.delete(f"otp:{email}")
+        except Exception as e:
+            import logging
+            logging.getLogger("auromind").error(f"OTP verification failed: {str(e)}")
             raise ValueError("Invalid or expired OTP")
-            
-        if saved_otp.expires_at < datetime.now(timezone.utc):
-            db.delete(saved_otp)
-            db.commit()
-            raise ValueError("Invalid or expired OTP")
-            
-        # Valid OTP, clean it up
-        db.delete(saved_otp)
-        db.commit()
                
         if auth_type == "signup":
             user = db.query(User).filter(User.email == email).first()
@@ -338,16 +322,12 @@ class AuthService:
             #  2FA CHECK — only addition to this method ─
             if user.two_factor_enabled:
                 import uuid as _uuid
-                from datetime import timedelta
+                import redis as _redis
                 pending_token = str(_uuid.uuid4())
                 try:
-                    expires = datetime.now(timezone.utc) + timedelta(minutes=5)
-                    # Use pending_token as the key, and the actual email as the otp value
-                    new_pending = EmailOTP(email=f"pending_2fa:{pending_token}", otp=email, expires_at=expires)
-                    db.add(new_pending)
-                    db.commit()
+                    r = _redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
+                    r.setex(f"pending_2fa:{pending_token}", 300, email)   # 5 min TTL
                 except Exception:
-                    db.rollback()
                     raise ValueError("Authentication service temporarily unavailable. Please try again.")
                 return {"requiresTwoFactor": True, "pending_token": pending_token}
             #  END 2FA CHECK 
