@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
-import { setUser, setWorkspace } from '@/lib/auth';
+import { setUser, setWorkspace, removeToken } from '@/lib/auth';
 
 const AuthContext = createContext({
   user: null,
@@ -100,6 +100,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error("Logout API call failed:", err);
     } finally {
+      removeToken();
       setUserState(null);
       setWorkspaceIdState(null);
       setWorkspacesState([]);
