@@ -276,7 +276,7 @@ import httpx
 async def google_login(request: Request, type: str = "login"):
     import secrets
   
-    redirect_uri = config_service.get("oauth_redirect_uri")
+    redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
 
     state_token = secrets.token_urlsafe(32)
     state = f"{state_token}:{type}"
@@ -329,7 +329,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response
 
-    redirect_uri = config_service.get("oauth_redirect_uri")
+    redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
 
     try:
         async with httpx.AsyncClient() as client:
