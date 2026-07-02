@@ -16,6 +16,7 @@ import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSect
 // import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import CtaSection from '@/components/LandingPageNew/FinalCTASection/Ctasection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const ManageChatsSection = dynamic(
   () => import('../components/LandingPageNew/ManageChatsSection/ManagechatsSection'),
@@ -63,14 +64,24 @@ export default function LandingPage() {
       <div className="fixed inset-0 opacity-[0.03] pointer-events-none z-0 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:32px_32px]" />
 
       <div className="relative z-10">
-        <NavigationSection />
-        <ModernSaaSBackground />
+        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Nav Error: {err?.message}</div>}>
+          <NavigationSection />
+        </ErrorBoundary>
+        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Bg Error: {err?.message}</div>}>
+          <ModernSaaSBackground />
+        </ErrorBoundary>
 
-        <HeroSectionNew />
+        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Hero Error: {err?.message}</div>}>
+          <HeroSectionNew />
+        </ErrorBoundary>
 
-        <MessageManagementSection />
+        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">MessageManagement Error: {err?.message}</div>}>
+          <MessageManagementSection />
+        </ErrorBoundary>
 
-        <ManageChatsSection />        
+        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">ManageChats Error: {err?.message}</div>}>
+          <ManageChatsSection />        
+        </ErrorBoundary>
 
         <div className="relative z-10 bg-white">
           
