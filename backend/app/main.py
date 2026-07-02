@@ -38,16 +38,8 @@ async def lifespan(app: FastAPI):
     logger.info("Orbionagents Production System Starting...")
     
     # Run database migrations automatically
-    try:
-        import alembic.config
-        import alembic.command
-        logger.info("Running database migrations...")
-        alembic_cfg = alembic.config.Config("alembic.ini")
-        # Run in a synchronous context
-        alembic.command.upgrade(alembic_cfg, "head")
-        logger.info("Database migrations completed successfully.")
-    except Exception as e:
-        logger.error(f"Failed to run database migrations: {e}")
+    # NOTE: Database migrations have been moved to Google Cloud Build pipeline
+    pass
     
     # Seed platform settings and model configurations on startup
     from app.database import SessionLocal
