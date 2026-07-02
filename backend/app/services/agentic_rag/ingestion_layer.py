@@ -6,7 +6,7 @@ import uuid
 from app.utils.text_chunker import Schunker
 import json
 from app.models.brain import BrainEntry
-from app.services.agentic_rag.embedding_service import EmbeddingGenerator
+from app.services.agentic_rag.embedding_service import get_embedding_generator
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ class IngestionLayer:
         
         # Generate embeddings for all chunks
         chunk_texts = [c["text"] for c in chunks]
-        embedding = EmbeddingGenerator()
+        embedding = get_embedding_generator()
         embeddings = embedding.generate_embeddings(chunk_texts)
         
         # Prepare data for vector store
