@@ -25,12 +25,10 @@ function AnimatedText({ text, delay = 0 }) {
           initial={{
             opacity: 0,
             y: 28,
-            filter: "blur(14px)",
           }}
           animate={{
             opacity: 1,
             y: 0,
-            filter: "blur(0px)",
           }}
           transition={{
             duration: 0.9,
@@ -95,12 +93,10 @@ export default function HeroSectionNew() {
               initial={{
                 y: "100%",
                 opacity: 0,
-                filter: "blur(12px)",
               }}
               animate={{
                 y: "0%",
                 opacity: 1,
-                filter: "blur(0px)",
               }}
               transition={{
                 duration: 0.7,
@@ -123,8 +119,8 @@ export default function HeroSectionNew() {
           <AnimatedText text="Make the Most Out of Every Single" delay={0.85} />
           <br />
           <motion.span
-          initial={{ opacity: 0, y: 28, filter: "blur(14px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          initial={{ opacity: 0, y: 28 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{
             duration: 0.9,
             delay: 1.05,
@@ -138,8 +134,8 @@ export default function HeroSectionNew() {
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 20, filter: "blur(10px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 1.45 }}
           className="mb-10 max-w-[650px] text-[14px] sm:text-[16px] md:text-[17px] lg:text-[19px] font-medium leading-[1.9] text-white/72 px-2 sm:px-0"
         >
