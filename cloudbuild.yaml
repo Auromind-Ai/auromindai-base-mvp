@@ -1,12 +1,12 @@
 steps:
   # 1. Build Docker Image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '$_IMAGE_NAME', 'backend', '-f', 'backend/Dockerfile']
+    args: ['build', '-t', 'asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA', 'backend', '-f', 'backend/Dockerfile']
     id: 'Build'
 
   # 2. Push Docker Image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '$_IMAGE_NAME']
+    args: ['push', 'asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA']
     id: 'Push'
 
   # 3. Run Migrations on Staging
@@ -17,7 +17,7 @@ steps:
       - jobs
       - update
       - orbion-db-migrate-staging
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Update Staging Migrator'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -39,7 +39,7 @@ steps:
       - services
       - update
       - orbion-api-staging
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Deploy API Staging'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -49,7 +49,7 @@ steps:
       - services
       - update
       - orbion-worker-staging
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Deploy Worker Staging'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -59,7 +59,7 @@ steps:
       - services
       - update
       - orbion-beat-staging
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Deploy Beat Staging'
 
@@ -84,7 +84,7 @@ steps:
       - jobs
       - update
       - orbion-db-migrate-prod
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Update Prod Migrator'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -106,7 +106,7 @@ steps:
       - services
       - update
       - orbion-api
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Deploy API Prod'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -116,7 +116,7 @@ steps:
       - services
       - update
       - orbion-worker
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Deploy Worker Prod'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -126,16 +126,15 @@ steps:
       - services
       - update
       - orbion-beat
-      - --image=$_IMAGE_NAME
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
     id: 'Deploy Beat Prod'
 
 images:
-  - '$_IMAGE_NAME'
+  - 'asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA'
 
 substitutions:
   _DEPLOY_REGION: 'asia-south1'
-  _IMAGE_NAME: 'asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA'
 
 options:
   logging: CLOUD_LOGGING_ONLY
