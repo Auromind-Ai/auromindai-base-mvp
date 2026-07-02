@@ -63,6 +63,7 @@ export default function HeroBackground() {
 
       stars?.forEach((el, i) => {
         const p = PARTICLES[i];
+        if (!p) return;
 
         // move particle toward center
         p.x += (50 - p.x) * 0.0006 * p.parallaxDepth * 80;
