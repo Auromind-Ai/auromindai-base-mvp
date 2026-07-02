@@ -66,7 +66,7 @@ export class APIClient {
 
     // 4. Handle Timeout via AbortController
     const controller = optSignal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 120000) : null; // 120s timeout
     config.signal = optSignal || controller?.signal;
 
     try {
