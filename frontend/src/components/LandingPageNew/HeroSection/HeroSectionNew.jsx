@@ -48,30 +48,21 @@ function AnimatedText({ text, delay = 0 }) {
 
 export default function HeroSectionNew() {
   const [mounted, setMounted] = useState(false);
-  const [showContent, setShowContent] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-
-    const timer = setTimeout(() => {
-      setShowContent(true);
-    }, 200); 
-
-    return () => clearTimeout(timer);
   }, []);
 
   return (
     <section
       className={`${poppins.className} relative min-h-screen overflow-hidden bg-[#050505]`}
     >
-      {showContent && <HeroBackgroundNew />}
-      {showContent && (
-        <>
+      {mounted && <HeroBackgroundNew />}
       <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center translate-y-16">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
           animate={
-            showContent
+            mounted
               ? { opacity: 1, y: 0, scale: 1 }
               : { opacity: 0, y: 20, scale: 0.96 }
           }
@@ -85,7 +76,7 @@ export default function HeroSectionNew() {
           <motion.span
             initial={{ opacity: 0, scale: 0.8, rotate: -8 }}
             animate={
-              showContent
+              mounted
                 ? { opacity: 1, scale: 1, rotate: 0 }
                 : { opacity: 0, scale: 0.8, rotate: -8 }
             }
@@ -244,8 +235,6 @@ export default function HeroSectionNew() {
           <div className="h-14 w-px bg-gradient-to-b from-white to-transparent" />
         </motion.div>
       </div>
-       </>
-      )}
     </section>
   );
 }
