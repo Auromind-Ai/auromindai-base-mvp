@@ -15,7 +15,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable}`}
+        className={`${GeistSans.variable} ${GeistMono.variable} overflow-x-clip`}
         suppressHydrationWarning
       >
         <BrandingProvider>

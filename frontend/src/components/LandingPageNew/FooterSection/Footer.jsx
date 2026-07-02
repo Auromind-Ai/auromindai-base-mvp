@@ -113,9 +113,9 @@ export default function Footer() {
             </div>
           </div>
           
-            <div className="grid grid-cols-3 gap-x-6 gap-y-8 lg:contents">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-8 lg:contents">
               {Object.entries(footerLinks).map(([heading, items]) => (
-                  <div key={heading} className="flex flex-col min-w-[120px] shrink-0 lg:min-w-0">
+                  <div key={heading} className="flex flex-col shrink-0">
                     <h4
                       className="text-white font-semibold text-[14px] sm:text-[15px] mb-3"
                       style={{ fontFamily: "'Poppins', sans-serif" }}
