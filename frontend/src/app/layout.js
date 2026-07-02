@@ -13,9 +13,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="dark overflow-x-hidden" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} overflow-x-hidden`}
+        className={`${GeistSans.variable} ${GeistMono.variable}`}
         suppressHydrationWarning
       >
         <BrandingProvider>
