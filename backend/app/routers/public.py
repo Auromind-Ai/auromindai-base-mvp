@@ -29,7 +29,7 @@ async def get_about(db: Session = Depends(get_db)) -> Dict[str, Any]:
 async def get_branding(db: Session = Depends(get_db)) -> Dict[str, Any]:
     return {
         "app_name": get_setting(db, "app_name", "Auromind"),
-        "app_logo_url": get_setting(db, "app_logo_url", "/logo.png")
+        "app_logo_url": get_setting(db, "app_logo_url", "/images/auromind-logo.png")
     }
 
 @router.get("/pricing")
