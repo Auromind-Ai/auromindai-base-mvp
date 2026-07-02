@@ -34,7 +34,7 @@ function generateParticles(count = 1100) {
   });
 }
 
-const PARTICLES = generateParticles(220);
+const PARTICLES = generateParticles(90);
 
 // ─ HeroBackground ─
 
@@ -58,7 +58,28 @@ export default function HeroBackground() {
 
     const stars = containerRef.current?.querySelectorAll("[data-star]");
 
+    let isVisible = true;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        isVisible = entries[0].isIntersecting;
+        if (isVisible && !rafRef.current) {
+           rafRef.current = requestAnimationFrame(tick);
+        }
+      },
+      { threshold: 0 }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
     function tick() {
+      if (!isVisible) {
+        rafRef.current = null;
+        return;
+      }
+      
       const { x: mx, y: my } = mouseRef.current;
 
       stars?.forEach((el, i) => {
@@ -73,9 +94,8 @@ export default function HeroBackground() {
         const offsetX = mx * p.parallaxDepth * -30;
         const offsetY = my * p.parallaxDepth * -30;
 
-        el.style.left = `${p.x}%`;
-        el.style.top = `${p.y}%`;
-        el.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
+        // Use ONLY transform for hardware acceleration, avoid left/top which causes layout thrashing
+        el.style.transform = `translate3d(calc(${p.x}vw + ${offsetX}px), calc(${p.y}vh + ${offsetY}px), 0)`;
 
         // when particle reaches center zone → respawn on outer edge
         const dx = p.x - 50;
@@ -125,7 +145,8 @@ export default function HeroBackground() {
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      cancelAnimationFrame(rafRef.current);
+      if (containerRef.current) observer.unobserve(containerRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [handleMouseMove]);
 
