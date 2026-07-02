@@ -46,8 +46,7 @@ export default function MessageManagementSection() {
       <motion.div
   className={styles.headingWrap}
   initial={{ opacity: 0, y: 24 }}
-  whileInView={{ opacity: 1, y: 0 }}
-  viewport={{ once: true, amount: 0.3 }}
+  animate={{ opacity: 1, y: 0 }}
   transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
 >
   <div className={styles.badgeWrap}>
@@ -70,8 +69,7 @@ export default function MessageManagementSection() {
         <motion.div
           className={styles.leftCol}
           initial={{ opacity: 0, x: -24 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
         >
           <FeatureScroller />
@@ -81,8 +79,7 @@ export default function MessageManagementSection() {
         <motion.div
           className={styles.rightCol}
           initial={{ opacity: 0, x: 24 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, amount: 0.2 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
         >
           <IphoneMockup rotateX={rotateX} rotateY={rotateY} />
