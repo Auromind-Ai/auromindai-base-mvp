@@ -3,7 +3,7 @@ from email.parser import BytesParser
 from email import policy
 from bs4 import BeautifulSoup
 import re
-from app.services.agentic_rag.embedding_service import EmbeddingGenerator
+from app.services.agentic_rag.embedding_service import get_embedding_generator
 from app.services.agentic_rag.vector_store_service import VectorStoreService
 from app.models.brain import EmailMessage
 
@@ -12,7 +12,7 @@ from app.models.brain import EmailMessage
 class EmailsCrawlerService:
     def __init__(self):
         self.vector_store = VectorStoreService()
-        self.embedding_generator = EmbeddingGenerator()
+        self.embedding_generator = get_embedding_generator()
 
     def classify_email(self, message):
 
@@ -205,7 +205,7 @@ class EmailsCrawlerService:
 
     #     texts = [chunk["text"] for chunk in email_chunks]
 
-    #     embedding_generator = EmbeddingGenerator()
+    #     embedding_generator = get_embedding_generator()
     #     embeddings = embedding_generator.generate_embeddings(texts)
 
     #     entry = BrainEntry(
