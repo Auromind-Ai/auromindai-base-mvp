@@ -15,7 +15,12 @@ const footerLinks = {
     { name: "Home", href: "/" },
     { name: "About", href: "/" },
     { name: "Blog", href: "/resources/blog" },
-    { name: "Contact", href: "mailto:auromindaipvtltd@gmail.com" },
+    { name: "Contact", href: "mailto:orbionagents@gmail.com" },
+  ],
+  Legal: [
+    { name: "Privacy Policy", href: "/privacy" },
+    { name: "Terms of Service", href: "/terms" },
+    { name: "Data Deletion", href: "/data-deletion" },
   ],
   Socials: [
     { name: "Instagram", href: "https://instagram.com" },
@@ -95,7 +100,6 @@ export default function Footer() {
               {appName} – Automate Smarter, Optimize Faster, and Grow Stronger.
             </p>
 
-            {/* Contact */}
             <div className="mt-2">
               <p
                 className="text-white font-semibold text-m mb-1"
@@ -104,11 +108,11 @@ export default function Footer() {
                 Contact
               </p>
               <a
-                href="mailto:auromindaipvtltd@gmail.com"
+                href="mailto:orbionagents@gmail.com"
                 className="text-sm transition-colors duration-150 hover:text-white"
                 style={{ color: "#A1A1AA", fontFamily: "'Poppins', sans-serif" }}
               >
-                auromindaipvtltd@gmail.com
+                orbionagents@gmail.com
               </a>
             </div>
           </div>
