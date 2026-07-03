@@ -22,12 +22,6 @@ const footerLinks = {
     { name: "Terms of Service", href: "/terms" },
     { name: "Data Deletion", href: "/data-deletion" },
   ],
-  Socials: [
-    { name: "Instagram", href: "https://instagram.com" },
-    { name: "Facebook", href: "https://facebook.com" },
-    { name: "Linkedin", href: "https://linkedin.com" },
-    { name: "Twitter", href: "https://twitter.com" },
-  ],
 };
 
 export default function Footer() {
