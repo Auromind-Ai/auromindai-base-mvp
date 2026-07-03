@@ -5,13 +5,13 @@ import api from '@/lib/api';
 
 const BrandingContext = createContext({
   appName: 'Orbionagents',
-  appLogoUrl: '/images/orbionagents-logo.jpg',
+  appLogoUrl: '',
   refreshBranding: async () => {},
 });
 
 export const BrandingProvider = ({ children }) => {
   const [appName, setAppName] = useState('Orbionagents');
-  const [appLogoUrl, setAppLogoUrl] = useState('/images/orbionagents-logo.jpg');
+  const [appLogoUrl, setAppLogoUrl] = useState('');
 
   const refreshBranding = useCallback(async () => {
     try {
