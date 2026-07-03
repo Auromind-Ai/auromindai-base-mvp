@@ -123,19 +123,6 @@ function LoginContent() {
                 mappedErr = "Account not found. Please sign up first.";
             }
             setError(mappedErr);
-            if (mappedErr.includes("Account not found")) {
-                console.log("useEffect QueryParamError: Setting redirect timeout to /signup");
-                setTimeout(() => {
-                    console.log("useEffect QueryParamError: Executing redirect to /signup via router.push");
-                    router.push('/signup');
-                }, 3000);
-            } else if (mappedErr.includes("Account already exists")) {
-                console.log("useEffect QueryParamError: Setting redirect timeout to /login");
-                setTimeout(() => {
-                    console.log("useEffect QueryParamError: Executing redirect to /login via router.push");
-                    router.push('/login');
-                }, 3000);
-            }
         }
     }, [searchParams, router]);
 
@@ -163,13 +150,6 @@ function LoginContent() {
         } catch (err) {
             const mappedError = getErrorMessage(err);
             setError(mappedError);
-            if (mappedError.includes("Account not found")) {
-                console.log("Setting redirect timeout to /signup");
-                setTimeout(() => {
-                    console.log("Executing redirect to /signup via router.push");
-                    router.push('/signup');
-                }, 3000);
-            }
         } finally {
             setLoading(false);
         }
