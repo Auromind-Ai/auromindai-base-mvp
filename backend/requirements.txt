@@ -9,7 +9,7 @@ boto3
 celery[redis]==5.3.6
 cryptography
 ddgs
---extra-index-url https://download.pytorch.org/whl/cpu
+requests>=2.32,<3
 fastapi==0.135.1
 feedparser==6.0.12
 geopy==2.4.1
