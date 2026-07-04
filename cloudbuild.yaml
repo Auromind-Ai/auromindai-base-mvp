@@ -41,6 +41,7 @@ steps:
       - orbion-api-staging
       - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
     id: 'Deploy API Staging'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
@@ -51,6 +52,7 @@ steps:
       - orbion-worker-staging
       - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
     id: 'Deploy Worker Staging'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
@@ -61,6 +63,7 @@ steps:
       - orbion-beat-staging
       - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
     id: 'Deploy Beat Staging'
 
   # 5. Run E2E Tests on Staging
@@ -108,6 +111,7 @@ steps:
       - orbion-api
       - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
     id: 'Deploy API Prod'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
@@ -118,6 +122,7 @@ steps:
       - orbion-worker
       - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
     id: 'Deploy Worker Prod'
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
@@ -128,6 +133,7 @@ steps:
       - orbion-beat
       - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
       - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
     id: 'Deploy Beat Prod'
 
 images:
