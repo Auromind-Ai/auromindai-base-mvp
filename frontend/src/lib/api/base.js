@@ -25,9 +25,12 @@ export class APIClient {
   }
 
   async request(endpoint, options = {}, isRetryAttempt = false) {
-    const url = (endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
-      ? endpoint
-      : `${this.baseURL}${endpoint}`;
+    const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+    const url = isProd
+      ? `${this.baseURL}${endpoint.startsWith('/api/') ? endpoint.substring(4) : (endpoint.startsWith('/backend/') ? endpoint.substring(8) : endpoint)}`
+      : ((endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
+        ? endpoint
+        : `${this.baseURL}${endpoint}`);
 
     const method = (options.method || 'GET').toUpperCase();
     const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
