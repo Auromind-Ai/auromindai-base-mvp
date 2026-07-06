@@ -2,9 +2,9 @@ import enum
 
 class SubscriptionStatus(str, enum.Enum):
     active = "active"
+    pending = "pending"
     cancelled = "cancelled"
     expired = "expired"
-    trialing = "trialing"
     past_due = "past_due"
 
 class PaymentStatus(str, enum.Enum):

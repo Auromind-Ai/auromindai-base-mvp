@@ -29,6 +29,4 @@ class Plan(Base):
 
     features = Column(JSON)
 
-    trial_days = Column(Integer, default=0)
-
     created_at = Column(DateTime(timezone=True), server_default=func.now())

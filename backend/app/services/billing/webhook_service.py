@@ -208,7 +208,7 @@ class WebhookService:
             provider=provider,
             plan=local_plan,
             subscription_data=subscription_payload,
-            override_status=SubscriptionStatus.trialing,
+            override_status=SubscriptionStatus.pending,
         )
 
     def _handle_subscription_activated(

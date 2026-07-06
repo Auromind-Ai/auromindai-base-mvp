@@ -8,11 +8,12 @@ import re
 import numpy as np
 from app.services.ai.llm_utils import safe_llm_call, token_log_context, write_to_token_log_file
 from app.utils.text_chunker import Schunker
-from app.services.agentic_rag.reasoning_agent import run_reasoning
+from app.services.agentic_rag.reasoning_agent import run_reasoning, run_reasoning_stream
 from app.models.brain import BrainEntry
+from typing import AsyncGenerator
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("auromind")
 
 class OrchestratorLayer:
 
@@ -141,6 +142,563 @@ class OrchestratorLayer:
         finally:
             if token is not None:
                 token_log_context.reset(token)
+
+    async def agent_loop_stream(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, bypass_billing: bool = False):
+        parent_logs = token_log_context.get()
+        if parent_logs is not None:
+            token_logs = parent_logs
+            token = None
+        else:
+            token_logs = []
+            token = token_log_context.set(token_logs)
+        
+        try:
+            async def run_rag_stream_internal():
+                async for chunk in self._agent_loop_stream_internal(
+                    db=db,
+                    workspace_id=workspace_id,
+                    query=query,
+                    model=model,
+                    source=source,
+                    document_id=document_id,
+                    entry_ids=entry_ids,
+                    collection=collection
+                ):
+                    yield chunk
+
+            from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, current_execution_context
+            parent_ctx = current_execution_context.get()
+            user_id = parent_ctx.user_id if parent_ctx else "system"
+
+            async for chunk in AIExecutionService.execute_stream(
+                db=db,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                feature_key=AIFeatureRegistry.RAG,
+                prompt=query,
+                model=model,
+                bypass_billing=bypass_billing,
+                execute_fn=run_rag_stream_internal,
+                description=f"RAG query: {query[:50]}"
+            ):
+                yield chunk
+        finally:
+            if token is not None:
+                token_log_context.reset(token)
+
+    async def _agent_loop_stream_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None) -> AsyncGenerator[dict, None]:
+        website_names = []  
+        web_search_enabled = (source == "web_search")
+        logger.info(f"DEBUG: web_search_enabled = {web_search_enabled}")
+        fallback_triggered = False
+
+        small_talk = None
+        if not web_search_enabled:
+            small_talk = self.helpers.get_small_talk_response(query)
+
+        if small_talk:
+            fallback_triggered = True
+            logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (small talk)")
+            confidence = compute_confidence(tool="direct_answer")
+            meta_payload = {
+                "query": query,
+                "rewritten_query": query,
+                "tool": "direct_answer",
+                "model": model,
+                "confidence_score": confidence,
+                "source": "direct_answer"
+            }
+            yield {"meta": meta_payload}
+            yield {"content": small_talk}
+            return
+
+        start_url = self.helpers.extract_url(query)
+
+        if start_url:
+            logger.info("URL detected:", start_url)
+            scraper = Webscrapper(start_url)
+            single_page = bool(start_url)
+            scraped_data = scraper.scrapper_choose(single_page)
+            print(scraped_data)
+
+            if not scraped_data or isinstance(scraped_data, str):
+                meta_payload = {
+                    "query": query,
+                    "rewritten_query": query,
+                    "tool": "web_search",
+                    "model": model,
+                    "confidence_score": 0.1,
+                    "source": "web_search"
+                }
+                yield {"meta": meta_payload}
+                yield {"content": "Unable to read the website."}
+                return
+            
+            scraped_data = self.helpers.select_relevant_sections(scraped_data, query)
+            website_sections = []
+
+            for page in scraped_data:
+                heading = " ".join(page.get("headings", []))
+                sub_headings = page.get("sub_headings", [])
+                paragraphs = page.get("paragraphs", [])
+                lists = page.get("list_point", [])
+
+                section_text = ""
+                if heading:
+                    section_text += f"{heading}\n"
+                for sh in sub_headings:
+                    section_text += f"{sh}\n"
+                for para in paragraphs:
+                    if para.strip():
+                        section_text += f"{para.strip()}\n"
+                if lists:
+                    for item in lists:
+                        section_text += f"- {item.strip()}\n"
+                section_text = section_text.strip()
+                if section_text:
+                    website_sections.append(section_text)
+
+            if not website_sections:
+                yield {"content": "Website content could not be extracted."}
+                return
+
+            chunker = Schunker()
+            chunks = []
+            for section in website_sections:
+                section_chunks = chunker.build_chunks(section)
+                chunks.extend(section_chunks)
+
+            if not chunks:
+                yield {"content": "Unable to process website content."}
+                return
+
+            chunk_texts = [c["text"] for c in chunks]
+            embeddings = self.embedding_generator.generate_embeddings(chunk_texts)
+
+            clean_query = re.sub(r"https?://\S+", "", query).strip()
+            clean_query = clean_query.strip()
+            if not clean_query:
+                clean_query = query
+
+            query_embedding = self.embedding_generator.generate_query_embedding(clean_query)
+            scores = []
+            query_words = set(clean_query.lower().split())
+
+            for i, emb in enumerate(embeddings):
+                emb = np.array(emb)
+                query_vec = np.array(query_embedding)
+                similarity = np.dot(query_vec, emb) / (
+                    np.linalg.norm(query_vec) * np.linalg.norm(emb)
+                )
+                chunk_words = set(chunk_texts[i].lower().split())
+                keyword_overlap = len(query_words.intersection(chunk_words))
+                final_score = (similarity * 0.7) + (keyword_overlap * 0.3)
+                scores.append((final_score, chunk_texts[i]))
+
+            scores.sort(key=lambda x: x[0], reverse=True)
+            top_score = scores[0][0]
+            top_chunks = [scores[0][1]]
+
+            for score, text in scores[1:]:
+                similarity_ratio = score / top_score
+                if similarity_ratio > 0.75:
+                    top_chunks.append(text)
+                if len(top_chunks) >= 3:
+                    break
+
+            top_chunks = top_chunks[:5]
+            context = "\n\n".join(top_chunks)
+
+            final_prompt = f"""
+            You are a professional information extraction system.
+
+            TASK:
+            Extract the statements from the website content that answer the user's question.
+
+            RULES:
+            - Use ONLY the WEBSITE CONTENT.
+            - Do NOT invent information.
+            - Do NOT add new facts.
+            - Preserve the original meaning of the text.
+            - Improve readability if needed (fix grammar or missing words).
+            - Keep sentences complete and clear.
+
+            Guidelines:
+            - Write a clear explanation
+            - Avoid numbered lists
+            - Avoid repeating the question
+            - Combine information naturally
+            - Answer in 4-6 sentences
+
+
+            Question:
+            {clean_query}
+
+            WEBSITE CONTENT:
+            {context}
+
+            Extracted information:
+            """
+            meta_payload = {
+                "query": query,
+                "rewritten_query": query,
+                "tool": "web_search",
+                "model": model,
+                "confidence_score": compute_confidence(tool="web_search"),
+                "source": "web_search"
+            }
+            yield {"meta": meta_payload}
+
+            accumulated = []
+            from app.services.ai.llm_utils import safe_llm_call_stream
+            async for chunk in safe_llm_call_stream(final_prompt, model=model):
+                t = chunk.get("content", "")
+                if t:
+                    accumulated.append(t)
+                    yield {"content": t}
+
+            cleaned = self.support.hallucination_guard("".join(accumulated).strip(), context)
+            formatted = self.support.format_for_chatgpt_style(cleaned)
+
+            yield {"content": "\n\nFollow-up question:\n"}
+            async for chunk in self.support.add_followup_stream(query, formatted, model=model):
+                yield chunk
+            return
+
+        # Rewrite
+        import time
+        t_start = time.perf_counter()
+        yield {"status": "rewriting"}
+        rewritten_query = await self.mcp.analyze_and_rewrite(query, model=model)
+        logger.info(rewritten_query)
+        t_rewrite = time.perf_counter() - t_start
+        logger.info(f"[Profiler] Rewrite Query: {t_rewrite*1000:.2f} ms")
+
+        # Decide tool
+        yield {"status": "tool_deciding"}
+        t_tool_start = time.perf_counter()
+        if source and source not in ("internal_web", "internal", ""):
+            tool = source
+        else:
+            tool = await self.mcp.decide_tool(rewritten_query, model=model)
+        t_tool = time.perf_counter() - t_tool_start
+        logger.info(f"[Profiler] Tool Decision: {t_tool*1000:.2f} ms")
+        
+        learning_profile = get_learning_profile(workspace_id=str(workspace_id))
+
+        # RULE BASED TOOL OVERRIDE
+        rules = learning_profile.get("tool_rules", [])
+        for rule in rules:
+            if rule.get("success_rate", 0) < 60:
+                continue
+            matched = False
+            for keyword in rule.get("top_keywords", []):
+                if keyword in rewritten_query.lower():
+                    tool = rule["tool"]
+                    matched = True
+                    break
+            if matched:
+                break
+
+        # llm learning
+        memory = learning_profile.get("memory", {}) if learning_profile else {}
+        tool_insights = memory.get("tool_insights", {})
+        if tool_insights:
+            best_tool = max(tool_insights, key=lambda t: tool_insights[t]["positive"])
+            current_score = tool_insights.get(tool, {}).get("positive", 0)
+            best_score = tool_insights.get(best_tool, {}).get("positive", 0)
+            if best_score > current_score + 2:
+                tool = best_tool
+
+        NEVER_OVERRIDE = {"vector_db", "calculator", "direct_answer", "direct_storage"}
+        if tool_insights and tool not in NEVER_OVERRIDE:
+            eligible = {
+                t: v for t, v in tool_insights.items() 
+                if t not in NEVER_OVERRIDE
+            }
+            if eligible:
+                best_tool = max(eligible, key=lambda t: eligible[t]["positive"])
+                current_score = tool_insights.get(tool, {}).get("positive", 0)
+                best_score = eligible.get(best_tool, {}).get("positive", 0)
+                if best_score > current_score + 2:
+                    tool = best_tool
+
+        # Reinforcement Hook
+        engine = ReinforcementEngine(db, workspace_id=workspace_id)
+        adjusted = engine.adjust_pipeline(
+            query=query,
+            rewritten_query=rewritten_query,
+            tool=tool
+        )
+        rewritten_query = adjusted["rewritten_query"]
+        tool = adjusted["tool"]
+
+        if source and source not in ("internal_web", "internal", ""):
+            tool = source
+
+        # Tool execution
+        if tool == "vector_db":
+            yield {"status": "retrieving"}
+            t_retrieval_start = time.perf_counter()
+            final_entry_ids = entry_ids if entry_ids is not None else ([document_id] if document_id else None)
+            result = await self.iterative_retrieval(db, workspace_id, rewritten_query, model=model, entry_ids=final_entry_ids, collection=collection)
+            context = result.get("context", "")
+            retrieved_docs = result.get("docs", [])
+            t_retrieval = time.perf_counter() - t_retrieval_start
+            logger.info(f"[Profiler] Vector DB Retrieval: {t_retrieval*1000:.2f} ms")
+
+            if not context or not context.strip():
+                meta_payload = {
+                    "query": query,
+                    "rewritten_query": rewritten_query,
+                    "tool": tool,
+                    "model": model,
+                    "confidence_score": 0.2,
+                    "source": tool
+                }
+                yield {"meta": meta_payload}
+                yield {"content": "The requested information is not available in the current knowledge base. Please upload relevant documents to proceed."}
+                return
+
+            yield {"status": "synthesizing"}
+            t_synthesis_start = time.perf_counter()
+            synthesized_info = await self.support.synthesize_information(query, context, model=model)
+            t_synthesis = time.perf_counter() - t_synthesis_start
+            logger.info(f"[Profiler] Context Synthesis: {t_synthesis*1000:.2f} ms")
+            if not synthesized_info or not synthesized_info.strip():
+                meta_payload = {
+                    "query": query,
+                    "rewritten_query": rewritten_query,
+                    "tool": tool,
+                    "model": model,
+                    "confidence_score": 0.3,
+                    "source": tool
+                }
+                yield {"meta": meta_payload}
+                yield {"content": "The requested information is not available in the current knowledge base."}
+                return
+
+            confidence = compute_confidence(
+                tool="vector_db",
+                retrieved_docs=retrieved_docs,
+                answer="Verification answer placeholder",
+                context=context
+            )
+            meta_payload = {
+                "query": query,
+                "rewritten_query": rewritten_query,
+                "tool": tool,
+                "model": model,
+                "confidence_score": confidence,
+                "source": tool
+            }
+            yield {"meta": meta_payload}
+
+            async for chunk in self.support.generate_final_output_stream(query, synthesized_info, model=model):
+                yield chunk
+            return
+
+        elif tool == "web_search":
+            yield {"status": "searching"}
+            t_search_start = time.perf_counter()
+            web_data = self.tools.web_search(rewritten_query)
+            context = web_data.get("context", "")
+            sources = web_data.get("sources", [])
+            for s in sources:
+                domain = urlparse(s).netloc.replace("www.", "")
+                website_names.append(domain)
+            t_search = time.perf_counter() - t_search_start
+            logger.info(f"[Profiler] Web Search Execution: {t_search*1000:.2f} ms")
+
+            if not context.strip():
+                meta_payload = {
+                    "query": query,
+                    "rewritten_query": rewritten_query,
+                    "tool": tool,
+                    "model": model,
+                    "confidence_score": 0.3,
+                    "source": tool
+                }
+                yield {"meta": meta_payload}
+                yield {"content": "Unable to retrieve relevant information from the internet."}
+                return
+
+            good_queries = []
+            if learning_profile:
+                good_queries = learning_profile.get("memory", {}).get("good_queries", [])[:3]
+
+            extra_context = ""
+            if good_queries:
+                examples = "\n".join([f"- {q}" for q in good_queries])
+                extra_context = f"\n\nGood examples:\n{examples}"
+
+            improvements = learning_profile.get("prompt_improvements", {})
+            extra_rules = "\n".join(improvements.get("answer_generation_prompt", []))
+
+            final_prompt = f"""
+            You are a professional AI assistant.
+
+            {extra_rules}
+
+            Your task is to answer the user's question using ONLY the provided context.
+
+            RULES:
+            1. Use only the information from the context.
+            2. Do NOT invent facts.
+            3. If the answer is not found in the context, say:
+                "No recent information found."
+
+            OUTPUT FORMAT:
+            - Provide a clear and professional explanation.
+            - Write in 2–8 sentences.
+            - Use simple language.
+            - If helpful, include short bullet points.
+
+            {extra_context}
+
+            Question:
+            {query}
+
+            Context:
+            {context}
+
+            Answer:
+            """
+            confidence = compute_confidence(
+                tool="web_search",
+                answer="Verification web search answer",
+                context=context
+            )
+            meta_payload = {
+                "query": query,
+                "rewritten_query": rewritten_query,
+                "tool": tool,
+                "model": model,
+                "confidence_score": confidence,
+                "source": tool
+            }
+            yield {"status": "synthesizing"}
+            yield {"meta": meta_payload}
+
+            accumulated = []
+            from app.services.ai.llm_utils import safe_llm_call_stream
+            async for chunk in safe_llm_call_stream(final_prompt, model=model):
+                t = chunk.get("content", "")
+                if t:
+                    accumulated.append(t)
+                    yield {"content": t}
+
+            final_answer = "".join(accumulated)
+            source_text = "\n".join(f"• {site}" for site in website_names)
+            final_answer_with_sources = f"{final_answer}\n\nSources:\n{source_text}"
+
+            yield {"content": "\n\nFollow-up question:\n"}
+            async for chunk in self.support.add_followup_stream(query, final_answer_with_sources, model=model):
+                yield chunk
+            return
+
+        elif tool == "calculator":
+            result = self.tools.calculator_tool(query)
+            if not result or not result.strip():
+                result = "Calculation error."
+            confidence = compute_confidence(tool="calculator")
+            meta_payload = {
+                "query": query,
+                "rewritten_query": rewritten_query,
+                "tool": tool,
+                "model": model,
+                "confidence_score": confidence,
+                "source": tool
+            }
+            yield {"meta": meta_payload}
+            yield {"content": result}
+            return
+
+        elif tool == "direct_answer":
+            response = (
+                self.helpers.get_small_talk_response(rewritten_query)
+                or self.helpers.get_small_talk_response(query)
+                or "Hello! How can I help you today?"
+            )
+            confidence = compute_confidence(tool="direct_answer")
+            meta_payload = {
+                "query": query,
+                "rewritten_query": rewritten_query,
+                "tool": tool,
+                "model": model,
+                "confidence_score": confidence,
+                "source": tool
+            }
+            yield {"meta": meta_payload}
+            yield {"content": response}
+            return
+
+        elif tool == "direct_storage":
+            email_data = await self.tools.email_storage_tool(db, workspace_id, query, model=model)
+            if not email_data:
+                email_data = "No email found."
+            confidence = compute_confidence(tool="direct_storage")
+            meta_payload = {
+                "query": query,
+                "rewritten_query": rewritten_query,
+                "tool": tool,
+                "model": model,
+                "confidence_score": confidence,
+                "source": tool
+            }
+            yield {"meta": meta_payload}
+            async for chunk in self.support.add_followup_stream(query, email_data, model=model):
+                yield chunk
+            return
+
+        elif tool == "reasoning":
+            confidence = compute_confidence(tool="reasoning")
+            meta_payload = {
+                "query": query,
+                "rewritten_query": rewritten_query,
+                "tool": tool,
+                "model": model,
+                "confidence_score": confidence,
+                "source": tool
+            }
+            yield {"meta": meta_payload}
+
+            yield {"status": "synthesizing"}
+            accumulated = []
+            async for chunk in run_reasoning_stream(query, model=model):
+                t = chunk.get("content", "")
+                if t:
+                    accumulated.append(t)
+                    yield {"content": t}
+
+            yield {"content": "\n\nFollow-up question:\n"}
+            async for chunk in self.support.add_followup_stream(query, "".join(accumulated), model=model):
+                yield chunk
+            return
+
+        else:
+            meta_payload = {
+                "query": query,
+                "rewritten_query": query,
+                "tool": "reasoning",
+                "model": model,
+                "confidence_score": 0.1,
+                "source": "fallback"
+            }
+            yield {"meta": meta_payload}
+
+            yield {"status": "synthesizing"}
+            accumulated = []
+            async for chunk in run_reasoning_stream(query, model=model):
+                t = chunk.get("content", "")
+                if t:
+                    accumulated.append(t)
+                    yield {"content": t}
+
+            yield {"content": "\n\nFollow-up question:\n"}
+            async for chunk in self.support.add_followup_stream(query, "".join(accumulated), model=model):
+                yield chunk
+            return
 
     async def _agent_loop_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None):
 

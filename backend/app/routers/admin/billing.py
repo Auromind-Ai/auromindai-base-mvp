@@ -23,6 +23,7 @@ from app.models.invoice import Invoice
 from app.models.wcc import WCCWallet, WCCRateCard, WCCTransaction, WCCRechargeLog
 from app.models.webhook_event import WebhookEvent
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.flow_pack import FlowPack, FlowPackPurchase
 from app.services.billing import BillingService
 from jose import jwt
 from app.core.config import settings
@@ -91,52 +92,154 @@ def log_audit(
 @router.get("/billing")
 async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
     try:
-        # 1. Total Revenue (sum of all paid payments in major units)
-        total_revenue = float(db.query(func.sum(Payment.amount)).filter(Payment.status == PaymentStatus.paid).scalar() or 0) / 100.0
+        # 1. Multi-product Isolated Revenue Calculation
+        credit_pack_ref_keys = db.query(TokenLedger.reference_key).filter(TokenLedger.entry_type == "purchase", TokenLedger.status == "posted").all()
+        credit_pack_payment_db_ids = [ref[0].split(":")[-1] for ref in credit_pack_ref_keys if ref[0] and ":" in ref[0]]
+        
+        paid_payments = db.query(Payment).filter(Payment.status == PaymentStatus.paid).all()
+        sub_revenue = 0.0
+        ai_pack_revenue = 0.0
+        for p in paid_payments:
+            p_id_str = str(p.id)
+            p_prov_id_str = str(p.provider_payment_id or "")
+            if p_id_str in credit_pack_payment_db_ids or p_prov_id_str in credit_pack_payment_db_ids:
+                ai_pack_revenue += float(p.amount)
+            else:
+                sub_revenue += float(p.amount)
 
-        # 2. Active Subscriptions
+        wcc_revenue = float(db.query(func.coalesce(func.sum(WCCRechargeLog.amount), 0)).filter(WCCRechargeLog.status == "success").scalar() or 0)
+        flow_revenue = float(db.query(func.coalesce(func.sum(FlowPackPurchase.amount_paid), 0)).filter(FlowPackPurchase.status == "success").scalar() or 0)
+        
+        total_revenue = sub_revenue + ai_pack_revenue + wcc_revenue + flow_revenue
+        
+        # Calculate MRR & ARR (Normalized for Annual Billing Cycles)
+        from sqlalchemy import case
+        mrr_query = (
+            db.query(
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (or_(Subscription.billing_cycle == "yearly", Plan.billing_cycle == "yearly"), Plan.price / 12.0),
+                            else_=Plan.price
+                        )
+                    ), 0
+                )
+            )
+            .select_from(Subscription)
+            .join(Plan, Subscription.plan_id == Plan.id)
+            .filter(Subscription.status == SubscriptionStatus.active, Plan.price > 0)
+            .scalar() or 0
+        )
+        mrr = float(mrr_query)
+        arr = mrr * 12.0
+        
+        # Today's Revenue
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_sub = float(db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.status == PaymentStatus.paid, Payment.created_at >= today_start).scalar() or 0)
+        today_wcc = float(db.query(func.coalesce(func.sum(WCCRechargeLog.amount), 0)).filter(WCCRechargeLog.status == "success", WCCRechargeLog.created_at >= today_start).scalar() or 0)
+        today_flow = float(db.query(func.coalesce(func.sum(FlowPackPurchase.amount_paid), 0)).filter(FlowPackPurchase.status == "success", FlowPackPurchase.created_at >= today_start).scalar() or 0)
+        todays_revenue = today_sub + today_wcc + today_flow
+
+        # 2. Subscription Breakdown & Workspace Lifecycle Audit
         active_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.status == SubscriptionStatus.active).scalar() or 0
-
-        # 3. Trial Workspaces
-        trial_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.status == SubscriptionStatus.trialing).scalar() or 0
-
-        # 4. Expired Subscriptions
+        pending_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.status == SubscriptionStatus.pending).scalar() or 0
         expired_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.status.in_([SubscriptionStatus.expired, SubscriptionStatus.past_due])).scalar() or 0
+        cancelled_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.status == SubscriptionStatus.cancelled).scalar() or 0
+        total_unique_workspaces = db.query(func.count(func.distinct(Subscription.workspace_id))).scalar() or 0
+        
+        # Plan Breakdown (Explicitly includes 0 count for Enterprise/inactive tiers)
+        all_active_plans = db.query(Plan).filter(Plan.is_active == True).all()
+        plan_breakdown = {p.name.lower(): 0 for p in all_active_plans}
+        
+        plan_dist_query = (
+            db.query(Plan.name, func.count(Subscription.id))
+            .join(Subscription, Subscription.plan_id == Plan.id)
+            .filter(Subscription.status == SubscriptionStatus.active)
+            .group_by(Plan.name)
+            .all()
+        )
+        for name, count in plan_dist_query:
+            plan_breakdown[name.lower()] = count
 
-        # 5. AI Credits Issued
-        credits_issued = float(db.query(func.sum(TokenLedger.credits_delta)).filter(TokenLedger.credits_delta > 0, TokenLedger.status == "posted").scalar() or 0)
+        # 3. AI Credits Issued / Consumed / Purchased
+        credits_issued = float(db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(TokenLedger.credits_delta > 0, TokenLedger.status == "posted").scalar() or 0)
+        credits_consumed = abs(float(db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(TokenLedger.credits_delta < 0, TokenLedger.status == "posted").scalar() or 0))
+        credits_purchased = float(db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(TokenLedger.credits_delta > 0, TokenLedger.entry_type == "purchase", TokenLedger.status == "posted").scalar() or 0)
+        net_credit_balance = float(db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(TokenLedger.status == "posted").scalar() or 0)
 
-        # 6. AI Credits Consumed
-        credits_consumed = abs(float(db.query(func.sum(TokenLedger.credits_delta)).filter(TokenLedger.credits_delta < 0, TokenLedger.status == "posted").scalar() or 0))
+        # 4. WCC Wallet Balance & Usage
+        wcc_wallet_balance = float(db.query(func.coalesce(func.sum(WCCWallet.balance), 0)).scalar() or 0.0)
+        wcc_session_debits = float(db.query(func.coalesce(func.sum(WCCTransaction.debit_amount), 0)).filter(WCCTransaction.status == "success").scalar() or 0.0)
 
-        # 7. Purchased Credits
-        credits_purchased = float(db.query(func.sum(TokenLedger.credits_delta)).filter(TokenLedger.credits_delta > 0, TokenLedger.entry_type == "purchase", TokenLedger.status == "posted").scalar() or 0)
-
-        # 8. WCC Wallet Balance (Platform total)
-        wcc_wallet_balance = float(db.query(func.sum(WCCWallet.balance)).scalar() or 0.0)
-
-        # 9. Wallet Recharge Revenue
-        wallet_recharge_revenue = float(db.query(func.sum(WCCRechargeLog.amount)).filter(WCCRechargeLog.status == "success").scalar() or 0.0)
-
-        # 10. Failed Payments
+        # 5. Payment Gateway Breakdown
         failed_payments = db.query(func.count(Payment.id)).filter(Payment.status == PaymentStatus.failed).scalar() or 0
-
-        # 11. Pending Payments
         pending_payments = db.query(func.count(Payment.id)).filter(Payment.status == PaymentStatus.pending).scalar() or 0
-
-        # 12. Refund Count
         refund_count = db.query(func.count(Payment.id)).filter(Payment.refund_amount > 0).scalar() or 0
 
-        # Recent Invoices
-        recent_invoices = (
-            db.query(Invoice)
-            .order_by(desc(Invoice.created_at))
+        gateway_stats_query = (
+            db.query(
+                Payment.provider,
+                Payment.status,
+                func.count(Payment.id).label("count"),
+                func.coalesce(func.sum(Payment.amount), 0).label("total")
+            )
+            .group_by(Payment.provider, Payment.status)
+            .all()
+        )
+        gateway_breakdown = {}
+        for r in gateway_stats_query:
+            prov = r.provider or "razorpay"
+            if prov not in gateway_breakdown:
+                gateway_breakdown[prov] = {"success_count": 0, "failed_count": 0, "pending_count": 0, "success_amount": 0.0}
+            if r.status == PaymentStatus.paid:
+                gateway_breakdown[prov]["success_count"] += r.count
+                gateway_breakdown[prov]["success_amount"] += float(r.total)
+            elif r.status == PaymentStatus.failed:
+                gateway_breakdown[prov]["failed_count"] += r.count
+            elif r.status == PaymentStatus.pending:
+                gateway_breakdown[prov]["pending_count"] += r.count
+
+        # 6. Flow Pack Sales
+        flow_pack_sales_count = db.query(func.count(FlowPackPurchase.id)).filter(FlowPackPurchase.status == "success").scalar() or 0
+        top_flow_packs_query = (
+            db.query(FlowPack.name, func.count(FlowPackPurchase.id).label("sales"), func.coalesce(func.sum(FlowPackPurchase.amount_paid), 0).label("revenue"))
+            .join(FlowPackPurchase, FlowPackPurchase.flow_pack_id == FlowPack.id)
+            .filter(FlowPackPurchase.status == "success")
+            .group_by(FlowPack.name)
+            .order_by(desc("sales"))
+            .limit(5)
+            .all()
+        )
+        top_flow_packs = [{"name": r.name, "sales": r.sales, "revenue": float(r.revenue)} for r in top_flow_packs_query]
+
+        # 7. System Diagnostics Quick Summary
+        failed_webhooks_cnt = db.query(func.count(WebhookEvent.id)).filter(WebhookEvent.processed == False).scalar() or 0
+        one_hour_ago = now - timedelta(hours=1)
+        pending_recharges_cnt = db.query(func.count(WCCRechargeLog.id)).filter(WCCRechargeLog.status == "pending", WCCRechargeLog.created_at < one_hour_ago).scalar() or 0
+
+        # Recent Payments Stream (Join with Workspace to prevent N+1 queries)
+        recent_payments = (
+            db.query(Payment, Workspace.name.label("workspace_name"))
+            .outerjoin(Workspace, Payment.workspace_id == Workspace.id)
+            .order_by(desc(Payment.created_at))
             .limit(10)
             .all()
         )
+        recent_transactions_list = []
+        for p, ws_name in recent_payments:
+            recent_transactions_list.append({
+                "id": str(p.id),
+                "workspace_name": ws_name or "Deleted Workspace",
+                "amount": float(p.amount),
+                "currency": p.currency,
+                "status": p.status.value.upper(),
+                "provider": p.provider,
+                "payment_id": p.provider_payment_id or "N/A",
+                "date": p.created_at.isoformat() if p.created_at else None
+            })
 
-        # Chart Data
-        # Monthly Revenue Trend
+        # Chart Trends
         monthly_rev_query = (
             db.query(
                 func.to_char(Payment.created_at, 'YYYY-MM').label('month'),
@@ -147,10 +250,9 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             .order_by('month')
             .all()
         )
-        monthly_revenue = [{"month": r.month, "amount": float(r.total or 0) / 100.0} for r in monthly_rev_query]
+        monthly_revenue = [{"month": r.month, "amount": float(r.total or 0)} for r in monthly_rev_query]
 
-        # Credit Consumption Trend
-        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        thirty_days_ago = now - timedelta(days=30)
         daily_credit_query = (
             db.query(
                 func.to_char(TokenLedger.created_at, 'YYYY-MM-DD').label('day'),
@@ -167,7 +269,6 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
         )
         daily_credits = [{"day": r.day, "credits": abs(float(r.total or 0))} for r in daily_credit_query]
 
-        # WCC Wallet Usage Trend
         daily_wcc_query = (
             db.query(
                 func.to_char(WCCTransaction.created_at, 'YYYY-MM-DD').label('day'),
@@ -183,7 +284,6 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
         )
         wcc_usage = [{"day": r.day, "amount": float(r.total or 0.0)} for r in daily_wcc_query]
 
-        # Subscription Growth
         sub_growth_query = (
             db.query(
                 func.to_char(Subscription.created_at, 'YYYY-MM').label('month'),
@@ -199,7 +299,6 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             cumulative += r.count
             sub_growth.append({"month": r.month, "active": cumulative})
 
-        # Payment Success vs Failure
         payment_stats = (
             db.query(
                 Payment.status.label('status'),
@@ -210,50 +309,78 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
         )
         success_vs_failure = [{"status": r.status.value, "count": r.count} for r in payment_stats]
 
-        # Credit Pack Sales
-        pack_sales = (
-            db.query(
-                TokenLedger.description.label('pack_name'),
-                func.count(TokenLedger.id).label('count'),
-                func.sum(TokenLedger.credits_delta).label('credits')
-            )
-            .filter(TokenLedger.entry_type == "purchase", TokenLedger.status == "posted")
-            .group_by('pack_name')
-            .all()
-        )
-        credit_pack_sales = [{"name": r.pack_name or "Unknown Pack", "sales": r.count, "credits": float(r.credits or 0)} for r in pack_sales]
-
         return {
+            # Structured modern fields
+            "revenue_overview": {
+                "total_revenue": total_revenue,
+                "subscription_revenue": sub_revenue,
+                "ai_credit_pack_revenue": ai_pack_revenue,
+                "wcc_recharge_revenue": wcc_revenue,
+                "flow_pack_revenue": flow_revenue,
+                "monthly_recurring_revenue": mrr,
+                "annual_recurring_revenue": arr,
+                "todays_revenue": todays_revenue,
+            },
+            "subscriptions_summary": {
+                "active": active_subscriptions,
+                "pending": pending_subscriptions,
+                "expired": expired_subscriptions,
+                "cancelled": cancelled_subscriptions,
+                "total_unique_workspaces": total_unique_workspaces,
+                "plan_breakdown": plan_breakdown
+            },
+            "gateways": gateway_breakdown,
+            "ai_credits": {
+                "credits_issued": credits_issued,
+                "credits_consumed": credits_consumed,
+                "credits_purchased": credits_purchased,
+                "net_credit_balance": net_credit_balance
+            },
+            "wcc": {
+                "wallet_balance": wcc_wallet_balance,
+                "recharge_revenue": wcc_revenue,
+                "session_debits": wcc_session_debits
+            },
+            "flow_packs": {
+                "sales_count": flow_pack_sales_count,
+                "revenue": flow_revenue,
+                "top_packs": top_flow_packs
+            },
+            "diagnostics_summary": {
+                "failed_webhooks": failed_webhooks_cnt,
+                "pending_recharges": pending_recharges_cnt,
+                "has_warnings": (failed_webhooks_cnt > 0 or pending_recharges_cnt > 0)
+            },
+            "recent_transactions": recent_transactions_list,
+
+            # Legacy compatibility fields
             "total_revenue": total_revenue,
+            "monthly_recurring_revenue": mrr,
+            "onetime_this_month": wcc_revenue + flow_revenue,
+            "arpu": total_revenue / active_subscriptions if active_subscriptions > 0 else 0.0,
             "active_subscriptions": active_subscriptions,
-            "trial_workspaces": trial_subscriptions,
+            "pending_checkouts": pending_subscriptions,
             "expired_subscriptions": expired_subscriptions,
+            "free_subscriptions": plan_breakdown.get("free", 0),
+            "pro_subscriptions": plan_breakdown.get("pro", 0),
+            "enterprise_subscriptions": plan_breakdown.get("enterprise", 0),
+            "cancelled_subscriptions": cancelled_subscriptions,
             "ai_credits_issued": credits_issued,
             "ai_credits_consumed": credits_consumed,
             "purchased_credits": credits_purchased,
             "wcc_wallet_balance": wcc_wallet_balance,
-            "wallet_recharge_revenue": wallet_recharge_revenue,
-            "overage_revenue": 0.0,
+            "wallet_recharge_revenue": wcc_revenue,
             "failed_payments": failed_payments,
             "pending_payments": pending_payments,
+            "pending_invoices": 0,
             "refund_count": refund_count,
-            "recent_invoices": [
-                {
-                    "id": str(inv.id),
-                    "customer_email": db.query(User.email).filter(User.id == db.query(Workspace.created_by).filter(Workspace.id == inv.workspace_id).scalar_subquery()).scalar() or "unknown",
-                    "amount": float(inv.amount) / 100.0,
-                    "date": inv.created_at.isoformat() if inv.created_at else None,
-                    "status": inv.status.value,
-                }
-                for inv in recent_invoices
-            ],
+            "recent_invoices": [],
             "charts": {
                 "monthly_revenue": monthly_revenue,
                 "daily_credits": daily_credits,
                 "wcc_usage": wcc_usage,
                 "subscription_growth": sub_growth,
-                "success_vs_failure": success_vs_failure,
-                "credit_pack_sales": credit_pack_sales
+                "success_vs_failure": success_vs_failure
             }
         }
     except Exception as e:
@@ -556,7 +683,7 @@ async def override_subscription(
     new_sub = Subscription(
         workspace_id=ws_uuid,
         plan_id=plan.id,
-        status=SubscriptionStatus.active if payload.status == "active" else SubscriptionStatus.trialing,
+        status=SubscriptionStatus.active if payload.status == "active" else SubscriptionStatus.pending,
         billing_cycle="monthly",
         is_admin_override=True,
         start_date=datetime.now(timezone.utc),

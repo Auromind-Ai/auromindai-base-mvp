@@ -359,3 +359,365 @@ class LLMRouter:
             return config["provider"]
         except Exception:
             return "groq"
+
+    async def generate_stream(self, prompt: str, model: str = "auto", feature_key: str = "chat", config: dict = None, system_prompt: Optional[str] = None):
+        if config is None:
+            experience_level = model
+            if model in ["sonnet", "gemini", "groq", "opus"]:
+                mapping = {
+                    "sonnet": "smart",
+                    "gemini": "flash",
+                    "groq": "fast",
+                    "opus": "deep"
+                }
+                experience_level = mapping.get(model, "auto")
+            elif model == "gemini_flash":
+                experience_level = "flash"
+
+            logger.info(f"LLMRouter routing streaming feature '{feature_key}' with experience '{experience_level}'")
+            config = self._get_config(feature_key, experience_level)
+        
+        provider = config["provider"]
+        try:
+            if provider == "claude":
+                if not config.get("api_key_env"):
+                    config["api_key_env"] = "ANTHROPIC_API_KEY"
+                if not config_service.get("anthropic_api_key"):
+                    raise Exception("Claude key missing")
+                async for chunk in self._claude_call_stream(prompt, config, system_prompt=system_prompt):
+                    yield chunk
+
+            elif provider == "openai":
+                if not config.get("api_key_env"):
+                    config["api_key_env"] = "OPENAI_API_KEY"
+                if not config_service.get("openai_api_key"):
+                    raise Exception("OpenAI key missing")
+                async for chunk in self._openai_call_stream(prompt, config, system_prompt=system_prompt):
+                    yield chunk
+
+            elif provider == "gemini":
+                if not config.get("api_key_env"):
+                    config["api_key_env"] = "GOOGLE_API_KEY"
+                if not config_service.get("google_api_key"):
+                    raise Exception("Gemini key missing")
+                async for chunk in self._gemini_call_stream(prompt, config, system_prompt=system_prompt):
+                    yield chunk
+
+            elif provider == "groq":
+                if not config.get("api_key_env"):
+                    config["api_key_env"] = "GROQ_API_KEY"
+                if not config_service.get("groq_api_key"):
+                    raise Exception("Groq key missing")
+                async for chunk in self._groq_call_stream(prompt, config, system_prompt=system_prompt):
+                    yield chunk
+            else:
+                raise ValueError(f"Unknown provider '{provider}'")
+        except Exception as provider_err:
+            err_msg = str(provider_err).lower()
+            if "not found" in err_msg or "model" in err_msg or "invalid" in err_msg or "bad_request" in err_msg:
+                raise ValueError(f"Provider API Configuration Error: Model '{config['model']}' not recognized by provider '{provider}'. Details: {provider_err}")
+            raise provider_err
+
+    async def _openai_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+        try:
+            api_key_env = config.get("api_key_env", "OPENAI_API_KEY")
+            api_key = self._get_api_key(api_key_env, "openai_api_key")
+            client = AsyncOpenAI(api_key=api_key)
+
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
+            create_kwargs = {
+                "model": config["model"],
+                "temperature": config["temperature"],
+                "max_tokens": config["max_tokens"],
+                "messages": messages,
+                "stream": True,
+                "stream_options": {"include_usage": True}
+            }
+
+            response = await client.chat.completions.create(**create_kwargs)
+
+            input_tokens = 0
+            output_tokens = 0
+            total_tokens = 0
+            finish_reason = None
+            accumulated_text = ""
+
+            try:
+                async for chunk in response:
+                    if chunk.choices:
+                        delta = chunk.choices[0].delta
+                        text = delta.content or ""
+                        if text:
+                            accumulated_text += text
+                            yield {"text": text}
+                        if chunk.choices[0].finish_reason:
+                            finish_reason = chunk.choices[0].finish_reason
+                    
+                    if chunk.usage:
+                        input_tokens = chunk.usage.prompt_tokens
+                        output_tokens = chunk.usage.completion_tokens
+                        total_tokens = chunk.usage.total_tokens
+            finally:
+                try:
+                    await response.close()
+                except Exception:
+                    pass
+
+            if total_tokens == 0:
+                words = len(accumulated_text.split())
+                output_tokens = int(words * 1.3)
+                input_tokens = int(len(prompt.split()) * 1.3)
+                total_tokens = input_tokens + output_tokens
+
+            yield {
+                "text": "",
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
+                "provider": "openai",
+                "model": config["model"],
+                "finish_reason": finish_reason,
+                "metadata": {}
+            }
+        except Exception as e:
+            raise Exception(f"OpenAI stream error: {e}")
+
+    async def _claude_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+        try:
+            api_key_env = config.get("api_key_env", "ANTHROPIC_API_KEY")
+            api_key = self._get_api_key(api_key_env, "anthropic_api_key")
+            client = AsyncAnthropic(api_key=api_key)
+
+            create_kwargs = {
+                "model": config["model"],
+                "max_tokens": config["max_tokens"],
+                "temperature": config["temperature"],
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": True
+            }
+
+            if system_prompt:
+                create_kwargs["system"] = system_prompt
+
+            response = await client.messages.create(**create_kwargs)
+
+            input_tokens = 0
+            output_tokens = 0
+            total_tokens = 0
+            finish_reason = None
+            accumulated_text = ""
+
+            try:
+                async for event in response:
+                    if event.type == "content_block_delta":
+                        text = event.delta.text or ""
+                        if text:
+                            accumulated_text += text
+                            yield {"text": text}
+                    elif event.type == "message_start":
+                        if hasattr(event.message, "usage"):
+                            input_tokens = event.message.usage.input_tokens
+                    elif event.type == "message_delta":
+                        if hasattr(event, "usage"):
+                            output_tokens = event.usage.output_tokens
+                        if hasattr(event, "delta") and hasattr(event.delta, "stop_reason"):
+                            finish_reason = event.delta.stop_reason
+            finally:
+                try:
+                    await response.close()
+                except Exception:
+                    pass
+
+            total_tokens = input_tokens + output_tokens
+            if total_tokens == 0:
+                words = len(accumulated_text.split())
+                output_tokens = int(words * 1.3)
+                input_tokens = int(len(prompt.split()) * 1.3)
+                total_tokens = input_tokens + output_tokens
+
+            yield {
+                "text": "",
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
+                "provider": "claude",
+                "model": config["model"],
+                "finish_reason": finish_reason,
+                "metadata": {}
+            }
+        except Exception as e:
+            raise Exception(f"Claude stream error: {e}")
+
+    async def _gemini_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+        try:
+            api_key_env = config.get("api_key_env", "GOOGLE_API_KEY")
+            if api_key_env == "GEMINI_API_KEY":
+                api_key_env = "GOOGLE_API_KEY"
+            api_key = self._get_api_key(api_key_env, "gemini_api_key")
+
+            client = genai.Client(api_key=api_key)
+
+            contents = [prompt]
+            generation_config = genai_types.GenerateContentConfig(
+                temperature=config["temperature"],
+                max_output_tokens=config["max_tokens"],
+                system_instruction=system_prompt if system_prompt else None,
+            )
+
+            def _stream_call():
+                return client.models.generate_content_stream(
+                    model=config["model"],
+                    contents=contents,
+                    config=generation_config,
+                )
+
+            stream = await asyncio.to_thread(_stream_call)
+
+            def _get_next(it):
+                try:
+                    return next(it), False
+                except StopIteration:
+                    return None, True
+
+            input_tokens = 0
+            output_tokens = 0
+            total_tokens = 0
+            accumulated_text = ""
+
+            try:
+                while True:
+                    chunk, done = await asyncio.to_thread(_get_next, stream)
+                    if done:
+                        break
+                    
+                    text = chunk.text or ""
+                    if text:
+                        accumulated_text += text
+                        yield {"text": text}
+                    
+                    usage = getattr(chunk, "usage_metadata", None)
+                    if usage:
+                        input_tokens = getattr(usage, "prompt_token_count", 0) or input_tokens
+                        output_tokens = getattr(usage, "candidates_token_count", 0) or output_tokens
+                        total_tokens = getattr(usage, "total_token_count", 0) or total_tokens
+            finally:
+                try:
+                    if hasattr(stream, "close"):
+                        stream.close()
+                except Exception:
+                    pass
+
+            if total_tokens == 0:
+                words = len(accumulated_text.split())
+                output_tokens = int(words * 1.3)
+                input_tokens = int(len(prompt.split()) * 1.3)
+                total_tokens = input_tokens + output_tokens
+
+            yield {
+                "text": "",
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
+                "provider": "gemini",
+                "model": config["model"],
+                "finish_reason": None,
+                "metadata": {}
+            }
+        except Exception as e:
+            raise Exception(f"Gemini stream error: {e}")
+
+    async def _groq_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+        try:
+            api_key_env = config.get("api_key_env", "GROQ_API_KEY")
+            api_key = self._get_api_key(api_key_env, "groq_api_key")
+
+            if system_prompt:
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ]
+            else:
+                messages = [{"role": "user", "content": prompt}]
+
+            create_kwargs = {
+                "model": config["model"],
+                "temperature": config["temperature"],
+                "max_tokens": config["max_tokens"],
+                "messages": messages,
+                "stream": True
+            }
+
+            def _stream_call():
+                client = Groq(api_key=api_key)
+                return client.chat.completions.create(**create_kwargs)
+
+            stream = await asyncio.to_thread(_stream_call)
+
+            def _get_next(it):
+                try:
+                    return next(it), False
+                except StopIteration:
+                    return None, True
+
+            input_tokens = 0
+            output_tokens = 0
+            total_tokens = 0
+            finish_reason = None
+            accumulated_text = ""
+
+            try:
+                while True:
+                    chunk, done = await asyncio.to_thread(_get_next, stream)
+                    if done:
+                        break
+
+                    if chunk.choices:
+                        text = chunk.choices[0].delta.content or ""
+                        if text:
+                            accumulated_text += text
+                            yield {"text": text}
+                        if chunk.choices[0].finish_reason:
+                            finish_reason = chunk.choices[0].finish_reason
+
+                    usage = getattr(chunk, "usage", None)
+                    if usage:
+                        input_tokens = usage.prompt_tokens or input_tokens
+                        output_tokens = usage.completion_tokens or output_tokens
+                        total_tokens = usage.total_tokens or total_tokens
+            finally:
+                try:
+                    if hasattr(stream, "close"):
+                        stream.close()
+                except Exception:
+                    pass
+
+            if total_tokens == 0:
+                words = len(accumulated_text.split())
+                output_tokens = int(words * 1.3)
+                input_tokens = int(len(prompt.split()) * 1.3)
+                total_tokens = input_tokens + output_tokens
+
+            yield {
+                "text": "",
+                "usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens
+                },
+                "provider": "groq",
+                "model": config["model"],
+                "finish_reason": finish_reason,
+                "metadata": {}
+            }
+        except Exception as e:
+            raise Exception(f"Groq error: {e}")
