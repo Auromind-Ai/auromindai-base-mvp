@@ -218,7 +218,8 @@ async def verify_otp(request_obj: Request, request: VerifyOTPRequest, response: 
             full_name=request.full_name,
             workspace_name=request.workspace_name,
             ip_address=ip_address,
-            device_info=device_info
+            device_info=device_info,
+            session_expiry_hours=request.session_expiry_hours
         )
 
         #  2FA gate — do NOT set cookie yet ─
@@ -229,12 +230,13 @@ async def verify_otp(request_obj: Request, request: VerifyOTPRequest, response: 
         token = result["access_token"]
         from app.core.config import settings
         
+        max_age_val = (request.session_expiry_hours * 3600) if request.session_expiry_hours else (settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
         set_auth_cookie(
             response=response,
             request=request_obj,
             key="auth_token",
             value=token,
-            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            max_age=max_age_val,
         )
         return result
     except ValueError as e:
@@ -283,13 +285,14 @@ import urllib.parse
 import httpx
 
 @router.get("/google/login")
-async def google_login(request: Request, type: str = "login"):
+async def google_login(request: Request, type: str = "login", session_expiry_hours: Optional[int] = None):
     import secrets
   
     redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
 
     state_token = secrets.token_urlsafe(32)
-    state = f"{state_token}:{type}"
+    expiry_part = f":{session_expiry_hours}" if session_expiry_hours else ""
+    state = f"{state_token}:{type}{expiry_part}"
 
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth?"
@@ -330,9 +333,12 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
     #     return response
 
     try:
-        _, auth_type = state.split(":", 1)
+        parts = state.split(":", 2)
+        auth_type = parts[1] if len(parts) > 1 else "login"
+        session_expiry_hours = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
     except ValueError:
         auth_type = "login"
+        session_expiry_hours = None
 
     if not code:
         response = RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
@@ -380,18 +386,20 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             full_name=full_name,
             auth_type=auth_type,
             ip_address=ip_address,
-            device_info=device_info
+            device_info=device_info,
+            session_expiry_hours=session_expiry_hours
         )
        
         jwt_token = result["access_token"]
         response = RedirectResponse(url=f"{frontend_url}/login#token={jwt_token}")
         
+        max_age_val = (session_expiry_hours * 3600) if session_expiry_hours else (settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
         set_auth_cookie(
             response=response,
             request=request,
             key="auth_token",
             value=jwt_token,
-            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            max_age=max_age_val,
         )
         delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
         return response

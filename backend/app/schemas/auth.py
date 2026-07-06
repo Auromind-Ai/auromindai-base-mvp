@@ -39,4 +39,6 @@ class VerifyOTPRequest(BaseModel):
     auth_type: str
     full_name: str | None = None
     workspace_name: str | None = None
+    session_expiry_hours: int | None = None
+
 
