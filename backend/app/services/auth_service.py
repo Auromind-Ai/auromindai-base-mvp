@@ -4,6 +4,8 @@ from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.auth import get_password_hash, verify_password, create_access_token
 from app.services.platform_settings_service import get_setting
 import uuid
+from datetime import timedelta
+from typing import Optional
 
 
 class AuthService:
