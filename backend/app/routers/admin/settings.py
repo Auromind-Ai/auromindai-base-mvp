@@ -8,7 +8,9 @@ from app.models.admin_audit_log import AdminAuditLog
 from jose import jwt
 from app.core.config import settings as core_settings
 from app.services.platform_settings_service import get_prospective_settings
-
+import time
+import boto3
+from botocore.config import Config
 router = APIRouter()
 
 SENSITIVE_MASK = "••••••••"
@@ -398,9 +400,6 @@ async def test_s3_connection(
     updates: Dict[str, Any],
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
-    import time
-    import boto3
-    from botocore.config import Config
     
     start_time = time.time()
     admin_user, ip = _get_audit_details(request)

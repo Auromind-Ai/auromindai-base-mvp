@@ -1417,3 +1417,254 @@ TOTAL TOKENS USED: 2077
 Final Reply Text: "**Meeting Agenda Template**\n\nA well-structured meeting agenda is essential for productive discussions and effective decision-making. Below is a general template that can be tailored to suit various meeting types.\n\n### I. Meeting Details\n\n- **Meeting Name:** [Specify the meeting name or purpose]\n- **Date:** [Insert Date]\n- **Time:** [Insert Time]\n- **Location:** [Insert Location/Virtual Meeting Link]\n- **Attendees:** [List names and titles of attendees]\n\n### II. Agenda\n\n1. **Introduction and Objectives** (5 minutes)\n   - Brief overview of the meeting's purpose and expected outcomes.\n\n2. **Review of Previous Action Items** (10 minutes)\n   - Discuss the status of action items from previous meetings.\n\n3. **Main Discussion Topics** (Variable time)\n   - **Topic 1:** [Insert topic name] (Discussion, Decision, or Information Sharing)\n   - **Topic 2:** [Insert topic name] (Discussion, Decision, or Information Sharing)\n   - ...\n\n4. **New Business/Additional Topics** (Variable time)\n   - Open discussion on any new topics not previously listed.\n\n5. **Conclusion and Next Steps** (5 minutes)\n   - Recap the decisions made and outline the action items.\n\n6. **Adjournment** (1 minute)\n   - Official end of the meeting.\n\n### III. Action Items and Decisions\n\n- **Responsibilities:** List who is responsible for each action item.\n- **Deadlines:** Specify deadlines for completing action items.\n\n### IV. Documentation and Follow-Up\n\n- Ensure meeting minutes are taken and distributed to attendees.\n- Schedule a follow-up meeting if necessary.\n\n### Tips for Writing a Meeting Agenda:\n\n- **Be Clear:** Ensure each agenda item is clearly described.\n- **Prioritize:** Order agenda items by priority or logical flow.\n- **Time Management:** Allocate realistic time slots for each item.\n\nAdjust this template according to the specific needs and goals of your meeting. Effective agendas lead to more productive meetings and better outcomes.\n\nFollow-up question:\nHow can I customize this template for a virtual meeting?"
 Final Reply Token Count (Estimate): 292
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-29T10:57:10.547420Z
+User Query: 'Analyze PDFs or images'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 322
+   Input/Query Tokens: 13
+   Output Tokens: 5
+   Total Tokens: 340
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Analyze PDFs or images
+
+        Rewritten Query:
+   [LLM Output Snippet]: Analyze PDFs and images
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 580
+   Input/Query Tokens: 14
+   Output Tokens: 3
+   Total Tokens: 597
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Analyze PDFs and images
+
+    Selected Tool:
+   [LLM Output Snippet]: reasoning
+
+3. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 184
+   Input/Query Tokens: 13
+   Output Tokens: 545
+   Total Tokens: 742
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    Analyze PDFs or images
+
+    Final Answer:
+   [LLM Output Snippet]: **Analysis of PDFs or Images: Capabilities and Approaches**  Analyzing PDFs or images involves extra...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 87
+   Input/Query Tokens: 572
+   Output Tokens: 13
+   Total Tokens: 672
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Analyze PDFs or images          Answer:         **Analysis of PDFs or Images: Cap...
+   [LLM Output Snippet]: What are common challenges in image analysis with machine learning models?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1173
+Total Input/Query Tokens: 612
+Total Output Tokens: 566
+TOTAL TOKENS USED: 2351
+-----------------------------------------
+Final Reply Text: "**Analysis of PDFs or Images: Capabilities and Approaches**\n\nAnalyzing PDFs or images involves extracting insights, understanding content, and interpreting data within these files. The approach to analysis depends on the nature of the content and the goals of the analysis.\n\n### **For PDFs:**\n\n1. **Text Analysis:** Utilize Optical Character Recognition (OCR) tools to convert scanned or image-based PDFs into editable text. Then, apply natural language processing (NLP) techniques to analyze the text for sentiment, entities, topics, or summarization.\n2. **Structural Analysis:** Examine the layout, formatting, and structural elements (like headers, footers, and page numbers) to understand the document's organization.\n3. **Content Extraction:** Extract specific data, such as tables, images, or metadata, for further analysis.\n\n### **For Images:**\n\n1. **Visual Content Analysis:** Use computer vision techniques to identify objects, scenes, and actions within images. This can include image classification, object detection, and segmentation.\n2. **Metadata Analysis:** Examine EXIF data and other metadata associated with images to gather information about the camera used, date taken, location, and more.\n3. **Quality and Integrity Analysis:** Assess the image quality, integrity, and authenticity to detect potential alterations or manipulations.\n\n### **Tools and Techniques:**\n\n- **Machine Learning (ML) and Deep Learning (DL):** ML/DL models, especially those based on convolutional neural networks (CNNs), are highly effective for image analysis tasks.\n- **Natural Language Processing (NLP):** For text within PDFs or images, NLP techniques are crucial for understanding and extracting meaningful insights.\n- **Specialized Software:** Utilize tools like Adobe Acrobat for PDF manipulation, and software like TensorFlow or PyTorch for developing custom image analysis models.\n\n### **Applications:**\n\n- **Document Digitization and Indexing:** For easier retrieval and management of physical documents converted into digital formats.\n- **Content Moderation:** Automatically analyze images and text for inappropriate content.\n- **Data Extraction:** Automate the extraction of specific data from documents and images for business processes.\n\n### **Challenges:**\n\n- **Accuracy:** Achieving high accuracy, especially with poor-quality scans or images.\n- **Privacy and Security:** Handling sensitive information within documents and images.\n- **Scalability:** Efficiently processing large volumes of PDFs and images.\n\n### **Future Directions:**\n\n- **Integration of Multimodal AI:** Combining text and image analysis for more comprehensive insights.\n- **Edge AI:** Analyzing PDFs and images directly on devices, reducing reliance on cloud computing.\n\nBy understanding the capabilities, approaches, and challenges associated with analyzing PDFs or images, organizations can leverage these techniques to automate processes, gain insights, and make more informed decisions.\n\nFollow-up question:\nWhat are common challenges in image analysis with machine learning models?"
+Final Reply Token Count (Estimate): 410
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-06-30T10:31:16.225379Z
+User Query: 'Broadcast'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 324
+   Input/Query Tokens: 8
+   Output Tokens: 3
+   Total Tokens: 335
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        Broadcast
+
+        Rewritten Query:
+   [LLM Output Snippet]: Broadcasting
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 582
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 594
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    Broadcasting
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 102
+   Input/Query Tokens: 949
+   Output Tokens: 170
+   Total Tokens: 1221
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              Broadcast              Context:                                      Title: B...
+   [LLM Output Snippet]: Broadcasting refers to the distribution of audio or audiovisual content to dispersed audiences via a...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 92
+   Input/Query Tokens: 212
+   Output Tokens: 12
+   Total Tokens: 316
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          Broadcast          Answer:                      Broadcasting refers to the distri...
+   [LLM Output Snippet]: What are the advantages of internet streaming over traditional broadcasting?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1100
+Total Input/Query Tokens: 1178
+Total Output Tokens: 188
+TOTAL TOKENS USED: 2466
+-----------------------------------------
+Final Reply Text: '\n            Broadcasting refers to the distribution of audio or audiovisual content to dispersed audiences via an electronic mass communications medium, typically using radio waves in a one-to-many model. This technology allows for simultaneous communication to multiple recipients.\n\nKey aspects of broadcasting include:\n* Distribution of content through electromagnetic waves in the radio frequency spectrum\n* One-to-many communication model, distinct from wired or point-to-point systems\n* Regulated allocation of spectrum frequencies to prevent interference\n* Origins in experiments with wireless telegraphy by Guglielmo Marconi in the late 19th and early 20th centuries\n\nExamples of broadcasting include:\n* Radio and television transmissions\n* Over-the-air broadcasting\n* Cable television\n\nTraditional broadcasting offers broad reach and reliability, particularly for emergency alerts and live events. However, it faces challenges from internet streaming, which provides on-demand content.\n\n            Sources:\n            • en.wikipedia.org\n• grokipedia.com\n• geeksforgeeks.org\n            \n\nFollow-up question:\nWhat are the advantages of internet streaming over traditional broadcasting?'
+Final Reply Token Count (Estimate): 149
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-07-01T10:55:28.914989Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 321
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 345
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What is new in Aura AI?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 579
+   Input/Query Tokens: 17
+   Output Tokens: 3
+   Total Tokens: 599
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What is new in Aura AI?
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 111
+   Input/Query Tokens: 1078
+   Output Tokens: 210
+   Total Tokens: 1399
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: There are multiple entities with the name "Aura" and they seem to be unrelated.   **Aura the AI Agen...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 87
+   Input/Query Tokens: 261
+   Output Tokens: 16
+   Total Tokens: 364
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      There are multiple ...
+   [LLM Output Snippet]: What specific features does Aura AI offer for game developers in its public beta?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1098
+Total Input/Query Tokens: 1372
+Total Output Tokens: 237
+TOTAL TOKENS USED: 2707
+-----------------------------------------
+Final Reply Text: '\n            There are multiple entities with the name "Aura" and they seem to be unrelated. \n\n**Aura the AI Agent for Unreal Engine and Unity:**\nAura is an AI agent designed for game developers, supporting Unreal Engine and Unity. It helps with tasks such as prototyping 3D assets, creating and editing Blueprints, C++, and C# classes, and provides real-time assistance. The current status is that Aura is out now in public beta.\n\n**Aura Intelligence:**\nAura Intelligence has recently updated its platform, which is focused on workforce intelligence. The update includes a strategic collaboration with Anthropic, using their Claude AI model to provide more accurate and in-depth workforce analytics.\n\n**Aura (Scam Call and Text Protection):**\nAura has also introduced an AI-powered Call Assistant to protect users from phone and text scams.\n\nNo recent information found about a single, specific "new" feature in Aura AI that applies to all of them. If you could provide more context about which Aura you are referring to, I may be able to provide more information.\n\n            Sources:\n            • tryaura.dev\n• aura.com\n• prnewswire.com\n            \n\nFollow-up question:\nWhat specific features does Aura AI offer for game developers in its public beta?'
+Final Reply Token Count (Estimate): 191
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-07-01T11:14:44.577538Z
+User Query: 'What is new in aura AI?'
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 321
+   Input/Query Tokens: 16
+   Output Tokens: 8
+   Total Tokens: 345
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query: 
+        What is new in aura AI?
+
+        Rewritten Query:
+   [LLM Output Snippet]: What is new in Aura AI?
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 579
+   Input/Query Tokens: 17
+   Output Tokens: 3
+   Total Tokens: 599
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    What is new in Aura AI?
+
+    Selected Tool:
+   [LLM Output Snippet]: web_search
+
+3. Function: orchestrator_layer.py:_agent_loop_internal
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 111
+   Input/Query Tokens: 1078
+   Output Tokens: 168
+   Total Tokens: 1357
+   [Sys Prompt Snippet]: You are a professional AI assistant.                            Your task is to answer the user's qu...
+   [User Input Snippet]: Question:              What is new in aura AI?              Context:                                ...
+   [LLM Output Snippet]: There are multiple entities with the name "Aura" and their information seems to be unrelated.   Aura...
+
+4. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: meta-llama/llama-4-scout-17b-16e-instruct
+   System Prompt Tokens: 88
+   Input/Query Tokens: 218
+   Output Tokens: 16
+   Total Tokens: 322
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:          What is new in aura AI?          Answer:                      There are multiple ...
+   [LLM Output Snippet]: What benefits do game developers gain from using Aura AI's Blueprint creation feature?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 4
+Total System Tokens: 1099
+Total Input/Query Tokens: 1329
+Total Output Tokens: 195
+TOTAL TOKENS USED: 2623
+-----------------------------------------
+Final Reply Text: '\n            There are multiple entities with the name "Aura" and their information seems to be unrelated. \n\nAura, the AI Agent for Unreal Engine and Unity, is now in public beta and helps game developers by handling tedious work, such as batch editing, debugging, and optimization, allowing them to stay in flow. It also turns written ideas into Blueprints, creating and editing gameplay systems.\n\nAura Intelligence has released a platform update that redefines workforce analytics, delivering unprecedented accuracy and depth, powered by Anthropic\'s Claude AI Model.\n\nAura, which provides AI-powered scam call and text protection, has introduced a new feature called Call Assistant, which answers calls from unknown numbers, filters out unwanted spam and scam calls, and only forwards legitimate inquiries to the user.\n\nNo recent information found about a single, specific "new" thing in Aura AI overall.\n\n            Sources:\n            • tryaura.dev\n• aura.com\n• prnewswire.com\n            \n\nFollow-up question:\nWhat benefits do game developers gain from using Aura AI\'s Blueprint creation feature?'
+Final Reply Token Count (Estimate): 158
+=========================================

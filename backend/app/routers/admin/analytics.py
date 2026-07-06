@@ -9,6 +9,7 @@ from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.workspace import Workspace
 from app.core.metrics import get_metrics
+from app.routers.admin.system import get_queue_depth, get_cache_hit_rate
 
 router = APIRouter()
 
@@ -27,9 +28,6 @@ async def get_analytics(db: Session = Depends(get_db)) -> Dict[str, Any]:
         verified_users = 0
         
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        trial_users = db.query(func.count(User.id)).filter(
-            User.created_at > thirty_days_ago
-        ).scalar() or 0
         
         # Count new users in last 7 days
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
@@ -75,7 +73,7 @@ async def get_analytics(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "active_users_30d": active_users,
 
             "verified_users": verified_users,
-            "trial_users": trial_users,
+            "trial_users": 0,
 
             "total_conversations": total_conversations,
             "avg_messages_per_conv": round(avg_messages, 2),
@@ -83,8 +81,8 @@ async def get_analytics(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "api_calls_month": metrics["total_api_calls"],
             "conversations_today": conversations_today,
 
-            "cache_hit_rate": 92.4,
-            "queue_depth": 12,
+            "cache_hit_rate": get_cache_hit_rate(),
+            "queue_depth": get_queue_depth(),
 
             "mrr": 9800,
             "one_time_revenue": 5520,

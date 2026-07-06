@@ -26,6 +26,7 @@ celery_app.conf.update(
     imports=[
     "app.workers.flow_execution",
     "app.workers.scoring_worker",
+    "app.workers.billing_worker",
 ],
 
     # Reliability
@@ -77,8 +78,16 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(hour=0, minute=0),
     },
     "wcc-daily-reconciliation": {
-        "task": "app.workers.scoring_worker.wcc_daily_reconciliation",
+        "task": "app.workers.billing_worker.wcc_daily_reconciliation",
         "schedule": crontab(hour=1, minute=0),
+    },
+    "cleanup-abandoned-pending-subscriptions": {
+        "task": "app.workers.billing_worker.cleanup_abandoned_pending_subscriptions",
+        "schedule": crontab(hour=4, minute=0),
+    },
+    "cleanup-expired-subscriptions": {
+        "task": "app.workers.billing_worker.cleanup_expired_subscriptions",
+        "schedule": crontab(hour=5, minute=0),
     },
 }
 

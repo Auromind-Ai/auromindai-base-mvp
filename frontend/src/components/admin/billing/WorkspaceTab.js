@@ -585,7 +585,7 @@ export default function WorkspaceTab({
                       className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none"
                     >
                       <option value="active">Active</option>
-                      <option value="trialing">Trialing</option>
+                      <option value="pending">Pending</option>
                     </select>
                   </div>
 
