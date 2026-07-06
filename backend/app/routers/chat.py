@@ -147,6 +147,11 @@ async def stream_chat(
                 source=request.source,
             ),
             media_type="application/x-ndjson",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            },
         )
     except Exception as e:
         logger.error(f"[STREAM CHAT] error: {e}")

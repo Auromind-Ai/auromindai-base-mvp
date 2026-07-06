@@ -392,6 +392,7 @@ class ChatService:
 
         db = SessionLocal()
         try:
+            yield f"{json.dumps({'meta': {'status': 'processing'}})}\n"
             async for chunk in AIExecutionService.execute_stream(
                 db=db,
                 workspace_id=workspace_id,

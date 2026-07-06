@@ -436,6 +436,9 @@ export default function AuromindAIPage() {
                             fullText = fullText + data.content;
                             const captured = fullText;
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
+                        } else if (data.meta) {
+                            const meta = data.meta;
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta } : msg));
                         } else if (data.error) {
                             const errorMsg = data.error.includes('429') || data.error.includes('quota')
                                 ? "⚠️ API rate limit exceeded. Please wait a moment and try again."
@@ -489,11 +492,37 @@ export default function AuromindAIPage() {
         } catch (err) { console.error('Failed to copy text: ', err); }
     };
 
-    const handleFeedback = (index, type) => {
+    const handleFeedback = async (index, type) => {
+        const assistantMsg = messages[index];
+        const userMsg = messages[index - 1];
+        if (!assistantMsg || !userMsg) return;
+
+        const newFeedbackType = feedbackMap[index] === type ? null : type;
         setFeedbackMap(prev => ({
             ...prev,
-            [index]: prev[index] === type ? null : type  // toggle off if same
+            [index]: newFeedbackType
         }));
+
+        if (!newFeedbackType) return;
+
+        try {
+            await api.post('/feedback', {
+                workspace_id: workspaceId || "00000000-0000-0000-0000-000000000000",
+                query: userMsg.content,
+                rewritten_query: assistantMsg.meta?.rewritten_query || userMsg.content,
+                tool: assistantMsg.meta?.tool || "unknown",
+                answer: assistantMsg.content,
+                feedback: type === 'like' ? 'up' : 'down',
+                model: assistantMsg.meta?.model || selectedModel || "unknown",
+                latency_ms: assistantMsg.meta?.latency_ms || 0,
+                confidence_score: assistantMsg.meta?.confidence_score || 0.5,
+                source: assistantMsg.meta?.source || "unknown",
+                session_id: activeSessionId
+            });
+            console.log("Feedback recorded successfully");
+        } catch (err) {
+            console.error("Failed to submit feedback:", err);
+        }
     };
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
@@ -564,6 +593,9 @@ export default function AuromindAIPage() {
                             const captured = fullText;
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
                             lastTypedTextRef.current = fullText;
+                        } else if (data.meta) {
+                            const meta = data.meta;
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta } : msg));
                         }
                     } catch (e) {}
                 }
@@ -612,6 +644,9 @@ export default function AuromindAIPage() {
                             const captured = fullText;
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
                             lastTypedTextRef.current = fullText;
+                        } else if (data.meta) {
+                            const meta = data.meta;
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta } : msg));
                         }
                     } catch (e) {}
                 }

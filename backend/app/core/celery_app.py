@@ -107,9 +107,9 @@ def preload_rag_models(**kwargs):
         log.error("[Celery PID %d] Failed to dispose parent connection pool: %s", pid, exc)
 
     try:
-        from app.services.agentic_rag.rag_service import get_rag_service
-        get_rag_service()
-        log.info("[Celery PID %d] RAG models preloaded successfully.", pid)
+        # from app.services.agentic_rag.rag_service import get_rag_service
+        # get_rag_service()
+        log.info("[Celery PID %d] RAG model preloading skipped to prevent CPU spikes.", pid)
     except Exception as exc:
         log.warning(
             "[Celery PID %d] RAG preload failed (non-critical, will load on first task): %s",
