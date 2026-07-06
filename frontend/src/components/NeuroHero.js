@@ -224,7 +224,7 @@ export default function NeuroHero() {
                   className="absolute inset-0 transition-opacity duration-300"
                   style={{ opacity: stage === 2 ? 1 : 0 }}
                 >
-                  <AutoVideo src="/animations/stage7.mp4" active={stage === 2} />
+                  <AutoVideo src="/animations/stage77.mp4" active={stage === 2} />
                 </div>
 
                 <div

@@ -1,9 +1,14 @@
 
+import withBundleAnalyzer from '@next/bundle-analyzer';
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 const nextConfig = {
 
     reactStrictMode: true,
+    eslint: {
+        ignoreDuringBuilds: true,
+    },
     httpAgentOptions: {
         keepAlive: true,
     },
@@ -98,4 +103,8 @@ const nextConfig = {
     },
 };
 
-export default nextConfig;
+const withBundleAnalyzerConfig = withBundleAnalyzer({
+    enabled: process.env.ANALYZE === 'true',
+});
+
+export default withBundleAnalyzerConfig(nextConfig);

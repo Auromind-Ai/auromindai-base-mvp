@@ -142,7 +142,7 @@ export default function BillingHistoryPage() {
   }, [pricing, billing])
 
   return (
-    <section style={{ minHeight: "100vh", background: "#0d0d0f", padding: "28px 32px", color: "#fff", fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
+    <section className="min-h-screen bg-[#0d0d0f] text-white p-4 sm:p-6 md:p-8" style={{ fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
       {/* Page Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: "#fff", margin: 0, letterSpacing: "-0.3px" }}>Billing</h1>
@@ -158,7 +158,7 @@ export default function BillingHistoryPage() {
       )}
 
       {/* Top Row: Current Plan + Plan Details */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Current Plan Card */}
         <div style={cardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -261,7 +261,7 @@ export default function BillingHistoryPage() {
       </div>
 
       {/* Middle Row: Usage Summary + Recent Activity */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Usage Summary */}
         <div style={cardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
@@ -348,8 +348,8 @@ export default function BillingHistoryPage() {
           </div>
         ) : (
           <>
-            <div style={{ borderRadius: 12, overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <div className="overflow-x-auto rounded-xl border border-white/5 bg-[#070012]">
+              <table style={{ width: "100%", minWidth: "800px", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: "rgba(255,255,255,0.04)" }}>
                     {["Date", "Description", "Amount", "Status", "Payment ID", "Invoice"].map(h => (

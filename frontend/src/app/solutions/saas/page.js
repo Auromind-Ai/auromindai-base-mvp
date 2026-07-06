@@ -1,11 +1,16 @@
-'use client';
 
-import { motion } from 'framer-motion';
+import { MotionDiv, MotionH1, MotionP, MotionSpan } from '@/components/ui/MotionWrapper';
 import Image from 'next/image';
 import Link from 'next/link';
 import NavigationSection from '@/components/LandingPageNew/NavigationSection/NavigationSection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 import { Layers, Database, Compass, Sliders, LineChart, CheckCircle2, ArrowRight } from 'lucide-react';
+
+
+export const metadata = {
+  title: "AI SaaS Solutions - Optimize Conversions & API Support | Auromind",
+  description: "Accelerate your SaaS pipeline. Deploy Auromind's conversational AI agents to resolve API questions, pre-qualify trial signups, and schedule enterprise demos."
+};
 
 export default function SaaSPage() {
   const containerVariants = {
@@ -53,8 +58,8 @@ export default function SaaSPage() {
 
   return (
     <main className="min-h-screen bg-[#050505] text-white relative overflow-x-hidden">
-      <title>AI SaaS Solutions - Optimize Conversions & API Support | Auromind</title>
-      <meta name="description" content="Accelerate your SaaS pipeline. Deploy Auromind's conversational AI agents to resolve API questions, pre-qualify trial signups, and schedule enterprise demos." />
+      
+      
 
       {/* Background radial glows */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
@@ -62,40 +67,40 @@ export default function SaaSPage() {
 
       <NavigationSection />
 
-      <motion.div 
+      <MotionDiv 
         variants={containerVariants}
         initial="hidden"
         animate="visible"
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 relative z-10"
       >
         {/* Tag */}
-        <motion.div variants={itemVariants} className="flex justify-center lg:justify-start">
+        <MotionDiv variants={itemVariants} className="flex justify-center lg:justify-start">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-xs font-semibold tracking-wider text-indigo-300 uppercase mb-6">
             <Layers className="w-3.5 h-3.5" /> Industry Solutions
           </span>
-        </motion.div>
+        </MotionDiv>
 
         {/* Hero Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           
           {/* Left Column: Content */}
           <div className="lg:col-span-7 space-y-8 text-center lg:text-left">
-            <motion.h1 
+            <MotionH1 
               variants={itemVariants}
               className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1]"
             >
               Scale SaaS Funnels & <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-violet-400 bg-clip-text text-transparent">Developer Support</span>
-            </motion.h1>
+            </MotionH1>
 
-            <motion.p 
+            <MotionP 
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
               Streamline trial signup workflows. Deploy Auromind conversational AI agents on Instagram and WhatsApp to resolve API documentation questions, pre-qualify prospects, and book product demo meetings automatically.
-            </motion.p>
+            </MotionP>
 
             {/* CTA Buttons */}
-            <motion.div variants={itemVariants} className="flex flex-wrap justify-center lg:justify-start gap-4">
+            <MotionDiv variants={itemVariants} className="flex flex-wrap justify-center lg:justify-start gap-4">
               <Link
                 href="/signup"
                 className="inline-flex items-center justify-center h-12 px-6 rounded-lg bg-[#814AC8] hover:bg-[#8d58d1] font-semibold text-white shadow-lg shadow-indigo-900/30 transition-all hover:-translate-y-0.5"
@@ -108,10 +113,10 @@ export default function SaaSPage() {
               >
                 Watch Flow Video
               </Link>
-            </motion.div>
+            </MotionDiv>
 
             {/* Quick Checklist */}
-            <motion.div 
+            <MotionDiv 
               variants={itemVariants}
               className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-white/5 text-left max-w-xl mx-auto lg:mx-0"
             >
@@ -131,11 +136,11 @@ export default function SaaSPage() {
                 <CheckCircle2 className="w-4.5 h-4.5 text-indigo-400 flex-shrink-0" />
                 <span>Real-time technical developer support routing</span>
               </div>
-            </motion.div>
+            </MotionDiv>
           </div>
 
           {/* Right Column: Visual Mockup */}
-          <motion.div 
+          <MotionDiv 
             variants={itemVariants}
             className="lg:col-span-5 relative group"
           >
@@ -150,19 +155,19 @@ export default function SaaSPage() {
                 priority
               />
             </div>
-          </motion.div>
+          </MotionDiv>
         </div>
 
         {/* Feature Highlights Grid */}
         <div id="demo" className="mt-32 pt-16 border-t border-white/5">
-          <motion.div variants={itemVariants} className="text-center max-w-3xl mx-auto mb-16">
+          <MotionDiv variants={itemVariants} className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl font-bold">Comprehensive Product Funnel Automation</h2>
             <p className="text-white/60 mt-4">Qualify SaaS applications, resolve API doc lookups, and scale subscriber conversions.</p>
-          </motion.div>
+          </MotionDiv>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((f, i) => (
-              <motion.div 
+              <MotionDiv 
                 key={i} 
                 variants={itemVariants}
                 className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 hover:bg-white/[0.04] transition-all hover:border-white/10"
@@ -172,13 +177,13 @@ export default function SaaSPage() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{f.title}</h3>
                 <p className="text-sm text-white/50 leading-relaxed">{f.description}</p>
-              </motion.div>
+              </MotionDiv>
             ))}
           </div>
         </div>
 
         {/* Final Page CTA */}
-        <motion.div 
+        <MotionDiv 
           variants={itemVariants}
           className="mt-32 rounded-3xl border border-indigo-500/20 bg-gradient-to-r from-indigo-950/20 via-black to-purple-950/20 p-8 md:p-12 lg:p-16 text-center relative overflow-hidden"
         >
@@ -193,9 +198,9 @@ export default function SaaSPage() {
           >
             Scale Your Product Funnel <ArrowRight className="w-4 h-4" />
           </Link>
-        </motion.div>
+        </MotionDiv>
 
-      </motion.div>
+      </MotionDiv>
 
       <FooterSection />
     </main>

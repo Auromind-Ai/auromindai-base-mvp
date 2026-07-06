@@ -21,6 +21,8 @@ const NotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
 
   const fetchNotifications = async () => {
     try {
@@ -42,6 +44,14 @@ const NotificationBell = () => {
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
+      // Compute fixed position from button rect
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right,
+        });
+      }
     }
   }, [isOpen]);
 
@@ -117,10 +127,17 @@ const NotificationBell = () => {
     }
   };
 
+  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const panelStyle = isMobile
+    ? { top: dropdownPos.top, left: 16, right: 16 }
+    : { top: dropdownPos.top, right: dropdownPos.right };
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
       <div
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
       >
@@ -138,7 +155,8 @@ const NotificationBell = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+            className="fixed max-w-80 sm:w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+            style={panelStyle}
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/15 bg-white/[0.02]">
