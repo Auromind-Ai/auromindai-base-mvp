@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles, AlertTriangle } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles, AlertTriangle, Clock, ChevronDown } from 'lucide-react';
 import { setToken, setUser, setWorkspace, isAuthenticated, getUser } from '@/lib/auth';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -79,6 +79,7 @@ function LoginContent() {
     const [deletionDate, setDeletionDate] = useState('');
     const [cancelRestoreLoading, setCancelRestoreLoading] = useState(false);
     const [showCanvas, setShowCanvas] = useState(false);
+    const [sessionExpiryHours, setSessionExpiryHours] = useState(24); // 24 hours secure default
 
     useEffect(() => {
         // Delay mounting of 3D Canvas until after initial form animations finish
@@ -159,7 +160,7 @@ function LoginContent() {
         setError('');
         setLoading(true);
         try {
-            const data = await api.verifyOTP(email, otp, 'login');
+            const data = await api.verifyOTP(email, otp, 'login', null, null, sessionExpiryHours);
             //  2FA gate ─
             if (data?.requiresTwoFactor) {
                 setPendingToken(data.pending_token);
@@ -407,7 +408,7 @@ function LoginContent() {
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => api.googleLogin('login')}
+                                        onClick={() => api.googleLogin('login', sessionExpiryHours)}
                                         className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-2xl py-4 flex items-center justify-center gap-3 text-gray-900 font-semibold text-[15px] transition-all duration-300 shadow-[0_4px_14px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_20px_rgba(255,255,255,0.15)]"
                                     >
                                         <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -448,6 +449,32 @@ function LoginContent() {
                                                         transition: 'background-color 99999s ease-in-out 0s',
                                                     }}
                                                 />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[13px] font-medium text-white/60 ml-1 uppercase tracking-wider">Session Duration</label>
+                                        <div className="relative group">
+                                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/30 to-fuchsia-500/30 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500" />
+                                            <div className="relative bg-[#111] rounded-2xl flex items-center border border-white/5 overflow-hidden transition-all duration-300 group-focus-within:border-indigo-500/50 group-focus-within:bg-[#151515] group-hover:border-white/10">
+                                                <div className="pl-4 pr-3 text-white/30 group-focus-within:text-indigo-400 transition-colors duration-300">
+                                                    <Clock size={18} strokeWidth={2} />
+                                                </div>
+                                                <select
+                                                    value={sessionExpiryHours}
+                                                    onChange={(e) => setSessionExpiryHours(Number(e.target.value))}
+                                                    className="w-full bg-transparent py-4 pr-10 text-white focus:outline-none text-[15px] cursor-pointer appearance-none"
+                                                    style={{ colorScheme: 'dark' }}
+                                                >
+                                                    <option value={8}>8 Hours (Secure / Shift)</option>
+                                                    <option value={24}>24 Hours (1 Day)</option>
+                                                    <option value={168}>7 Days (1 Week)</option>
+                                                    <option value={720}>30 Days (1 Month)</option>
+                                                </select>
+                                                <div className="absolute right-4 text-white/30 pointer-events-none">
+                                                    <ChevronDown size={16} />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

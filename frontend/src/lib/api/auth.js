@@ -5,13 +5,14 @@ export async function sendOTP(email, auth_type) {
   return client.post('/auth/send-otp', { email, auth_type });
 }
 
-export async function verifyOTP(email, otp, auth_type = 'login', full_name = null, workspace_name = null) {
+export async function verifyOTP(email, otp, auth_type = 'login', full_name = null, workspace_name = null, session_expiry_hours = null) {
   return client.post('/auth/verify-otp', {
     email,
     otp,
     auth_type,
     full_name,
-    workspace_name
+    workspace_name,
+    session_expiry_hours
   });
 }
 
@@ -28,9 +29,10 @@ export async function login(email) {
   return client.post('/auth/send-otp', { email });
 }
 
-export function googleLogin(type = 'login') {
+export function googleLogin(type = 'login', session_expiry_hours = null) {
   if (typeof window !== 'undefined') {
-    window.location.href = `${client.baseURL}/auth/google/login?type=${type}`;
+    const expiryParam = session_expiry_hours ? `&session_expiry_hours=${session_expiry_hours}` : '';
+    window.location.href = `${client.baseURL}/auth/google/login?type=${type}${expiryParam}`;
   }
 }
 
