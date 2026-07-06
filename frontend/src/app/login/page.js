@@ -80,6 +80,14 @@ function LoginContent() {
     const [cancelRestoreLoading, setCancelRestoreLoading] = useState(false);
     const [showCanvas, setShowCanvas] = useState(false);
     const [sessionExpiryHours, setSessionExpiryHours] = useState(24); // 24 hours secure default
+    const [isExpiryDropdownOpen, setIsExpiryDropdownOpen] = useState(false);
+
+    const expiryOptions = [
+        { value: 8, label: "8 Hours (Secure / Shift)" },
+        { value: 24, label: "24 Hours (1 Day)" },
+        { value: 168, label: "7 Days (1 Week)" },
+        { value: 720, label: "30 Days (1 Month)" }
+    ];
 
     useEffect(() => {
         // Delay mounting of 3D Canvas until after initial form animations finish
@@ -455,27 +463,60 @@ function LoginContent() {
 
                                     <div className="space-y-2">
                                         <label className="text-[13px] font-medium text-white/60 ml-1 uppercase tracking-wider">Session Duration</label>
-                                        <div className="relative group">
-                                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/30 to-fuchsia-500/30 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500" />
-                                            <div className="relative bg-[#111] rounded-2xl flex items-center border border-white/5 overflow-hidden transition-all duration-300 group-focus-within:border-indigo-500/50 group-focus-within:bg-[#151515] group-hover:border-white/10">
-                                                <div className="pl-4 pr-3 text-white/30 group-focus-within:text-indigo-400 transition-colors duration-300">
-                                                    <Clock size={18} strokeWidth={2} />
+                                        <div className="relative">
+                                            {/* Custom Dropdown Trigger Button */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsExpiryDropdownOpen(!isExpiryDropdownOpen)}
+                                                className="w-full bg-[#111] rounded-2xl flex items-center justify-between border border-white/5 py-4 px-4 text-left text-white text-[15px] hover:border-white/10 transition-all duration-300 focus:outline-none focus:border-indigo-500/50"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <Clock size={18} className="text-white/30" strokeWidth={2} />
+                                                    <span>
+                                                        {expiryOptions.find(o => o.value === sessionExpiryHours)?.label || `${sessionExpiryHours} Hours`}
+                                                    </span>
                                                 </div>
-                                                <select
-                                                    value={sessionExpiryHours}
-                                                    onChange={(e) => setSessionExpiryHours(Number(e.target.value))}
-                                                    className="w-full bg-transparent py-4 pr-10 text-white focus:outline-none text-[15px] cursor-pointer appearance-none"
-                                                    style={{ colorScheme: 'dark' }}
-                                                >
-                                                    <option value={8}>8 Hours (Secure / Shift)</option>
-                                                    <option value={24}>24 Hours (1 Day)</option>
-                                                    <option value={168}>7 Days (1 Week)</option>
-                                                    <option value={720}>30 Days (1 Month)</option>
-                                                </select>
-                                                <div className="absolute right-4 text-white/30 pointer-events-none">
-                                                    <ChevronDown size={16} />
-                                                </div>
-                                            </div>
+                                                <ChevronDown size={16} className={`text-white/30 transition-transform duration-300 ${isExpiryDropdownOpen ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            {/* Dropdown Menu */}
+                                            <AnimatePresence>
+                                                {isExpiryDropdownOpen && (
+                                                    <>
+                                                        {/* Backdrop overlay to close when clicking outside */}
+                                                        <div 
+                                                            className="fixed inset-0 z-10" 
+                                                            onClick={() => setIsExpiryDropdownOpen(false)} 
+                                                        />
+                                                        
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: -10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            transition={{ duration: 0.15 }}
+                                                            className="absolute left-0 right-0 mt-2 bg-[#151515] border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-20 backdrop-blur-xl"
+                                                        >
+                                                            {expiryOptions.map((opt) => (
+                                                                <button
+                                                                    key={opt.value}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSessionExpiryHours(opt.value);
+                                                                        setIsExpiryDropdownOpen(false);
+                                                                    }}
+                                                                    className={`w-full text-left py-3.5 px-5 text-[15px] transition-all hover:bg-white/5 hover:text-white flex items-center justify-between
+                                                                        ${sessionExpiryHours === opt.value ? 'text-indigo-400 bg-indigo-500/5 font-medium' : 'text-white/70'}`}
+                                                                >
+                                                                    <span>{opt.label}</span>
+                                                                    {sessionExpiryHours === opt.value && (
+                                                                        <span className="text-[12px]">●</span>
+                                                                    )}
+                                                                </button>
+                                                            ))}
+                                                        </motion.div>
+                                                    </>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     </div>
                                     <button
