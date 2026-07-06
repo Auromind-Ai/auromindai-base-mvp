@@ -181,3 +181,26 @@ async def safe_llm_call(prompt: str, model: str = "auto") -> dict:
 async def safe_llm_call_text(prompt: str, model: str = "auto") -> str:
     result = await safe_llm_call(prompt, model=model)
     return result["content"]
+
+
+from typing import AsyncGenerator
+
+async def safe_llm_call_stream(prompt: str, model: str = "auto") -> AsyncGenerator[dict, None]:
+    from app.services.ai.execution_service import AIExecutionService, current_execution_context
+    
+    ctx = current_execution_context.get()
+    if ctx:
+        async for chunk in AIExecutionService.execute_stream(
+            db=None,
+            workspace_id=ctx.workspace_id,
+            user_id=ctx.user_id,
+            feature_key=ctx.feature_key,
+            prompt=prompt,
+            model=model,
+            context=ctx
+        ):
+            yield chunk
+    else:
+        logger.warning(f"safe_llm_call_stream called without active execution context for model: {model}")
+        async for chunk in _router.generate_stream(prompt, model=model):
+            yield chunk

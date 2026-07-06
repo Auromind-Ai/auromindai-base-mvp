@@ -174,7 +174,7 @@ class BillingService:
                 provider=gateway.provider,
                 plan=local_plan,
                 subscription_data=raw_subscription,
-                override_status=SubscriptionStatus.trialing,
+                override_status=SubscriptionStatus.pending,
             )
             db.commit()
 

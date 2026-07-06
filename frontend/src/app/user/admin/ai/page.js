@@ -134,6 +134,44 @@ const SOURCE_OPTIONS = [
     { value: "direct_storage", label: "Email", icon: Inbox },
     { value: "web_search", label: "Web Search", icon: Search },
 ];
+const getNextCharChunk = (remaining, backlog) => {
+    if (!remaining) return { text: '', delay: 0 };
+    
+    // Catch up dynamic characters per frame if the backlog is high
+    let step = 1;
+    if (backlog > 800) {
+        step = 5;
+    } else if (backlog > 500) {
+        step = 3;
+    } else if (backlog > 200) {
+        step = 2;
+    }
+    
+    const slice = remaining.substr(0, step);
+    
+    // Calculate typing delays
+    let delay = 0;
+    if (step === 1) {
+        const char = slice[0];
+        if (char === '.' || char === '!' || char === '?') {
+            delay = Math.floor(100 + Math.random() * 50); // 100-150 ms period pause
+        } else if (char === '\n') {
+            delay = Math.floor(150 + Math.random() * 50); // 150-200 ms newline pause
+        } else if (char === ',') {
+            delay = Math.floor(50 + Math.random() * 20); // 50-70 ms comma pause
+        } else if (char === ' ') {
+            delay = Math.floor(8 + Math.random() * 4); // 8-12 ms space delay
+        } else {
+            delay = Math.floor(18 + Math.random() * 7); // 18-25 ms base letter delay
+        }
+    } else {
+        // Fast catch-up mode has minimal delay
+        delay = Math.max(0, 16 - (step * 3));
+    }
+    
+    return { text: slice, delay };
+};
+
 //  Page ─
 export default function AuromindAIPage() {
     const [models, setModels] = useState(DEFAULT_MODELS);
@@ -167,6 +205,68 @@ export default function AuromindAIPage() {
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
     const skipNextSessionFetchRef = useRef(false);
+    
+    const responseBufferRef = useRef('');
+    const renderedTextRef = useRef('');
+    const animationFrameRef = useRef(null);
+    const isAnimatingRef = useRef(false);
+    const isStreamActiveRef = useRef(false);
+    const nextTypeTimeRef = useRef(0);
+
+    useEffect(() => {
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, []);
+
+    const startTypingAnimation = () => {
+        if (isAnimatingRef.current) return;
+        isAnimatingRef.current = true;
+        nextTypeTimeRef.current = 0;
+        
+        const animate = (timestamp) => {
+            if (!isAnimatingRef.current) return;
+            
+            // Skip frames if we are waiting out a character/punctuation delay
+            if (timestamp < nextTypeTimeRef.current) {
+                animationFrameRef.current = requestAnimationFrame(animate);
+                return;
+            }
+            
+            const targetLength = responseBufferRef.current.length;
+            const currentLength = renderedTextRef.current.length;
+            
+            if (currentLength < targetLength) {
+                const remainingText = responseBufferRef.current.substring(currentLength);
+                const backlog = targetLength - currentLength;
+                
+                const chunk = getNextCharChunk(remainingText, backlog);
+                
+                if (chunk.text) {
+                    renderedTextRef.current += chunk.text;
+                    const captured = renderedTextRef.current;
+                    setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured, status: null } : msg));
+                    lastTypedTextRef.current = captured;
+                    
+                    nextTypeTimeRef.current = timestamp + chunk.delay;
+                } else {
+                    nextTypeTimeRef.current = timestamp + 16;
+                }
+            }
+            
+            if (isStreamActiveRef.current || currentLength < targetLength) {
+                animationFrameRef.current = requestAnimationFrame(animate);
+            } else {
+                isAnimatingRef.current = false;
+                setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
+            }
+        };
+        
+        animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
     const { user, workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find(w => w.id === workspaceId) || null;
     const router = useRouter();
@@ -419,6 +519,14 @@ export default function AuromindAIPage() {
             }, abortControllerRef.current.signal);
             setAttachedFile(null);
             setLastUploadedId(null);
+            
+            responseBufferRef.current = '';
+            renderedTextRef.current = '';
+            isAnimatingRef.current = false;
+            isStreamActiveRef.current = true;
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            startTypingAnimation();
+
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -432,11 +540,17 @@ export default function AuromindAIPage() {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
+                        if (data.status) {
+                            console.log("STATUS (execute):", data.status);
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
+                        }
                         if (data.content) {
                             fullText = fullText + data.content;
-                            const captured = fullText;
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
+                            responseBufferRef.current = fullText;
                         } else if (data.error) {
+                            isStreamActiveRef.current = false;
+                            isAnimatingRef.current = false;
+                            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                             const errorMsg = data.error.includes('429') || data.error.includes('quota')
                                 ? "⚠️ API rate limit exceeded. Please wait a moment and try again."
                                 : `Error: ${data.error}`;
@@ -445,16 +559,25 @@ export default function AuromindAIPage() {
                         }
                     } catch (e) {
                         if (line.includes('error') || line.includes('Error')) {
+                            isStreamActiveRef.current = false;
+                            isAnimatingRef.current = false;
+                            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: `Error: ${line}`, isError: true, isStreaming: false } : msg));
                             setIsLoading(false); return;
                         }
                     }
                 }
             }
+            isStreamActiveRef.current = false;
             if (!fullText.trim()) {
+                isAnimatingRef.current = false;
+                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "No response received. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } catch (err) {
+            isStreamActiveRef.current = false;
+            isAnimatingRef.current = false;
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name === 'AbortError') { console.log('Fetch aborted'); }
             else {
                 console.error(err);
@@ -462,7 +585,6 @@ export default function AuromindAIPage() {
             }
         } finally {
             setIsLoading(false);
-            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
             // Force scroll to bottom after send
             setTimeout(() => scrollToBottom(true), 80);
@@ -546,6 +668,13 @@ export default function AuromindAIPage() {
                 message: newContent,
                 model: selectedModel
             }, abortControllerRef.current.signal);
+            responseBufferRef.current = '';
+            renderedTextRef.current = '';
+            isAnimatingRef.current = false;
+            isStreamActiveRef.current = true;
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            startTypingAnimation();
+
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -559,16 +688,22 @@ export default function AuromindAIPage() {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
+                        if (data.status) {
+                            console.log("STATUS (saveEdit):", data.status);
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
+                        }
                         if (data.content) {
                             fullText = fullText + data.content;
-                            const captured = fullText;
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
-                            lastTypedTextRef.current = fullText;
+                            responseBufferRef.current = fullText;
                         }
                     } catch (e) {}
                 }
             }
+            isStreamActiveRef.current = false;
         } catch (err) {
+            isStreamActiveRef.current = false;
+            isAnimatingRef.current = false;
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name === 'AbortError') { console.log('Fetch aborted'); }
             else {
                 console.error(err);
@@ -576,7 +711,6 @@ export default function AuromindAIPage() {
             }
         } finally {
             setIsLoading(false);
-            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
         }
     };
@@ -594,6 +728,13 @@ export default function AuromindAIPage() {
                 message: userMsg,
                 model: selectedModel
             }, abortControllerRef.current.signal);
+            responseBufferRef.current = '';
+            renderedTextRef.current = '';
+            isAnimatingRef.current = false;
+            isStreamActiveRef.current = true;
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            startTypingAnimation();
+
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -607,16 +748,22 @@ export default function AuromindAIPage() {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
+                        if (data.status) {
+                            console.log("STATUS (regenerate):", data.status);
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
+                        }
                         if (data.content) {
                             fullText = fullText + data.content;
-                            const captured = fullText;
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
-                            lastTypedTextRef.current = fullText;
+                            responseBufferRef.current = fullText;
                         }
                     } catch (e) {}
                 }
             }
+            isStreamActiveRef.current = false;
         } catch (err) {
+            isStreamActiveRef.current = false;
+            isAnimatingRef.current = false;
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name === 'AbortError') { console.log('Fetch aborted'); }
             else {
                 console.error(err);
@@ -624,7 +771,6 @@ export default function AuromindAIPage() {
             }
         } finally {
             setIsLoading(false);
-            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
         }
     };
@@ -909,12 +1055,19 @@ export default function AuromindAIPage() {
                                                                 </div>
                                                                 <div className={`text-[15px] leading-[1.75] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
                                                                     {msg.isStreaming && msg.content === '' ? (
-                                                                        <div className="flex items-center gap-3 text-gray-500 py-2">
-                                                                            <div className="relative w-4 h-4">
+                                                                        <div className="flex items-center gap-3 text-purple-400 py-2 animate-pulse">
+                                                                            <div className="relative w-4 h-4 shrink-0">
                                                                                 <div className="absolute inset-0 border-2 border-purple-500/20 rounded-full" />
                                                                                 <div className="absolute inset-0 border-2 border-transparent border-t-purple-500 rounded-full animate-spin" />
                                                                             </div>
-                                                                            <span className="text-sm font-medium tracking-tight">Gathering insights...</span>
+                                                                            <span className="text-sm font-semibold tracking-tight">
+                                                                                {msg.status === 'rewriting' && "🔍 Rewriting query..."}
+                                                                                {msg.status === 'tool_deciding' && "⚙️ Selecting tool..."}
+                                                                                {msg.status === 'searching' && "🌐 Searching the web..."}
+                                                                                {msg.status === 'retrieving' && "📚 Retrieving documents..."}
+                                                                                {msg.status === 'synthesizing' && "🤖 Formulating answer..."}
+                                                                                {!msg.status && "⚡ Gathering insights..."}
+                                                                            </span>
                                                                         </div>
                                                                     ) : (
                                                                         <div className="assistant-message-content font-medium leading-relaxed text-white/95 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:rounded-none [&_pre_code]:text-inherit">

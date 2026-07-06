@@ -211,7 +211,6 @@ class AIExecutionService:
         if not reservation_id:
             return
 
-        from app.services.billing.billing_service import BillingService
         billing_service = BillingService()
 
         try:
@@ -249,7 +248,6 @@ class AIExecutionService:
         if not reservation_id:
             return
 
-        from app.services.billing.billing_service import BillingService
         billing_service = BillingService()
 
         try:
@@ -735,16 +733,26 @@ class AIExecutionService:
                             f"provider='{ctx.provider}' model='{ctx.model}' fallback={ctx.used_fallback}"
                         )
 
+                    # Release database connection during stream execution to prevent connection pool exhaustion
+                    if db is not None:
+                        try:
+                            db.commit()
+                            db.close()
+                        except Exception as close_err:
+                            logger.error(f"[AIExecutionService] Failed to release db connection before stream: {close_err}")
+                        db = None
+                        is_internal_db = False
+
                     async for chunk in execute_fn():
                         yield chunk
                 else:
                     _exp = _to_experience_level(model)
 
+                    # Pre-resolve primary and fallback configs before closing database connection
                     if ctx.resolved_config:
-                        # Nested call — reuse the provider already chosen for this request.
                         config = ctx.resolved_config
+                        fallback_config = None
                     else:
-                        # Root non-fn stream execution — resolve provider and cache on context.
                         config, _used_fb = _resolve_provider_config(db, ctx.feature_key, _exp)
                         ctx.resolved_config = config
                         ctx.used_fallback   = _used_fb
@@ -754,12 +762,54 @@ class AIExecutionService:
                             f"[AIExecutionService] Stream resolved provider for exec {ctx.execution_id}: "
                             f"provider='{ctx.provider}' model='{ctx.model}' fallback={ctx.used_fallback}"
                         )
+                        
+                        fallback_config = None
+                        if not ctx.used_fallback:
+                            try:
+                                from app.services.model_config_service import ModelConfigService
+                                _primary_cfg = ModelConfigService(db).get_config_for_feature(ctx.feature_key, _exp)
+                                if _primary_cfg.get("fallback_enabled"):
+                                    fallback_config = {
+                                        "provider":          _primary_cfg.get("fallback_provider"),
+                                        "model":             _primary_cfg.get("fallback_model"),
+                                        "temperature":       _primary_cfg.get("temperature", 0.7),
+                                        "max_tokens":        _primary_cfg.get("max_tokens", 800),
+                                        "top_p":             _primary_cfg.get("top_p", 1.0),
+                                        "frequency_penalty": _primary_cfg.get("frequency_penalty", 0.0),
+                                        "presence_penalty":  _primary_cfg.get("presence_penalty", 0.0),
+                                        "api_key_env":       None,
+                                    }
+                            except Exception:
+                                pass
 
+                    # Release database connection during stream execution to prevent connection pool exhaustion
+                    if db is not None:
+                        try:
+                            db.commit()
+                            db.close()
+                        except Exception as close_err:
+                            logger.error(f"[AIExecutionService] Failed to release db connection before stream: {close_err}")
+                        db = None
+                        is_internal_db = False
+
+                    yielded_any = False
                     try:
-                        result = await router.generate(
+                        async for chunk in router.generate_stream(
                             prompt, model=model, feature_key=ctx.feature_key, config=config
-                        )
+                        ):
+                            text_chunk = chunk.get("text", "")
+                            if text_chunk:
+                                yielded_any = True
+                                yield {"content": text_chunk}
+                            
+                            if "usage" in chunk:
+                                ctx.provider = chunk.get("provider") or ctx.provider
+                                ctx.model    = chunk.get("model")    or ctx.model
+                                usage = chunk.get("usage", {})
+                                ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
                     except Exception as primary_err:
+                        if yielded_any:
+                            raise primary_err
                         from app.services.ai.llm_router import is_retryable_provider_error
                         if not is_retryable_provider_error(primary_err):
                             raise primary_err
@@ -772,22 +822,10 @@ class AIExecutionService:
                             )
                             raise AIProviderError("AI services are temporarily unavailable. Please try again later.")
 
-                        
-                        _primary_cfg = ModelConfigService(db).get_config_for_feature(ctx.feature_key, _exp)
-                        if not _primary_cfg.get("fallback_enabled"):
-                            logger.error(f"[AIExecutionService] Primary AI stream call failed and fallback is disabled: {primary_err}")
+                        if not fallback_config:
+                            logger.error(f"[AIExecutionService] Primary AI stream call failed and fallback is disabled/unavailable: {primary_err}")
                             raise AIProviderError("AI services are temporarily unavailable. Please try again later.")
 
-                        fallback_config = {
-                            "provider":          _primary_cfg.get("fallback_provider"),
-                            "model":             _primary_cfg.get("fallback_model"),
-                            "temperature":       _primary_cfg.get("temperature", 0.7),
-                            "max_tokens":        _primary_cfg.get("max_tokens", 800),
-                            "top_p":             _primary_cfg.get("top_p", 1.0),
-                            "frequency_penalty": _primary_cfg.get("frequency_penalty", 0.0),
-                            "presence_penalty":  _primary_cfg.get("presence_penalty", 0.0),
-                            "api_key_env":       None,
-                        }
                         logger.warning(
                             f"[AIExecutionService] Stream runtime fallback: "
                             f"provider='{fallback_config.get('provider')}' model='{fallback_config.get('model')}' "
@@ -800,22 +838,22 @@ class AIExecutionService:
                         ctx.model           = fallback_config.get("model")
 
                         try:
-                            result = await router.generate(
+                            async for chunk in router.generate_stream(
                                 prompt, model=model, feature_key=ctx.feature_key, config=fallback_config
-                            )
+                            ):
+                                if chunk.get("text"):
+                                    yield {"content": chunk.get("text")}
+                                if "usage" in chunk:
+                                    ctx.provider = chunk.get("provider") or ctx.provider
+                                    ctx.model    = chunk.get("model")    or ctx.model
+                                    usage = chunk.get("usage", {})
+                                    ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
                         except Exception as fallback_err:
                             logger.error(f"[AIExecutionService] Stream fallback AI call also failed: {fallback_err}")
                             raise AIProviderError("AI services are temporarily unavailable. Please try again later.")
 
-                    ctx.provider = result.get("provider") or ctx.provider
-                    ctx.model    = result.get("model")    or ctx.model
-                    usage = result.get("usage", {})
-                    ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
-                    yield {"content": result.get("text", "")}
-
                 # Settle Billing from Provider Usage (streaming — root level only)
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested:
-                   
                     try:
                         aggregated_result = {
                             "provider": ctx.provider or "unknown",
@@ -832,67 +870,101 @@ class AIExecutionService:
                             f"[AIExecutionService] Stream provider returned no usage for {ctx.execution_id}: {pume}. "
                             "Releasing reservation — workspace will NOT be charged."
                         )
-                        AIExecutionService._handle_reservation_cleanup(
-                            db=db,
-                            reservation_id=ctx.reservation_id,
-                            is_internal_db=is_internal_db,
-                            reason=f"Provider usage missing: {pume}"
-                        )
+                        from app.database import SessionLocal
+                        settle_db = SessionLocal()
+                        try:
+                            AIExecutionService._handle_reservation_cleanup(
+                                db=settle_db,
+                                reservation_id=ctx.reservation_id,
+                                is_internal_db=True,
+                                reason=f"Provider usage missing: {pume}"
+                            )
+                        finally:
+                            settle_db.close()
                         reservation_created = False
                         return
 
-                    billing_service.token_service.settle_from_provider_usage(
-                        db=db,
-                        reservation_id=ctx.reservation_id,
-                        usage=provider_usage,
-                        feature_key=ctx.feature_key,
-                        execution_id=ctx.execution_id,
-                        commit=is_internal_db
-                    )
-                    logger.info(
-                        f"[AIExecutionService] Stream settled | execution={ctx.execution_id} "
-                        f"provider={provider_usage['provider']} tokens={provider_usage['total_tokens']}"
-                    )
+                    from app.database import SessionLocal
+                    settle_db = SessionLocal()
+                    try:
+                        billing_service = BillingService()
+                        billing_service.token_service.settle_from_provider_usage(
+                            db=settle_db,
+                            reservation_id=ctx.reservation_id,
+                            usage=provider_usage,
+                            feature_key=ctx.feature_key,
+                            execution_id=ctx.execution_id,
+                            commit=True
+                        )
+                        
+                        logger.info(
+                            f"[AIExecutionService] Stream settled | execution={ctx.execution_id} "
+                            f"provider={provider_usage['provider']} tokens={provider_usage['total_tokens']}"
+                        )
+                    except Exception as settle_err:
+                        settle_db.rollback()
+                        logger.error(f"[AIExecutionService] Stream billing settlement failed: {settle_err}")
+                    finally:
+                        settle_db.close()
+                        
                     reservation_created = False
 
             except asyncio.CancelledError as e:
                 logger.info(f"[AIExecutionService] Stream cancelled ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    AIExecutionService._cleanup_or_settle_stream_reservation(
-                        db=db,
-                        reservation_id=ctx.reservation_id,
-                        is_internal_db=is_internal_db,
-                        ctx=ctx,
-                        reason=f"Stream cancelled: {type(e).__name__}"
-                    )
+                    from app.database import SessionLocal
+                    cleanup_db = SessionLocal()
+                    try:
+                        AIExecutionService._cleanup_or_settle_stream_reservation(
+                            db=cleanup_db,
+                            reservation_id=ctx.reservation_id,
+                            is_internal_db=True,
+                            ctx=ctx,
+                            reason=f"Stream cancelled: {type(e).__name__}"
+                        )
+                    finally:
+                        cleanup_db.close()
                 raise e
             except GeneratorExit as e:
                 logger.info(f"[AIExecutionService] Stream exited ({type(e).__name__}) for {ctx.execution_id}")
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    AIExecutionService._cleanup_or_settle_stream_reservation(
-                        db=db,
-                        reservation_id=ctx.reservation_id,
-                        is_internal_db=is_internal_db,
-                        ctx=ctx,
-                        reason=f"Stream exited: {type(e).__name__}"
-                    )
+                    from app.database import SessionLocal
+                    cleanup_db = SessionLocal()
+                    try:
+                        AIExecutionService._cleanup_or_settle_stream_reservation(
+                            db=cleanup_db,
+                            reservation_id=ctx.reservation_id,
+                            is_internal_db=True,
+                            ctx=ctx,
+                            reason=f"Stream exited: {type(e).__name__}"
+                        )
+                    finally:
+                        cleanup_db.close()
                 raise e
             except Exception as e:
                 logger.error(f"[AIExecutionService] Failure in stream execution {ctx.execution_id}: {e}", exc_info=True)
                 if reservation_created and ctx.billing_mode == ExecutionMode.NORMAL and not is_nested and ctx.reservation_id:
-                    AIExecutionService._cleanup_or_settle_stream_reservation(
-                        db=db,
-                        reservation_id=ctx.reservation_id,
-                        is_internal_db=is_internal_db,
-                        ctx=ctx,
-                        reason=f"Stream execution failed: {type(e).__name__}"
-                    )
+                    from app.database import SessionLocal
+                    cleanup_db = SessionLocal()
+                    try:
+                        AIExecutionService._cleanup_or_settle_stream_reservation(
+                            db=cleanup_db,
+                            reservation_id=ctx.reservation_id,
+                            is_internal_db=True,
+                            ctx=ctx,
+                            reason=f"Stream execution failed: {type(e).__name__}"
+                        )
+                    finally:
+                        cleanup_db.close()
                 raise e
             finally:
                 current_execution_context.reset(token_token)
         finally:
-            if is_internal_db:
-                db.close()
+            if is_internal_db and db is not None:
+                try:
+                    db.close()
+                except Exception:
+                    pass
 
     @classmethod
     def cleanup_reservation(cls, db: Session, reservation_id: str, reason: str) -> None:
@@ -900,7 +972,6 @@ class AIExecutionService:
         if not reservation_id:
             return
         try:
-            from app.services.billing.billing_service import BillingService
             BillingService().release_token_reservation(db, reservation_id, reason)
             logger.info(f"[AIExecutionService] Defensive cleanup of reservation {reservation_id} succeeded.")
         except Exception as err:
