@@ -517,7 +517,7 @@ export default function AuromindAIPage() {
                 latency_ms: assistantMsg.meta?.latency_ms || 0,
                 confidence_score: assistantMsg.meta?.confidence_score || 0.5,
                 source: assistantMsg.meta?.source || "unknown",
-                session_id: activeSessionId
+                session_id: currentSessionId
             });
             console.log("Feedback recorded successfully");
         } catch (err) {
