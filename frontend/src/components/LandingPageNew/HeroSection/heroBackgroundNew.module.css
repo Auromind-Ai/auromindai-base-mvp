@@ -120,6 +120,8 @@
 
 .star {
   position: absolute;
+  top: 0;
+  left: 0;
   border-radius: 9999px;
   background: #ffffff;
 

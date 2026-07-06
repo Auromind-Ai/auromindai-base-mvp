@@ -5,15 +5,22 @@ let memoryWorkspace = null;
 /* ---------------- TOKEN ---------------- */
 
 export const setToken = (token) => {
-  // Cookies are set by the server. Storage writes for the JWT token are removed for security.
+  if (isBrowser && token) {
+    localStorage.setItem("auth_token", token);
+  }
 };
 
 export const getToken = () => {
-  // JWT tokens are inside HttpOnly cookies and not readable by JavaScript.
+  if (isBrowser) {
+    return localStorage.getItem("auth_token");
+  }
   return null;
 };
 
 export const removeToken = () => {
+  if (isBrowser) {
+    localStorage.removeItem("auth_token");
+  }
   memoryUser = null;
   memoryWorkspace = null;
 };

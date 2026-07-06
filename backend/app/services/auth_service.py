@@ -10,7 +10,7 @@ class AuthService:
    
     @staticmethod
     def login(db: Session, email: str, password: str = None, ip_address: str = None, device_info: str = None):
-       
+        email = email.strip().lower()
         user = db.query(User).filter(User.email == email).first()
        
         if not user:
@@ -117,12 +117,20 @@ class AuthService:
    
     @staticmethod
     def get_user_by_id(db: Session, user_id: str):
-       
+        if isinstance(user_id, str):
+            try:
+                user_id = uuid.UUID(user_id)
+            except ValueError:
+                pass
         return db.query(User).filter(User.id == user_id).first()
    
     @staticmethod
     def get_user_workspaces(db: Session, user_id: str):
-       
+        if isinstance(user_id, str):
+            try:
+                user_id = uuid.UUID(user_id)
+            except ValueError:
+                pass
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
         ).filter(WorkspaceMember.user_id == user_id).all()
@@ -139,7 +147,7 @@ class AuthService:
         ]
     @staticmethod
     def email_login(db: Session, email: str, full_name: str = None, workspace_name: str = "My Workspace", ip_address: str = None, device_info: str = None):
-
+        email = email.strip().lower()
         user = db.query(User).filter(User.email == email).first()
 
         # NEW BLOCK
@@ -253,7 +261,8 @@ class AuthService:
         import random
         from app.core.config import settings
         from app.services.email_service import EmailService
-       
+        
+        email = email.strip().lower()
         user = db.query(User).filter(User.email == email).first()
        
         if auth_type == "login" and not user:
@@ -286,6 +295,7 @@ class AuthService:
     @staticmethod
     def verify_otp(db: Session, email: str, otp: str, auth_type: str, full_name: str = None, workspace_name: str = None, ip_address: str = None, device_info: str = None):
         from app.core.config import settings
+        email = email.strip().lower()
         try:
             import redis
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
@@ -328,6 +338,7 @@ class AuthService:
 
     @staticmethod
     def google_auth(db: Session, email: str, full_name: str, auth_type: str, ip_address: str = None, device_info: str = None):
+        email = email.strip().lower()
         user = db.query(User).filter(User.email == email).first()
        
         if auth_type == "login" and not user:

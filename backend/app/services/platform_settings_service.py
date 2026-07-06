@@ -231,7 +231,7 @@ def seed_settings_from_env(db: Session):
 
     # Seed default branding configs if not present in DB
     default_brand = {
-        "app_name": "Auromind",
+        "app_name": "Orbionagents",
         "app_logo_url": "/logo.png"
     }
     for k, v in default_brand.items():

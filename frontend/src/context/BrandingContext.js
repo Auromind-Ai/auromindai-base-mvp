@@ -4,14 +4,14 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import api from '@/lib/api';
 
 const BrandingContext = createContext({
-  appName: 'Auromind',
-  appLogoUrl: '/logo.png',
+  appName: 'Orbionagents',
+  appLogoUrl: '',
   refreshBranding: async () => {},
 });
 
 export const BrandingProvider = ({ children }) => {
-  const [appName, setAppName] = useState('Auromind');
-  const [appLogoUrl, setAppLogoUrl] = useState('/logo.png');
+  const [appName, setAppName] = useState('Orbionagents');
+  const [appLogoUrl, setAppLogoUrl] = useState('');
 
   const refreshBranding = useCallback(async () => {
     try {

@@ -755,6 +755,17 @@ class BillingService:
 
 
     def _get_workspace_for_user(self, db: Session, workspace_id: str, user_id: str) -> Workspace:
+        import uuid
+        if isinstance(workspace_id, str):
+            try:
+                workspace_id = uuid.UUID(workspace_id)
+            except ValueError:
+                pass
+        if isinstance(user_id, str):
+            try:
+                user_id = uuid.UUID(user_id)
+            except ValueError:
+                pass
         membership = (
             db.query(Workspace)
             .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)

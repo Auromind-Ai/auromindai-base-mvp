@@ -26,7 +26,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[1000px] md:h-[750px] bg-[#1f1f1f] rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col"
+                        className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-[calc(100%-2rem)] md:w-[90vw] lg:w-[1000px] max-w-[1000px] h-[calc(100%-2rem)] md:h-[85vh] lg:h-[750px] max-h-[750px] bg-[#1f1f1f] rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col"
                     >
                         {/* Close Button - Top Right Absolute */}
                         <button

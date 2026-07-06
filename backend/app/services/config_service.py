@@ -9,10 +9,14 @@ class ConfigService:
 
      
         val = db_get_setting(None, db_key, None)
-        if val is not None:
+        if val is not None and val != "":
             return val
 
         bootstrap_key = key.upper()
+        if bootstrap_key == "SMTP_PASSWORD":
+            val = getattr(settings, "SMTP_PASSWORD", None) or getattr(settings, "SMTP_PASS", None)
+            if val is not None:
+                return val
         if hasattr(settings, bootstrap_key):
             return getattr(settings, bootstrap_key)
 

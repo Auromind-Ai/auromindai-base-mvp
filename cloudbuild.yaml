@@ -1,0 +1,146 @@
+steps:
+  # 1. Build Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA', 'backend', '-f', 'backend/Dockerfile']
+    id: 'Build'
+
+  # 2. Push Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA']
+    id: 'Push'
+
+  # 3. Run Migrations on Staging
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - orbion-db-migrate-staging
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+    id: 'Update Staging Migrator'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - orbion-db-migrate-staging
+      - --region=$_DEPLOY_REGION
+      - --wait
+    id: 'Run Staging Migrations'
+
+  # 4. Deploy to Staging Services
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - orbion-api-staging
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
+    id: 'Deploy API Staging'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - orbion-worker-staging
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
+    id: 'Deploy Worker Staging'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - orbion-beat-staging
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
+    id: 'Deploy Beat Staging'
+
+  # 5. Run E2E Tests on Staging
+  - name: 'python:3.11-slim'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        pip install pytest requests
+        pytest backend/tests/test_e2e_staging.py
+    env:
+      - 'API_URL=https://orbion-api-staging-900605000401.asia-south1.run.app'
+      - 'TEST_API_KEY=test_key_123'
+    id: 'Run Staging E2E Tests'
+
+  # 6. Run Migrations on Production
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - update
+      - orbion-db-migrate-prod
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+    id: 'Update Prod Migrator'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - orbion-db-migrate-prod
+      - --region=$_DEPLOY_REGION
+      - --wait
+    id: 'Run Prod Migrations'
+
+  # 7. Deploy to Production Services
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - orbion-api
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
+    id: 'Deploy API Prod'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - orbion-worker
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
+    id: 'Deploy Worker Prod'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update
+      - orbion-beat
+      - --image=asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA
+      - --region=$_DEPLOY_REGION
+      - --memory=1024Mi
+    id: 'Deploy Beat Prod'
+
+images:
+  - 'asia-south1-docker.pkg.dev/auth-501011/cloud-run-source-deploy/auromindai-base-mvp/orbion-api:$COMMIT_SHA'
+
+substitutions:
+  _DEPLOY_REGION: 'asia-south1'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

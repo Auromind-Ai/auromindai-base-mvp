@@ -35,7 +35,11 @@ from app.routers.account import router as account_router
 # Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Auromind Production System Starting...")
+    logger.info("Orbionagents Production System Starting...")
+    
+    # Run database migrations automatically
+    # NOTE: Database migrations have been moved to Google Cloud Build pipeline
+    pass
     
     # Seed platform settings and model configurations on startup
     from app.database import SessionLocal
@@ -49,6 +53,11 @@ async def lifespan(app: FastAPI):
         config_service = ModelConfigService(db)
         config_service.seed_default_configs()
         logger.info("Model configurations seeded successfully.")
+        
+        # Seed billing plans and entitlements
+        from app.services.billing.entitlement_service import EntitlementService
+        EntitlementService.seed_default_entitlements(db)
+        logger.info("Billing plans and entitlements seeded successfully.")
     except Exception as e:
         logger.error(f"Failed to seed or migrate settings: {e}")
     finally:
@@ -81,12 +90,12 @@ async def lifespan(app: FastAPI):
     await shutdown_pubsub(app)
     await shutdown_metrics(app)          # close metrics Redis client
     shutdown_schedulers(app)
-    logger.info("Auromind Production System Stopped")
+    logger.info("Orbionagents Production System Stopped")
 
 
 # App
 app = FastAPI(
-    title="Auromind API",
+    title="Orbionagents API",
     description="AI-Powered Business Assistant Platform (Production)",
     version="2.0.0",
     lifespan=lifespan,
@@ -97,6 +106,10 @@ register_exception_handlers(app)
 # Middleware
 allowed_origins = []
 fallback_origins = [
+    "https://orbionagents.com",
+    "http://orbionagents.com",
+    "https://www.orbionagents.com",
+    "http://www.orbionagents.com",
     "https://growwdigitel.cloud",
     "http://growwdigitel.cloud",
     "https://www.growwdigitel.cloud",
@@ -127,7 +140,7 @@ app.add_middleware(AdminConsoleMiddleware)
 # Health 
 @app.get("/")
 async def root():
-    return {"message": "Auromind API", "version": "2.0.0", "status": "running"}
+    return {"message": "Orbionagents API", "version": "2.0.0", "status": "running"}
 
 @app.get("/health")
 async def health_check():
@@ -138,6 +151,7 @@ app.include_router(preferences.router, prefix="/users", tags=["preferences"])
 app.include_router(security.router, prefix="/user", tags=["security"])
 app.include_router(notifications.router)
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(account_router, prefix="/account", tags=["account"])
 app.include_router(two_factor_router, prefix="/2fa", tags=["2fa"])                                         
 app.include_router(conversations.router)                                 

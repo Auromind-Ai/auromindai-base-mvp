@@ -1000,7 +1000,7 @@ export default function ChannelsPage() {
                 config_id: WA_CONFIG_ID,
                 response_type: 'code',
                 override_default_response_type: true,
-                extras: { sessionInfoVersion: 3, featureType: '', setup: {} }
+                extras: { feature: "whatsapp_embedded_signup", sessionInfoVersion: 3, setup: {} }
             }
         );
     };

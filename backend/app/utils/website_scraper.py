@@ -9,8 +9,22 @@ from app.utils.static_scraper import Staticscraper
 import app.utils.settings as my_settings
 from scrapy.settings import Settings
 import os
-import threading
+import multiprocessing
 import json
+
+def _run_scrapy_process(url):
+    output_file = "dynamic_output.json"
+    if os.path.exists(output_file):
+        try:
+            os.remove(output_file)
+        except OSError:
+            pass
+
+    scrapy_settings = Settings()
+    scrapy_settings.setmodule(my_settings)
+    process = CrawlerProcess(scrapy_settings)
+    process.crawl(Scrappyweb, url=url)
+    process.start()
 
 class Webscrapper:
     def __init__(self, url):
@@ -52,7 +66,7 @@ class Webscrapper:
             self.url,
             timeout=10,
             allow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0"}
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
         )
         self.html = response.text
         self.soup = BeautifulSoup(self.html, "lxml")
@@ -115,19 +129,9 @@ class Webscrapper:
 
          output_file = "dynamic_output.json"
         
-         if os.path.exists(output_file):
-             os.remove(output_file)
-
-         scrapy_settings = Settings()
-         scrapy_settings.setmodule(my_settings)
-
-         def run_spider():
-            process = CrawlerProcess(scrapy_settings)
-            process.crawl(Scrappyweb, url=self.url)
-            process.start()
-         thread = threading.Thread(target=run_spider)
-         thread.start()
-         thread.join()
+         process = multiprocessing.Process(target=_run_scrapy_process, args=(self.url,))
+         process.start()
+         process.join()
         
          if os.path.exists(output_file):
             with open(output_file, "r", encoding="utf-8") as f:

@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useBranding } from "@/context/BrandingContext"
@@ -49,6 +49,12 @@ export default function AdminSidebar() {
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ]
 
+  const [logoError, setLogoError] = useState(false)
+
+  useEffect(() => {
+    setLogoError(false)
+  }, [appLogoUrl])
+
   return (
     <div className="w-64 min-h-screen bg-[#050505] border-r border-white-[0.05] flex flex-col shadow-2xl flex-shrink-0 sticky top-0">
       
@@ -57,11 +63,18 @@ export default function AdminSidebar() {
 
       {/* Logo Section */}
       <div className="p-8 flex items-center gap-3 relative">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          {appLogoUrl && appLogoUrl !== "/logo.png" ? (
-            <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
+        <div className="w-14 h-14 flex items-center justify-center">
+          {appLogoUrl && !logoError ? (
+            <img 
+              src={appLogoUrl} 
+              alt={appName} 
+              className="w-12 h-12 object-contain" 
+              onError={() => setLogoError(true)}
+            />
           ) : (
-            <BrainCircuit className="text-white w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <BrainCircuit className="text-white w-5 h-5" />
+            </div>
           )}
         </div>
         <div className="flex flex-col">
