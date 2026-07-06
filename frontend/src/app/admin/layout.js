@@ -31,9 +31,17 @@ export default function AdminLayout({ children }) {
         await api.getPlatformDashboard()
         if (active) setAuthVerified(true)
       } catch (err) {
-        if (active && (err.status === 404 || err.status === 401 || err.status === 403)) {
+        if (!active) return
+        // 401 = new AdminConsoleMiddleware response; 403/404 = legacy; 0/408 = network/timeout
+        const isAuthError = err.status === 401 || err.status === 403 || err.status === 404
+        const isNetworkError = err.isNetworkError || err.isTimeout || err.status === 0 || err.status === 408
+        if (isAuthError) {
           router.push("/admin")
+        } else if (isNetworkError) {
+          // Backend unreachable - still try to render the page; individual pages handle their own errors
+          setAuthVerified(true)
         }
+        // Unknown errors: do not redirect, let the page handle it
       }
     }
     checkAuth()

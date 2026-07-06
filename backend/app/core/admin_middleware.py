@@ -1,11 +1,45 @@
 import logging
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from fastapi import Request, status
 from jose import jwt, JWTError
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Allowed origins for CORS headers in blocked admin responses
+_ADMIN_CORS_ORIGINS = [
+    "https://orbionagents.com",
+    "http://orbionagents.com",
+    "https://www.orbionagents.com",
+    "http://www.orbionagents.com",
+    "https://staging.orbionagents.com",
+    "https://growwdigitel.cloud",
+    "http://growwdigitel.cloud",
+    "https://www.growwdigitel.cloud",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+
+def _blocked_response(scope, request: Request, status_code: int, detail: str) -> JSONResponse:
+    """
+    Returns a JSONResponse that includes CORS headers for the requesting origin.
+    This is required because AdminConsoleMiddleware is the outermost middleware
+    and short-circuits before CORSMiddleware can add headers.
+    """
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in _ADMIN_CORS_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Vary"] = "Origin"
+
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": detail},
+        headers=headers,
+    )
+
 
 class AdminConsoleMiddleware:
     def __init__(self, app):
@@ -17,58 +51,76 @@ class AdminConsoleMiddleware:
             return
 
         request = Request(scope, receive=receive)
+
+        # Always pass OPTIONS through — CORSMiddleware handles preflight
         if request.method == "OPTIONS":
             await self.app(scope, receive, send)
             return
-            
+
         path = request.url.path
         admin_prefix = "/admin"
-        
-        # Rewrite legacy/typo `/admin` path to the dynamic security prefix
-        if path == "/admin" or path.startswith("/admin/"):
-            path = path.replace("/admin", admin_prefix, 1)
-            scope["path"] = path
 
-        # Check if the request starts with the designated admin console path prefix
+        # Normalise path: strip trailing slash for admin routes to prevent 307 loops
+        if path.startswith("/admin/") and path != "/admin/":
+            # Only strip if there is a trailing slash and it's not the only char
+            stripped = path.rstrip("/")
+            if stripped != path:
+                scope["path"] = stripped
+                path = stripped
+
+        # Guard admin routes
         if path.startswith(admin_prefix):
-            if path == f"{admin_prefix}/auth":
+            # Auth endpoint is always public
+            if path in (f"{admin_prefix}/auth", f"{admin_prefix}/auth/"):
                 await self.app(scope, receive, send)
                 return
-            
+
             token = request.cookies.get("admin_session")
             is_authorized = False
-            
+
             if token:
                 try:
                     payload = jwt.decode(
                         token,
                         settings.SECRET_KEY,
-                        algorithms=[settings.ALGORITHM]
+                        algorithms=[settings.ALGORITHM],
                     )
                     if payload.get("role") == "platform_admin":
                         is_authorized = True
-                        # Verify CSRF for unsafe methods targeting /admin paths
-                        if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
+                        # CSRF check for mutating methods
+                        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
                             expected_csrf = payload.get("csrf_token")
                             header_csrf = request.headers.get("x-admin-csrf-token")
                             if not expected_csrf or expected_csrf != header_csrf:
                                 logger.warning(
-                                    f"CSRF validation failed for {path} from IP {request.client.host if request.client else 'unknown'}"
+                                    "Admin CSRF validation failed for %s from %s",
+                                    path,
+                                    request.client.host if request.client else "unknown",
                                 )
-                                is_authorized = False
+                                resp = _blocked_response(
+                                    scope, request,
+                                    status.HTTP_403_FORBIDDEN,
+                                    "CSRF validation failed",
+                                )
+                                await resp(scope, receive, send)
+                                return
                 except JWTError:
                     pass
-            
+
             if not is_authorized:
                 logger.warning(
-                    f"Unauthorized access attempt to {path} from IP {request.client.host if request.client else 'unknown'}"
+                    "Unauthorised admin request: %s %s from %s",
+                    request.method,
+                    path,
+                    request.client.host if request.client else "unknown",
                 )
-                response = JSONResponse(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    content={"detail": "Not Found"}
+                resp = _blocked_response(
+                    scope, request,
+                    status.HTTP_401_UNAUTHORIZED,
+                    "Admin authentication required",
                 )
-                await response(scope, receive, send)
+                await resp(scope, receive, send)
                 return
-        
+
         await self.app(scope, receive, send)
 

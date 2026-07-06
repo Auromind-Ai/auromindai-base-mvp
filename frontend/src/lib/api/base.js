@@ -1,4 +1,10 @@
-console.log("API INFRASTRUCTURE VERSION: 2.0.0");
+console.log("API INFRASTRUCTURE VERSION: 2.1.0");
+
+// Timeout constants
+const DEFAULT_TIMEOUT_MS = 30_000;   // 30s for regular API calls
+const ADMIN_TIMEOUT_MS   = 15_000;   // 15s for admin panel calls
+const STREAM_TIMEOUT_MS  = 120_000;  // 2min for streaming endpoints
+
 
 function getCSRFToken() {
   if (typeof window === 'undefined') return null;
@@ -70,7 +76,13 @@ export class APIClient {
 
     // 4. Handle Timeout via AbortController
     const controller = optSignal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 120000) : null; // 120s timeout
+
+    // Pick timeout based on endpoint type
+    const isAdminEndpoint = endpoint.startsWith('/admin') || url.includes('/admin');
+    const isStreamEndpoint = endpoint.includes('/stream') || endpoint.includes('/ws') || endpoint.includes('/events');
+    const timeoutMs = isAdminEndpoint ? ADMIN_TIMEOUT_MS : isStreamEndpoint ? STREAM_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+
+    const timeoutId = controller ? setTimeout(() => controller.abort('timeout'), timeoutMs) : null;
     config.signal = optSignal || controller?.signal;
 
     try {
@@ -138,7 +150,14 @@ export class APIClient {
 
       // Suppress AbortError console noise from StrictMode double-invoke
       if (error.name === 'AbortError') {
-        throw error;
+        const timeoutErr = new Error(
+          isAdminEndpoint
+            ? 'Admin API timed out. The server may be restarting — please retry.'
+            : 'Request timed out. Please check your connection and retry.'
+        );
+        timeoutErr.status = 408;
+        timeoutErr.isTimeout = true;
+        throw timeoutErr;
       }
 
       const isFetchNetworkError = (error instanceof TypeError || error?.name === 'TypeError') && error?.message?.toLowerCase().includes('fetch');
@@ -151,10 +170,18 @@ export class APIClient {
         const canRetry = isIdempotent && !isOTPOrSensitive;
 
         if (canRetry) {
-          console.warn(`Fetch failed (likely cold-start/Strict dev double-invoke). Retrying in 500ms... URL: ${url}`);
-          await new Promise(resolve => setTimeout(resolve, 500));
+          console.warn(`Fetch failed (likely cold-start). Retrying in 800ms... URL: ${url}`);
+          await new Promise(resolve => setTimeout(resolve, 800));
           return this.request(endpoint, options, true);
         }
+      }
+
+      // Surface CORS/network errors as actionable messages
+      if (isFetchNetworkError) {
+        const networkErr = new Error('Network error — check your connection or try again.');
+        networkErr.status = 0;
+        networkErr.isNetworkError = true;
+        throw networkErr;
       }
 
       throw error;
