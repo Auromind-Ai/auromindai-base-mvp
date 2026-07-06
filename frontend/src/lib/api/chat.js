@@ -23,7 +23,7 @@ export async function updateChatSession(session_id, title) {
 // Streaming chat endpoint returning raw response
 export async function streamChat(body, signal = null) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  return fetch('/api/chat/stream', {
+  return fetch('https://api.orbionagents.com/chat/stream', {
     method: 'POST',
     credentials: 'include',
     headers: {
