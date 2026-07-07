@@ -92,6 +92,26 @@ class ChatService:
             logger.error(f"RAG retrieval error: {e}", exc_info=True)
             raise RAGError(f"Failed to retrieve from knowledge base: {str(e)}")
 
+    async def _get_rag_answer_stream(
+        self, db: Session, workspace_id: str, query: str, model: str = "auto",
+        source: str = "internal_web", document_id: Optional[str] = None,
+    ) -> AsyncGenerator[dict, None]:
+        try:
+            rag = get_rag_service()
+            async for chunk in rag.agent_loop_stream(
+                db=db,
+                workspace_id=workspace_id,
+                query=query,
+                model=model,
+                source=source,
+                document_id=document_id,
+                bypass_billing=True,
+            ):
+                yield chunk
+        except Exception as e:
+            logger.error(f"RAG streaming error: {e}", exc_info=True)
+            raise RAGError(f"Failed to stream from knowledge base: {str(e)}")
+
     async def handle_chat_query(
         self,
         db: Session,
@@ -307,92 +327,104 @@ class ChatService:
         
         async def run_stream():
             rag_answered = False
-            full_response = ""
+            full_response_parts = []
             meta_payload = {}
-            if use_rag:
-                try:
-                    with SessionLocal() as rag_db:
-                        answer_data = await asyncio.wait_for(
-                            self._get_rag_answer(
+            try:
+                if use_rag:
+                    try:
+                        with SessionLocal() as rag_db:
+                            async for chunk in self._get_rag_answer_stream(
                                 db=rag_db,
                                 workspace_id=workspace_id,
                                 query=safe_query,
                                 model=model,
                                 source=source,
                                 document_id=document_id,
-                            ),
-                            timeout=60,
-                        )
+                            ):
+                                content = chunk.get("content", "")
+                                meta = chunk.get("meta")
+                                if content:
+                                    full_response_parts.append(content)
+                                    yield {"content": content}
+                                if meta:
+                                    meta_payload = meta
+                                    yield {"meta": meta}
+                            
+                            words = len("".join(full_response_parts).split())
+                            est_output = int(words * 1.3)
+                            est_input = int(len(safe_query.split()) * 1.3)
+                            ctx.usage["input_tokens"] = est_input
+                            ctx.usage["output_tokens"] = est_output
+                            ctx.usage["total_tokens"] = est_input + est_output
+                            rag_answered = True
+                    except asyncio.TimeoutError:
+                        logger.warning("RAG call timed out, falling back to LLM")
+                    except Exception as e:
+                        logger.error(f"Unexpected error in RAG: {e}")
 
-                    if answer_data:
-                        result = answer_data if isinstance(answer_data, dict) else {
-                            "answer": answer_data,
-                            "meta": {"query": message, "rewritten_query": safe_query, "source": "fallback"}
-                        }
-                        safe_answer = await self.guardrails_service.secure_response(result["answer"])
-                        full_response = safe_answer
-                        rag_answered = True
-                        meta_payload = result.get("meta") or {}
+                if not rag_answered:
+                    router = LLMRouter()
+                 
+                    _ctx = current_execution_context.get()
+                    _config = _ctx.resolved_config if _ctx else None
+                    
+                    async for chunk in router.generate_stream(safe_query, model=model, config=_config):
+                        text_chunk = chunk.get("text", "")
+                        if text_chunk:
+                            full_response_parts.append(text_chunk)
+                            
+                            words = len("".join(full_response_parts).split())
+                            est_output = int(words * 1.3)
+                            est_input = int(len(safe_query.split()) * 1.3)
+                            ctx.usage["input_tokens"] = est_input
+                            ctx.usage["output_tokens"] = est_output
+                            ctx.usage["total_tokens"] = est_input + est_output
+                            
+                            yield {"content": text_chunk}
                         
-                        yield {"content": safe_answer, "meta": meta_payload}
-                except asyncio.TimeoutError:
-                    logger.warning("RAG call timed out, falling back to LLM")
-                except Exception as e:
-                    logger.error(f"Unexpected error in RAG: {e}")
+                        if "usage" in chunk:
+                            usage = chunk.get("usage", {})
+                            ctx.usage["input_tokens"] = usage.get("input_tokens", 0)
+                            ctx.usage["output_tokens"] = usage.get("output_tokens", 0)
+                            ctx.usage["total_tokens"] = usage.get("total_tokens", 0)
+                            ctx.provider = chunk.get("provider") or ctx.provider
+                            ctx.model = chunk.get("model") or ctx.model
+                            
+                            meta_payload = {
+                                "query": message,
+                                "rewritten_query": safe_query,
+                                "tool": "reasoning",
+                                "model": chunk.get("model", model),
+                                "confidence_score": None,  
+                                "source": "llm"
+                            }
+                            yield {"meta": meta_payload}
+            finally:
+                full_response = "".join(full_response_parts)
+                if session_id and full_response:
+                    with SessionLocal() as cleanup_db:
+                        try:
+                            safe_full_response = await self.guardrails_service.secure_response(full_response)
+                            ai_msg = ChatMessage(
+                                id=str(uuid.uuid4()),
+                                session_id=session_id,
+                                role="assistant",
+                                content=safe_full_response,
+                            )
+                            cleanup_db.add(ai_msg)
 
-            if not rag_answered:
-                router = LLMRouter()
-             
-                _ctx = current_execution_context.get()
-                _config = _ctx.resolved_config if _ctx else None
-                result = await asyncio.wait_for(
-                    router.generate(safe_query, model=model, config=_config),
-                    timeout=30,
-                )
-                text = result.get("text", "")
-                full_response = text
-                
-                # Accumulate token usage from generator into active context
-                usage = result.get("usage", {})
-                ctx.add_usage(usage.get("input_tokens", 0), usage.get("output_tokens", 0))
-                ctx.provider = result.get("provider") or ctx.provider
-                ctx.model = result.get("model") or ctx.model
-                
-                meta_payload = {
-                    "query": message,
-                    "rewritten_query": safe_query,
-                    "tool": "reasoning",
-                    "model": result.get("model", model),
-                    "confidence_score": None,  
-                    "source": "llm"
-                }
-                yield {"content": text, "meta": meta_payload}
-
-            # Save AI Response & update session
-            if session_id and full_response:
-                with SessionLocal() as cleanup_db:
-                    try:
-                        ai_msg = ChatMessage(
-                            id=str(uuid.uuid4()),
-                            session_id=session_id,
-                            role="assistant",
-                            content=full_response,
-                        )
-                        cleanup_db.add(ai_msg)
-
-                        session = cleanup_db.query(ChatSession).filter(
-                            ChatSession.id == session_id
-                        ).first()
-                        if session:
-                            session.updated_at = datetime.utcnow()
-                        cleanup_db.commit()
-                    except Exception as save_err:
-                        cleanup_db.rollback()
-                        logger.error(f"Failed to save assistant message: {save_err}")
+                            session = cleanup_db.query(ChatSession).filter(
+                                ChatSession.id == session_id
+                            ).first()
+                            if session:
+                                session.updated_at = datetime.utcnow()
+                            cleanup_db.commit()
+                        except Exception as save_err:
+                            cleanup_db.rollback()
+                            logger.error(f"Failed to save assistant message: {save_err}")
 
         db = SessionLocal()
         try:
-            yield f"{json.dumps({'meta': {'status': 'processing'}})}\n"
             async for chunk in AIExecutionService.execute_stream(
                 db=db,
                 workspace_id=workspace_id,
