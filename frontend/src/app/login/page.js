@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles, AlertTriangle, Clock, ChevronDown } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, Cpu, Shield, Sparkles, AlertTriangle } from 'lucide-react';
 import { setToken, setUser, setWorkspace, isAuthenticated, getUser } from '@/lib/auth';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -79,15 +79,6 @@ function LoginContent() {
     const [deletionDate, setDeletionDate] = useState('');
     const [cancelRestoreLoading, setCancelRestoreLoading] = useState(false);
     const [showCanvas, setShowCanvas] = useState(false);
-    const [sessionExpiryHours, setSessionExpiryHours] = useState(24); // 24 hours secure default
-    const [isExpiryDropdownOpen, setIsExpiryDropdownOpen] = useState(false);
-
-    const expiryOptions = [
-        { value: 8, label: "8 Hours (Secure / Shift)" },
-        { value: 24, label: "24 Hours (1 Day)" },
-        { value: 168, label: "7 Days (1 Week)" },
-        { value: 720, label: "30 Days (1 Month)" }
-    ];
 
     useEffect(() => {
         // Delay mounting of 3D Canvas until after initial form animations finish
@@ -168,7 +159,7 @@ function LoginContent() {
         setError('');
         setLoading(true);
         try {
-            const data = await api.verifyOTP(email, otp, 'login', null, null, sessionExpiryHours);
+            const data = await api.verifyOTP(email, otp, 'login');
             //  2FA gate ─
             if (data?.requiresTwoFactor) {
                 setPendingToken(data.pending_token);
@@ -416,7 +407,7 @@ function LoginContent() {
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => api.googleLogin('login', sessionExpiryHours)}
+                                        onClick={() => api.googleLogin('login')}
                                         className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-2xl py-4 flex items-center justify-center gap-3 text-gray-900 font-semibold text-[15px] transition-all duration-300 shadow-[0_4px_14px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_20px_rgba(255,255,255,0.15)]"
                                     >
                                         <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -461,64 +452,7 @@ function LoginContent() {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-[13px] font-medium text-white/60 ml-1 uppercase tracking-wider">Session Duration</label>
-                                        <div className="relative">
-                                            {/* Custom Dropdown Trigger Button */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsExpiryDropdownOpen(!isExpiryDropdownOpen)}
-                                                className="w-full bg-[#111] rounded-2xl flex items-center justify-between border border-white/5 py-4 px-4 text-left text-white text-[15px] hover:border-white/10 transition-all duration-300 focus:outline-none focus:border-indigo-500/50"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <Clock size={18} className="text-white/30" strokeWidth={2} />
-                                                    <span>
-                                                        {expiryOptions.find(o => o.value === sessionExpiryHours)?.label || `${sessionExpiryHours} Hours`}
-                                                    </span>
-                                                </div>
-                                                <ChevronDown size={16} className={`text-white/30 transition-transform duration-300 ${isExpiryDropdownOpen ? 'rotate-180' : ''}`} />
-                                            </button>
 
-                                            {/* Dropdown Menu */}
-                                            <AnimatePresence>
-                                                {isExpiryDropdownOpen && (
-                                                    <>
-                                                        {/* Backdrop overlay to close when clicking outside */}
-                                                        <div 
-                                                            className="fixed inset-0 z-10" 
-                                                            onClick={() => setIsExpiryDropdownOpen(false)} 
-                                                        />
-                                                        
-                                                        <motion.div
-                                                            initial={{ opacity: 0, y: -10 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            exit={{ opacity: 0, y: -10 }}
-                                                            transition={{ duration: 0.15 }}
-                                                            className="absolute left-0 right-0 mt-2 bg-[#151515] border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-20 backdrop-blur-xl"
-                                                        >
-                                                            {expiryOptions.map((opt) => (
-                                                                <button
-                                                                    key={opt.value}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setSessionExpiryHours(opt.value);
-                                                                        setIsExpiryDropdownOpen(false);
-                                                                    }}
-                                                                    className={`w-full text-left py-3.5 px-5 text-[15px] transition-all hover:bg-white/5 hover:text-white flex items-center justify-between
-                                                                        ${sessionExpiryHours === opt.value ? 'text-indigo-400 bg-indigo-500/5 font-medium' : 'text-white/70'}`}
-                                                                >
-                                                                    <span>{opt.label}</span>
-                                                                    {sessionExpiryHours === opt.value && (
-                                                                        <span className="text-[12px]">●</span>
-                                                                    )}
-                                                                </button>
-                                                            ))}
-                                                        </motion.div>
-                                                    </>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-                                    </div>
                                     <button
                                         type="submit"
                                         disabled={loading || !email}
