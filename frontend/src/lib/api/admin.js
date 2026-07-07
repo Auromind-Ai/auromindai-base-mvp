@@ -61,11 +61,11 @@ export async function saveAIConfig(config) {
 }
 
 export async function getModelConfigs() {
-  return client.get('/admin/model-configs');
+  return client.get('/admin/model-configs/');
 }
 
 export async function createModelConfig(config) {
-  return client.post('/admin/model-configs', config);
+  return client.post('/admin/model-configs/', config);
 }
 
 export async function deleteModelConfig(id) {
