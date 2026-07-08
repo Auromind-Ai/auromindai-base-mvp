@@ -8,8 +8,21 @@ import { Layers, Database, Compass, Sliders, LineChart, CheckCircle2, ArrowRight
 
 
 export const metadata = {
-  title: "AI SaaS Solutions - Optimize Conversions & API Support | Auromind",
-  description: "Accelerate your SaaS pipeline. Deploy Auromind's conversational AI agents to resolve API questions, pre-qualify trial signups, and schedule enterprise demos."
+  title: "AI SaaS Assistant & Developer API Support",
+  description: "Accelerate your SaaS pipeline. Deploy conversational AI agents to answer developer API questions, qualify signups, and book enterprise demos.",
+  alternates: {
+    canonical: "/solutions/saas",
+  },
+  openGraph: {
+    title: "AI SaaS Assistant & Developer API Support | Auromind AI",
+    description: "Accelerate your SaaS pipeline. Deploy conversational AI agents to answer developer API questions, qualify signups, and book enterprise demos.",
+    url: "https://orbionagents.com/solutions/saas",
+    type: "website",
+  },
+  twitter: {
+    title: "AI SaaS Assistant & Developer API Support | Auromind AI",
+    description: "Accelerate your SaaS pipeline. Deploy conversational AI agents to answer developer API questions, qualify signups, and book enterprise demos.",
+  },
 };
 
 export default function SaaSPage() {

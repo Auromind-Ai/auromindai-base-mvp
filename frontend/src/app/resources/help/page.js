@@ -8,8 +8,21 @@ import { HelpCircle, Key, CreditCard, Layers, Compass, CheckCircle2, ArrowRight 
 
 
 export const metadata = {
-  title: "Auromind Help Center - FAQs & Troubleshooting",
-  description: "Search the Auromind knowledge base. Find troubleshooting guides, FAQs, billing configurations, and integration setup guides."
+  title: "Auromind Help Center - FAQs & Support",
+  description: "Find answers, resolve issues, and explore tutorials. Search our FAQs, configure billing accounts, and troubleshoot platform integrations.",
+  alternates: {
+    canonical: "/resources/help",
+  },
+  openGraph: {
+    title: "Auromind Help Center - FAQs & Support | Auromind AI",
+    description: "Find answers, resolve issues, and explore tutorials. Search our FAQs, configure billing accounts, and troubleshoot platform integrations.",
+    url: "https://orbionagents.com/resources/help",
+    type: "website",
+  },
+  twitter: {
+    title: "Auromind Help Center - FAQs & Support | Auromind AI",
+    description: "Find answers, resolve issues, and explore tutorials. Search our FAQs, configure billing accounts, and troubleshoot platform integrations.",
+  },
 };
 
 export default function HelpCenterPage() {

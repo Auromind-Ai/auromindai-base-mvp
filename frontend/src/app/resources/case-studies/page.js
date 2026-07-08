@@ -8,8 +8,21 @@ import { Award, Target, TrendingUp, Users, CheckCircle2, ArrowRight } from 'luci
 
 
 export const metadata = {
-  title: "Auromind Customer Success - AI Case Studies & Metrics",
-  description: "Read real business success stories. See how startups and enterprises leverage Auromind's conversational AI agents to scale conversion rates."
+  title: "AI Case Studies & Customer Success Stories",
+  description: "See how startups and enterprise brands deploy Auromind AI to scale conversion rates, recover cart revenue, and save support agent hours.",
+  alternates: {
+    canonical: "/resources/case-studies",
+  },
+  openGraph: {
+    title: "AI Case Studies & Customer Success Stories | Auromind AI",
+    description: "See how startups and enterprise brands deploy Auromind AI to scale conversion rates, recover cart revenue, and save support agent hours.",
+    url: "https://orbionagents.com/resources/case-studies",
+    type: "website",
+  },
+  twitter: {
+    title: "AI Case Studies & Customer Success Stories | Auromind AI",
+    description: "See how startups and enterprise brands deploy Auromind AI to scale conversion rates, recover cart revenue, and save support agent hours.",
+  },
 };
 
 export default function CaseStudiesPage() {

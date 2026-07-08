@@ -8,8 +8,21 @@ import { ShoppingBag, ShoppingCart, Percent, Share2, HelpCircle, CheckCircle2, A
 
 
 export const metadata = {
-  title: "AI Ecommerce Solutions - Recover Abandoned Carts | Auromind",
-  description: "Boost your e-commerce conversions. Connect Auromind to sync product catalogs, automate abandoned cart notifications, deliver coupons, and generate checkout links."
+  title: "E-commerce AI Chatbot & Cart Recovery",
+  description: "Boost store sales. Connect Auromind AI to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
+  alternates: {
+    canonical: "/solutions/ecommerce",
+  },
+  openGraph: {
+    title: "E-commerce AI Chatbot & Cart Recovery | Auromind AI",
+    description: "Boost store sales. Connect Auromind AI to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
+    url: "https://orbionagents.com/solutions/ecommerce",
+    type: "website",
+  },
+  twitter: {
+    title: "E-commerce AI Chatbot & Cart Recovery | Auromind AI",
+    description: "Boost store sales. Connect Auromind AI to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
+  },
 };
 
 export default function EcommercePage() {

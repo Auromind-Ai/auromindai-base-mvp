@@ -8,8 +8,21 @@ import { Newspaper, BookOpen, Clock, Users, ArrowUpRight, CheckCircle2, ArrowRig
 
 
 export const metadata = {
-  title: "Auromind Blog - AI Sales & Conversational Marketing Insights",
-  description: "Read industry tips on AI sales, WhatsApp marketing, CRM integrations, and omnichannel inbox workflows on the Auromind Blog."
+  title: "Conversational Marketing & AI Sales Blog",
+  description: "Discover expert guides, technical RAG tips, and conversational sales strategies to scale customer acquisition and automate company operations.",
+  alternates: {
+    canonical: "/resources/blog",
+  },
+  openGraph: {
+    title: "Conversational Marketing & AI Sales Blog | Auromind AI",
+    description: "Discover expert guides, technical RAG tips, and conversational sales strategies to scale customer acquisition and automate company operations.",
+    url: "https://orbionagents.com/resources/blog",
+    type: "website",
+  },
+  twitter: {
+    title: "Conversational Marketing & AI Sales Blog | Auromind AI",
+    description: "Discover expert guides, technical RAG tips, and conversational sales strategies to scale customer acquisition and automate company operations.",
+  },
 };
 
 export default function BlogPage() {

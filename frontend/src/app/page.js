@@ -46,8 +46,21 @@ const FooterSection = dynamic(
   { ssr: true }
 );
 export const metadata = {
-  title: "Auromind AI",
-  description: "Secure AI Business Assistant",
+  title: "AI Business Assistant for Sales Automation",
+  description: "Scale customer interactions safely. Auromind AI uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "AI Business Assistant for Sales Automation | Auromind AI",
+    description: "Scale customer interactions safely. Auromind AI uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
+    url: "https://orbionagents.com/",
+    type: "website",
+  },
+  twitter: {
+    title: "AI Business Assistant for Sales Automation | Auromind AI",
+    description: "Scale customer interactions safely. Auromind AI uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
+  },
 };
 
 export default function LandingPage() {

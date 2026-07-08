@@ -8,8 +8,21 @@ import { PlayCircle, Shield, Sparkles, Video, HelpCircle, CheckCircle2, ArrowRig
 
 
 export const metadata = {
-  title: "Auromind Demo Library - Setup Tutorials & Walkthrough Videos",
-  description: "Watch product walkthroughs and setup guides. Learn how to configure RAG databases, connect APIs, and automate sales conversations with Auromind."
+  title: "AI Platform Demo Videos & Setup Tutorials",
+  description: "Watch step-by-step setup guides and walkthrough videos. Learn how to configure your AI Brain, build visual workflows, and connect WhatsApp.",
+  alternates: {
+    canonical: "/resources/demo-videos",
+  },
+  openGraph: {
+    title: "AI Platform Demo Videos & Setup Tutorials | Auromind AI",
+    description: "Watch step-by-step setup guides and walkthrough videos. Learn how to configure your AI Brain, build visual workflows, and connect WhatsApp.",
+    url: "https://orbionagents.com/resources/demo-videos",
+    type: "website",
+  },
+  twitter: {
+    title: "AI Platform Demo Videos & Setup Tutorials | Auromind AI",
+    description: "Watch step-by-step setup guides and walkthrough videos. Learn how to configure your AI Brain, build visual workflows, and connect WhatsApp.",
+  },
 };
 
 export default function DemoVideosPage() {

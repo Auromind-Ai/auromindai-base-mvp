@@ -8,8 +8,21 @@ import { Brain, Cpu, Database, ShieldAlert, Zap, CheckCircle2, ArrowRight } from
 
 
 export const metadata = {
-  title: "AI Brain Engine - Context-Aware RAG Assistant | Auromind",
-  description: "Empower your customer conversations with Retrieval-Augmented Generation (RAG) and Governed AI Architecture using Auromind's AI Brain."
+  title: "AI Brain Engine & Context-Aware RAG",
+  description: "Ground your bots in business facts. Sync docs, databases, and website links securely using pgvector search and Model Context Protocol guardrails.",
+  alternates: {
+    canonical: "/product/ai-brain",
+  },
+  openGraph: {
+    title: "AI Brain Engine & Context-Aware RAG | Auromind AI",
+    description: "Ground your bots in business facts. Sync docs, databases, and website links securely using pgvector search and Model Context Protocol guardrails.",
+    url: "https://orbionagents.com/product/ai-brain",
+    type: "website",
+  },
+  twitter: {
+    title: "AI Brain Engine & Context-Aware RAG | Auromind AI",
+    description: "Ground your bots in business facts. Sync docs, databases, and website links securely using pgvector search and Model Context Protocol guardrails.",
+  },
 };
 
 export default function AIBrainPage() {

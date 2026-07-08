@@ -8,8 +8,21 @@ import { BookOpen, GraduationCap, Calendar, Compass, ListChecks, CheckCircle2, A
 
 
 export const metadata = {
-  title: "AI Education Solutions - Automate Student Enrollment | Auromind",
-  description: "Engage prospective students 24/7. Use Auromind's educational AI agents to present course catalogs, evaluate eligibility, and book counselor consultations."
+  title: "AI Enrollment Assistant & Student Admissions",
+  description: "Engage prospective students 24/7. Automate eligibility checks, showcase course catalogs, and book counselor consultations automatically.",
+  alternates: {
+    canonical: "/solutions/education",
+  },
+  openGraph: {
+    title: "AI Enrollment Assistant & Student Admissions | Auromind AI",
+    description: "Engage prospective students 24/7. Automate eligibility checks, showcase course catalogs, and book counselor consultations automatically.",
+    url: "https://orbionagents.com/solutions/education",
+    type: "website",
+  },
+  twitter: {
+    title: "AI Enrollment Assistant & Student Admissions | Auromind AI",
+    description: "Engage prospective students 24/7. Automate eligibility checks, showcase course catalogs, and book counselor consultations automatically.",
+  },
 };
 
 export default function EducationPage() {

@@ -8,8 +8,21 @@ import { Terminal, Database, Code, Sliders, BookOpen, CheckCircle2, ArrowRight }
 
 
 export const metadata = {
-  title: "Auromind Developer Center - API Documentation & Guides",
-  description: "Explore Auromind's API Reference. Learn how to configure developer SDKs, sync RAG data, and set up Model Context Protocol safeguards."
+  title: "Developer API Reference & SDK Documentation",
+  description: "Read technical guides and API specs. Integrate Auromind AI SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
+  alternates: {
+    canonical: "/resources/docs",
+  },
+  openGraph: {
+    title: "Developer API Reference & SDK Documentation | Auromind AI",
+    description: "Read technical guides and API specs. Integrate Auromind AI SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
+    url: "https://orbionagents.com/resources/docs",
+    type: "website",
+  },
+  twitter: {
+    title: "Developer API Reference & SDK Documentation | Auromind AI",
+    description: "Read technical guides and API specs. Integrate Auromind AI SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
+  },
 };
 
 export default function DocsPage() {

@@ -8,8 +8,21 @@ import { Home, Key, MapPin, Eye, Calendar, CheckCircle2, ArrowRight } from 'luci
 
 
 export const metadata = {
-  title: "AI Real Estate Chatbots - Automate Property Leads | Auromind",
-  description: "Engage home buyers 24/7. Use Auromind's Real Estate AI agents to showcase villa listings, answer neighborhood questions, and schedule physical property viewings."
+  title: "Real Estate AI Chatbot & Property Leads",
+  description: "Engage property buyers 24/7. Show property listings, resolve neighborhood queries, and schedule viewings automatically with Real Estate AI bots.",
+  alternates: {
+    canonical: "/solutions/real-estate",
+  },
+  openGraph: {
+    title: "Real Estate AI Chatbot & Property Leads | Auromind AI",
+    description: "Engage property buyers 24/7. Show property listings, resolve neighborhood queries, and schedule viewings automatically with Real Estate AI bots.",
+    url: "https://orbionagents.com/solutions/real-estate",
+    type: "website",
+  },
+  twitter: {
+    title: "Real Estate AI Chatbot & Property Leads | Auromind AI",
+    description: "Engage property buyers 24/7. Show property listings, resolve neighborhood queries, and schedule viewings automatically with Real Estate AI bots.",
+  },
 };
 
 export default function RealEstatePage() {

@@ -8,8 +8,21 @@ import { MessageSquareCode, Share2, Smartphone, Landmark, Megaphone, CheckCircle
 
 
 export const metadata = {
-  title: "WhatsApp Automation - Scale Business Conversations & Broadcasts | Auromind",
-  description: "Automate inbound support, product recommendations, and segmented broadcasts with Meta's official WhatsApp Business Cloud API."
+  title: "WhatsApp Business API & Broadcast Automation",
+  description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
+  alternates: {
+    canonical: "/product/whatsapp",
+  },
+  openGraph: {
+    title: "WhatsApp Business API & Broadcast Automation | Auromind AI",
+    description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
+    url: "https://orbionagents.com/product/whatsapp",
+    type: "website",
+  },
+  twitter: {
+    title: "WhatsApp Business API & Broadcast Automation | Auromind AI",
+    description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
+  },
 };
 
 export default function WhatsAppAutomationPage() {

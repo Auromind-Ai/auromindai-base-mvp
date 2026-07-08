@@ -8,8 +8,21 @@ import { Shield, Sparkles, MessageCircle, AlertCircle, FileText, CheckCircle2, A
 
 
 export const metadata = {
-  title: "High-Ticket AI Closing - Automated Objections & Handover | Auromind",
-  description: "Close premium enterprise contracts automatically. Connect Auromind to handle complex objections, escalate hot leads, and draft agreements in real-time."
+  title: "High-Ticket AI Closing & Sales Agent",
+  description: "Close premium contracts faster. Use Auromind AI to handle enterprise objections, qualify prospects, and transfer hot leads to live reps seamlessly.",
+  alternates: {
+    canonical: "/solutions/high-ticket",
+  },
+  openGraph: {
+    title: "High-Ticket AI Closing & Sales Agent | Auromind AI",
+    description: "Close premium contracts faster. Use Auromind AI to handle enterprise objections, qualify prospects, and transfer hot leads to live reps seamlessly.",
+    url: "https://orbionagents.com/solutions/high-ticket",
+    type: "website",
+  },
+  twitter: {
+    title: "High-Ticket AI Closing & Sales Agent | Auromind AI",
+    description: "Close premium contracts faster. Use Auromind AI to handle enterprise objections, qualify prospects, and transfer hot leads to live reps seamlessly.",
+  },
 };
 
 export default function HighTicketClosingPage() {

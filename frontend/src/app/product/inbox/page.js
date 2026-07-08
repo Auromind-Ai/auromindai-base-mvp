@@ -8,8 +8,21 @@ import { MessageSquare, Users, Sparkles, MessageCircle, BarChart3, CheckCircle2,
 
 
 export const metadata = {
-  title: "Unified Omnichannel Inbox - Instagram, WhatsApp & Web Chat | Auromind",
-  description: "Aggregate messaging channels in a single collaborative interface. Work alongside AI copilot and support agents in real-time."
+  title: "Omnichannel Inbox & Shared Dashboard",
+  description: "Consolidate WhatsApp, Instagram, and web chats. Collaborate with team members and use AI copilot suggestions to draft replies in real-time.",
+  alternates: {
+    canonical: "/product/inbox",
+  },
+  openGraph: {
+    title: "Omnichannel Inbox & Shared Dashboard | Auromind AI",
+    description: "Consolidate WhatsApp, Instagram, and web chats. Collaborate with team members and use AI copilot suggestions to draft replies in real-time.",
+    url: "https://orbionagents.com/product/inbox",
+    type: "website",
+  },
+  twitter: {
+    title: "Omnichannel Inbox & Shared Dashboard | Auromind AI",
+    description: "Consolidate WhatsApp, Instagram, and web chats. Collaborate with team members and use AI copilot suggestions to draft replies in real-time.",
+  },
 };
 
 export default function InboxPage() {

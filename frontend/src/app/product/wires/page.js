@@ -8,8 +8,21 @@ import { GitBranch, GitMerge, Sliders, Play, Settings, CheckCircle2, ArrowRight 
 
 
 export const metadata = {
-  title: "Visual Automation Wires - Drag & Drop Journey Builder | Auromind",
-  description: "Orchestrate customer journeys visually. Build sales scripts, follow-up chains, and CRM integrations using Auromind's Automation Wires."
+  title: "Visual Automation Builder & Flow Canvas",
+  description: "Orchestrate conversational journeys. Build sales scripts, follow-up chains, and CRM webhook integrations on a drag-and-drop visual node canvas.",
+  alternates: {
+    canonical: "/product/wires",
+  },
+  openGraph: {
+    title: "Visual Automation Builder & Flow Canvas | Auromind AI",
+    description: "Orchestrate conversational journeys. Build sales scripts, follow-up chains, and CRM webhook integrations on a drag-and-drop visual node canvas.",
+    url: "https://orbionagents.com/product/wires",
+    type: "website",
+  },
+  twitter: {
+    title: "Visual Automation Builder & Flow Canvas | Auromind AI",
+    description: "Orchestrate conversational journeys. Build sales scripts, follow-up chains, and CRM webhook integrations on a drag-and-drop visual node canvas.",
+  },
 };
 
 export default function WiresPage() {
