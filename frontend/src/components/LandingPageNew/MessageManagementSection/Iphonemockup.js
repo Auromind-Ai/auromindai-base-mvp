@@ -105,12 +105,12 @@ export function IphoneMockup({ rotateX, rotateY }) {
               </button>
 
               <div className={styles.waAvatar}>
-                <span>B</span>
+                <span>A</span>
                 <span className={styles.waOnlineDot} />
               </div>
-
+ 
               <div className={styles.waInfo}>
-                <div className={styles.waName}>Billie Eilish</div>
+                <div className={styles.waName}>Amit Sharma</div>
                 <div className={styles.waStatus}>online</div>
               </div>
 

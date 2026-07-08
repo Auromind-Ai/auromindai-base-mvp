@@ -244,9 +244,9 @@ export default function ManageChatsSection() {
                 </div>
                 <div className="flex flex-col gap-2 md:gap-3 px-3 md:px-4 pb-4">
                   {[
-                    "Hi 🙂 Which product are you looking for?",
-                    "Sure! 👍 This product is available.",
-                    "Order now or need details? 😊🧡",
+                    "Hi Amit! The Premium plan is ₹4,999/mo...",
+                    "Here is your secure Razorpay checkout link...",
+                    "Payment of ₹4,999 verified successfully! ✦",
                   ].map((msg, i) => (
                     <div key={i} className="flex items-center gap-2 md:gap-3 rounded-2xl px-3 py-2.5 md:px-4 md:py-3"
                       style={{ background: "rgba(30,30,30,0.9)", border: "1px solid rgba(255,255,255,0.06)" }}
@@ -261,7 +261,7 @@ export default function ManageChatsSection() {
                         </svg>
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">Auromind</span>
+                        <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">Orbion</span>
                         <span className="text-[11px] md:text-[13px] text-white/60 leading-snug truncate">{msg}</span>
                       </div>
                     </div>
@@ -309,9 +309,9 @@ export default function ManageChatsSection() {
                 </div>
                 <div className="flex flex-col gap-2 md:gap-3 px-3 md:px-4 pb-4">
                   {[
-                    "Your order has been successfully placed ✅🛍️",
-                    "Your order is being processed ⚙️🧡",
-                    "Your order is on the way 🚚",
+                    "Your custom checkout link is ready to pay...",
+                    "Razorpay Payment of ₹4,999 received ✅",
+                    "Your Premium Access is now fully active! ✦",
                   ].map((msg, i) => (
                     <div key={i} className="flex items-center gap-2 md:gap-3 rounded-2xl px-3 py-2.5 md:px-4 md:py-3"
                       style={{ background: "rgba(30,30,30,0.9)", border: "1px solid rgba(255,255,255,0.06)" }}
@@ -322,7 +322,7 @@ export default function ManageChatsSection() {
                         </svg>
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">Auromind</span>
+                        <span className="text-[11px] md:text-xs font-semibold text-white/90 leading-tight">Orbion</span>
                         <span className="text-[11px] md:text-[13px] text-white/60 leading-snug truncate">{msg}</span>
                       </div>
                     </div>

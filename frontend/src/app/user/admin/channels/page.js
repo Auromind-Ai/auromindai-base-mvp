@@ -179,7 +179,7 @@ const INTEGRATIONS_DATA = [
         subHeader: 'Google',
         subHeaderBelow: false,
         badgeColor: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
-        description: 'Connect your WhatsApp business number to automate replies and manage conversations.',
+        description: 'Connect your Gmail account to manage outreach, draft replies, and monitor inboxes.',
         iconBg: 'from-red-400 via-yellow-400 to-green-400',
         glowColor: 'rgba(251,188,5,0.15)',
         cardBorder: '1px solid #FBBC05',
@@ -197,7 +197,7 @@ const INTEGRATIONS_DATA = [
         subHeader: 'Google',
         subHeaderBelow: false,
         badgeColor: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
-        description: 'Connect your WhatsApp business number to automate replies and manage conversations.',
+        description: 'Sync availability, coordinate meetings, and book appointments automatically in Google Calendar.',
         iconBg: 'from-blue-400 to-blue-600',
         glowColor: 'rgba(26,115,232,0.15)',
         cardBorder: '1px solid #1A73E8',
@@ -1472,7 +1472,7 @@ const disconnectChannel = async (channelId) => {
 
                 {/*  Footer  */}
                 <div className="mt-14 text-center text-white/50 text-[12px]">
-                    <p>Auromind AI securely handles your communication data according to our privacy policy.</p>
+                    <p>Orbion Agents securely handles your communication data according to our privacy policy.</p>
                 </div>
             </div>
 

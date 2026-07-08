@@ -1,208 +1,256 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Poppins } from "next/font/google";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["500"],
-});
+import { Sparkles, ArrowRight, Activity, ShieldCheck, Cpu, Flame } from 'lucide-react';
 
 const steps = [
   {
-    step: 'Step 1',
+    step: '01',
+    label: 'Connect',
     title: 'Connect Account',
     description:
       'Securely connect your WhatsApp Business account using the official Cloud API to automate messaging, manage conversations at scale, and deliver reliable customer support — all with enterprise-grade security.',
     features: [
-      'Official & Secure',
-      'Faster Response Time',
-      'Verified Business Trust',
-      'Seamless Automation',
+      'Official Meta API Integration',
+      'Instant Response Automation',
+      'Verified Green Badge Status',
+      'Fully Scalable Delivery Platform',
     ],
     image: '/images/StepOne.png',
+    accent: '#A855F7',
+    glow: 'rgba(168, 85, 247, 0.15)',
+    icon: <ShieldCheck className="w-5 h-5 text-purple-400" />,
   },
   {
-    step: 'Step 2',
-    title: 'Configure AI',
+    step: '02',
+    label: 'Train',
+    title: 'Configure AI Brain',
     description:
       'Train your AI by setting rules and training it on your business data so it responds accurately, works exactly for your business needs, and continuously improves across more interactions.',
     features: [
-      'Configure custom AI rules',
-      'Train on proprietary data',
-      'Control response behavior',
-      'Define tone and workflows',
+      'Custom Context Injection',
+      'Behavioral Alignment Rules',
+      'Knowledge Base Embeddings',
+      'Adaptive Learning Over Time',
     ],
     image: '/images/StepTwo.png',
+    accent: '#6366F1',
+    glow: 'rgba(99, 102, 241, 0.15)',
+    icon: <Cpu className="w-5 h-5 text-indigo-400" />,
   },
   {
-    step: 'Step 3',
+    step: '03',
+    label: 'Launch',
     title: 'Go Live Instantly',
     description:
       'Launch your autonomous sales system in minutes and let it automatically engage leads, qualify prospects, and convert conversations into revenue around the clock.',
     features: [
-      'Instant activation',
-      '24/7 automated replies',
-      'Lead qualification',
-      'Revenue-focused workflows',
+      'One-Click Production Launch',
+      '24/7 Autopilot Processing',
+      'CRM System Integrations',
+      'Revenue Attribution Dashboards',
     ],
     image: '/images/StepThree.png',
+    accent: '#EC4899',
+    glow: 'rgba(236, 72, 153, 0.15)',
+    icon: <Flame className="w-5 h-5 text-pink-400" />,
   },
 ];
 
 export default function HowItWorks() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [direction, setDirection] = useState(1);
+  const [progress, setProgress] = useState(0);
+  const autoplayTimer = useRef(null);
+  const progressTimer = useRef(null);
+
+  const resetAutoplay = () => {
+    if (autoplayTimer.current) clearInterval(autoplayTimer.current);
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    setProgress(0);
+
+    const stepDuration = 6000; // 6 seconds per step
+    const intervalTime = 50;   // Update progress every 50ms
+    const stepIncrement = (intervalTime / stepDuration) * 100;
+
+    progressTimer.current = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          return 0;
+        }
+        return prev + stepIncrement;
+      });
+    }, intervalTime);
+
+    autoplayTimer.current = setInterval(() => {
+      setCurrentStep((prev) => (prev + 1) % steps.length);
+      setProgress(0);
+    }, stepDuration);
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDirection(1);
-      setCurrentStep((prev) => (prev + 1) % steps.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
+    resetAutoplay();
+    return () => {
+      if (autoplayTimer.current) clearInterval(autoplayTimer.current);
+      if (progressTimer.current) clearInterval(progressTimer.current);
+    };
+  }, [currentStep]);
 
-  const contentVariants = {
-    enter: (dir) => ({
-      opacity: 0,
-      x: dir > 0 ? 40 : -40,
-    }),
-    center: {
-      opacity: 1,
-      x: 0,
-      transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
-    },
-    exit: (dir) => ({
-      opacity: 0,
-      x: dir > 0 ? -40 : 40,
-      transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
-    }),
-  };
-
-  const imageVariants = {
-    enter: (dir) => ({
-      opacity: 0,
-      scale: 0.95,
-      x: dir > 0 ? 60 : -60,
-    }),
-    center: {
-      opacity: 1,
-      scale: 1,
-      x: 0,
-      transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] },
-    },
-    exit: (dir) => ({
-      opacity: 0,
-      scale: 0.95,
-      x: dir > 0 ? -60 : 60,
-      transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
-    }),
-  };
-
-  const item = steps[currentStep];
+  const activeItem = steps[currentStep];
 
   return (
-    <section id="process" className="bg-black py-24 md:py-32 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-6">
+    <section id="process" className="bg-[#03020A] py-24 sm:py-32 relative overflow-hidden font-sans border-b border-white/[0.04]">
+      {/* Dynamic Background Glow changing according to step accent color */}
+      <div className="pointer-events-none absolute inset-0 transition-all duration-1000 ease-in-out -z-10">
+        <div 
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] sm:w-[800px] h-[400px] sm:h-[500px] rounded-full blur-[140px] opacity-40 transition-all duration-1000"
+          style={{
+            background: `radial-gradient(circle, ${activeItem.accent} 0%, transparent 70%)`
+          }}
+        />
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
 
-        {/* Heading */}
-        <div className="max-w-4xl mx-auto text-center">
-          <h2
-            className={`${poppins.className} text-[26px] font-medium text-white leading-[1.1em] tracking-[-0.04em] sm:text-[50px]`}
-          >
-            <span className="block">Launch in Three Simple Steps</span>
-            <span className="block mt-1">With a Seamless Process</span>
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        
+        {/* Section Header */}
+        <div className="max-w-3xl mx-auto text-center mb-16 sm:mb-20">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-purple-300 tracking-wider uppercase mb-5">
+            <Activity size={12} className="text-purple-400 animate-pulse" />
+            Seamless Onboarding
+          </div>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
+            Launch in Three Simple Steps
           </h2>
-          <p className="mt-5 text-sm md:text-base lg:text-xl text-white/90 max-w-xl mx-auto">
-            Your autonomous sales force is just a few clicks away.
+          <p className="mt-4 text-base sm:text-lg text-zinc-400 max-w-xl mx-auto leading-relaxed">
+            Configure your autonomous sales agent and start automating customer conversations in minutes.
           </p>
         </div>
 
-        {/* Step indicators */}
-        <div className="mt-14 flex justify-center items-center gap-3">
-          {steps.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => {
-                setDirection(i > currentStep ? 1 : -1);
-                setCurrentStep(i);
-              }}
-              className="flex items-center gap-2 group"
-            >
-              <div
-                className={`h-[3px] rounded-full transition-all duration-500 ${
-                  i === currentStep
-                    ? 'w-10 bg-[#814AC8]'
-                    : 'w-5 bg-white/20 group-hover:bg-white/40'
-                }`}
-              />
-              <span
-                className={`text-xs font-medium transition-colors duration-300 ${
-                  i === currentStep ? 'text-white' : 'text-white/35'
+        {/* Timeline / Progress Tabs */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16 sm:mb-24 max-w-4xl mx-auto">
+          {steps.map((s, i) => {
+            const isActive = i === currentStep;
+            return (
+              <button
+                key={i}
+                onClick={() => {
+                  setCurrentStep(i);
+                }}
+                className={`text-left p-5 rounded-2xl border transition-all duration-300 relative group overflow-hidden ${
+                  isActive
+                    ? 'bg-white/[0.03] border-white/15 shadow-xl'
+                    : 'bg-transparent border-white/[0.04] hover:bg-white/[0.01] hover:border-white/10'
                 }`}
               >
-                {s.step}
-              </span>
-            </button>
-          ))}
+                {/* Horizontal Progress bar for active tab */}
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/[0.05]">
+                    <div 
+                      className="h-full transition-all duration-75 ease-linear"
+                      style={{ 
+                        width: `${progress}%`,
+                        backgroundColor: s.accent,
+                        boxShadow: `0 0 10px ${s.accent}`
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center gap-4">
+                  <div 
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                      isActive 
+                        ? 'text-white' 
+                        : 'bg-white/[0.04] border border-white/10 text-zinc-500 group-hover:text-zinc-300'
+                    }`}
+                    style={isActive ? { backgroundColor: s.accent } : {}}
+                  >
+                    {s.step}
+                  </div>
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-wider transition-colors ${isActive ? 'text-white/50' : 'text-zinc-600'}`}>
+                      {s.label}
+                    </p>
+                    <p className={`text-sm font-semibold mt-0.5 transition-colors ${isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-300'}`}>
+                      {s.title}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Content — fixed min-height to prevent jump */}
-        <div className="mt-16 relative min-h-[480px] md:min-h-[420px] flex items-center">
-          <AnimatePresence mode="wait" custom={direction}>
+        {/* Dynamic Display Layout */}
+        <div className="relative min-h-[500px] md:min-h-[420px] flex items-center bg-[#090812]/50 border border-white/[0.06] rounded-[2.5rem] p-6 sm:p-8 md:p-12 lg:p-16 backdrop-blur-xl shadow-2xl">
+          <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
-              custom={direction}
-              variants={{ enter: contentVariants.enter, center: contentVariants.center, exit: contentVariants.exit }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="w-full grid md:grid-cols-2 items-center gap-10 md:gap-12 xl:gap-24"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.45, ease: 'easeInOut' }}
+              className="w-full grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 items-center"
             >
-              {/* Image */}
-              <motion.div
-                custom={direction}
-                variants={imageVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="relative mx-auto w-full max-w-[320px] md:max-w-[460px] xl:max-w-[540px] h-[240px] md:h-[340px] xl:h-[400px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
-              >
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
+              {/* Left Side: Graphic Panel */}
+              <div className="md:col-span-6 flex justify-center relative">
+                {/* Backdrop Glow Ring */}
+                <div 
+                  className="absolute inset-0 rounded-[2.5rem] filter blur-2xl opacity-30 transition-all duration-500"
+                  style={{ backgroundColor: activeItem.accent }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-black/25 to-transparent pointer-events-none rounded-3xl" />
-              </motion.div>
+                
+                <div className="relative w-full aspect-[4/3] rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl group cursor-pointer">
+                  <img
+                    src={activeItem.image}
+                    alt={activeItem.title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  {/* Neon Color Mask Overlay */}
+                  <div 
+                    className="absolute inset-0 mix-blend-color opacity-25 transition-all duration-500"
+                    style={{ backgroundColor: activeItem.accent }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                </div>
+              </div>
 
-              {/* Text */}
-              <div className="text-center md:text-left max-w-xl mx-auto md:mx-0">
-                <p className="text-sm lg:text-base text-white/60 mb-3 uppercase tracking-widest">
-                  {item.step}
-                </p>
+              {/* Right Side: Copy Panel */}
+              <div className="md:col-span-6 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-white/[0.03] border border-white/[0.08] text-xs font-semibold text-zinc-300">
+                  {activeItem.icon}
+                  <span>Phase {activeItem.step}</span>
+                </div>
 
-                <h3 className="text-3xl md:text-[2.5rem] leading-tight font-semibold text-white">
-                  {item.title}
+                <h3 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+                  {activeItem.title}
                 </h3>
 
-                <p className="mt-5 text-white/85 leading-7 text-base md:text-base lg:text-lg max-w-md mx-auto md:mx-0">
-                  {item.description}
+                <p className="text-base sm:text-lg text-zinc-400 leading-relaxed font-normal">
+                  {activeItem.description}
                 </p>
 
-                <div className="mt-8 max-w-sm mx-auto md:mx-0 text-left">
-                  <p className="text-white text-base lg:text-lg font-medium mb-3">
-                    Features:
+                {/* Features List */}
+                <div className="pt-4 border-t border-white/[0.06] space-y-3.5">
+                  <p className="text-sm font-bold tracking-wider text-white uppercase">
+                    Capabilities Included
                   </p>
-                  <ul className="space-y-2 text-sm lg:text-base text-white/85">
-                    {item.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <span className="text-[#814AC8] mt-[2px]">✓</span>
-                        <span>{feature}</span>
-                      </li>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {activeItem.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-2.5">
+                        <div 
+                          className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${activeItem.accent}15` }}
+                        >
+                          <span className="text-[10px]" style={{ color: activeItem.accent }}>✓</span>
+                        </div>
+                        <span className="text-sm text-zinc-300 font-medium">
+                          {feature}
+                        </span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               </div>
             </motion.div>

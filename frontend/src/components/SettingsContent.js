@@ -1679,7 +1679,7 @@ export default function SettingsContent({ email }) {
           {/* ════════════════════════════════════════
               MOBILE: top bar with section name + hamburger
           ════════════════════════════════════════ */}
-          <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
+          <div className="lg:hidden flex items-center justify-between pl-4 pr-14 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
             <span className="text-sm font-semibold text-white">{activeLabel}</span>
             <button
               type="button"

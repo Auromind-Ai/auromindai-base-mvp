@@ -85,9 +85,9 @@ export default function HeroSectionNew() {
             }}
             className="rounded-full bg-gradient-to-r from-[#7c3aed] to-[#4f7cff] px-3 py-1 text-[9px] md:text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_0_22px_rgba(124,58,237,0.55)]"
           >
-            ✦ The Future
+            ✦ 24/7 AI
           </motion.span>
-
+ 
           <div className="relative overflow-hidden h-[18px] md:h-[20px]">
             <motion.span
               initial={{
@@ -105,18 +105,18 @@ export default function HeroSectionNew() {
               }}
               className="block text-[12px] md:text-[14px] font-medium text-white/70"
             >
-              of Sale is here
+              Sales Agents are here
             </motion.span>
           </div>
         </motion.div>
-
+ 
         <motion.h1
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.65 }}
           className="mb-5 md:mb-6 max-w-[980px] text-[32px] sm:text-[40px] md:text-[48px] lg:text-[55px] font-semibold leading-[1.15em] tracking-[-1.5px] md:tracking-[-2.2px] text-[#FFFFFF]"
         >
-          <AnimatedText text="Make the Most Out of Every Single" delay={0.85} />
+          <AnimatedText text="Turn WhatsApp & Instagram DMs" delay={0.85} />
           <br />
           <motion.span
           initial={{ opacity: 0, y: 28 }}
@@ -129,17 +129,17 @@ export default function HeroSectionNew() {
           className="inline-block text-[#FFFFFF]"
           style={{}}
         >
-           Conversation.
+           Into Sales <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent font-bold">on Autopilot</span>
         </motion.span>
         </motion.h1>
-
+ 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 1.45 }}
           className="mb-10 max-w-[650px] text-[14px] sm:text-[16px] md:text-[17px] lg:text-[19px] font-medium leading-[1.9] text-white/72 px-2 sm:px-0"
         >
-          Scalable Al Sales Assistant for Instagram and WhatsApp. Automate every conversation to close more sales while you sleep.
+          Deploy intelligent AI Agents that qualify leads, answer objections, and close deals 24/7 directly inside your customer chats.
         </motion.p>
 
         <motion.div

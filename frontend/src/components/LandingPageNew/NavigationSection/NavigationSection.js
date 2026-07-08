@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Poppins } from "next/font/google";
+import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
 import { Zap, Menu, X, ChevronDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -10,6 +10,11 @@ import { useBranding } from '@/context/BrandingContext';
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
 });
 
 const NavigationSection = () => {
@@ -36,25 +41,32 @@ const NavigationSection = () => {
       className={`${poppins.className} fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-md border-b border-white/10 py-3 sm:py-4 px-4 sm:px-6`}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-14 h-14 flex items-center justify-center group-hover:scale-105 transition-all">
-            {appLogoUrl && !logoError ? (
+        <Link href="/" className="flex items-center group">
+          {appLogoUrl && !logoError ? (
+            <div className="flex items-center gap-2.5">
               <img 
                 src={appLogoUrl} 
                 alt={appName} 
-                className="w-12 h-12 object-contain" 
+                className="h-[54px] w-auto object-contain group-hover:rotate-6 transition-all duration-300" 
                 onError={() => setLogoError(true)}
               />
-            ) : (
+              <span className={`${jakarta.className} text-[19px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+                ORBION
+                <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
+                  AGENTS
+                </span>
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center">
                 <Zap size={18} fill="currentColor" />
               </div>
-            )}
-          </div>
-
-          <span className="text-[15px] font-bold tracking-normal text-white">
-            {appName}
-          </span>
+              <span className="text-[15px] font-bold tracking-normal text-white">
+                {appName}
+              </span>
+            </div>
+          )}
         </Link>
 
           <div className="hidden lg:flex items-center gap-8">
@@ -230,7 +242,7 @@ const NavigationSection = () => {
 
           {/* Pricing */}
           <Link
-            href="#pricing"
+            href="/pricing"
             className="text-[15px] font-medium text-white/90 transition-colors hover:text-white"
           >
             Pricing
@@ -372,7 +384,7 @@ const NavigationSection = () => {
             </div>
 
             {/* Pricing */}
-            <Link href="#pricing" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
+            <Link href="/pricing" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
               Pricing
             </Link>
 

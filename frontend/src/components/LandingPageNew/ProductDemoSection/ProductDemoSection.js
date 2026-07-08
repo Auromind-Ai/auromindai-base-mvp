@@ -45,17 +45,16 @@ const ProductDemoSection = () => {
 
   // Simulating terminal log streaming
   const logTemplates = [
-    { text: '⚡ Webhook received from Instagram Business API', type: 'info' },
-    { text: '🔍 Analyzing user message: "Can I integrate Shopify catalog?"', type: 'info' },
-    { text: '🧠 AI Model matched intent: "eCommerce Integration Inquiry" (Confidence: 99.2%)', type: 'success' },
-    { text: '📦 Fetching Shopify products database...', type: 'warn' },
-    { text: '✉️ Sent reply with Shopify catalog widget in-chat', type: 'success' },
     { text: '⚡ Webhook received from WhatsApp Cloud API', type: 'info' },
-    { text: '🔍 Analyzing user message: "Let\'s upgrade to growth tier"', type: 'info' },
-    { text: '💳 Redirecting to Stripe billing checkout portal', type: 'warn' },
-    { text: '🎉 Conversion tracked: Shopify checkouts updated (+ $49.00/mo MRR)', type: 'success' },
-    { text: '✅ Notification dispatched to sales team Slack channel #inbox-alerts', type: 'success' },
-    { text: '🔄 Workflow execution completed successfully in 842ms', type: 'success' },
+    { text: '🔍 Analyzing user message: "upgrade to Premium plan in INR"', type: 'info' },
+    { text: '🧠 AI Model matched intent: "Billing Tier Upgrade" (Confidence: 99.8%)', type: 'success' },
+    { text: '💳 Generating Razorpay payment link (₹4,999/mo)...', type: 'warn' },
+    { text: '✉️ Sent reply with secure checkout widget in-chat', type: 'success' },
+    { text: '⚡ Webhook received from Razorpay Webhook API', type: 'info' },
+    { text: '🔍 Verifying payment signature for payload: pay_OkS89djs92', type: 'info' },
+    { text: '🎉 Conversion tracked: Platform subscription updated (+ ₹4,999.00/mo)', type: 'success' },
+    { text: '✅ Notification dispatched to sales team Slack channel #billing-alerts', type: 'success' },
+    { text: '🔄 Workflow execution completed successfully in 740ms', type: 'success' },
   ];
 
   useEffect(() => {
@@ -92,13 +91,13 @@ const ProductDemoSection = () => {
   }, [terminalLogs]);
 
   return (
-    <section id="demo" className="py-24 px-6 bg-[#030303] border-t border-white/[0.05] relative overflow-hidden">
+    <section id="demo" className="py-12 sm:py-20 md:py-24 px-4 sm:px-6 bg-[#030303] border-t border-white/[0.05] relative overflow-hidden">
       {/* Background ambient radial glows */}
       <div className="absolute top-1/4 right-0 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[130px] pointer-events-none" />
       <div className="absolute bottom-1/4 left-0 w-[400px] h-[400px] bg-indigo-600/10 rounded-full blur-[110px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto">
-        <div className="bg-gradient-to-b from-[#09090D] to-[#050508] rounded-[2.5rem] border border-white/[0.08] p-6 md:p-12 lg:p-16 overflow-hidden relative backdrop-blur-md shadow-2xl">
+        <div className="bg-gradient-to-b from-[#09090D] to-[#050508] rounded-[2.5rem] border border-white/[0.08] p-4 sm:p-6 md:p-12 lg:p-16 overflow-hidden relative backdrop-blur-md shadow-2xl">
           {/* Internal diagonal accent */}
           <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-purple-600/5 to-transparent pointer-events-none" />
 
@@ -111,7 +110,7 @@ const ProductDemoSection = () => {
                 <span>Command Center</span>
               </div>
               
-              <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.05]">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.05]">
                 Monitor every chat <br />
                 <span className="bg-gradient-to-r from-white via-white to-white/60 bg-clip-text text-transparent">from one dashboard.</span>
               </h2>
@@ -128,7 +127,7 @@ const ProductDemoSection = () => {
                     <div
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`cursor-pointer p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden group ${
+                      className={`cursor-pointer p-3 sm:p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden group ${
                         isActive 
                           ? 'bg-white/[0.04] border-white/15 shadow-[0_10px_30px_-10px_rgba(139,92,246,0.15)]' 
                           : 'bg-transparent border-transparent hover:bg-white/[0.02] hover:border-white/5'
@@ -191,7 +190,7 @@ const ProductDemoSection = () => {
               <div className="absolute inset-0 bg-purple-500/5 rounded-3xl blur-2xl pointer-events-none" />
 
               {/* Mock Dashboard Visual */}
-              <div className="bg-[#0D0D11] rounded-3xl border border-white/10 shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8)] relative overflow-hidden backdrop-blur-md flex flex-col min-h-[460px]">
+              <div className="bg-[#0D0D11] rounded-3xl border border-white/10 shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8)] relative overflow-hidden backdrop-blur-md flex flex-col min-h-[380px] sm:min-h-[420px] md:min-h-[460px]">
                 
                 {/* Glowing corner overlay inside dashboard */}
                 <div className="absolute -top-20 -right-20 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -206,7 +205,7 @@ const ProductDemoSection = () => {
                   
                   {/* Title Bar */}
                   <div className="text-[10px] font-mono tracking-wider text-white/30 uppercase max-w-[180px] truncate">
-                    {tabs[activeTab].title.toLowerCase()}.auromind.ai
+                    {tabs[activeTab].title.toLowerCase()}.orbionagents.com
                   </div>
                   
                   {/* Pulsing Live indicator */}
@@ -235,14 +234,14 @@ const ProductDemoSection = () => {
                         <div className="flex items-center justify-between border-b border-white/5 pb-3">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-md">
-                              SC
+                              AS
                             </div>
                             <div>
                               <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                                Sarah Chen
+                                Amit Sharma
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                               </div>
-                              <div className="text-[10px] text-white/40">Shopify Checkout • Via WhatsApp</div>
+                              <div className="text-[10px] text-white/40">Shopify & Razorpay • Via WhatsApp</div>
                             </div>
                           </div>
                           <span className="text-[9px] font-semibold text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/25">
@@ -251,40 +250,40 @@ const ProductDemoSection = () => {
                         </div>
 
                         {/* Chat Feed Messages */}
-                        <div className="space-y-3 flex-1 overflow-y-auto max-h-[220px] py-2 pr-1 scrollbar-thin">
+                        <div className="space-y-3 flex-1 overflow-y-auto max-h-[160px] sm:max-h-[220px] py-2 pr-1 scrollbar-thin">
                           <div className="max-w-[80%] bg-white/5 border border-white/5 rounded-2xl rounded-tl-none p-3">
                             <p className="text-xs text-white/90 leading-relaxed">
-                              Hey! Can I integrate my Shopify catalog directly with WhatsApp?
+                              Hi, I want to buy the Premium plan. How much is the price in INR?
                             </p>
                             <span className="text-[8px] text-white/30 mt-1 block">12:04 PM</span>
                           </div>
 
                           <div className="max-w-[80%] bg-violet-600/20 border border-violet-500/20 rounded-2xl rounded-tr-none p-3 ml-auto">
                             <p className="text-xs text-white leading-relaxed">
-                              Absolutely, Sarah! I can sync your catalog instantly. Would you like me to pull your top products?
+                              Namaste Amit! The Premium plan is ₹4,999/month. Would you like the secure checkout link to activate it?
                             </p>
                             <span className="text-[8px] text-purple-300/50 mt-1 block">12:04 PM • Bot</span>
                           </div>
 
                           <div className="max-w-[80%] bg-white/5 border border-white/5 rounded-2xl rounded-tl-none p-3">
                             <p className="text-xs text-white/90 leading-relaxed">
-                              Yes please, show me the bestsellers.
+                              Yes please, send the checkout link.
                             </p>
                             <span className="text-[8px] text-white/30 mt-1 block">12:05 PM</span>
                           </div>
 
                           <div className="max-w-[80%] bg-violet-600/20 border border-violet-500/20 rounded-2xl rounded-tr-none p-3 ml-auto">
                             <div className="flex items-center gap-2 mb-2 p-1.5 bg-black/30 border border-white/5 rounded-xl">
-                              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-emerald-400">
-                                🛒
+                              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-violet-400">
+                                💳
                               </div>
                               <div className="text-left">
-                                <div className="text-[10px] font-bold text-white">CloudRunner Sneakers</div>
-                                <div className="text-[9px] text-white/40">$129.00 • 3 In Stock</div>
+                                <div className="text-[10px] font-bold text-white">Orbion Premium Plan</div>
+                                <div className="text-[9px] text-white/40">₹4,999.00 • Monthly</div>
                               </div>
                             </div>
                             <p className="text-xs text-white leading-relaxed">
-                              Here is our bestseller! You can click below to checkout securely.
+                              Here is your secure Razorpay checkout link. Click below to pay and activate Premium access instantly!
                             </p>
                             <span className="text-[8px] text-purple-300/50 mt-1 block">12:05 PM • Bot</span>
                           </div>
@@ -422,12 +421,12 @@ const ProductDemoSection = () => {
                         className="space-y-4 flex-1 flex flex-col justify-between"
                       >
                         {/* Terminal Window */}
-                        <div className="bg-[#050507] border border-white/5 rounded-2xl p-4 flex-1 flex flex-col min-h-[300px] max-h-[300px] overflow-hidden">
+                        <div className="bg-[#050507] border border-white/5 rounded-2xl p-4 flex-1 flex flex-col min-h-[220px] max-h-[220px] sm:min-h-[300px] sm:max-h-[300px] overflow-hidden">
                           {/* Terminal Header */}
                           <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
                             <span className="text-[9px] font-mono text-white/40 flex items-center gap-1.5">
                               <Activity size={10} className="text-emerald-400 animate-pulse" />
-                              auromind-runtime-v1.4.log
+                              orbion-runtime-v1.4.log
                             </span>
                             <span className="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono">
                               STREAMING

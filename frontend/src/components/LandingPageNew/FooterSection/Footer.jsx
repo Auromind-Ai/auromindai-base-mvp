@@ -2,6 +2,12 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useBranding } from '@/context/BrandingContext';
+import { Plus_Jakarta_Sans } from 'next/font/google';
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
+});
 
 const footerLinks = {
   Links: [
@@ -9,7 +15,7 @@ const footerLinks = {
     { name: "Process", href: "/#process" },
     { name: "Case studies", href: "/resources/case-studies" },
     { name: "Benefits", href: "/#benefits" },
-    { name: "Pricing", href: "/#pricing" },
+    { name: "Pricing", href: "/pricing" },
   ],
   Pages: [
     { name: "Home", href: "/" },
@@ -48,16 +54,24 @@ export default function Footer() {
           {/* Column 1 — Brand */}
           <div className="flex flex-col gap-5">
             {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="w-14 h-14 flex items-center justify-center">
-                {appLogoUrl && !logoError ? (
+            <div className="flex items-center">
+              {appLogoUrl && !logoError ? (
+                <div className="flex items-center gap-2.5">
                   <img 
                     src={appLogoUrl} 
                     alt={appName} 
-                    className="w-12 h-12 object-contain" 
+                    className="h-[54px] w-auto object-contain" 
                     onError={() => setLogoError(true)}
                   />
-                ) : (
+                  <span className={`${jakarta.className} text-[20px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+                    ORBION
+                    <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
+                      AGENTS
+                    </span>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
                     style={{ background: "#814AC8" }}
@@ -76,14 +90,14 @@ export default function Footer() {
                       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                     </svg>
                   </div>
-                )}
-              </div>
-              <span
-                className="text-white text-2xl font-bold tracking-tight"
-                style={{ fontFamily: "'Poppins', sans-serif" }}
-              >
-                {appName}
-              </span>
+                  <span
+                    className="text-white text-2xl font-bold tracking-tight"
+                    style={{ fontFamily: "'Poppins', sans-serif" }}
+                  >
+                    {appName}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Description */}
@@ -154,6 +168,25 @@ export default function Footer() {
                   </div>
               ))}
             </div>
+          </div>
+
+          {/* Bottom Bar: Copyright & Parent Link */}
+          <div className="mt-12 pt-8 border-t border-white/[0.08] flex flex-col items-center justify-center text-center">
+            <p
+              className="text-sm"
+              style={{ color: "#71717A", fontFamily: "'Poppins', sans-serif" }}
+            >
+              © {new Date().getFullYear()} {appName || "Orbion Agents"}. A product of{" "}
+              <a
+                href="https://auromindai.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors duration-150 hover:text-white underline decoration-zinc-700/50 underline-offset-4 font-medium"
+              >
+                AuromindAI Private Limited
+              </a>
+              . All rights reserved.
+            </p>
           </div>
       </div>
     </footer>

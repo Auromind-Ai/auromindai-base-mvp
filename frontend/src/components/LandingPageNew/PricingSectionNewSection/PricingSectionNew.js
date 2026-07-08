@@ -55,11 +55,10 @@ export default function PricingSectionNew() {
     {
       name: settings?.free_plan_name || 'Free',
       icon: "🚀",
-      monthlyPrice: settings?.free_plan_price === 0 ? 'Free' : `₹${settings?.free_plan_price || 399}`,
-      annualPrice: settings?.free_plan_price === 0 ? 'Free' : `₹${settings?.free_plan_price || 399}`,
+      monthlyPrice: (settings?.free_plan_price ?? 0) === 0 ? 'Free' : `₹${settings?.free_plan_price}`,
       description: settings?.free_plan_desc || 'Try Auromind for free and see the ROI yourself.',
       features: settings?.free_plan_features || [
-        `${Math.round((settings?.token_limit_per_plan?.free || 100000) / TOKENS_PER_CREDIT)} AI Replies`,
+        `${Math.round((settings?.token_limit_per_plan?.free || 1000000) / TOKENS_PER_CREDIT)} AI Replies`,
         'Basic Workflows',
         'Meta API Included',
       ],
@@ -67,14 +66,31 @@ export default function PricingSectionNew() {
       featured: false,
     },
     {
-      name: settings?.pro_plan_name || 'Professional',
+      name: settings?.solo_plan_name || 'Solo Smart',
       icon: "⚡",
-      monthlyPrice: `₹${settings?.pro_plan_price || 6999}`,
-      annualPrice: `₹${settings?.pro_plan_price || 6999}`,
+      monthlyPrice: billing === 'annual'
+        ? `₹${settings?.solo_plan_price ? Math.round(settings.solo_plan_price * 0.90) : 899}`
+        : `₹${settings?.solo_plan_price || 999}`,
+      description: settings?.solo_plan_desc || 'RAG & custom knowledge base on a budget for solopreneurs.',
+      features: settings?.solo_plan_features || [
+        `${Math.round((settings?.token_limit_per_plan?.solo || 15000000) / TOKENS_PER_CREDIT)} AI Replies`,
+        'RAG Knowledge Base (10 files)',
+        '1 Gmail account integration',
+        'Up to 500 leads database',
+      ],
+      buttonText: 'Choose this plan',
+      featured: false,
+    },
+    {
+      name: settings?.pro_plan_name || 'Professional',
+      icon: "🔥",
+      monthlyPrice: billing === 'annual'
+        ? `₹${settings?.pro_plan_price ? Math.round(settings.pro_plan_price * 0.833) : 4999}`
+        : `₹${settings?.pro_plan_price || 5999}`,
       description: settings?.pro_plan_desc || 'Advanced features for growing teams and scalable workflows.',
       features: settings?.pro_plan_features || [
-        `${Math.round((settings?.token_limit_per_plan?.pro || 1000000) / TOKENS_PER_CREDIT)} AI Replies`,
-        'Advanced Workflows',
+        `${Math.round((settings?.token_limit_per_plan?.pro || 100000000) / TOKENS_PER_CREDIT)} AI Replies`,
+        'Advanced Workflows + RAG',
         'Priority Support',
         'Full Analytics',
       ],
@@ -84,9 +100,8 @@ export default function PricingSectionNew() {
     {
       name: settings?.enterprise_plan_name || 'Business',
       icon: "👑",
-      monthlyPrice: settings?.enterprise_plan_price === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 'Custom'}`,
-      annualPrice: settings?.enterprise_plan_price === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 'Custom'}`,
-      description: settings?.enterprise_plan_desc || 'Perfect for small businesses starting with AI automation.',
+      monthlyPrice: (settings?.enterprise_plan_price ?? 24999) === 0 ? 'Custom' : `₹${settings?.enterprise_plan_price || 24999}`,
+      description: settings?.enterprise_plan_desc || 'Perfect for businesses starting with AI automation at scale.',
       features: settings?.enterprise_plan_features || [
         'Dedicated Manager',
         'Custom API Access',
@@ -161,7 +176,7 @@ export default function PricingSectionNew() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
-          className="relative mt-16 md:mt-20 grid md:grid-cols-3 gap-6 xl:gap-8"
+          className="relative mt-16 md:mt-20 grid md:grid-cols-2 lg:grid-cols-4 gap-6 xl:gap-8"
         >
           {plans.map((plan, index) => {
             const isFeatured = plan.featured;

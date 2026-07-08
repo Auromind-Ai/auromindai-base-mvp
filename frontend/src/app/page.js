@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import NavigationSection from '../components/LandingPageNew/NavigationSection/NavigationSection';
 import ModernSaaSBackground from '../components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import BeforeAfterSection from '../components/LandingPageNew/BeforeAfterSection/BeforeAfterSection';
-import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
+// import ProductDemoSection from '../components/LandingPageNew/ProductDemoSection/ProductDemoSection';
 // import SocialProofSection from '../components/LandingPageNew/SocialProofSection/SocialProofSection';
 import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSectionNew';
 import FAQSection from '@/components/LandingPageNew/FAQSection/FAQSection';
@@ -16,6 +16,7 @@ import PricingSectionNew from '@/components/LandingPageNew/PricingSectionNewSect
 // import TestimonialsSection from '@/components/LandingPageNew/TestimonialsSection/TestimonialsSection';
 import CtaSection from '@/components/LandingPageNew/FinalCTASection/Ctasection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
+import IntegrationsSection from '@/components/LandingPageNew/IntegrationsSection/IntegrationsSection';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const ManageChatsSection = dynamic(
@@ -83,6 +84,10 @@ export default function LandingPage() {
           <ManageChatsSection />        
         </ErrorBoundary>
 
+        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Integrations Error: {err?.message}</div>}>
+          <IntegrationsSection />
+        </ErrorBoundary>
+
         <div className="relative z-10 bg-white">
           
           <BeforeAfterSection />
@@ -95,7 +100,7 @@ export default function LandingPage() {
           {/* <TestimonialsSection /> */}
    
           <FAQSection />
-          <ProductDemoSection />
+          {/* <ProductDemoSection /> */}
           {/* <SocialProofSection /> */}
 
           <CtaSection />
