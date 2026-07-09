@@ -488,9 +488,9 @@ function LoginContent() {
                 </div>
 
                 {/* Form Wrapper Card */}
-                <div className="w-full max-w-[400px] mx-auto p-6 sm:p-8 rounded-[2rem] border border-white/[0.08] bg-[#0B0A12]/40 backdrop-blur-xl shadow-2xl relative overflow-hidden my-auto">
-                    {/* Glowing card outline top accent */}
-                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
+                <div className="w-full max-w-[420px] mx-auto px-6 py-8 sm:px-10 sm:py-10 rounded-3xl border border-white/[0.08] bg-[#0D0C15] shadow-2xl relative overflow-hidden my-auto">
+                    {/* Subtle top accent */}
+                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
                     
                     <motion.div
                         initial={{ opacity: 0, y: 15 }}
@@ -540,14 +540,15 @@ function LoginContent() {
                                     animate="visible"
                                     exit="exit"
                                     onSubmit={handleSendOTP}
-                                    className="space-y-4"
+                                    className="space-y-5"
                                 >
+                                    {/* Google Button — solid white */}
                                     <button
                                         type="button"
                                         onClick={() => api.googleLogin('login')}
-                                        className="w-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-white/20 rounded-xl py-3 flex items-center justify-center gap-3 text-white font-semibold text-sm transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.12)]"
+                                        className="w-full bg-white hover:bg-zinc-100 active:bg-zinc-200 transition-colors rounded-2xl py-3.5 flex items-center justify-center gap-3 font-bold text-[#111] text-sm shadow-lg"
                                     >
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                                        <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                                             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                                             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -556,49 +557,40 @@ function LoginContent() {
                                         Continue with Google
                                     </button>
 
-                                    <div className="relative flex items-center py-2">
-                                        <div className="flex-grow border-t border-white/5"></div>
-                                        <span className="flex-shrink-0 mx-3 text-white/30 text-[10px] font-bold uppercase tracking-wider">or continue with email</span>
-                                        <div className="flex-grow border-t border-white/5"></div>
+                                    {/* Divider */}
+                                    <div className="relative flex items-center py-1">
+                                        <div className="flex-grow border-t border-white/10" />
+                                        <span className="flex-shrink-0 mx-4 text-zinc-600 text-[10px] font-bold uppercase tracking-widest">or continue with email</span>
+                                        <div className="flex-grow border-t border-white/10" />
                                     </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-bold text-zinc-400 ml-1 uppercase tracking-wider">Email Address</label>
-                                        <div className="relative group">
-                                            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-500" />
-                                            <div className="relative bg-white/[0.02] rounded-xl flex items-center border border-white/[0.08] overflow-hidden transition-all duration-300 group-focus-within:border-indigo-500/40 group-focus-within:bg-[#0E0E16] group-hover:border-white/15">
-                                                <div className="pl-4 pr-2.5 text-zinc-500 group-focus-within:text-indigo-400 transition-colors duration-300">
-                                                    <Mail size={16} strokeWidth={2} />
-                                                </div>
-
-                                                <input
-                                                    type="email"
-                                                    required
-                                                    value={email}
-                                                    onChange={(e) => setEmail(e.target.value)}
-                                                    className="w-full bg-transparent py-3 pr-4 text-white placeholder:text-white/20 focus:outline-none text-sm"
-                                                    placeholder="you@company.com"
-                                                    style={{
-                                                        WebkitBoxShadow: '0 0 0px 1000px #0E0E16 inset',
-                                                        caretColor: '#ffffff',
-                                                        transition: 'background-color 99999s ease-in-out 0s',
-                                                    }}
-                                                />
-                                            </div>
+                                    {/* Email Field */}
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-semibold text-white/80 ml-0.5">Email</label>
+                                        <div className="relative">
+                                            <input
+                                                type="email"
+                                                required
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                className="w-full bg-[#1A1825] border border-white/[0.06] hover:border-white/[0.12] focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 rounded-2xl py-4 px-5 text-white placeholder:text-zinc-600 focus:outline-none text-sm transition-all duration-200"
+                                                placeholder="your@email.com"
+                                                style={{
+                                                    WebkitBoxShadow: '0 0 0px 1000px #1A1825 inset',
+                                                    WebkitTextFillColor: '#fff',
+                                                    caretColor: '#ffffff',
+                                                }}
+                                            />
                                         </div>
                                     </div>
 
+                                    {/* Submit Button */}
                                     <button
                                         type="submit"
                                         disabled={loading || !email}
-                                        className="relative w-full rounded-xl overflow-hidden group disabled:opacity-75 disabled:cursor-not-allowed mt-2 h-11"
+                                        className="w-full bg-violet-600 hover:bg-violet-500 active:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors rounded-2xl py-4 flex items-center justify-center gap-2 text-white font-bold text-sm shadow-lg shadow-violet-900/30"
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-90 group-hover:opacity-100 transition-opacity" />
-                                        <div className="relative flex items-center justify-center h-full gap-2 text-white font-bold text-sm">
-                                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                                                <>Continue with Email <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>
-                                            )}
-                                        </div>
+                                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue with Email'}
                                     </button>
                                 </motion.form>
                             )}
