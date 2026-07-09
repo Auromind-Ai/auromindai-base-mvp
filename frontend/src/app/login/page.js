@@ -297,179 +297,157 @@ function LoginContent() {
     return (
         <div className="min-h-screen bg-[#020202] text-white flex overflow-hidden font-sans">
             {/* Left Pane - Visual Conversions Funnel */}
-            <div className="hidden lg:flex lg:w-[40%] flex-col justify-between p-8 xl:p-12 relative bg-[#030208] overflow-hidden border-r border-white/5">
-                {/* Deep background ambient glowing blobs for elegance */}
-                <div className="absolute top-[-10%] left-[-10%] w-[80%] h-[80%] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] bg-fuchsia-600/10 rounded-full blur-[140px] pointer-events-none" />
-                
-                {/* Top Section - Brand/Back Link */}
-                <div className="relative z-10">
-                    <Link href="/" className="inline-flex items-center gap-2 group text-white/50 hover:text-white transition-colors text-sm font-medium">
-                        <span>← Back to Home</span>
+            <div className="hidden lg:flex lg:w-[40%] h-screen flex-col justify-between py-8 px-8 xl:px-10 relative bg-[#030208] overflow-hidden border-r border-white/5 sticky top-0">
+                {/* Background blobs */}
+                <div className="absolute top-[-20%] left-[-20%] w-[90%] h-[90%] bg-indigo-600/8 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] bg-fuchsia-600/8 rounded-full blur-[120px] pointer-events-none" />
+
+                {/* Top: Back Link */}
+                <div className="relative z-10 shrink-0">
+                    <Link href="/" className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/80 transition-colors text-xs font-medium tracking-wide">
+                        <span>←</span> <span>Back to Home</span>
                     </Link>
                 </div>
 
-                {/* Center Section - Stacked Layout */}
-                <div className="relative z-10 flex flex-col justify-center gap-8 xl:gap-12 my-auto">
-                    
-                    {/* Marketing Text */}
-                    <div className="space-y-4 max-w-sm">
-                        <h1 className="text-[28px] xl:text-[34px] font-extrabold leading-[1.25] text-white tracking-tight">
-                            AI Agents That Talk. Close. <br />
+                {/* Middle: Marketing text + Mockup cards */}
+                <div className="relative z-10 flex flex-col gap-6 flex-1 justify-center min-h-0">
+
+                    {/* Headline */}
+                    <div className="space-y-2">
+                        <h1 className="text-2xl xl:text-3xl font-extrabold leading-[1.2] text-white tracking-tight">
+                            AI Agents That<br />Talk. Close.{' '}
                             <span className="bg-gradient-to-r from-violet-400 via-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">
                                 Grow Your Sales.
                             </span>
                         </h1>
-                        <p className="text-zinc-400 text-sm xl:text-base font-normal leading-relaxed">
+                        <p className="text-zinc-500 text-xs xl:text-sm font-normal leading-relaxed">
                             Your 24/7 AI Workforce for Sales, Support &amp; Growth.
                         </p>
                     </div>
 
-                    {/* Funnel Mockup Graphic */}
-                    <div className="relative w-full h-[320px] sm:h-[350px] mx-auto mt-4">
-                        
-                        {/* Animated SVG connecting dash path */}
-                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 350" fill="none">
-                            <path 
-                                d="M 120 120 C 180 120, 220 100, 240 130 C 260 160, 220 220, 160 230 C 100 240, 110 300, 210 290" 
-                                stroke="url(#dash-gradient)" 
-                                strokeWidth="2" 
-                                strokeDasharray="6 6" 
-                                className="animate-[dash_30s_linear_infinite]"
+                    {/* Cards Grid — fully contained, no absolute overflow */}
+                    <div className="relative flex flex-col gap-3 w-full min-h-0">
+
+                        {/* Animated dashed connector */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+                            <path
+                                d="M 50 10 C 80 20, 80 50, 50 60 C 20 70, 20 85, 50 95"
+                                stroke="url(#dl)"
+                                strokeWidth="0.8"
+                                strokeDasharray="3 3"
+                                className="animate-[dash_20s_linear_infinite]"
                             />
                             <defs>
-                                <linearGradient id="dash-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stopColor="#818CF8" stopOpacity="0.4" />
-                                    <stop offset="50%" stopColor="#C084FC" stopOpacity="0.6" />
-                                    <stop offset="100%" stopColor="#F472B6" stopOpacity="0.4" />
+                                <linearGradient id="dl" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stopColor="#818CF8" stopOpacity="0.5" />
+                                    <stop offset="100%" stopColor="#F472B6" stopOpacity="0.5" />
                                 </linearGradient>
                             </defs>
                         </svg>
-                        
-                        {/* Style block for path dash offset animation */}
-                        <style>{`
-                            @keyframes dash {
-                                to {
-                                    stroke-dashoffset: -1000;
-                                }
-                            }
-                        `}</style>
+                        <style>{`@keyframes dash { to { stroke-dashoffset: -200; } }`}</style>
 
-                        {/* 1. Instagram Ad Card (Floats slightly) */}
-                        <motion.div 
-                            animate={{ y: [0, -5, 0] }}
+                        {/* Row 1: Instagram Ad Card */}
+                        <motion.div
+                            animate={{ y: [0, -3, 0] }}
                             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                            className="absolute top-2 left-2 w-[180px] rounded-xl border border-white/10 bg-[#0B0A12]/80 backdrop-blur-md p-2.5 shadow-2xl overflow-hidden"
+                            className="relative z-10 self-start w-[200px] rounded-xl border border-white/10 bg-[#0C0B14]/90 backdrop-blur-md p-2.5 shadow-2xl"
                         >
-                            {/* Card Header */}
                             <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-1.5">
-                                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-violet-500 via-pink-500 to-yellow-500 flex items-center justify-center">
-                                        <Instagram size={10} className="text-white" />
+                                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-violet-500 via-pink-500 to-yellow-400 flex items-center justify-center shrink-0">
+                                        <Instagram size={9} className="text-white" />
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] font-bold text-white leading-none flex items-center gap-0.5">
-                                            Your Brand
-                                            <span className="text-blue-400 text-[8px]">✓</span>
-                                        </span>
-                                        <span className="text-[7px] text-zinc-500 leading-none">Sponsored</span>
+                                    <div>
+                                        <div className="text-[9px] font-bold text-white leading-none flex items-center gap-0.5">
+                                            Your Brand <span className="text-blue-400 text-[8px]">✓</span>
+                                        </div>
+                                        <div className="text-[7px] text-zinc-500">Sponsored</div>
                                     </div>
                                 </div>
-                                <span className="text-zinc-500 text-[10px] font-bold">•••</span>
+                                <span className="text-zinc-600 text-[11px]">•••</span>
                             </div>
-                            
-                            {/* Card Image */}
-                            <div className="relative w-full aspect-square rounded-md overflow-hidden bg-zinc-800 mb-2 border border-white/5">
-                                <img src="/images/login_mock_ad.jpg" alt="Mock Ad" className="w-full h-full object-cover" />
-                                <div className="absolute bottom-1 right-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[7px] font-bold text-yellow-400">
+                            <div className="relative rounded-md overflow-hidden bg-zinc-900 mb-2 border border-white/5" style={{height: '90px'}}>
+                                <img src="/images/login_mock_ad.jpg" alt="Ad" className="w-full h-full object-cover" />
+                                <div className="absolute bottom-1 left-1 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded text-[7px] font-bold text-yellow-400 tracking-wide">
                                     50% OFF
                                 </div>
                             </div>
-                            
-                            {/* Card Action Button */}
-                            <div className="w-full bg-[#25D366] hover:bg-[#20ba59] transition-colors rounded-md py-1 px-2 flex items-center justify-between text-[8px] font-bold text-white cursor-pointer">
+                            <div className="w-full bg-[#25D366] rounded-md py-1 px-2 flex items-center justify-between text-[8px] font-bold text-white">
                                 <span>Send Message</span>
-                                <div className="flex items-center gap-0.5">
-                                    <span className="text-[7px] text-white/90">WhatsApp</span>
-                                </div>
+                                <span className="text-[7px] opacity-80">WhatsApp</span>
                             </div>
                         </motion.div>
 
-                        {/* 2. WhatsApp Bubble Card */}
-                        <motion.div 
-                            animate={{ y: [0, 5, 0] }}
-                            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                            className="absolute top-[80px] right-2 w-[160px] rounded-xl border border-white/10 bg-[#0B0A12]/80 backdrop-blur-md p-2.5 shadow-2xl flex flex-col gap-2"
+                        {/* Row 2: Chat bubble — aligned right */}
+                        <motion.div
+                            animate={{ y: [0, 3, 0] }}
+                            transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                            className="relative z-10 self-end w-[185px] rounded-xl border border-white/10 bg-[#0C0B14]/90 backdrop-blur-md p-2.5 shadow-2xl flex flex-col gap-1.5"
                         >
-                            {/* Message Header */}
                             <div className="flex items-center justify-between border-b border-white/5 pb-1">
-                                <span className="text-[8px] font-bold text-zinc-400 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]" /> Chat Agent
+                                <span className="text-[8px] font-semibold text-zinc-400 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#25D366] inline-block" /> Chat Agent
                                 </span>
-                                <span className="text-[7px] text-zinc-500 font-medium">Active Now</span>
+                                <span className="text-[7px] text-zinc-600">Active Now</span>
                             </div>
-                            
-                            {/* Ad Card inside chat */}
                             <div className="bg-[#1C1A27]/60 rounded-lg p-1.5 border border-white/5 flex gap-1.5 items-center">
-                                <img src="/images/login_mock_ad.jpg" alt="Product" className="w-8 h-8 rounded object-cover" />
-                                <div className="flex flex-col min-w-0">
-                                    <span className="text-[8px] font-bold text-white leading-none truncate">Get 20% off...</span>
-                                    <span className="text-[7px] text-zinc-500">Facebook Ad</span>
+                                <img src="/images/login_mock_ad.jpg" alt="Product" className="w-7 h-7 rounded object-cover shrink-0" />
+                                <div className="min-w-0">
+                                    <div className="text-[8px] font-bold text-white truncate">Get 20% off...</div>
+                                    <div className="text-[7px] text-zinc-500">Facebook Ad</div>
                                 </div>
                             </div>
-                            
-                            {/* User reply bubble */}
-                            <div className="self-end bg-violet-600/30 border border-violet-500/20 text-white rounded-lg rounded-tr-none px-2 py-1 text-[8.5px] max-w-[85%] relative font-sans">
+                            <div className="self-end bg-violet-600/30 border border-violet-500/20 text-white rounded-lg rounded-tr-none px-2 py-1 text-[8px] relative">
                                 I want to buy
                                 <div className="absolute right-1 bottom-0.5 text-blue-400 text-[6px]">✓✓</div>
                             </div>
                         </motion.div>
 
-                        {/* 3. Click Metric Card */}
-                        <motion.div 
-                            animate={{ y: [0, -4, 0] }}
-                            transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
-                            className="absolute bottom-20 left-[20px] rounded-xl border border-white/10 bg-[#0B0A12]/80 backdrop-blur-md px-3 py-2 shadow-2xl flex items-center gap-2.5"
-                        >
-                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                <MousePointerClick size={16} />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-xs font-black text-white leading-none">3.2x</span>
-                                <span className="text-[8px] text-zinc-500 font-bold tracking-wider uppercase leading-none mt-1">Clicks</span>
-                            </div>
-                        </motion.div>
+                        {/* Row 3: Metric chips row */}
+                        <div className="flex items-center gap-3 z-10">
+                            <motion.div
+                                animate={{ y: [0, -3, 0] }}
+                                transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                                className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0C0B14]/90 backdrop-blur-md px-3 py-2 shadow-xl"
+                            >
+                                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                                    <MousePointerClick size={13} />
+                                </div>
+                                <div>
+                                    <div className="text-xs font-black text-white leading-none">3.2x</div>
+                                    <div className="text-[7px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">Clicks</div>
+                                </div>
+                            </motion.div>
 
-                        {/* 4. ROI Metric Card */}
-                        <motion.div 
-                            animate={{ y: [0, 4, 0] }}
-                            transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
-                            className="absolute bottom-[2px] left-[130px] rounded-xl border border-white/10 bg-[#0B0A12]/80 backdrop-blur-md px-3 py-2 shadow-2xl flex items-center gap-2.5"
-                        >
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                                <ShoppingBag size={16} />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-xs font-black text-white leading-none">150X</span>
-                                <span className="text-[8px] text-zinc-500 font-bold tracking-wider uppercase leading-none mt-1">ROI</span>
-                            </div>
-                        </motion.div>
+                            <motion.div
+                                animate={{ y: [0, 3, 0] }}
+                                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.7 }}
+                                className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0C0B14]/90 backdrop-blur-md px-3 py-2 shadow-xl"
+                            >
+                                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                                    <ShoppingBag size={13} />
+                                </div>
+                                <div>
+                                    <div className="text-xs font-black text-white leading-none">150X</div>
+                                    <div className="text-[7px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">ROI</div>
+                                </div>
+                            </motion.div>
 
-                        {/* 5. Order Placed Confirmation */}
-                        <motion.div 
-                            animate={{ y: [0, -3, 0] }}
-                            transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut", delay: 1.1 }}
-                            className="absolute bottom-6 right-2 rounded-xl border border-white/10 bg-[#0B0A12]/80 backdrop-blur-md px-3 py-2.5 shadow-2xl flex items-center gap-2"
-                        >
-                            <CheckCircle2 size={16} className="text-emerald-400" />
-                            <span className="text-xs font-bold text-white tracking-tight">Order Placed</span>
-                        </motion.div>
+                            <motion.div
+                                animate={{ y: [0, -2, 0] }}
+                                transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut", delay: 1.1 }}
+                                className="flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-md px-2.5 py-2 shadow-xl"
+                            >
+                                <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                                <span className="text-[9px] font-bold text-white tracking-tight whitespace-nowrap">Order Placed</span>
+                            </motion.div>
+                        </div>
 
                     </div>
                 </div>
 
-                {/* Footer Section */}
-                <div className="relative z-10 flex items-center justify-between text-[11px] text-zinc-600 font-medium">
+                {/* Bottom: Footer */}
+                <div className="relative z-10 shrink-0 flex items-center justify-between text-[10px] text-zinc-700 font-medium">
                     <span>© {new Date().getFullYear()} {appName}</span>
                     <span>Secure Portal</span>
                 </div>
