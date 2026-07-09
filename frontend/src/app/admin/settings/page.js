@@ -535,7 +535,7 @@ export default function SettingsPage() {
                        <p className="text-xs font-bold text-gray-500 uppercase px-2">Message Content</p>
                        <input 
                         type="text"
-                        value={settings.announcement_message}
+                        value={settings.announcement_message || ""}
                         onChange={(e) => handleInputChange("announcement_message", e.target.value)}
                         placeholder="Type system alert here..."
                         className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none"
@@ -564,7 +564,7 @@ export default function SettingsPage() {
                         <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
                         <input 
                           type="number"
-                          value={settings[item.key]}
+                          value={settings[item.key] ?? ""}
                           onChange={(e) => handleInputChange(item.key, parseInt(e.target.value) || 0)}
                           className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 transition-colors outline-none font-mono"
                         />
@@ -593,7 +593,7 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {AI_PROVIDERS.map(provider => {
-                      const isConfigured = settings[provider.key]?.length > 0;
+                      const isConfigured = Boolean(settings[provider.key]?.length);
 
                       return (
                         <div key={provider.id} className="p-6 rounded-3xl border transition-all bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03]">
@@ -612,7 +612,7 @@ export default function SettingsPage() {
                           <div className="space-y-3">
                              <input 
                               type="password"
-                              value={settings[provider.key]}
+                              value={settings[provider.key] || ""}
                               onChange={(e) => handleInputChange(provider.key, e.target.value)}
                               placeholder={`Enter ${provider.name} API Key`}
                               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
@@ -653,7 +653,7 @@ export default function SettingsPage() {
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
                           <input
                             type="number"
-                            value={settings[item.key]}
+                            value={settings[item.key] ?? ""}
                             onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
                             className="w-full bg-[#050505] border border-white/10 rounded-xl pl-8 pr-4 py-3 text-sm focus:border-indigo-500 outline-none font-bold"
                           />
@@ -680,7 +680,7 @@ export default function SettingsPage() {
                         <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{plan} limit</p>
                         <input
                           type="number"
-                          value={settings.token_limit_per_plan[plan]}
+                          value={settings.token_limit_per_plan?.[plan] ?? ""}
                           onChange={(e) => handleTokenLimitChange(plan, e.target.value)}
                           className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
                         />

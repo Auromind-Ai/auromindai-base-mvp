@@ -18,3 +18,7 @@ class InvoiceStatus(str, enum.Enum):
     open = "open"
     paid = "paid"
     void = "void"
+
+class PlatformRole(str, enum.Enum):
+    USER = "user"
+    PLATFORM_ADMIN = "platform_admin"

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
 import { getUser, restoreAdminToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
 import {
   Calendar,
@@ -33,34 +34,6 @@ const poppins = Poppins({
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
 })
-
-const SecretLoginBanner = () => {
-    const router = useRouter();
-    const user = getUser();
-    const isImpersonating = Boolean(user?.impersonated);
-
-    if (!isImpersonating) return null;
-
-    const handleExit = () => {
-        restoreAdminToken();
-        window.location.href = '/admin';
-    };
-
-    return ( 
-        <div className="fixed top-0 left-0 right-0 z-[100] bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-sm font-medium shadow-lg animate-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2">
-                <Sparkles size={16} className="animate-pulse" />
-                <span>Secret Login Mode: Viewing {user?.name || user?.email}&apos;s dashboard</span>
-            </div>
-            <button 
-                onClick={handleExit}
-                className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors border border-white/30"
-            >
-                Exit & Return to Admin
-            </button>
-        </div>
-    );
-};
 
 // Magic Bento helpers
 function parseRgb(hex) {
@@ -1256,7 +1229,8 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
 // Main Dashboard 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
-  const [isImpersonated] = useState(() => Boolean(getUser()?.impersonated));
+  const { user } = useAuth();
+  const isImpersonated = Boolean(user?.impersonated);
   const [showAddLead, setShowAddLead] = useState(false);
 
   const [period, setPeriod] = useState('current_week');
@@ -1291,11 +1265,8 @@ export default function DashboardPage() {
   const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
   const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
-  const user = getUser();
-
   return (
     <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
-      <SecretLoginBanner />
       
       {error && (
         <div className="max-w-[1600px] mx-auto mb-6 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
@@ -1316,12 +1287,6 @@ export default function DashboardPage() {
         <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl mb-6 px-6 py-2.5 text-amber-400 text-sm font-semibold">
           <ShieldAlert size={15} />
           Admin Viewing Mode — you are viewing this dashboard as the user.
-          <button
-            onClick={exitImpersonation}
-            className="ml-4 px-3 py-1 rounded bg-amber-600/10 text-amber-300 text-xs hover:bg-amber-600/20 transition-colors"
-          >
-            Exit impersonation
-          </button>
         </div>
       )}
       <div className="max-w-[1600px] mx-auto space-y-8">
@@ -1400,8 +1365,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-const exitImpersonation = () => {
-  restoreAdminToken();
-  window.location.reload();
-};

@@ -67,6 +67,7 @@ export class APIClient {
     config.signal = optSignal || controller?.signal;
 
     try {
+
       console.log(`[API Request] ${config.method || 'GET'}: ${url}${isRetryAttempt ? ' (Retry)' : ''}`);
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);

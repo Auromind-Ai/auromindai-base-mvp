@@ -69,8 +69,7 @@ export default function UsersPage() {
         throw new Error("No session ID returned from server");
       }
 
-      const url = `${CLIENT_URL}/impersonate/${session_id}`;
-      window.open(url, "_blank", "noopener,noreferrer");
+      router.push(`/impersonate/${session_id}`);
     } catch (err) {
       console.error("Impersonation failed:", err);
       alert("Could not start impersonation: " + err.message);

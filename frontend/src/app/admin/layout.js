@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, notFound } from "next/navigation"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 
 import api from "@/lib/api"
@@ -12,33 +12,62 @@ export default function AdminLayout({ children }) {
 
   const isLoginPage = pathname === "/admin"
 
-  const [authVerified, setAuthVerified] = useState(isLoginPage)
+  const [authVerified, setAuthVerified] = useState(false)
+  const [isNotFound, setIsNotFound] = useState(false)
 
   useEffect(() => {
-    if (isLoginPage) {
-      setAuthVerified(true)
-      return
-    }
-
     let active = true
+
     const checkAuth = async () => {
       try {
-        await api.getPlatformDashboard()
+        // 1. Verify standard JWT user session & platform_role
+        const currentUser = await api.getCurrentUser()
+
+        if (!currentUser || currentUser.platform_role !== "platform_admin") {
+          if (active) setIsNotFound(true)
+          return
+        }
+
+        // 2. For admin subpages, verify admin secret session
+        if (!isLoginPage) {
+          try {
+            await api.getPlatformDashboard()
+          } catch (err) {
+            if (active && (err.status === 404 || err.status === 401 || err.status === 403)) {
+              router.push("/admin")
+              return
+            }
+          }
+        }
+
         if (active) setAuthVerified(true)
       } catch (err) {
-        if (active && (err.status === 404 || err.status === 401 || err.status === 403)) {
-          router.push("/admin")
+        // Not logged in -> redirect to login
+        if (active) {
+          router.push("/login")
         }
       }
     }
+
     checkAuth()
     return () => {
       active = false
     }
   }, [pathname, isLoginPage, router])
 
-  // For admin login page - render without the sidebar/layout
+  if (isNotFound) {
+    notFound()
+  }
+
+  // For admin login page - render without the sidebar/layout if verified as platform_admin
   if (isLoginPage) {
+    if (!authVerified) {
+      return (
+        <div className="min-h-screen bg-[#020202] flex items-center justify-center text-white">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
+        </div>
+      )
+    }
     return <>{children}</>
   }
 
