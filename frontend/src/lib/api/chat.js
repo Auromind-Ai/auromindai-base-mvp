@@ -22,14 +22,12 @@ export async function updateChatSession(session_id, title) {
 
 // Streaming chat endpoint returning raw response
 export async function streamChat(body, signal = null) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
   return fetch('/api/chat/stream', {
     method: 'POST',
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       'ngrok-skip-browser-warning': 'true',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
     signal
@@ -38,4 +36,8 @@ export async function streamChat(body, signal = null) {
 
 export async function getChatModels() {
   return client.get('/chat/models');
+}
+
+export async function submitFeedback(body) {
+  return client.post('/feedback', body);
 }

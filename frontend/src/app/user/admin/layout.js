@@ -33,8 +33,10 @@ import {
 } from 'lucide-react';
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from '@/context/AuthContext';
-import GlobalAIChat from '@/components/AIChat';
-import SettingsModal from '@/components/SettingsModal';
+import dynamic from 'next/dynamic';
+
+const GlobalAIChat = dynamic(() => import('@/components/AIChat'), { ssr: false });
+const SettingsModal = dynamic(() => import('@/components/SettingsModal'), { ssr: false });
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
@@ -191,9 +193,7 @@ if (!user) {
         pathname === '/user/admin/brain' ||
         pathname.startsWith('/user/admin/brain/') ||
         pathname === '/user/admin/channels' ||
-        pathname.startsWith('/user/admin/channels/') ||
-        pathname === '/user/admin/settings' ||
-        pathname.startsWith('/user/admin/settings/')
+        pathname.startsWith('/user/admin/channels/')
     );
 
     return (

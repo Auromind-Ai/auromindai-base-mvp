@@ -1173,6 +1173,8 @@ const formatDisplayRange = (startDateStr, endDateStr) => {
 function PeriodPicker({ period, dateRange, onPeriodChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1182,6 +1184,14 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      // Compute fixed position from button rect
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right,
+        });
+      }
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -1202,9 +1212,16 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     last_month: 'Last Month',
   };
 
+  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const dropdownStyle = isMobile
+    ? { top: dropdownPos.top, left: 16, right: 16 }
+    : { top: dropdownPos.top, right: dropdownPos.right };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
       >
@@ -1221,7 +1238,8 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-0 mt-2 w-56 rounded-xl bg-[#0e0e1a] border border-white/10 p-1.5 shadow-2xl z-[100] backdrop-blur-xl flex flex-col gap-1"
+            className="fixed max-w-[280px] sm:w-56 rounded-xl bg-[#0e0e1a] border border-white/10 p-1.5 shadow-2xl z-[100] backdrop-blur-xl flex flex-col gap-1"
+            style={dropdownStyle}
           >
             {options.map((opt) => {
               const optDates = calculateDatesForPeriod(opt.value);
@@ -1252,6 +1270,9 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     </div>
   );
 }
+
+
+
 
 // Main Dashboard 
 export default function DashboardPage() {
@@ -1332,13 +1353,13 @@ export default function DashboardPage() {
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
             <p className="text-m text-white/90 lg:mt-2">Good morning! Here are your key actions for today.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
-            <NotificationBell />
-            <div className="relative z-50 ml-1">
-                <CreditRingDropdown user={user} size={36} />
-            </div>
+          <div className="flex items-center gap-3 justify-end w-full sm:w-auto">
+          <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
+          <NotificationBell />
+          <div className="relative z-50 ml-1">
+              <CreditRingDropdown user={user} size={36} />
           </div>
+        </div>
         </header>
 
         {/* METRICS GRID */}

@@ -21,13 +21,28 @@ import CloseConversationModal from '@/components/inbox/CloseConversationModal';
 import api from '@/lib/api';
 import { SYSTEM_TIERS, AGENT_LABELS } from '@/lib/labelStyles';
 
+const TwilioIcon = ({ size = 16, style = {} }) => {
+    const isInactive = style.color === '#666';
+    const circleFill = isInactive ? '#3f3f46' : '#F22F46';
+    return (
+        <svg width={size} height={size} viewBox="0 0 48 48" style={style} xmlns="http://www.w3.org/2000/svg">
+            <circle cx="24" cy="24" r="24" fill={circleFill}/>
+            <circle cx="24" cy="24" r="9" fill="none" stroke="white" strokeWidth="3.5"/>
+            <circle cx="24" cy="15.5" r="2.8" fill="white"/>
+            <circle cx="24" cy="32.5" r="2.8" fill="white"/>
+            <circle cx="15.5" cy="24" r="2.8" fill="white"/>
+            <circle cx="32.5" cy="24" r="2.8" fill="white"/>
+        </svg>
+    );
+};
+
 const CHANNELS = [
     { id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#28C661', gradient: null },
     {
         id: 'instagram', label: 'Instagram', icon: Instagram, color: '#ee2a7b',
         gradient: 'linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)'
     },
-    { id: 'twilio', label: 'Twilio', icon: Zap, color: '#CE272D', gradient: null },
+    { id: 'twilio', label: 'Twilio', icon: TwilioIcon, color: '#F22F46', gradient: null },
 ];
 
 const STATUS_FILTERS = ['Open', 'Converted', 'Closed', 'All'];
@@ -236,6 +251,10 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                     {isInstagram ? (
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: ch.gradient }}>
                             <Instagram size={16} strokeWidth={2} className="text-white" />
+                        </div>
+                    ) : ch.id === 'twilio' ? (
+                        <div className="w-8 h-8 rounded-xl overflow-hidden flex items-center justify-center">
+                            <TwilioIcon size={32} />
                         </div>
                     ) : (
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${ch.color}20` }}>

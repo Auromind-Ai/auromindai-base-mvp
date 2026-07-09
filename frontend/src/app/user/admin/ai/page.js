@@ -134,44 +134,6 @@ const SOURCE_OPTIONS = [
     { value: "direct_storage", label: "Email", icon: Inbox },
     { value: "web_search", label: "Web Search", icon: Search },
 ];
-const getNextCharChunk = (remaining, backlog) => {
-    if (!remaining) return { text: '', delay: 0 };
-    
-    // Catch up dynamic characters per frame if the backlog is high
-    let step = 1;
-    if (backlog > 800) {
-        step = 5;
-    } else if (backlog > 500) {
-        step = 3;
-    } else if (backlog > 200) {
-        step = 2;
-    }
-    
-    const slice = remaining.substr(0, step);
-    
-    // Calculate typing delays
-    let delay = 0;
-    if (step === 1) {
-        const char = slice[0];
-        if (char === '.' || char === '!' || char === '?') {
-            delay = Math.floor(100 + Math.random() * 50); // 100-150 ms period pause
-        } else if (char === '\n') {
-            delay = Math.floor(150 + Math.random() * 50); // 150-200 ms newline pause
-        } else if (char === ',') {
-            delay = Math.floor(50 + Math.random() * 20); // 50-70 ms comma pause
-        } else if (char === ' ') {
-            delay = Math.floor(8 + Math.random() * 4); // 8-12 ms space delay
-        } else {
-            delay = Math.floor(18 + Math.random() * 7); // 18-25 ms base letter delay
-        }
-    } else {
-        // Fast catch-up mode has minimal delay
-        delay = Math.max(0, 16 - (step * 3));
-    }
-    
-    return { text: slice, delay };
-};
-
 //  Page ─
 export default function AuromindAIPage() {
     const [models, setModels] = useState(DEFAULT_MODELS);
@@ -205,68 +167,6 @@ export default function AuromindAIPage() {
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
     const skipNextSessionFetchRef = useRef(false);
-    
-    const responseBufferRef = useRef('');
-    const renderedTextRef = useRef('');
-    const animationFrameRef = useRef(null);
-    const isAnimatingRef = useRef(false);
-    const isStreamActiveRef = useRef(false);
-    const nextTypeTimeRef = useRef(0);
-
-    useEffect(() => {
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-        };
-    }, []);
-
-    const startTypingAnimation = () => {
-        if (isAnimatingRef.current) return;
-        isAnimatingRef.current = true;
-        nextTypeTimeRef.current = 0;
-        
-        const animate = (timestamp) => {
-            if (!isAnimatingRef.current) return;
-            
-            // Skip frames if we are waiting out a character/punctuation delay
-            if (timestamp < nextTypeTimeRef.current) {
-                animationFrameRef.current = requestAnimationFrame(animate);
-                return;
-            }
-            
-            const targetLength = responseBufferRef.current.length;
-            const currentLength = renderedTextRef.current.length;
-            
-            if (currentLength < targetLength) {
-                const remainingText = responseBufferRef.current.substring(currentLength);
-                const backlog = targetLength - currentLength;
-                
-                const chunk = getNextCharChunk(remainingText, backlog);
-                
-                if (chunk.text) {
-                    renderedTextRef.current += chunk.text;
-                    const captured = renderedTextRef.current;
-                    setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured, status: null } : msg));
-                    lastTypedTextRef.current = captured;
-                    
-                    nextTypeTimeRef.current = timestamp + chunk.delay;
-                } else {
-                    nextTypeTimeRef.current = timestamp + 16;
-                }
-            }
-            
-            if (isStreamActiveRef.current || currentLength < targetLength) {
-                animationFrameRef.current = requestAnimationFrame(animate);
-            } else {
-                isAnimatingRef.current = false;
-                setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
-            }
-        };
-        
-        animationFrameRef.current = requestAnimationFrame(animate);
-    };
-
     const { user, workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find(w => w.id === workspaceId) || null;
     const router = useRouter();
@@ -347,7 +247,7 @@ export default function AuromindAIPage() {
                     const res = await api.getBillingStatus(workspaceId);
                     setUserPlan(res.current_plan || "free");
                 } catch (error) {
-                    console.error("Failed to check plan:", error);
+                    console.warn("Failed to check plan:", error?.message || error);
                 }
             };
             checkPlan();
@@ -519,14 +419,6 @@ export default function AuromindAIPage() {
             }, abortControllerRef.current.signal);
             setAttachedFile(null);
             setLastUploadedId(null);
-            
-            responseBufferRef.current = '';
-            renderedTextRef.current = '';
-            isAnimatingRef.current = false;
-            isStreamActiveRef.current = true;
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            startTypingAnimation();
-
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -540,17 +432,13 @@ export default function AuromindAIPage() {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
-                        if (data.status) {
-                            console.log("STATUS (execute):", data.status);
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
-                        }
                         if (data.content) {
                             fullText = fullText + data.content;
-                            responseBufferRef.current = fullText;
+                            const captured = fullText;
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
+                        } else if (data.meta) {
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta: data.meta } : msg));
                         } else if (data.error) {
-                            isStreamActiveRef.current = false;
-                            isAnimatingRef.current = false;
-                            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                             const errorMsg = data.error.includes('429') || data.error.includes('quota')
                                 ? "⚠️ API rate limit exceeded. Please wait a moment and try again."
                                 : `Error: ${data.error}`;
@@ -559,25 +447,16 @@ export default function AuromindAIPage() {
                         }
                     } catch (e) {
                         if (line.includes('error') || line.includes('Error')) {
-                            isStreamActiveRef.current = false;
-                            isAnimatingRef.current = false;
-                            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: `Error: ${line}`, isError: true, isStreaming: false } : msg));
                             setIsLoading(false); return;
                         }
                     }
                 }
             }
-            isStreamActiveRef.current = false;
             if (!fullText.trim()) {
-                isAnimatingRef.current = false;
-                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "No response received. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } catch (err) {
-            isStreamActiveRef.current = false;
-            isAnimatingRef.current = false;
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name === 'AbortError') { console.log('Fetch aborted'); }
             else {
                 console.error(err);
@@ -585,6 +464,7 @@ export default function AuromindAIPage() {
             }
         } finally {
             setIsLoading(false);
+            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
             // Force scroll to bottom after send
             setTimeout(() => scrollToBottom(true), 80);
@@ -611,11 +491,38 @@ export default function AuromindAIPage() {
         } catch (err) { console.error('Failed to copy text: ', err); }
     };
 
-    const handleFeedback = (index, type) => {
+    const handleFeedback = async (index, type) => {
+        const currentFeedback = feedbackMap[index];
+        const newFeedbackType = currentFeedback === type ? null : type;
+
         setFeedbackMap(prev => ({
             ...prev,
-            [index]: prev[index] === type ? null : type  // toggle off if same
+            [index]: newFeedbackType
         }));
+
+        if (newFeedbackType !== 'like' && newFeedbackType !== 'dislike') return;
+
+        const message = messages[index];
+        if (!message || !workspaceId) return;
+
+        try {
+            const userPrompt = messages[index - 1]?.content || "";
+            await api.submitFeedback({
+                workspace_id: workspaceId,
+                query: userPrompt,
+                rewritten_query: message.meta?.rewritten_query || null,
+                tool: message.meta?.tool || null,
+                answer: message.content,
+                feedback: newFeedbackType === 'like' ? 'up' : 'down',
+                model: message.meta?.model || selectedModel || "auto",
+                session_id: currentSessionId || null,
+                latency_ms: 0,
+                confidence_score: message.meta?.confidence_score || null,
+                source: message.meta?.source || null
+            });
+        } catch (err) {
+            console.error('Failed to submit feedback:', err);
+        }
     };
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
@@ -668,13 +575,6 @@ export default function AuromindAIPage() {
                 message: newContent,
                 model: selectedModel
             }, abortControllerRef.current.signal);
-            responseBufferRef.current = '';
-            renderedTextRef.current = '';
-            isAnimatingRef.current = false;
-            isStreamActiveRef.current = true;
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            startTypingAnimation();
-
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -688,22 +588,18 @@ export default function AuromindAIPage() {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
-                        if (data.status) {
-                            console.log("STATUS (saveEdit):", data.status);
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
-                        }
                         if (data.content) {
                             fullText = fullText + data.content;
-                            responseBufferRef.current = fullText;
+                            const captured = fullText;
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
+                            lastTypedTextRef.current = fullText;
+                        } else if (data.meta) {
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta: data.meta } : msg));
                         }
                     } catch (e) {}
                 }
             }
-            isStreamActiveRef.current = false;
         } catch (err) {
-            isStreamActiveRef.current = false;
-            isAnimatingRef.current = false;
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name === 'AbortError') { console.log('Fetch aborted'); }
             else {
                 console.error(err);
@@ -711,6 +607,7 @@ export default function AuromindAIPage() {
             }
         } finally {
             setIsLoading(false);
+            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
         }
     };
@@ -728,13 +625,6 @@ export default function AuromindAIPage() {
                 message: userMsg,
                 model: selectedModel
             }, abortControllerRef.current.signal);
-            responseBufferRef.current = '';
-            renderedTextRef.current = '';
-            isAnimatingRef.current = false;
-            isStreamActiveRef.current = true;
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            startTypingAnimation();
-
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
@@ -748,22 +638,18 @@ export default function AuromindAIPage() {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
-                        if (data.status) {
-                            console.log("STATUS (regenerate):", data.status);
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
-                        }
                         if (data.content) {
                             fullText = fullText + data.content;
-                            responseBufferRef.current = fullText;
+                            const captured = fullText;
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: captured } : msg));
+                            lastTypedTextRef.current = fullText;
+                        } else if (data.meta) {
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta: data.meta } : msg));
                         }
                     } catch (e) {}
                 }
             }
-            isStreamActiveRef.current = false;
         } catch (err) {
-            isStreamActiveRef.current = false;
-            isAnimatingRef.current = false;
-            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (err.name === 'AbortError') { console.log('Fetch aborted'); }
             else {
                 console.error(err);
@@ -771,6 +657,7 @@ export default function AuromindAIPage() {
             }
         } finally {
             setIsLoading(false);
+            setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             abortControllerRef.current = null;
         }
     };
@@ -790,7 +677,7 @@ export default function AuromindAIPage() {
 
     //  RENDER ─
     return (
-        <div className={`${poppins.className} flex bg-[#0a0a0f] h-screen text-white overflow-hidden`}>
+        <div className={`${poppins.className} flex bg-[#0a0a0f] h-[calc(100vh-3.5rem)] md:h-screen text-white overflow-hidden`}>
             <ChatSidebar
                 sessions={sessions}
                 currentSessionId={currentSessionId}
@@ -989,7 +876,7 @@ export default function AuromindAIPage() {
                                         key="chat-flow"
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
-                                        className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 pt-4 pb-36"
+                                        className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-3 md:px-4 pt-4 pb-28 md:pb-36"
                                     >
                                         {/* Initializing spinner (session load) */}
                                         {isInitializing ? (
@@ -1001,7 +888,7 @@ export default function AuromindAIPage() {
                                                 Loading conversation...
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-2 w-full py-8">
+                                            <div className="flex flex-col gap-1 md:gap-2 w-full py-4 md:py-8">
                                                 {messages.map((msg, idx) => (
                                                     <motion.div
                                                         key={idx}
@@ -1010,7 +897,7 @@ export default function AuromindAIPage() {
                                                         className={`flex flex-col w-full group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                                                     >
                                                         {msg.role === 'user' ? (
-                                                            <div className="bg-[#814AC8] text-[#efefef] rounded-2xl px-4 py-2.5 max-w-[85%] border border-purple-500/10 shadow-sm">
+                                                            <div className="bg-[#814AC8] text-[#efefef] rounded-xl md:rounded-2xl px-3 py-2 md:px-4 md:py-2.5 max-w-[80%] md:max-w-[85%] border border-purple-500/10 shadow-sm">
                                                                 {editingIndex === idx ? (
                                                                     <div className="flex flex-col gap-3 min-w-[300px]">
                                                                         <textarea
@@ -1034,13 +921,13 @@ export default function AuromindAIPage() {
                                                                                  className="max-w-[250px] max-h-[250px] rounded-lg object-cover border border-white/15"
                                                                              />
                                                                          )}
-                                                                         {msg.content && <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>}
+                                                                         {msg.content && <p className="text-[13px] md:text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>}
                                                                      </div>
                                                                 )}
                                                             </div>
                                                         ) : (
-                                                            <div className="w-full pl-2">
-                                                                <div className="flex items-center gap-2.5 mb-3 px-1">
+                                                            <div className="w-full pl-1 md:pl-2">
+                                                                <div className="flex items-center gap-2 md:gap-2.5 mb-2 md:mb-3 px-1">
                                                                     <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-600/20">
                                                                         <Wand2 size={12} className="text-white" />
                                                                     </div>
@@ -1053,21 +940,14 @@ export default function AuromindAIPage() {
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <div className={`text-[15px] leading-[1.75] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
+                                                                <div className={`text-[13px] md:text-[15px] leading-[1.6] md:leading-[1.75] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
                                                                     {msg.isStreaming && msg.content === '' ? (
-                                                                        <div className="flex items-center gap-3 text-purple-400 py-2 animate-pulse">
-                                                                            <div className="relative w-4 h-4 shrink-0">
+                                                                        <div className="flex items-center gap-3 text-gray-500 py-2">
+                                                                            <div className="relative w-4 h-4">
                                                                                 <div className="absolute inset-0 border-2 border-purple-500/20 rounded-full" />
                                                                                 <div className="absolute inset-0 border-2 border-transparent border-t-purple-500 rounded-full animate-spin" />
                                                                             </div>
-                                                                            <span className="text-sm font-semibold tracking-tight">
-                                                                                {msg.status === 'rewriting' && "🔍 Rewriting query..."}
-                                                                                {msg.status === 'tool_deciding' && "⚙️ Selecting tool..."}
-                                                                                {msg.status === 'searching' && "🌐 Searching the web..."}
-                                                                                {msg.status === 'retrieving' && "📚 Retrieving documents..."}
-                                                                                {msg.status === 'synthesizing' && "🤖 Formulating answer..."}
-                                                                                {!msg.status && "⚡ Gathering insights..."}
-                                                                            </span>
+                                                                            <span className="text-sm font-medium tracking-tight">Gathering insights...</span>
                                                                         </div>
                                                                     ) : (
                                                                         <div className="assistant-message-content font-medium leading-relaxed text-white/95 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:rounded-none [&_pre_code]:text-inherit">
@@ -1203,7 +1083,7 @@ export default function AuromindAIPage() {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                            <div className="flex justify-center pb-8 pt-4 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent">
+                            <div className="flex justify-center pb-4 md:pb-8 pt-4 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent">
                                 <motion.div
                                     initial={{ y: 20, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
@@ -1239,8 +1119,8 @@ export default function AuromindAIPage() {
                                             >
                                                 <Plus size={18} />
                                             </button>
-                                            {/* Model Selector */}
-                                            <div className="relative model-dropdown flex-shrink-0">
+                                            {/* Model Selector — hidden on mobile, shown on md+ */}
+                                            <div className="relative model-dropdown flex-shrink-0 hidden md:block">
                                                 <button
                                                     onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                                     className="px-2 py-1 rounded-md text-xs bg-white/5 text-gray-300 hover:bg-white/10 transition-colors"
@@ -1270,8 +1150,8 @@ export default function AuromindAIPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                            {/* Source Selector */}
-                                            <div className="relative source-dropdown flex-shrink-0">
+                                            {/* Source Selector — hidden on mobile, shown on md+ */}
+                                            <div className="relative source-dropdown flex-shrink-0 hidden md:block">
                                                 <button
                                                     onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
                                                     className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all border ${
@@ -1309,10 +1189,51 @@ export default function AuromindAIPage() {
                                                 )}
                                             </div>
                                             {isPlusOpen && (
-                                                <div className="absolute bottom-14 left-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
+                                                <div className="absolute bottom-14 left-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl w-52 p-2 z-50">
                                                     <button onClick={() => { fileInputRef.current?.click(); setIsPlusOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg font-medium">
                                                         <Paperclip size={16} />Attach File
                                                     </button>
+                                                    {/* Model & Source selectors — visible only on mobile inside + menu */}
+                                                    <div className="md:hidden">
+                                                        <div className="h-px bg-white/10 my-1.5" />
+                                                        <p className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Model</p>
+                                                        {models.map((model) => {
+                                                            const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
+                                                            return (
+                                                                <button
+                                                                    key={model.id}
+                                                                    onClick={() => { handleModelSelect(model); setIsPlusOpen(false); }}
+                                                                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left font-medium"
+                                                                >
+                                                                    <span>{model.name}</span>
+                                                                    {model.plan === "pro" && !hasPremiumAccess && (
+                                                                        <span className="text-yellow-400 text-xs">🔒</span>
+                                                                    )}
+                                                                    {selectedModel === model.id && (
+                                                                        <span className="text-purple-400 text-xs">✓</span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                        <div className="h-px bg-white/10 my-1.5" />
+                                                        <p className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Source</p>
+                                                        {SOURCE_OPTIONS.map((opt) => (
+                                                            <button
+                                                                key={opt.value}
+                                                                onClick={() => {
+                                                                    setSource(opt.value);
+                                                                    setIsPlusOpen(false);
+                                                                }}
+                                                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left font-medium"
+                                                            >
+                                                                <opt.icon size={14} className="text-gray-400" />
+                                                                <span>{opt.label}</span>
+                                                                {source === opt.value && (
+                                                                    <span className="ml-auto text-purple-400 text-xs">✓</span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
                                             <textarea

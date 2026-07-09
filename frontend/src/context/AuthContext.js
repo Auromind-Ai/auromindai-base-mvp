@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
-import { setUser, setWorkspace, removeToken } from '@/lib/auth';
+import { setUser, setWorkspace } from '@/lib/auth';
 
 const AuthContext = createContext({
   user: null,
@@ -82,7 +82,23 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const controller = new AbortController();
 
+    const isMarketingPage = (pathname) => {
+      if (pathname === '/') return true;
+      if (pathname.startsWith('/solutions/')) return true;
+      if (pathname.startsWith('/product/')) return true;
+      if (pathname.startsWith('/resources/')) return true;
+      return false;
+    };
+
     const checkAuth = async () => {
+      const isLogged = typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true';
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
+      if (isMarketingPage(pathname) && !isLogged) {
+        setLoading(false);
+        return;
+      }
+
       try {
         await refreshUser(controller.signal);
       } catch (err) {
@@ -100,7 +116,6 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error("Logout API call failed:", err);
     } finally {
-      removeToken();
       setUserState(null);
       setWorkspaceIdState(null);
       setWorkspacesState([]);

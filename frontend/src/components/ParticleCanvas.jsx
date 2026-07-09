@@ -14,9 +14,16 @@ import {
 } from "@/lib/particleGenerator";
 import { computeVisuals, updateParticle } from "@/lib/particlePhysics";
 
-// Rendering constants 
-const YAW_SPEED = 0.0017;  // radians/frame — full rotation ≈ 37 s at 60 fps
-const FOV       = 2.3;     // perspective field-of-view factor
+// Rendering constants
+const YAW_SPEED    = 0.0017;  // radians/frame — full rotation ≈ 37 s at 60 fps
+const FOV          = 2.3;     // perspective field-of-view factor
+const MOBILE_FPS   = 30;      // target fps cap on mobile
+const MOBILE_FRAME = 1000 / MOBILE_FPS; // ms per frame on mobile (~33.3 ms)
+
+// Detect mobile once at module level (touch device + narrow screen)
+const isMobileDevice = () =>
+  typeof window !== "undefined" &&
+  (navigator.maxTouchPoints > 0 || window.innerWidth <= 768);
 
 // Simple perspective projection
 function project(x3, y3, z3, CX, CY, RADIUS) {
@@ -29,11 +36,13 @@ function project(x3, y3, z3, CX, CY, RADIUS) {
 }
 
 export default function ParticleCanvas() {
-  const canvasRef     = useRef(null);
-  const particlesRef  = useRef([]);
-  const animFrameRef  = useRef(0);
-  const yawRef        = useRef(0);
-  const mouseRef      = useRef({ x: -9999, y: -9999, on: false });
+  const canvasRef      = useRef(null);
+  const particlesRef   = useRef([]);
+  const animFrameRef   = useRef(0);
+  const yawRef         = useRef(0);
+  const mouseRef       = useRef({ x: -9999, y: -9999, on: false });
+  const isMobileRef    = useRef(false);   // set in init after mount
+  const lastFrameRef   = useRef(0);       // timestamp of last rendered frame (mobile throttle)
 
   // Store layout metrics in a ref so the draw callback always has fresh values
   // without needing to be recreated on resize
@@ -84,34 +93,36 @@ export default function ParticleCanvas() {
     // Back-to-front depth sort
     drawList.sort((a, b) => a.z - b.z);
 
+    const t    = performance.now() * 0.0015;
+    const wave = (Math.sin(t) + 1) * 0.5;
+    // darker black → deeper purple
+    const rCol = Math.round(6 + (120 - 6) * wave);
+    const gCol = Math.round(6 + (45  - 6) * wave);
+    const bCol = Math.round(6 + (180 - 6) * wave);
+    const fill = `rgba(${rCol}, ${gCol}, ${bCol},`;
+
+    // shadowBlur intentionally removed — it is the #1 canvas GPU-overdraw cost
+    ctx.shadowBlur = 0;
+
     for (const d of drawList) {
       ctx.beginPath();
       ctx.arc(d.x, d.y, Math.max(0.22, d.r), 0, Math.PI * 2);
-
-      const t = performance.now() * 0.0015;
-
-      // all particles change together
-      const wave = (Math.sin(t) + 1) * 0.5;
-
-      // darker black → deeper purple
-      const rCol = Math.round(6 + (120 - 6) * wave);
-      const gCol = Math.round(6 + (45 - 6) * wave);
-      const bCol = Math.round(6 + (180 - 6) * wave);
-
-      ctx.shadowBlur = 16;
-      ctx.shadowColor = `rgba(${rCol}, ${gCol}, ${bCol}, ${0.22 + wave * 0.22})`;
-
-      ctx.fillStyle = `rgba(${rCol}, ${gCol}, ${bCol}, ${Math.min(1, d.o + 0.08)})`;
+      ctx.fillStyle = fill + `${Math.min(1, d.o + 0.08)})`;
       ctx.fill();
     }
   }, []);
 
-  // Initialise canvas + start loop 
+  // Initialise canvas + start loop
   const init = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    // Detect mobile on every init so it responds to orientation changes
+    const mobile = isMobileDevice();
+    isMobileRef.current = mobile;
+
+    // On mobile cap DPR at 1 — retina rendering doubles fill cost for little gain
+    const dpr = mobile ? 1 : (window.devicePixelRatio || 1);
     const W   = canvas.offsetWidth;
     const H   = canvas.offsetHeight;
 
@@ -122,16 +133,22 @@ export default function ParticleCanvas() {
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Sphere placement: 50% × 46% matches the video
+    // Sphere placement: 50% × 52% matches the design
     const CX     = W * 0.50;
-    const CY     = H * 0.52
-    ;
+    const CY     = H * 0.52;
     const RADIUS = Math.min(W * 0.24, H * 0.36);
     layoutRef.current = { CX, CY, RADIUS };
 
-    // Build fresh particles if first run; on resize just update layout
-    if (particlesRef.current.length === 0) {
-      particlesRef.current = buildParticles();
+    // Build particles — rebuild when mobile↔desktop switch changes count
+    const needsRebuild =
+      particlesRef.current.length === 0 ||
+      particlesRef.current._isMobile !== mobile;
+
+    if (needsRebuild) {
+      // On mobile use ~55% of equator dots (≈ half total particles)
+      const particles = buildParticles(mobile ? 0.55 : 1.0);
+      particles._isMobile = mobile;   // tag so we can detect mode change
+      particlesRef.current = particles;
     }
 
     // Teleport spring positions to avoid chaotic fly-in on load/resize
@@ -148,11 +165,22 @@ export default function ParticleCanvas() {
     }
 
     cancelAnimationFrame(animFrameRef.current);
-    const loop = () => {
+    lastFrameRef.current = 0;
+
+    const loop = (timestamp) => {
+      if (isMobileRef.current) {
+        // Throttle to MOBILE_FPS on mobile to save CPU/GPU
+        const elapsed = timestamp - lastFrameRef.current;
+        if (elapsed < MOBILE_FRAME) {
+          animFrameRef.current = requestAnimationFrame(loop);
+          return;
+        }
+        lastFrameRef.current = timestamp - (elapsed % MOBILE_FRAME);
+      }
       draw(ctx, W, H);
       animFrameRef.current = requestAnimationFrame(loop);
     };
-    loop();
+    animFrameRef.current = requestAnimationFrame(loop);
   }, [draw]);
 
   // Lifecycle 

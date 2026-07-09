@@ -2,6 +2,11 @@ import { useEffect, useRef } from "react";
 
 export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = true }) {
   const ctnDom = useRef(null);
+  const hueRef = useRef(hue);
+
+  useEffect(() => {
+    hueRef.current = hue;
+  }, [hue]);
 
   const vert = /* glsl */ `
     precision highp float;
@@ -239,7 +244,8 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
 
         function resize() {
           if (!container) return;
-          const dpr = window.devicePixelRatio || 1;
+          const isMobile = window.innerWidth < 768;
+          const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1 : 2);
           const width = container.clientWidth;
           const height = container.clientHeight;
           if (width === 0 || height === 0) return;
@@ -260,50 +266,17 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
           resize();
         });
 
-        let targetHover = 0;
-        let currentHover = 0;
-        let lastTime = 0;
-        let currentRot = 0;
-        const rotationSpeed = 0.3;
-
-        const handleMouseMove = (e) => {
-          const rect = container.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          const width = rect.width;
-          const height = rect.height;
-          const size = Math.min(width, height);
-          const centerX = width / 2;
-          const centerY = height / 2;
-          const uvX = ((x - centerX) / size) * 2.0;
-          const uvY = ((y - centerY) / size) * 2.0;
-          targetHover = Math.sqrt(uvX * uvX + uvY * uvY) < 0.8 ? 1 : 0;
-        };
-
-        const handleMouseLeave = () => {
-          targetHover = 0;
-        };
-
-        container.addEventListener("mousemove", handleMouseMove);
-        container.addEventListener("mouseleave", handleMouseLeave);
-
         let rafId;
         
+        let frameCount = 0;
         const update = (t) => {
           rafId = requestAnimationFrame(update);
+          const isMobile = window.innerWidth < 768;
+          if (isMobile && frameCount++ % 2 !== 0) return;
 
           if (canvas.width === 0 || canvas.height === 0) {
             resize();
             if (canvas.width === 0 || canvas.height === 0) return; // still 0 → skip frame
-          }
-
-          const dt = (t - lastTime) * 0.001;
-          lastTime = t;
-
-          currentHover += (targetHover - currentHover) * 0.1;
-
-          if (rotateOnHover && targetHover > 0.5) {
-            currentRot += dt * rotationSpeed;
           }
 
           gl.clear(gl.COLOR_BUFFER_BIT);
@@ -316,10 +289,10 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
             canvas.height,
             canvas.width / canvas.height
           );
-          gl.uniform1f(hueLocation, hue);
-          gl.uniform1f(hoverLocation, currentHover);
-          gl.uniform1f(rotLocation, currentRot);
-          gl.uniform1f(hoverIntensityLocation, hoverIntensity);
+          gl.uniform1f(hueLocation, hueRef.current);
+          gl.uniform1f(hoverLocation, 0.0);
+          gl.uniform1f(rotLocation, 0.0);
+          gl.uniform1f(hoverIntensityLocation, 0.0);
 
           gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
           gl.enableVertexAttribArray(positionLocation);
@@ -336,8 +309,6 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
         cleanup = () => {
           cancelAnimationFrame(rafId);
           resizeObserver.disconnect();
-          container.removeEventListener("mousemove", handleMouseMove);
-          container.removeEventListener("mouseleave", handleMouseLeave);
           if (container.contains(canvas)) {
             container.removeChild(canvas);
           }
@@ -353,7 +324,7 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
     return () => {
       if (cleanup) cleanup();
     };
-  }, [hue, hoverIntensity, rotateOnHover]);
+  }, []);
 
   return (
     <div

@@ -10,7 +10,7 @@ from app.services.ai.llm_utils import safe_llm_call, token_log_context, write_to
 from app.utils.text_chunker import Schunker
 from app.services.agentic_rag.reasoning_agent import run_reasoning, run_reasoning_stream
 from app.models.brain import BrainEntry
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 
 logger = logging.getLogger("auromind")
@@ -97,7 +97,7 @@ class OrchestratorLayer:
         write_to_token_log_file(report_str)
 
     #Reasoning Engine   
-    async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, bypass_billing: bool = False):
+    async def agent_loop(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, bypass_billing: bool = False, session_id: Optional[str] = None):
         parent_logs = token_log_context.get()
         if parent_logs is not None:
             token_logs = parent_logs
@@ -116,7 +116,8 @@ class OrchestratorLayer:
                     source=source,
                     document_id=document_id,
                     entry_ids=entry_ids,
-                    collection=collection
+                    collection=collection,
+                    session_id=session_id
                 )
 
             from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, current_execution_context
@@ -143,7 +144,7 @@ class OrchestratorLayer:
             if token is not None:
                 token_log_context.reset(token)
 
-    async def agent_loop_stream(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, bypass_billing: bool = False):
+    async def agent_loop_stream(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, bypass_billing: bool = False, session_id: Optional[str] = None):
         parent_logs = token_log_context.get()
         if parent_logs is not None:
             token_logs = parent_logs
@@ -162,7 +163,8 @@ class OrchestratorLayer:
                     source=source,
                     document_id=document_id,
                     entry_ids=entry_ids,
-                    collection=collection
+                    collection=collection,
+                    session_id=session_id
                 ):
                     yield chunk
 
@@ -186,7 +188,7 @@ class OrchestratorLayer:
             if token is not None:
                 token_log_context.reset(token)
 
-    async def _agent_loop_stream_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None) -> AsyncGenerator[dict, None]:
+    async def _agent_loop_stream_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, session_id: Optional[str] = None) -> AsyncGenerator[dict, None]:
         website_names = []  
         web_search_enabled = (source == "web_search")
         logger.info(f"DEBUG: web_search_enabled = {web_search_enabled}")
@@ -365,11 +367,29 @@ class OrchestratorLayer:
                 yield chunk
             return
 
+        # Fetch conversation history if session_id is provided
+        history_messages = []
+        if session_id:
+            try:
+                from app.models.conversation import ChatMessage
+                import uuid
+                sess_uuid = uuid.UUID(session_id) if isinstance(session_id, str) else session_id
+                history_messages = (
+                    db.query(ChatMessage)
+                    .filter(ChatMessage.session_id == sess_uuid)
+                    .order_by(ChatMessage.created_at.desc())
+                    .limit(6)
+                    .all()
+                )
+                history_messages = list(reversed(history_messages))
+            except Exception as e:
+                logger.error(f"Failed to fetch conversation history for session {session_id}: {e}")
+
         # Rewrite
         import time
         t_start = time.perf_counter()
         yield {"status": "rewriting"}
-        rewritten_query = await self.mcp.analyze_and_rewrite(query, model=model)
+        rewritten_query = await self.mcp.analyze_and_rewrite(query, history=history_messages, model=model)
         logger.info(rewritten_query)
         t_rewrite = time.perf_counter() - t_start
         logger.info(f"[Profiler] Rewrite Query: {t_rewrite*1000:.2f} ms")
@@ -377,14 +397,17 @@ class OrchestratorLayer:
         # Decide tool
         yield {"status": "tool_deciding"}
         t_tool_start = time.perf_counter()
+        logger.info("[DEBUG A] Starting tool decision. rewritten_query: '%s', model: '%s', source: '%s'", rewritten_query, model, source)
         if source and source not in ("internal_web", "internal", ""):
             tool = source
         else:
             tool = await self.mcp.decide_tool(rewritten_query, model=model)
         t_tool = time.perf_counter() - t_tool_start
         logger.info(f"[Profiler] Tool Decision: {t_tool*1000:.2f} ms")
+        logger.info("[DEBUG B] Tool decision completed. tool: '%s'", tool)
         
         learning_profile = get_learning_profile(workspace_id=str(workspace_id))
+        logger.info("[DEBUG C] Fetched learning profile. profile: %s", learning_profile)
 
         # RULE BASED TOOL OVERRIDE
         rules = learning_profile.get("tool_rules", [])
@@ -430,6 +453,7 @@ class OrchestratorLayer:
             rewritten_query=rewritten_query,
             tool=tool
         )
+        logger.info("[DEBUG D] ReinforcementEngine adjust_pipeline completed. adjusted: %s", adjusted)
         rewritten_query = adjusted["rewritten_query"]
         tool = adjusted["tool"]
 
@@ -700,7 +724,7 @@ class OrchestratorLayer:
                 yield chunk
             return
 
-    async def _agent_loop_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None):
+    async def _agent_loop_internal(self, db, workspace_id, query, model="auto", source="internal_web", document_id=None, entry_ids=None, collection=None, session_id: Optional[str] = None):
 
         website_names = []  
 
@@ -899,16 +923,37 @@ class OrchestratorLayer:
                 model=model,
             )
                     
+        # Fetch conversation history if session_id is provided
+        history_messages = []
+        if session_id:
+            try:
+                from app.models.conversation import ChatMessage
+                import uuid
+                sess_uuid = uuid.UUID(session_id) if isinstance(session_id, str) else session_id
+                history_messages = (
+                    db.query(ChatMessage)
+                    .filter(ChatMessage.session_id == sess_uuid)
+                    .order_by(ChatMessage.created_at.desc())
+                    .limit(6)
+                    .all()
+                )
+                history_messages = list(reversed(history_messages))
+            except Exception as e:
+                logger.error(f"Failed to fetch conversation history for session {session_id}: {e}")
+
         #Rewrite
-        rewritten_query = await self.mcp.analyze_and_rewrite(query, model=model)
+        rewritten_query = await self.mcp.analyze_and_rewrite(query, history=history_messages, model=model)
         logger.info(rewritten_query)
         
         #Decide tool
+        logger.info("[DEBUG A] Starting tool decision. rewritten_query: '%s', model: '%s', source: '%s'", rewritten_query, model, source)
         if source and source not in ("internal_web", "internal", ""):
             tool = source
         else:
             tool =  await self.mcp.decide_tool(rewritten_query, model=model)
+        logger.info("[DEBUG B] Tool decision completed. tool: '%s'", tool)
         learning_profile = get_learning_profile(workspace_id=str(workspace_id))
+        logger.info("[DEBUG C] Fetched learning profile. profile: %s", learning_profile)
         
         #RULE BASED TOOL OVERRIDE
         rules = learning_profile.get("tool_rules", [])
@@ -964,6 +1009,7 @@ class OrchestratorLayer:
             rewritten_query=rewritten_query,
             tool=tool
         )
+        logger.info("[DEBUG D] ReinforcementEngine adjust_pipeline completed. adjusted: %s", adjusted)
 
         rewritten_query = adjusted["rewritten_query"]
         tool = adjusted["tool"]

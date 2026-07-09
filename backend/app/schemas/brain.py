@@ -6,6 +6,7 @@ from uuid import UUID
 class IngestTextRequest(BaseModel):
     title: str
     content: str
+    workspace_id: Optional[str] = None
     region: Optional[str] = None
     language: Optional[str] = None
     cultural_context: Optional[str] = None
@@ -13,6 +14,7 @@ class IngestTextRequest(BaseModel):
 
 class IngestURLRequest(BaseModel):
     url: str
+    workspace_id: Optional[str] = None
     region: Optional[str] = None
     language: Optional[str] = None
     cultural_context: Optional[str] = None
@@ -20,12 +22,14 @@ class IngestURLRequest(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str
+    workspace_id: Optional[str] = None
     top_k: int = 5
     entry_ids: Optional[List[str]] = None
     collection: Optional[str] = None
 
 class QueryRequest(BaseModel):
     question: str
+    workspace_id: Optional[str] = None
     top_k: int = 5
     include_sources: bool = True
     entry_ids: Optional[List[str]] = None
@@ -88,6 +92,7 @@ class ListEntriesResponse(BaseModel):
 
 class CrawlWebsiteRequest(BaseModel):
     url: str
+    workspace_id: Optional[str] = None
     max_pages: int = 50
     region: Optional[str] = None
     language: Optional[str] = None

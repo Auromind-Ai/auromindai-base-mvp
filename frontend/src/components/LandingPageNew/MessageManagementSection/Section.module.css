@@ -504,7 +504,7 @@
       rgba(8, 8, 10, 0.22),
       rgba(8, 8, 10, 0.22)
     ),
-    url("/images/WABackGround.jpeg");
+    url("/images/WABackGround.webp");
 
   background-size: cover;
   background-position: center;

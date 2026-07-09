@@ -22,7 +22,7 @@ def submit_feedback(
 ):
     # Workspace access check (tenant enforcement) 
     try:
-        workspace_id = verify_workspace_access(current_user, db, workspace_id)
+        workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
     except HTTPException:
         raise
     except Exception as e:

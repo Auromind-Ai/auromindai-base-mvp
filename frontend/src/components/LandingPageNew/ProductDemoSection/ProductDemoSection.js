@@ -295,8 +295,10 @@ const ProductDemoSection = () => {
                           <input 
                             type="text" 
                             disabled 
+                            autoComplete="off"
                             placeholder="AI assistant is typing..." 
                             className="w-full bg-white/[0.03] border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/50 focus:outline-none pr-10 font-sans"
+                            suppressHydrationWarning
                           />
                           <div className="absolute right-3 top-6 flex items-center gap-1.5">
                             <span className="flex gap-1 items-center">

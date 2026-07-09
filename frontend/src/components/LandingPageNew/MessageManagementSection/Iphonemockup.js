@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { AnimatedChat } from "./Animatedchat";
-import styles from "./Section.module.css";
+import styles from "./section.module.css";
 
 export function IphoneMockup({ rotateX, rotateY }) {
   return (

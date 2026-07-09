@@ -172,7 +172,7 @@ export default function PricingSectionNew() {
                 key={plan.name}
                 custom={index}
                 variants={cardVariants}
-                className={`relative overflow-hidden rounded-[32px] border px-[30px] py-[30px] min-h-[520px] lg:min-h-[550px] h-auto backdrop-blur-xl transition-all duration-500 flex flex-col justify-between ${
+                className={`relative overflow-hidden rounded-[32px] border h-[465px] px-[30px] pt-[20px] pb-[20px] backdrop-blur-xl transition-all duration-500 flex flex-col gap-[35px] ${
                   isFeatured
                     ? 'border-[#7C3AED]/30 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.22),rgba(12,12,12,1)_68%)] shadow-[0_0_40px_rgba(124,58,237,0.18)]'
                     : 'border-white/10 bg-[linear-gradient(to_top,rgba(129,74,200,0.30)_0%,rgba(0,0,0,1)_60%)]'
@@ -187,7 +187,7 @@ export default function PricingSectionNew() {
                   </>
                 )}
 
-                <div className="relative z-10 flex-1 flex flex-col justify-between">
+                <div className="relative z-10 flex h-full flex-col justify-between">
                   <div>
                     <h3 className="font-['Poppins'] text-[23px] font-medium text-white/80 tracking-[-0.02em] leading-[1.2em] flex items-center gap-2">
                       <span className="text-[22px]">{plan.icon}</span>

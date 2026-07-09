@@ -1,6 +1,5 @@
 "use client";
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 import { useBranding } from '@/context/BrandingContext';
 
 const footerLinks = {
@@ -15,22 +14,18 @@ const footerLinks = {
     { name: "Home", href: "/" },
     { name: "About", href: "/" },
     { name: "Blog", href: "/resources/blog" },
-    { name: "Contact", href: "mailto:orbionagents@gmail.com" },
+    { name: "Contact", href: "mailto:auromindaipvtltd@gmail.com" },
   ],
-  Legal: [
-    { name: "Privacy Policy", href: "/privacy" },
-    { name: "Terms of Service", href: "/terms" },
-    { name: "Data Deletion", href: "/data-deletion" },
+  Socials: [
+    { name: "Instagram", href: "https://instagram.com" },
+    { name: "Facebook", href: "https://facebook.com" },
+    { name: "Linkedin", href: "https://linkedin.com" },
+    { name: "Twitter", href: "https://twitter.com" },
   ],
 };
 
 export default function Footer() {
   const { appName, appLogoUrl } = useBranding();
-  const [logoError, setLogoError] = useState(false);
-
-  useEffect(() => {
-    setLogoError(false);
-  }, [appLogoUrl]);
 
   return (
     <footer
@@ -49,33 +44,26 @@ export default function Footer() {
           <div className="flex flex-col gap-5">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="w-14 h-14 flex items-center justify-center">
-                {appLogoUrl && !logoError ? (
-                  <img 
-                    src={appLogoUrl} 
-                    alt={appName} 
-                    className="w-12 h-12 object-contain" 
-                    onError={() => setLogoError(true)}
-                  />
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                style={{ background: "#814AC8" }}
+              >
+                {appLogoUrl && appLogoUrl !== "/logo.png" ? (
+                  <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
                 ) : (
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                    style={{ background: "#814AC8" }}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
-                  </div>
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                  </svg>
                 )}
               </div>
               <span
@@ -94,6 +82,7 @@ export default function Footer() {
               {appName} – Automate Smarter, Optimize Faster, and Grow Stronger.
             </p>
 
+            {/* Contact */}
             <div className="mt-2">
               <p
                 className="text-white font-semibold text-m mb-1"
@@ -102,18 +91,18 @@ export default function Footer() {
                 Contact
               </p>
               <a
-                href="mailto:orbionagents@gmail.com"
+                href="mailto:auromindaipvtltd@gmail.com"
                 className="text-sm transition-colors duration-150 hover:text-white"
                 style={{ color: "#A1A1AA", fontFamily: "'Poppins', sans-serif" }}
               >
-                orbionagents@gmail.com
+                auromindaipvtltd@gmail.com
               </a>
             </div>
           </div>
           
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-8 lg:contents">
+            <div className="grid grid-cols-3 gap-x-6 gap-y-8 lg:contents">
               {Object.entries(footerLinks).map(([heading, items]) => (
-                  <div key={heading} className="flex flex-col shrink-0">
+                  <div key={heading} className="flex flex-col min-w-[120px] shrink-0 lg:min-w-0">
                     <h4
                       className="text-white font-semibold text-[14px] sm:text-[15px] mb-3"
                       style={{ fontFamily: "'Poppins', sans-serif" }}

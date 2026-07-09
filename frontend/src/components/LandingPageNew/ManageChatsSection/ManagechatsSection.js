@@ -3,6 +3,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
+// ─── CSS-only particles on mobile ────────────────────────────────────
+// Before: 30 Framer Motion <motion.div> particles on mobile, each with:
+//   - per-frame mouse distance calc (Math.sqrt per particle per mousemove)
+//   - dynamic style props → React re-render on every mouse event
+//   - drop-shadow filter on every particle
+// This caused 30 React re-renders × 60fps on mobile = total freeze.
+//
+// After: mobile particles use plain <div> with CSS @keyframes.
+// No mouse tracking, no React re-renders, no drop-shadow.
+// Desktop keeps the interactive Framer Motion version (powerful GPUs can handle it).
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function ManageChatsSection() {
   const sectionRef = useRef(null);
   const [mouse, setMouse] = useState({ x: -9999, y: -9999 });
@@ -19,7 +31,9 @@ export default function ManageChatsSection() {
       setIsMobile(window.innerWidth <= 640);
     };
 
+    // Desktop only: mouse tracking for interactive particles + card tilt
     const handleMouseMove = (event) => {
+      if (window.innerWidth <= 640) return; // skip on mobile
       if (!sectionRef.current) return;
       const rect = sectionRef.current.getBoundingClientRect();
       // FIX: Update sectionDims in the same handler so render always has fresh values
@@ -49,9 +63,9 @@ export default function ManageChatsSection() {
     };
   }, []);
 
-  // Math.random inside useMemo is fine — it only runs when viewportWidth changes, not on every render
-  const particles = useMemo(() => {
-    const count = viewportWidth < 640 ? 30 : viewportWidth < 1024 ? 110 : 160;
+  // Desktop particles — interactive with mouse (unchanged)
+  const desktopParticles = useMemo(() => {
+    const count = viewportWidth < 1024 ? 110 : 160;
     const colors = [
       "rgba(255,255,255,0.10)",
       "rgba(255,255,255,0.06)",
@@ -71,6 +85,21 @@ export default function ManageChatsSection() {
     }));
   }, [viewportWidth]);
 
+  // Mobile particles — purely decorative, CSS-only (no mouse interaction)
+  const mobileParticles = useMemo(() => {
+    return Array.from({ length: 18 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2 + 1.5,
+      opacity: Math.random() * 0.08 + 0.03,
+      duration: Math.random() * 5 + 4,
+      delay: Math.random() * 3,
+      dx: (Math.random() - 0.5) * 20,
+      dy: (Math.random() - 0.5) * 20,
+    }));
+  }, []);
+
   // FIX: Use sectionDims state instead of sectionRef.current during render
   const cardRotateX = !isMobile && sectionDims.height > 0
     ? ((mouse.y - sectionDims.height / 2) / sectionDims.height) * -6
@@ -86,44 +115,74 @@ export default function ManageChatsSection() {
     >
       <div className="absolute inset-x-0 top-0 z-[1] h-px bg-gradient-to-r from-purple-600/20 via-transparent to-blue-500/10" />
 
+      {/* ─── PARTICLES ─── */}
       <div className="absolute inset-0 z-0 overflow-hidden">
-        {particles.map((particle) => {
-          const particleX = (particle.x / 100) * viewportWidth;
-          // FIX: Use sectionDims.height (state) instead of sectionRef.current?.offsetHeight
-          const particleY = (particle.y / 100) * (sectionDims.height || 900);
-          const dx = mouse.x - particleX;
-          const dy = mouse.y - particleY;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const intensity = Math.max(0, 1 - distance / 120);
-          return (
-            <motion.div
-              key={particle.id}
-              className="absolute"
+        {isMobile ? (
+          /* ── Mobile: CSS-only particles — zero JS per frame ── */
+          mobileParticles.map((p) => (
+            <div
+              key={p.id}
+              className="absolute manage-chat-particle"
               style={{
-                left: `${particle.x}%`,
-                top: `${particle.y}%`,
-                width: `${4 + intensity * 8}px`,
-                height: `${4 + intensity * 8}px`,
-                opacity: intensity > 0.05 ? intensity : 0,
-                scale: 0.6 + intensity * 1.4,
-                filter: `drop-shadow(0 0 ${8 + intensity * 18}px rgba(255,255,255,0.9))`,
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                width: `${p.size + 2}px`,
+                height: `${p.size + 2}px`,
+                opacity: p.opacity,
+                '--dx': `${p.dx}px`,
+                '--dy': `${p.dy}px`,
+                animationDuration: `${p.duration}s`,
+                animationDelay: `${p.delay}s`,
               }}
-              animate={{ x: [0, particle.floatX, 0], y: [0, particle.floatY, 0], rotate: [0, 18, 0] }}
-              transition={{ duration: particle.duration, repeat: Infinity, ease: "easeInOut" }}
             >
               <svg viewBox="0 0 100 100" className="h-full w-full" fill="white">
                 <path d="M50 0C56 28 72 44 100 50C72 56 56 72 50 100C44 72 28 56 0 50C28 44 44 28 50 0Z" />
               </svg>
-            </motion.div>
-          );
-        })}
+            </div>
+          ))
+        ) : (
+          /* ── Desktop: interactive Framer Motion particles ── */
+          desktopParticles.map((particle) => {
+            const particleX = (particle.x / 100) * viewportWidth;
+            // FIX: Use sectionDims.height (state) instead of sectionRef.current?.offsetHeight
+            const particleY = (particle.y / 100) * (sectionDims.height || 900);
+            const dx = mouse.x - particleX;
+            const dy = mouse.y - particleY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const intensity = Math.max(0, 1 - distance / 120);
+            return (
+              <motion.div
+                key={particle.id}
+                className="absolute"
+                style={{
+                  left: `${particle.x}%`,
+                  top: `${particle.y}%`,
+                  width: `${4 + intensity * 8}px`,
+                  height: `${4 + intensity * 8}px`,
+                  opacity: intensity > 0.05 ? intensity : 0,
+                  scale: 0.6 + intensity * 1.4,
+                  filter: `drop-shadow(0 0 ${8 + intensity * 18}px rgba(255,255,255,0.9))`,
+                }}
+                animate={{ x: [0, particle.floatX, 0], y: [0, particle.floatY, 0], rotate: [0, 18, 0] }}
+                transition={{ duration: particle.duration, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <svg viewBox="0 0 100 100" className="h-full w-full" fill="white">
+                  <path d="M50 0C56 28 72 44 100 50C72 56 56 72 50 100C44 72 28 56 0 50C28 44 44 28 50 0Z" />
+                </svg>
+              </motion.div>
+            );
+          })
+        )}
       </div>
 
-      <motion.div
-        className="pointer-events-none absolute z-[2] h-72 w-72 rounded-full bg-purple-500/10 blur-3xl hidden sm:block"
-        animate={{ x: mouse.x - 144, y: mouse.y - 144, opacity: mouse.x < 0 ? 0 : 1 }}
-        transition={{ type: "spring", stiffness: 60, damping: 18 }}
-      />
+      {/* Mouse follow glow — desktop only */}
+      {!isMobile && (
+        <motion.div
+          className="pointer-events-none absolute z-[2] h-72 w-72 rounded-full bg-purple-500/10 blur-3xl hidden sm:block"
+          animate={{ x: mouse.x - 144, y: mouse.y - 144, opacity: mouse.x < 0 ? 0 : 1 }}
+          transition={{ type: "spring", stiffness: 60, damping: 18 }}
+        />
+      )}
 
       <div
         className="absolute inset-0 z-[3] opacity-[0.03] mix-blend-screen"
@@ -141,9 +200,7 @@ export default function ManageChatsSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.5 }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="font-poppins max-w-[620px] mx-auto lg:mx-0
-              text-[30px] sm:text-[36px] md:text-[40px] lg:text-[45px]
-              font-medium leading-[1.2] tracking-[0em]"
+            className="font-poppins max-w-[620px] mx-auto lg:mx-0 text-[30px] sm:text-[36px] md:text-[40px] lg:text-[45px] font-medium leading-[1.2] tracking-[0em]"
             style={{
               background: "linear-gradient(180deg, #814AC8 30%, #FFFFFF 100%)",
               WebkitBackgroundClip: "text",
@@ -196,19 +253,11 @@ export default function ManageChatsSection() {
             />
           </svg>
 
-          <div className="
-            flex flex-col items-center gap-6 w-full max-w-[320px]
-            sm:max-w-[360px]
-            lg:relative lg:flex lg:flex-row lg:items-center lg:justify-end lg:max-w-none lg:w-auto lg:gap-0
-          ">
+          <div className="flex flex-col items-center gap-6 w-full max-w-[320px] sm:max-w-[360px] lg:relative lg:flex lg:flex-row lg:items-center lg:justify-end lg:max-w-none lg:w-auto lg:gap-0">
 
             {/*  Instagram Card  */}
             <motion.div
-              className="
-                relative w-full max-w-[300px] z-10
-                lg:absolute lg:-left-16 lg:top-12
-                lg:w-[340px] lg:h-auto
-              "
+              className="relative w-full max-w-[300px] z-10 lg:absolute lg:-left-16 lg:top-12 lg:w-[340px] lg:h-auto"
               onHoverStart={() => !isMobile && setHoveredCard("instagram")}
               onHoverEnd={() => !isMobile && setHoveredCard(null)}
               animate={!isMobile ? {
@@ -272,11 +321,7 @@ export default function ManageChatsSection() {
 
             {/*  WhatsApp Card  */}
             <motion.div
-              className="
-                relative w-full max-w-[300px] z-20
-                lg:relative lg:ml-[220px]
-                lg:w-[340px] lg:h-[auto]
-              "
+              className="relative w-full max-w-[300px] z-20 lg:relative lg:ml-[220px] lg:w-[340px] lg:h-[auto]"
               onHoverStart={() => !isMobile && setHoveredCard("whatsapp")}
               onHoverEnd={() => !isMobile && setHoveredCard(null)}
               animate={!isMobile ? {
@@ -333,6 +378,18 @@ export default function ManageChatsSection() {
           </div>
         </div>
       </div>
+
+      {/* CSS keyframes for mobile particles — runs on GPU compositor */}
+      <style jsx>{`
+        @keyframes manageChatFloat {
+          0%, 100% { transform: translate(0, 0); }
+          50%      { transform: translate(var(--dx), var(--dy)); }
+        }
+        .manage-chat-particle {
+          animation: manageChatFloat ease-in-out infinite;
+          will-change: transform;
+        }
+      `}</style>
     </section>
   );
 }

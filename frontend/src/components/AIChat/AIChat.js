@@ -64,17 +64,6 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 for (const line of lines) {
                     try {
                         const data = JSON.parse(line);
-                        if (data.status) {
-                            setMessages(prev => {
-                                const newMessages = [...prev];
-                                const lastMsg = newMessages[newMessages.length - 1];
-                                newMessages[newMessages.length - 1] = {
-                                    ...lastMsg,
-                                    status: data.status
-                                };
-                                return newMessages;
-                            });
-                        }
                         if (data.content) {
                             aiContent += data.content;
                             setMessages(prev => {
@@ -82,8 +71,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                                 newMessages[newMessages.length - 1] = {
                                     role: 'assistant',
                                     content: aiContent,
-                                    sources: sources,
-                                    status: null
+                                    sources: sources
                                 };
                                 return newMessages;
                             });
@@ -229,14 +217,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                                                 {/* Response Content */}
                                                 <div className={`text-sm leading-relaxed whitespace-pre-wrap ${msg.isError ? 'text-rose-400' : 'text-slate-300'}`}>
                                                     {msg.content || (
-                                                        <div className="flex items-center gap-2 text-indigo-400/90 text-xs font-semibold py-1 animate-pulse">
-                                                            {msg.status === 'rewriting' && <span>🔍 Rewriting your question...</span>}
-                                                            {msg.status === 'tool_deciding' && <span>⚙️ Selecting tools...</span>}
-                                                            {msg.status === 'searching' && <span>🌐 Searching the web...</span>}
-                                                            {msg.status === 'retrieving' && <span>📚 Reading database sources...</span>}
-                                                            {msg.status === 'synthesizing' && <span>🤖 Generating answer...</span>}
-                                                            {!msg.status && <span>⚡ Thinking...</span>}
-                                                        </div>
+                                                        <span className="text-slate-500 italic">Thinking...</span>
                                                     )}
                                                 </div>
                                             </div>

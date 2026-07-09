@@ -5,28 +5,31 @@ let memoryWorkspace = null;
 /* ---------------- TOKEN ---------------- */
 
 export const setToken = (token) => {
-  if (isBrowser && token) {
-    localStorage.setItem("auth_token", token);
-  }
+  // Cookies are set by the server. Storage writes for the JWT token are removed for security.
 };
 
 export const getToken = () => {
-  if (isBrowser) {
-    return localStorage.getItem("auth_token");
-  }
+  // JWT tokens are inside HttpOnly cookies and not readable by JavaScript.
   return null;
 };
 
 export const removeToken = () => {
-  if (isBrowser) {
-    localStorage.removeItem("auth_token");
-  }
   memoryUser = null;
   memoryWorkspace = null;
+  if (isBrowser) {
+    localStorage.removeItem('auromind_logged_in');
+  }
 };
 
 export const setUser = (user) => {
   memoryUser = user || null;
+  if (isBrowser) {
+    if (user) {
+      localStorage.setItem('auromind_logged_in', 'true');
+    } else {
+      localStorage.removeItem('auromind_logged_in');
+    }
+  }
 };
 
 export const getUser = () => {

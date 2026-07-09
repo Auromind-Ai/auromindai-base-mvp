@@ -9,8 +9,7 @@ from jose import jwt
 from app.core.config import settings as core_settings
 from app.services.platform_settings_service import get_prospective_settings
 import time
-import boto3
-from botocore.config import Config
+
 router = APIRouter()
 
 SENSITIVE_MASK = "••••••••"

@@ -9,8 +9,7 @@ function getCSRFToken() {
 
 export class APIClient {
   constructor(baseURL = '/api') {
-    const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
-    this.baseURL = isProd ? 'https://api.orbionagents.com' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
+    this.baseURL = baseURL;
     this.requestHooks = [];
     this.responseHooks = [];
   }
@@ -25,18 +24,13 @@ export class APIClient {
   }
 
   async request(endpoint, options = {}, isRetryAttempt = false) {
-    const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
-    const url = isProd
-      ? `${this.baseURL}${endpoint.startsWith('/api/') ? endpoint.substring(4) : (endpoint.startsWith('/backend/') ? endpoint.substring(8) : endpoint)}`
-      : ((endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
-        ? endpoint
-        : `${this.baseURL}${endpoint}`);
+    const url = (endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
+      ? endpoint
+      : `${this.baseURL}${endpoint}`;
 
     const method = (options.method || 'GET').toUpperCase();
     const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
     const { signal: optSignal, ...restOptions } = options;
-
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
     const config = {
       credentials: 'include', 
@@ -44,7 +38,6 @@ export class APIClient {
       headers: {
         'ngrok-skip-browser-warning': 'true',
         ...(isPostOrPutOrPatch && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
     };
@@ -70,7 +63,7 @@ export class APIClient {
 
     // 4. Handle Timeout via AbortController
     const controller = optSignal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 120000) : null; // 120s timeout
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
     config.signal = optSignal || controller?.signal;
 
     try {
@@ -124,7 +117,14 @@ export class APIClient {
         if (response.status >= 400 && response.status < 500) {
           console.warn(`[API Client Error] ${response.status}:`, errorMessage);
         } else {
-          console.error(`[API Server Error] ${response.status}:`, errorMessage);
+          console.warn(`[API Server Error] ${response.status}:`, errorMessage);
+        }
+
+        // Check for admin console authorization issues (e.g. session expired)
+        if (url.includes('/admin') && !url.includes('/admin/auth') && (response.status === 401 || response.status === 403 || response.status === 404)) {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/admin';
+          }
         }
 
         throw errorObj;

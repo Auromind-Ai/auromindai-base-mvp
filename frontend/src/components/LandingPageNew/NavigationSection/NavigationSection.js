@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Poppins } from "next/font/google";
 import { Zap, Menu, X, ChevronDown } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
 
@@ -16,20 +16,21 @@ const NavigationSection = () => {
   const { appName, appLogoUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openAccordion, setOpenAccordion] = useState(null);
-
-  const toggleAccordion = (name) => {
-    setOpenAccordion(openAccordion === name ? null : name);
-  };
+  const [productOpen, setProductOpen] = useState(false);
+  const [solutionsOpen, setSolutionsOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
 
   const { user, loading } = useAuth();
   const isLogged = !loading && !!user;
 
-  const [logoError, setLogoError] = useState(false);
-
-  useEffect(() => {
-    setLogoError(false);
-  }, [appLogoUrl]);
+  const handleToggleMenu = () => {
+    if (menuOpen) {
+      setProductOpen(false);
+      setSolutionsOpen(false);
+      setResourcesOpen(false);
+    }
+    setMenuOpen(!menuOpen);
+  };
 
   return (
     <nav
@@ -37,18 +38,11 @@ const NavigationSection = () => {
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-14 h-14 flex items-center justify-center group-hover:scale-105 transition-all">
-            {appLogoUrl && !logoError ? (
-              <img 
-                src={appLogoUrl} 
-                alt={appName} 
-                className="w-12 h-12 object-contain" 
-                onError={() => setLogoError(true)}
-              />
+          <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center group-hover:scale-105 transition-all">
+            {appLogoUrl && appLogoUrl !== "/logo.png" ? (
+              <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center">
-                <Zap size={18} fill="currentColor" />
-              </div>
+              <Zap size={18} fill="currentColor" />
             )}
           </div>
 
@@ -320,7 +314,7 @@ const NavigationSection = () => {
           )}
 
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={handleToggleMenu}
             className="lg:hidden text-white"
           >
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -328,97 +322,137 @@ const NavigationSection = () => {
         </div>
       </div>
           {menuOpen && (
-        <div className="lg:hidden absolute left-4 right-4 top-[70px] rounded-2xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] px-6 py-8 space-y-6 z-[99] flex flex-col max-h-[80vh] overflow-y-auto">
+        <div className="lg:hidden absolute left-4 right-4 top-[65px] rounded-xl border border-white/10 bg-[#0B0B0F]/95 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] px-5 py-5 space-y-4 z-[99] flex flex-col">
           
-          <div className="space-y-6 w-full">
-            {/* Product */}
-            <div className="w-full">
-              <button 
-                onClick={() => toggleAccordion('product')}
-                className="flex items-center justify-between w-full text-left text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors"
-              >
-                <span>Product</span>
-                <ChevronDown size={18} className={`transition-transform duration-300 ${openAccordion === 'product' ? 'rotate-180' : ''}`} />
-              </button>
-              {openAccordion === 'product' && (
-                <div className="flex flex-col gap-4 mt-4 pl-4 border-l border-white/10">
-                  <Link href="/product/ai-brain" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">AI Brain</Link>
-                  <Link href="/product/wires" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Wires (Visual Builder)</Link>
-                  <Link href="/product/inbox" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Omnichannel Inbox</Link>
-                  <Link href="/product/whatsapp" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">WhatsApp Automation</Link>
-                </div>
-              )}
-            </div>
-
-            {/* Solutions */}
-            <div className="w-full">
-              <button 
-                onClick={() => toggleAccordion('solutions')}
-                className="flex items-center justify-between w-full text-left text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors"
-              >
-                <span>Solutions</span>
-                <ChevronDown size={18} className={`transition-transform duration-300 ${openAccordion === 'solutions' ? 'rotate-180' : ''}`} />
-              </button>
-              {openAccordion === 'solutions' && (
-                <div className="flex flex-col gap-4 mt-4 pl-4 border-l border-white/10">
-                  <Link href="/solutions/lead-qualification" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Lead Qualification</Link>
-                  <Link href="/solutions/sales-automation" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Sales Automation</Link>
-                  <Link href="/solutions/high-ticket" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">High-Ticket Closing</Link>
-                  <Link href="/solutions/real-estate" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Real Estate</Link>
-                  <Link href="/solutions/ecommerce" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Ecommerce</Link>
-                  <Link href="/solutions/saas" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">SaaS</Link>
-                </div>
-              )}
-            </div>
-
-            {/* Pricing */}
-            <Link href="#pricing" className="block text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
-              Pricing
-            </Link>
-
-            {/* Resources */}
-            <div className="w-full">
-              <button 
-                onClick={() => toggleAccordion('resources')}
-                className="flex items-center justify-between w-full text-left text-white text-[17px] font-semibold tracking-wide hover:text-white/80 transition-colors"
-              >
-                <span>Resources</span>
-                <ChevronDown size={18} className={`transition-transform duration-300 ${openAccordion === 'resources' ? 'rotate-180' : ''}`} />
-              </button>
-              {openAccordion === 'resources' && (
-                <div className="flex flex-col gap-4 mt-4 pl-4 border-l border-white/10">
-                  <Link href="/resources/case-studies" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Case Studies</Link>
-                  <Link href="/resources/demo-videos" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Demo Videos</Link>
-                  <Link href="/resources/blog" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Blog</Link>
-                  <Link href="/resources/docs" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Documentation</Link>
-                  <Link href="/resources/help" onClick={() => setMenuOpen(false)} className="text-[15px] text-white/70 hover:text-white">Help Center</Link>
-                </div>
-              )}
-            </div>
+          {/* Product Accordion */}
+          <div>
+            <button
+              onClick={() => setProductOpen(!productOpen)}
+              className="flex items-center justify-between w-full text-white text-[14px] font-medium tracking-wide hover:text-white/80 transition-colors"
+            >
+              <span>Product</span>
+              <ChevronDown size={14} className={`transform transition-transform duration-200 ${productOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {productOpen && (
+              <div className="pl-4 mt-2 space-y-2 border-l border-white/10">
+                <Link href="/product/ai-brain" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  AI Brain
+                </Link>
+                <Link href="/product/wires" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  Wires
+                </Link>
+                <Link href="/product/inbox" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  Omnichannel Inbox
+                </Link>
+                <Link href="/product/whatsapp" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  WhatsApp Automation
+                </Link>
+              </div>
+            )}
           </div>
 
-          <div className="h-px bg-white/10 my-4" />
+          {/* Solutions Accordion */}
+          <div>
+            <button
+              onClick={() => setSolutionsOpen(!solutionsOpen)}
+              className="flex items-center justify-between w-full text-white text-[14px] font-medium tracking-wide hover:text-white/80 transition-colors"
+            >
+              <span>Solutions</span>
+              <ChevronDown size={14} className={`transform transition-transform duration-200 ${solutionsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {solutionsOpen && (
+              <div className="pl-4 mt-2 space-y-3 border-l border-white/10">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1">Use Cases</p>
+                  <div className="space-y-1.5">
+                    <Link href="/solutions/lead-qualification" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                      Lead Qualification
+                    </Link>
+                    <Link href="/solutions/sales-automation" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                      Sales Automation
+                    </Link>
+                    <Link href="/solutions/high-ticket" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                      High-Ticket Closing
+                    </Link>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1">Industries</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <Link href="/solutions/real-estate" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                      Real Estate
+                    </Link>
+                    <Link href="/solutions/education" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                      Education
+                    </Link>
+                    <Link href="/solutions/ecommerce" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                      Ecommerce
+                    </Link>
+                    <Link href="/solutions/saas" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                      SaaS
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Link href="#pricing" className="block text-white text-[14px] font-medium tracking-wide hover:text-white/80 transition-colors" onClick={() => setMenuOpen(false)}>
+            Pricing
+          </Link>
+
+          {/* Resources Accordion */}
+          <div>
+            <button
+              onClick={() => setResourcesOpen(!resourcesOpen)}
+              className="flex items-center justify-between w-full text-white text-[14px] font-medium tracking-wide hover:text-white/80 transition-colors"
+            >
+              <span>Resources</span>
+              <ChevronDown size={14} className={`transform transition-transform duration-200 ${resourcesOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {resourcesOpen && (
+              <div className="pl-4 mt-2 space-y-2 border-l border-white/10">
+                <Link href="/resources/case-studies" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  Case Studies
+                </Link>
+                <Link href="/resources/demo-videos" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  Demo Videos
+                </Link>
+                <Link href="/resources/blog" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  Blog
+                </Link>
+                <Link href="/resources/docs" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  Documentation
+                </Link>
+                <Link href="/resources/help" className="block text-white/70 text-[13px] hover:text-white transition-colors" onClick={() => setMenuOpen(false)}>
+                  Help Center
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="h-px bg-white/10 my-1" />
 
           {isLogged ? (
             <Link
               href="/user/admin/dashboard"
-              className="w-full text-center rounded-xl bg-[#814AC8] py-3.5 text-[16px] font-bold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
+              className="w-full text-center rounded-lg bg-[#814AC8] py-2.5 text-[14px] font-semibold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
               onClick={() => setMenuOpen(false)}
             >
               Dashboard
             </Link>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               <Link
                 href="/login"
-                className="w-full text-center text-[16px] font-semibold text-white border border-white/10 rounded-xl py-3.5 hover:bg-white/5 transition-all"
+                className="w-full text-center text-[14px] font-medium text-white border border-white/10 rounded-lg py-2.5 hover:bg-white/5 transition-all"
                 onClick={() => setMenuOpen(false)}
               >
                 Log In
               </Link>
               <Link
                 href="/signup"
-                className="w-full text-center rounded-xl bg-[#814AC8] py-3.5 text-[16px] font-bold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
+                className="w-full text-center rounded-lg bg-[#814AC8] py-2.5 text-[14px] font-semibold text-white hover:bg-[#8d58d1] transition-all shadow-lg shadow-[#814AC8]/25"
                 onClick={() => setMenuOpen(false)}
               >
                 Get Started Free

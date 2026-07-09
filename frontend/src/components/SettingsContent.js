@@ -1667,7 +1667,7 @@ export default function SettingsContent({ email }) {
         {/*  Outer card wrapper  */}
         <div
           className="
-            flex flex-col lg:flex-row gap-0
+            flex flex-col xl:flex-row gap-0
             rounded-3xl overflow-hidden
             flex-1 min-h-0
             border border-[rgba(157,157,157,0.43)]
@@ -1679,8 +1679,7 @@ export default function SettingsContent({ email }) {
           {/* ════════════════════════════════════════
               MOBILE: top bar with section name + hamburger
           ════════════════════════════════════════ */}
-          <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
-            <span className="text-sm font-semibold text-white">{activeLabel}</span>
+          <div className="xl:hidden flex items-center gap-2 px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
             <button
               type="button"
               onClick={() => setSidebarOpen((v) => !v)}
@@ -1697,6 +1696,7 @@ export default function SettingsContent({ email }) {
                 className={`block w-5 h-0.5 bg-zinc-300 transition-transform duration-200 ${sidebarOpen ? '-translate-y-1.5 -rotate-45' : ''}`}
               />
             </button>
+            <span className="text-sm font-semibold text-white ml-1">{activeLabel}</span>
           </div>
 
           {/* ════════════════════════════════════════
@@ -1705,12 +1705,12 @@ export default function SettingsContent({ email }) {
           
             <aside
               className={`
-                lg:w-[220px] lg:min-w-[220px] lg:shrink-0
-                lg:block
-                border-b lg:border-b-0 border-[rgba(157,157,157,0.43)]
+                xl:w-[240px] xl:min-w-[240px] xl:shrink-0
+                xl:block
+                border-b xl:border-b-0 border-[rgba(157,157,157,0.43)]
                 bg-[#070012] p-3
-                ${sidebarOpen ? 'block' : 'hidden'}
-                lg:!block
+                ${sidebarOpen ? 'block flex-1' : 'hidden'}
+                xl:!block
               `}
             >
               {/*  Sidebar Card Wrapper  */}
@@ -1770,7 +1770,7 @@ export default function SettingsContent({ email }) {
           {/* ════════════════════════════════════════
               RIGHT CONTENT AREA
           ════════════════════════════════════════ */}
-          <main className="flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto">
+          <main className={`flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden xl:block' : 'block'}`}>
             {renderContent()}
           </main>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Poppins } from "next/font/google";
+import Image from 'next/image';
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -21,7 +22,7 @@ const steps = [
       'Verified Business Trust',
       'Seamless Automation',
     ],
-    image: '/images/StepOne.png',
+    image: '/images/StepOne.webp',
   },
   {
     step: 'Step 2',
@@ -34,7 +35,7 @@ const steps = [
       'Control response behavior',
       'Define tone and workflows',
     ],
-    image: '/images/StepTwo.png',
+    image: '/images/StepTwo.webp',
   },
   {
     step: 'Step 3',
@@ -47,7 +48,7 @@ const steps = [
       'Lead qualification',
       'Revenue-focused workflows',
     ],
-    image: '/images/StepThree.png',
+    image: '/images/StepThree.webp',
   },
 ];
 
@@ -169,9 +170,11 @@ export default function HowItWorks() {
                 exit="exit"
                 className="relative mx-auto w-full max-w-[320px] md:max-w-[460px] xl:max-w-[540px] h-[240px] md:h-[340px] xl:h-[400px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
               >
-                <img
+                <Image
                   src={item.image}
                   alt={item.title}
+                  fill
+                  sizes="(max-width: 768px) 320px, (max-width: 1200px) 460px, 540px"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-black/25 to-transparent pointer-events-none rounded-3xl" />

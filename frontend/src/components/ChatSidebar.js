@@ -7,7 +7,8 @@ import {
     Trash2,
     Pin,
     Plus,
-    MoreHorizontal
+    MoreHorizontal,
+    X
 } from 'lucide-react';
 
 export default function ChatSidebar({
@@ -94,16 +95,26 @@ export default function ChatSidebar({
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: "tween", ease: "easeOut", duration: 0.25 }}
-                        className="fixed inset-y-0 left-[320px] z-50 w-[340px] flex flex-col shadow-2xl will-change-transform"
+                        className="fixed inset-y-0 left-0 md:left-[320px] z-50 w-full md:w-[340px] flex flex-col shadow-2xl will-change-transform"
                         style={{ background: '#0f0f13' }}
                     >
                         <div className="flex flex-col h-full">
 
-                            {/*  Header: Chat history + share icon  */}
+                            {/*  Header: Chat history + close/new  */}
                             <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-shrink-0">
-                                <h2 className="text-[20px] font-bold text-white tracking-tight">
-                                    Chat history
-                                </h2>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={toggleSidebar}
+                                        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all"
+                                        style={{ background: 'transparent' }}
+                                        title="Close"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                    <h2 className="text-[20px] font-bold text-white tracking-tight">
+                                        Chat history
+                                    </h2>
+                                </div>
                                 <button
                                     onClick={onCreateSession}
                                     className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all"
@@ -228,7 +239,7 @@ export default function ChatSidebar({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-y-0 left-[320px] right-0 z-40 pointer-events-auto"
+                        className="fixed inset-y-0 left-0 md:left-[320px] right-0 z-40 pointer-events-auto"
                         style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
                         onClick={toggleSidebar}
                     />

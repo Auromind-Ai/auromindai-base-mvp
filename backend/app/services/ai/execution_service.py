@@ -451,11 +451,13 @@ class AIExecutionService:
                         )
 
                     try:
+                        logger.info(f"[AIExecutionService DEBUG] Calling router.generate with model='{model}', feature='{ctx.feature_key}', provider='{config.get('provider')}'")
                         result = await router.generate(
                             prompt, model=model, feature_key=ctx.feature_key,
                             media_data=media_data, mime_type=mime_type, config=config,
                             system_prompt=system_prompt, structured_output=structured_output
                         )
+                        logger.info(f"[AIExecutionService DEBUG] router.generate returned successfully.")
                     except Exception as primary_err:
                         from app.services.ai.llm_router import is_retryable_provider_error
                         if not is_retryable_provider_error(primary_err):
@@ -734,7 +736,8 @@ class AIExecutionService:
                         )
 
                     # Release database connection during stream execution to prevent connection pool exhaustion
-                    if db is not None:
+                    # Do NOT release database connection for RAG since RAG queries the database during the stream execution
+                    if db is not None and ctx.feature_key != "rag" and feature_key != "rag":
                         try:
                             db.commit()
                             db.close()
@@ -783,7 +786,8 @@ class AIExecutionService:
                                 pass
 
                     # Release database connection during stream execution to prevent connection pool exhaustion
-                    if db is not None:
+                    # Do NOT release database connection for RAG since RAG queries the database during the stream execution
+                    if db is not None and ctx.feature_key != "rag" and feature_key != "rag":
                         try:
                             db.commit()
                             db.close()

@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
             new_origins = [o.strip() for o in db_origins.split(",") if o.strip()]
             for middleware in app.user_middleware:
                 if middleware.cls == CORSMiddleware:
-                    origins_list = middleware.options.get("allow_origins", [])
+                    origins_list = middleware.kwargs.get("allow_origins", [])
                     for origin in new_origins:
                         if origin not in origins_list:
                             origins_list.append(origin)
@@ -110,10 +110,7 @@ fallback_origins = [
     "http://orbionagents.com",
     "https://www.orbionagents.com",
     "http://www.orbionagents.com",
-    "https://growwdigitel.cloud",
-    "http://growwdigitel.cloud",
-    "https://www.growwdigitel.cloud",
-    "http://www.growwdigitel.cloud",
+   
     # Local development
     "http://localhost:3000",
     "http://127.0.0.1:3000",

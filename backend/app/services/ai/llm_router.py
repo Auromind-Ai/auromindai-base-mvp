@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 from app.core.logger import logger
 from anthropic import AsyncAnthropic
-from groq import Groq
+from groq import Groq, AsyncGroq
 from openai import AsyncOpenAI
 from google import genai
 from google.genai import types as genai_types
@@ -88,8 +88,9 @@ class LLMRouter:
                 raise ValueError(f"Unknown provider '{provider}'")
         except Exception as provider_err:
             err_msg = str(provider_err).lower()
+            is_rate_limit = "rate" in err_msg or "limit" in err_msg or "429" in err_msg
             # Catch model not found or invalid model errors from SDKs
-            if "not found" in err_msg or "model" in err_msg or "invalid" in err_msg or "bad_request" in err_msg:
+            if not is_rate_limit and ("not found" in err_msg or "model" in err_msg or "invalid" in err_msg or "bad_request" in err_msg):
                 raise ValueError(f"Provider API Configuration Error: Model '{config['model']}' not recognized by provider '{provider}'. Details: {provider_err}")
             raise provider_err
 
@@ -182,7 +183,7 @@ class LLMRouter:
         try:
             api_key_env = config.get("api_key_env", "OPENAI_API_KEY")
             api_key = self._get_api_key(api_key_env, "openai_api_key")
-            client = AsyncOpenAI(api_key=api_key)
+            client = AsyncOpenAI(api_key=api_key, max_retries=0)
 
             messages = []
             if system_prompt:
@@ -292,7 +293,7 @@ class LLMRouter:
         try:
             api_key_env = config.get("api_key_env", "GROQ_API_KEY")
             api_key = self._get_api_key(api_key_env, "groq_api_key")
-            client = Groq(api_key=api_key)
+            client = AsyncGroq(api_key=api_key, max_retries=0)
 
             if system_prompt:
                 messages = [
@@ -312,10 +313,9 @@ class LLMRouter:
             if structured_output:
                 create_kwargs["response_format"] = {"type": "json_object"}
 
-            response = await asyncio.to_thread(
-                client.chat.completions.create,
-                **create_kwargs
-            )
+            logger.info(f"[LLMRouter DEBUG] Calling AsyncGroq chat completions with model='{config['model']}'...")
+            response = await client.chat.completions.create(**create_kwargs)
+            logger.info(f"[LLMRouter DEBUG] AsyncGroq returned successfully.")
 
             content = response.choices[0].message.content or ""
 
@@ -360,7 +360,7 @@ class LLMRouter:
         except Exception:
             return "groq"
 
-    async def generate_stream(self, prompt: str, model: str = "auto", feature_key: str = "chat", config: dict = None, system_prompt: Optional[str] = None):
+    async def generate_stream(self, prompt: str, model: str = "auto", feature_key: str = "chat", config: dict = None, system_prompt: Optional[str] = None, history: Optional[list] = None):
         if config is None:
             experience_level = model
             if model in ["sonnet", "gemini", "groq", "opus"]:
@@ -384,7 +384,7 @@ class LLMRouter:
                     config["api_key_env"] = "ANTHROPIC_API_KEY"
                 if not config_service.get("anthropic_api_key"):
                     raise Exception("Claude key missing")
-                async for chunk in self._claude_call_stream(prompt, config, system_prompt=system_prompt):
+                async for chunk in self._claude_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
 
             elif provider == "openai":
@@ -392,7 +392,7 @@ class LLMRouter:
                     config["api_key_env"] = "OPENAI_API_KEY"
                 if not config_service.get("openai_api_key"):
                     raise Exception("OpenAI key missing")
-                async for chunk in self._openai_call_stream(prompt, config, system_prompt=system_prompt):
+                async for chunk in self._openai_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
 
             elif provider == "gemini":
@@ -400,7 +400,7 @@ class LLMRouter:
                     config["api_key_env"] = "GOOGLE_API_KEY"
                 if not config_service.get("google_api_key"):
                     raise Exception("Gemini key missing")
-                async for chunk in self._gemini_call_stream(prompt, config, system_prompt=system_prompt):
+                async for chunk in self._gemini_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
 
             elif provider == "groq":
@@ -408,25 +408,29 @@ class LLMRouter:
                     config["api_key_env"] = "GROQ_API_KEY"
                 if not config_service.get("groq_api_key"):
                     raise Exception("Groq key missing")
-                async for chunk in self._groq_call_stream(prompt, config, system_prompt=system_prompt):
+                async for chunk in self._groq_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
             else:
                 raise ValueError(f"Unknown provider '{provider}'")
         except Exception as provider_err:
             err_msg = str(provider_err).lower()
-            if "not found" in err_msg or "model" in err_msg or "invalid" in err_msg or "bad_request" in err_msg:
+            is_rate_limit = "rate" in err_msg or "limit" in err_msg or "429" in err_msg
+            if not is_rate_limit and ("not found" in err_msg or "model" in err_msg or "invalid" in err_msg or "bad_request" in err_msg):
                 raise ValueError(f"Provider API Configuration Error: Model '{config['model']}' not recognized by provider '{provider}'. Details: {provider_err}")
             raise provider_err
 
-    async def _openai_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+    async def _openai_call_stream(self, prompt, config, system_prompt: Optional[str] = None, history: Optional[list] = None):
         try:
             api_key_env = config.get("api_key_env", "OPENAI_API_KEY")
             api_key = self._get_api_key(api_key_env, "openai_api_key")
-            client = AsyncOpenAI(api_key=api_key)
+            client = AsyncOpenAI(api_key=api_key, max_retries=0)
 
             messages = []
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
+            if history:
+                for h in history:
+                    messages.append({"role": h.role, "content": h.content})
             messages.append({"role": "user", "content": prompt})
 
             create_kwargs = {
@@ -488,17 +492,23 @@ class LLMRouter:
         except Exception as e:
             raise Exception(f"OpenAI stream error: {e}")
 
-    async def _claude_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+    async def _claude_call_stream(self, prompt, config, system_prompt: Optional[str] = None, history: Optional[list] = None):
         try:
             api_key_env = config.get("api_key_env", "ANTHROPIC_API_KEY")
             api_key = self._get_api_key(api_key_env, "anthropic_api_key")
             client = AsyncAnthropic(api_key=api_key)
 
+            messages = []
+            if history:
+                for h in history:
+                    messages.append({"role": h.role, "content": h.content})
+            messages.append({"role": "user", "content": prompt})
+
             create_kwargs = {
                 "model": config["model"],
                 "max_tokens": config["max_tokens"],
                 "temperature": config["temperature"],
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": messages,
                 "stream": True
             }
 
@@ -556,7 +566,7 @@ class LLMRouter:
         except Exception as e:
             raise Exception(f"Claude stream error: {e}")
 
-    async def _gemini_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+    async def _gemini_call_stream(self, prompt, config, system_prompt: Optional[str] = None, history: Optional[list] = None):
         try:
             api_key_env = config.get("api_key_env", "GOOGLE_API_KEY")
             if api_key_env == "GEMINI_API_KEY":
@@ -565,7 +575,12 @@ class LLMRouter:
 
             client = genai.Client(api_key=api_key)
 
-            contents = [prompt]
+            contents = []
+            if history:
+                for h in history:
+                    role = "user" if h.role == "user" else "model"
+                    contents.append({"role": role, "parts": [h.content]})
+            contents.append({"role": "user", "parts": [prompt]})
             generation_config = genai_types.GenerateContentConfig(
                 temperature=config["temperature"],
                 max_output_tokens=config["max_tokens"],
@@ -636,18 +651,19 @@ class LLMRouter:
         except Exception as e:
             raise Exception(f"Gemini stream error: {e}")
 
-    async def _groq_call_stream(self, prompt, config, system_prompt: Optional[str] = None):
+    async def _groq_call_stream(self, prompt, config, system_prompt: Optional[str] = None, history: Optional[list] = None):
         try:
             api_key_env = config.get("api_key_env", "GROQ_API_KEY")
             api_key = self._get_api_key(api_key_env, "groq_api_key")
+            client = AsyncGroq(api_key=api_key, max_retries=0)
 
+            messages = []
             if system_prompt:
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ]
-            else:
-                messages = [{"role": "user", "content": prompt}]
+                messages.append({"role": "system", "content": system_prompt})
+            if history:
+                for h in history:
+                    messages.append({"role": h.role, "content": h.content})
+            messages.append({"role": "user", "content": prompt})
 
             create_kwargs = {
                 "model": config["model"],
@@ -657,17 +673,7 @@ class LLMRouter:
                 "stream": True
             }
 
-            def _stream_call():
-                client = Groq(api_key=api_key)
-                return client.chat.completions.create(**create_kwargs)
-
-            stream = await asyncio.to_thread(_stream_call)
-
-            def _get_next(it):
-                try:
-                    return next(it), False
-                except StopIteration:
-                    return None, True
+            stream = await client.chat.completions.create(**create_kwargs)
 
             input_tokens = 0
             output_tokens = 0
@@ -676,11 +682,7 @@ class LLMRouter:
             accumulated_text = ""
 
             try:
-                while True:
-                    chunk, done = await asyncio.to_thread(_get_next, stream)
-                    if done:
-                        break
-
+                async for chunk in stream:
                     if chunk.choices:
                         text = chunk.choices[0].delta.content or ""
                         if text:
@@ -696,8 +698,7 @@ class LLMRouter:
                         total_tokens = usage.total_tokens or total_tokens
             finally:
                 try:
-                    if hasattr(stream, "close"):
-                        stream.close()
+                    await stream.close()
                 except Exception:
                     pass
 

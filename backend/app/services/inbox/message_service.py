@@ -35,7 +35,6 @@ class MessageService:
     }
     _TERMINAL_STATES = {"delivered", "failed", "cancelled"}
 
-
     @staticmethod
     def list_messages(
         db: Session,
