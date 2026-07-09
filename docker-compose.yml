@@ -16,8 +16,8 @@ services:
     container_name: auromind_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Arunjack007@
+      POSTGRES_USER: auromindai
+      POSTGRES_PASSWORD: auromindai
       POSTGRES_DB: auromindai
     ports:
       - "5435:5432"
