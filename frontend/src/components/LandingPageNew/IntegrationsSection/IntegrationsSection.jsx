@@ -156,7 +156,7 @@ export default function IntegrationsSection() {
     <section
       className={poppins.className}
       style={{
-        background: "linear-gradient(160deg, #060412 0%, #0a0718 50%, #060412 100%)",
+        background: "#050505",
         overflow: "hidden",
         position: "relative",
         borderBottom: "1px solid rgba(255,255,255,0.04)",
