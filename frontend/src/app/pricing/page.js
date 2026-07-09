@@ -81,7 +81,7 @@ export default function PricingPage() {
       name: settings?.free_plan_name || 'Free',
       icon: '🚀',
       price: getPriceString(freePriceVal, billing === 'annual', 'free'),
-      description: settings?.free_plan_desc || 'Try Auromind for free and see the ROI yourself.',
+      description: settings?.free_plan_desc || 'Try Orbion Agents for free and see the ROI yourself.',
       features: settings?.free_plan_features || [
         '1,000 monthly AI replies',
         'Basic workspace access',
@@ -282,7 +282,7 @@ export default function PricingPage() {
                       <button
                         onClick={() => {
                           if (plan.key === 'enterprise') {
-                            window.location.href = 'mailto:sales@auromind.ai?subject=Enterprise Inquiry';
+                            window.location.href = 'mailto:sales@orbionagents.com?subject=Enterprise Inquiry';
                           } else {
                             window.location.href = `/login?redirect=${encodeURIComponent('/user/admin/billing/payment')}`;
                           }

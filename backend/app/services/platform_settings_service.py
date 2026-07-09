@@ -254,7 +254,7 @@ def seed_settings_from_env(db: Session):
         "solo_plan_name": ("Solo Smart", "string"),
         "pro_plan_name": ("Professional", "string"),
         "enterprise_plan_name": ("Business", "string"),
-        "free_plan_desc": ("Try Auromind for free and see the ROI yourself.", "string"),
+        "free_plan_desc": ("Try Orbion Agents for free and see the ROI yourself.", "string"),
         "solo_plan_desc": ("RAG & custom knowledge base on a budget for solopreneurs.", "string"),
         "pro_plan_desc": ("Advanced features for growing teams and scalable workflows.", "string"),
         "enterprise_plan_desc": ("Perfect for businesses starting with AI automation at scale.", "string"),
