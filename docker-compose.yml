@@ -111,22 +111,7 @@ services:
       redis:
         condition: service_healthy
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: auromind_frontend
-    restart: unless-stopped
-    command: npm run dev
-    environment:
-      - BACKEND_URL=http://backend:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
+
 
 volumes:
   postgres_data:
