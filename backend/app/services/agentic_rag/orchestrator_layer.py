@@ -212,6 +212,9 @@ class OrchestratorLayer:
             }
             yield {"meta": meta_payload}
             yield {"content": small_talk}
+            yield {"content": "\n\n"}
+            async for chunk in self.support.add_followup_stream(query, small_talk, model=model):
+                yield chunk
             return
 
         start_url = self.helpers.extract_url(query)
@@ -655,6 +658,9 @@ class OrchestratorLayer:
             }
             yield {"meta": meta_payload}
             yield {"content": response}
+            yield {"content": "\n\n"}
+            async for chunk in self.support.add_followup_stream(query, response, model=model):
+                yield chunk
             return
 
         elif tool == "direct_storage":
@@ -671,6 +677,8 @@ class OrchestratorLayer:
                 "source": tool
             }
             yield {"meta": meta_payload}
+            yield {"content": email_data}
+            yield {"content": "\n\n"}
             async for chunk in self.support.add_followup_stream(query, email_data, model=model):
                 yield chunk
             return
@@ -695,7 +703,7 @@ class OrchestratorLayer:
                     accumulated.append(t)
                     yield {"content": t}
 
-            yield {"content": "\n\nFollow-up question:\n"}
+            yield {"content": "\n\n"}
             async for chunk in self.support.add_followup_stream(query, "".join(accumulated), model=model):
                 yield chunk
             return
@@ -719,7 +727,7 @@ class OrchestratorLayer:
                     accumulated.append(t)
                     yield {"content": t}
 
-            yield {"content": "\n\nFollow-up question:\n"}
+            yield {"content": "\n\n"}
             async for chunk in self.support.add_followup_stream(query, "".join(accumulated), model=model):
                 yield chunk
             return
@@ -741,8 +749,9 @@ class OrchestratorLayer:
             fallback_triggered = True
             logger.info(f"DEBUG: fallback_triggered = {fallback_triggered} (small talk)")
             confidence = compute_confidence(tool="direct_answer")
+            response_with_followup = await self.support.add_followup(query, small_talk, model=model)
             return self.mcp.format_response(
-                small_talk,
+                response_with_followup,
                 query,
                 query,               
                 "direct_answer",     
@@ -1215,8 +1224,9 @@ class OrchestratorLayer:
                 or "Hello! How can I help you today?"
             )
             confidence = compute_confidence(tool="direct_answer")
+            response_with_followup = await self.support.add_followup(query, response, model=model)
             return self.mcp.format_response(
-                response,
+                response_with_followup,
                 query,
                 rewritten_query,
                 tool,

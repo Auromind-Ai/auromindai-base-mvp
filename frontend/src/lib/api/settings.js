@@ -14,3 +14,7 @@ export async function testConnection(service, payload) {
 export async function getPublicBranding() {
   return client.get('/public/branding');
 }
+
+export async function getAboutSettings() {
+  return client.get('/public/about');
+}

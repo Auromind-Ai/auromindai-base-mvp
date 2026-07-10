@@ -1414,23 +1414,39 @@ function MyAccountSection({
             >
               Preferred name
             </label>
-            <input
-              id="preferred-name"
-              type="text"
-              value={preferredName}
-              onChange={handleNameChange}
-              className="
-                w-full h-[42px] rounded-xl px-3.5
-                bg-[#0B021A] text-white text-sm
-                border border-[rgba(157,157,157,0.43)]
-                placeholder:text-zinc-600
-                focus:outline-none focus:border-violet-500
-                focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)]
-                transition-all duration-200
-              "
-              placeholder="Your name"
-            />
-            
+            <div className="flex gap-2">
+              <input
+                id="preferred-name"
+                type="text"
+                value={preferredName}
+                onChange={handleNameChange}
+                onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+                className="
+                  flex-1 h-[42px] rounded-xl px-3.5
+                  bg-[#0B021A] text-white text-sm
+                  border border-[rgba(157,157,157,0.43)]
+                  placeholder:text-zinc-600
+                  focus:outline-none focus:border-violet-500
+                  focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)]
+                  transition-all duration-200
+                "
+                placeholder="Your name"
+              />
+              <button
+                onClick={handleNameSubmit}
+                disabled={!preferredName || preferredName.trim() === ''}
+                className="
+                  px-4 h-[42px] rounded-xl text-sm font-medium text-white
+                  bg-violet-600 hover:bg-violet-700 active:bg-violet-850
+                  border border-violet-500/30
+                  transition-all duration-200
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  shrink-0
+                "
+              >
+                Change
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -1599,6 +1615,7 @@ export default function SettingsContent({ email }) {
     if (preferredName && preferredName.trim() !== user?.full_name) {
       try {
         await api.updateProfile({ full_name: preferredName.trim() });
+        await refreshUser();
         showToast('success', 'Name updated successfully.');
       } catch (err) {
         showToast('error', 'Failed to update name.');

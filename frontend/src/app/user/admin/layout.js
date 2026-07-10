@@ -75,7 +75,7 @@ export default function AdminLayout({ children }) {
 function AdminLayoutContent({ children }) {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, workspaces, workspaceId, loading, logout } = useAuth();
+    const { user, workspaces, workspaceId, loading, logout, refreshUser } = useAuth();
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
 
     const workspace = workspaces.find(w => w.id === workspaceId) || null;
@@ -83,9 +83,22 @@ function AdminLayoutContent({ children }) {
     const handleStopImpersonation = async () => {
         try {
             await api.stopImpersonation();
-            window.location.href = '/admin';
         } catch (err) {
             console.error("Stop impersonation failed:", err);
+        } finally {
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem("user");
+                localStorage.removeItem("workspace");
+                localStorage.removeItem("workspace_id");
+                sessionStorage.removeItem("ai_active");
+                sessionStorage.removeItem("last_session_id");
+            }
+            try {
+                await refreshUser();
+            } catch (refreshErr) {
+                console.warn("Failed to refresh user on impersonation stop:", refreshErr);
+            }
+            router.replace('/admin/users');
         }
     };
 
@@ -227,19 +240,11 @@ if (!user) {
                     <div className="mt-6 space-y-0.5">
                         <div className="px-3 py-1 text-xs font-medium text-[#555] mb-1">System</div>
                         {SYSTEM_NAV_ITEMS.map(item => renderNavItem(item))}
+                        {user?.platform_role === 'platform_admin' && renderNavItem({ label: 'Admin Console', icon: Shield, href: '/admin' })}
                     </div>
                 </div>
 
                 <div className="p-4 border-t border-[var(--notion-border)] space-y-2">
-                    {user?.impersonated && (
-                        <button
-                            onClick={handleStopImpersonation}
-                            className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-[4px] bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 text-sm transition-colors border border-indigo-500/20"
-                        >
-                            <Shield size={14} />
-                            <span>Back to Admin</span>
-                        </button>
-                    )}
                     <button
                         onClick={handleLogout}
                         className="flex items-center gap-2.5 px-2 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full"

@@ -735,17 +735,6 @@ class AIExecutionService:
                             f"provider='{ctx.provider}' model='{ctx.model}' fallback={ctx.used_fallback}"
                         )
 
-                    # Release database connection during stream execution to prevent connection pool exhaustion
-                    # Do NOT release database connection for RAG since RAG queries the database during the stream execution
-                    if db is not None and ctx.feature_key != "rag" and feature_key != "rag":
-                        try:
-                            db.commit()
-                            db.close()
-                        except Exception as close_err:
-                            logger.error(f"[AIExecutionService] Failed to release db connection before stream: {close_err}")
-                        db = None
-                        is_internal_db = False
-
                     async for chunk in execute_fn():
                         yield chunk
                 else:
@@ -754,7 +743,6 @@ class AIExecutionService:
                     # Pre-resolve primary and fallback configs before closing database connection
                     if ctx.resolved_config:
                         config = ctx.resolved_config
-                        fallback_config = None
                     else:
                         config, _used_fb = _resolve_provider_config(db, ctx.feature_key, _exp)
                         ctx.resolved_config = config
@@ -766,28 +754,33 @@ class AIExecutionService:
                             f"provider='{ctx.provider}' model='{ctx.model}' fallback={ctx.used_fallback}"
                         )
                         
-                        fallback_config = None
-                        if not ctx.used_fallback:
-                            try:
-                                from app.services.model_config_service import ModelConfigService
+                    fallback_config = None
+                    if not ctx.used_fallback:
+                        try:
+                            from app.services.model_config_service import ModelConfigService
+                            if db is not None:
                                 _primary_cfg = ModelConfigService(db).get_config_for_feature(ctx.feature_key, _exp)
-                                if _primary_cfg.get("fallback_enabled"):
-                                    fallback_config = {
-                                        "provider":          _primary_cfg.get("fallback_provider"),
-                                        "model":             _primary_cfg.get("fallback_model"),
-                                        "temperature":       _primary_cfg.get("temperature", 0.7),
-                                        "max_tokens":        _primary_cfg.get("max_tokens", 800),
-                                        "top_p":             _primary_cfg.get("top_p", 1.0),
-                                        "frequency_penalty": _primary_cfg.get("frequency_penalty", 0.0),
-                                        "presence_penalty":  _primary_cfg.get("presence_penalty", 0.0),
-                                        "api_key_env":       None,
-                                    }
-                            except Exception:
-                                pass
+                            else:
+                                from app.database import SessionLocal
+                                with SessionLocal() as temp_db:
+                                    _primary_cfg = ModelConfigService(temp_db).get_config_for_feature(ctx.feature_key, _exp)
+                                    
+                            if _primary_cfg.get("fallback_enabled"):
+                                fallback_config = {
+                                    "provider":          _primary_cfg.get("fallback_provider"),
+                                    "model":             _primary_cfg.get("fallback_model"),
+                                    "temperature":       _primary_cfg.get("temperature", 0.7),
+                                    "max_tokens":        _primary_cfg.get("max_tokens", 800),
+                                    "top_p":             _primary_cfg.get("top_p", 1.0),
+                                    "frequency_penalty": _primary_cfg.get("frequency_penalty", 0.0),
+                                    "presence_penalty":  _primary_cfg.get("presence_penalty", 0.0),
+                                    "api_key_env":       None,
+                                }
+                        except Exception:
+                            pass
 
                     # Release database connection during stream execution to prevent connection pool exhaustion
-                    # Do NOT release database connection for RAG since RAG queries the database during the stream execution
-                    if db is not None and ctx.feature_key != "rag" and feature_key != "rag":
+                    if db is not None:
                         try:
                             db.commit()
                             db.close()

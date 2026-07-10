@@ -166,7 +166,7 @@ class orchestratorsupport:
 
         followup = await  safe_llm_call(prompt, model=model)
 
-        return f"{answer}\n\nFollow-up question:\n{followup['content']}"
+        return f"{answer}\n\n{followup['content']}"
     
 
     def hallucination_guard(self, answer, context):
@@ -241,7 +241,7 @@ class orchestratorsupport:
         cleaned_answer = self.hallucination_guard("".join(accumulated_answer_parts).strip(), synthesized_info)
         formatted_answer = self.format_for_chatgpt_style(cleaned_answer)
         
-        yield {"content": "\n\nFollow-up question:\n"}
+        yield {"content": "\n\n"}
         async for chunk in self.add_followup_stream(query, formatted_answer, model=model):
             yield chunk
 

@@ -38,6 +38,10 @@ export async function getCurrentUser(options = {}) {
   return client.get('/auth/me', options);
 }
 
+export async function updateProfile(data) {
+  return client.patch('/auth/me', data);
+}
+
 export async function getWorkspaces() {
   return client.get('/auth/workspaces');
 }

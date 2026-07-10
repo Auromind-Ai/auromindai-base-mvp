@@ -240,6 +240,7 @@ class AuthService:
                 "id": str(user.id),
                 "email": user.email,
                 "full_name": user.full_name,
+                "platform_role": user.platform_role.value if hasattr(user.platform_role, "value") else str(user.platform_role),
                 "deletion_scheduled_at": (
                     user.deletion_scheduled_at.isoformat()
                     if user.deletion_scheduled_at else None

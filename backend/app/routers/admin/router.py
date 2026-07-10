@@ -1,6 +1,6 @@
 # Reset admin rate limit trigger
 import time
-from fastapi import APIRouter, Request, Response, HTTPException, status
+from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from app.schemas.admin import AdminAuthRequest
 from app.core.config import settings
 from . import (
@@ -37,12 +37,25 @@ ADMIN_AUTH_MAX_ATTEMPTS = 3
 
 
 
+from app.routers.auth import CurrentUser, get_current_user
+from app.core.deps import require_platform_admin_session
+from app.core.enums import PlatformRole
+
 @router.post("/auth", include_in_schema=False)
 async def admin_auth(
     request: Request,
     body: AdminAuthRequest,
     response: Response,
+    current_user: CurrentUser = Depends(get_current_user)
 ):
+    # Verify user platform_role
+    role_val = current_user.user.platform_role.value if hasattr(current_user.user.platform_role, "value") else str(current_user.user.platform_role)
+    if role_val != PlatformRole.PLATFORM_ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Platform administrative privileges required."
+        )
+
     # Retrieve client IP, taking proxy headers into account
     x_forwarded_for = request.headers.get("x-forwarded-for")
     if x_forwarded_for:
@@ -50,7 +63,7 @@ async def admin_auth(
     else:
         ip = request.headers.get("x-real-ip", request.client.host if request.client else "unknown").strip()
     
-    # Check rate limiting
+    # Check rate limiting (IP-based)
     now = time.time()
     attempts = _ADMIN_AUTH_ATTEMPTS.setdefault(ip, [])
     attempts[:] = [t for t in attempts if now - t < ADMIN_AUTH_WINDOW]
@@ -60,24 +73,65 @@ async def admin_auth(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many attempts. Try again later."
         )
-    
+
+    # Per-user Admin Secret lockout via Redis (5 attempts -> 15 min lock)
+    user_id_str = str(current_user.id)
+    lockout_key = f"admin_secret_attempts:{user_id_str}"
+    r_client = None
+    try:
+        import redis
+        r_client = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
+        failed_count = int(r_client.get(lockout_key) or 0)
+        if failed_count >= 5:
+            ttl = r_client.ttl(lockout_key)
+            mins_left = max(1, int(ttl / 60)) if ttl > 0 else 15
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many failed admin secret attempts. Locked out for {mins_left} minutes."
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        r_client = None
+
     # Check secret key
     import secrets
-    if not secrets.compare_digest(body.password, settings.OWNER_SECRET_KEY):
+    if not settings.OWNER_SECRET_KEY or not secrets.compare_digest(body.password, settings.OWNER_SECRET_KEY):
         attempts.append(now)
+        if r_client:
+            try:
+                pipe = r_client.pipeline()
+                pipe.incr(lockout_key)
+                pipe.expire(lockout_key, 900)  # 15 minutes TTL
+                pipe.execute()
+            except Exception:
+                pass
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden"
         )
+    
+    # Reset lockout counter on success
+    if r_client:
+        try:
+            r_client.delete(lockout_key)
+        except Exception:
+            pass
         
-    # Generate admin JWT
+    # Generate short-lived admin_session JWT (30-min duration)
     from datetime import timedelta
     from app.utils.auth import create_access_token
     import secrets
     csrf_token = secrets.token_urlsafe(32)
     token = create_access_token(
-        data={"role": "platform_admin", "sub": "platform_admin", "csrf_token": csrf_token},
-        expires_delta=timedelta(hours=2)
+        data={
+            "sub": str(current_user.id),
+            "platform_role": PlatformRole.PLATFORM_ADMIN.value,
+            "role": PlatformRole.PLATFORM_ADMIN.value,
+            "purpose": "admin_console",
+            "csrf_token": csrf_token
+        },
+        expires_delta=timedelta(minutes=30)
     )
     
     is_https = (
@@ -98,14 +152,14 @@ async def admin_auth(
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
                 cookie_domain = "." + ".".join(parts[-2:])
                 
-    # Set secure httpOnly cookie
+    # Set secure httpOnly cookie (30 minutes max age)
     response.set_cookie(
         key="admin_session",
         value=token,
         httponly=True,
         secure=is_https,
         samesite=cookie_samesite,
-        max_age=7200,
+        max_age=1800,
         path="/",
         domain=cookie_domain,
     )
@@ -131,35 +185,37 @@ async def admin_logout(request: Request, response: Response):
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
                 cookie_domain = "." + ".".join(parts[-2:])
                 
-    response.delete_cookie(
-        key="admin_session",
-        path="/",
-        secure=is_https,
-        samesite=cookie_samesite,
-        domain=cookie_domain,
-    )
+    for key_name in ["admin_session", "auth_token", "admin_backup_token"]:
+        response.delete_cookie(
+            key=key_name,
+            path="/",
+            secure=is_https,
+            samesite=cookie_samesite,
+            domain=cookie_domain,
+        )
     return {"status": "success", "message": "Logged out"}
 
-# include in order matching sidebar
-router.include_router(dashboard.router)
-router.include_router(workspaces.router)
-router.include_router(users.router)
-router.include_router(tokens.router)
-router.include_router(conversations.router)
-router.include_router(logs.router)
-router.include_router(analytics.router)
-router.include_router(billing.router)
-router.include_router(ai_actions.router)
-router.include_router(ai_governance.router)
-router.include_router(integrations.router)
-router.include_router(rag.router)
-router.include_router(system.router)
-router.include_router(ai_learning.router)
-router.include_router(admin_settings.router)
-router.include_router(impersonate.router)
-router.include_router(rag_analytics.router)
-router.include_router(model_configs.router)
-router.include_router(templates.router)
-router.include_router(entitlements.router)
-router.include_router(feature_rules.router)
-router.include_router(flow_packs.router)
+# Include sub-routers protected by require_platform_admin_session
+admin_deps = [Depends(require_platform_admin_session)]
+router.include_router(dashboard.router, dependencies=admin_deps)
+router.include_router(workspaces.router, dependencies=admin_deps)
+router.include_router(users.router, dependencies=admin_deps)
+router.include_router(tokens.router, dependencies=admin_deps)
+router.include_router(conversations.router, dependencies=admin_deps)
+router.include_router(logs.router, dependencies=admin_deps)
+router.include_router(analytics.router, dependencies=admin_deps)
+router.include_router(billing.router, dependencies=admin_deps)
+router.include_router(ai_actions.router, dependencies=admin_deps)
+router.include_router(ai_governance.router, dependencies=admin_deps)
+router.include_router(integrations.router, dependencies=admin_deps)
+router.include_router(rag.router, dependencies=admin_deps)
+router.include_router(system.router, dependencies=admin_deps)
+router.include_router(ai_learning.router, dependencies=admin_deps)
+router.include_router(admin_settings.router, dependencies=admin_deps)
+router.include_router(impersonate.router, dependencies=admin_deps)
+router.include_router(rag_analytics.router, dependencies=admin_deps)
+router.include_router(model_configs.router, dependencies=admin_deps)
+router.include_router(templates.router, dependencies=admin_deps)
+router.include_router(entitlements.router, dependencies=admin_deps)
+router.include_router(feature_rules.router, dependencies=admin_deps)
+router.include_router(flow_packs.router, dependencies=admin_deps)

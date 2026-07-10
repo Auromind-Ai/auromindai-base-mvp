@@ -593,7 +593,7 @@ export default function SettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {AI_PROVIDERS.map(provider => {
-                      const isConfigured = settings[provider.key]?.length > 0;
+                      const isConfigured = Boolean(settings[provider.key]?.length);
 
                       return (
                         <div key={provider.id} className="p-6 rounded-3xl border transition-all bg-white/[0.01] border-white/[0.05] hover:bg-white/[0.03]">
@@ -612,7 +612,7 @@ export default function SettingsPage() {
                           <div className="space-y-3">
                              <input 
                               type="password"
-                              value={settings[provider.key] ?? ""}
+                              value={settings[provider.key] || ""}
                               onChange={(e) => handleInputChange(provider.key, e.target.value)}
                               placeholder={`Enter ${provider.name} API Key`}
                               className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2 text-xs focus:border-indigo-500 outline-none font-mono"
@@ -1024,16 +1024,23 @@ export default function SettingsPage() {
                         className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
                       />
                     </div>
-                    <div className="space-y-2">
-                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Google Integration Redirect URI</p>
-                       <input 
-                        type="text"
-                        value={settings.google_integration_redirect_uri || ""}
-                        onChange={(e) => handleInputChange("google_integration_redirect_uri", e.target.value)}
-                        placeholder="https://app.auromind.ai/api/integrations/google/callback"
-                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
-                      />
-                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <button
+                      type="button"
+                      disabled={testing.google}
+                      onClick={() => handleTest("google")}
+                      className="px-4 py-2 border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/5 text-indigo-400 disabled:text-indigo-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all"
+                    >
+                      {testing.google ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          Testing...
+                        </>
+                      ) : (
+                        "Test Google OAuth"
+                      )}
+                    </button>
                   </div>
                   <div className="flex justify-end mt-4">
                     <button

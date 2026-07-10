@@ -15,6 +15,7 @@ from app.core.startup import ( init_schedulers,
     shutdown_schedulers, init_llm_router,
     init_pubsub, shutdown_pubsub,
     init_metrics, shutdown_metrics,
+    init_rag,
 )
 
 # Routers
@@ -37,10 +38,6 @@ from app.routers.account import router as account_router
 async def lifespan(app: FastAPI):
     logger.info("Orbionagents Production System Starting...")
     
-    # Run database migrations automatically
-    # NOTE: Database migrations have been moved to Google Cloud Build pipeline
-    pass
-    
     # Seed platform settings and model configurations on startup
     from app.database import SessionLocal
     from app.services.platform_settings_service import seed_settings_from_env, migrate_sensitive_settings
@@ -53,11 +50,6 @@ async def lifespan(app: FastAPI):
         config_service = ModelConfigService(db)
         config_service.seed_default_configs()
         logger.info("Model configurations seeded successfully.")
-        
-        # Seed billing plans and entitlements
-        from app.services.billing.entitlement_service import EntitlementService
-        EntitlementService.seed_default_entitlements(db)
-        logger.info("Billing plans and entitlements seeded successfully.")
     except Exception as e:
         logger.error(f"Failed to seed or migrate settings: {e}")
     finally:
@@ -79,6 +71,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to load dynamic CORS allowed origins: {e}")
 
+    init_rag(app)
     init_schedulers(app)
     await init_llm_router(app)
     await init_pubsub(app)

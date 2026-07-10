@@ -62,11 +62,18 @@ export class APIClient {
     }
 
     // 4. Handle Timeout via AbortController
+    let isTimeout = false;
     const controller = optSignal ? null : new AbortController();
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 30000) : null; // 30s timeout
+    const timeoutId = controller ? setTimeout(() => {
+      isTimeout = true;
+      try {
+        controller.abort();
+      } catch (e) {}
+    }, 60000) : null; // 60s timeout
     config.signal = optSignal || controller?.signal;
 
     try {
+
       console.log(`[API Request] ${config.method || 'GET'}: ${url}${isRetryAttempt ? ' (Retry)' : ''}`);
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
@@ -135,6 +142,13 @@ export class APIClient {
 
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
+
+      if (isTimeout || error?.name === 'TimeoutError' || (error?.name === 'AbortError' && isTimeout)) {
+        const timeoutError = new Error('Request timeout. Please try again.');
+        timeoutError.name = 'TimeoutError';
+        timeoutError.status = 408;
+        throw timeoutError;
+      }
 
       // Suppress AbortError console noise from StrictMode double-invoke
       if (error.name === 'AbortError') {
