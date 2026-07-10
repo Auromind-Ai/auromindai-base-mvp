@@ -461,29 +461,19 @@ function LoginContent() {
                 {/* Logo Header */}
                 <div className="relative z-10">
                     <Link href="/" className="inline-flex items-center group">
-                        {appLogoUrl && !logoError ? (
-                            <div className="flex items-center gap-2.5">
-                                <img 
-                                    src={appLogoUrl} 
-                                    alt={appName} 
-                                    className="h-[48px] w-auto object-contain group-hover:rotate-6 transition-all duration-300" 
-                                    onError={() => setLogoError(true)}
-                                />
-                                <span className={`${jakarta.className} text-[18px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
-                                    ORBION
-                                    <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
-                                        AGENTS
-                                    </span>
+                        <div className="flex items-center gap-2.5">
+                            <img 
+                                src="/logo.png" 
+                                alt={appName} 
+                                className="h-[48px] w-auto object-contain group-hover:rotate-6 transition-all duration-300" 
+                            />
+                            <span className={`${jakarta.className} text-[18px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+                                ORBION
+                                <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
+                                    AGENTS
                                 </span>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
-                                    <Cpu className="text-white" size={18} strokeWidth={2.5} />
-                                </div>
-                                <span className="font-semibold text-lg tracking-tight">{appName}</span>
-                            </div>
-                        )}
+                            </span>
+                        </div>
                     </Link>
                 </div>
 

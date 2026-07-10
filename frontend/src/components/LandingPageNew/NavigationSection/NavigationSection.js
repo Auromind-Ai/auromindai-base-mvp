@@ -42,31 +42,19 @@ const NavigationSection = () => {
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center group">
-          {appLogoUrl && !logoError ? (
-            <div className="flex items-center gap-2.5">
-              <img 
-                src={appLogoUrl} 
-                alt={appName} 
-                className="h-[54px] w-auto object-contain group-hover:rotate-6 transition-all duration-300" 
-                onError={() => setLogoError(true)}
-              />
-              <span className={`${jakarta.className} text-[19px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
-                ORBION
-                <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
-                  AGENTS
-                </span>
+          <div className="flex items-center gap-2.5">
+            <img 
+              src="/logo.png" 
+              alt={appName} 
+              className="h-[54px] w-auto object-contain group-hover:rotate-6 transition-all duration-300" 
+            />
+            <span className={`${jakarta.className} text-[19px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+              ORBION
+              <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
+                AGENTS
               </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center">
-                <Zap size={18} fill="currentColor" />
-              </div>
-              <span className="text-[15px] font-bold tracking-normal text-white">
-                {appName}
-              </span>
-            </div>
-          )}
+            </span>
+          </div>
         </Link>
 
           <div className="hidden lg:flex items-center gap-8">

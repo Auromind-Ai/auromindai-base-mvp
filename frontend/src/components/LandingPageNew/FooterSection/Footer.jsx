@@ -55,49 +55,19 @@ export default function Footer() {
           <div className="flex flex-col gap-5">
             {/* Logo */}
             <div className="flex items-center">
-              {appLogoUrl && !logoError ? (
-                <div className="flex items-center gap-2.5">
-                  <img 
-                    src={appLogoUrl} 
-                    alt={appName} 
-                    className="h-[54px] w-auto object-contain" 
-                    onError={() => setLogoError(true)}
-                  />
-                  <span className={`${jakarta.className} text-[20px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
-                    ORBION
-                    <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
-                      AGENTS
-                    </span>
+              <div className="flex items-center gap-2.5">
+                <img 
+                  src="/logo.png" 
+                  alt={appName} 
+                  className="h-[54px] w-auto object-contain" 
+                />
+                <span className={`${jakarta.className} text-[20px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+                  ORBION
+                  <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
+                    AGENTS
                   </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                    style={{ background: "#814AC8" }}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
-                  </div>
-                  <span
-                    className="text-white text-2xl font-bold tracking-tight"
-                    style={{ fontFamily: "'Poppins', sans-serif" }}
-                  >
-                    {appName}
-                  </span>
-                </div>
-              )}
+                </span>
+              </div>
             </div>
 
             {/* Description */}
