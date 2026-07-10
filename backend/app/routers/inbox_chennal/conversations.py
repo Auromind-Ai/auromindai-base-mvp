@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app import schemas
 from app.core.security import verify_workspace_access
@@ -8,6 +8,30 @@ from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
 
 router = APIRouter(tags=["Unified Inbox"])
+
+
+def verify_conversation_access(db: Session, current_user, conversation_id: str) -> str:
+    from app.models.conversation import Conversation
+    from app.models.workspace import WorkspaceMember
+    
+    try:
+        from uuid import UUID
+        conv_uuid = UUID(str(conversation_id))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format")
+        
+    conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+        
+    membership = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.workspace_id == conv.workspace_id
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=403, detail="Access denied to this conversation")
+        
+    return str(conv.workspace_id)
 
 
 @router.get("/conversations")
@@ -31,7 +55,7 @@ def get_conversation_by_id(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_conversation_access(db, current_user, conversation_id)
     conv = ConversationService.get_conversation_or_404(
         db,
         workspace_id=workspace_id,
@@ -51,7 +75,7 @@ def get_messages(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_conversation_access(db, current_user, conversation_id)
     return MessageService.list_messages(
         db,
         workspace_id=workspace_id,
@@ -65,7 +89,7 @@ def send_reply(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_conversation_access(db, current_user, data.conversation_id)
     return MessageService.send_reply(
         db,
         workspace_id=workspace_id,
@@ -81,7 +105,7 @@ async def ai_suggest(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_conversation_access(db, current_user, data.conversation_id)
     return await MessageService.generate_ai_suggestion(
         db,
         workspace_id=workspace_id,
@@ -99,8 +123,8 @@ def close_conversation(
     from datetime import datetime
     from app.models.ai_action import Lead
     from app.models.lead_scoring import LeadScoreHistory
-
-    workspace_id = verify_workspace_access(current_user, db)
+ 
+    workspace_id = verify_conversation_access(db, current_user, conversation_id)
     
     # 1. Fetch conversation
     conversation = ConversationService.get_conversation_or_404(
@@ -149,8 +173,8 @@ def convert_conversation(
     from app.models.lead_scoring import LeadScoreHistory
     from app.models.conversation import ConversationStatus
     from app.services.crm.lead_scoring_service import recalculate_lead_score
-
-    workspace_id = verify_workspace_access(current_user, db)
+ 
+    workspace_id = verify_conversation_access(db, current_user, conversation_id)
     
     # 1. Fetch conversation
     conversation = ConversationService.get_conversation_or_404(

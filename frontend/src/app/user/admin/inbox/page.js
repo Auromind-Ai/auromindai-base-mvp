@@ -1268,7 +1268,7 @@ function InboxContent() {
         if (!workspace?.id) return;
         const statusParam = statusOverride || getStatusParam(activeFilter);
         try {
-            const data = await api.get(`/api/conversations?channel=${ch.id}&status=${statusParam}`);
+            const data = await api.get(`/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}&status=${statusParam}`);
             if (!Array.isArray(data)) { console.warn("Conversations API non-array:", data); return; }
             setConversations(data);
 
