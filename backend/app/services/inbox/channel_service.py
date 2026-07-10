@@ -224,10 +224,6 @@ class ChannelService:
         if template_name:
             components = []
             
-            # Fetch template from database to inspect component structures
-            from sqlalchemy.orm import object_session
-            from app.models.templates import Template
-            
             db = object_session(workspace)
             is_temp_db = False
             if not db:
