@@ -173,7 +173,9 @@ class IntegrationService:
         if ws:
             status["whatsapp"] = {
                 "connected": bool(ws.meta_access_token and ws.meta_phone_number_id),
-                "phone": ws.meta_display_phone
+                "phone": ws.meta_display_phone,
+                "phone_number_id": ws.meta_phone_number_id,
+                "waba_id": ws.meta_waba_id
             }
             status["instagram"] = {
                 "connected": bool(ws.meta_ig_id),
