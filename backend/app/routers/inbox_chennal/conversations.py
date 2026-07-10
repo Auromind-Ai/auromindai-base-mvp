@@ -136,6 +136,15 @@ def close_conversation(
     from app.models.conversation import ConversationStatus
     conversation.status = ConversationStatus.CLOSED
     
+    # Clear human takeover state when closing conversation
+    from app.models.ai_action import ConversationState
+    conv_state = db.query(ConversationState).filter_by(
+        conversation_id=conversation.id,
+        workspace_id=workspace_id
+    ).first()
+    if conv_state:
+        conv_state.human_takeover = False
+    
     # 2. Update associated lead if exists
     lead = (
         db.query(Lead)
