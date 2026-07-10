@@ -21,7 +21,7 @@ from app.workers.scoring_worker import analyze_message_intent
 from decimal import Decimal
 from app.services.wcc_service import WCCService
 from app.models.wcc import WCCRateCard
-logger = logging.getLogger(__name__)
+from app.core.logger import logger
 
 
 # ─
