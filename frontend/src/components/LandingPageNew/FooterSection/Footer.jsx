@@ -48,11 +48,11 @@ export default function Footer() {
 `,
 }}
     >
-      <div className="max-w-none px-4 sm:px-6 md:px-8 lg:px-[84px] pt-12 lg:pt-[69px] pb-16 lg:pb-20">
-        <div className="grid grid-cols-1 gap-y-10 lg:grid-cols-[1.3fr_220px_220px_220px] gap-x-[42px] items-start justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-12 lg:pt-[69px] pb-16 lg:pb-20">
+        <div className="flex flex-col lg:flex-row gap-10 lg:gap-24 items-start justify-center w-full">
 
           {/* Column 1 — Brand */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-5 lg:mr-10 shrink-0">
             {/* Logo */}
             <div className="flex items-center">
               <div className="flex items-center gap-2.5">
@@ -95,9 +95,9 @@ export default function Footer() {
             </div>
           </div>
           
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-8 lg:contents">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-12 gap-y-8 lg:flex lg:gap-20">
               {Object.entries(footerLinks).map(([heading, items]) => (
-                  <div key={heading} className="flex flex-col shrink-0">
+                  <div key={heading} className="flex flex-col shrink-0 min-w-[120px]">
                     <h4
                       className="text-white font-semibold text-[14px] sm:text-[15px] mb-3"
                       style={{ fontFamily: "'Poppins', sans-serif" }}
