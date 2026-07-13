@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import api from '@/lib/api';
 
 const CACHE_KEY = 'branding_cache';
@@ -34,6 +35,7 @@ const BrandingContext = createContext({
 });
 
 export const BrandingProvider = ({ children }) => {
+  const pathname = usePathname();
   // Initialise from cache so first render already has the right values — no flash
   const [appName, setAppName] = useState(cached?.appName || 'Orbionagents');
   const [appLogoUrl, setAppLogoUrl] = useState(cached?.appLogoUrl || '');
@@ -60,20 +62,23 @@ export const BrandingProvider = ({ children }) => {
     refreshBranding();
   }, [refreshBranding]);
 
-  // Update browser favicon whenever the logo URL changes
+  // Update browser favicon whenever the logo URL or pathname changes
   useEffect(() => {
     if (!appLogoUrl) return;
 
     const updateFavicons = (url) => {
-      const iconLinks = document.querySelectorAll("link[rel*='icon']");
-      if (iconLinks.length > 0) {
-        iconLinks.forEach((link) => { link.href = url; });
-      } else {
-        const link = document.createElement('link');
-        link.rel = 'shortcut icon';
-        link.href = url;
-        document.head.appendChild(link);
-      }
+      // Delay slightly to ensure Next.js has finished rendering/modifying layout head tags
+      setTimeout(() => {
+        const iconLinks = document.querySelectorAll("link[rel*='icon']");
+        if (iconLinks.length > 0) {
+          iconLinks.forEach((link) => { link.href = url; });
+        } else {
+          const link = document.createElement('link');
+          link.rel = 'shortcut icon';
+          link.href = url;
+          document.head.appendChild(link);
+        }
+      }, 150);
     };
 
     // Load logo, auto-crop transparent edges, wrap in styled dark background
@@ -154,7 +159,7 @@ export const BrandingProvider = ({ children }) => {
     };
     img.onerror = () => updateFavicons(appLogoUrl);
     img.src = appLogoUrl;
-  }, [appLogoUrl]);
+  }, [appLogoUrl, pathname]);
 
   return (
     <BrandingContext.Provider value={{ appName, appLogoUrl, refreshBranding }}>
