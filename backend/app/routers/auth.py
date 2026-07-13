@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
@@ -279,9 +280,7 @@ async def login(request_obj: Request, request: dict, db: Session = Depends(get_d
 
 #Google Auth ----------
 
-from fastapi.responses import RedirectResponse
 import urllib.parse
-
 import httpx
 
 @router.get("/google/login")
@@ -308,6 +307,23 @@ async def google_login(request: Request, type: str = "login", session_expiry_hou
     logger.debug(f"CLIENT ID = {config_service.get('google_client_id')}")
     logger.debug(f"CLIENT SECRET EXISTS = {bool(config_service.get('google_client_secret'))}")
 
+    # Capture the initiating frontend's origin dynamically from headers
+    referer = request.headers.get("referer")
+    origin = request.headers.get("origin")
+    frontend_url = None
+    if referer:
+        try:
+            parsed = urllib.parse.urlparse(referer)
+            if parsed.scheme and parsed.netloc:
+                frontend_url = f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            pass
+    elif origin:
+        frontend_url = origin
+
+    if not frontend_url:
+        frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
+
     response = RedirectResponse(url=auth_url)
     set_auth_cookie(
         response=response,
@@ -316,13 +332,26 @@ async def google_login(request: Request, type: str = "login", session_expiry_hou
         value=state_token,
         max_age=300,
     )
+    set_auth_cookie(
+        response=response,
+        request=request,
+        key="oauth_frontend_url",
+        value=frontend_url,
+        max_age=300,
+    )
     return response
+
 
 @router.get("/google/callback")
 async def google_callback(request: Request, code: str = None, state: str = "login", db: Session = Depends(get_db)):
     from app.core.config import settings
     from app.services.config_service import config_service
-    frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
+    
+    # Retrieve the dynamic frontend URL from the oauth_frontend_url cookie, fallback to config
+    frontend_url = request.cookies.get("oauth_frontend_url")
+    if not frontend_url:
+        frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
+
     is_prod = settings.ENVIRONMENT.lower() == "production"
 
     # Bypass state check to support multi-domain logins
@@ -343,6 +372,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
     if not code:
         response = RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
         delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_frontend_url", path="/")
         return response
 
     redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
@@ -402,14 +432,17 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             max_age=max_age_val,
         )
         delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_frontend_url", path="/")
         return response
     except ValueError as e:
         response = RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote(str(e))}")
         delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_frontend_url", path="/")
         return response
     except Exception as e:
         response = RedirectResponse(url=f"{frontend_url}/login?error={urllib.parse.quote('Internal Server Error')}")
         delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_frontend_url", path="/")
         return response
 
 
