@@ -60,12 +60,7 @@ function LoginContent() {
     const searchParams = useSearchParams();
     const redirectPath = searchParams.get('redirect');
     const { user, loading: authLoading, refreshUser } = useAuth();
-    const { appName, appLogoUrl } = useBranding();
-    const [logoError, setLogoError] = useState(false);
-
-    useEffect(() => {
-        setLogoError(false);
-    }, [appLogoUrl]);
+    const { appName } = useBranding();
 
     const [step, setStep] = useState('email');
     const [email, setEmail] = useState('');

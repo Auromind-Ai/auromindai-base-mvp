@@ -102,7 +102,7 @@ function AppIcon({ app }) {
         transform: hovered ? "scale(1.1) translateY(-3px)" : "scale(1)",
         transition: "all 0.22s cubic-bezier(0.4,0,0.2,1)",
         cursor: "default",
-        backdropFilter: "blur(8px)",
+        backdropFilter: "none",
         position: "relative",
         overflow: "hidden",
       }}
@@ -150,7 +150,7 @@ function MarqueeRow({ items, dir, speed }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function IntegrationsSection() {
-  const { appName, appLogoUrl } = useBranding();
+  const { appName } = useBranding();
 
   return (
     <section

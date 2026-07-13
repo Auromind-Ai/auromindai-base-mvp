@@ -18,7 +18,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 const NavigationSection = () => {
-  const { appName, appLogoUrl } = useBranding();
+  const { appName } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [openAccordion, setOpenAccordion] = useState(null);
@@ -29,12 +29,6 @@ const NavigationSection = () => {
 
   const { user, loading } = useAuth();
   const isLogged = !loading && !!user;
-
-  const [logoError, setLogoError] = useState(false);
-
-  useEffect(() => {
-    setLogoError(false);
-  }, [appLogoUrl]);
 
   return (
     <nav

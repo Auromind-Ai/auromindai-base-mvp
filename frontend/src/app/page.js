@@ -64,49 +64,46 @@ export default function LandingPage() {
     <main ref={containerRef} className="min-h-screen bg-white relative">
       <div className="fixed inset-0 opacity-[0.03] pointer-events-none z-0 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:32px_32px]" />
 
-      <div className="relative z-10">
-        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Nav Error: {err?.message}</div>}>
-          <NavigationSection />
-        </ErrorBoundary>
-        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Bg Error: {err?.message}</div>}>
-          <ModernSaaSBackground />
-        </ErrorBoundary>
+        <div className="relative z-10">
+          <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Nav Error: {err?.message}</div>}>
+            <NavigationSection />
+          </ErrorBoundary>
+          <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Bg Error: {err?.message}</div>}>
+            <ModernSaaSBackground />
+          </ErrorBoundary>
 
-        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Hero Error: {err?.message}</div>}>
-          <HeroSectionNew />
-        </ErrorBoundary>
+          <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Hero Error: {err?.message}</div>}>
+            <HeroSectionNew />
+          </ErrorBoundary>
 
-        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">MessageManagement Error: {err?.message}</div>}>
-          <MessageManagementSection />
-        </ErrorBoundary>
+          <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">MessageManagement Error: {err?.message}</div>}>
+            <MessageManagementSection />
+          </ErrorBoundary>
 
-        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">ManageChats Error: {err?.message}</div>}>
-          <ManageChatsSection />        
-        </ErrorBoundary>
+          <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">ManageChats Error: {err?.message}</div>}>
+            <ManageChatsSection />        
+          </ErrorBoundary>
 
-        <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Integrations Error: {err?.message}</div>}>
-          <IntegrationsSection />
-        </ErrorBoundary>
+          <ErrorBoundary fallback={(err) => <div className="p-10 text-red-500 bg-black z-50 relative">Integrations Error: {err?.message}</div>}>
+            <IntegrationsSection />
+          </ErrorBoundary>
 
-        <div className="relative z-10 bg-white">
-          
-          <BeforeAfterSection />
+          <div className="relative z-10 bg-white">
+            
+            <BeforeAfterSection />
 
-          <NeuroHero />
+            <NeuroHero />
 
-          <HowItWorks />
-          
-          <PricingSectionNew />
-          {/* <TestimonialsSection /> */}
-   
-          <FAQSection />
-          {/* <ProductDemoSection /> */}
-          {/* <SocialProofSection /> */}
+            <HowItWorks />
+            
+            <PricingSectionNew />
+     
+            <FAQSection />
 
-          <CtaSection />
-          <FooterSection />
+            <CtaSection />
+            <FooterSection />
+          </div>
         </div>
-      </div>
     </main>
   );
 }// Clean rollback trigger

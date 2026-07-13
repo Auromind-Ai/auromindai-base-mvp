@@ -1,6 +1,5 @@
 "use client";
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 import { useBranding } from '@/context/BrandingContext';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 
@@ -31,12 +30,7 @@ const footerLinks = {
 };
 
 export default function Footer() {
-  const { appName, appLogoUrl } = useBranding();
-  const [logoError, setLogoError] = useState(false);
-
-  useEffect(() => {
-    setLogoError(false);
-  }, [appLogoUrl]);
+  const { appName } = useBranding();
 
   return (
     <footer
