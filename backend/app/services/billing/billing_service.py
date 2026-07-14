@@ -44,8 +44,6 @@ def check_token_limit(db: Session, workspace_id: str) -> dict[str, Any]:
 def enforce_execution_policy(db: Session, workspace_id: str, amount: int = 0) -> bool:
     # 1. Check if overage billing is allowed
     subscription = SubscriptionService()._get_active_subscription(db, workspace_id)
-    if not subscription:
-        return False
         
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
@@ -54,7 +52,7 @@ def enforce_execution_policy(db: Session, workspace_id: str, amount: int = 0) ->
     overage_enabled = getattr(workspace, "overage_enabled", False)
     has_payment_method = bool(workspace.provider_customer_id)
     
-    if overage_enabled and has_payment_method:
+    if subscription and overage_enabled and has_payment_method:
         return True
         
     # 2. If overages are not enabled/valid, enforce ledger limits

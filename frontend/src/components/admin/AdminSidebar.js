@@ -4,6 +4,12 @@ import React, { useState, useEffect } from 'react';
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useBranding } from "@/context/BrandingContext"
+import { Plus_Jakarta_Sans } from "next/font/google"
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+});
 
 import {
   LayoutDashboard,
@@ -62,22 +68,42 @@ export default function AdminSidebar() {
       <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
 
       {/* Logo Section */}
-      <div className="p-8 flex items-center gap-3 relative">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-          {appLogoUrl && appLogoUrl !== "/logo.png" ? (
-            <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
-          ) : (
-            <BrainCircuit className="text-white w-5 h-5" />
-          )}
-        </div>
-        <div className="flex flex-col">
-          <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
-            {appName}
-          </span>
-          <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-widest leading-tight">
-            Admin Portal
-          </span>
-        </div>
+      <div className="p-8 flex flex-col items-center gap-2 relative">
+        {appLogoUrl && !logoError ? (
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-2">
+              <img 
+                src={appLogoUrl} 
+                alt={appName} 
+                className="h-[44px] w-auto object-contain" 
+                onError={() => setLogoError(true)}
+              />
+              <span className={`${jakarta.className} text-[18px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+                ORBION
+                <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
+                  AGENTS
+                </span>
+              </span>
+            </div>
+            <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-widest leading-tight mt-2">
+              Admin Portal
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <BrainCircuit className="text-white w-5 h-5" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
+                {appName}
+              </span>
+              <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-widest leading-tight">
+                Admin Portal
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation Scrollable Area */}

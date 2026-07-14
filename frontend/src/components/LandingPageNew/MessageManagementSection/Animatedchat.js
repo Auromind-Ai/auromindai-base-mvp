@@ -7,37 +7,36 @@ import styles from "./section.module.css";
 const MESSAGES = [
   {
     side: "left",
-    text: "Hi, I want pricing details for the premium plan",
+    text: "Hi, I want to buy the Premium plan. How much is the price in INR?",
     time: "10:41",
   },
   {
     side: "right",
-    text: "Sure! The premium plan starts at $49/month and includes full AI automation.",
+    text: "Namaste! The Premium plan is ₹4,999/month. Would you like the secure checkout link to activate it?",
     time: "10:41",
     ticks: true,
   },
   {
     side: "left",
-    text: "Can I connect WhatsApp and Instagram together?",
+    text: "Yes, please share the link.",
     time: "10:43",
   },
   {
     side: "right",
-    text: "Yes, both channels can be managed from one unified inbox.",
+    text: "Here is your secure Razorpay link to complete the payment: rzp.io/l/orbion-premium",
     time: "10:43",
     ticks: true,
   },
   {
     side: "left",
-    text: "Perfect, book me a demo tomorrow.",
+    text: "Done! payment completed successfully.",
     time: "10:44",
   },
   {
     side: "right",
-    text: "Demo scheduled automatically ✦",
+    text: "Payment of ₹4,999 verified successfully! Your Premium access is now active ✦",
     time: "10:44",
     ticks: true,
-    // ai: true,
   },
 ];
 

@@ -12,10 +12,20 @@ export default function AdminLayout({ children }) {
 
   const isLoginPage = pathname === "/admin"
 
+  const [mounted, setMounted] = useState(false)
   const [authVerified, setAuthVerified] = useState(false)
   const [isNotFound, setIsNotFound] = useState(false)
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setMounted(true)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted || isLoginPage) return
+
     let active = true
 
     const checkAuth = async () => {
@@ -42,10 +52,17 @@ export default function AdminLayout({ children }) {
 
         if (active) setAuthVerified(true)
       } catch (err) {
-        // Not logged in -> redirect to login
-        if (active) {
-          router.push("/login")
+        if (!active) return
+        // 401 = new AdminConsoleMiddleware response; 403/404 = legacy; 0/408 = network/timeout
+        const isAuthError = err.status === 401 || err.status === 403 || err.status === 404
+        const isNetworkError = err.isNetworkError || err.isTimeout || err.status === 0 || err.status === 408
+        if (isAuthError) {
+          router.push("/admin")
+        } else if (isNetworkError) {
+          // Backend unreachable - still try to render the page; individual pages handle their own errors
+          setAuthVerified(true)
         }
+        // Unknown errors: do not redirect, let the page handle it
       }
     }
 
@@ -53,7 +70,7 @@ export default function AdminLayout({ children }) {
     return () => {
       active = false
     }
-  }, [pathname, isLoginPage, router])
+  }, [mounted, isLoginPage, router])
 
   if (isNotFound) {
     notFound()

@@ -7,7 +7,7 @@ from app.routers.auth import CurrentUser, get_current_user
 from app.services.inbox.channel_connection_service import ChannelConnectionService
 from app.services.inbox.webhook_service import WebhookService
 
-logger = logging.getLogger(__name__)
+from app.core.logger import logger
 router = APIRouter()
 
 
@@ -69,7 +69,9 @@ async def get_channels_status(workspace_id: str, db: Session = Depends(get_db)):
         return {
             "whatsapp": {
                 "connected": bool(workspace.meta_access_token and workspace.meta_phone_number_id),
-                "phone": workspace.meta_display_phone or ("Connected" if workspace.meta_phone_number_id else None)
+                "phone": workspace.meta_display_phone or ("Connected" if workspace.meta_phone_number_id else None),
+                "phone_number_id": workspace.meta_phone_number_id,
+                "waba_id": workspace.meta_waba_id
             },
             "instagram": {
                 "connected": bool(workspace.meta_ig_id),

@@ -8,8 +8,9 @@ import { useState } from 'react';
 
 const PLAN_ORDER = {
   free: 0,
-  pro: 1,
-  enterprise: 2,
+  solo: 1,
+  pro: 2,
+  enterprise: 3,
 };
 
 const TOKENS_PER_CREDIT = 1000;
@@ -66,6 +67,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
 
   const getCTA = (planKey) => {
     if (currentPlan === planKey) return 'Current Plan';
+    if (planKey === 'solo')      return 'Upgrade to Solo Smart';
     if (planKey === 'pro')       return 'Upgrade to Pro';
     return 'Contact Sales';
   };
@@ -196,7 +198,8 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
 
   const iconMap = {
     free: '🚀',
-    pro: '⚡',
+    solo: '⚡',
+    pro: '🔥',
     enterprise: '👑',
   };
 
@@ -230,12 +233,28 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       ],
     },
     {
-      key:         'pro',
+      key:         'solo',
       icon:        '⚡',
+      name:        settings.solo_plan_name  || 'Solo Smart',
+      price: isAnnual
+        ? `₹${Math.round((settings.solo_plan_price || 999) * ANNUAL_DISCOUNT)}`
+        : `₹${settings.solo_plan_price || 999}`,
+      usage:       `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} credits / month`,
+      description: settings.solo_plan_desc  || 'RAG & custom knowledge base on a budget for solopreneurs.',
+      features:    settings.solo_plan_features || [
+        `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} monthly AI credits`,
+        'RAG Knowledge Base (10 files)',
+        '1 Gmail account integration',
+        'Up to 500 leads database',
+      ],
+    },
+    {
+      key:         'pro',
+      icon:        '🔥',
       name:        settings.pro_plan_name  || 'Pro',
       price: isAnnual
-        ? `₹${Math.round((settings.pro_plan_price || 999) * ANNUAL_DISCOUNT)}`
-        : `₹${settings.pro_plan_price || 999}`,
+        ? `₹${Math.round((settings.pro_plan_price || 5999) * ANNUAL_DISCOUNT)}`
+        : `₹${settings.pro_plan_price || 5999}`,
       usage:       `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description: settings.pro_plan_desc  || 'Advanced features for growing teams and scalable workflows.',
       featured:    true,
@@ -324,7 +343,7 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
-          className="mt-16 md:mt-20 grid md:grid-cols-3 gap-6 xl:gap-8 items-start"
+          className="mt-16 md:mt-20 grid md:grid-cols-2 lg:grid-cols-4 gap-6 xl:gap-8 items-start"
         >
           {plans.map((plan, index) => (
             <PricingCard

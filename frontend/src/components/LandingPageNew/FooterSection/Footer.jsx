@@ -1,6 +1,12 @@
 "use client";
 import Link from 'next/link';
 import { useBranding } from '@/context/BrandingContext';
+import { Plus_Jakarta_Sans } from 'next/font/google';
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['500', '600', '700', '800'],
+});
 
 const footerLinks = {
   Links: [
@@ -8,24 +14,23 @@ const footerLinks = {
     { name: "Process", href: "/#process" },
     { name: "Case studies", href: "/resources/case-studies" },
     { name: "Benefits", href: "/#benefits" },
-    { name: "Pricing", href: "/#pricing" },
+    { name: "Pricing", href: "/pricing" },
   ],
   Pages: [
     { name: "Home", href: "/" },
     { name: "About", href: "/" },
     { name: "Blog", href: "/resources/blog" },
-    { name: "Contact", href: "mailto:auromindaipvtltd@gmail.com" },
+    { name: "Contact", href: "mailto:orbionagents@gmail.com" },
   ],
-  Socials: [
-    { name: "Instagram", href: "https://instagram.com" },
-    { name: "Facebook", href: "https://facebook.com" },
-    { name: "Linkedin", href: "https://linkedin.com" },
-    { name: "Twitter", href: "https://twitter.com" },
+  Legal: [
+    { name: "Privacy Policy", href: "/privacy" },
+    { name: "Terms of Service", href: "/terms" },
+    { name: "Data Deletion", href: "/data-deletion" },
   ],
 };
 
 export default function Footer() {
-  const { appName, appLogoUrl } = useBranding();
+  const { appName } = useBranding();
 
   return (
     <footer
@@ -37,41 +42,26 @@ export default function Footer() {
 `,
 }}
     >
-      <div className="max-w-none px-4 sm:px-6 md:px-8 lg:px-[84px] pt-12 lg:pt-[69px] pb-16 lg:pb-20">
-        <div className="grid grid-cols-1 gap-y-10 lg:grid-cols-[1.3fr_220px_220px_220px] gap-x-[42px] items-start justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-12 lg:pt-[69px] pb-16 lg:pb-20">
+        <div className="flex flex-col lg:flex-row gap-10 lg:gap-24 items-start justify-center w-full">
 
           {/* Column 1 — Brand */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-5 lg:mr-10 shrink-0">
             {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                style={{ background: "#814AC8" }}
-              >
-                {appLogoUrl && appLogoUrl !== "/logo.png" ? (
-                  <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                  </svg>
-                )}
+            <div className="flex items-center">
+              <div className="flex items-center gap-2.5">
+                <img 
+                  src="/logo.png" 
+                  alt={appName} 
+                  className="h-[54px] w-auto object-contain" 
+                />
+                <span className={`${jakarta.className} text-[20px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+                  ORBION
+                  <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-2 font-semibold tracking-[0.15em]">
+                    AGENTS
+                  </span>
+                </span>
               </div>
-              <span
-                className="text-white text-2xl font-bold tracking-tight"
-                style={{ fontFamily: "'Poppins', sans-serif" }}
-              >
-                {appName}
-              </span>
             </div>
 
             {/* Description */}
@@ -82,7 +72,6 @@ export default function Footer() {
               {appName} – Automate Smarter, Optimize Faster, and Grow Stronger.
             </p>
 
-            {/* Contact */}
             <div className="mt-2">
               <p
                 className="text-white font-semibold text-m mb-1"
@@ -91,18 +80,18 @@ export default function Footer() {
                 Contact
               </p>
               <a
-                href="mailto:auromindaipvtltd@gmail.com"
+                href="mailto:orbionagents@gmail.com"
                 className="text-sm transition-colors duration-150 hover:text-white"
                 style={{ color: "#A1A1AA", fontFamily: "'Poppins', sans-serif" }}
               >
-                auromindaipvtltd@gmail.com
+                orbionagents@gmail.com
               </a>
             </div>
           </div>
           
-            <div className="grid grid-cols-3 gap-x-6 gap-y-8 lg:contents">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-12 gap-y-8 lg:flex lg:gap-20">
               {Object.entries(footerLinks).map(([heading, items]) => (
-                  <div key={heading} className="flex flex-col min-w-[120px] shrink-0 lg:min-w-0">
+                  <div key={heading} className="flex flex-col shrink-0 min-w-[120px]">
                     <h4
                       className="text-white font-semibold text-[14px] sm:text-[15px] mb-3"
                       style={{ fontFamily: "'Poppins', sans-serif" }}
@@ -143,6 +132,25 @@ export default function Footer() {
                   </div>
               ))}
             </div>
+          </div>
+
+          {/* Bottom Bar: Copyright & Parent Link */}
+          <div className="mt-12 pt-8 border-t border-white/[0.08] flex flex-col items-center justify-center text-center">
+            <p
+              className="text-sm"
+              style={{ color: "#71717A", fontFamily: "'Poppins', sans-serif" }}
+            >
+              © {new Date().getFullYear()} {appName || "Orbion Agents"}. A product of{" "}
+              <a
+                href="https://auromindai.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors duration-150 hover:text-white underline decoration-zinc-700/50 underline-offset-4 font-medium"
+              >
+                AuromindAI Private Limited
+              </a>
+              . All rights reserved.
+            </p>
           </div>
       </div>
     </footer>

@@ -61,7 +61,7 @@ function BillingContent() {
   }
 
   const handleUpgrade = async (planKey) => {
-    if (!workspaceId || planKey !== "pro") return
+    if (!workspaceId || !["solo", "pro"].includes(planKey)) return
 
     logBillingFlow("upgrade_initiated", {
       workspaceId,

@@ -9,7 +9,7 @@ from app.services.platform_settings_service import get_setting
 class PlanService:
     def _get_plan_config(self, db: Session, plan_key: str) -> BillingPlanConfig:
         key = (plan_key or "free").lower()
-        if key not in ["free", "pro", "enterprise"]:
+        if key not in ["free", "solo", "pro", "enterprise"]:
             raise ValueError(f"Unsupported plan: {plan_key}")
 
         label = (get_setting(db, f"{key}_plan_name", key.title()) or key.title()).strip()
