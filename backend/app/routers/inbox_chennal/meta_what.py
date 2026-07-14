@@ -59,7 +59,12 @@ async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/channels/status")
-async def get_channels_status(workspace_id: str, db: Session = Depends(get_db)):
+async def get_channels_status(
+    workspace_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
     try:
         from app.models.workspace import Workspace
         workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()

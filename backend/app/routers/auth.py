@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.services.config_service import config_service
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp", auto_error=False)
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,6 @@ async def get_current_user(
                 db.rollback()
 
     logger.debug(f"Authenticated: {user.email}")
-    logger.info(f"[AUTH HEADER] {request.headers.get('Authorization')}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,
@@ -241,36 +240,6 @@ async def verify_otp(request_obj: Request, request: VerifyOTPRequest, response: 
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-
-# Kept for backward compatibility
-@router.post("/login")
-async def login(request_obj: Request, request: dict, db: Session = Depends(get_db)):
-    try:
-        from app.models import User
-        email = request.get('email')
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Your email is not registered. Please sign up first.",
-            )
-        
-        ip_address = get_client_ip(request_obj)
-        user_agent = request_obj.headers.get("user-agent", "unknown")
-        device_info = parse_user_agent(user_agent)
-        
-        result = AuthService.email_login(
-            db=db,
-            email=email,
-            ip_address=ip_address,
-            device_info=device_info
-        )
-        return result
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         )
 
@@ -381,6 +350,19 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             ip_address=ip_address,
             device_info=device_info
         )
+        
+        if result.get("requiresTwoFactor"):
+            pending_token = result["pending_token"]
+            response = RedirectResponse(url=f"{frontend_url}/login?requires_2fa=true")
+            set_auth_cookie(
+                response=response,
+                request=request,
+                key="pending_2fa_token",
+                value=pending_token,
+                max_age=300,
+            )
+            delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
+            return response
        
         jwt_token = result["access_token"]
         response = RedirectResponse(url=f"{frontend_url}/login#token={jwt_token}")
@@ -404,11 +386,21 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         return response
 
 
+async def require_admin_dependency(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    from app.core.deps import require_platform_admin
+    current_user = await get_current_user(request=request, db=db)
+    return await require_platform_admin(current_user=current_user)
+
+
 @router.post("/login/secret")
 async def login_secret(
     request_obj: Request,
     request: SecretLoginRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin_dependency)
 ):
     from app.core.config import settings
    
@@ -483,11 +475,7 @@ async def get_workspaces(
 
 @router.post("/stop-impersonation")
 async def stop_impersonation(request: Request, response: Response):
-    logger.info(
-        f"[BACKEND DEBUG] POST /stop-impersonation | "
-        f"Cookies: {request.cookies} | "
-        f"Headers: {dict(request.headers)}"
-    )
+    logger.info("POST /stop-impersonation called")
     admin_backup_token = request.cookies.get("admin_backup_token") or request.headers.get("x-admin-backup-token")
     if not admin_backup_token:
         raise HTTPException(

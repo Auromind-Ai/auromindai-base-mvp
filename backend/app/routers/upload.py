@@ -67,6 +67,15 @@ def get_file_type(mime_type: str) -> Optional[str]:
     return None
 
 
+MIME_EXTENSION_MAP = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "video/mp4": ".mp4",
+    "application/pdf": ".pdf",
+}
+
+
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
@@ -86,7 +95,7 @@ async def upload_file(
 
     workspace_id = verify_workspace_access(current_user, db)
 
-    file_extension = Path(file.filename).suffix.lower() if file.filename else ""
+    file_extension = MIME_EXTENSION_MAP.get(real_mime, "")
     unique_filename = f"{uuid.uuid4()}{file_extension}"
     relative_path = f"{workspace_id}/{file_type}/{unique_filename}"
 

@@ -103,11 +103,6 @@ def start_impersonation(
     response: Response,
     db: Session = Depends(get_db)
 ):
-    logger.info(
-        f"[BACKEND DEBUG] GET /switch-user/session/{session_id} | "
-        f"Cookies: {request.cookies} | "
-        f"Headers: {dict(request.headers)}"
-    )
     logger.info(f"Consuming impersonation session {session_id}")
     redis_key = f"impersonation_session:{session_id}"
     r_client = _get_redis_client()

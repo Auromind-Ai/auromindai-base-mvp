@@ -117,6 +117,15 @@ function LoginContent() {
     }, [searchParams, router]);
 
     useEffect(() => {
+        const requires2FA = searchParams.get('requires_2fa');
+        if (requires2FA === 'true') {
+            setPendingToken('');
+            setTotpCode('');
+            setStep('2fa');
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
         if (resendTimer <= 0) return;
         const id = setInterval(() => setResendTimer(t => t - 1), 1000);
         return () => clearInterval(id);
@@ -165,18 +174,11 @@ function LoginContent() {
                 return;
             }
             //  END 2FA gate
-            //  Pending deletion gate ─
             if (data?.user?.deletion_scheduled_at) {
-                const adminToken = localStorage.getItem('admin_backup_token');
-                localStorage.clear();
-                if (adminToken) {
-                    localStorage.setItem('admin_backup_token', adminToken);
-                }
                 setToken(data.access_token);
                 setUser(data.user);
                 if (data.workspaces?.length > 0) {
                     setWorkspace(data.workspaces[0]);
-                    localStorage.setItem('workspace_id', data.workspaces[0].id);
                 }
                 setDeletionDate(data.user.deletion_scheduled_at);
                 setStep('restore');
@@ -185,17 +187,10 @@ function LoginContent() {
             //  END pending deletion gate ─
             if (!data?.access_token) throw new Error('Verification failed');
             if (!data?.access_token) throw new Error('Verification failed');
-            const adminToken = localStorage.getItem('admin_backup_token');
-            localStorage.clear();
-            if (adminToken) localStorage.setItem('admin_backup_token', adminToken);
             setToken(data.access_token);
             setUser(data.user);
-            if (data.user?.role === 'admin' || data.user?.is_platform_admin) {
-                localStorage.setItem('admin_backup_token', data.access_token);
-            }
             if (data.workspaces?.length > 0) {
                 setWorkspace(data.workspaces[0]);
-               localStorage.setItem('workspace_id', data.workspaces[0].id);
             }
             await refreshUser();
             router.push(redirectPath || '/user/admin/dashboard');
@@ -246,16 +241,10 @@ function LoginContent() {
             const data = await api.verifyLogin2FA(pendingToken, totpCode);
             //  Pending deletion gate ─
             if (data?.user?.deletion_scheduled_at) {
-                const adminToken = localStorage.getItem('admin_backup_token');
-                localStorage.clear();
-                if (adminToken) {
-                    localStorage.setItem('admin_backup_token', adminToken);
-                }
                 setToken(data.access_token);
                 setUser(data.user);
                 if (data.workspaces?.length > 0) {
                     setWorkspace(data.workspaces[0]);
-                    localStorage.setItem('workspace_id', data.workspaces[0].id);
                 }
 
                 setDeletionDate(data.user.deletion_scheduled_at);
@@ -264,17 +253,10 @@ function LoginContent() {
             }
             //  END pending deletion gate ─
             if (!data?.access_token) throw new Error('Verification failed');
-            const adminToken = localStorage.getItem('admin_backup_token');
-            localStorage.clear();
-            if (adminToken) localStorage.setItem('admin_backup_token', adminToken);
             setToken(data.access_token);
             setUser(data.user);
-            if (data.user?.role === 'admin' || data.user?.is_platform_admin) {
-                localStorage.setItem('admin_backup_token', data.access_token);
-            }
             if (data.workspaces?.length > 0) {
                 setWorkspace(data.workspaces[0]);
-                localStorage.setItem('workspace_id', data.workspaces[0].id);
             }
             await refreshUser();
             router.push(redirectPath || '/user/admin/dashboard');

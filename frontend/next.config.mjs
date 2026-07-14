@@ -1,5 +1,10 @@
 
-import withBundleAnalyzer from '@next/bundle-analyzer';
+let withBundleAnalyzer;
+try {
+    withBundleAnalyzer = (await import('@next/bundle-analyzer')).default;
+} catch {
+    withBundleAnalyzer = null;
+}
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
@@ -103,8 +108,10 @@ const nextConfig = {
     },
 };
 
-const withBundleAnalyzerConfig = withBundleAnalyzer({
-    enabled: process.env.ANALYZE === 'true',
-});
+let finalConfig = nextConfig;
+if (withBundleAnalyzer) {
+    const withBA = withBundleAnalyzer({ enabled: process.env.ANALYZE === 'true' });
+    finalConfig = withBA(nextConfig);
+}
 
-export default withBundleAnalyzerConfig(nextConfig);
+export default finalConfig;

@@ -1,6 +1,7 @@
 """All /2fa/* endpoints — setup, verify-setup, verify-login, disable, status."""
 
 import uuid
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -56,7 +57,7 @@ class VerifySetupRequest(BaseModel):
     code: str
 
 class VerifyLoginRequest(BaseModel):
-    pending_token: str
+    pending_token: Optional[str] = None
     code: str
 
 class DisableRequest(BaseModel):
@@ -137,31 +138,80 @@ async def verify_login(
     db: Session = Depends(get_db),
 ):
     """Verify TOTP during login. Issues auth cookie only on success."""
+    pending_token = req.pending_token
+    if not pending_token or pending_token.strip() == "":
+        pending_token = request.cookies.get("pending_2fa_token")
+        
+    if not pending_token:
+        raise HTTPException(status_code=400, detail="Session expired or invalid. Please log in again.")
+
     try:
         r = _redis()
-        email = r.get(f"pending_2fa:{req.pending_token}")
+        attempts_key = f"otp_attempts:{pending_token}"
+        attempts = r.get(attempts_key)
+        if attempts and int(attempts) >= 5:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed attempts. Please try again after 5 minutes.",
+                headers={"Retry-After": "300"}
+            )
+        pending_data = r.get(f"pending_2fa:{pending_token}")
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=503, detail="Session service temporarily unavailable.")
 
-    if not email:
+    if not pending_data:
         raise HTTPException(status_code=400, detail="Session expired. Please log in again.")
+
+    email = None
+    provider = None
+    try:
+        import json
+        data = json.loads(pending_data)
+        if isinstance(data, dict):
+            email = data.get("email")
+            provider = data.get("provider")
+        else:
+            email = pending_data
+    except Exception:
+        email = pending_data
 
     user = db.query(User).filter(User.email == email).first()
     if not user or not user.two_factor_enabled or not user.two_factor_secret:
         raise HTTPException(status_code=400, detail="Invalid session.")
 
     if not verify_totp(decrypt_secret(user.two_factor_secret), req.code):
+        try:
+            r.incr(attempts_key)
+            r.expire(attempts_key, 300)
+        except Exception:
+            pass
         raise HTTPException(status_code=400, detail="Invalid authenticator code. Please try again.")
 
     # Delete used pending token immediately
     try:
-        r.delete(f"pending_2fa:{req.pending_token}")
+        r.delete(f"pending_2fa:{pending_token}")
+        r.delete(attempts_key)
     except Exception:
         pass
+
+    # Delete pending 2FA token cookie if it was set
+    from app.routers.auth import delete_auth_cookie
+    delete_auth_cookie(response=response, request=request, key="pending_2fa_token", path="/")
 
     # Complete login — reuse existing session logic
     from app.services.auth_service import AuthService
     result = AuthService.email_login(db, email)
+
+    if provider == "google":
+        from sqlalchemy.orm.attributes import flag_modified
+        prefs = user.preferences or {}
+        if prefs.get("auth_provider") != "google":
+            prefs["auth_provider"] = "google"
+            user.preferences = prefs
+            flag_modified(user, "preferences")
+            db.commit()
 
     response.set_cookie(key="auth_token", value=result["access_token"], **_get_cookie_kwargs(request))
     return result

@@ -296,14 +296,33 @@ class AuthService:
     @staticmethod
     def verify_otp(db: Session, email: str, otp: str, auth_type: str, full_name: str = None, workspace_name: str = None, ip_address: str = None, device_info: str = None):
         from app.core.config import settings
+        from fastapi import HTTPException
         email = email.strip().lower()
         try:
             import redis
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
+            
+            attempts_key = f"otp_attempts:{email}"
+            attempts = r.get(attempts_key)
+            if attempts and int(attempts) >= 5:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many failed attempts. Please try again after 5 minutes.",
+                    headers={"Retry-After": "300"}
+                )
+
             saved_otp = r.get(f"otp:{email}")
             if not saved_otp or saved_otp != otp:
+                # Increment failed attempts
+                r.incr(attempts_key)
+                r.expire(attempts_key, 300)
                 raise ValueError("Invalid or expired OTP")
+            
+            # Clear attempt counter on success
             r.delete(f"otp:{email}")
+            r.delete(attempts_key)
+        except HTTPException:
+            raise
         except Exception as e:
             import logging
             logging.getLogger("auromind").error(f"OTP verification failed: {str(e)}")
@@ -324,10 +343,12 @@ class AuthService:
             if user.two_factor_enabled:
                 import uuid as _uuid
                 import redis as _redis
+                import json as _json
                 pending_token = str(_uuid.uuid4())
                 try:
                     r = _redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
-                    r.setex(f"pending_2fa:{pending_token}", 300, email)   # 5 min TTL
+                    payload = _json.dumps({"email": email, "provider": "email"})
+                    r.setex(f"pending_2fa:{pending_token}", 300, payload)   # 5 min TTL
                 except Exception:
                     raise ValueError("Authentication service temporarily unavailable. Please try again.")
                 return {"requiresTwoFactor": True, "pending_token": pending_token}
@@ -347,6 +368,21 @@ class AuthService:
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
            
+        # Enforce 2FA check for Google OAuth
+        if auth_type == "login" and user and user.two_factor_enabled:
+            import uuid as _uuid
+            import redis as _redis
+            import json as _json
+            from app.core.config import settings
+            pending_token = str(_uuid.uuid4())
+            try:
+                r = _redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
+                payload = _json.dumps({"email": email, "provider": "google"})
+                r.setex(f"pending_2fa:{pending_token}", 300, payload)   # 5 min TTL
+            except Exception:
+                raise ValueError("Authentication service temporarily unavailable. Please try again.")
+            return {"requiresTwoFactor": True, "pending_token": pending_token}
+
         # Bypass OTP for Google Auth and generate token directly
         res = AuthService.email_login(db, email, full_name, "My Workspace", ip_address, device_info)
         

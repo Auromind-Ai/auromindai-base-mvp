@@ -74,11 +74,7 @@ export default function SignupFormCard() {
     setError('');
     try {
       const data = await api.verifyOTP(email, otp, 'signup', fullName);
-      // Save token
-      localStorage.setItem('access_token', data.access_token);
-      if (data.workspaces?.length > 0) {
-        localStorage.setItem('workspace', JSON.stringify(data.workspaces[0]));
-      }
+      // Cookies are set by the server; local token caching is disabled for security.
       await refreshUser();
       router.push('/user/admin/dashboard');
     } catch (err) {

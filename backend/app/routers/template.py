@@ -13,7 +13,8 @@ from app.database import get_db
 from app.models.templates import Template
 from app.models.workspace import Workspace
 from app.services.template import submit_to_meta
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, CurrentUser
+from app.core.security import verify_workspace_access
 
 router = APIRouter()
 
@@ -273,7 +274,9 @@ def create_template(
     if data.footer:
         data.footer = format_template_variables(data.footer)
 
-    workspace = db.query(Workspace).filter(Workspace.id == data.workspace_id).first()
+    workspace_id = verify_workspace_access(current_user, db, data.workspace_id)
+
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         raise HTTPException(404, "Workspace not found")
     if not workspace.meta_waba_id or not workspace.meta_access_token:
@@ -291,7 +294,7 @@ def create_template(
         cta=data.cta,
         cta_btn_title=data.cta_btn_title,
         status="pending",
-        workspace_id=data.workspace_id,
+        workspace_id=workspace_id,
         category=data.category,
         language=data.language,
         user_id=current_user.id,
@@ -506,15 +509,22 @@ def check_template_status(
 
 
 @router.post("/messages/send")
-def send_message(data: dict, db: Session = Depends(get_db)):
-
-    workspace = db.query(Workspace).filter(Workspace.id == data["workspace_id"]).first()
+def send_message(
+    data: dict, 
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    workspace_id = verify_workspace_access(current_user, db, data.get("workspace_id"))
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(404, "Workspace not found")
+        
     url = f"https://graph.facebook.com/v19.0/{workspace.meta_phone_number_id}/messages"
 
     # Query template language from database
     template = db.query(Template).filter(
         Template.name == data["template_name"],
-        Template.workspace_id == data["workspace_id"]
+        Template.workspace_id == workspace_id
     ).first()
     lang_code = template.language if template else "en_US"
 
@@ -549,10 +559,16 @@ def send_message(data: dict, db: Session = Depends(get_db)):
 
 
 @router.post("/templates/submit/{template_id}")
-def submit_template(template_id: str, db: Session = Depends(get_db)):
+def submit_template(
+    template_id: str, 
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
     template = db.query(Template).filter(Template.id == template_id).first()
     if not template:
         raise HTTPException(404, "Template not found")
+
+    verify_workspace_access(current_user, db, template.workspace_id)
 
     workspace = db.query(Workspace).filter(Workspace.id == template.workspace_id).first()
     if not workspace:
@@ -605,13 +621,18 @@ def submit_template(template_id: str, db: Session = Depends(get_db)):
     return {"status": "submitted"}
 
 
-# DELETE TEMPLATE
 @router.delete("/templates/{template_id}")
-def delete_template(template_id: str, db: Session = Depends(get_db)):
+def delete_template(
+    template_id: str, 
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user)
+):
 
     template = db.query(Template).filter(Template.id == template_id).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
+
+    verify_workspace_access(current_user, db, template.workspace_id)
 
     db.delete(template)
     db.commit()
