@@ -1,8 +1,9 @@
-from sqlalchemy import Boolean, Column, String, DateTime
+from sqlalchemy import Boolean, Column, String, DateTime, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.database import Base
+from app.core.enums import PlatformRole
 import uuid
 
 
@@ -15,6 +16,13 @@ class User(Base):
     full_name = Column(String)
 
     password_hash = Column(String, nullable=True)
+    
+    platform_role = Column(
+        Enum(PlatformRole, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=PlatformRole.USER,
+        server_default=PlatformRole.USER.value
+    )
     
     is_active = Column(Boolean, default=True)
 

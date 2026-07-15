@@ -40,7 +40,7 @@ function resolveWebSocketBaseUrl() {
 
   const isProd = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
   if (isProd) {
-    return "wss://api.orbionagents.com";
+    return "wss://app.orbionagents.com";
   }
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -267,7 +267,7 @@ export function RealtimeProvider({ user, workspace, children }) {
       clearTimeout(timer);
       disconnect();
     };
-  }, [connect, disconnect, user?.id, workspace?.id]);
+  }, [connect, disconnect, user?.id]);
 
   useEffect(() => {
     const handleOnline = () => {

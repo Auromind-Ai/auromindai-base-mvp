@@ -23,10 +23,20 @@ export const removeToken = () => {
   }
   memoryUser = null;
   memoryWorkspace = null;
+  if (isBrowser) {
+    localStorage.removeItem('auromind_logged_in');
+  }
 };
 
 export const setUser = (user) => {
   memoryUser = user || null;
+  if (isBrowser) {
+    if (user) {
+      localStorage.setItem('auromind_logged_in', 'true');
+    } else {
+      localStorage.removeItem('auromind_logged_in');
+    }
+  }
 };
 
 export const getUser = () => {

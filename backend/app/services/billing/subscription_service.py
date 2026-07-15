@@ -126,7 +126,7 @@ class SubscriptionService:
         if status in {"expired", "halted"}:
             return SubscriptionStatus.expired
         if status in {"pending", "created"}:
-            return SubscriptionStatus.trialing
+            return SubscriptionStatus.pending
         return SubscriptionStatus.past_due
 
     def _from_unix(self, value: Any) -> datetime | None:

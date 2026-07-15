@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from app.services.ai.llm_utils import safe_llm_call
 from app.services.agentic_rag.learning_cache import get_learning_profile
@@ -10,14 +11,20 @@ class MCPLayer:
     def __init__(self):
         pass
 
-     #LLM analyzes and rewrites
-    async def analyze_and_rewrite(self, query: str, model: str | None = None):
+    #LLM analyzes and rewrites
+    async def analyze_and_rewrite(self, query: str, history: Optional[list] = None, model: str | None = None):
+        history_str = ""
+        if history:
+            history_str = "\n".join([f"{msg.role.upper()}: {msg.content}" for msg in history])
+            history_str = f"\nCONVERSATION HISTORY:\n{history_str}\n"
+
         prompt = f"""
         You are a STRICT Retrieval Query Optimization Agent.
 
         ROLE:
-        Your ONLY task is to rewrite the user's query to improve semantic retrieval performance.
+        Your ONLY task is to rewrite the user's latest query to improve semantic retrieval performance.
         You are NOT allowed to answer the question.
+        Use the provided CONVERSATION HISTORY (if any) to resolve pronouns, references, and conversational context.
 
         MANDATORY RULES:
 
@@ -52,15 +59,39 @@ class MCPLayer:
         No prefixes.
         No suffixes.
         No extra whitespace.
-
+        {history_str}
         User Query:
         {query}
 
         Rewritten Query:
         """
         rewritten_query = await safe_llm_call(prompt, model=model)
-       
-        rewritten_query = rewritten_query["content"].strip()
+        raw_content = rewritten_query["content"].strip()
+
+        # Robust cleanup to extract actual query from potential LLM conversational garbage
+        prefixes = ["rewritten query:", "rewritten:", "query:", "rewritten query is:"]
+        lines = [line.strip() for line in raw_content.split("\n") if line.strip()]
+        
+        extracted_query = raw_content
+        found = False
+        for line in reversed(lines):
+            for prefix in prefixes:
+                if line.lower().startswith(prefix):
+                    extracted_query = line[len(prefix):].strip()
+                    found = True
+                    break
+            if found:
+                break
+        
+        if not found and len(lines) > 1:
+            # If the LLM returned multiple lines of explanation, fallback to the last line
+            extracted_query = lines[-1]
+
+        # Strip quotes if present
+        if (extracted_query.startswith('"') and extracted_query.endswith('"')) or (extracted_query.startswith("'") and extracted_query.endswith("'")):
+            extracted_query = extracted_query[1:-1].strip()
+
+        rewritten_query = extracted_query.strip()
 
         #APPLY REWRITE RULES
         rules = get_learning_profile().get("rewrite_rules", {})

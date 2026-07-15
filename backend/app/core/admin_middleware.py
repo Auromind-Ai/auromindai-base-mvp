@@ -3,6 +3,7 @@ from starlette.responses import JSONResponse
 from fastapi import Request, status
 from jose import jwt, JWTError
 from app.core.config import settings
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -85,13 +86,16 @@ class AdminConsoleMiddleware:
                         settings.SECRET_KEY,
                         algorithms=[settings.ALGORITHM],
                     )
-                    if payload.get("role") == "platform_admin":
+                    role = payload.get("role") or payload.get("platform_role")
+                    purpose = payload.get("purpose")
+                    
+                    if role == "platform_admin" and purpose == "admin_console":
                         is_authorized = True
                         # CSRF check for mutating methods
                         if request.method in ("POST", "PUT", "PATCH", "DELETE"):
                             expected_csrf = payload.get("csrf_token")
                             header_csrf = request.headers.get("x-admin-csrf-token")
-                            if not expected_csrf or expected_csrf != header_csrf:
+                            if not expected_csrf or not secrets.compare_digest(str(expected_csrf), str(header_csrf or "")):
                                 logger.warning(
                                     "Admin CSRF validation failed for %s from %s",
                                     path,
@@ -108,6 +112,16 @@ class AdminConsoleMiddleware:
                     pass
 
             if not is_authorized:
+                reject_reason = "Unknown"
+                if not token:
+                    reject_reason = "Missing admin_session token/cookie"
+                elif not payload:
+                    reject_reason = "Invalid/Expired admin_session token"
+                elif role != "platform_admin" or purpose != "admin_console":
+                    reject_reason = f"Unauthorized role/purpose"
+                else:
+                    reject_reason = "CSRF verification failed"
+
                 logger.warning(
                     "Unauthorised admin request: %s %s from %s",
                     request.method,
@@ -123,4 +137,3 @@ class AdminConsoleMiddleware:
                 return
 
         await self.app(scope, receive, send)
-

@@ -48,9 +48,10 @@ const BeforeAfterSection = () => {
           <motion.div
             style={{ scale: card1Scale, opacity: card1Opacity }}
             
-            className="absolute inset-0 m-auto 
+            className="absolute left-1/2 top-1/2 
               w-[260px] h-[360px] 
               sm:w-[300px] sm:h-[380px]
+              -translate-x-1/2 -translate-y-1/2 
               bg-[linear-gradient(150deg,rgba(191,191,191,0.45)_0%,rgba(0,0,0,1)_70%)] 
               rounded-[2rem] 
               p-4 sm:p-6 md:p-20 
@@ -100,9 +101,10 @@ const BeforeAfterSection = () => {
           <motion.div
             style={{ y: card2Y, rotate: card2Rotate }}
             
-            className="absolute inset-0 m-auto 
+            className="absolute left-1/2 top-1/2 
               w-[260px] h-[390px] 
               sm:w-[300px] sm:h-[410px]
+              -translate-x-1/2 -translate-y-1/2 
               bg-[linear-gradient(180deg,#4C1D95_0%,#3B136F_60%,#0D0D0D_100%)] 
               rounded-[2rem] 
               p-4 sm:p-6 md:p-20 

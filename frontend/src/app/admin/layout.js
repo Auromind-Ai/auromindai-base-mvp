@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, notFound } from "next/navigation"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 
 import api from "@/lib/api"
@@ -14,6 +14,7 @@ export default function AdminLayout({ children }) {
 
   const [mounted, setMounted] = useState(false)
   const [authVerified, setAuthVerified] = useState(false)
+  const [isNotFound, setIsNotFound] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -26,9 +27,29 @@ export default function AdminLayout({ children }) {
     if (!mounted || isLoginPage) return
 
     let active = true
+
     const checkAuth = async () => {
       try {
-        await api.getPlatformDashboard()
+        // 1. Verify standard JWT user session & platform_role
+        const currentUser = await api.getCurrentUser()
+
+        if (!currentUser || currentUser.platform_role !== "platform_admin") {
+          if (active) setIsNotFound(true)
+          return
+        }
+
+        // 2. For admin subpages, verify admin secret session
+        if (!isLoginPage) {
+          try {
+            await api.getPlatformDashboard()
+          } catch (err) {
+            if (active && (err.status === 404 || err.status === 401 || err.status === 403)) {
+              router.push("/admin")
+              return
+            }
+          }
+        }
+
         if (active) setAuthVerified(true)
       } catch (err) {
         if (!active) return
@@ -44,22 +65,26 @@ export default function AdminLayout({ children }) {
         // Unknown errors: do not redirect, let the page handle it
       }
     }
+
     checkAuth()
     return () => {
       active = false
     }
   }, [mounted, isLoginPage, router])
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-[#020202] flex items-center justify-center text-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
-      </div>
-    )
+  if (isNotFound) {
+    notFound()
   }
 
-  // For admin login page - render without the sidebar/layout
+  // For admin login page - render without the sidebar/layout if verified as platform_admin
   if (isLoginPage) {
+    if (!authVerified) {
+      return (
+        <div className="min-h-screen bg-[#020202] flex items-center justify-center text-white">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
+        </div>
+      )
+    }
     return <>{children}</>
   }
 

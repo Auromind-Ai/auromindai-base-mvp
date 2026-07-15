@@ -16,7 +16,8 @@ export const CONV_Y     =  0.16; // convergence target Y (slight downward drift)
 export const CONV_Z     =  0.0;  // convergence target Z
 export const CONV_Z_STR = 0.35;  // Z-axis pull is gentler than X/Y
 
-export function buildParticles() {
+// dotScale: 0–1 multiplier applied to MAX_DOTS so mobile can request fewer particles.
+export function buildParticles(dotScale = 1.0) {
   const particles = [];
 
   for (let li = 0; li <= LAT_RINGS; li++) {
@@ -25,8 +26,8 @@ export function buildParticles() {
     const sinPhi = Math.sin(phi);
     const cosPhi = Math.cos(phi);
 
-    // Dot count proportional to ring circumference (sin(phi))
-    const count = Math.max(1, Math.round(MAX_DOTS * sinPhi));
+    // Dot count proportional to ring circumference (sin(phi)), scaled by dotScale
+    const count = Math.max(1, Math.round(MAX_DOTS * dotScale * sinPhi));
 
     for (let di = 0; di < count; di++) {
       // theta: azimuthal angle 0 → 2PI around the ring

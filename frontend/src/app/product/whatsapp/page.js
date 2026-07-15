@@ -1,11 +1,29 @@
-'use client';
 
-import { motion } from 'framer-motion';
+import { MotionDiv, MotionH1, MotionP, MotionSpan } from '@/components/ui/MotionWrapper';
 import Image from 'next/image';
 import Link from 'next/link';
 import NavigationSection from '@/components/LandingPageNew/NavigationSection/NavigationSection';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 import { MessageSquareCode, Share2, Smartphone, Landmark, Megaphone, CheckCircle2, ArrowRight } from 'lucide-react';
+
+
+export const metadata = {
+  title: "WhatsApp Business API & Broadcast Automation",
+  description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
+  alternates: {
+    canonical: "/product/whatsapp",
+  },
+  openGraph: {
+    title: "WhatsApp Business API & Broadcast Automation | Auromind AI",
+    description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
+    url: "https://orbionagents.com/product/whatsapp",
+    type: "website",
+  },
+  twitter: {
+    title: "WhatsApp Business API & Broadcast Automation | Auromind AI",
+    description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
+  },
+};
 
 export default function WhatsAppAutomationPage() {
   const containerVariants = {
@@ -53,8 +71,8 @@ export default function WhatsAppAutomationPage() {
 
   return (
     <main className="min-h-screen bg-[#050505] text-white relative overflow-x-hidden">
-      <title>WhatsApp Automation - Scale Business Conversations & Broadcasts | Auromind</title>
-      <meta name="description" content="Automate inbound support, product recommendations, and segmented broadcasts with Meta's official WhatsApp Business Cloud API." />
+      
+      
       
       {/* Background radial glows */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none" />
@@ -62,40 +80,40 @@ export default function WhatsAppAutomationPage() {
 
       <NavigationSection />
 
-      <motion.div 
+      <MotionDiv 
         variants={containerVariants}
         initial="hidden"
         animate="visible"
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 relative z-10"
       >
         {/* Tag */}
-        <motion.div variants={itemVariants} className="flex justify-center lg:justify-start">
+        <MotionDiv variants={itemVariants} className="flex justify-center lg:justify-start">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold tracking-wider text-emerald-300 uppercase mb-6">
             <Share2 className="w-3.5 h-3.5" /> WhatsApp Business API
           </span>
-        </motion.div>
+        </MotionDiv>
 
         {/* Hero Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           
           {/* Left Column: Content */}
           <div className="lg:col-span-7 space-y-8 text-center lg:text-left">
-            <motion.h1 
+            <MotionH1 
               variants={itemVariants}
               className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1]"
             >
               Scale Conversations on <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">WhatsApp Business</span>
-            </motion.h1>
+            </MotionH1>
 
-            <motion.p 
+            <MotionP 
               variants={itemVariants}
               className="text-lg text-white/70 max-w-2xl mx-auto lg:mx-0 leading-relaxed"
             >
-              Build trust and close deals on the world's most popular messaging app. Automate inbound support, deliver interactive product recommendations, and broadcast notifications with 98% open rates.
-            </motion.p>
+              Build trust and close deals on the world&apos;s most popular messaging app. Automate inbound support, deliver interactive product recommendations, and broadcast notifications with 98% open rates.
+            </MotionP>
 
             {/* CTA Buttons */}
-            <motion.div variants={itemVariants} className="flex flex-wrap justify-center lg:justify-start gap-4">
+            <MotionDiv variants={itemVariants} className="flex flex-wrap justify-center lg:justify-start gap-4">
               <Link
                 href="/signup"
                 className="inline-flex items-center justify-center h-12 px-6 rounded-lg bg-[#814AC8] hover:bg-[#8d58d1] font-semibold text-white shadow-lg shadow-emerald-900/30 transition-all hover:-translate-y-0.5"
@@ -108,10 +126,10 @@ export default function WhatsAppAutomationPage() {
               >
                 Watch Flow Video
               </Link>
-            </motion.div>
+            </MotionDiv>
 
             {/* Quick Checklist */}
-            <motion.div 
+            <MotionDiv 
               variants={itemVariants}
               className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-white/5 text-left max-w-xl mx-auto lg:mx-0"
             >
@@ -131,18 +149,18 @@ export default function WhatsAppAutomationPage() {
                 <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400 flex-shrink-0" />
                 <span>CRM integration & webhook syncing</span>
               </div>
-            </motion.div>
+            </MotionDiv>
           </div>
 
           {/* Right Column: Visual Mockup */}
-          <motion.div 
+          <MotionDiv 
             variants={itemVariants}
             className="lg:col-span-5 relative group flex justify-center"
           >
             <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 rounded-[40px] blur-2xl group-hover:scale-105 transition-transform duration-500 opacity-60 max-w-[420px]" />
             <div className="relative rounded-[36px] border border-white/10 bg-[#0B0B0F]/85 p-2 overflow-hidden shadow-2xl backdrop-blur-xl max-w-[380px]">
               <Image 
-                src="/images/whatsapp-hero.png" 
+                src="/images/whatsapp-hero.webp" 
                 alt="WhatsApp Chatbot Mobile Visualisation" 
                 width={380} 
                 height={760}
@@ -150,19 +168,19 @@ export default function WhatsAppAutomationPage() {
                 priority
               />
             </div>
-          </motion.div>
+          </MotionDiv>
         </div>
 
         {/* Feature Highlights Grid */}
         <div id="demo" className="mt-32 pt-16 border-t border-white/5">
-          <motion.div variants={itemVariants} className="text-center max-w-3xl mx-auto mb-16">
+          <MotionDiv variants={itemVariants} className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl font-bold">Comprehensive WhatsApp Solutions</h2>
             <p className="text-white/60 mt-4">Grow conversions, reduce response times, and retain customers using WhatsApp automated workflows.</p>
-          </motion.div>
+          </MotionDiv>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((f, i) => (
-              <motion.div 
+              <MotionDiv 
                 key={i} 
                 variants={itemVariants}
                 className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 hover:bg-white/[0.04] transition-all hover:border-white/10"
@@ -172,13 +190,13 @@ export default function WhatsAppAutomationPage() {
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{f.title}</h3>
                 <p className="text-sm text-white/50 leading-relaxed">{f.description}</p>
-              </motion.div>
+              </MotionDiv>
             ))}
           </div>
         </div>
 
         {/* Final Page CTA */}
-        <motion.div 
+        <MotionDiv 
           variants={itemVariants}
           className="mt-32 rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/20 via-black to-teal-950/20 p-8 md:p-12 lg:p-16 text-center relative overflow-hidden"
         >
@@ -193,9 +211,9 @@ export default function WhatsAppAutomationPage() {
           >
             Scale Your Outbound Sales <ArrowRight className="w-4 h-4" />
           </Link>
-        </motion.div>
+        </MotionDiv>
 
-      </motion.div>
+      </MotionDiv>
 
       <FooterSection />
     </main>

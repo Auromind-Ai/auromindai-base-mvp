@@ -24,10 +24,10 @@ celery_app.conf.update(
 
     # Task discovery
     imports=[
-        "app.workers.flow_execution",
-        "app.workers.scoring_worker",
-        "app.workers.billing_worker",
-    ],
+    "app.workers.flow_execution",
+    "app.workers.scoring_worker",
+    "app.workers.billing_worker",
+],
 
     # Reliability
     task_acks_late=True,
@@ -51,6 +51,7 @@ celery_app.conf.update(
     worker_max_tasks_per_child=500,
 
     # Redbeat - Redis-based scheduler (restart-safe)
+    beat_max_loop_interval=30,
     beat_scheduler="redbeat.RedBeatScheduler",
     redbeat_redis_url=REDIS_URL,
     redbeat_lock_timeout=150,

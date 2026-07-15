@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     SMTP_PASS: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
 
+    # # Meta / Instagram Config Fallbacks
+    META_VERIFY_TOKEN: Optional[str] = None
+    META_APP_ID: Optional[str] = None
+    META_APP_SECRET: Optional[str] = None
+    META_SYSTEM_USER_TOKEN: Optional[str] = None
+    META_REDIRECT_URI: Optional[str] = None
+    IG_APP_ID: Optional[str] = None
+    IG_APP_SECRET: Optional[str] = None
+    IG_REDIRECT_URI: Optional[str] = None
+
     # APPLICATION SETTINGS
     ENVIRONMENT: str = "development"
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30

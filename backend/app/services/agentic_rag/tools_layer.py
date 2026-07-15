@@ -122,7 +122,7 @@ class Toolslayer:
 
         Available filters:
         - priority (high, medium, low)
-        - category (meeting, invoice, job, business, marketing, personal, other)
+        - category (meeting, invoice, job, business, marketing, personal, spam, other)
         - sender
         - date
         - intent (latest, summary, details)
@@ -151,6 +151,7 @@ class Toolslayer:
 
         response = await safe_llm_call(prompt, model=model)
 
+        cleaned = ""
         try:
 
             #Remove markdown code blocks
@@ -175,8 +176,8 @@ class Toolslayer:
 
         except Exception as e:
 
-            logger.info("JSON parse error:", e)
-            logger.info("Cleaned response:", cleaned)
+            logger.info("JSON parse error: %s", e)
+            logger.info("Cleaned response: %s", cleaned)
 
             return {}
 
@@ -185,11 +186,11 @@ class Toolslayer:
 
         logger.info(f"Applying filters: {filters}")
 
-        query = db.query(MCPDecision).join(
-            EmailMessage,
-            MCPDecision.message_id == EmailMessage.gmail_message_id
+        query = db.query(EmailMessage, MCPDecision).outerjoin(
+            MCPDecision,
+            EmailMessage.gmail_message_id == MCPDecision.message_id
         ).filter(
-            MCPDecision.workspace_id == workspace_id
+            EmailMessage.workspace_id == workspace_id
         )
 
         priority = filters.get("priority")
@@ -226,7 +227,7 @@ class Toolslayer:
             limit = 2
 
         results = query.order_by(
-            MCPDecision.created_at.desc()
+            EmailMessage.stored_at.desc()
         ).limit(limit).all()
 
         logger.info(f"Emails found: {len(results)}")
@@ -256,24 +257,19 @@ class Toolslayer:
         return response["content"].strip()
     
     async def build_email_response(self, db, results, model="auto"):
-        logger.info("Building response for emails:", len(results))
+        logger.info(f"Building response for emails: {len(results)}")
 
         response = ""
 
-        for r in results:
-            logger.info("Processing message_id:", r.message_id)
-
-            email = db.query(EmailMessage).filter(
-                EmailMessage.gmail_message_id == r.message_id
-            ).first()
-
+        for email, r in results:
             if not email:
-                logger.info("Email record not found:", r.message_id)
                 continue
 
-            summary = r.summary
+            priority = r.priority if r else "medium"
+            category = r.category if r else "other"
+            summary = r.summary if r else None
 
-            if not summary or "Summary not available" in summary.lower():
+            if not summary or "summary not available" in summary.lower():
 
                 summary = await self.generate_email_summary(
                     email.subject,
@@ -282,15 +278,18 @@ class Toolslayer:
                 )
 
                 # store generated summary for future
-                r.summary = summary
-                db.commit()
+                if r:
+                    r.summary = summary
+                    db.commit()
 
             response += f"""
             Sender: {email.sender}
 
             Subject: {email.subject}
 
-            Priority: {r.priority}
+            Priority: {priority}
+
+            Category: {category}
 
             Summary:
             {summary}

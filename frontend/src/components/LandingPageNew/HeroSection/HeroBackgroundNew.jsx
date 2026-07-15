@@ -34,7 +34,9 @@ function generateParticles(count = 1100) {
   });
 }
 
-const PARTICLES = generateParticles(90);
+const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
+const PARTICLES = generateParticles(isMobile ? 80 : 220);
 
 // ─ HeroBackground ─
 
@@ -42,6 +44,8 @@ export default function HeroBackground() {
   const containerRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef(null);
+
+  const frameCountRef = useRef(0);
 
   // Parallax mouse handler
   const handleMouseMove = useCallback((e) => {
@@ -53,38 +57,43 @@ export default function HeroBackground() {
     };
   }, []);
 
+  const dimensionsRef = useRef({ width: 1920, height: 1080 });
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        dimensionsRef.current = {
+          width: containerRef.current.clientWidth || window.innerWidth,
+          height: containerRef.current.clientHeight || window.innerHeight,
+        };
+      }
+    };
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions, { passive: true });
+    return () => {
+      window.removeEventListener("resize", updateDimensions);
+    };
+  }, []);
+
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
 
     const stars = containerRef.current?.querySelectorAll("[data-star]");
 
-    let isVisible = true;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        isVisible = entries[0].isIntersecting;
-        if (isVisible && !rafRef.current) {
-           rafRef.current = requestAnimationFrame(tick);
-        }
-      },
-      { threshold: 0 }
-    );
-
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-
     function tick() {
-      if (!isVisible) {
-        rafRef.current = null;
-        return;
+
+      if (isMobile) {
+        frameCountRef.current = (frameCountRef.current || 0) + 1;
+        if (frameCountRef.current % 2 !== 0) {
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
       }
-      
       const { x: mx, y: my } = mouseRef.current;
+      const { width: w, height: h } = dimensionsRef.current;
 
       stars?.forEach((el, i) => {
         const p = PARTICLES[i];
-        if (!p) return;
 
         // move particle toward center
         p.x += (50 - p.x) * 0.0006 * p.parallaxDepth * 80;
@@ -94,8 +103,10 @@ export default function HeroBackground() {
         const offsetX = mx * p.parallaxDepth * -30;
         const offsetY = my * p.parallaxDepth * -30;
 
-        // Use ONLY transform for hardware acceleration, avoid left/top which causes layout thrashing
-        el.style.transform = `translate3d(calc(${p.x}vw + ${offsetX}px), calc(${p.y}vh + ${offsetY}px), 0)`;
+        const posX = (p.x / 100) * w;
+        const posY = (p.y / 100) * h;
+
+        el.style.transform = `translate3d(${posX + offsetX}px, ${posY + offsetY}px, 0)`;
 
         // when particle reaches center zone → respawn on outer edge
         const dx = p.x - 50;
@@ -145,8 +156,7 @@ export default function HeroBackground() {
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      if (containerRef.current) observer.unobserve(containerRef.current);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      cancelAnimationFrame(rafRef.current);
     };
   }, [handleMouseMove]);
 
@@ -163,16 +173,12 @@ export default function HeroBackground() {
             data-star
             className={styles.star}
             style={{
-              left: `${p.x}%`,
-              top: `${p.y}%`,
+              left: "0px",
+              top: "0px",
               width: `${p.size}px`,
               height: `${p.size}px`,
               opacity: p.opacity,
-
-              "--duration": `${p.duration}s`,
-              "--delay": `${p.delay}s`,
-              "--pull-x": `${p.pullX}px`,
-              "--pull-y": `${p.pullY}px`,
+              transform: `translate3d(${p.x}vw, ${p.y}vh, 0)`,
             }}
           />
         ))}

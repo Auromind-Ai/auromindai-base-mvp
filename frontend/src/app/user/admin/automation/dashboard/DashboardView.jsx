@@ -277,10 +277,6 @@ export default function DashboardView({
           <button className="pb-3 text-purple-400 border-b-2 border-purple-500 flex items-center gap-1 font-extrabold">
             Your Flows
           </button>
-          <button className="pb-3 hover:text-white/70 flex items-center gap-1.5 transition-colors">
-            Templates
-            <span className="bg-[#10b981] text-white text-[9px] font-black px-1.5 py-0.5 rounded leading-none">NEW</span>
-          </button>
         </div>
 
         {/* Table Container */}
@@ -520,7 +516,7 @@ export default function DashboardView({
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#13131a] border border-white/10 rounded-2xl p-6 shadow-2xl max-w-2xl w-full relative z-10 text-left"
+              className="bg-[#13131a] border border-white/10 rounded-2xl p-6 shadow-2xl max-w-2xl w-full max-h-[90dvh] overflow-y-auto custom-scrollbar relative z-10 text-left"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>

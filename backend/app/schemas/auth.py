@@ -11,6 +11,7 @@ class UserResponse(BaseModel):
     id: str
     email: str
     full_name: str | None
+    platform_role: str = "user"
     workspace_id: str | None = None
     impersonated: bool | None = False
     two_factor_enabled: bool = False

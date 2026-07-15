@@ -201,13 +201,25 @@ def seed_settings_from_env(db: Session):
         "BILLING_RESERVATION_TTL_SECONDS": "billing_reservation_ttl_seconds",
     }
 
-    existing_keys = {s.key for s in db.query(PlatformSetting.key).all()}
+    existing_settings = {s.key: s for s in db.query(PlatformSetting).all()}
     updates_made = False
 
     for env_var, db_key in env_map.items():
-        if db_key not in existing_keys:
-            val = os.getenv(env_var)
-            if val is not None:
+        val = os.getenv(env_var)
+        if val is not None and val != "":
+            setting = existing_settings.get(db_key)
+            
+            db_val = None
+            if setting:
+                db_val = setting.value
+                if db_key in SENSITIVE_KEYS and db_val:
+                    if is_encrypted(db_val):
+                        try:
+                            db_val = decrypt_value(db_val)
+                        except Exception:
+                            pass
+            
+            if not setting or not db_val or db_val.strip() == "":
                 str_value, value_type = _serialize_value(val)
                 if db_key in ["smtp_port", "system_metrics_update_interval", "billing_reservation_ttl_seconds"]:
                     try:
@@ -221,12 +233,16 @@ def seed_settings_from_env(db: Session):
                     if str_value and not is_encrypted(str_value):
                         str_value = encrypt_value(str_value)
 
-                setting = PlatformSetting(
-                    key=db_key,
-                    value=str_value,
-                    value_type=value_type
-                )
-                db.add(setting)
+                if setting:
+                    setting.value = str_value
+                    setting.value_type = value_type
+                else:
+                    new_setting = PlatformSetting(
+                        key=db_key,
+                        value=str_value,
+                        value_type=value_type
+                    )
+                    db.add(new_setting)
                 updates_made = True
 
     # Seed default branding configs if not present in DB
@@ -235,7 +251,7 @@ def seed_settings_from_env(db: Session):
         "app_logo_url": "/logo.png"
     }
     for k, v in default_brand.items():
-        if k not in existing_keys:
+        if k not in existing_settings:
             setting = PlatformSetting(
                 key=k,
                 value=v,

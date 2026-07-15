@@ -3,7 +3,6 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
-
 from sqlalchemy.orm import Session
 from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
 from app.database import get_db
@@ -101,7 +100,7 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    token = request.cookies.get("auth_token") or header_token
+    token = header_token or request.cookies.get("auth_token")
     if not token:
         raise credentials_exception
 
@@ -475,12 +474,16 @@ async def login_secret(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(current_user: CurrentUser = Depends(get_current_user)):
+    role_val = current_user.user.platform_role.value if hasattr(current_user.user.platform_role, "value") else str(current_user.user.platform_role)
     return {
         "id": str(current_user.id),
         "email": current_user.email,
         "full_name": current_user.full_name,
+        "platform_role": role_val,
+        "workspace_id": current_user.workspace_id,
+        "impersonated": current_user.impersonated,
         "two_factor_enabled": current_user.user.two_factor_enabled,
-        "deletion_scheduled_at": current_user.user.deletion_scheduled_at,   # ← ADD
+        "deletion_scheduled_at": current_user.user.deletion_scheduled_at,
     }
 
 class UserUpdate(BaseModel):
@@ -492,15 +495,23 @@ async def update_current_user_info(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    current_user.user.full_name = request.full_name
+    from app.models.user import User
+    user_db = db.query(User).filter(User.id == current_user.id).first()
+    if not user_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_db.full_name = request.full_name
     db.commit()
-    db.refresh(current_user.user)
+    db.refresh(user_db)
+    role_val = user_db.platform_role.value if hasattr(user_db.platform_role, "value") else str(user_db.platform_role)
     return {
-        "id": str(current_user.id),
-        "email": current_user.email,
-        "full_name": current_user.user.full_name,
-        "two_factor_enabled": current_user.user.two_factor_enabled,
-        "deletion_scheduled_at": current_user.user.deletion_scheduled_at,
+        "id": str(user_db.id),
+        "email": user_db.email,
+        "full_name": user_db.full_name,
+        "platform_role": role_val,
+        "workspace_id": current_user.workspace_id,
+        "impersonated": current_user.impersonated,
+        "two_factor_enabled": user_db.two_factor_enabled,
+        "deletion_scheduled_at": user_db.deletion_scheduled_at,
     }
 
 
@@ -515,7 +526,40 @@ async def get_workspaces(
     workspaces = AuthService.get_user_workspaces(db, current_user.id)
     return {"workspaces": workspaces}
 
+@router.post("/stop-impersonation")
+async def stop_impersonation(request: Request, response: Response):
+    logger.info(
+        f"[BACKEND DEBUG] POST /stop-impersonation | "
+        f"Cookies: {request.cookies} | "
+        f"Headers: {dict(request.headers)}"
+    )
+    admin_backup_token = request.cookies.get("admin_backup_token") or request.headers.get("x-admin-backup-token")
+    if not admin_backup_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active impersonation session to stop"
+        )
+
+    payload = decode_access_token(admin_backup_token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid admin backup session token"
+        )
+
+    set_auth_cookie(
+        response=response,
+        request=request,
+        key="auth_token",
+        value=admin_backup_token,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    delete_auth_cookie(response=response, request=request, key="admin_backup_token", path="/")
+    return {"status": "success", "message": "Impersonation ended, admin session restored"}
+
 @router.post("/logout")
 async def logout(request: Request, response: Response):
     delete_auth_cookie(response=response, request=request, key="auth_token", path="/")
+    delete_auth_cookie(response=response, request=request, key="admin_session", path="/")
+    delete_auth_cookie(response=response, request=request, key="admin_backup_token", path="/")
     return {"status": "success", "message": "Logged out"}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import styles from "./Section.module.css";
+import styles from "./section.module.css";
 
 const MESSAGES = [
   {

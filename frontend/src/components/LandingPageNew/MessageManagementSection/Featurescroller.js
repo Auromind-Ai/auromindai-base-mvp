@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import styles from "./Section.module.css";
+import styles from "./section.module.css";
 
 export const FEATURES = [
   {

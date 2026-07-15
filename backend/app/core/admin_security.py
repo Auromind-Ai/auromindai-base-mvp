@@ -9,11 +9,7 @@ def verify_admin_workspace(
     db: Session,
     workspace_id: Any,
 ) -> uuid.UUID:
-    """
-    Validate the requested workspace exists and is valid.
-    Does NOT authenticate users or validate membership, as admin authentication
-    is already handled by AdminConsoleMiddleware.
-    """
+    
     if not workspace_id:
         raise HTTPException(
             status_code=400,

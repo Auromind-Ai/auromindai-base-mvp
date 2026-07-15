@@ -34,6 +34,7 @@ router = APIRouter(prefix="/brain", tags=["brain"])
 async def ingest_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    workspace_id: Optional[str] = Form(None),
     region: Optional[str] = Form(None),
     language: Optional[str] = Form(None),
     cultural_context: Optional[str] = Form(None),
@@ -42,7 +43,7 @@ async def ingest_document(
     current_user = Depends(get_current_user)
 ):
     # verify_workspace_access now returns the verified workspace_id string directly
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     reservation = None
     billing_service = None
@@ -179,10 +180,11 @@ async def ingest_document(
 async def ingest_sales_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    workspace_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     reservation = None
     billing_service = None
@@ -315,10 +317,11 @@ async def ingest_sales_document(
 async def ingest_support_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    workspace_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     reservation = None
     billing_service = None
@@ -454,7 +457,7 @@ async def ingest_url(
     current_user = Depends(get_current_user)
 ):
 
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
     try:
         logger.info(f"[INGEST URL] user={current_user.id} workspace={workspace_id} url={request.url}")
@@ -546,7 +549,7 @@ async def ingest_text(
     current_user = Depends(get_current_user)
 ):
    
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
     try:
         logger.info(f"[INGEST TEXT] user={current_user.id} workspace={workspace_id}")
@@ -611,7 +614,7 @@ async def crawl_website(
     current_user = Depends(get_current_user)
 ):
     
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
     try:
         logger.info(f"[CRAWL WEBSITE] user={current_user.id} workspace={workspace_id} url={request.url}")
@@ -716,12 +719,13 @@ async def crawl_website(
 
 @router.get("/entries", response_model=ListEntriesResponse)
 async def list_entries(
+    workspace_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     try:
         logger.info(f"[LIST ENTRIES] user={current_user.id} workspace={workspace_id} skip={skip} limit={limit}")
@@ -785,11 +789,12 @@ async def list_entries(
 @router.delete("/entries/{entry_id:uuid}")
 async def delete_entry(
     entry_id: uuid.UUID,
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     try:
         logger.warning(f"[DELETE ENTRY] user={current_user.id} workspace={workspace_id} entry_id={entry_id}")
@@ -827,7 +832,7 @@ async def search_knowledge(
     current_user = Depends(get_current_user)
 ):
     
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
     try:
         logger.info(
@@ -874,7 +879,7 @@ async def query_knowledge(
     current_user = Depends(get_current_user)
 ):
     
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
     try:
         logger.info(
@@ -903,11 +908,12 @@ async def query_knowledge(
 
 @router.get("/stats", response_model=BrainStatsResponse)
 async def get_brain_stats(
+    workspace_id: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
    
-    workspace_id = verify_workspace_access(current_user, db)
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
     try:
         logger.info(f"[STATS] user={current_user.id} workspace={workspace_id}")

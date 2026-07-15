@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedCounter from "../AnimatedCounter";
 import { getUser, restoreAdminToken } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
 import {
   Calendar,
@@ -33,34 +34,6 @@ const poppins = Poppins({
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
 })
-
-const SecretLoginBanner = () => {
-    const router = useRouter();
-    const user = getUser();
-    const isImpersonating = Boolean(user?.impersonated);
-
-    if (!isImpersonating) return null;
-
-    const handleExit = () => {
-        restoreAdminToken();
-        window.location.href = '/admin';
-    };
-
-    return ( 
-        <div className="fixed top-0 left-0 right-0 z-[100] bg-indigo-600 text-white px-4 py-2 flex items-center justify-between text-sm font-medium shadow-lg animate-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2">
-                <Sparkles size={16} className="animate-pulse" />
-                <span>Secret Login Mode: Viewing {user?.name || user?.email}&apos;s dashboard</span>
-            </div>
-            <button 
-                onClick={handleExit}
-                className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg transition-colors border border-white/30"
-            >
-                Exit & Return to Admin
-            </button>
-        </div>
-    );
-};
 
 // Magic Bento helpers
 function parseRgb(hex) {
@@ -1173,6 +1146,8 @@ const formatDisplayRange = (startDateStr, endDateStr) => {
 function PeriodPicker({ period, dateRange, onPeriodChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1182,6 +1157,14 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     };
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      // Compute fixed position from button rect
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right,
+        });
+      }
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -1202,9 +1185,16 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
     last_month: 'Last Month',
   };
 
+  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const dropdownStyle = isMobile
+    ? { top: dropdownPos.top, left: 16, right: 16 }
+    : { top: dropdownPos.top, right: dropdownPos.right };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
       >
@@ -1221,7 +1211,8 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-0 mt-2 w-56 rounded-xl bg-[#0e0e1a] border border-white/10 p-1.5 shadow-2xl z-[100] backdrop-blur-xl flex flex-col gap-1"
+            className="fixed max-w-[280px] sm:w-56 rounded-xl bg-[#0e0e1a] border border-white/10 p-1.5 shadow-2xl z-[100] backdrop-blur-xl flex flex-col gap-1"
+            style={dropdownStyle}
           >
             {options.map((opt) => {
               const optDates = calculateDatesForPeriod(opt.value);
@@ -1253,10 +1244,14 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
   );
 }
 
+
+
+
 // Main Dashboard 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
-  const [isImpersonated] = useState(() => Boolean(getUser()?.impersonated));
+  const { user } = useAuth();
+  const isImpersonated = Boolean(user?.impersonated);
   const [showAddLead, setShowAddLead] = useState(false);
 
   const [period, setPeriod] = useState('current_week');
@@ -1291,11 +1286,8 @@ export default function DashboardPage() {
   const isInitialLoading = loading && (!metrics || metrics.length === 0 || metrics[0]?.value === '—');
   const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
-  const user = getUser();
-
   return (
     <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
-      <SecretLoginBanner />
       
       {error && (
         <div className="max-w-[1600px] mx-auto mb-6 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
@@ -1316,12 +1308,6 @@ export default function DashboardPage() {
         <div className="w-full flex items-center justify-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl mb-6 px-6 py-2.5 text-amber-400 text-sm font-semibold">
           <ShieldAlert size={15} />
           Admin Viewing Mode — you are viewing this dashboard as the user.
-          <button
-            onClick={exitImpersonation}
-            className="ml-4 px-3 py-1 rounded bg-amber-600/10 text-amber-300 text-xs hover:bg-amber-600/20 transition-colors"
-          >
-            Exit impersonation
-          </button>
         </div>
       )}
       <div className="max-w-[1600px] mx-auto space-y-8">
@@ -1332,13 +1318,13 @@ export default function DashboardPage() {
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
             <p className="text-m text-white/90 lg:mt-2">Good morning! Here are your key actions for today.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
-            <NotificationBell />
-            <div className="relative z-50 ml-1">
-                <CreditRingDropdown user={user} size={36} />
-            </div>
+          <div className="flex items-center gap-3 justify-end w-full sm:w-auto">
+          <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
+          <NotificationBell />
+          <div className="relative z-50 ml-1">
+              <CreditRingDropdown user={user} size={36} />
           </div>
+        </div>
         </header>
 
         {/* METRICS GRID */}
@@ -1400,8 +1386,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-const exitImpersonation = () => {
-  restoreAdminToken();
-  window.location.reload();
-};

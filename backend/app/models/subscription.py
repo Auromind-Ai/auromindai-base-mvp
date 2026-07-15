@@ -19,9 +19,6 @@ class Subscription(Base):
     start_date = Column(DateTime(timezone=True))
     end_date = Column(DateTime(timezone=True))
 
-    trial_start = Column(DateTime(timezone=True))
-    trial_end = Column(DateTime(timezone=True))
-
     canceled_at = Column(DateTime(timezone=True))
     cancel_at_period_end = Column(Boolean, default=False)
 

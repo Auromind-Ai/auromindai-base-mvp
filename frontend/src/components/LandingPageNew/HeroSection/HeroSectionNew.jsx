@@ -25,10 +25,12 @@ function AnimatedText({ text, delay = 0 }) {
           initial={{
             opacity: 0,
             y: 28,
+            filter: "blur(14px)",
           }}
           animate={{
             opacity: 1,
             y: 0,
+            filter: "blur(0px)",
           }}
           transition={{
             duration: 0.9,
@@ -46,21 +48,31 @@ function AnimatedText({ text, delay = 0 }) {
 
 export default function HeroSectionNew() {
   const [mounted, setMounted] = useState(false);
+  const [showContent, setShowContent] = useState(false);
+  const [showBg, setShowBg] = useState(false); 
 
   useEffect(() => {
     setMounted(true);
+    const timer = setTimeout(() => setShowContent(true), 200);
+    const bgTimer = setTimeout(() => setShowBg(true), 600); 
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(bgTimer); 
+    };
   }, []);
 
   return (
     <section
       className={`${poppins.className} relative min-h-screen overflow-hidden bg-[#050505]`}
     >
-      {mounted && <HeroBackgroundNew />}
+      {showBg && <HeroBackgroundNew />}
+      {showContent && (
+        <>
       <div className="relative z-30 flex min-h-[calc(100vh-76px)] flex-col items-center justify-center px-4 md:px-6 lg:px-8 pb-20 pt-8 text-center translate-y-16">
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
           animate={
-            mounted
+            showContent
               ? { opacity: 1, y: 0, scale: 1 }
               : { opacity: 0, y: 20, scale: 0.96 }
           }
@@ -74,7 +86,7 @@ export default function HeroSectionNew() {
           <motion.span
             initial={{ opacity: 0, scale: 0.8, rotate: -8 }}
             animate={
-              mounted
+              showContent
                 ? { opacity: 1, scale: 1, rotate: 0 }
                 : { opacity: 0, scale: 0.8, rotate: -8 }
             }
@@ -93,15 +105,17 @@ export default function HeroSectionNew() {
               initial={{
                 y: "100%",
                 opacity: 0,
+                filter: "blur(12px)",
               }}
               animate={{
                 y: "0%",
                 opacity: 1,
+                filter: "blur(0px)",
               }}
               transition={{
                 duration: 0.7,
                 delay: 0.5,
-                ease: [0.22, 1, 0.36, 1],
+                ease: [0.22, 1, 0.36, 1], // smoother cubic-bezier
               }}
               className="block text-[12px] md:text-[14px] font-medium text-white/70"
             >
@@ -114,13 +128,13 @@ export default function HeroSectionNew() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.65 }}
-          className="mb-5 md:mb-6 max-w-[980px] text-[32px] sm:text-[40px] md:text-[48px] lg:text-[55px] font-semibold leading-[1.15em] tracking-[-1.5px] md:tracking-[-2.2px] text-[#FFFFFF]"
+          className="mb-5 md:mb-6 max-w-[980px] text-[45px] md:text-[48px] lg:text-[55px] font-semibold leading-[1.1em] tracking-[-2.2px] text-[#FFFFFF]"
         >
           <AnimatedText text="Turn WhatsApp & Instagram DMs" delay={0.85} />
           <br />
           <motion.span
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 28, filter: "blur(14px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{
             duration: 0.9,
             delay: 1.05,
@@ -134,10 +148,10 @@ export default function HeroSectionNew() {
         </motion.h1>
  
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 20, filter: "blur(10px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.9, delay: 1.45 }}
-          className="mb-10 max-w-[650px] text-[14px] sm:text-[16px] md:text-[17px] lg:text-[19px] font-medium leading-[1.9] text-white/72 px-2 sm:px-0"
+          className="mb-10 max-w-[650px] text-[16px] md:text-[17px] lg:text-[19px] font-medium leading-[1.9] text-white/72 "
         >
           Deploy intelligent AI Agents that qualify leads, answer objections, and close deals 24/7 directly inside your customer chats.
         </motion.p>
@@ -231,6 +245,8 @@ export default function HeroSectionNew() {
           <div className="h-14 w-px bg-gradient-to-b from-white to-transparent" />
         </motion.div>
       </div>
+       </>
+      )}
     </section>
   );
 }

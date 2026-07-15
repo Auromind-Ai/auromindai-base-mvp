@@ -15,6 +15,8 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   const [wccBalance, setWccBalance] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
   const router = useRouter();
 
   // Fetch AI credits summary
@@ -31,7 +33,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
           if (activeWs) setWorkspace(activeWs);
         }
       } catch (err) {
-        console.error("Failed to fetch credits", err);
+        console.warn("Failed to fetch credits:", err?.message || err);
       }
     }
     fetchCredits();
@@ -45,11 +47,19 @@ export default function CreditRingDropdown({ user, size = 36 }) {
         const res = await api.getWccBalance(workspaceId);
         setWccBalance(parseFloat(res.balance ?? res.data?.balance ?? 0));
       } catch (err) {
-        console.error("Failed to fetch WCC balance", err);
+        console.warn("Failed to fetch WCC balance:", err?.message || err);
       }
     }
     if (isOpen) {
       fetchWcc();
+      // Compute fixed position from button rect
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + 14,
+          right: window.innerWidth - rect.right,
+        });
+      }
     }
   }, [isOpen, workspaceId]);
 
@@ -84,10 +94,17 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   // Calculate estimated WhatsApp marketing messages
   const estMarketingMsgs = Math.floor(wccBalance / 1.25);
 
+  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const panelStyle = isMobile
+    ? { top: dropdownPos.top, left: 16, right: 16 }
+    : { top: dropdownPos.top, right: dropdownPos.right };
+
   return (
     <div className="relative font-sans" ref={dropdownRef}>
       {/* Ring Button with Avatar */}
       <button 
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center rounded-full hover:scale-105 transition-transform relative focus:outline-none"
         style={{ width: size, height: size }}
@@ -116,7 +133,10 @@ export default function CreditRingDropdown({ user, size = 36 }) {
 
       {/* ElevenLabs-style Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-3.5 w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans">
+        <div
+          className="fixed max-w-80 sm:w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans"
+          style={panelStyle}
+        >
           
           {/* Section 1: AI Model Messages Balance */}
           <div className="p-5 bg-gradient-to-b from-purple-950/20 to-transparent">

@@ -8,7 +8,7 @@ from app.models.admin_audit_log import AdminAuditLog
 from jose import jwt
 from app.core.config import settings as core_settings
 from app.services.platform_settings_service import get_prospective_settings
-
+import time
 router = APIRouter()
 
 SENSITIVE_MASK = "••••••••"
@@ -398,9 +398,6 @@ async def test_s3_connection(
     updates: Dict[str, Any],
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
-    import time
-    import boto3
-    from botocore.config import Config
     
     start_time = time.time()
     admin_user, ip = _get_audit_details(request)
@@ -418,6 +415,8 @@ async def test_s3_connection(
         return make_test_response(False, "s3", "S3 Bucket, Access Key, and Secret Key are required", 0, "INVALID_CONFIGURATION")
         
     try:
+        import boto3
+        from botocore.config import Config
         config = Config(connect_timeout=10.0, read_timeout=10.0, retries={'max_attempts': 0})
         s3 = boto3.client(
             "s3",

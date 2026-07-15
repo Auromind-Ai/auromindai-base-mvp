@@ -1,5 +1,24 @@
 import SignupHeroSection from './Signupherosection';
 import SignupFormCard from './Signupformcard';
+
+export const metadata = {
+  title: "Create Your Free Account",
+  description: "Get started with Auromind AI. Create a free account to deploy RAG business assistants, automate WhatsApp marketing, and launch shared inboxes.",
+  alternates: {
+    canonical: "/signup",
+  },
+  openGraph: {
+    title: "Create Your Free Account | Auromind AI",
+    description: "Get started with Auromind AI. Create a free account to deploy RAG business assistants, automate WhatsApp marketing, and launch shared inboxes.",
+    url: "https://orbionagents.com/signup",
+    type: "website",
+  },
+  twitter: {
+    title: "Create Your Free Account | Auromind AI",
+    description: "Get started with Auromind AI. Create a free account to deploy RAG business assistants, automate WhatsApp marketing, and launch shared inboxes.",
+  },
+};
+
 export default function SignupPage() {
   return (
     <>

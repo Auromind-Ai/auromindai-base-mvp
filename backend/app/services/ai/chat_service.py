@@ -95,6 +95,7 @@ class ChatService:
     async def _get_rag_answer_stream(
         self, db: Session, workspace_id: str, query: str, model: str = "auto",
         source: str = "internal_web", document_id: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> AsyncGenerator[dict, None]:
         try:
             rag = get_rag_service()
@@ -106,6 +107,7 @@ class ChatService:
                 source=source,
                 document_id=document_id,
                 bypass_billing=True,
+                session_id=session_id,
             ):
                 yield chunk
         except Exception as e:
@@ -325,6 +327,26 @@ class ChatService:
         safe_query = preflight["safe_query"]
         ctx = preflight["context"]
         
+        # Fetch conversation history if session_id is provided
+        history_messages = []
+        if session_id:
+            try:
+                from app.models.conversation import ChatMessage
+                import uuid
+                sess_uuid = uuid.UUID(session_id) if isinstance(session_id, str) else session_id
+                # Fetch inside a temporary session
+                with SessionLocal() as db_hist:
+                    history_messages = (
+                        db_hist.query(ChatMessage)
+                        .filter(ChatMessage.session_id == sess_uuid)
+                        .order_by(ChatMessage.created_at.desc())
+                        .limit(6)
+                        .all()
+                    )
+                    history_messages = list(reversed(history_messages))
+            except Exception as e:
+                logger.error(f"Failed to fetch conversation history: {e}")
+
         async def run_stream():
             rag_answered = False
             full_response_parts = []
@@ -340,15 +362,22 @@ class ChatService:
                                 model=model,
                                 source=source,
                                 document_id=document_id,
+                                session_id=session_id,
                             ):
                                 content = chunk.get("content", "")
                                 meta = chunk.get("meta")
+                                status = chunk.get("status")
+                                error = chunk.get("error")
                                 if content:
                                     full_response_parts.append(content)
                                     yield {"content": content}
                                 if meta:
                                     meta_payload = meta
                                     yield {"meta": meta}
+                                if status:
+                                    yield {"status": status}
+                                if error:
+                                    yield {"error": error}
                             
                             words = len("".join(full_response_parts).split())
                             est_output = int(words * 1.3)
@@ -368,7 +397,7 @@ class ChatService:
                     _ctx = current_execution_context.get()
                     _config = _ctx.resolved_config if _ctx else None
                     
-                    async for chunk in router.generate_stream(safe_query, model=model, config=_config):
+                    async for chunk in router.generate_stream(safe_query, model=model, config=_config, history=history_messages):
                         text_chunk = chunk.get("text", "")
                         if text_chunk:
                             full_response_parts.append(text_chunk)
@@ -436,10 +465,16 @@ class ChatService:
             ):
                 content = chunk.get("content", "")
                 meta = chunk.get("meta")
+                status = chunk.get("status")
+                error = chunk.get("error")
                 if content:
                     yield f"{json.dumps({'content': content})}\n"
                 if meta:
                     yield f"{json.dumps({'meta': meta})}\n"
+                if status:
+                    yield f"{json.dumps({'status': status})}\n"
+                if error:
+                    yield f"{json.dumps({'error': error})}\n"
             
             db.commit()
 

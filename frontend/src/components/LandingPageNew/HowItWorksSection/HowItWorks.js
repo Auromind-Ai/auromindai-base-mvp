@@ -2,7 +2,14 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowRight, Activity, ShieldCheck, Cpu, Flame } from 'lucide-react';
+import { Poppins } from "next/font/google";
+import Image from 'next/image';
+import { Activity, Cpu, Zap, Network } from 'lucide-react';
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["500"],
+});
 
 const steps = [
   {
@@ -17,10 +24,9 @@ const steps = [
       'Verified Green Badge Status',
       'Fully Scalable Delivery Platform',
     ],
-    image: '/images/StepOne.png',
-    accent: '#A855F7',
-    glow: 'rgba(168, 85, 247, 0.15)',
-    icon: <ShieldCheck className="w-5 h-5 text-purple-400" />,
+    image: '/images/StepOne.webp',
+    accent: '#8B5CF6',
+    icon: <Network size={14} className="text-violet-400" />,
   },
   {
     step: '02',
@@ -34,10 +40,9 @@ const steps = [
       'Knowledge Base Embeddings',
       'Adaptive Learning Over Time',
     ],
-    image: '/images/StepTwo.png',
-    accent: '#6366F1',
-    glow: 'rgba(99, 102, 241, 0.15)',
-    icon: <Cpu className="w-5 h-5 text-indigo-400" />,
+    image: '/images/StepTwo.webp',
+    accent: '#EC4899',
+    icon: <Cpu size={14} className="text-pink-400" />,
   },
   {
     step: '03',
@@ -51,10 +56,9 @@ const steps = [
       'CRM System Integrations',
       'Revenue Attribution Dashboards',
     ],
-    image: '/images/StepThree.png',
-    accent: '#EC4899',
-    glow: 'rgba(236, 72, 153, 0.15)',
-    icon: <Flame className="w-5 h-5 text-pink-400" />,
+    image: '/images/StepThree.webp',
+    accent: '#3B82F6',
+    icon: <Zap size={14} className="text-blue-400" />,
   },
 ];
 
@@ -193,27 +197,27 @@ export default function HowItWorks() {
               transition={{ duration: 0.45, ease: 'easeInOut' }}
               className="w-full grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 items-center"
             >
-              {/* Left Side: Graphic Panel */}
-              <div className="md:col-span-6 flex justify-center relative">
-                {/* Backdrop Glow Ring */}
+              {/* Image */}
+              {/* Image Container with proper md:col-span-6 grid layout */}
+              <div
+                className="md:col-span-6 relative mx-auto w-full max-w-[320px] md:max-w-[460px] xl:max-w-[540px] h-[240px] md:h-[340px] xl:h-[400px] rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_rgba(0,0,0,0.55)] group cursor-pointer"
+              >
+                <Image
+                  src={activeItem.image}
+                  alt={activeItem.title}
+                  fill
+                  sizes="(max-width: 768px) 320px, (max-width: 1200px) 460px, 540px"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                
+                {/* Neon Color Mask Overlay */}
                 <div 
-                  className="absolute inset-0 rounded-[2.5rem] filter blur-2xl opacity-30 transition-all duration-500"
+                  className="absolute inset-0 mix-blend-color opacity-20 transition-all duration-500 pointer-events-none"
                   style={{ backgroundColor: activeItem.accent }}
                 />
                 
-                <div className="relative w-full aspect-[4/3] rounded-[2rem] overflow-hidden border border-white/10 bg-black/40 shadow-2xl group cursor-pointer">
-                  <img
-                    src={activeItem.image}
-                    alt={activeItem.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                  {/* Neon Color Mask Overlay */}
-                  <div 
-                    className="absolute inset-0 mix-blend-color opacity-25 transition-all duration-500"
-                    style={{ backgroundColor: activeItem.accent }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                </div>
+                {/* Bottom Shadow Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
               </div>
 
               {/* Right Side: Copy Panel */}

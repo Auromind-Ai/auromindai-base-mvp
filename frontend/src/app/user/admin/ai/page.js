@@ -347,7 +347,7 @@ export default function AuromindAIPage() {
                     const res = await api.getBillingStatus(workspaceId);
                     setUserPlan(res.current_plan || "free");
                 } catch (error) {
-                    console.error("Failed to check plan:", error);
+                    console.warn("Failed to check plan:", error?.message || error);
                 }
             };
             checkPlan();
@@ -547,9 +547,9 @@ export default function AuromindAIPage() {
                         if (data.content) {
                             fullText = fullText + data.content;
                             responseBufferRef.current = fullText;
+                            lastTypedTextRef.current = fullText;
                         } else if (data.meta) {
-                            const meta = data.meta;
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta } : msg));
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta: data.meta } : msg));
                         } else if (data.error) {
                             isStreamActiveRef.current = false;
                             isAnimatingRef.current = false;
@@ -615,35 +615,36 @@ export default function AuromindAIPage() {
     };
 
     const handleFeedback = async (index, type) => {
-        const assistantMsg = messages[index];
-        const userMsg = messages[index - 1];
-        if (!assistantMsg || !userMsg) return;
+        const currentFeedback = feedbackMap[index];
+        const newFeedbackType = currentFeedback === type ? null : type;
 
-        const newFeedbackType = feedbackMap[index] === type ? null : type;
         setFeedbackMap(prev => ({
             ...prev,
             [index]: newFeedbackType
         }));
 
-        if (!newFeedbackType) return;
+        if (newFeedbackType !== 'like' && newFeedbackType !== 'dislike') return;
+
+        const message = messages[index];
+        if (!message || !workspaceId) return;
 
         try {
-            await api.post('/feedback', {
-                workspace_id: workspaceId || "00000000-0000-0000-0000-000000000000",
-                query: userMsg.content,
-                rewritten_query: assistantMsg.meta?.rewritten_query || userMsg.content,
-                tool: assistantMsg.meta?.tool || "unknown",
-                answer: assistantMsg.content,
-                feedback: type === 'like' ? 'up' : 'down',
-                model: assistantMsg.meta?.model || selectedModel || "unknown",
-                latency_ms: assistantMsg.meta?.latency_ms || 0,
-                confidence_score: assistantMsg.meta?.confidence_score || 0.5,
-                source: assistantMsg.meta?.source || "unknown",
-                session_id: currentSessionId
+            const userPrompt = messages[index - 1]?.content || "";
+            await api.submitFeedback({
+                workspace_id: workspaceId,
+                query: userPrompt,
+                rewritten_query: message.meta?.rewritten_query || null,
+                tool: message.meta?.tool || null,
+                answer: message.content,
+                feedback: newFeedbackType === 'like' ? 'up' : 'down',
+                model: message.meta?.model || selectedModel || "auto",
+                session_id: currentSessionId || null,
+                latency_ms: 0,
+                confidence_score: message.meta?.confidence_score || null,
+                source: message.meta?.source || null
             });
-            console.log("Feedback recorded successfully");
         } catch (err) {
-            console.error("Failed to submit feedback:", err);
+            console.error('Failed to submit feedback:', err);
         }
     };
     const handleFileUpload = async (e) => {
@@ -724,9 +725,9 @@ export default function AuromindAIPage() {
                         if (data.content) {
                             fullText = fullText + data.content;
                             responseBufferRef.current = fullText;
+                            lastTypedTextRef.current = fullText;
                         } else if (data.meta) {
-                            const meta = data.meta;
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta } : msg));
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta: data.meta } : msg));
                         }
                     } catch (e) {}
                 }
@@ -787,9 +788,9 @@ export default function AuromindAIPage() {
                         if (data.content) {
                             fullText = fullText + data.content;
                             responseBufferRef.current = fullText;
+                            lastTypedTextRef.current = fullText;
                         } else if (data.meta) {
-                            const meta = data.meta;
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta } : msg));
+                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, meta: data.meta } : msg));
                         }
                     } catch (e) {}
                 }
@@ -825,7 +826,7 @@ export default function AuromindAIPage() {
 
     //  RENDER ─
     return (
-        <div className={`${poppins.className} flex bg-[#0a0a0f] h-screen text-white overflow-hidden`}>
+        <div className={`${poppins.className} flex bg-[#0a0a0f] h-[calc(100vh-3.5rem)] md:h-screen text-white overflow-hidden`}>
             <ChatSidebar
                 sessions={sessions}
                 currentSessionId={currentSessionId}
@@ -1024,7 +1025,7 @@ export default function AuromindAIPage() {
                                         key="chat-flow"
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
-                                        className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-4 pt-4 pb-36"
+                                        className="flex-1 flex flex-col w-full max-w-3xl mx-auto px-3 md:px-4 pt-4 pb-28 md:pb-36"
                                     >
                                         {/* Initializing spinner (session load) */}
                                         {isInitializing ? (
@@ -1036,7 +1037,7 @@ export default function AuromindAIPage() {
                                                 Loading conversation...
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-2 w-full py-8">
+                                            <div className="flex flex-col gap-1 md:gap-2 w-full py-4 md:py-8">
                                                 {messages.map((msg, idx) => (
                                                     <motion.div
                                                         key={idx}
@@ -1045,7 +1046,7 @@ export default function AuromindAIPage() {
                                                         className={`flex flex-col w-full group ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
                                                     >
                                                         {msg.role === 'user' ? (
-                                                            <div className="bg-[#814AC8] text-[#efefef] rounded-2xl px-4 py-2.5 max-w-[85%] border border-purple-500/10 shadow-sm">
+                                                            <div className="bg-[#814AC8] text-[#efefef] rounded-xl md:rounded-2xl px-3 py-2 md:px-4 md:py-2.5 max-w-[80%] md:max-w-[85%] border border-purple-500/10 shadow-sm">
                                                                 {editingIndex === idx ? (
                                                                     <div className="flex flex-col gap-3 min-w-[300px]">
                                                                         <textarea
@@ -1069,13 +1070,13 @@ export default function AuromindAIPage() {
                                                                                  className="max-w-[250px] max-h-[250px] rounded-lg object-cover border border-white/15"
                                                                              />
                                                                          )}
-                                                                         {msg.content && <p className="text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>}
+                                                                         {msg.content && <p className="text-[13px] md:text-[15px] leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>}
                                                                      </div>
                                                                 )}
                                                             </div>
                                                         ) : (
-                                                            <div className="w-full pl-2">
-                                                                <div className="flex items-center gap-2.5 mb-3 px-1">
+                                                            <div className="w-full pl-1 md:pl-2">
+                                                                <div className="flex items-center gap-2 md:gap-2.5 mb-2 md:mb-3 px-1">
                                                                     <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-600/20">
                                                                         <Wand2 size={12} className="text-white" />
                                                                     </div>
@@ -1088,7 +1089,7 @@ export default function AuromindAIPage() {
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <div className={`text-[15px] leading-[1.75] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
+                                                                <div className={`text-[13px] md:text-[15px] leading-[1.6] md:leading-[1.75] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
                                                                     {msg.isStreaming && msg.content === '' ? (
                                                                         <div className="flex items-center gap-3 text-purple-400 py-2 animate-pulse">
                                                                             <div className="relative w-4 h-4 shrink-0">
@@ -1238,7 +1239,7 @@ export default function AuromindAIPage() {
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                            <div className="flex justify-center pb-8 pt-4 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent">
+                            <div className="flex justify-center pb-4 md:pb-8 pt-4 bg-gradient-to-t from-[#0a0a0f] via-[#0a0a0f]/95 to-transparent">
                                 <motion.div
                                     initial={{ y: 20, opacity: 0 }}
                                     animate={{ y: 0, opacity: 1 }}
@@ -1274,8 +1275,8 @@ export default function AuromindAIPage() {
                                             >
                                                 <Plus size={18} />
                                             </button>
-                                            {/* Model Selector */}
-                                            <div className="relative model-dropdown flex-shrink-0">
+                                            {/* Model Selector — hidden on mobile, shown on md+ */}
+                                            <div className="relative model-dropdown flex-shrink-0 hidden md:block">
                                                 <button
                                                     onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                                     className="px-2 py-1 rounded-md text-xs bg-white/5 text-gray-300 hover:bg-white/10 transition-colors"
@@ -1305,8 +1306,8 @@ export default function AuromindAIPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                            {/* Source Selector */}
-                                            <div className="relative source-dropdown flex-shrink-0">
+                                            {/* Source Selector — hidden on mobile, shown on md+ */}
+                                            <div className="relative source-dropdown flex-shrink-0 hidden md:block">
                                                 <button
                                                     onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
                                                     className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all border ${
@@ -1344,10 +1345,51 @@ export default function AuromindAIPage() {
                                                 )}
                                             </div>
                                             {isPlusOpen && (
-                                                <div className="absolute bottom-14 left-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl w-44 p-2 z-50">
+                                                <div className="absolute bottom-14 left-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl w-52 p-2 z-50">
                                                     <button onClick={() => { fileInputRef.current?.click(); setIsPlusOpen(false); }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg font-medium">
                                                         <Paperclip size={16} />Attach File
                                                     </button>
+                                                    {/* Model & Source selectors — visible only on mobile inside + menu */}
+                                                    <div className="md:hidden">
+                                                        <div className="h-px bg-white/10 my-1.5" />
+                                                        <p className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Model</p>
+                                                        {models.map((model) => {
+                                                            const hasPremiumAccess = ["pro", "enterprise"].includes(userPlan);
+                                                            return (
+                                                                <button
+                                                                    key={model.id}
+                                                                    onClick={() => { handleModelSelect(model); setIsPlusOpen(false); }}
+                                                                    className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left font-medium"
+                                                                >
+                                                                    <span>{model.name}</span>
+                                                                    {model.plan === "pro" && !hasPremiumAccess && (
+                                                                        <span className="text-yellow-400 text-xs">🔒</span>
+                                                                    )}
+                                                                    {selectedModel === model.id && (
+                                                                        <span className="text-purple-400 text-xs">✓</span>
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                        <div className="h-px bg-white/10 my-1.5" />
+                                                        <p className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Source</p>
+                                                        {SOURCE_OPTIONS.map((opt) => (
+                                                            <button
+                                                                key={opt.value}
+                                                                onClick={() => {
+                                                                    setSource(opt.value);
+                                                                    setIsPlusOpen(false);
+                                                                }}
+                                                                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-white/5 rounded-lg transition-colors text-left font-medium"
+                                                            >
+                                                                <opt.icon size={14} className="text-gray-400" />
+                                                                <span>{opt.label}</span>
+                                                                {source === opt.value && (
+                                                                    <span className="ml-auto text-purple-400 text-xs">✓</span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
                                             <textarea

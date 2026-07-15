@@ -21,11 +21,13 @@ export default function ManageChatsSection() {
   const [viewportWidth, setViewportWidth] = useState(1440);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // FIX: Store sectionRef dimensions in state so they can be used during render safely
   const [sectionDims, setSectionDims] = useState({ width: 0, height: 900 });
 
   useEffect(() => {
+    setMounted(true);
     const updateWidth = () => {
       setViewportWidth(window.innerWidth);
       setIsMobile(window.innerWidth <= 640);
@@ -63,9 +65,9 @@ export default function ManageChatsSection() {
     };
   }, []);
 
-  // Desktop particles — decorative, CSS-only (no mouse interaction)
+  // Desktop particles — interactive with mouse (unchanged)
   const desktopParticles = useMemo(() => {
-    const count = viewportWidth < 1024 ? 35 : 55;
+    const count = viewportWidth < 1024 ? 110 : 160;
     const colors = [
       "rgba(255,255,255,0.10)",
       "rgba(255,255,255,0.06)",
@@ -86,7 +88,7 @@ export default function ManageChatsSection() {
     }));
   }, [viewportWidth]);
 
-  // Mobile particles — purely decorative, CSS-only
+  // Mobile particles — purely decorative, CSS-only (no mouse interaction)
   const mobileParticles = useMemo(() => {
     return Array.from({ length: 18 }, (_, i) => ({
       id: i,
@@ -118,32 +120,66 @@ export default function ManageChatsSection() {
 
       {/* ─── PARTICLES ─── */}
       <div className="absolute inset-0 z-0 overflow-hidden">
-        {(isMobile ? mobileParticles : desktopParticles).map((p) => (
-          <div
-            key={p.id}
-            className="absolute manage-chat-particle"
-            style={{
-              left: `${p.x}%`,
-              top: `${p.y}%`,
-              width: `${p.size + 2}px`,
-              height: `${p.size + 2}px`,
-              opacity: p.opacity,
-              backgroundColor: p.color || "rgba(255,255,255,0.08)",
-              '--dx': `${p.dx}px`,
-              '--dy': `${p.dy}px`,
-              animationDuration: `${p.duration}s`,
-              animationDelay: `${p.delay}s`,
-            }}
-          >
-            <svg viewBox="0 0 100 100" className="h-full w-full" fill="currentColor">
-              <path d="M50 0C56 28 72 44 100 50C72 56 56 72 50 100C44 72 28 56 0 50C28 44 44 28 50 0Z" />
-            </svg>
-          </div>
+        {mounted && (isMobile ? (
+          /* ── Mobile: CSS-only particles — zero JS per frame ── */
+          mobileParticles.map((p) => (
+            <div
+              key={p.id}
+              className="absolute manage-chat-particle"
+              style={{
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                width: `${p.size + 2}px`,
+                height: `${p.size + 2}px`,
+                opacity: p.opacity,
+                '--dx': `${p.dx}px`,
+                '--dy': `${p.dy}px`,
+                animationDuration: `${p.duration}s`,
+                animationDelay: `${p.delay}s`,
+              }}
+            >
+              <svg viewBox="0 0 100 100" className="h-full w-full" fill="white">
+                <path d="M50 0C56 28 72 44 100 50C72 56 56 72 50 100C44 72 28 56 0 50C28 44 44 28 50 0Z" />
+              </svg>
+            </div>
+          ))
+        ) : (
+          /* ── Desktop: interactive Framer Motion particles ── */
+          desktopParticles.map((particle) => {
+            const particleX = (particle.x / 100) * viewportWidth;
+            // FIX: Use sectionDims.height (state) instead of sectionRef.current?.offsetHeight
+            const particleY = (particle.y / 100) * (sectionDims.height || 900);
+            const dx = mouse.x - particleX;
+            const dy = mouse.y - particleY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const intensity = Math.max(0, 1 - distance / 120);
+            return (
+              <motion.div
+                key={particle.id}
+                className="absolute"
+                style={{
+                  left: `${particle.x}%`,
+                  top: `${particle.y}%`,
+                  width: `${4 + intensity * 8}px`,
+                  height: `${4 + intensity * 8}px`,
+                  opacity: intensity > 0.05 ? intensity : 0,
+                  scale: 0.6 + intensity * 1.4,
+                  filter: `drop-shadow(0 0 ${8 + intensity * 18}px rgba(255,255,255,0.9))`,
+                }}
+                animate={{ x: [0, particle.floatX, 0], y: [0, particle.floatY, 0], rotate: [0, 18, 0] }}
+                transition={{ duration: particle.duration, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <svg viewBox="0 0 100 100" className="h-full w-full" fill="white">
+                  <path d="M50 0C56 28 72 44 100 50C72 56 56 72 50 100C44 72 28 56 0 50C28 44 44 28 50 0Z" />
+                </svg>
+              </motion.div>
+            );
+          })
         ))}
       </div>
 
       {/* Mouse follow glow — desktop only */}
-      {!isMobile && (
+      {mounted && !isMobile && (
         <motion.div
           className="pointer-events-none absolute z-[2] h-72 w-72 rounded-full bg-purple-500/10 blur-3xl hidden sm:block"
           animate={{ x: mouse.x - 144, y: mouse.y - 144, opacity: mouse.x < 0 ? 0 : 1 }}

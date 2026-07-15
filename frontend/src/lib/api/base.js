@@ -16,7 +16,7 @@ function getCSRFToken() {
 export class APIClient {
   constructor(baseURL = '/api') {
     const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
-    this.baseURL = isProd ? 'https://api.orbionagents.com' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
+    this.baseURL = isProd ? 'https://app.orbionagents.com' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
     this.requestHooks = [];
     this.responseHooks = [];
   }
@@ -75,6 +75,7 @@ export class APIClient {
     }
 
     // 4. Handle Timeout via AbortController
+    let isTimeout = false;
     const controller = optSignal ? null : new AbortController();
 
     // Pick timeout based on endpoint type
@@ -86,6 +87,7 @@ export class APIClient {
     config.signal = optSignal || controller?.signal;
 
     try {
+
       console.log(`[API Request] ${config.method || 'GET'}: ${url}${isRetryAttempt ? ' (Retry)' : ''}`);
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
@@ -136,7 +138,14 @@ export class APIClient {
         if (response.status >= 400 && response.status < 500) {
           console.warn(`[API Client Error] ${response.status}:`, errorMessage);
         } else {
-          console.error(`[API Server Error] ${response.status}:`, errorMessage);
+          console.warn(`[API Server Error] ${response.status}:`, errorMessage);
+        }
+
+        // Check for admin console authorization issues (e.g. session expired)
+        if (url.includes('/admin') && !url.includes('/admin/auth') && (response.status === 401 || response.status === 403 || response.status === 404)) {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/admin';
+          }
         }
 
         throw errorObj;
@@ -147,6 +156,13 @@ export class APIClient {
 
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
+
+      if (isTimeout || error?.name === 'TimeoutError' || (error?.name === 'AbortError' && isTimeout)) {
+        const timeoutError = new Error('Request timeout. Please try again.');
+        timeoutError.name = 'TimeoutError';
+        timeoutError.status = 408;
+        throw timeoutError;
+      }
 
       // Suppress AbortError console noise from StrictMode double-invoke
       if (error.name === 'AbortError') {

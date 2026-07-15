@@ -1,5 +1,6 @@
 import logging
 import re
+from typing import AsyncGenerator
 
 from app.utils.evaluation import token_match_percentage
 from app.services.agentic_rag.learning_cache import get_learning_profile
@@ -165,7 +166,7 @@ class orchestratorsupport:
 
         followup = await  safe_llm_call(prompt, model=model)
 
-        return f"{answer}\n\nFollow-up question:\n{followup['content']}"
+        return f"{answer}\n\n{followup['content']}"
     
 
     def hallucination_guard(self, answer, context):
@@ -182,3 +183,94 @@ class orchestratorsupport:
         formatted = re.sub(r'\s(?=\d+\.\s)', '\n\n', text)
 
         return formatted.strip()
+
+    async def generate_final_output_stream(self, query, synthesized_info, model="auto") -> AsyncGenerator[dict, None]:
+        good_queries = []
+        learning_profile = get_learning_profile()
+        if learning_profile:
+            good_queries = learning_profile.get("memory", {}).get("good_queries", [])[:3]
+
+        extra_context = ""
+        if good_queries:
+            extra_context = f"\n\nGood examples:\n{good_queries}"
+
+        prompt = f"""
+        You are a highly accurate Information Extraction Engine.
+
+        OBJECTIVE:
+        Identify and extract ALL relevant information from VERIFIED INFORMATION
+        that directly answers the USER QUESTION.
+
+        ABSOLUTE RULES (NON-NEGOTIABLE):
+
+        1. Use ONLY text that appears inside VERIFIED INFORMATION.
+        2. Do NOT summarize or hallucinate.
+        3. Do NOT paraphrase unnecessarily.
+        4. Do NOT infer meaning beyond explicit wording.
+        5. Output the extracted text naturally without forcing numbered lists (1. 2. 3.).
+        6. If nothing directly answers the question, output EXACTLY:
+        Information not available in provided documents.
+        
+
+        STRICT OUTPUT FORMAT:
+
+        - Output ONLY the extracted text. NO introductory text. NO concluding text.
+        - Do NOT start with phrases like "Upon reviewing the provided VERIFIED INFORMATION...".
+        - Present the information normally. DO NOT use numbered lists like 1. 2. 3.
+        - Just output the raw extracted text that directly answers the question.
+        - If there is no relevant information, output EXACTLY: Information not available in provided documents.
+
+        {extra_context}
+
+        USER QUESTION:
+        {query}
+
+        VERIFIED INFORMATION:
+        {synthesized_info}
+
+        EXTRACTED CLAUSES:
+        """
+        from app.services.ai.llm_utils import safe_llm_call_stream
+        accumulated_answer_parts = []
+        async for chunk in safe_llm_call_stream(prompt, model=model):
+            text = chunk.get("content", "")
+            if text:
+                accumulated_answer_parts.append(text)
+                yield {"content": text}
+        
+        cleaned_answer = self.hallucination_guard("".join(accumulated_answer_parts).strip(), synthesized_info)
+        formatted_answer = self.format_for_chatgpt_style(cleaned_answer)
+        
+        yield {"content": "\n\n"}
+        async for chunk in self.add_followup_stream(query, formatted_answer, model=model):
+            yield chunk
+
+    async def add_followup_stream(self, query, answer, model="auto") -> AsyncGenerator[dict, None]:
+        prompt = f"""
+        You are a helpful assistant.
+
+        Based on the user's question and the answer,
+        generate ONE useful follow-up question that helps
+        the user continue exploring the same topic.
+
+        Rules:
+        - Maximum 15 words
+        - Must relate directly to the answer
+        - Must help the user learn more
+        - Do not repeat the same information
+        - Ask only ONE question
+        - No explanation
+
+        User Question:
+        {query}
+
+        Answer:
+        {answer}
+
+        Follow-up question:
+        """
+        from app.services.ai.llm_utils import safe_llm_call_stream
+        async for chunk in safe_llm_call_stream(prompt, model=model):
+            text = chunk.get("content", "")
+            if text:
+                yield {"content": text}

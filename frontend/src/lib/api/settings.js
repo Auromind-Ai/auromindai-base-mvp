@@ -18,4 +18,3 @@ export async function getPublicBranding() {
 export async function getAboutSettings() {
   return client.get('/public/about');
 }
-
