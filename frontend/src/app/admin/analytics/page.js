@@ -108,13 +108,13 @@ useEffect(() => {
                     total={analytics.total_users || 1}
                   />
                   <AnalyticsRow
-<<<<<<< HEAD
                     label="Active Workspaces"
                     value={analytics.active_workspaces || 0}
-=======
+                    total={analytics.total_users || 1}
+                  />
+                  <AnalyticsRow
                     label="Trial Users"
                     value={analytics.trial_users || 0}
->>>>>>> 561607ccbefb38844079883400c81bb2ea34b159
                     total={analytics.total_users || 1}
                   />
                 </div>
