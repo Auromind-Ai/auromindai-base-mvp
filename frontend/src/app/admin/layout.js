@@ -24,7 +24,7 @@ export default function AdminLayout({ children }) {
   }, [])
 
   useEffect(() => {
-    if (!mounted || isLoginPage) return
+    if (!mounted) return
 
     let active = true
 
@@ -57,7 +57,11 @@ export default function AdminLayout({ children }) {
         const isAuthError = err.status === 401 || err.status === 403 || err.status === 404
         const isNetworkError = err.isNetworkError || err.isTimeout || err.status === 0 || err.status === 408
         if (isAuthError) {
-          router.push("/admin")
+          if (isLoginPage) {
+            setIsNotFound(true)
+          } else {
+            router.push("/admin")
+          }
         } else if (isNetworkError) {
           // Backend unreachable - still try to render the page; individual pages handle their own errors
           setAuthVerified(true)
@@ -84,8 +88,15 @@ export default function AdminLayout({ children }) {
     )
   }
 
-  // For admin login page - render without the sidebar/layout
+  // For admin login page - render without the sidebar/layout if verified as platform_admin
   if (isLoginPage) {
+    if (!authVerified) {
+      return (
+        <div className="min-h-screen bg-[#020202] flex items-center justify-center text-white">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
+        </div>
+      )
+    }
     return <>{children}</>
   }
 
