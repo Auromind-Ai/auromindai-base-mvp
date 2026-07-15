@@ -130,6 +130,7 @@ export default function LandingPage() {
           <CtaSection />
           <FooterSection />
         </div>
+      </div>
     </main>
   );
 }// Clean rollback trigger

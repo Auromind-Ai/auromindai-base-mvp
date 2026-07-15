@@ -18,7 +18,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 const NavigationSection = () => {
-  const { appName } = useBranding();
+  const { appName, appLogoUrl } = useBranding();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
