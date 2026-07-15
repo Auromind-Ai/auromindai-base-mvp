@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Poppins } from "next/font/google";
+import { Poppins, Plus_Jakarta_Sans } from "next/font/google";
 import { Zap, Menu, X, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -10,6 +10,11 @@ import { useBranding } from '@/context/BrandingContext';
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
 });
 
 const NavigationSection = () => {
@@ -45,10 +50,6 @@ const NavigationSection = () => {
               <Zap size={18} fill="currentColor" />
             )}
           </div>
-
-          <span className="text-[15px] font-bold tracking-normal text-white">
-            {appName}
-          </span>
         </Link>
 
           <div className="hidden lg:flex items-center gap-8">
@@ -224,7 +225,7 @@ const NavigationSection = () => {
 
           {/* Pricing */}
           <Link
-            href="#pricing"
+            href="/pricing"
             className="text-[15px] font-medium text-white/90 transition-colors hover:text-white"
           >
             Pricing

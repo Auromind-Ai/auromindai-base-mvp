@@ -21,7 +21,7 @@ from app.workers.scoring_worker import analyze_message_intent
 from decimal import Decimal
 from app.services.wcc_service import WCCService
 from app.models.wcc import WCCRateCard
-logger = logging.getLogger(__name__)
+from app.core.logger import logger
 
 
 # ─
@@ -451,6 +451,19 @@ class WebhookService:
                 contact_name=contact_name,
                 profile_pic=profile_pic,
             )
+            
+            # Reopen conversation and reset human takeover on new user inbound message
+            from app.models.conversation import ConversationStatus
+            from app.models.ai_action import ConversationState
+            if conversation.status != ConversationStatus.OPEN:
+                conversation.status = ConversationStatus.OPEN
+                
+            conv_state = db.query(ConversationState).filter_by(
+                conversation_id=conversation.id,
+                workspace_id=workspace_id
+            ).first()
+            if conv_state:
+                conv_state.human_takeover = False
 
             #  Step 2: FIX 1 — Auto upsert lead 
             source = _derive_source(metadata)

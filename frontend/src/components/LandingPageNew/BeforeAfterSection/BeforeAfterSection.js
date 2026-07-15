@@ -26,17 +26,17 @@ const BeforeAfterSection = () => {
   const card1Opacity = useTransform(scrollYProgress, [0.5, 0.9], [1, 0.5]);
 
   const beforeItems = [
-    "Copy-pasting the same reply 417 times.",
-    "Losing hot leads in endless DMs.",
-    "Missed sales while you sleep.",
-    "Every comment, follow, DM, buries you deeper."
+    "Copy-pasting payment links manually.",
+    "Losing hot leads in unorganized DMs.",
+    "Missed ₹ INR sales while you sleep.",
+    "Manually checking UPI screenshots."
   ];
 
   const afterItems = [
-    "Smart replies handle FAQs instantly.",
-    "Organized, tagged leads.",
-    "Sales going off 24/7.",
-    "Every interaction is a chance to convert."
+    "AI sends Razorpay links instantly.",
+    "Automatically qualified & tagged leads.",
+    "INR sales closing 24/7 on autopilot.",
+    "Instant automatic payment verification."
   ];
 
   return (
@@ -62,7 +62,7 @@ const BeforeAfterSection = () => {
             <div className="mb-4 md:mb-8">
               <div className="flex justify-center mb-4 md:mb-8">
                 <span className="inline-block text-[13px] md:text-[14px] font-medium tracking-wide text-white/80 px-3 py-1 rounded-full bg-white/10 backdrop-blur">
-                  Before Auromind
+                  Before Orbion Agents
                 </span>
               </div>
              
@@ -116,7 +116,7 @@ const BeforeAfterSection = () => {
             <div className="mb-auto relative">
               <div className="flex justify-center mb-4 md:mb-6">
                 <span className="inline-block mx-auto text-[13px] md:text-[14px] font-medium text-white px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md mb-2 md:mb-4">
-                  After Auromind
+                  After Orbion Agents
                 </span>
               </div>
               <div className="relative inline-block w-full text-center">

@@ -157,7 +157,7 @@ class EntitlementService:
         from app.services.billing.plan_service import PlanService
         plan_service = PlanService()
         plans = {}
-        for plan_key in ["free", "pro", "enterprise"]:
+        for plan_key in ["free", "solo", "pro", "enterprise"]:
             config = plan_service._get_plan_config(db, plan_key)
             plans[plan_key] = plan_service._get_or_create_plan(db, config)
         db.commit()
@@ -184,6 +184,25 @@ class EntitlementService:
                         included_credit_reset_policy='EXPIRE',
                         included_wallet_reset_policy='EXPIRE',
                         feature_flags={"has_rag": False, "has_leads": True, "has_gmail": True}
+                    )
+                elif name == "solo":
+                    ent = PlanEntitlement(
+                        id=uuid.uuid4(),
+                        plan_id=plan.id,
+                        included_ai_credits=15000,
+                        included_wcc_wallet=0.00,
+                        storage_limit_mb=1024,
+                        team_limit=1,
+                        knowledge_base_limit=10,
+                        gmail_limit=1,
+                        lead_limit=500,
+                        meeting_limit=10,
+                        automation_limit=2,
+                        allow_ai_topup=True,
+                        allow_wcc_recharge=True,
+                        included_credit_reset_policy='EXPIRE',
+                        included_wallet_reset_policy='EXPIRE',
+                        feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
                     )
                 elif name == "pro":
                     ent = PlanEntitlement(
@@ -227,3 +246,5 @@ class EntitlementService:
                 seeded_count += 1
         db.commit()
         return {"status": "success", "message": f"Successfully seeded {seeded_count} entitlements."}
+
+

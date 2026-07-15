@@ -1,8 +1,9 @@
 # Backend dependencies
 backend/node_modules/
 backend/auromind.db
-backend/__pycache__/
-backend/*/__pycache__/
+backend/temp_uploads/
+__pycache__/
+*.pyc
 
 # Frontend dependencies
 frontend/node_modules/

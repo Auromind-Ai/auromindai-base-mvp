@@ -260,6 +260,41 @@ def seed_settings_from_env(db: Session):
             db.add(setting)
             updates_made = True
 
+    # Seed default pricing configs if not present in DB
+    default_pricing = {
+        "free_plan_price": (0.0, "float"),
+        "solo_plan_price": (999.0, "float"),
+        "pro_plan_price": (5999.0, "float"),
+        "enterprise_plan_price": (24999.0, "float"),
+        "free_plan_name": ("Free", "string"),
+        "solo_plan_name": ("Solo Smart", "string"),
+        "pro_plan_name": ("Professional", "string"),
+        "enterprise_plan_name": ("Business", "string"),
+        "free_plan_desc": ("Try Orbion Agents for free and see the ROI yourself.", "string"),
+        "solo_plan_desc": ("RAG & custom knowledge base on a budget for solopreneurs.", "string"),
+        "pro_plan_desc": ("Advanced features for growing teams and scalable workflows.", "string"),
+        "enterprise_plan_desc": ("Perfect for businesses starting with AI automation at scale.", "string"),
+        "free_plan_features": (["1,000 AI Replies", "Basic Workflows", "Meta API Included"], "json"),
+        "solo_plan_features": (["15,000 AI Replies", "RAG Knowledge Base Enabled", "1 Gmail Integration", "Basic Automations"], "json"),
+        "pro_plan_features": (["100,000 AI Replies", "Advanced Workflows + RAG", "Priority Support", "Full Analytics"], "json"),
+        "enterprise_plan_features": (["500,000 AI Replies", "Dedicated Manager", "Custom API Access", "On-premise Options", "Global SLA"], "json"),
+        "token_limit_per_plan": ({"free": 1000000, "solo": 15000000, "pro": 100000000, "enterprise": 500000000}, "json")
+    }
+    for k, (v, t) in default_pricing.items():
+        if k not in existing_keys:
+            if t == "json":
+                from json import dumps
+                str_val = dumps(v)
+            else:
+                str_val = str(v)
+            setting = PlatformSetting(
+                key=k,
+                value=str_val,
+                value_type=t
+            )
+            db.add(setting)
+            updates_made = True
+
     if updates_made:
         db.commit()
         clear_settings_cache()

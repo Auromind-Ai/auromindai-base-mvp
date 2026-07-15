@@ -1,7 +1,4 @@
 import logging
-import re
-import posixpath
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from fastapi import Request, status
 from jose import jwt, JWTError
@@ -9,6 +6,41 @@ from app.core.config import settings
 import secrets
 
 logger = logging.getLogger(__name__)
+
+# Allowed origins for CORS headers in blocked admin responses
+_ADMIN_CORS_ORIGINS = [
+    "https://orbionagents.com",
+    "http://orbionagents.com",
+    "https://www.orbionagents.com",
+    "http://www.orbionagents.com",
+    "https://staging.orbionagents.com",
+    "https://growwdigitel.cloud",
+    "http://growwdigitel.cloud",
+    "https://www.growwdigitel.cloud",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+
+def _blocked_response(scope, request: Request, status_code: int, detail: str) -> JSONResponse:
+    """
+    Returns a JSONResponse that includes CORS headers for the requesting origin.
+    This is required because AdminConsoleMiddleware is the outermost middleware
+    and short-circuits before CORSMiddleware can add headers.
+    """
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in _ADMIN_CORS_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Vary"] = "Origin"
+
+    return JSONResponse(
+        status_code=status_code,
+        content={"detail": detail},
+        headers=headers,
+    )
+
 
 class AdminConsoleMiddleware:
     def __init__(self, app):
@@ -20,54 +52,65 @@ class AdminConsoleMiddleware:
             return
 
         request = Request(scope, receive=receive)
+
+        # Always pass OPTIONS through — CORSMiddleware handles preflight
         if request.method == "OPTIONS":
             await self.app(scope, receive, send)
             return
-            
-        # Normalize and collapse duplicate slashes in path (e.g. //admin -> /admin)
-        raw_path = request.url.path
-        normalized_path = posixpath.normpath(re.sub(r"/+", "/", raw_path))
-        scope["path"] = normalized_path
-        
+
+        path = request.url.path
         admin_prefix = "/admin"
 
-        # Check if normalized path matches admin console prefix
-        if normalized_path == admin_prefix or normalized_path.startswith(f"{admin_prefix}/"):
-            # Public entry point for Admin Secret submission
-            if normalized_path == f"{admin_prefix}/auth":
+        # Normalise path: strip trailing slash for admin routes to prevent 307 loops
+        if path.startswith("/admin/") and path != "/admin/":
+            # Only strip if there is a trailing slash and it's not the only char
+            stripped = path.rstrip("/")
+            if stripped != path:
+                scope["path"] = stripped
+                path = stripped
+
+        # Guard admin routes
+        if path.startswith(admin_prefix):
+            # Auth endpoint is always public
+            if path in (f"{admin_prefix}/auth", f"{admin_prefix}/auth/"):
                 await self.app(scope, receive, send)
                 return
-            
-            token = request.cookies.get("admin_session") or request.headers.get("x-admin-session")
+
+            token = request.cookies.get("admin_session")
             is_authorized = False
-            role = None
-            purpose = None
-            payload = None
-            
+
             if token:
                 try:
                     payload = jwt.decode(
                         token,
                         settings.SECRET_KEY,
-                        algorithms=[settings.ALGORITHM]
+                        algorithms=[settings.ALGORITHM],
                     )
                     role = payload.get("role") or payload.get("platform_role")
                     purpose = payload.get("purpose")
                     
                     if role == "platform_admin" and purpose == "admin_console":
                         is_authorized = True
-                        # Verify CSRF for unsafe methods targeting /admin paths
-                        if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
+                        # CSRF check for mutating methods
+                        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
                             expected_csrf = payload.get("csrf_token")
                             header_csrf = request.headers.get("x-admin-csrf-token")
                             if not expected_csrf or not secrets.compare_digest(str(expected_csrf), str(header_csrf or "")):
                                 logger.warning(
-                                    f"CSRF validation failed for {normalized_path} from IP {request.client.host if request.client else 'unknown'}"
+                                    "Admin CSRF validation failed for %s from %s",
+                                    path,
+                                    request.client.host if request.client else "unknown",
                                 )
-                                is_authorized = False
+                                resp = _blocked_response(
+                                    scope, request,
+                                    status.HTTP_403_FORBIDDEN,
+                                    "CSRF validation failed",
+                                )
+                                await resp(scope, receive, send)
+                                return
                 except JWTError:
                     pass
-            
+
             if not is_authorized:
                 reject_reason = "Unknown"
                 if not token:
@@ -80,14 +123,17 @@ class AdminConsoleMiddleware:
                     reject_reason = "CSRF verification failed"
 
                 logger.warning(
-                    f"Unauthorized access attempt to {normalized_path} from IP {request.client.host if request.client else 'unknown'}. "
-                    f"Reject reason: {reject_reason}"
+                    "Unauthorised admin request: %s %s from %s",
+                    request.method,
+                    path,
+                    request.client.host if request.client else "unknown",
                 )
-                response = JSONResponse(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    content={"detail": "Not Found"}
+                resp = _blocked_response(
+                    scope, request,
+                    status.HTTP_401_UNAUTHORIZED,
+                    "Admin authentication required",
                 )
-                await response(scope, receive, send)
+                await resp(scope, receive, send)
                 return
-        
+
         await self.app(scope, receive, send)

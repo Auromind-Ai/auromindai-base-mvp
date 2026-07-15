@@ -415,6 +415,8 @@ async def test_s3_connection(
         return make_test_response(False, "s3", "S3 Bucket, Access Key, and Secret Key are required", 0, "INVALID_CONFIGURATION")
         
     try:
+        import boto3
+        from botocore.config import Config
         config = Config(connect_timeout=10.0, read_timeout=10.0, retries={'max_attempts': 0})
         s3 = boto3.client(
             "s3",

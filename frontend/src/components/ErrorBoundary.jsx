@@ -19,7 +19,10 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
-        return this.props.fallback(this.state.error);
+        if (typeof this.props.fallback === "function") {
+          return this.props.fallback(this.state.error);
+        }
+        return this.props.fallback;
       }
       return (
         <div style={{ padding: "2rem", backgroundColor: "black", color: "red", border: "1px solid red" }}>

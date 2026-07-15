@@ -179,7 +179,7 @@ const INTEGRATIONS_DATA = [
         subHeader: 'Google',
         subHeaderBelow: false,
         badgeColor: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
-        description: 'Connect your WhatsApp business number to automate replies and manage conversations.',
+        description: 'Connect your Gmail account to manage outreach, draft replies, and monitor inboxes.',
         iconBg: 'from-red-400 via-yellow-400 to-green-400',
         glowColor: 'rgba(251,188,5,0.15)',
         cardBorder: '1px solid #FBBC05',
@@ -197,7 +197,7 @@ const INTEGRATIONS_DATA = [
         subHeader: 'Google',
         subHeaderBelow: false,
         badgeColor: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
-        description: 'Connect your WhatsApp business number to automate replies and manage conversations.',
+        description: 'Sync availability, coordinate meetings, and book appointments automatically in Google Calendar.',
         iconBg: 'from-blue-400 to-blue-600',
         glowColor: 'rgba(26,115,232,0.15)',
         cardBorder: '1px solid #1A73E8',
@@ -797,9 +797,13 @@ export default function ChannelsPage() {
             // Sync WhatsApp Status and Info
             if (data.whatsapp?.connected) {
                 setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone || "Connected" }));
+                setWhatsappPhoneId(data.whatsapp.phone_number_id || '');
+                setWhatsappWabaId(data.whatsapp.waba_id || '');
                 localStorage.setItem("whatsapp_connected", "true");
                 if (data.whatsapp.phone) localStorage.setItem("whatsapp_phone", data.whatsapp.phone);
             } else {
+                setWhatsappPhoneId('');
+                setWhatsappWabaId('');
                 localStorage.removeItem("whatsapp_connected");
                 localStorage.removeItem("whatsapp_phone");
             }
@@ -839,6 +843,8 @@ export default function ChannelsPage() {
                 twilio: data.twilio?.connected || false,
             }));
             if (data.whatsapp?.phone) setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone }));
+            if (data.whatsapp?.phone_number_id) setWhatsappPhoneId(data.whatsapp.phone_number_id);
+            if (data.whatsapp?.waba_id) setWhatsappWabaId(data.whatsapp.waba_id);
             if (data.instagram?.username) setConnectedInfo(prev => ({ ...prev, instagram: data.instagram.username }));
             if (data.twilio?.phone) setConnectedInfo(prev => ({ ...prev, twilio: data.twilio.phone }));
         } catch (err) {
@@ -868,6 +874,8 @@ export default function ChannelsPage() {
     const [showAuthToken, setShowAuthToken] = useState(false);
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({});
+    const [whatsappPhoneId, setWhatsappPhoneId] = useState('');
+    const [whatsappWabaId, setWhatsappWabaId] = useState('');
 
     // ─── Detect successful Twilio connection and advance to success screen ───
     // Watches twilioSubmitting transition (true → false) while on step 4
@@ -976,7 +984,9 @@ export default function ChannelsPage() {
             const data = await api.connectWhatsApp({ ...payload, workspace_id: workspace?.id });
             if (data.status === 'connected') {
                 setStatuses(prev => ({ ...prev, whatsapp: true }));
-                setConnectedInfo(prev => ({ ...prev, whatsapp: data.phone_number }));
+                setConnectedInfo(prev => ({ ...prev, whatsapp: data.phone_number || data.display_number }));
+                setWhatsappPhoneId(data.phone_number_id || '');
+                setWhatsappWabaId(data.waba_id || '');
                 localStorage.setItem("whatsapp_connected", "true");
             }
         } catch (err) {
@@ -1320,7 +1330,23 @@ const disconnectChannel = async (channelId) => {
 
                                             {/* Connected info */}
                                             {isConnected && info && (
-                                                <p className="mt-2 text-[11px] text-white/60 font-mono">{info}</p>
+                                                <div className="mt-2 space-y-1">
+                                                    <p className="text-[11px] text-white/60 font-mono">{info}</p>
+                                                    {item.id === 'whatsapp' && (
+                                                        <>
+                                                            {whatsappPhoneId && (
+                                                                <p className="text-[10px] text-white/40 font-mono">
+                                                                    Phone ID: <span className="text-white/60 select-all">{whatsappPhoneId}</span>
+                                                                </p>
+                                                            )}
+                                                            {whatsappWabaId && (
+                                                                <p className="text-[10px] text-white/40 font-mono">
+                                                                    WABA ID: <span className="text-white/60 select-all">{whatsappWabaId}</span>
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             )}
                                             {isConnecting && (
                                                 <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>
@@ -1472,7 +1498,7 @@ const disconnectChannel = async (channelId) => {
 
                 {/*  Footer  */}
                 <div className="mt-14 text-center text-white/50 text-[12px]">
-                    <p>Auromind AI securely handles your communication data according to our privacy policy.</p>
+                    <p>Orbion Agents securely handles your communication data according to our privacy policy.</p>
                 </div>
             </div>
 

@@ -1546,7 +1546,7 @@ function MyAccountSection({
 // ─ Main Component 
 
 export default function SettingsContent({ email }) {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   console.log('=== SETTINGS DEBUG ===', { user, email });
   const [activeSection, setActiveSection] = useState('my-account');
   const [preferredName, setPreferredName] = useState('User');
@@ -1684,7 +1684,7 @@ export default function SettingsContent({ email }) {
         {/*  Outer card wrapper  */}
         <div
           className="
-            flex flex-col xl:flex-row gap-0
+            flex flex-col lg:flex-row gap-0
             rounded-3xl overflow-hidden
             flex-1 min-h-0
             border border-[rgba(157,157,157,0.43)]
@@ -1696,7 +1696,8 @@ export default function SettingsContent({ email }) {
           {/* ════════════════════════════════════════
               MOBILE: top bar with section name + hamburger
           ════════════════════════════════════════ */}
-          <div className="xl:hidden flex items-center gap-2 px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
+          <div className="lg:hidden flex items-center justify-between pl-4 pr-14 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
+            <span className="text-sm font-semibold text-white">{activeLabel}</span>
             <button
               type="button"
               onClick={() => setSidebarOpen((v) => !v)}
@@ -1722,12 +1723,12 @@ export default function SettingsContent({ email }) {
           
             <aside
               className={`
-                xl:w-[240px] xl:min-w-[240px] xl:shrink-0
-                xl:block
-                border-b xl:border-b-0 border-[rgba(157,157,157,0.43)]
+                lg:w-[220px] lg:min-w-[220px] lg:shrink-0
+                lg:block
+                border-b lg:border-b-0 border-[rgba(157,157,157,0.43)]
                 bg-[#070012] p-3
-                ${sidebarOpen ? 'block flex-1' : 'hidden'}
-                xl:!block
+                ${sidebarOpen ? 'block' : 'hidden'}
+                lg:!block
               `}
             >
               {/*  Sidebar Card Wrapper  */}

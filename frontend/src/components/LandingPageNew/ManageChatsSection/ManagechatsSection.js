@@ -21,11 +21,13 @@ export default function ManageChatsSection() {
   const [viewportWidth, setViewportWidth] = useState(1440);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // FIX: Store sectionRef dimensions in state so they can be used during render safely
   const [sectionDims, setSectionDims] = useState({ width: 0, height: 900 });
 
   useEffect(() => {
+    setMounted(true);
     const updateWidth = () => {
       setViewportWidth(window.innerWidth);
       setIsMobile(window.innerWidth <= 640);
@@ -79,9 +81,10 @@ export default function ManageChatsSection() {
       size: Math.random() * 2 + 1,
       opacity: Math.random() * 0.12 + 0.05,
       color: colors[Math.floor(Math.random() * colors.length)],
-      floatX: (Math.random() - 0.5) * 28,
-      floatY: (Math.random() - 0.5) * 28,
-      duration: Math.random() * 5 + 3,
+      dx: (Math.random() - 0.5) * 32,
+      dy: (Math.random() - 0.5) * 32,
+      duration: Math.random() * 6 + 4,
+      delay: Math.random() * 3,
     }));
   }, [viewportWidth]);
 
@@ -117,7 +120,7 @@ export default function ManageChatsSection() {
 
       {/* ─── PARTICLES ─── */}
       <div className="absolute inset-0 z-0 overflow-hidden">
-        {isMobile ? (
+        {mounted && (isMobile ? (
           /* ── Mobile: CSS-only particles — zero JS per frame ── */
           mobileParticles.map((p) => (
             <div
@@ -172,11 +175,11 @@ export default function ManageChatsSection() {
               </motion.div>
             );
           })
-        )}
+        ))}
       </div>
 
       {/* Mouse follow glow — desktop only */}
-      {!isMobile && (
+      {mounted && !isMobile && (
         <motion.div
           className="pointer-events-none absolute z-[2] h-72 w-72 rounded-full bg-purple-500/10 blur-3xl hidden sm:block"
           animate={{ x: mouse.x - 144, y: mouse.y - 144, opacity: mouse.x < 0 ? 0 : 1 }}

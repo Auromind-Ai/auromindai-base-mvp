@@ -1024,6 +1024,7 @@ export default function SettingsPage() {
                         className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
                       />
                     </div>
+<<<<<<< HEAD
                   </div>
                   <div className="flex justify-end mt-4">
                     <button
@@ -1041,6 +1042,18 @@ export default function SettingsPage() {
                         "Test Google OAuth"
                       )}
                     </button>
+=======
+                    <div className="space-y-2">
+                       <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Google Integration Redirect URI</p>
+                       <input 
+                        type="text"
+                        value={settings.google_integration_redirect_uri || ""}
+                        onChange={(e) => handleInputChange("google_integration_redirect_uri", e.target.value)}
+                        placeholder="https://app.auromind.ai/api/integrations/google/callback"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+>>>>>>> 561607ccbefb38844079883400c81bb2ea34b159
                   </div>
                   <div className="flex justify-end mt-4">
                     <button
