@@ -40,7 +40,7 @@ const ProductDemoSection = dynamic(
 );
 
 const CtaSection = dynamic(
-  () => import('@/components/LandingPageNew/FinalCTASection/ctasection'),
+  () => import('@/components/LandingPageNew/FinalCTASection/Ctasection'),
   { ssr: true }
 );
 
