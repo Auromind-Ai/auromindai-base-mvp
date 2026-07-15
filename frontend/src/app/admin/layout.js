@@ -24,7 +24,7 @@ export default function AdminLayout({ children }) {
   }, [])
 
   useEffect(() => {
-    if (!mounted || isLoginPage) return
+    if (!mounted) return
 
     let active = true
 
@@ -38,8 +38,19 @@ export default function AdminLayout({ children }) {
           return
         }
 
-        // 2. For admin subpages, verify admin secret session
-        if (!isLoginPage) {
+        // 2. Verify admin secret session
+        if (isLoginPage) {
+          try {
+            await api.getPlatformDashboard()
+            // Already verified secret, redirect to dashboard directly
+            if (active) router.push("/admin/dashboard")
+            return
+          } catch (err) {
+            // Secret not verified yet, show the login form
+            if (active) setAuthVerified(true)
+          }
+        } else {
+          // For admin subpages, verify admin secret session
           try {
             await api.getPlatformDashboard()
           } catch (err) {
@@ -53,16 +64,15 @@ export default function AdminLayout({ children }) {
         if (active) setAuthVerified(true)
       } catch (err) {
         if (!active) return
-        // 401 = new AdminConsoleMiddleware response; 403/404 = legacy; 0/408 = network/timeout
+        // 401 = unauthorized, 403 = forbidden, 404 = not found -> render 404 for unauthorized users
         const isAuthError = err.status === 401 || err.status === 403 || err.status === 404
         const isNetworkError = err.isNetworkError || err.isTimeout || err.status === 0 || err.status === 408
         if (isAuthError) {
-          router.push("/admin")
+          setIsNotFound(true)
         } else if (isNetworkError) {
-          // Backend unreachable - still try to render the page; individual pages handle their own errors
+          // Backend unreachable - still try to render the page
           setAuthVerified(true)
         }
-        // Unknown errors: do not redirect, let the page handle it
       }
     }
 

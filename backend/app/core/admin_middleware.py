@@ -130,8 +130,8 @@ class AdminConsoleMiddleware:
                 )
                 resp = _blocked_response(
                     scope, request,
-                    status.HTTP_401_UNAUTHORIZED,
-                    "Admin authentication required",
+                    status.HTTP_404_NOT_FOUND,
+                    "Not Found",
                 )
                 await resp(scope, receive, send)
                 return
