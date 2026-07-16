@@ -42,14 +42,18 @@ const NavigationSection = () => {
       className={`${poppins.className} fixed top-0 left-0 right-0 z-[100] bg-black/80 backdrop-blur-md border-b border-white/10 py-3 sm:py-4 px-4 sm:px-6`}
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-white text-black flex items-center justify-center group-hover:scale-105 transition-all">
-            {appLogoUrl && appLogoUrl !== "/logo.png" ? (
-              <img src={appLogoUrl} alt={appName} className="w-5 h-5 object-contain" />
-            ) : (
-              <Zap size={18} fill="currentColor" />
-            )}
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 group hover:opacity-90 transition-opacity">
+          <img 
+            src={appLogoUrl || "/logo.png"} 
+            alt={appName} 
+            className="h-10 w-auto object-contain" 
+          />
+          <span className={`${jakarta.className} text-[16px] sm:text-[18px] font-extrabold tracking-[0.1em] text-white flex items-center`}>
+            ORBION
+            <span className="bg-gradient-to-r from-[#C084FC] via-[#A855F7] to-[#818CF8] bg-clip-text text-transparent ml-1.5 font-semibold tracking-[0.15em]">
+              AGENTS
+            </span>
+          </span>
         </Link>
 
           <div className="hidden lg:flex items-center gap-8">

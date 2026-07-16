@@ -16,7 +16,7 @@ function getCSRFToken() {
 export class APIClient {
   constructor(baseURL = '/api') {
     const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
-    this.baseURL = isProd ? 'https://api.orbionagents.com' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
+    this.baseURL = isProd ? 'https://app.orbionagents.com' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
     this.requestHooks = [];
     this.responseHooks = [];
   }

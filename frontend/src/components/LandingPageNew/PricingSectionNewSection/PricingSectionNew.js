@@ -39,7 +39,7 @@ export default function PricingSectionNew() {
   const router = useRouter();
 
   useEffect(() => {
-    api.getPricing().then(setSettings).catch(console.error);
+    api.getPricing().then(setSettings).catch(err => console.warn('Failed to load pricing details:', err?.message || err));
   }, []);
 
   const handlePlanClick = () => {

@@ -27,15 +27,16 @@ function writeCache(data) {
 }
 
 const BrandingContext = createContext({
-  appName: 'Orbionagents',
-  appLogoUrl: '',
+  appName: 'ORBION AGENTS',
+  appLogoUrl: '/logo.png',
   refreshBranding: async () => {},
 });
 
 export const BrandingProvider = ({ children }) => {
   const pathname = usePathname();
-  const [appName, setAppName] = useState('Orbionagents');
-  const [appLogoUrl, setAppLogoUrl] = useState('');
+  // Safe static defaults for initial render/hydration
+  const [appName, setAppName] = useState('ORBION AGENTS');
+  const [appLogoUrl, setAppLogoUrl] = useState('/logo.png');
 
   const refreshBranding = useCallback(async (force = false) => {
     // Skip the network call if we already have cached data and no force-refresh
@@ -43,19 +44,20 @@ export const BrandingProvider = ({ children }) => {
 
     try {
       const data = await api.getPublicBranding();
-      const nextName = data?.app_name || 'Orbionagents';
+      const nextName = data?.app_name || 'ORBION AGENTS';
       const nextLogo = data?.app_logo_url || '';
 
       setAppName(nextName);
       setAppLogoUrl(nextLogo);
       writeCache({ appName: nextName, appLogoUrl: nextLogo });
     } catch (err) {
-      console.error('Failed to load branding settings:', err);
+      console.warn('Failed to load branding settings:', err?.message || err);
     }
   }, []);
 
   // Fetch once on first mount; subsequent page navigations skip the call
   useEffect(() => {
+    // Load cache after mount (client-safe) to avoid hydration mismatch
     const cachedData = readCache();
     if (cachedData) {
       if (cachedData.appName) setAppName(cachedData.appName);
@@ -66,7 +68,7 @@ export const BrandingProvider = ({ children }) => {
 
   // Update browser favicon whenever the logo URL or pathname changes
   useEffect(() => {
-    if (!appLogoUrl) return;
+    if (!appLogoUrl || appLogoUrl === '/logo.png') return;
 
     const updateFavicons = (url) => {
       // Delay slightly to ensure Next.js has finished rendering/modifying layout head tags

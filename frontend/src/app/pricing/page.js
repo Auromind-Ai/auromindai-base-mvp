@@ -52,7 +52,7 @@ export default function PricingPage() {
   useEffect(() => {
     api.getPricing()
       .then(setSettings)
-      .catch(console.error);
+      .catch(err => console.warn('Failed to load pricing details:', err?.message || err));
   }, []);
 
   const scrollToCompare = () => {

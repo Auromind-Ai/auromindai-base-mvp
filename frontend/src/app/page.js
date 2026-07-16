@@ -40,7 +40,7 @@ const ProductDemoSection = dynamic(
 );
 
 const CtaSection = dynamic(
-  () => import('@/components/LandingPageNew/FinalCTASection/ctasection'),
+  () => import('@/components/LandingPageNew/FinalCTASection/Ctasection'),
   { ssr: true }
 );
 
@@ -57,6 +57,11 @@ const ManageChatsSection = dynamic(
 const NeuroHero = dynamic(
   () => import('../components/NeuroHero'),
   { ssr: true }
+);
+
+const WhatsAppShowcase = dynamic(
+  () => import('../components/LandingPageNew/WhatsAppShowcase/WhatsAppShowcase'),
+  { ssr: true, loading: () => <div className="min-h-[300px]" /> }
 );
 
 export const metadata = {
@@ -79,8 +84,8 @@ export const metadata = {
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-white relative">
-      <div className="fixed inset-0 opacity-[0.03] pointer-events-none z-0 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:32px_32px]" />
+    <main className="min-h-screen bg-[#0B0B0B] relative">
+      <div className="fixed inset-0 opacity-[0.03] pointer-events-none z-0 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:32px_32px]" />
 
       <div className="relative z-10">
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">Nav Error</div>}>
@@ -102,11 +107,15 @@ export default function LandingPage() {
           <ManageChatsSection />        
         </ErrorBoundary>
 
+        <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">WhatsAppShowcase Error</div>}>
+          <WhatsAppShowcase />
+        </ErrorBoundary>
+
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">Integrations Error</div>}>
           <IntegrationsSection />
         </ErrorBoundary>
 
-        <div className="relative z-10 bg-white">
+        <div className="relative z-10">
           
           <BeforeAfterSection />
 

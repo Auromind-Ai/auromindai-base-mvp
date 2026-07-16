@@ -52,9 +52,19 @@ export default function AdminLayout({ children }) {
 
         if (active) setAuthVerified(true)
       } catch (err) {
-        // Not logged in -> redirect to login
-        if (active) {
-          router.push("/login")
+        if (!active) return
+        // 401 = new AdminConsoleMiddleware response; 403/404 = legacy; 0/408 = network/timeout
+        const isAuthError = err.status === 401 || err.status === 403 || err.status === 404
+        const isNetworkError = err.isNetworkError || err.isTimeout || err.status === 0 || err.status === 408
+        if (isAuthError) {
+          if (isLoginPage) {
+            setIsNotFound(true)
+          } else {
+            router.push("/admin")
+          }
+        } else if (isNetworkError) {
+          // Backend unreachable - still try to render the page; individual pages handle their own errors
+          setAuthVerified(true)
         }
       }
     }
@@ -67,6 +77,14 @@ export default function AdminLayout({ children }) {
 
   if (isNotFound) {
     notFound()
+  }
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#020202] flex items-center justify-center text-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-indigo-500" />
+      </div>
+    )
   }
 
   // For admin login page - render without the sidebar/layout if verified as platform_admin

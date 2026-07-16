@@ -480,6 +480,7 @@ class ChatService:
 
         async def _run_generation() -> None:
             """Background task: runs LLM/RAG generation, pushes to queue, saves to DB."""
+            token = current_execution_context.set(ctx)
             r = None
             full_response_parts = []
             meta_payload = {}
@@ -623,6 +624,7 @@ class ChatService:
                         await r.aclose()
                     except Exception:
                         pass
+                current_execution_context.reset(token)
 
         # Start background generation — not tied to HTTP connection lifecycle
         generation_task = asyncio.create_task(_run_generation())

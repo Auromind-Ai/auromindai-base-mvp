@@ -1,4 +1,3 @@
-"""Account management endpoints — deletion request and cancellation."""
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session

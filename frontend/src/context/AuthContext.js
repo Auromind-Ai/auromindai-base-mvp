@@ -72,7 +72,7 @@ export function AuthProvider({ children }) {
         setUser(null);
         setWorkspace(null);
       } else {
-        console.error('Auth check failed (non-auth error):', err);
+        console.warn('Auth check failed (non-auth error):', err?.message || err);
       }
     } finally {
       setLoading(false);
@@ -114,7 +114,7 @@ export function AuthProvider({ children }) {
     try {
       await api.logout();
     } catch (err) {
-      console.error("Logout API call failed:", err);
+      console.warn("Logout API call failed:", err?.message || err);
     } finally {
       removeToken();
       setUserState(null);
