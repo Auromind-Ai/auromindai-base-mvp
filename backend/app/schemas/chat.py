@@ -22,6 +22,7 @@ class ChatMessageResponse(BaseModel):
     role: str
     content: str
     created_at: datetime
+    status: Optional[str] = 'COMPLETED'
 
     class Config:
         from_attributes = True

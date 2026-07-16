@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, AsyncGenerator
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from tenacity import RetryError
+from fastapi import HTTPException
 from app.core.exceptions import (
     BillingError,
     GuardrailError,
@@ -22,6 +23,15 @@ from app.services.ai.llm_router import LLMRouter
 from app.database import SessionLocal
 from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry, AIExecutionContext, current_execution_context
 
+async def _drain_queue(queue: asyncio.Queue):
+    """Async generator that yields items from an asyncio.Queue until None sentinel."""
+    while True:
+        item = await queue.get()
+        if item is None:
+            break
+        yield item
+
+
 class ChatServiceConfig(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
     google_api_key: Optional[str] = None
@@ -29,10 +39,43 @@ class ChatServiceConfig(BaseModel):
 
 class ChatService:
 
+    _redis_url: str = None
+
+    @classmethod
+    def _get_redis_url(cls) -> str:
+        if cls._redis_url is None:
+            from app.core.config import settings
+            cls._redis_url = settings.REDIS_URL
+        return cls._redis_url
+
     def __init__(self, config: ChatServiceConfig):
         self.config = config
         self.billing_service = BillingService()
         self.guardrails_service = GuardrailsService()
+
+    async def stop_generation(self, session_id: str, user_id: str) -> None:
+        """Publish a CANCEL signal for the given session's active generation.
+
+        Rate-limited to 1 publish per session per second via Redis NX key to
+        prevent Pub/Sub floods from rapid Stop/Send spam.
+        """
+        import redis.asyncio as aioredis
+        task_key = f"session:{session_id}" if session_id else f"user:{user_id}"
+        channel = f"chat_cancel_channel:{task_key}"
+        rate_key = f"stop_rate:{task_key}"
+        try:
+            r = aioredis.from_url(self._get_redis_url(), decode_responses=True)
+            # SET NX EX 1 — only succeeds if key doesn't exist (i.e. no recent publish)
+            acquired = await r.set(rate_key, "1", nx=True, ex=1)
+            if not acquired:
+                logger.debug(f"[ChatService] CANCEL rate-limited for {task_key} — skipping publish")
+                await r.aclose()
+                return
+            await r.publish(channel, "CANCEL")
+            await r.aclose()
+            logger.info(f"[ChatService] Published CANCEL to {channel}")
+        except Exception as e:
+            logger.warning(f"[ChatService] Redis publish failed for CANCEL: {e}")
 
     def _validate_workspace_access(
         self, db: Session, workspace_id: str, user_id: str
@@ -284,6 +327,40 @@ class ChatService:
             else:
                 raise BillingError("Failed to reserve credits")
             
+            # ── One active generation per conversation ───────────────────────────────────────
+            import redis.asyncio as aioredis
+            import time as _time
+            task_key = f"session:{session_id}" if session_id else f"user:{user_id}"
+            redis_active_key = f"active_generation:{task_key}"
+            channel = f"chat_cancel_channel:{task_key}"
+            try:
+                _r = aioredis.from_url(self._get_redis_url(), decode_responses=True)
+                existing = await _r.exists(redis_active_key)
+                if existing:
+                    logger.info(f"[ChatService] Active generation detected for {task_key} — publishing CANCEL")
+                    await _r.publish(channel, "CANCEL")
+                    # State-based wait: poll until key removed OR timeout (5 seconds)
+                    _deadline = _time.monotonic() + 5.0
+                    _cleared = False
+                    while _time.monotonic() < _deadline:
+                        await asyncio.sleep(0.15)
+                        still_exists = await _r.exists(redis_active_key)
+                        if not still_exists:
+                            _cleared = True
+                            break
+                    if not _cleared:
+                        await _r.aclose()
+                        raise HTTPException(
+                            status_code=409,
+                            detail="previous_generation_stopping"
+                        )
+                await _r.aclose()
+            except HTTPException:
+                raise
+            except Exception as _redis_err:
+                logger.warning(f"[ChatService] Redis check failed (continuing): {_redis_err}")
+            # ── End enforcement ────────────────────────────────────────────────────────────
+
             # Save User Message
             if session_id:
                 user_msg = ChatMessage(
@@ -323,23 +400,31 @@ class ChatService:
         if preflight.get("status") == "blocked":
             yield f"{json.dumps({'content': preflight['message']})}\n"
             return
-            
+
         safe_query = preflight["safe_query"]
         ctx = preflight["context"]
-        
-        # Fetch conversation history if session_id is provided
+
+        import redis.asyncio as aioredis
+        import socket
+        import time as _time
+
+        task_key = f"session:{session_id}" if session_id else f"user:{user_id}"
+        redis_active_key = f"active_generation:{task_key}"
+        cancel_channel = f"chat_cancel_channel:{task_key}"
+        worker_id = socket.gethostname()
+
+        # Fetch conversation history
         history_messages = []
         if session_id:
             try:
-                from app.models.conversation import ChatMessage
-                import uuid
-                sess_uuid = uuid.UUID(session_id) if isinstance(session_id, str) else session_id
-                # Fetch inside a temporary session
+                from app.models.conversation import ChatMessage as CM
+                import uuid as _uuid
+                sess_uuid = _uuid.UUID(session_id) if isinstance(session_id, str) else session_id
                 with SessionLocal() as db_hist:
                     history_messages = (
-                        db_hist.query(ChatMessage)
-                        .filter(ChatMessage.session_id == sess_uuid)
-                        .order_by(ChatMessage.created_at.desc())
+                        db_hist.query(CM)
+                        .filter(CM.session_id == sess_uuid)
+                        .order_by(CM.created_at.desc())
                         .limit(6)
                         .all()
                     )
@@ -347,113 +432,205 @@ class ChatService:
             except Exception as e:
                 logger.error(f"Failed to fetch conversation history: {e}")
 
-        async def run_stream():
-            rag_answered = False
+        # Insert placeholder assistant message with status=GENERATING
+        placeholder_id = str(uuid.uuid4())
+        if session_id:
+            with SessionLocal() as ph_db:
+                try:
+                    ph_msg = ChatMessage(
+                        id=placeholder_id,
+                        session_id=session_id,
+                        role="assistant",
+                        content="",
+                        status="GENERATING",
+                    )
+                    ph_db.add(ph_msg)
+                    ph_db.commit()
+                except Exception as e:
+                    logger.error(f"Failed to insert placeholder message: {e}")
+
+        # Queue for streaming chunks to the HTTP client
+        queue: asyncio.Queue = asyncio.Queue()
+        _cancelled = asyncio.Event()
+
+        async def _refresh_redis_key(r) -> None:
+            """Keep the Redis active key alive during generation."""
+            while not _cancelled.is_set():
+                try:
+                    await r.expire(redis_active_key, 120)
+                except Exception:
+                    pass
+                await asyncio.sleep(30)
+
+        async def _listen_for_cancel(r) -> None:
+            """Subscribe to Redis cancel channel and set _cancelled on CANCEL signal."""
+            try:
+                pubsub = r.pubsub()
+                await pubsub.subscribe(cancel_channel)
+                async for msg in pubsub.listen():
+                    if _cancelled.is_set():
+                        break
+                    if msg.get("type") == "message" and msg.get("data") == "CANCEL":
+                        logger.info(f"[ChatService] Received CANCEL for {task_key}")
+                        _cancelled.set()
+                        break
+                await pubsub.unsubscribe(cancel_channel)
+            except Exception as e:
+                logger.warning(f"[ChatService] Cancel listener error: {e}")
+
+        async def _run_generation() -> None:
+            """Background task: runs LLM/RAG generation, pushes to queue, saves to DB."""
+            r = None
             full_response_parts = []
             meta_payload = {}
+            final_status = "COMPLETED"
             try:
-                if use_rag:
-                    try:
-                        with SessionLocal() as rag_db:
-                            async for chunk in self._get_rag_answer_stream(
-                                db=rag_db,
-                                workspace_id=workspace_id,
-                                query=safe_query,
-                                model=model,
-                                source=source,
-                                document_id=document_id,
-                                session_id=session_id,
-                            ):
-                                content = chunk.get("content", "")
-                                meta = chunk.get("meta")
-                                status = chunk.get("status")
-                                error = chunk.get("error")
-                                if content:
-                                    full_response_parts.append(content)
-                                    yield {"content": content}
-                                if meta:
-                                    meta_payload = meta
-                                    yield {"meta": meta}
-                                if status:
-                                    yield {"status": status}
-                                if error:
-                                    yield {"error": error}
-                            
-                            words = len("".join(full_response_parts).split())
-                            est_output = int(words * 1.3)
-                            est_input = int(len(safe_query.split()) * 1.3)
-                            ctx.usage["input_tokens"] = est_input
-                            ctx.usage["output_tokens"] = est_output
-                            ctx.usage["total_tokens"] = est_input + est_output
-                            rag_answered = True
-                    except asyncio.TimeoutError:
-                        logger.warning("RAG call timed out, falling back to LLM")
-                    except Exception as e:
-                        logger.error(f"Unexpected error in RAG: {e}")
+                r = aioredis.from_url(self._get_redis_url(), decode_responses=True)
+                # Register this worker as active
+                await r.setex(redis_active_key, 120, worker_id)
 
-                if not rag_answered:
-                    router = LLMRouter()
-                 
-                    _ctx = current_execution_context.get()
-                    _config = _ctx.resolved_config if _ctx else None
-                    
-                    async for chunk in router.generate_stream(safe_query, model=model, config=_config, history=history_messages):
-                        text_chunk = chunk.get("text", "")
-                        if text_chunk:
-                            full_response_parts.append(text_chunk)
-                            
-                            words = len("".join(full_response_parts).split())
-                            est_output = int(words * 1.3)
-                            est_input = int(len(safe_query.split()) * 1.3)
-                            ctx.usage["input_tokens"] = est_input
-                            ctx.usage["output_tokens"] = est_output
-                            ctx.usage["total_tokens"] = est_input + est_output
-                            
-                            yield {"content": text_chunk}
-                        
-                        if "usage" in chunk:
-                            usage = chunk.get("usage", {})
-                            ctx.usage["input_tokens"] = usage.get("input_tokens", 0)
-                            ctx.usage["output_tokens"] = usage.get("output_tokens", 0)
-                            ctx.usage["total_tokens"] = usage.get("total_tokens", 0)
-                            ctx.provider = chunk.get("provider") or ctx.provider
-                            ctx.model = chunk.get("model") or ctx.model
-                            
-                            meta_payload = {
-                                "query": message,
-                                "rewritten_query": safe_query,
-                                "tool": "reasoning",
-                                "model": chunk.get("model", model),
-                                "confidence_score": None,  
-                                "source": "llm"
-                            }
-                            yield {"meta": meta_payload}
+                # Start Redis maintenance tasks
+                refresh_task = asyncio.create_task(_refresh_redis_key(r))
+                cancel_task = asyncio.create_task(_listen_for_cancel(r))
+
+                rag_answered = False
+                try:
+                    if use_rag:
+                        try:
+                            with SessionLocal() as rag_db:
+                                async for chunk in self._get_rag_answer_stream(
+                                    db=rag_db,
+                                    workspace_id=workspace_id,
+                                    query=safe_query,
+                                    model=model,
+                                    source=source,
+                                    document_id=document_id,
+                                    session_id=session_id,
+                                ):
+                                    if _cancelled.is_set():
+                                        break
+                                    content = chunk.get("content", "")
+                                    meta = chunk.get("meta")
+                                    status = chunk.get("status")
+                                    error = chunk.get("error")
+                                    if content:
+                                        full_response_parts.append(content)
+                                        await queue.put({"content": content})
+                                    if meta:
+                                        meta_payload = meta
+                                        await queue.put({"meta": meta})
+                                    if status:
+                                        await queue.put({"status": status})
+                                    if error:
+                                        await queue.put({"error": error})
+                                if full_response_parts:
+                                    rag_answered = True
+                        except asyncio.CancelledError:
+                            pass
+                        except Exception as e:
+                            logger.error(f"RAG error: {e}")
+
+                    if not rag_answered and not _cancelled.is_set():
+                        router = LLMRouter()
+                        _ctx = current_execution_context.get()
+                        _config = _ctx.resolved_config if _ctx else None
+                        async for chunk in router.generate_stream(safe_query, model=model, config=_config, history=history_messages):
+                            if _cancelled.is_set():
+                                break
+                            text_chunk = chunk.get("text", "")
+                            if text_chunk:
+                                full_response_parts.append(text_chunk)
+                                await queue.put({"content": text_chunk})
+                            if "usage" in chunk:
+                                usage = chunk.get("usage", {})
+                                ctx.usage["input_tokens"] = usage.get("input_tokens", 0)
+                                ctx.usage["output_tokens"] = usage.get("output_tokens", 0)
+                                ctx.usage["total_tokens"] = usage.get("total_tokens", 0)
+                                ctx.provider = chunk.get("provider") or ctx.provider
+                                ctx.model = chunk.get("model") or ctx.model
+                                meta_payload = {
+                                    "query": message,
+                                    "rewritten_query": safe_query,
+                                    "tool": "reasoning",
+                                    "model": chunk.get("model", model),
+                                    "confidence_score": None,
+                                    "source": "llm"
+                                }
+                                await queue.put({"meta": meta_payload})
+                finally:
+                    refresh_task.cancel()
+                    cancel_task.cancel()
+                    try:
+                        await refresh_task
+                    except asyncio.CancelledError:
+                        pass
+                    try:
+                        await cancel_task
+                    except asyncio.CancelledError:
+                        pass
+
+                if _cancelled.is_set():
+                    final_status = "CANCELLED"
+
+            except asyncio.CancelledError:
+                final_status = "CANCELLED"
+            except Exception as e:
+                logger.error(f"[ChatService] Generation error: {e}")
+                final_status = "FAILED"
+                await queue.put({"error": str(e)})
             finally:
+                # Always signal end of stream
+                await queue.put(None)
+
+                # Persist to DB
                 full_response = "".join(full_response_parts)
-                if session_id and full_response:
+                if session_id:
                     with SessionLocal() as cleanup_db:
                         try:
-                            safe_full_response = await self.guardrails_service.secure_response(full_response)
-                            ai_msg = ChatMessage(
-                                id=str(uuid.uuid4()),
-                                session_id=session_id,
-                                role="assistant",
-                                content=safe_full_response,
-                            )
-                            cleanup_db.add(ai_msg)
+                            safe_full_response = await self.guardrails_service.secure_response(full_response) if full_response else ""
+                            msg = cleanup_db.query(ChatMessage).filter(
+                                ChatMessage.id == placeholder_id
+                            ).first()
+                            if msg:
+                                msg.content = safe_full_response
+                                msg.status = final_status
+                            else:
+                                # Fallback: create new message record
+                                ai_msg = ChatMessage(
+                                    id=placeholder_id,
+                                    session_id=session_id,
+                                    role="assistant",
+                                    content=safe_full_response,
+                                    status=final_status,
+                                )
+                                cleanup_db.add(ai_msg)
 
-                            session = cleanup_db.query(ChatSession).filter(
+                            session_obj = cleanup_db.query(ChatSession).filter(
                                 ChatSession.id == session_id
                             ).first()
-                            if session:
-                                session.updated_at = datetime.utcnow()
+                            if session_obj:
+                                session_obj.updated_at = datetime.utcnow()
                             cleanup_db.commit()
+                            logger.info(f"[ChatService] Saved message {placeholder_id} with status={final_status}")
                         except Exception as save_err:
                             cleanup_db.rollback()
                             logger.error(f"Failed to save assistant message: {save_err}")
 
+                # Remove Redis active key so the next generation can start
+                if r:
+                    try:
+                        await r.delete(redis_active_key)
+                        await r.aclose()
+                    except Exception:
+                        pass
+
+        # Start background generation — not tied to HTTP connection lifecycle
+        generation_task = asyncio.create_task(_run_generation())
+
+        # Execute through billing wrapper
         db = SessionLocal()
         try:
+            # Stream chunks to client from the queue
             async for chunk in AIExecutionService.execute_stream(
                 db=db,
                 workspace_id=workspace_id,
@@ -461,29 +638,29 @@ class ChatService:
                 feature_key=AIFeatureRegistry.CHAT,
                 prompt=message,
                 context=ctx,
-                execute_fn=run_stream
+                execute_fn=lambda: _drain_queue(queue)
             ):
                 content = chunk.get("content", "")
                 meta = chunk.get("meta")
-                status = chunk.get("status")
+                status_val = chunk.get("status")
                 error = chunk.get("error")
                 if content:
                     yield f"{json.dumps({'content': content})}\n"
                 if meta:
                     yield f"{json.dumps({'meta': meta})}\n"
-                if status:
-                    yield f"{json.dumps({'status': status})}\n"
+                if status_val:
+                    yield f"{json.dumps({'status': status_val})}\n"
                 if error:
                     yield f"{json.dumps({'error': error})}\n"
-            
             db.commit()
-
-        except (asyncio.CancelledError, GeneratorExit) as e:
+        except (asyncio.CancelledError, GeneratorExit):
+            # Client disconnected — do NOT cancel generation_task
+            # Let it complete in background and save to DB
+            logger.info(f"[ChatService] Client disconnected for {task_key} — generation continues in background")
             try:
                 db.commit()
-            except Exception as commit_err:
-                logger.error(f"Failed to commit db session on stream cancel/exit: {commit_err}")
-            raise e
+            except Exception:
+                pass
         except Exception as e:
             db.rollback()
             logger.error(f"Stream execution failed: {e}")

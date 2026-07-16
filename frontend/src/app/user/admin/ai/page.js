@@ -178,6 +178,7 @@ export default function AuromindAIPage() {
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [editingIndex, setEditingIndex] = useState(null);
     const [editValue, setEditValue] = useState('');
@@ -195,6 +196,8 @@ export default function AuromindAIPage() {
     const [sessionsLoaded, setSessionsLoaded] = useState(false);
     const abortControllerRef = useRef(null);
     const lastTypedTextRef = useRef('');
+    const lastStopTimeRef = useRef(0);
+    const readerRef = useRef(null);
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
     const [chatMode, setChatMode] = useState("auto");
@@ -205,7 +208,7 @@ export default function AuromindAIPage() {
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
     const skipNextSessionFetchRef = useRef(false);
-    
+
     const responseBufferRef = useRef('');
     const renderedTextRef = useRef('');
     const animationFrameRef = useRef(null);
@@ -213,13 +216,33 @@ export default function AuromindAIPage() {
     const isStreamActiveRef = useRef(false);
     const nextTypeTimeRef = useRef(0);
 
+    // Comprehensive unmount cleanup — guarantees no dangling HTTP stream, reader, or timers
     useEffect(() => {
         return () => {
+            // 1. Abort any in-flight HTTP fetch
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
+            // 2. Cancel the ReadableStream reader
+            if (readerRef.current) {
+                readerRef.current.cancel().catch(() => {});
+                readerRef.current = null;
+            }
+            // 3. Cancel animation frame
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
             }
+            // 4. Clear polling timer
+            if (pollingRef.current) {
+                clearInterval(pollingRef.current);
+                pollingRef.current = null;
+            }
+            // 5. Reset stream flags so a remounted component starts clean
+            isStreamActiveRef.current = false;
+            isAnimatingRef.current = false;
         };
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const startTypingAnimation = () => {
         if (isAnimatingRef.current) return;
@@ -260,6 +283,7 @@ export default function AuromindAIPage() {
                 animationFrameRef.current = requestAnimationFrame(animate);
             } else {
                 isAnimatingRef.current = false;
+                setIsStreaming(false);
                 setMessages(prev => prev.map((msg, i) => (i === prev.length - 1 && msg.role === 'assistant') ? { ...msg, isStreaming: false } : msg));
             }
         };
@@ -396,7 +420,21 @@ export default function AuromindAIPage() {
             setIsInitializing(true);
             try {
                 const history = await api.getSessionMessages(currentSessionId);
-                setMessages(history.map(m => ({ role: m.role, content: m.content, isStreaming: false })));
+                const mapped = history.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    isStreaming: false,
+                    generationStatus: m.status || 'COMPLETED',
+                }));
+                setMessages(mapped);
+                // Auto-start polling if backend is still generating
+                // Guard: only start if no poll is already running (avoids duplicates with handleSelectSession)
+                const hasActive = mapped.some(
+                    m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING'
+                );
+                if (hasActive && !pollingRef.current) {
+                    startPollingSession(currentSessionId);
+                }
             } catch (err) {
                 console.error("Failed to load session messages:", err);
                 setMessages([{ role: 'assistant', content: "Failed to load chat history.", isError: true }]);
@@ -414,7 +452,18 @@ export default function AuromindAIPage() {
         setMessages([]);
         try {
             const history = await api.getSessionMessages(sessionId);
-            setMessages(history.map(m => ({ role: m.role, content: m.content, isStreaming: false })));
+            const mapped = history.map(m => ({
+                role: m.role,
+                content: m.content,
+                isStreaming: false,
+                generationStatus: m.status || 'COMPLETED',
+            }));
+            setMessages(mapped);
+            // If any message is still generating, start polling
+            const hasActive = mapped.some(m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING');
+            if (hasActive) {
+                startPollingSession(sessionId);
+            }
         } catch (err) {
             setMessages([{ role: 'assistant', content: "Failed to load chat history.", isError: true }]);
         } finally {
@@ -469,14 +518,69 @@ export default function AuromindAIPage() {
         container.addEventListener('scroll', handleScroll, { passive: true });
         return () => container.removeEventListener('scroll', handleScroll);
     }, [messages.length]); // re-attach when chat view appears
-    const handleStop = () => {
-        if (abortControllerRef.current) abortControllerRef.current.abort();
-        setIsLoading(false);
-        setMessages(prev => prev.map(msg => msg.isStreaming ? { ...msg, content: lastTypedTextRef.current, isStreaming: false } : msg));
+    const pollingRef = useRef(null);
+
+    const startPollingSession = useCallback((sessionId) => {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+        pollingRef.current = setInterval(async () => {
+            try {
+                const history = await api.getSessionMessages(sessionId);
+                const mapped = history.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    isStreaming: false,
+                    generationStatus: m.status || 'COMPLETED',
+                }));
+                setMessages(mapped);
+                const stillActive = mapped.some(m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING');
+                if (!stillActive) {
+                    clearInterval(pollingRef.current);
+                    pollingRef.current = null;
+                }
+            } catch (_) {}
+        }, 2000);
+    }, []);
+
+    // Cleanup polling on unmount — handled in the combined unmount useEffect above
+    // (kept as a safety net for poll started after initial mount)
+    useEffect(() => {
+        return () => {
+            if (pollingRef.current) clearInterval(pollingRef.current);
+        };
+    }, []);
+
+    const handleStop = useCallback(async () => {
+        // Debounce: ignore rapid re-clicks within 1 second
+        const now = Date.now();
+        if (now - lastStopTimeRef.current < 1000) return;
+        lastStopTimeRef.current = now;
+
+        // Stop local animation immediately
+        isStreamActiveRef.current = false;
+        isAnimatingRef.current = false;
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+
+        // Abort the HTTP stream
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+
+        // Preserve partial response already typed
+        setMessages(prev => prev.map(msg =>
+            msg.isStreaming ? { ...msg, content: lastTypedTextRef.current || msg.content, isStreaming: false } : msg
+        ));
         lastTypedTextRef.current = '';
-    };
+        setIsLoading(false);
+        setIsStreaming(false);
+
+        // Signal backend to cancel the server-side generation
+        try {
+            await api.stopChat(currentSessionId);
+        } catch (_) {}
+    }, [currentSessionId]);
     const handleExecute = async () => {
-        if ((!inputValue.trim() && !attachedFile) || isLoading) return;
+        if ((!inputValue.trim() && !attachedFile) || isLoading || isStreaming) return;
         if (selectedModel === "groq" && attachedFile && attachedFile.type.startsWith("image/")) {
             setMessages(prev => [...prev, { role: 'assistant', content: "Groq model does not support image analysis. Please switch to Gemini or Claude.", isError: true }]);
             return;
@@ -489,6 +593,7 @@ export default function AuromindAIPage() {
         setIsLoading(true);
         setMessages(prev => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
         abortControllerRef.current = new AbortController();
+        setIsStreaming(true);
         try {
             let activeSessionId = currentSessionId;
             if (!activeSessionId) {
@@ -528,6 +633,7 @@ export default function AuromindAIPage() {
             startTypingAnimation();
 
             const reader = res.body.getReader();
+            readerRef.current = reader;  // tracked for cleanup on unmount
             const decoder = new TextDecoder();
             let fullText = '';
             setIsLoading(false);
@@ -581,12 +687,22 @@ export default function AuromindAIPage() {
             isStreamActiveRef.current = false;
             isAnimatingRef.current = false;
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            if (err.name === 'AbortError') { console.log('Fetch aborted'); }
-            else {
+            if (err.name === 'AbortError') {
+                console.log('Fetch aborted by user');
+            } else if (err.status === 409 || (err.data && err.data.detail === 'previous_generation_stopping')) {
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? {
+                    ...msg,
+                    content: "Previous response is still stopping. Please wait a moment and try again.",
+                    isError: true,
+                    isStreaming: false
+                } : msg));
+            } else {
                 console.error(err);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } finally {
+            readerRef.current = null;           // reader is done — release the ref
+            if (!isAnimatingRef.current) setIsStreaming(false);
             setIsLoading(false);
             abortControllerRef.current = null;
             // Force scroll to bottom after send
@@ -811,7 +927,7 @@ export default function AuromindAIPage() {
         }
     };
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleExecute(); }
+        if (e.key === 'Enter' && !e.shiftKey && !isStreaming) { e.preventDefault(); handleExecute(); }
     };
     function formatAssistantMessage(text) {
         if (!text) return text;
@@ -975,6 +1091,15 @@ export default function AuromindAIPage() {
                                                             )}
                                                         </div>
                                                     </div>
+                                                    {isStreaming ? (
+                                                    <button
+                                                        onClick={handleStop}
+                                                        className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30"
+                                                        title="Stop generation"
+                                                    >
+                                                        <Square size={14} fill="currentColor" />
+                                                    </button>
+                                                ) : (
                                                     <button
                                                         onClick={handleExecute}
                                                         disabled={!inputValue.trim() || isLoading}
@@ -982,6 +1107,7 @@ export default function AuromindAIPage() {
                                                     >
                                                         <Send size={16} />
                                                     </button>
+                                                )}
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -1090,7 +1216,7 @@ export default function AuromindAIPage() {
                                                                     )}
                                                                 </div>
                                                                 <div className={`text-[13px] md:text-[15px] leading-[1.6] md:leading-[1.75] text-[#d4d4d4] max-w-none px-1 ${msg.isError ? 'text-red-400' : ''}`}>
-                                                                    {msg.isStreaming && msg.content === '' ? (
+                                                                    {(msg.isStreaming && msg.content === '') || (msg.generationStatus === 'GENERATING' || msg.generationStatus === 'PENDING') ? (
                                                                         <div className="flex items-center gap-3 text-purple-400 py-2 animate-pulse">
                                                                             <div className="relative w-4 h-4 shrink-0">
                                                                                 <div className="absolute inset-0 border-2 border-purple-500/20 rounded-full" />
@@ -1102,7 +1228,8 @@ export default function AuromindAIPage() {
                                                                                 {msg.status === 'searching' && "🌐 Searching the web..."}
                                                                                 {msg.status === 'retrieving' && "📚 Retrieving documents..."}
                                                                                 {msg.status === 'synthesizing' && "🤖 Formulating answer..."}
-                                                                                {!msg.status && "⚡ Gathering insights..."}
+                                                                                {(msg.generationStatus === 'GENERATING' || msg.generationStatus === 'PENDING') && !msg.status && "⚡ Generating response..."}
+                                                                                {!msg.status && msg.generationStatus !== 'GENERATING' && msg.generationStatus !== 'PENDING' && "⚡ Gathering insights..."}
                                                                             </span>
                                                                         </div>
                                                                     ) : (
@@ -1140,6 +1267,16 @@ export default function AuromindAIPage() {
                                                                         </div>
                                                                     )}
                                                                 </div>
+                                                                {msg.generationStatus === 'CANCELLED' && (
+                                                                    <div className="flex items-center gap-1.5 mt-1 px-1">
+                                                                        <span className="text-[11px] text-gray-500 italic">Stopped by user</span>
+                                                                    </div>
+                                                                )}
+                                                                {msg.generationStatus === 'FAILED' && !msg.content && (
+                                                                    <div className="flex items-center gap-1.5 mt-1 px-1">
+                                                                        <span className="text-[11px] text-rose-500 italic">Generation failed</span>
+                                                                    </div>
+                                                                )}
                                                                 {!msg.isStreaming && (
                                                                     <div className="flex items-center gap-1.5 mt-3 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
 
@@ -1400,12 +1537,17 @@ export default function AuromindAIPage() {
                                                 className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
                                                 rows={1}
                                             />
-                                            <button
-                                                onClick={isLoading ? handleStop : handleExecute}
-                                                disabled={!inputValue.trim() && !isLoading}
-                                                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${inputValue.trim() || isLoading ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 hover:bg-purple-500' : 'bg-white/5 text-gray-700'}`}
+                                                                                        <button
+                                                onClick={isStreaming ? handleStop : handleExecute}
+                                                disabled={!inputValue.trim() && !isStreaming}
+                                                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                                                    isStreaming
+                                                        ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20 hover:bg-rose-500'
+                                                        : inputValue.trim() ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 hover:bg-purple-500' : 'bg-white/5 text-gray-700'
+                                                }`}
+                                                title={isStreaming ? 'Stop generation' : 'Send message'}
                                             >
-                                                {isLoading ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
+                                                {isStreaming ? <Square size={14} fill="currentColor" /> : <ArrowUp size={18} />}
                                             </button>
                                         </div>
                                     </div>

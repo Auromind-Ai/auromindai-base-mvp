@@ -281,7 +281,7 @@ def seed_settings_from_env(db: Session):
         "token_limit_per_plan": ({"free": 1000000, "solo": 15000000, "pro": 100000000, "enterprise": 500000000}, "json")
     }
     for k, (v, t) in default_pricing.items():
-        if k not in existing_keys:
+        if k not in existing_settings:
             if t == "json":
                 from json import dumps
                 str_val = dumps(v)

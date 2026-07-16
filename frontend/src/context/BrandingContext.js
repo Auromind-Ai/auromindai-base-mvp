@@ -26,19 +26,16 @@ function writeCache(data) {
   }
 }
 
-const cached = readCache();
-
 const BrandingContext = createContext({
-  appName: cached?.appName || 'Orbionagents',
-  appLogoUrl: cached?.appLogoUrl || '',
+  appName: 'Orbionagents',
+  appLogoUrl: '',
   refreshBranding: async () => {},
 });
 
 export const BrandingProvider = ({ children }) => {
   const pathname = usePathname();
-  // Initialise from cache so first render already has the right values — no flash
-  const [appName, setAppName] = useState(cached?.appName || 'Orbionagents');
-  const [appLogoUrl, setAppLogoUrl] = useState(cached?.appLogoUrl || '');
+  const [appName, setAppName] = useState('Orbionagents');
+  const [appLogoUrl, setAppLogoUrl] = useState('');
 
   const refreshBranding = useCallback(async (force = false) => {
     // Skip the network call if we already have cached data and no force-refresh
@@ -59,6 +56,11 @@ export const BrandingProvider = ({ children }) => {
 
   // Fetch once on first mount; subsequent page navigations skip the call
   useEffect(() => {
+    const cachedData = readCache();
+    if (cachedData) {
+      if (cachedData.appName) setAppName(cachedData.appName);
+      if (cachedData.appLogoUrl) setAppLogoUrl(cachedData.appLogoUrl);
+    }
     refreshBranding();
   }, [refreshBranding]);
 

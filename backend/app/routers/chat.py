@@ -41,7 +41,7 @@ def create_session(
 
 
 @router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
-def get_session_messages(
+async def get_session_messages(
     session_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
@@ -50,12 +50,37 @@ def get_session_messages(
     logger.info(f"[GET MESSAGES] user={current_user.id} session={session_id}")
     session = SessionService.get_session_or_404(db, session_id, str(current_user.id), str(workspace_id))
     messages = SessionService.get_messages(db, session.id)
-    return [
-        ChatMessageResponse(
-            id=m.id, role=m.role, content=m.content, created_at=m.created_at
+
+    # Recover stale GENERATING/PENDING messages whose workers have died
+    import redis.asyncio as aioredis
+    from app.core.config import settings
+    result = []
+    for m in messages:
+        msg_status = getattr(m, "status", "COMPLETED") or "COMPLETED"
+        if msg_status in ("GENERATING", "PENDING") and str(m.session_id):
+            # Check if Redis generation key still exists
+            try:
+                r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                task_key = f"session:{str(m.session_id)}"
+                key_exists = await r.exists(f"active_generation:{task_key}")
+                await r.aclose()
+                if not key_exists:
+                    # Worker died — mark as FAILED
+                    m.status = "FAILED"
+                    if not m.content:
+                        m.content = "Generation failed. Please try again."
+                    db.add(m)
+                    db.commit()
+                    msg_status = "FAILED"
+            except Exception:
+                pass  # Redis unavailable — leave status as-is
+        result.append(
+            ChatMessageResponse(
+                id=m.id, role=m.role, content=m.content, created_at=m.created_at,
+                status=msg_status
+            )
         )
-        for m in messages
-    ]
+    return result
 
 
 @router.delete("/sessions/{session_id}")
@@ -162,6 +187,19 @@ async def stream_chat(
             except Exception as release_err:
                 logger.error(f"Failed to defensively release reservation in router: {release_err}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/stop")
+async def stop_chat_stream(
+    request: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    service: ChatService = Depends(get_chat_service),
+):
+    verify_workspace_access(current_user, db)
+    session_id = request.get("session_id")
+    await service.stop_generation(session_id=session_id, user_id=str(current_user.id))
+    return {"message": "Stop signal sent"}
+
 
 @router.get("/models")
 def get_chat_models(

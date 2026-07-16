@@ -38,19 +38,8 @@ export default function AdminLayout({ children }) {
           return
         }
 
-        // 2. Verify admin secret session
-        if (isLoginPage) {
-          try {
-            await api.getPlatformDashboard()
-            // Already verified secret, redirect to dashboard directly
-            if (active) router.push("/admin/dashboard")
-            return
-          } catch (err) {
-            // Secret not verified yet, show the login form
-            if (active) setAuthVerified(true)
-          }
-        } else {
-          // For admin subpages, verify admin secret session
+        // 2. For admin subpages, verify admin secret session
+        if (!isLoginPage) {
           try {
             await api.getPlatformDashboard()
           } catch (err) {
@@ -63,15 +52,9 @@ export default function AdminLayout({ children }) {
 
         if (active) setAuthVerified(true)
       } catch (err) {
-        if (!active) return
-        // 401 = unauthorized, 403 = forbidden, 404 = not found -> render 404 for unauthorized users
-        const isAuthError = err.status === 401 || err.status === 403 || err.status === 404
-        const isNetworkError = err.isNetworkError || err.isTimeout || err.status === 0 || err.status === 408
-        if (isAuthError) {
-          setIsNotFound(true)
-        } else if (isNetworkError) {
-          // Backend unreachable - still try to render the page
-          setAuthVerified(true)
+        // Not logged in -> redirect to login
+        if (active) {
+          router.push("/login")
         }
       }
     }

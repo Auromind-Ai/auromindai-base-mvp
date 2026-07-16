@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Sparkles,
+    Square,
     Search,
     FileText,
     Image,
@@ -22,6 +23,48 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [chatMode, setChatMode] = useState('New AI chat');
+    const [isStreaming, setIsStreaming] = useState(false);
+    const abortControllerRef = useRef(null);
+    const lastStopTimeRef = useRef(0);
+    const readerRef = useRef(null);
+
+    // Unmount cleanup: abort fetch + cancel reader — ensures no dangling HTTP stream
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
+            if (readerRef.current) {
+                readerRef.current.cancel().catch(() => {});
+                readerRef.current = null;
+            }
+        };
+    }, []);
+
+    const handleStopChat = useCallback(async () => {
+        // Debounce: ignore rapid re-clicks within 1 second
+        const now = Date.now();
+        if (now - lastStopTimeRef.current < 1000) return;
+        lastStopTimeRef.current = now;
+
+        // Cancel the ReadableStream reader first (synchronous, immediate)
+        if (readerRef.current) {
+            readerRef.current.cancel().catch(() => {});
+            readerRef.current = null;
+        }
+        // Abort the underlying HTTP fetch
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setIsStreaming(false);
+        setIsLoading(false);
+        // Publish CANCEL signal to backend
+        try {
+            await api.stopChat(null);
+        } catch (_) {}
+    }, []);
 
     const SUGGESTED_ACTIONS = [
         { icon: Search, label: 'Search for anything', color: 'text-slate-400' },
@@ -31,28 +74,32 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
     ];
 
     const handleSendMessage = async () => {
-        if (!inputValue.trim()) return;
+        if (!inputValue.trim() || isStreaming) return;
 
         const userMessage = { role: 'user', content: inputValue };
         setMessages(prev => [...prev, userMessage]);
         setInputValue('');
         setIsLoading(true);
+        setIsStreaming(true);
+
+        abortControllerRef.current = new AbortController();
 
         try {
             const res = await api.streamChat({
                 message: userMessage.content,
                 model: 'auto',
                 use_rag: true
-            });
+            }, abortControllerRef.current.signal);
 
-            // Handle streaming response
             const reader = res.body.getReader();
+            readerRef.current = reader;  // tracked for cleanup on unmount / stop
             const decoder = new TextDecoder();
             let aiContent = '';
             let sources = [];
 
             // Add placeholder for AI message
             setMessages(prev => [...prev, { role: 'assistant', content: '', sources: [] }]);
+            setIsLoading(false);
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -68,10 +115,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                             setMessages(prev => {
                                 const newMessages = [...prev];
                                 const lastMsg = newMessages[newMessages.length - 1];
-                                newMessages[newMessages.length - 1] = {
-                                    ...lastMsg,
-                                    status: data.status
-                                };
+                                newMessages[newMessages.length - 1] = { ...lastMsg, status: data.status };
                                 return newMessages;
                             });
                         }
@@ -113,6 +157,10 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 }
             }
         } catch (err) {
+            if (err.name === 'AbortError') {
+                // User clicked Stop — partial response already visible, do nothing
+                return;
+            }
             console.error('Failed to send message:', err);
             setMessages(prev => [...prev, {
                 role: 'assistant',
@@ -120,7 +168,10 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 isError: true
             }]);
         } finally {
+            readerRef.current = null;  // reader done — release ref
             setIsLoading(false);
+            setIsStreaming(false);
+            abortControllerRef.current = null;
         }
     };
 
@@ -273,7 +324,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                        if (e.key === 'Enter' && !e.shiftKey && !isStreaming) {
                                             e.preventDefault();
                                             handleSendMessage();
                                         }
@@ -290,13 +341,23 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                                         <span className="text-[10px] font-semibold text-slate-400">Auto</span>
                                     </button>
                                 </div>
-                                <button
-                                    onClick={handleSendMessage}
-                                    disabled={isLoading || !inputValue.trim()}
-                                    className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${inputValue.trim() ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-[#2a2a2a]'}`}
-                                >
-                                    <Sparkles size={12} className={inputValue.trim() ? 'text-white fill-white' : 'text-slate-600'} />
-                                </button>
+{isStreaming ? (
+                                    <button
+                                        onClick={handleStopChat}
+                                        className="w-6 h-6 rounded-lg flex items-center justify-center transition-colors bg-rose-600 hover:bg-rose-500"
+                                        title="Stop generation"
+                                    >
+                                        <Square size={10} className="text-white fill-white" />
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={!inputValue.trim()}
+                                        className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${inputValue.trim() ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-[#2a2a2a]'}`}
+                                    >
+                                        <Sparkles size={12} className={inputValue.trim() ? 'text-white fill-white' : 'text-slate-600'} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
