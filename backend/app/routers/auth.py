@@ -268,6 +268,7 @@ async def google_login(request: Request, type: str = "login", session_expiry_hou
         "response_type=code&"
         "scope=openid%20email%20profile&"
         "access_type=offline&"
+        "prompt=select_account&"
         f"state={state}"
     )
     logger.debug(f"GOOGLE REDIRECT URI = {redirect_uri}")
