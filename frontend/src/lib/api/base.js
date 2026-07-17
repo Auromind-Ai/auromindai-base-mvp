@@ -19,6 +19,11 @@ export class APIClient {
     this.baseURL = isProd ? 'https://app.orbionagents.com' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
     this.requestHooks = [];
     this.responseHooks = [];
+    this.csrfTokenGetter = () => null;
+  }
+
+  setCSRFTokenGetter(fn) {
+    this.csrfTokenGetter = fn;
   }
 
   // Hook registers for future extension points
@@ -30,7 +35,7 @@ export class APIClient {
     this.responseHooks.push(hook);
   }
 
-  async request(endpoint, options = {}, isRetryAttempt = false) {
+  async requestRaw(endpoint, options = {}, isRetryAttempt = false) {
     const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
     const url = isProd
       ? `${this.baseURL}${endpoint.startsWith('/api/') ? endpoint.substring(4) : (endpoint.startsWith('/backend/') ? endpoint.substring(8) : endpoint)}`
@@ -42,30 +47,32 @@ export class APIClient {
     const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
     const { signal: optSignal, ...restOptions } = options;
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-
     const config = {
       credentials: 'include', 
       ...restOptions,
       headers: {
         'ngrok-skip-browser-warning': 'true',
         ...(isPostOrPutOrPatch && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
     };
 
-    const isMutatingAdmin = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && 
-      (endpoint.startsWith('/admin') || url.includes('/admin'));
-
-    if (isMutatingAdmin) {
-      const csrfToken = getCSRFToken();
-      if (csrfToken) {
-        config.headers['X-Admin-CSRF-Token'] = csrfToken;
+    const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    if (isMutating) {
+      if (endpoint.startsWith('/admin') || url.includes('/admin')) {
+        const csrfToken = getCSRFToken();
+        if (csrfToken) {
+          config.headers['X-Admin-CSRF-Token'] = csrfToken;
+        }
+      } else if (this.csrfTokenGetter) {
+        const csrfToken = this.csrfTokenGetter();
+        if (csrfToken) {
+          config.headers['X-CSRF-Token'] = csrfToken;
+        }
       }
     }
 
-    // 3. Request Hooks
+    // Request Hooks
     for (const hook of this.requestHooks) {
       try {
         hook(url, config);
@@ -74,20 +81,18 @@ export class APIClient {
       }
     }
 
-    // 4. Handle Timeout via AbortController
+    // Handle Timeout via AbortController
     let isTimeout = false;
     const controller = optSignal ? null : new AbortController();
 
-    // Pick timeout based on endpoint type
     const isAdminEndpoint = endpoint.startsWith('/admin') || url.includes('/admin');
     const isStreamEndpoint = endpoint.includes('/stream') || endpoint.includes('/ws') || endpoint.includes('/events');
     const timeoutMs = isAdminEndpoint ? ADMIN_TIMEOUT_MS : isStreamEndpoint ? STREAM_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 
-    const timeoutId = controller ? setTimeout(() => controller.abort('timeout'), timeoutMs) : null;
+    const timeoutId = controller ? setTimeout(() => { isTimeout = true; controller.abort('timeout'); }, timeoutMs) : null;
     config.signal = optSignal || controller?.signal;
 
     try {
-
       console.log(`[API Request] ${config.method || 'GET'}: ${url}${isRetryAttempt ? ' (Retry)' : ''}`);
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
@@ -101,16 +106,15 @@ export class APIClient {
         }
       }
 
-      // 5. Parse and Handle Response
-      const contentType = response.headers.get("content-type");
-      let data = null;
-
-      if (contentType && contentType.indexOf("application/json") !== -1) {
-        data = await response.json();
-      }
-
       if (!response.ok) {
-        // Detailed error formatting
+        let data = null;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          try {
+            data = await response.clone().json();
+          } catch (e) {}
+        }
+
         let errorMessage = 'Request failed';
         if (data && data.detail) {
           if (Array.isArray(data.detail)) {
@@ -134,14 +138,12 @@ export class APIClient {
         errorObj.status = response.status;
         errorObj.data = data;
 
-        // Log based on severity
         if (response.status >= 400 && response.status < 500) {
           console.warn(`[API Client Error] ${response.status}:`, errorMessage);
         } else {
           console.warn(`[API Server Error] ${response.status}:`, errorMessage);
         }
 
-        // Check for admin console authorization issues (e.g. session expired)
         if (url.includes('/admin') && !url.includes('/admin/auth') && (response.status === 401 || response.status === 403 || response.status === 404)) {
           if (typeof window !== 'undefined') {
             window.location.href = '/admin';
@@ -151,8 +153,7 @@ export class APIClient {
         throw errorObj;
       }
 
-      // Return JSON if available, otherwise empty object for success
-      return data !== null ? data : {};
+      return response;
 
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
@@ -164,7 +165,6 @@ export class APIClient {
         throw timeoutError;
       }
 
-      // Suppress AbortError console noise from StrictMode double-invoke
       if (error.name === 'AbortError') {
         const timeoutErr = new Error(
           isAdminEndpoint
@@ -178,7 +178,6 @@ export class APIClient {
 
       const isFetchNetworkError = (error instanceof TypeError || error?.name === 'TypeError') && error?.message?.toLowerCase().includes('fetch');
 
-      // Attempt automatic retry once for network errors on safe/idempotent endpoints
       if (isFetchNetworkError && !isRetryAttempt) {
         const method = (options.method || 'GET').toUpperCase();
         const isOTPOrSensitive = endpoint.includes('/auth/verify-otp') || endpoint.includes('/auth/send-otp') || endpoint.includes('/billing/');
@@ -188,11 +187,10 @@ export class APIClient {
         if (canRetry) {
           console.warn(`Fetch failed (likely cold-start). Retrying in 800ms... URL: ${url}`);
           await new Promise(resolve => setTimeout(resolve, 800));
-          return this.request(endpoint, options, true);
+          return this.requestRaw(endpoint, options, true);
         }
       }
 
-      // Surface CORS/network errors as actionable messages
       if (isFetchNetworkError) {
         const networkErr = new Error('Network error — check your connection or try again.');
         networkErr.status = 0;
@@ -204,7 +202,18 @@ export class APIClient {
     }
   }
 
-  // REST Helper Methods
+  async request(endpoint, options = {}) {
+    const response = await this.requestRaw(endpoint, options);
+    const contentType = response.headers.get("content-type");
+    let data = null;
+
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+      data = await response.json();
+    }
+
+    return data !== null ? data : {};
+  }
+
   async get(endpoint, options = {}) {
     return this.request(endpoint, { ...options, method: 'GET' });
   }

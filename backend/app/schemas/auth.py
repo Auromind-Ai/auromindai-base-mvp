@@ -16,14 +16,14 @@ class UserResponse(BaseModel):
     impersonated: bool | None = False
     two_factor_enabled: bool = False
     deletion_scheduled_at: Optional[datetime] = None
+    csrf_token: Optional[str] = None
 
 class WorkspaceResponse(BaseModel):
     id: str
     name: str
     role: str
 
-class SecretLoginRequest(BaseModel):
-    key: str
+
 
 class AdminLoginRequest(BaseModel):
     secret_key: str = Field(..., min_length=8)

@@ -37,5 +37,4 @@ class TokenLedger(Base):
     __table_args__ = (
         UniqueConstraint("reference_key", name="uq_token_ledger_reference_key"),
         Index("ix_token_ledger_workspace_status_source", "workspace_id", "status", "balance_source"),
-        Index("ix_token_ledger_execution_id", "execution_id"),
     )

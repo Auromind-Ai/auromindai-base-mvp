@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, use, useRef } from "react"
-import { setUser, setWorkspace } from "@/lib/auth"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import api from "@/lib/api"
@@ -32,49 +31,24 @@ export default function Page({ params }) {
            throw new Error("Invalid session response from server")
         }
 
+        // Clear stale admin credentials so subsequent API calls
+        // fall through to the httpOnly auth_token cookie (which the
+        // backend just set to the impersonated user's JWT).
+        // The API client uses credentials:'include', so the browser
+        // sends the cookie automatically — no Authorization header needed.
+        localStorage.removeItem("auth_token")
         localStorage.removeItem("user")
         localStorage.removeItem("workspace")
         localStorage.removeItem("workspace_id")
         sessionStorage.removeItem("ai_active")
         sessionStorage.removeItem("last_session_id")
 
-        // 2. Fetch Workspaces
-        let targetWorkspace = null
-        try {
-          const wsData = await api.getWorkspaces({
-            headers: { 'Authorization': `Bearer ${data.token}` }
-          })
-          
-          const { workspaces = [] } = wsData
-          
-          try {
-            const payload = JSON.parse(atob(data.token.split(".")[1]))
-            if (payload.workspace_id) {
-               targetWorkspace = workspaces.find(w => w.id === payload.workspace_id)
-            }
-          } catch (pErr) { /* ignore payload decode errors */ }
-
-          if (!targetWorkspace && workspaces.length > 0) targetWorkspace = workspaces[0]
-          
-          if (targetWorkspace) {
-            setWorkspace(targetWorkspace)
-            localStorage.setItem("workspace_id", targetWorkspace.id)
-          } else {
-            localStorage.removeItem("workspace")
-          }
-        } catch (wsErr) {
-          // fetch failure logged internally or ignored
-        }
-
-        // Validate workspace is determined before proceeding
-        if (!targetWorkspace) {
-          throw new Error("Unable to determine active workspace")
-        }
-
-        // Refresh user context with impersonated user profile
+        // Refresh user context via cookie-only auth.
+        // refreshUser() calls GET /auth/me and GET /auth/workspaces,
+        // which now authenticate as the impersonated target user.
         await refreshUser()
 
-        // 3. Final Redirect in the same tab without full reload
+        // Final redirect
         router.replace("/user/admin/dashboard")
 
       } catch (err) {
@@ -86,6 +60,7 @@ export default function Page({ params }) {
           // stop failure ignored
         }
         
+        localStorage.removeItem("auth_token");
         localStorage.removeItem("user");
         localStorage.removeItem("workspace");
         localStorage.removeItem("workspace_id");

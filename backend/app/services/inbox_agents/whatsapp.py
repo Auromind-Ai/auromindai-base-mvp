@@ -33,12 +33,8 @@ class WhatsAppService:
                     "body": message
                 }
             }
-            print("================================")
-            print("PHONE ID:", self.phone_number_id)
-            print("TOKEN START:", self.access_token[:30])
-            print("BASE URL:", self.base_url)
-            print("PAYLOAD:", payload)
-            print("================================")
+            # Debug log without token details
+            logger.debug(f"Sending WhatsApp text message to: {to}")
 
             response = requests.post(
                 self.base_url,
@@ -46,8 +42,8 @@ class WhatsAppService:
                 headers=self._headers()
             )
 
-            print("STATUS:", response.status_code)
-            print("BODY:", response.text)
+            # Log response status for verification
+            logger.debug(f"WhatsApp send response status: {response.status_code}")
 
             data = response.json()
 
@@ -88,12 +84,8 @@ class WhatsAppService:
             if components:
                 payload["template"]["components"] = components
 
-            print("========== TEMPLATE SEND ==========")
-            print("TEMPLATE NAME:", template_name)
-            print("LANGUAGE:", language)
-            print("COMPONENTS:", json.dumps(components, indent=2))
-            print("FULL PAYLOAD:", json.dumps(payload, indent=2))
-            print("===================================")
+            # Debug log template payload details safely
+            logger.debug(f"Sending WhatsApp template message to: {to}, Template: {template_name}")
 
             response = requests.post(
                 self.base_url,
@@ -101,8 +93,8 @@ class WhatsAppService:
                 headers=self._headers()
             )
 
-            print("STATUS:", response.status_code)
-            print("BODY:", response.text)
+            # Log response status for verification
+            logger.debug(f"WhatsApp template send response status: {response.status_code}")
 
             data = response.json()
 

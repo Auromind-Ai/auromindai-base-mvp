@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
 from sqlalchemy.orm import Session
-from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse, SecretLoginRequest
+from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse
 from app.database import get_db
 from app.services.auth_service import AuthService
 from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent
@@ -74,7 +74,7 @@ def delete_auth_cookie(response: Response, request: Request, key: str, path: str
     )
 
 class CurrentUser:
-    def __init__(self, user, workspace_id, impersonated=False, admin_id=None, session_id=None):
+    def __init__(self, user, workspace_id, impersonated=False, admin_id=None, session_id=None, csrf_token=None):
         self.id = user.id
         self.email = user.email
         self.full_name = user.full_name
@@ -83,6 +83,7 @@ class CurrentUser:
         self.impersonated = impersonated
         self.admin_id = admin_id
         self.session_id = session_id
+        self.csrf_token = csrf_token
 
 
 #Dependency: get current user ----------
@@ -104,15 +105,6 @@ async def get_current_user(
     if not token:
         raise credentials_exception
 
-    import os
-    test_key = os.environ.get("TEST_API_KEY")
-    if test_key and token == test_key:
-        from app.models import User
-        logger.warning("⚠️ Using TEST_API_KEY bypass for staging tests")
-        user = db.query(User).first()
-        if user:
-            workspace_id = user.workspaces[0].id if user.workspaces else None
-            return CurrentUser(user.id, user.email, user.role, workspace_id, user)
    
     logger.debug(f"🔒 Authenticating token: {token[:10]}...")
    
@@ -174,13 +166,15 @@ async def get_current_user(
                 logger.error(f"Failed to update session activity: {e}")
                 db.rollback()
 
+    csrf_token = payload.get("csrf_token")
     logger.debug(f"Authenticated: {user.email}")
     return CurrentUser(
         user=user,
         workspace_id=workspace_id,
         impersonated=impersonated,
         admin_id=admin_id,
-        session_id=session_id
+        session_id=session_id,
+        csrf_token=csrf_token
     )
 
 
@@ -402,7 +396,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             return response
        
         jwt_token = result["access_token"]
-        response = RedirectResponse(url=f"{frontend_url}/login#token={jwt_token}")
+        response = RedirectResponse(url=f"{frontend_url}/login")
         
         max_age_val = (session_expiry_hours * 3600) if session_expiry_hours else (settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
         set_auth_cookie(
@@ -427,39 +421,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         return response
 
 
-async def require_admin_dependency(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    from app.core.deps import require_platform_admin
-    current_user = await get_current_user(request=request, db=db)
-    return await require_platform_admin(current_user=current_user)
 
-
-@router.post("/login/secret")
-async def login_secret(
-    request_obj: Request,
-    request: SecretLoginRequest,
-    db: Session = Depends(get_db),
-    current_user = Depends(require_admin_dependency)
-):
-    from app.core.config import settings
-   
-    master_key = settings.OWNER_SECRET_KEY
-    if not master_key or request.key != master_key:
-        raise HTTPException(status_code=401, detail="Invalid secret key")
-   
-    # Login as the first user found in DB (usually the owner/admin)
-    from app.models import User
-    admin = db.query(User).order_by(User.created_at.asc()).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="No users found in platform")
-   
-    ip_address = get_client_ip(request_obj)
-    user_agent = request_obj.headers.get("user-agent", "unknown")
-    device_info = parse_user_agent(user_agent)
-    
-    return AuthService.login(db, admin.email, ip_address=ip_address, device_info=device_info)
 
 
 #Current user ----------
@@ -476,6 +438,7 @@ async def get_current_user_info(current_user: CurrentUser = Depends(get_current_
         "impersonated": current_user.impersonated,
         "two_factor_enabled": current_user.user.two_factor_enabled,
         "deletion_scheduled_at": current_user.user.deletion_scheduled_at,
+        "csrf_token": current_user.csrf_token,
     }
 
 class UserUpdate(BaseModel):
@@ -546,7 +509,21 @@ async def stop_impersonation(request: Request, response: Response):
     return {"status": "success", "message": "Impersonation ended, admin session restored"}
 
 @router.post("/logout")
-async def logout(request: Request, response: Response):
+async def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    token = request.cookies.get("auth_token")
+    if token:
+        try:
+            payload = decode_access_token(token)
+            session_id = payload.get("session_id")
+            if session_id:
+                from app.models import UserSession
+                from datetime import datetime, timezone
+                session_entry = db.query(UserSession).filter(UserSession.id == session_id).first()
+                if session_entry:
+                    session_entry.revoked_at = datetime.now(timezone.utc)
+                    db.commit()
+        except Exception:
+            pass
     delete_auth_cookie(response=response, request=request, key="auth_token", path="/")
     delete_auth_cookie(response=response, request=request, key="admin_session", path="/")
     delete_auth_cookie(response=response, request=request, key="admin_backup_token", path="/")

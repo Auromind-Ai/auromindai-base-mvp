@@ -88,13 +88,16 @@ class AuthService:
             import logging
             logging.getLogger("app").error(f"Failed to send login alert notification: {notif_exc}")
 
+        import secrets
+        csrf_token = secrets.token_urlsafe(32)
         expires_delta = timedelta(hours=session_expiry_hours) if session_expiry_hours else None
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
                 "email": user.email,
                 "workspace_id": workspace_id,
-                "session_id": session_id
+                "session_id": session_id,
+                "csrf_token": csrf_token
             },
             expires_delta=expires_delta
         )
@@ -102,10 +105,12 @@ class AuthService:
         return {
             "access_token": access_token,
             "token_type": "bearer",
+            "csrf_token": csrf_token,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
-                "full_name": user.full_name
+                "full_name": user.full_name,
+                "csrf_token": csrf_token
             },
             "workspaces": [
                 {
@@ -227,13 +232,16 @@ class AuthService:
             import logging
             logging.getLogger("app").error(f"Failed to send email login alert notification: {notif_exc}")
 
+        import secrets
+        csrf_token = secrets.token_urlsafe(32)
         expires_delta = timedelta(hours=session_expiry_hours) if session_expiry_hours else None
         access_token = create_access_token(
             data={
                 "sub": str(user.id),
                 "email": user.email,
                 "workspace_id": workspace_id,
-                "session_id": session_id
+                "session_id": session_id,
+                "csrf_token": csrf_token
             },
             expires_delta=expires_delta
         )
@@ -241,6 +249,7 @@ class AuthService:
         return {
             "access_token": access_token,
             "token_type": "bearer",
+            "csrf_token": csrf_token,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
@@ -250,6 +259,7 @@ class AuthService:
                     user.deletion_scheduled_at.isoformat()
                     if user.deletion_scheduled_at else None
                 ),
+                "csrf_token": csrf_token
             },
             "workspaces": [
                 {

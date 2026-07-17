@@ -11,6 +11,7 @@ from app.core.request_logger import RequestLoggingMiddleware
 from app.core.exception_handlers import register_exception_handlers
 from app.core.uuid_validation import UUIDValidationMiddleware
 from app.core.admin_middleware import AdminConsoleMiddleware
+from app.core.csrf_middleware import csrf_protection_middleware
 from app.core.startup import ( init_schedulers,
     shutdown_schedulers, init_llm_router,
     init_pubsub, shutdown_pubsub,
@@ -126,6 +127,7 @@ app.add_middleware(MetricsMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(UUIDValidationMiddleware)
 app.add_middleware(AdminConsoleMiddleware)
+app.middleware("http")(csrf_protection_middleware)
 
 
 # Health 

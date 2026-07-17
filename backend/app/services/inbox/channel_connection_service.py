@@ -16,38 +16,46 @@ class ChannelConnectionService:
     def connect_meta_whatsapp(db: Session, data: dict):
         code = data.get("code")
         fb_token = data.get("fb_access_token")
-        workspace_id = data.get("workspace_id")
-        if not code:
-            raise HTTPException(status_code=400, detail="Missing authorization code")
+        from app.core.security import to_uuid
+        workspace_id = to_uuid(data.get("workspace_id"))
+        if not code and not fb_token:
+            raise HTTPException(status_code=400, detail="Missing required credentials: code or fb_access_token is required")
 
         from app.services.config_service import config_service
         app_id = config_service.get("meta_app_id") or config_service.get("ig_app_id")
         app_secret = config_service.get("meta_app_secret") or config_service.get("ig_app_secret")
-        
-        params = {
-            "client_id": app_id,
-            "client_secret": app_secret,
-            "code": code,
-        }
-        # For FB SDK, the redirect_uri must match the frontend exact URL or be omitted
-        if "redirect_uri" in data:
-            params["redirect_uri"] = data["redirect_uri"]
-        else:
-            # Fallback to empty string for JS SDK if not provided
-            params["redirect_uri"] = ""
+        if not app_id or not app_secret:
+            raise HTTPException(status_code=400, detail="Meta credentials (App ID & Secret) are not configured in system settings.")
 
-        logger.info(f"Token exchange params: client_id={app_id}, redirect_uri={params.get('redirect_uri')}")
-        token_res = requests.get(
-            "https://graph.facebook.com/v19.0/oauth/access_token",
-            params=params,
-            timeout=10,
-        ).json()
-        logger.info(f"Token response: {token_res}")
-
-        access_token = fb_token or token_res.get("access_token")
+        access_token = fb_token
         if not access_token:
-            logger.error("Token error: %s", token_res)
-            raise HTTPException(status_code=400, detail=f"Failed to get access token: {token_res}")
+            params = {
+                "client_id": app_id,
+                "client_secret": app_secret,
+                "code": code,
+            }
+            # For FB SDK, the redirect_uri must match the frontend exact URL or be omitted
+            if "redirect_uri" in data:
+                params["redirect_uri"] = data["redirect_uri"]
+            else:
+                # Fallback to empty string for JS SDK if not provided
+                params["redirect_uri"] = ""
+
+            logger.info(f"Token exchange params: client_id={app_id}, redirect_uri={params.get('redirect_uri')}")
+            token_res = requests.get(
+                "https://graph.facebook.com/v19.0/oauth/access_token",
+                params=params,
+                timeout=10,
+            ).json()
+            # Access token is not printed or logged for security
+            access_token = token_res.get("access_token")
+            if not access_token:
+                error_detail = token_res.get("error", {})
+                logger.error("Token error: response does not contain access token. Meta error: %s", error_detail)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to get access token: {error_detail.get('message', 'Unknown Meta error')}"
+                )
 
         # Debug logging requested by the user to verify token permissions and Graph API responses
         waba_debug_data = None
@@ -55,8 +63,6 @@ class ChannelConnectionService:
         permissions_debug_data = None
 
         try:
-            print("START DEBUG META OAUTH RESPONSES")
-            
             # Fetch token details using /debug_token (this is the Meta-recommended way for Embedded Signup)
             debug_token_res = requests.get(
                 "https://graph.facebook.com/v19.0/debug_token",
@@ -67,11 +73,8 @@ class ChannelConnectionService:
                 timeout=10,
             )
             debug_token_data = debug_token_res.json()
-            print(f"Debug Token Response: {debug_token_data}")
-            
-            print("END DEBUG META OAUTH RESPONSES")
         except Exception as e:
-            print(f"Error during debug_token Meta OAuth logging: {e}")
+            logger.error(f"Error during debug_token Meta OAuth verification: {e}")
             debug_token_data = {}
 
         # Collect all unique candidate WABA IDs from all lookup flows
@@ -189,6 +192,26 @@ class ChannelConnectionService:
         
         logger.info(f"Selected best candidate: {best_candidate}")
 
+        import re
+        # Validate phone number format
+        cleaned_phone = re.sub(r"\D", "", display_number)
+        if not display_number.startswith("+") or len(cleaned_phone) < 7 or len(cleaned_phone) > 15:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Retrieved WhatsApp phone number '{display_number}' does not follow a valid phone number format."
+            )
+
+        # WhatsApp duplicate check
+        existing_ws = db.query(models.Workspace).filter(
+            models.Workspace.meta_phone_number_id == phone_number_id,
+            models.Workspace.id != workspace_id
+        ).first()
+        if existing_ws:
+            raise HTTPException(
+                status_code=400,
+                detail="This WhatsApp Business Account is already connected to another workspace."
+            )
+
         # Try to retrieve the parent Business ID for the selected WABA
         business_id = None
         try:
@@ -237,16 +260,11 @@ class ChannelConnectionService:
         from app.services.config_service import config_service
         system_token = config_service.get("meta_system_user_token") or access_token
         try:
-            print(system_token)
             subscribe_res = requests.post(
                 f"https://graph.facebook.com/v19.0/{waba_id}/subscribed_apps",
                 headers={"Authorization": f"Bearer {system_token}"},
                 timeout=10,
             )
-
-            print("========== WABA SUBSCRIBE ==========")
-            print("SUBSCRIBE STATUS:", subscribe_res.status_code)
-            print("SUBSCRIBE BODY:", subscribe_res.text)
 
             check = requests.get(
                 f"https://graph.facebook.com/v19.0/{waba_id}/subscribed_apps",
@@ -255,10 +273,9 @@ class ChannelConnectionService:
                 },
                 timeout=10,
             )
-
-            print("CHECK STATUS:", check.status_code)
-            print("CHECK SUBSCRIBED:", check.text)
-            print("====================================")
+            
+            logger.info(f"WABA webhook subscription status: {subscribe_res.status_code}")
+            logger.info(f"WABA webhook subscription check status: {check.status_code}")
 
         except Exception as e:
             logger.error(f"Failed to subscribe app to WABA webhooks: {e}")
@@ -275,16 +292,20 @@ class ChannelConnectionService:
 
     @staticmethod
     def connect_instagram(db: Session, data: dict):
+        from app.core.security import to_uuid
         code = data.get("code")
-        workspace_id = data.get("workspace_id")
+        workspace_id = to_uuid(data.get("workspace_id"))
         if not code:
             raise HTTPException(status_code=400, detail="Missing OAuth code")
         if not workspace_id:
             raise HTTPException(status_code=400, detail="Missing workspace_id")
         from app.services.config_service import config_service
-        print("IG_APP_ID:", config_service.get("ig_app_id"))
-        print("IG_APP_SECRET:", config_service.get("ig_app_secret"))
-        print("IG_REDIRECT_URI:", config_service.get("ig_redirect_uri"))
+        ig_app_id = config_service.get("ig_app_id")
+        ig_app_secret = config_service.get("ig_app_secret")
+        if not ig_app_id or not ig_app_secret:
+            raise HTTPException(status_code=400, detail="Instagram credentials (App ID & Secret) are not configured in system settings.")
+        
+        # Configuration details are not printed to standard output for security
         
 
         token_res = requests.get(
@@ -299,7 +320,12 @@ class ChannelConnectionService:
         ).json()
         access_token = token_res.get("access_token")
         if not access_token:
-            raise HTTPException(status_code=400, detail=f"Token exchange failed: {token_res}")
+            error_detail = token_res.get("error", {})
+            logger.error("Instagram token exchange failed: %s", error_detail)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Token exchange failed: {error_detail.get('message', 'Unknown Meta error')}"
+            )
 
         long_token_res = requests.get(
             "https://graph.facebook.com/v19.0/oauth/access_token",
@@ -337,6 +363,17 @@ class ChannelConnectionService:
         ig_id = ig_data.get("instagram_business_account", {}).get("id")
         if not ig_id:
             raise HTTPException(400, "No Instagram Business Account linked")
+
+        # Instagram duplicate check
+        existing_ig = db.query(models.Workspace).filter(
+            models.Workspace.meta_ig_id == ig_id,
+            models.Workspace.id != workspace_id
+        ).first()
+        if existing_ig:
+            raise HTTPException(
+                status_code=400,
+                detail="This Instagram Business Account is already connected to another workspace."
+            )
 
         ig_profile = requests.get(
             f"https://graph.facebook.com/v19.0/{ig_id}",

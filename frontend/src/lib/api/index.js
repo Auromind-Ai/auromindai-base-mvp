@@ -16,6 +16,7 @@ import * as dashboard from './dashboard';
 const api = {
   // Expose the base request helpers as well
   request: client.request.bind(client),
+  requestRaw: client.requestRaw.bind(client),
   get: client.get.bind(client),
   post: client.post.bind(client),
   put: client.put.bind(client),
@@ -23,6 +24,7 @@ const api = {
   delete: client.delete.bind(client),
   addRequestHook: client.addRequestHook.bind(client),
   addResponseHook: client.addResponseHook.bind(client),
+  setCSRFTokenGetter: client.setCSRFTokenGetter.bind(client),
   baseURL: client.baseURL,
   
   ...auth,
