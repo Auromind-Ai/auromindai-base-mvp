@@ -72,6 +72,14 @@ def delete_auth_cookie(response: Response, request: Request, key: str, path: str
         samesite="none" if is_https else "lax",
         domain=cookie_domain,
     )
+    if cookie_domain is not None:
+        response.delete_cookie(
+            key=key,
+            path=path,
+            secure=is_https,
+            samesite="none" if is_https else "lax",
+            domain=None,
+        )
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None, session_id=None):
