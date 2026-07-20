@@ -11,24 +11,6 @@ services:
       timeout: 3s
       retries: 5
 
-  db:
-    image: pgvector/pgvector:pg16
-    container_name: auromind_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Arunjack007@
-      POSTGRES_DB: auromindai
-    ports:
-      - "5435:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d auromindai"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   backend:
     build:
       context: ./backend
@@ -38,7 +20,16 @@ services:
       - ./backend/.env
     restart: unless-stopped
     command: >
-      sh -c "alembic upgrade heads &&
+      sh -c "python -c \"import time, sqlalchemy;
+             while True:
+                 try:
+                     sqlalchemy.create_engine('${DATABASE_URL}').connect()
+                     break
+                 except Exception as e:
+                     print('Waiting for database connection...', e)
+                     time.sleep(2)
+             \" &&
+             alembic upgrade heads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75"
     environment:
       HF_HOME: /models/huggingface
@@ -51,10 +42,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   celery_worker:
     build:
@@ -64,10 +55,16 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
-
     command: >
-      sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
-             until PGPASSWORD=Arunjack007@ psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
+      sh -c "python -c \"import time, sqlalchemy;
+             while True:
+                 try:
+                     sqlalchemy.create_engine('${DATABASE_URL}').connect()
+                     break
+                 except Exception as e:
+                     print('Waiting for database connection...', e)
+                     time.sleep(2)
+             \" &&
              sleep 2 &&
              celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat"
     environment:
@@ -79,10 +76,10 @@ services:
       - ./backend:/app
       - ./hf_cache:/models/huggingface
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   celery-beat:
     build:
@@ -93,8 +90,15 @@ services:
       - ./backend/.env
     restart: unless-stopped
     command: >
-      sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
-             until PGPASSWORD=Arunjack007@ psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
+      sh -c "python -c \"import time, sqlalchemy;
+             while True:
+                 try:
+                     sqlalchemy.create_engine('${DATABASE_URL}').connect()
+                     break
+                 except Exception as e:
+                     print('Waiting for database connection...', e)
+                     time.sleep(2)
+             \" &&
              sleep 2 &&
              celery -A app.core.celery_app beat --loglevel=info"
     environment:
@@ -106,11 +110,7 @@ services:
       - ./backend:/app
       - ./hf_cache:/models/huggingface
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
-
-
-volumes:
-  postgres_data:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
