@@ -20,15 +20,7 @@ services:
       - ./backend/.env
     restart: unless-stopped
     command: >
-      sh -c "python -c \"import time, sqlalchemy;
-             while True:
-                 try:
-                     sqlalchemy.create_engine('$${DATABASE_URL}').connect()
-                     break
-                 except Exception as e:
-                     print('Waiting for database connection...', e)
-                     time.sleep(2)
-             \" &&
+      sh -c "until python -c \"import sqlalchemy; sqlalchemy.create_engine('$${DATABASE_URL}').connect()\" 2>/dev/null; do echo 'Waiting for database connection...'; sleep 2; done &&
              alembic upgrade heads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75"
     environment:
@@ -56,15 +48,7 @@ services:
       - ./backend/.env
     restart: unless-stopped
     command: >
-      sh -c "python -c \"import time, sqlalchemy;
-             while True:
-                 try:
-                     sqlalchemy.create_engine('$${DATABASE_URL}').connect()
-                     break
-                 except Exception as e:
-                     print('Waiting for database connection...', e)
-                     time.sleep(2)
-             \" &&
+      sh -c "until python -c \"import sqlalchemy; sqlalchemy.create_engine('$${DATABASE_URL}').connect()\" 2>/dev/null; do echo 'Waiting for database connection...'; sleep 2; done &&
              sleep 2 &&
              celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat"
     environment:
@@ -90,15 +74,7 @@ services:
       - ./backend/.env
     restart: unless-stopped
     command: >
-      sh -c "python -c \"import time, sqlalchemy;
-             while True:
-                 try:
-                     sqlalchemy.create_engine('$${DATABASE_URL}').connect()
-                     break
-                 except Exception as e:
-                     print('Waiting for database connection...', e)
-                     time.sleep(2)
-             \" &&
+      sh -c "until python -c \"import sqlalchemy; sqlalchemy.create_engine('$${DATABASE_URL}').connect()\" 2>/dev/null; do echo 'Waiting for database connection...'; sleep 2; done &&
              sleep 2 &&
              celery -A app.core.celery_app beat --loglevel=info"
     environment:
