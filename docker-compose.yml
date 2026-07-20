@@ -23,7 +23,7 @@ services:
       sh -c "python -c \"import time, sqlalchemy;
              while True:
                  try:
-                     sqlalchemy.create_engine('${DATABASE_URL}').connect()
+                     sqlalchemy.create_engine('$${DATABASE_URL}').connect()
                      break
                  except Exception as e:
                      print('Waiting for database connection...', e)
@@ -59,7 +59,7 @@ services:
       sh -c "python -c \"import time, sqlalchemy;
              while True:
                  try:
-                     sqlalchemy.create_engine('${DATABASE_URL}').connect()
+                     sqlalchemy.create_engine('$${DATABASE_URL}').connect()
                      break
                  except Exception as e:
                      print('Waiting for database connection...', e)
@@ -93,7 +93,7 @@ services:
       sh -c "python -c \"import time, sqlalchemy;
              while True:
                  try:
-                     sqlalchemy.create_engine('${DATABASE_URL}').connect()
+                     sqlalchemy.create_engine('$${DATABASE_URL}').connect()
                      break
                  except Exception as e:
                      print('Waiting for database connection...', e)
