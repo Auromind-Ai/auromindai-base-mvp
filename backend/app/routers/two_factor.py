@@ -14,6 +14,7 @@ from app.services.totp_service import (
     encrypt_secret, decrypt_secret, verify_totp,
 )
 from app.core.config import settings
+from app.services.notification_service import NotificationService
 
 router = APIRouter()
 
@@ -118,6 +119,18 @@ async def verify_setup(
     user = db.query(User).filter(User.id == current_user.id).first()
     user.two_factor_secret  = encrypt_secret(temp_secret)
     user.two_factor_enabled = True
+
+    import secrets
+    from app.utils.auth import get_password_hash
+    from sqlalchemy.orm.attributes import flag_modified
+
+    recovery_codes = [secrets.token_hex(4).upper() for _ in range(8)]
+    hashed_codes = [get_password_hash(c) for c in recovery_codes]
+
+    prefs = user.preferences or {}
+    prefs["2fa_recovery_codes"] = hashed_codes
+    user.preferences = prefs
+    flag_modified(user, "preferences")
     db.commit()
 
     try:
@@ -125,7 +138,23 @@ async def verify_setup(
     except Exception:
         pass
 
-    return {"success": True, "message": "Two-factor authentication enabled."}
+    try:
+        NotificationService.notify(
+            db=db,
+            user_id=current_user.id,
+            workspace_id=None,
+            type="security_alert",
+            title="Two-Factor Authentication Enabled",
+            message="Two-Factor Authentication (2FA) has been successfully enabled on your account.",
+            is_critical=True,
+            email_subject="[SECURITY ALERT] Two-Factor Authentication Enabled"
+        )
+    except Exception as notif_exc:
+        import logging
+        logging.getLogger("app").error(f"Failed to send 2FA enabled notification: {notif_exc}")
+
+    return {"success": True, "message": "Two-factor authentication enabled.", "recovery_codes": recovery_codes}
+
 
 
 # ─ POST /2fa/verify-login 
@@ -238,4 +267,64 @@ async def disable(
     user.two_factor_secret  = None
     db.commit()
 
+    try:
+        NotificationService.notify(
+            db=db,
+            user_id=current_user.id,
+            workspace_id=None,
+            type="security_alert",
+            title="Two-Factor Authentication Disabled",
+            message="WARNING: Two-Factor Authentication (2FA) has been disabled on your account.",
+            is_critical=True,
+            email_subject="[SECURITY ALERT] Two-Factor Authentication Disabled"
+        )
+    except Exception as notif_exc:
+        import logging
+        logging.getLogger("app").error(f"Failed to send 2FA disabled notification: {notif_exc}")
+
     return {"success": True, "message": "Two-factor authentication disabled."}
+
+
+# ─ POST /2fa/recovery-codes/regenerate ─
+
+@router.post("/recovery-codes/regenerate")
+async def regenerate_recovery_codes(
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Regenerate 2FA recovery backup codes."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user.two_factor_enabled:
+        raise HTTPException(status_code=400, detail="Two-factor authentication is not enabled.")
+
+    import secrets
+    from app.utils.auth import get_password_hash
+    from sqlalchemy.orm.attributes import flag_modified
+
+    codes = [secrets.token_hex(4).upper() for _ in range(8)]
+    hashed_codes = [get_password_hash(c) for c in codes]
+
+    prefs = user.preferences or {}
+    prefs["2fa_recovery_codes"] = hashed_codes
+    user.preferences = prefs
+    flag_modified(user, "preferences")
+    db.commit()
+
+    try:
+        from app.services.notification_service import NotificationService
+        NotificationService.notify(
+            db=db,
+            user_id=current_user.id,
+            workspace_id=None,
+            type="security_alert",
+            title="2FA Recovery Codes Regenerated",
+            message="New 2FA backup recovery codes have been generated for your account. Old recovery codes are no longer valid.",
+            is_critical=True,
+            email_subject="[SECURITY ALERT] 2FA Recovery Codes Regenerated"
+        )
+    except Exception as notif_exc:
+        import logging
+        logging.getLogger("app").error(f"Failed to send recovery codes notification: {notif_exc}")
+
+    return {"success": True, "recovery_codes": codes}
+

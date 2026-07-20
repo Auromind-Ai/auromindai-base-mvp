@@ -660,10 +660,16 @@ export default function AuromindAIPage() {
                             isStreamActiveRef.current = false;
                             isAnimatingRef.current = false;
                             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-                            const errorMsg = data.error.includes('429') || data.error.includes('quota')
-                                ? "⚠️ API rate limit exceeded. Please wait a moment and try again."
-                                : `Error: ${data.error}`;
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: errorMsg, isError: true, isStreaming: false } : msg));
+                            const errStr = String(data.error).toLowerCase();
+                            const isQuotaOrUpgrade = data.error.includes('429') || errStr.includes('quota') || errStr.includes('upgrade') || errStr.includes('limit') || errStr.includes('insufficient') || errStr.includes('pro') || errStr.includes('plan') || errStr.includes('billing');
+                            
+                            if (isQuotaOrUpgrade) {
+                                setShowUpgradeModal(true);
+                                setMessages(prev => prev.filter((msg, i) => i !== prev.length - 1));
+                            } else {
+                                const errorMsg = `Error: ${data.error}`;
+                                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: errorMsg, isError: true, isStreaming: false } : msg));
+                            }
                             setIsLoading(false); return;
                         }
                     } catch (e) {
@@ -671,7 +677,15 @@ export default function AuromindAIPage() {
                             isStreamActiveRef.current = false;
                             isAnimatingRef.current = false;
                             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-                            setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: `Error: ${line}`, isError: true, isStreaming: false } : msg));
+                            const lineStr = line.toLowerCase();
+                            const isQuotaOrUpgrade = line.includes('429') || lineStr.includes('quota') || lineStr.includes('upgrade') || lineStr.includes('limit') || lineStr.includes('insufficient') || lineStr.includes('pro') || lineStr.includes('plan') || lineStr.includes('billing');
+                            
+                            if (isQuotaOrUpgrade) {
+                                setShowUpgradeModal(true);
+                                setMessages(prev => prev.filter((msg, i) => i !== prev.length - 1));
+                            } else {
+                                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: `Error: ${line}`, isError: true, isStreaming: false } : msg));
+                            }
                             setIsLoading(false); return;
                         }
                     }
@@ -687,7 +701,13 @@ export default function AuromindAIPage() {
             isStreamActiveRef.current = false;
             isAnimatingRef.current = false;
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            if (err.name === 'AbortError') {
+            const errStr = String(err?.message || err?.data?.detail || err).toLowerCase();
+            const isQuotaOrUpgrade = err?.status === 402 || err?.status === 403 || err?.status === 429 || errStr.includes('quota') || errStr.includes('upgrade') || errStr.includes('limit') || errStr.includes('insufficient') || errStr.includes('billing') || errStr.includes('pro');
+
+            if (isQuotaOrUpgrade) {
+                setShowUpgradeModal(true);
+                setMessages(prev => prev.filter((msg, i) => i !== prev.length - 1));
+            } else if (err.name === 'AbortError') {
                 console.log('Fetch aborted by user');
             } else if (err.status === 409 || (err.data && err.data.detail === 'previous_generation_stopping')) {
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? {
@@ -697,7 +717,7 @@ export default function AuromindAIPage() {
                     isStreaming: false
                 } : msg));
             } else {
-                console.error(err);
+                console.warn('[AI Chat Error]:', err?.message || err);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } finally {
@@ -1264,6 +1284,17 @@ export default function AuromindAIPage() {
                                                                             >
                                                                                 {msg.content}
                                                                             </ReactMarkdown>
+                                                                            {msg.isError && (
+                                                                                <div className="mt-2.5">
+                                                                                    <button
+                                                                                        onClick={() => setShowUpgradeModal(true)}
+                                                                                        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-600/30 border border-purple-500/40 text-purple-200 text-xs font-semibold hover:bg-purple-600 hover:text-white transition-all shadow-md"
+                                                                                    >
+                                                                                        <Sparkles size={14} />
+                                                                                        Upgrade Plan
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -1587,15 +1618,15 @@ export default function AuromindAIPage() {
                                 <div className="w-16 h-16 bg-gradient-to-br from-purple-600/20 to-indigo-600/20 rounded-2xl flex items-center justify-center mb-4 border border-purple-500/30">
                                     <Sparkles size={32} className="text-purple-400" />
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-2">Unlock Pro Models</h3>
+                                <h3 className="text-xl font-bold text-white mb-2">Upgrade Required</h3>
                                 <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                                    Get access to Gemini Flash, Claude Opus, and advanced reasoning capabilities. Upgrade your workspace to Pro.
+                                    Get access to Gemini Flash, Claude Opus, and higher quota limits. Upgrade your workspace to Pro to unlock advanced AI capabilities.
                                 </p>
                                 <div className="flex w-full gap-3">
                                     <button onClick={() => setShowUpgradeModal(false)} className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-colors font-medium text-sm">
                                         Maybe Later
                                     </button>
-                                    <button onClick={() => router.push('/user/admin/billing/payment?source=chat')} className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-colors font-medium text-sm shadow-lg shadow-purple-600/25">
+                                    <button onClick={() => { setShowUpgradeModal(false); router.push('/user/admin/credits'); }} className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-colors font-medium text-sm shadow-lg shadow-purple-600/25">
                                         Upgrade Now
                                     </button>
                                 </div>

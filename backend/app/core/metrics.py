@@ -9,8 +9,9 @@ from fastapi import FastAPI
 from prometheus_client import Counter, Gauge, Summary
 from app.core.logger import logger
 from app.core.config import settings
+from app.core.notification_metrics import notification_metrics, NotificationMetricsTracker
 
-# Prometheus metrics
+# Prometheus metrics — Request & System
 REQUEST_COUNT = Counter(
     "app_requests_total",
     "Total HTTP requests",
@@ -42,6 +43,32 @@ MEMORY_PERCENT = Gauge(
 SYSTEM_METRICS_UPDATE_FAILURES = Counter(
     "system_metrics_update_failures_total",
     "Total system metrics collection failures"
+)
+
+# Prometheus metrics — Notifications & Security Audit
+NOTIFICATIONS_SENT = Counter(
+    "notifications_sent_total",
+    "Total in-app notifications sent"
+)
+
+NOTIFICATIONS_FAILED = Counter(
+    "notifications_failed_total",
+    "Total notifications failed to persist"
+)
+
+EMAIL_RETRY_COUNT = Counter(
+    "email_retry_count_total",
+    "Total email delivery retries"
+)
+
+DUPLICATE_PREVENTION_HITS = Counter(
+    "duplicate_prevention_hits_total",
+    "Total notification deduplication hits"
+)
+
+AUDIT_LOGS_CREATED = Counter(
+    "audit_logs_created_total",
+    "Total audit log entries created"
 )
 
 
@@ -201,11 +228,10 @@ async def get_system_metrics_snapshot(app: FastAPI) -> dict[str, Any]:
     return await state.get_snapshot()
 
 
+_pending_metrics_tasks = set()
 
 def middleware_record(method: str, path: str, status: int, latency: float) -> None:
-    """Record request metrics.  Safe to call from any async context."""
-
-  
+    """Record request metrics. Safe to call from any async context."""
     status_str = str(status)
     REQUEST_COUNT.labels(method=method, path=path, status=status_str).inc()
     REQUEST_LATENCY.labels(method=method, path=path).observe(latency)
@@ -215,13 +241,15 @@ def middleware_record(method: str, path: str, status: int, latency: float) -> No
     if _async_redis is not None:
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(
+            task = loop.create_task(
                 _redis_record(latency, is_error=(status >= 500)),
                 name="metrics-redis-write",
             )
+            _pending_metrics_tasks.add(task)
+            task.add_done_callback(_pending_metrics_tasks.discard)
         except RuntimeError:
-
             pass
+
 
 
 async def _redis_record(latency: float, *, is_error: bool) -> None:
@@ -241,7 +269,6 @@ async def _redis_record(latency: float, *, is_error: bool) -> None:
 
 
 async def get_metrics() -> dict[str, Any]:
-
     if _async_redis is None:
         return {"total_api_calls": 0, "avg_response_time": 0, "error_rate": 0}
 

@@ -4,21 +4,125 @@ from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.auth import get_password_hash, verify_password, create_access_token
 from app.services.platform_settings_service import get_setting
 import uuid
-from datetime import timedelta
 from typing import Optional
+from datetime import datetime, timezone, timedelta
 
+# Redis client helper with graceful in-memory fallback
+def _get_redis_client():
+    try:
+        import redis
+        from app.core.config import settings
+        if settings.REDIS_URL:
+            return redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
+    except Exception:
+        pass
+    return None
+
+# In-memory fallbacks for login attempt tracking & device notification cooldowns
+_FAILED_ATTEMPTS_STORE = {}
+_LOCKOUT_STORE = {}
+_DEVICE_COOLDOWN_STORE = {}
 
 class AuthService:
-   
+
+    @staticmethod
+    def is_locked_out(email: str) -> bool:
+        r = _get_redis_client()
+        if r:
+            try:
+                return bool(r.exists(f"lockout:{email}"))
+            except Exception:
+                pass
+        now = datetime.now(timezone.utc)
+        lock_until = _LOCKOUT_STORE.get(email)
+        if lock_until and now < lock_until:
+            return True
+        elif lock_until:
+            _LOCKOUT_STORE.pop(email, None)
+            _FAILED_ATTEMPTS_STORE.pop(email, None)
+        return False
+
+    @staticmethod
+    def record_failed_attempt(email: str) -> int:
+        r = _get_redis_client()
+        if r:
+            try:
+                key = f"failed_attempts:{email}"
+                count = r.incr(key)
+                r.expire(key, 900)  # 15 minutes TTL
+                return count
+            except Exception:
+                pass
+        count = _FAILED_ATTEMPTS_STORE.get(email, 0) + 1
+        _FAILED_ATTEMPTS_STORE[email] = count
+        return count
+
+    @staticmethod
+    def set_lockout(email: str, minutes: int = 15):
+        r = _get_redis_client()
+        if r:
+            try:
+                r.setex(f"lockout:{email}", minutes * 60, "1")
+            except Exception:
+                pass
+        _LOCKOUT_STORE[email] = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+
+    @staticmethod
+    def clear_failed_attempts(email: str):
+        r = _get_redis_client()
+        if r:
+            try:
+                r.delete(f"failed_attempts:{email}", f"lockout:{email}")
+            except Exception:
+                pass
+        _FAILED_ATTEMPTS_STORE.pop(email, None)
+        _LOCKOUT_STORE.pop(email, None)
+
+    @staticmethod
+    def is_device_alert_on_cooldown(cooldown_key: str) -> bool:
+        r = _get_redis_client()
+        if r:
+            try:
+                return bool(r.exists(cooldown_key))
+            except Exception:
+                pass
+        now = datetime.now(timezone.utc)
+        until = _DEVICE_COOLDOWN_STORE.get(cooldown_key)
+        if until and now < until:
+            return True
+        elif until:
+            _DEVICE_COOLDOWN_STORE.pop(cooldown_key, None)
+        return False
+
+    @staticmethod
+    def set_device_alert_cooldown(cooldown_key: str, hours: int = 1):
+        r = _get_redis_client()
+        if r:
+            try:
+                r.setex(cooldown_key, hours * 3600, "1")
+            except Exception:
+                pass
+        _DEVICE_COOLDOWN_STORE[cooldown_key] = datetime.now(timezone.utc) + timedelta(hours=hours)
+
+    @staticmethod
+    def clear_device_cooldowns():
+        _DEVICE_COOLDOWN_STORE.clear()
+
+
+
     @staticmethod
     def login(db: Session, email: str, password: str = None, ip_address: str = None, device_info: str = None, session_expiry_hours: Optional[int] = None):
         email = email.strip().lower()
+
+        if AuthService.is_locked_out(email):
+            raise ValueError("Account temporarily locked due to 5 consecutive failed login attempts. Please try again in 15 minutes.")
+
         user = db.query(User).filter(User.email == email).first()
        
         if not user:
             user = User(
                 email=email,
-                password_hash="$2b$12$dummyhashforemailtestingonly",
+                password_hash="$2b$12$eImiTXuWVxfM37uY4JANjO.GkY.Jk1p3Vb9S3gqZ5k6L7M8N9O0P1",
                 full_name=email.split('@')[0].title()
             )
             db.add(user)
@@ -47,20 +151,57 @@ class AuthService:
             db.commit()
 
             db.refresh(user)
-        elif password and not verify_password(password, user.password_hash):
+        elif password:
+            is_valid = False
+            try:
+                is_valid = verify_password(password, user.password_hash) if user.password_hash else False
+            except Exception:
+                is_valid = False
+
+            if not is_valid:
+                failed_count = AuthService.record_failed_attempt(email)
+                if failed_count >= 5:
+                    AuthService.set_lockout(email, minutes=15)
+                    try:
+                        from app.services.notification_service import NotificationService
+                        NotificationService.notify(
+                            db=db,
+                            user_id=user.id,
+                            workspace_id=None,
+                            type="security_alert",
+                            title="Account Temporarily Locked",
+                            message=f"5 consecutive failed login attempts detected for your account. Locked for 15 minutes. IP: {ip_address or 'Unknown IP'}",
+                            is_critical=True,
+                            email_subject="[SECURITY ALERT] Account Locked Due to Multiple Failed Logins"
+                        )
+                    except Exception:
+                        pass
+                raise ValueError("Account locked due to 5 consecutive failed login attempts. A security email alert has been sent.")
             raise ValueError("Invalid email or password")
+
        
         if not user.is_active:
             raise ValueError("User account is inactive")
+
+        # Successful authentication — clear failed attempt counters
+        AuthService.clear_failed_attempts(email)
        
         # Get user's workspaces
-       
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
         ).filter(WorkspaceMember.user_id == user.id).all()
 
         # Get workspace id
         workspace_id = str(workspaces[0][0].id) if workspaces else None
+
+        # Check if login is from a new device / unrecognized IP
+        prior_session = db.query(UserSession).filter(
+            UserSession.user_id == user.id,
+            (UserSession.ip_address == (ip_address or "Unknown IP")) | 
+            (UserSession.device_info == (device_info or "Unknown Device"))
+        ).first()
+
+        is_new_device = prior_session is None
 
         # Create session
         session_id = str(uuid.uuid4())
@@ -74,19 +215,31 @@ class AuthService:
         db.add(user_session)
         db.commit()
 
-        try:
-            from app.services.notification_service import NotificationService
-            NotificationService.notify(
-                db=db,
-                user_id=user.id,
-                workspace_id=None,
-                type="security_alert",
-                title="New Login Detected",
-                message=f"New login detected from IP {ip_address or 'Unknown IP'} using device {device_info or 'Unknown Device'}."
-            )
-        except Exception as notif_exc:
-            import logging
-            logging.getLogger("app").error(f"Failed to send login alert notification: {notif_exc}")
+        if is_new_device:
+            from app.utils.auth import parse_user_agent
+            fingerprint = parse_user_agent(device_info)
+            cooldown_key = f"new_device_cooldown:{user.id}:{fingerprint}"
+
+            if not AuthService.is_device_alert_on_cooldown(cooldown_key):
+                AuthService.set_device_alert_cooldown(cooldown_key, hours=1)
+                try:
+                    from app.services.notification_service import NotificationService
+                    NotificationService.notify(
+                        db=db,
+                        user_id=user.id,
+                        workspace_id=None,
+                        type="security_alert",
+                        title="New Device Login Detected",
+                        message=f"New login detected from a new device/browser ({fingerprint}) at IP {ip_address or 'Unknown IP'}.",
+                        is_critical=True,
+                        email_subject="[SECURITY ALERT] New Login from Unrecognized Device",
+                        deduplication_key=cooldown_key
+                    )
+                except Exception as notif_exc:
+                    import logging
+                    logging.getLogger("app").error(f"Failed to send login alert notification: {notif_exc}")
+
+
 
         import secrets
         csrf_token = secrets.token_urlsafe(32)
@@ -159,12 +312,13 @@ class AuthService:
         user = db.query(User).filter(User.email == email).first()
 
         # NEW BLOCK
+        is_new_user = False
         if user and not user.is_active:
             raise ValueError("This account no longer exists.")
 
         # If user doesn't exist → auto create
         if not user:
-
+            is_new_user = True
             user = User(
                 email=email,
                 password_hash=None,
@@ -196,6 +350,23 @@ class AuthService:
             EntitlementOrchestrator.on_workspace_created(db, workspace.id)
             db.commit()
 
+            # Welcome notification + email for new signup
+            try:
+                from app.services.notification_service import NotificationService
+                NotificationService.notify(
+                    db=db,
+                    user_id=user.id,
+                    workspace_id=workspace.id,
+                    type="workspace_alert",
+                    title="Welcome to AuroMind!",
+                    message=f"Welcome {user.full_name}! Your workspace '{workspace.name}' is ready.",
+                    send_email=True,
+                    email_subject="Welcome to AuroMind AI"
+                )
+            except Exception as notif_exc:
+                import logging
+                logging.getLogger("app").error(f"Failed to send welcome notification: {notif_exc}")
+
         # get workspaces
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
             WorkspaceMember,
@@ -205,6 +376,17 @@ class AuthService:
         ).all()
 
         workspace_id = str(workspaces[0][0].id) if workspaces else None
+
+        # Check if login is from a new device / unrecognized IP
+        prior_session = None
+        if not is_new_user:
+            prior_session = db.query(UserSession).filter(
+                UserSession.user_id == user.id,
+                (UserSession.ip_address == (ip_address or "Unknown IP")) | 
+                (UserSession.device_info == (device_info or "Unknown Device"))
+            ).first()
+
+        is_new_device = (prior_session is None) and (not is_new_user)
 
         # Create session
         session_id = str(uuid.uuid4())
@@ -218,19 +400,30 @@ class AuthService:
         db.add(user_session)
         db.commit()
 
-        try:
-            from app.services.notification_service import NotificationService
-            NotificationService.notify(
-                db=db,
-                user_id=user.id,
-                workspace_id=None,
-                type="security_alert",
-                title="New Login Detected",
-                message=f"New login detected via email OTP from IP {ip_address or 'Unknown IP'} using device {device_info or 'Unknown Device'}."
-            )
-        except Exception as notif_exc:
-            import logging
-            logging.getLogger("app").error(f"Failed to send email login alert notification: {notif_exc}")
+        # Send Security Alert ONLY if login is from a New Device
+        if is_new_device:
+            from app.utils.auth import parse_user_agent
+            fingerprint = parse_user_agent(device_info)
+            dedup_key = f"new_device:{user.id}:{fingerprint}"
+            try:
+                from app.services.notification_service import NotificationService
+                NotificationService.notify(
+                    db=db,
+                    user_id=user.id,
+                    workspace_id=None,
+                    type="security_alert",
+                    title="New Device Login Detected",
+                    message=f"New login detected from an unrecognized device/browser ({fingerprint}) at IP {ip_address or 'Unknown IP'}.",
+                    is_critical=True,
+                    send_email=True,
+                    email_subject="[SECURITY ALERT] New Login from Unrecognized Device",
+                    deduplication_key=dedup_key
+                )
+            except Exception as notif_exc:
+                import logging
+                logging.getLogger("app").error(f"Failed to send email login alert notification: {notif_exc}")
+
+
 
         import secrets
         csrf_token = secrets.token_urlsafe(32)
