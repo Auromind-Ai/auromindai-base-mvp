@@ -56,7 +56,8 @@ const BeforeAfterSection = () => {
               rounded-[2rem] 
               p-4 sm:p-6 md:p-20 
               flex flex-col z-0 shadow-xl border border-white/10 
-              md:w-auto md:h-auto md:inset-0 md:translate-x-0 md:translate-y-0"
+              md:w-auto md:h-auto md:inset-0 md:translate-x-0 md:translate-y-0
+              will-change-transform"
           >
             
             <div className="mb-4 md:mb-8">
@@ -110,7 +111,8 @@ const BeforeAfterSection = () => {
               p-4 sm:p-6 md:p-20 
               flex flex-col z-10 
               md:w-auto md:h-auto md:inset-0 md:translate-x-0 md:translate-y-0 
-              shadow-[0_-50px_100px_rgba(0,0,0,0.12)]"
+              shadow-[0_-50px_100px_rgba(0,0,0,0.12)]
+              will-change-transform"
           >
            
             <div className="mb-auto relative">

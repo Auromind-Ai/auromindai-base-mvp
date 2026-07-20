@@ -81,13 +81,8 @@ export default function HeroBackground() {
     const stars = containerRef.current?.querySelectorAll("[data-star]");
 
     function tick() {
-
       if (isMobile) {
-        frameCountRef.current = (frameCountRef.current || 0) + 1;
-        if (frameCountRef.current % 2 !== 0) {
-          rafRef.current = requestAnimationFrame(tick);
-          return;
-        }
+        return; // Disable particle movement animation loop entirely on mobile for performance
       }
       const { x: mx, y: my } = mouseRef.current;
       const { width: w, height: h } = dimensionsRef.current;
