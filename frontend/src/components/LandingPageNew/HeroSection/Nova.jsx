@@ -197,6 +197,14 @@ export default function Nova({ hue = 0, hoverIntensity = 0.2, rotateOnHover = tr
     const container = ctnDom.current;
     if (!container || typeof window === "undefined") return;
 
+    const isMobile = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile) {
+      // Disable WebGL completely on mobile and use hardware-accelerated CSS gradient fallback
+      container.style.background = "radial-gradient(circle, rgba(124, 58, 237, 0.35) 0%, rgba(99, 102, 241, 0.22) 40%, rgba(139, 92, 246, 0.05) 75%, transparent 100%)";
+      container.style.filter = "blur(18px)";
+      return;
+    }
+
     let cleanup = null;
 
     const initWebGL = () => {

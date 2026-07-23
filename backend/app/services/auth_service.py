@@ -287,10 +287,16 @@ class AuthService:
             pass
            
         try:
+            db_subject = get_setting(db, "email_template_otp_subject") or f"Your {auth_type.title()} Verification Code"
+            db_body = get_setting(db, "email_template_otp_body") or f"Your verification code is {{otp}}. It will expire in 5 minutes."
+            
+            subject = EmailService.render_template(db_subject, {"otp": otp, "auth_type": auth_type.title()})
+            body = EmailService.render_template(db_body, {"otp": otp, "auth_type": auth_type.title()})
+
             EmailService.send_email(
                 to_email=email,
-                subject=f"Your {auth_type.title()} Verification Code",
-                body=f"Your verification code is {otp}. It will expire in 5 minutes."
+                subject=subject,
+                body=body
             )
         except Exception as e:
             import logging

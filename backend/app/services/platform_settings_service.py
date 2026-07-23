@@ -260,6 +260,229 @@ def seed_settings_from_env(db: Session):
             db.add(setting)
             updates_made = True
 
+    # Seed default email templates if not present in DB
+    default_emails = {
+        "email_template_otp_subject": "Your Verification Code",
+        "email_template_otp_body": """<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #050505; color: #ffffff; margin: 0; padding: 40px 20px; }
+    .card { max-width: 480px; margin: 0 auto; background-color: #0c0c0c; border: 1px solid #1a1a1a; border-radius: 24px; padding: 40px; text-align: center; }
+    .logo { font-size: 24px; font-weight: 900; background: linear-gradient(to right, #ffffff, #888888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; }
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 10px; color: #ffffff; }
+    p { font-size: 14px; color: #a0a0a0; line-height: 1.6; margin-bottom: 30px; }
+    .otp { font-size: 36px; font-weight: 800; letter-spacing: 6px; color: #6366f1; background-color: #111029; border: 1px solid #2e2c7a; padding: 15px 30px; border-radius: 16px; display: inline-block; margin-bottom: 30px; }
+    .footer { font-size: 11px; color: #505050; margin-top: 40px; border-top: 1px solid #1a1a1a; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">{{app_name}}</div>
+    <h1>Verify Your Email</h1>
+    <p>Please use the verification code below to complete your authentication. It is valid for 5 minutes.</p>
+    <div class="otp">{{otp}}</div>
+    <p>If you did not request this code, you can safely ignore this email.</p>
+    <div class="footer">
+      Powered by {{app_name}} AI Automation Platform.
+    </div>
+  </div>
+</body>
+</html>""",
+        "email_template_welcome_subject": "Welcome to Orbion Agents!",
+        "email_template_welcome_body": """<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #050505; color: #ffffff; margin: 0; padding: 40px 20px; }
+    .card { max-width: 540px; margin: 0 auto; background-color: #0c0c0c; border: 1px solid #1a1a1a; border-radius: 24px; padding: 40px; }
+    .logo { font-size: 24px; font-weight: 900; background: linear-gradient(to right, #ffffff, #888888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; text-align: center; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 20px; color: #ffffff; text-align: center; }
+    p { font-size: 14px; color: #a0a0a0; line-height: 1.6; margin-bottom: 20px; }
+    .steps { background-color: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 16px; padding: 20px; margin: 25px 0; }
+    .step-item { margin-bottom: 15px; display: flex; align-items: flex-start; }
+    .step-num { width: 24px; height: 24px; background-color: #6366f1; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; }
+    .step-text { font-size: 13px; color: #c0c0c0; }
+    .button-container { text-align: center; margin-top: 30px; }
+    .btn { display: inline-block; background-color: #ffffff; color: #000000; font-weight: 700; text-decoration: none; padding: 12px 30px; border-radius: 16px; font-size: 14px; transition: transform 0.2s; }
+    .footer { font-size: 11px; color: #505050; margin-top: 40px; border-top: 1px solid #1a1a1a; padding-top: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">{{app_name}}</div>
+    <h1>Welcome to Orbion Agents, {{user_name}}!</h1>
+    <p>We are excited to have you on board! Orbion Agents helps you automate customer interactions using conversational AI on WhatsApp and other platforms.</p>
+    <p>To get started, follow these simple steps in your dashboard:</p>
+    <div class="steps">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>Connect WhatsApp</strong>: Set up your business profile under integrations.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Ingest Knowledge</strong>: Upload your business documents or links so the AI understands your business.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Activate AI</strong>: Go live and let the AI assist your leads and customers instantly.</div>
+      </div>
+    </div>
+    <div class="button-container">
+      <a href="{{frontend_url}}" class="btn">Launch Dashboard</a>
+    </div>
+    <div class="footer">
+      This email was sent to you as a registered member of {{app_name}}.
+    </div>
+  </div>
+</body>
+</html>""",
+        "email_template_credits_purchased_subject": "Receipt: WhatsApp Credits Added",
+        "email_template_credits_purchased_body": """<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #050505; color: #ffffff; margin: 0; padding: 40px 20px; }
+    .card { max-width: 500px; margin: 0 auto; background-color: #0c0c0c; border: 1px solid #1a1a1a; border-radius: 24px; padding: 40px; }
+    .logo { font-size: 24px; font-weight: 900; background: linear-gradient(to right, #ffffff, #888888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; text-align: center; }
+    h1 { font-size: 20px; font-weight: 800; margin-bottom: 10px; color: #ffffff; text-align: center; }
+    .badge { display: inline-block; background-color: #0e2f1e; border: 1px solid #1c5235; color: #10b981; font-size: 12px; font-weight: 700; padding: 6px 16px; border-radius: 12px; margin-bottom: 35px; }
+    p { font-size: 14px; color: #a0a0a0; line-height: 1.6; margin-bottom: 20px; }
+    .receipt-details { background-color: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 16px; padding: 20px; margin-bottom: 30px; }
+    .receipt-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
+    .receipt-row:last-child { margin-bottom: 0; border-top: 1px solid #1a1a1a; padding-top: 12px; font-weight: bold; }
+    .label { color: #606060; }
+    .val { color: #ffffff; }
+    .footer { font-size: 11px; color: #505050; margin-top: 40px; border-top: 1px solid #1a1a1a; padding-top: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card" style="text-align: center;">
+    <div class="logo">{{app_name}}</div>
+    <h1>Payment Received</h1>
+    <div class="badge">SUCCESSFUL</div>
+    
+    <div style="text-align: left;">
+      <p>Hi {{user_name}},</p>
+      <p>Thank you for your purchase! We have successfully credited your workspace with your WhatsApp credits pack.</p>
+      
+      <div class="receipt-details">
+        <div class="receipt-row">
+          <span class="label">Credits Added</span>
+          <span class="val">{{credits}}</span>
+        </div>
+        <div class="receipt-row">
+          <span class="label">Order ID</span>
+          <span class="val">{{order_id}}</span>
+        </div>
+        <div class="receipt-row">
+          <span class="label">Payment ID</span>
+          <span class="val">{{payment_id}}</span>
+        </div>
+        <div class="receipt-row">
+          <span class="label">Amount Paid</span>
+          <span class="val">{{amount}} {{currency}}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      If you have any questions about this invoice, please reach out to billing support.
+    </div>
+  </div>
+</body>
+</html>""",
+        "email_template_low_credits_subject": "Low Credit Warning: WhatsApp Agent",
+        "email_template_low_credits_body": """<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #050505; color: #ffffff; margin: 0; padding: 40px 20px; }
+    .card { max-width: 480px; margin: 0 auto; background-color: #0c0c0c; border: 1px solid #1a1a1a; border-radius: 24px; padding: 40px; text-align: center; }
+    .logo { font-size: 24px; font-weight: 900; background: linear-gradient(to right, #ffffff, #888888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; }
+    h1 { font-size: 20px; font-weight: 800; margin-bottom: 15px; color: #ef4444; }
+    p { font-size: 14px; color: #a0a0a0; line-height: 1.6; margin-bottom: 25px; }
+    .warning-box { background-color: #2c0f0f; border: 1px solid #5a1c1c; border-radius: 16px; padding: 15px; font-size: 18px; font-weight: 700; color: #f87171; display: inline-block; margin-bottom: 25px; }
+    .btn { display: inline-block; background-color: #ef4444; color: #ffffff; font-weight: 700; text-decoration: none; padding: 12px 30px; border-radius: 16px; font-size: 14px; }
+    .footer { font-size: 11px; color: #505050; margin-top: 40px; border-top: 1px solid #1a1a1a; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">{{app_name}}</div>
+    <h1>Low Credits Warning</h1>
+    <p>Your workspace is running low on WhatsApp AI credits. To prevent any disruption to your automated customer service, please top up your credits.</p>
+    <div class="warning-box">{{credits}} Credits Remaining</div>
+    <p>Once credits reach 0, your AI agents will temporarily pause replying on WhatsApp.</p>
+    <a href="{{frontend_url}}/admin/billing" class="btn">Top Up Credits Now</a>
+    <div class="footer">
+      Alert sent automatically for workspace: {{workspace_name}}
+    </div>
+  </div>
+</body>
+</html>""",
+        "email_template_handover_subject": "Human Intervention Required on WhatsApp",
+        "email_template_handover_body": """<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #050505; color: #ffffff; margin: 0; padding: 40px 20px; }
+    .card { max-width: 500px; margin: 0 auto; background-color: #0c0c0c; border: 1px solid #1a1a1a; border-radius: 24px; padding: 40px; }
+    .logo { font-size: 24px; font-weight: 900; background: linear-gradient(to right, #ffffff, #888888); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; text-align: center; }
+    h1 { font-size: 20px; font-weight: 800; margin-bottom: 15px; color: #f59e0b; text-align: center; }
+    p { font-size: 14px; color: #a0a0a0; line-height: 1.6; margin-bottom: 20px; }
+    .detail-box { background-color: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 16px; padding: 20px; margin-bottom: 30px; }
+    .row { display: flex; margin-bottom: 10px; font-size: 13px; }
+    .row:last-child { margin-bottom: 0; }
+    .label { width: 140px; color: #606060; flex-shrink: 0; }
+    .val { color: #ffffff; }
+    .btn-container { text-align: center; }
+    .btn { display: inline-block; background-color: #f59e0b; color: #000000; font-weight: 700; text-decoration: none; padding: 12px 30px; border-radius: 16px; font-size: 14px; }
+    .footer { font-size: 11px; color: #505050; margin-top: 40px; border-top: 1px solid #1a1a1a; padding-top: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">{{app_name}}</div>
+    <h1>Human Handover Alert</h1>
+    <p>An AI agent has requested human intervention. A customer requires assistance that the AI cannot handle.</p>
+    
+    <div class="detail-box">
+      <div class="row">
+        <span class="label">Customer Phone</span>
+        <span class="val">{{customer_phone}}</span>
+      </div>
+      <div class="row">
+        <span class="label">Last Message</span>
+        <span class="val">"{{last_message}}"</span>
+      </div>
+      <div class="row">
+        <span class="label">Workspace</span>
+        <span class="val">{{workspace_name}}</span>
+      </div>
+    </div>
+    
+    <div class="btn-container">
+      <a href="{{frontend_url}}/admin/inbox" class="btn">Open Inbox Chat</a>
+    </div>
+    
+    <div class="footer">
+      Real-time routing alert for {{app_name}} Agents.
+    </div>
+  </div>
+</body>
+</html>"""
+    }
+    for k, v in default_emails.items():
+        if k not in existing_settings:
+            setting = PlatformSetting(
+                key=k,
+                value=v,
+                value_type="string"
+            )
+            db.add(setting)
+            updates_made = True
+
     # Seed default pricing configs if not present in DB
     default_pricing = {
         "free_plan_price": (0.0, "float"),
