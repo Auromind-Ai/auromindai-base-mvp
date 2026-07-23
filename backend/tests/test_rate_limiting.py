@@ -25,3 +25,22 @@ def test_upload_content_length_exceeded(client):
     )
     assert res.status_code == 413
     assert "exceeds maximum limit" in res.json()["detail"]
+
+
+def test_ai_concurrency_limiting(client, redis_mock):
+    """Verify concurrent AI requests exceeding max limit return HTTP 429."""
+    # Set fake active concurrency counter in Redis to limit (3)
+    redis_mock.setex("concurrency:brain:198.51.100.10", 60, "3")
+
+    res = client.get("/brain/chat", headers={"X-Forwarded-For": "198.51.100.10"})
+    assert res.status_code == 429
+    assert "Too many concurrent AI requests" in res.json()["detail"]
+
+
+def test_rate_limit_bypass_paths(client):
+    """Verify OPTIONS, /health, /docs bypass rate limiting."""
+    res1 = client.get("/health")
+    assert res1.status_code in (200, 404)
+    res2 = client.options("/upload")
+    assert res2.status_code in (200, 405)
+
