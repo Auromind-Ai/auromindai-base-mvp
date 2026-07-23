@@ -1,0 +1,65 @@
+name: DevSecOps Security Pipeline 🛡️
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  security-qa:
+    name: Automated Security QA & Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run Pytest Unit & Security Integration Tests
+        run: |
+          cd backend
+          pytest tests/ -v
+
+      - name: Measure Code Coverage
+        run: |
+          cd backend
+          python -m coverage run -m pytest tests/
+          python -m coverage report --include="app/core/rate_limit.py,app/routers/auth.py"
+
+      - name: Run Bandit SAST Scan
+        run: |
+          cd backend
+          bandit -r app/ -ll -ii
+
+      - name: Run pip-audit Dependency Scan
+        run: |
+          cd backend
+          pip-audit -r requirements.txt || true
+
+      - name: Run Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy Vulnerability Scanner on Dockerfile
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          hide-shortcut-env-vars: true
+          exit-code: '0'
+
+      - name: Setup k6 Load Tester
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: tests/load/k6_auth_load.js
+          flags: --vus 5 --duration 5s
