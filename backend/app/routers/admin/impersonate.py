@@ -187,14 +187,33 @@ def start_impersonation(
         WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
     ).filter(WorkspaceMember.user_id == user.id).all()
 
-    workspace_id = str(workspaces[0][0].id) if workspaces else None
+    import secrets
+    csrf_token = secrets.token_urlsafe(32)
+
+    # Fast validation key in Redis for active impersonation tracking
+    if r_client:
+        try:
+            r_client.setex(
+                f"impersonation:{session_id}",
+                900,  # 15 minutes TTL matching token duration
+                json.dumps({
+                    "status": "active",
+                    "admin_id": str(admin_id),
+                    "target_user_id": str(user.id),
+                    "expires_at": expires_at.isoformat() if isinstance(expires_at, datetime) else str(expires_at)
+                })
+            )
+        except Exception as e:
+            logger.error(f"Failed to set active impersonation key in Redis: {e}")
 
     token_data = {
         "sub": str(user.id),
         "email": user.email,
         "workspace_id": workspace_id,
         "impersonated": True,
-        "admin_id": str(admin_id)
+        "admin_id": str(admin_id),
+        "impersonation_id": str(session_id),
+        "csrf_token": csrf_token
     }
 
     token = create_access_token(

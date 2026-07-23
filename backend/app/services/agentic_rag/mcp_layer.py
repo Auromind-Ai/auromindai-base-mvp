@@ -106,13 +106,12 @@ class MCPLayer:
     #LLM decides which tool to use
     async def decide_tool(self, query: str, model: str | None = None):
 
-        prompt = f"""
-      You are a deterministic AI Tool Router for a production SaaS system.
-
-    Your task is to select EXACTLY ONE tool.
-
-    Return ONLY the tool name.
-    Do NOT explain.
+        prompt = (
+            "You are a deterministic AI Tool Router for a production SaaS system.\n\n"
+            "Your task is to select EXACTLY ONE tool.\n\n"
+            "Return ONLY the tool name.\n"
+            "Do NOT explain."
+        )
     Do NOT answer.
 
     --------------------------------------------------

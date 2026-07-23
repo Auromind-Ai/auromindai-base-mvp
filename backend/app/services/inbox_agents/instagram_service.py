@@ -17,6 +17,6 @@ class InstagramService:
             "access_token": self.access_token
         }
 
-        res = requests.post(url, json=payload, params=params)
+        res = requests.post(url, json=payload, params=params, timeout=10)
 
         return res.json()

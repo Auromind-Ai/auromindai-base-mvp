@@ -75,7 +75,7 @@ class FlowServiceV2:
 
         self.tracer = ExecutionTracer()
         self.max_iterations = 50
-        self.template_env = Environment(undefined=SilentUndefined)
+        self.template_env = Environment(undefined=SilentUndefined, autoescape=True)
         self.template_env.globals.update({"safe": lambda x: x})
 
 
