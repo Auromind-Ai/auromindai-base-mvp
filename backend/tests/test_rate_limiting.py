@@ -44,3 +44,18 @@ def test_rate_limit_bypass_paths(client):
     res2 = client.options("/upload")
     assert res2.status_code in (200, 405)
 
+
+def test_rate_limit_redis_failure_fallback(client, redis_mock):
+    """Verify rate limiter fails open gracefully when Redis connection raises an exception."""
+    import app.core.rate_limit
+    
+    # Temporarily set Redis client to None to simulate Redis downtime
+    original_override = app.core.rate_limit._get_redis_client.override
+    app.core.rate_limit._get_redis_client.override = None
+
+    try:
+        res = client.post("/upload", headers={"X-Forwarded-For": "198.51.100.20"})
+        assert res.status_code in (200, 404), "Rate limiter should fail open gracefully when Redis is down"
+    finally:
+        app.core.rate_limit._get_redis_client.override = original_override
+
