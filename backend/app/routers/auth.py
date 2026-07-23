@@ -3,8 +3,12 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import logging
+import json
+import secrets
+import urllib.parse
+import httpx
 from sqlalchemy.orm import Session
-from app.schemas.auth import EmailLoginRequest, UserResponse, WorkspaceResponse
+from app.schemas.auth import UserResponse, WorkspaceResponse
 from app.database import get_db
 from app.services.auth_service import AuthService
 from app.utils.auth import decode_access_token, get_client_ip, parse_user_agent
@@ -12,11 +16,31 @@ import uuid
 from datetime import datetime, timezone
 from app.core.config import settings
 from app.services.config_service import config_service
+from app.core.rate_limit import log_security_event
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp", auto_error=False)
 
 logger = logging.getLogger(__name__)
+
+
+def _get_redis_client():
+    if getattr(_get_redis_client, "override", None) is not None:
+        return _get_redis_client.override
+    try:
+        import redis
+        client = redis.from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=0.5,
+            socket_timeout=0.5,
+        )
+        client.ping()
+        return client
+    except Exception as e:
+        logger.warning(f"Auth Redis connection error: {e}")
+        return None
+
 
 def set_auth_cookie(response: Response, request: Request, key: str, value: str, max_age: int = None):
     from app.core.config import settings
@@ -122,11 +146,38 @@ async def get_current_user(
     workspace_id: str = payload.get("workspace_id")
     impersonated = payload.get("impersonated", False)
     admin_id = payload.get("admin_id")
+    impersonation_id: str = payload.get("impersonation_id")
     session_id: str = payload.get("session_id")
+    csrf_token: str = payload.get("csrf_token")
 
     if user_id is None:
         logger.debug("❌ Token missing sub")
         raise credentials_exception
+
+    # Fast Validation for impersonated tokens before DB user lookup
+    if impersonated and impersonation_id:
+        r_client = _get_redis_client()
+        imp_active = False
+        if r_client:
+            try:
+                raw_imp = r_client.get(f"impersonation:{impersonation_id}")
+                if raw_imp:
+                    imp_data = json.loads(raw_imp)
+                    if imp_data.get("status") == "active":
+                        imp_active = True
+            except Exception as e:
+                logger.error(f"Redis check for impersonation failed: {e}")
+
+        if not imp_active:
+            # Fallback to DB check
+            from app.models.impersonation import ImpersonationSession
+            imp_db = db.query(ImpersonationSession).filter(
+                ImpersonationSession.session_id == impersonation_id
+            ).first()
+            if not imp_db or imp_db.used:
+                logger.warning(f"❌ Impersonation session {impersonation_id} is revoked or inactive")
+                log_security_event("impersonation_invalid", request, {"impersonation_id": impersonation_id}, user_id=user_id)
+                raise credentials_exception
 
     logger.debug(f"👤 Token claims user_id: {user_id}")
     user = AuthService.get_user_by_id(db, user_id)
@@ -255,20 +306,6 @@ async def google_login(request: Request, type: str = "login", session_expiry_hou
     expiry_part = f":{session_expiry_hours}" if session_expiry_hours else ""
     state = f"{state_token}:{type}{expiry_part}"
 
-    auth_url = (
-        "https://accounts.google.com/o/oauth2/v2/auth?"
-        f"client_id={config_service.get('google_client_id')}&"
-        f"redirect_uri={urllib.parse.quote(redirect_uri)}&"
-        "response_type=code&"
-        "scope=openid%20email%20profile&"
-        "access_type=offline&"
-        f"state={state}"
-    )
-    logger.debug(f"GOOGLE REDIRECT URI = {redirect_uri}")
-    logger.debug(f"FRONTEND URL = {settings.FRONTEND_URL}")
-    logger.debug(f"CLIENT ID = {config_service.get('google_client_id')}")
-    logger.debug(f"CLIENT SECRET EXISTS = {bool(config_service.get('google_client_secret'))}")
-
     # Capture the initiating frontend's origin dynamically from headers
     referer = request.headers.get("referer")
     origin = request.headers.get("origin")
@@ -285,6 +322,36 @@ async def google_login(request: Request, type: str = "login", session_expiry_hou
 
     if not frontend_url:
         frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
+
+    # Single Source of Truth: Store state metadata in Redis
+    oauth_meta = {
+        "auth_type": type,
+        "redirect_uri": redirect_uri,
+        "frontend_url": frontend_url,
+        "session_expiry_hours": session_expiry_hours,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    r_client = _get_redis_client()
+    if r_client:
+        try:
+            r_client.setex(f"oauth_state:{state_token}", 300, json.dumps(oauth_meta))
+        except Exception as e:
+            logger.error(f"Failed to store OAuth state in Redis: {e}")
+
+    auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={config_service.get('google_client_id')}&"
+        f"redirect_uri={urllib.parse.quote(redirect_uri)}&"
+        "response_type=code&"
+        "scope=openid%20email%20profile&"
+        "access_type=offline&"
+        f"state={state}"
+    )
+    logger.debug(f"GOOGLE REDIRECT URI = {redirect_uri}")
+    logger.debug(f"FRONTEND URL = {settings.FRONTEND_URL}")
+    logger.debug(f"CLIENT ID = {config_service.get('google_client_id')}")
+    logger.debug(f"CLIENT SECRET EXISTS = {bool(config_service.get('google_client_secret'))}")
 
     response = RedirectResponse(url=auth_url)
     set_auth_cookie(
@@ -316,20 +383,57 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
 
     is_prod = settings.ENVIRONMENT.lower() == "production"
 
-    # Bypass state check to support multi-domain logins
-    # cookie_state = request.cookies.get("oauth_state")
-    # if not cookie_state or not state.startswith(cookie_state + ":"):
-    #     response = RedirectResponse(url=f"{frontend_url}/login?error=State+verification+failed")
-    #     delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
-    #     return response
+    state_nonce = state.split(":")[0] if state else ""
+    
+    # Single Source of Truth: Fetch state metadata from Redis and consume atomically
+    r_client = _get_redis_client()
+    oauth_meta = None
+    if r_client and state_nonce:
+        try:
+            redis_key = f"oauth_state:{state_nonce}"
+            if hasattr(r_client, "getdel"):
+                raw_meta = r_client.getdel(redis_key)
+            else:
+                pipe = r_client.pipeline()
+                pipe.get(redis_key)
+                pipe.delete(redis_key)
+                res = pipe.execute()
+                raw_meta = res[0]
+                
+            if raw_meta:
+                oauth_meta = json.loads(raw_meta)
+        except Exception as e:
+            logger.error(f"Failed to retrieve OAuth state from Redis: {e}")
 
-    try:
-        parts = state.split(":", 2)
-        auth_type = parts[1] if len(parts) > 1 else "login"
-        session_expiry_hours = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
-    except ValueError:
-        auth_type = "login"
-        session_expiry_hours = None
+    # Fallback to cookie check if Redis was temporarily unreachable
+    cookie_state = request.cookies.get("oauth_state")
+    cookie_frontend = request.cookies.get("oauth_frontend_url")
+    
+    if not oauth_meta and not (cookie_state and state_nonce == cookie_state):
+        frontend_url = cookie_frontend or settings.FRONTEND_URL or "http://localhost:3000"
+        log_security_event("oauth_state_invalid", request, {"state_nonce": state_nonce})
+        logger.warning("🛡️ OAuth State verification failed — invalid, expired, or replayed state")
+        response = RedirectResponse(url=f"{frontend_url}/login?error=Invalid+or+replayed+OAuth+state")
+        delete_auth_cookie(response=response, request=request, key="oauth_state", path="/")
+        delete_auth_cookie(response=response, request=request, key="oauth_frontend_url", path="/")
+        return response
+
+    # Use verified values directly from Redis metadata (never trust callback query params)
+    if oauth_meta:
+        auth_type = oauth_meta.get("auth_type", "login")
+        frontend_url = oauth_meta.get("frontend_url") or settings.FRONTEND_URL or "http://localhost:3000"
+        session_expiry_hours = oauth_meta.get("session_expiry_hours")
+        redirect_uri = oauth_meta.get("redirect_uri") or config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
+    else:
+        try:
+            parts = state.split(":", 2)
+            auth_type = parts[1] if len(parts) > 1 else "login"
+            session_expiry_hours = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+        except ValueError:
+            auth_type = "login"
+            session_expiry_hours = None
+        frontend_url = cookie_frontend or settings.FRONTEND_URL or "http://localhost:3000"
+        redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
 
     if not code:
         response = RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
@@ -482,7 +586,7 @@ async def get_workspaces(
     return {"workspaces": workspaces}
 
 @router.post("/stop-impersonation")
-async def stop_impersonation(request: Request, response: Response):
+async def stop_impersonation(request: Request, response: Response, db: Session = Depends(get_db)):
     logger.info("POST /stop-impersonation called")
     admin_backup_token = request.cookies.get("admin_backup_token") or request.headers.get("x-admin-backup-token")
     if not admin_backup_token:
@@ -490,6 +594,31 @@ async def stop_impersonation(request: Request, response: Response):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No active impersonation session to stop"
         )
+
+    # Cleanly revoke current impersonation token if present
+    auth_token = request.cookies.get("auth_token") or request.headers.get("authorization", "").replace("Bearer ", "")
+    if auth_token:
+        try:
+            curr_payload = decode_access_token(auth_token)
+            if curr_payload and curr_payload.get("impersonation_id"):
+                imp_id = curr_payload["impersonation_id"]
+                r_client = _get_redis_client()
+                if r_client:
+                    try:
+                        r_client.delete(f"impersonation:{imp_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to delete impersonation key from Redis: {e}")
+
+                from app.models.impersonation import ImpersonationSession
+                imp_db = db.query(ImpersonationSession).filter(
+                    ImpersonationSession.session_id == imp_id
+                ).first()
+                if imp_db:
+                    imp_db.used = True
+                    db.commit()
+                log_security_event("impersonation_stopped", request, {"impersonation_id": imp_id})
+        except Exception as e:
+            logger.warning(f"Failed to revoke active impersonation session during stop: {e}")
 
     payload = decode_access_token(admin_backup_token)
     if not payload:
