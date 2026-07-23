@@ -53,7 +53,7 @@ export default function FileProgress({ entryId, onDone }) {
       {/* COMPLETED */}
       {status === "completed" && (
         <>
-          <span className="text-green-600 text-xl">✔</span>
+          <span className="text-green-600 text-[14px]">✔</span>
           <span className="text-green-600 font-medium">
             File processed successfully
           </span>
@@ -63,7 +63,7 @@ export default function FileProgress({ entryId, onDone }) {
       {/* FAILED */}
       {status === "failed" && (
         <>
-          <span className="text-red-600 text-xl">✖</span>
+          <span className="text-red-600 text-[14px]">✖</span>
           <span className="text-red-600 font-medium">
             {errorMessage}
           </span>

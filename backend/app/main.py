@@ -1,176 +1,267 @@
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 
-# Core
-from app.core.middleware import MetricsMiddleware
+from dotenv import load_dotenv
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+
+import google.generativeai as genai
+from groq import Groq
+
+# Database
+from app.database import get_db, engine, Base, SessionLocal
+
+# Core & Middleware
 from app.core.websockets import manager
 from app.core.logger import logger
 from app.core.metrics import setup_system_metrics, start_system_metrics_updater, stop_system_metrics_updater
 from app.core.request_logger import RequestLoggingMiddleware
+from app.core.middleware import MetricsMiddleware
 from app.core.exception_handlers import register_exception_handlers
-from app.core.uuid_validation import UUIDValidationMiddleware
-from app.core.admin_middleware import AdminConsoleMiddleware
-from app.core.startup import ( init_schedulers,
-    shutdown_schedulers, init_llm_router,
-    init_pubsub, shutdown_pubsub,
-    init_metrics, shutdown_metrics,
-    init_rag,
-)
+
+# Services
+from app.services.background_scheduler import EmailSchedulerService
+from app.services.cleanup_service import ReservationCleanupSchedulerService
+from app.services.ai.chat_service import ChatService, ChatServiceConfig
+from app.services.agentic_rag.cache_loader import load_learning_cache
 
 # Routers
 from app.routers import (
-    auth, brain, dashboard, chat,
-    integrations, gmail, email, automation, admin,
-    public, billing, upload, preferences, security,
-    notifications, wcc, flow_packs
+    auth, brain,
+    dashboard, chat, integrations, gmail, email,
+    automation, admin, public, billing, upload,
+    preferences, security, notifications, two_factor,
+    account, realtime, wcc, lead_scoring, flow_packs,
+    template
 )
-from app.routers.feedback import router as feedback_router
-from app.routers.template import router as template_router
-from app.routers.lead_scoring import router as lead_scoring_router
-from app.routers.inbox_chennal import meta_what, conversations, instagram, twilio_webhook
-from app.routers.realtime import router as realtime_router
-from app.routers.two_factor import router as two_factor_router
-from app.routers.account import router as account_router
+from app.routers.inbox_chennal import conversations, twilio_webhook, meta_what, instagram
+from app.routers.auth import CurrentUser, get_current_user
+from app.routers.feedback import router as feedback_router  # Integrated from V2
+from app.core.security import verify_workspace_access
 
-# Lifespan 
+load_dotenv()
+
+# ── Lifespan (startup + shutdown) ─────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Orbionagents Production System Starting...")
+    # Startup: Initialize resources
     
-    # Seed platform settings and model configurations on startup
-    from app.database import SessionLocal
-    from app.services.platform_settings_service import seed_settings_from_env, migrate_sensitive_settings
-    from app.services.model_config_service import ModelConfigService
+    Base.metadata.create_all(bind=engine)
+    logger.info("Auromind Production System Starting...")
+
+    # 1. Load Learning Cache (Integrated from V2)
     db = SessionLocal()
     try:
-        seed_settings_from_env(db)
-        migrate_sensitive_settings(db)
-        # Seed model configs
-        config_service = ModelConfigService(db)
-        config_service.seed_default_configs()
-        logger.info("Model configurations seeded successfully.")
+        load_learning_cache(db)
+        logger.info("Learning cache loaded successfully at startup")
     except Exception as e:
-        logger.error(f"Failed to seed or migrate settings: {e}")
+        logger.error(f"Failed to load learning cache: {e}")
     finally:
         db.close()
 
-    # Load dynamic allowed origins at startup and update CORSMiddleware options
-    try:
-        from app.services.config_service import config_service
-        db_origins = config_service.get("allowed_origins")
-        if db_origins:
-            new_origins = [o.strip() for o in db_origins.split(",") if o.strip()]
-            for middleware in app.user_middleware:
-                if middleware.cls == CORSMiddleware:
-                    origins_list = middleware.kwargs.get("allow_origins", [])
-                    for origin in new_origins:
-                        if origin not in origins_list:
-                            origins_list.append(origin)
-                    break
-    except Exception as e:
-        logger.error(f"Failed to load dynamic CORS allowed origins: {e}")
+    # 2. Start Schedulers
+    scheduler = EmailSchedulerService(engine)
+    scheduler.start()
+    app.state.email_scheduler = scheduler
+    logger.info("Email Scheduler Started")
 
-    init_rag(app)
-    init_schedulers(app)
-    await init_llm_router(app)
-    await init_pubsub(app)
-    await init_metrics(app)              # async Redis for metrics
+    reservation_cleanup_scheduler = ReservationCleanupSchedulerService(engine)
+    reservation_cleanup_scheduler.start()
+    app.state.reservation_cleanup_scheduler = reservation_cleanup_scheduler
+    logger.info("Reservation Cleanup Scheduler Started")
+
+    # 3. System metrics
     setup_system_metrics(app)
     await start_system_metrics_updater(app)
-    yield
+    logger.info(
+        "System metrics updater started with %.2f second interval",
+        app.state.system_metrics.update_interval_seconds,
+    )
+
+    yield  # app runs here
+
+    # ── SHUTDOWN ──
     await stop_system_metrics_updater(app)
-    await shutdown_pubsub(app)
-    await shutdown_metrics(app)          # close metrics Redis client
-    shutdown_schedulers(app)
-    logger.info("Orbionagents Production System Stopped")
+
+    if hasattr(app.state, "email_scheduler") and app.state.email_scheduler:
+        app.state.email_scheduler.stop()
+
+    if hasattr(app.state, "reservation_cleanup_scheduler") and app.state.reservation_cleanup_scheduler:
+        app.state.reservation_cleanup_scheduler.stop()
+
+    logger.info("Auromind Production System Stopped")
 
 
-# App
+# ── App Initialization ────────────────────────────────────────────────────────
 app = FastAPI(
-    title="Orbionagents API",
+    title="Auromind API",
     description="AI-Powered Business Assistant Platform (Production)",
     version="2.0.0",
     lifespan=lifespan,
-    redirect_slashes=False,  # Prevent 307 redirects that strip cookies/CORS headers
 )
 
 register_exception_handlers(app)
 
-# Middleware
-allowed_origins = []
-fallback_origins = [
-    "https://orbionagents.com",
-    "http://orbionagents.com",
-    "https://www.orbionagents.com",
-    "http://www.orbionagents.com",
-   
-    # Local development
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
-for origin in fallback_origins:
-    if origin not in allowed_origins:
-        allowed_origins.append(origin)
+# ── CORS & Middleware ─────────────────────────────────────────────────────────
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000," \
+    "http://127.0.0.1:3000"
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
+
+# UUID validation middleware — catches malformed UUIDs in path params
+from app.core.uuid_validation import UUIDValidationMiddleware
 app.add_middleware(UUIDValidationMiddleware)
-app.add_middleware(AdminConsoleMiddleware)
 
 
-# Health 
+# WebSocket handled by realtime router
+
+
+# CORS middleware - Hardened for local development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://dr4hfltt-3000.inc1.devtunnels.ms"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+
 @app.get("/")
 async def root():
-    return {"message": "Orbionagents API", "version": "2.0.0", "status": "running"}
+    return {"message": "Auromind API", "version": "2.0.0", "status": "running"}
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
-                                      
+
+# ── Routers ───────────────────────────────────────────────────────────────────
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(account.router, prefix="/account", tags=["account"])
+app.include_router(two_factor.router, prefix="/2fa", tags=["2fa"])
 app.include_router(preferences.router, prefix="/users", tags=["preferences"])
 app.include_router(security.router, prefix="/user", tags=["security"])
 app.include_router(notifications.router)
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(account_router, prefix="/account", tags=["account"])
-app.include_router(two_factor_router, prefix="/2fa", tags=["2fa"])                                         
-app.include_router(conversations.router)                                 
-app.include_router(twilio_webhook.router) 
+app.include_router(conversations.router)
 app.include_router(meta_what.router)
 app.include_router(instagram.router)
-
-# Mount webhook and channel routers under /api prefix for compatibility with direct webhook calls
-app.include_router(conversations.router, prefix="/api")
-app.include_router(twilio_webhook.router, prefix="/api")
-app.include_router(meta_what.router, prefix="/api")
-app.include_router(instagram.router, prefix="/api")
 app.include_router(brain.router, tags=["brain"])
 app.include_router(chat.router)
-app.include_router(dashboard.router,    prefix="/dashboard", tags=["dashboard"])
+app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(twilio_webhook.router)
 app.include_router(integrations.router)
 app.include_router(gmail.router)
 app.include_router(email.router)
 app.include_router(automation.router)
-app.include_router(template_router)
-app.include_router(feedback_router)
 app.include_router(admin.router, tags=["admin"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])
+app.include_router(feedback_router)  
+app.include_router(upload.router, tags=["upload"])
+app.include_router(realtime.router)
 app.include_router(wcc.router)
+app.include_router(lead_scoring.router)
 app.include_router(flow_packs.router)
-app.include_router(flow_packs.admin_router)
-app.include_router(upload.router,tags=["upload"])
-app.include_router(lead_scoring_router, tags=["lead-scoring"])
-app.include_router(realtime_router)
+app.include_router(template.router)
 
+# ── External AI clients & Chat Service Config ─────────────────────────────────
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+
+groq_client = None
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if GROQ_API_KEY:
+    groq_client = Groq(api_key=GROQ_API_KEY)
+
+chat_service_config = ChatServiceConfig(
+    google_api_key=GOOGLE_API_KEY,
+    groq_client=groq_client,
+)
+
+
+# ── Chat Endpoints (Using ChatService) ────────────────────────────────────────
+
+class ChatQueryRequest(BaseModel):
+    message: str
+    workspace_id: str
+
+
+def _verify_workspace(db: Session, current_user: CurrentUser) -> str:
+    """Thin wrapper to match the (db, user) arg order used in main.py endpoints."""
+    return verify_workspace_access(current_user, db)
+
+@app.post("/chat/query")
+async def chat_query(
+    request: ChatQueryRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Synchronous chat query endpoint (One-off) - Now Async."""
+    service = ChatService(chat_service_config)
+    workspace_id = _verify_workspace(db, current_user)
+    return await service.handle_chat_query(
+        db=db,
+        message=request.message,
+        workspace_id=workspace_id,
+        user_id=str(current_user.id),
+    )
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+    model: str = "auto"
+    workspace_id: str
+    use_rag: bool = True
+    document_id: Optional[str] = None
+    chat_mode: str = "auto"
+    source: str = "internal"
+    session_id: Optional[str] = None
+
+@app.post("/api/chat")
+async def chat_endpoint(
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """Streaming chat endpoint using ChatService."""
+    service = ChatService(chat_service_config)
+    workspace_id = _verify_workspace(db, current_user)
+
+    return StreamingResponse(
+        service.handle_stream_chat(
+
+            message=request.message,
+            workspace_id=workspace_id,
+            session_id=request.session_id,
+            use_rag=request.use_rag,
+            model=request.model,
+            user_id=str(current_user.id),
+            document_id=request.document_id,
+            chat_mode=request.chat_mode,
+            source=request.source,
+        ),
+        media_type="text/event-stream",
+    )

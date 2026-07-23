@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ENCRYPTION_KEY: Optional[str] = None
     """Fernet encryption key for sensitive data (auto-generated if not set)"""
+    TURNSTILE_SECRET_KEY: Optional[str] = None
 
     # MESSAGE QUEUE & CACHING
     REDIS_URL: str = "redis://localhost:6379/0"

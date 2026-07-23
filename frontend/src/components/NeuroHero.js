@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import StageIndicator from "./StageIndicator";
 import BrainCanvas from "./BrainCanvas";
 import Image from "next/image";
+import { Poppins } from "next/font/google";
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 // ─── AutoVideo: always mounted, never unmounts ────────────────────────────────
 function AutoVideo({ src, active }) {
@@ -145,7 +152,7 @@ export default function NeuroHero() {
   }, []);
 
   return (
-    <div id="neuro-section" className="relative h-[400vh] bg-black">
+    <div id="neuro-section" className={`relative h-[400vh] bg-black ${poppins.className}`}>
 
       <StageIndicator stage={stage} isVisible={isVisible} />
 
@@ -171,10 +178,9 @@ export default function NeuroHero() {
           {/* GIRL IMAGE */}
           <div
             className="
-              absolute bottom-0 left-[4%] z-10
-              h-full w-[55%]
-              max-md:w-full max-md:h-[75%]
-              max-md:bottom-0 max-md:left-0
+              absolute bottom-0 left-0 z-10
+              w-full h-[72%] max-md:h-[75%]
+              lg:left-0 lg:w-[56%] xl:left-[4%] xl:w-[55%] lg:h-full
             "
           >
             <Image
@@ -182,16 +188,15 @@ export default function NeuroHero() {
               alt="AI Girl Hero Illustration"
               fill
               priority
-              sizes="(max-width: 768px) 100vw, 55vw"
+              sizes="(max-width: 1024px) 100vw, 55vw"
               className="
                 h-full w-full
-                object-cover object-[60%_top]
-                max-md:object-[50%_top]
+                object-cover object-[50%_top]
+                lg:object-[50%_top]
+                xl:object-[60%_top]
               "
               style={{
                 filter: "brightness(0.55) contrast(1.1)",
-                maskImage: "linear-gradient(to right, rgba(0,0,0,1) 72%, rgba(0,0,0,0.95) 82%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(to right, rgba(0,0,0,1) 72%, rgba(0,0,0,0.95) 82%, transparent 100%)",
               }}
             />
 
@@ -199,12 +204,13 @@ export default function NeuroHero() {
             <div
               className="
                 absolute z-30
-                top-[18%] left-[46%] md:left-[40%]
+                top-[18%] left-[46%] lg:max-xl:left-[43%] xl:left-[40%]
                 -translate-x-1/2
-                w-[190px] h-[190px]
-                md:w-[220px] md:h-[220px]
-                max-md:w-[140px] max-md:h-[140px]
+                w-[140px] h-[140px]
                 max-[375px]:w-[110px] max-[375px]:h-[110px]
+                md:max-lg:w-[180px] md:max-lg:h-[180px]
+                lg:max-xl:w-[180px] lg:max-xl:h-[180px] lg:max-xl:top-[20%]
+                xl:w-[220px] xl:h-[220px]
               "
             >
               <div className="absolute inset-0 rounded-full" />
@@ -245,31 +251,24 @@ export default function NeuroHero() {
             </div>
           </div>
 
-          {/* RIGHT TEXT */}
+          {/* RIGHT / TOP TEXT */}
           <div
             className="
               absolute z-20
-              right-0 top-1/2 -translate-y-1/2
-              w-[48%] pr-10 pl-4
-              max-w-[520px]
-              md:max-lg:w-[52%] md:max-lg:pr-8
-              max-md:left-0 max-md:right-0
-              max-md:top-[4%]
-              max-md:translate-y-0
-              max-md:w-full
-              max-md:px-6
-              max-md:text-center
+              left-0 right-0 top-[4%] translate-y-0 w-full px-6 text-center mx-auto
+              md:max-lg:px-10 md:max-lg:max-w-[700px]
+              lg:left-auto lg:right-0 lg:top-1/2 lg:-translate-y-1/2 lg:w-[44%] xl:w-[48%] lg:max-w-[440px] xl:max-w-[520px] lg:pr-6 xl:pr-10 lg:pl-0 xl:pl-4 lg:px-0 lg:text-left
             "
           >
             <div key={stage} className="animate-textIn">
               <h1
                 className="
-                  font-bold leading-[1.08] tracking-tight text-white
+                  font-bold tracking-tight text-white
                   text-[26px]
-                  sm:text-5xl
-                  md:max-lg:text-4xl
-                  lg:text-[3.6rem]
-                  max-md:text-[2rem]
+                  max-md:text-[2rem] max-md:leading-[1.08]
+                  md:max-lg:text-4xl md:max-lg:leading-[1.08]
+                  lg:text-[2.25rem] lg:leading-[1.12]
+                  xl:text-[3.6rem] xl:leading-[1.08]
                 "
                 style={{ textShadow: "0 2px 24px rgba(0,0,0,0.18)" }}
               >
@@ -278,14 +277,13 @@ export default function NeuroHero() {
 
               <p
                 className="
-                  mt-5
                   text-[#E3E3E3]
-                  text-[18px]
-                  leading-[1.2]
-                  tracking-normal
                   font-normal
-                  max-md:text-[16px]
-                  max-md:mt-3
+                  tracking-normal
+                  max-md:text-[16px] max-md:mt-3 max-md:leading-[1.2]
+                  md:max-lg:text-[17px] md:max-lg:mt-3 md:max-lg:leading-[1.2] md:max-lg:max-w-[580px] md:max-lg:mx-auto
+                  lg:text-[15px] lg:mt-3 lg:leading-[1.3]
+                  xl:text-[18px] xl:mt-5 xl:leading-[1.2]
                 "
               >
                 {current.desc}

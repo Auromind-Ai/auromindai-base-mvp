@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTurnstile } from '@/hooks/useTurnstile';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
@@ -31,8 +32,27 @@ const getErrorMessage = (err) => {
 };
 
 export default function SignupFormCard() {
+  const {
+    containerRef,
+    loading: turnstileLoading,
+    error: turnstileError,
+    siteKeyMissing,
+    execute: executeTurnstile,
+    initWidget: initTurnstileWidget
+  } = useTurnstile();
+
   const router = useRouter();
   const { refreshUser } = useAuth();
+
+  useEffect(() => {
+    initTurnstileWidget();
+  }, [initTurnstileWidget]);
+
+  useEffect(() => {
+    if (siteKeyMissing) {
+      setError("Verification service is misconfigured. Please contact support.");
+    }
+  }, [siteKeyMissing]);
   const [step, setStep] = useState('form'); // 'form' | 'otp'
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -48,7 +68,8 @@ export default function SignupFormCard() {
     setLoading(true);
     setError('');
     try {
-      await api.sendOTP(email, 'signup');
+      const token = await executeTurnstile();
+      await api.sendOTP(email, 'signup', token);
       setStep('otp');
     } catch (err) {
       const mappedError = getErrorMessage(err);
@@ -73,7 +94,8 @@ export default function SignupFormCard() {
     setLoading(true);
     setError('');
     try {
-      const data = await api.verifyOTP(email, otp, 'signup', fullName);
+      const token = await executeTurnstile();
+      const data = await api.verifyOTP(email, otp, 'signup', fullName, null, null, token);
       // Cookies are set by the server; local token caching is disabled for security.
       await refreshUser();
       router.push('/user/admin/dashboard');
@@ -160,6 +182,7 @@ export default function SignupFormCard() {
               <input
                 type="text"
                 placeholder="Sarah Jenkins"
+                disabled={siteKeyMissing}
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
                 style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box', boxShadow: 'inset 0px 4px 20px 0px rgba(255,255,255,0.18)' }}
@@ -170,6 +193,7 @@ export default function SignupFormCard() {
               <input
                 type="email"
                 placeholder="your@email.com"
+                disabled={siteKeyMissing}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 style={{ width: '100%', background: '#1c1c1c', border: '1px solid rgba(255,255,255,0.09)', borderRadius: '10px', padding: '14px 16px', color: '#ffffff', fontSize: '15px', outline: 'none', boxSizing: 'border-box', boxShadow: 'inset 0px 4px 20px 0px rgba(255,255,255,0.18)' }}
@@ -177,10 +201,10 @@ export default function SignupFormCard() {
             </div>
             <button
               onClick={handleSignup}
-              disabled={loading}
-              style={{ width: '100%', background: '#814AC8', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', marginTop: '4px', opacity: loading ? 0.7 : 1 }}
+              disabled={loading || turnstileLoading || siteKeyMissing}
+              style={{ width: '100%', background: '#814AC8', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', marginTop: '4px', opacity: (loading || turnstileLoading || siteKeyMissing) ? 0.7 : 1 }}
             >
-              {loading ? 'Sending OTP...' : 'Sign Up Free'}
+              {loading || turnstileLoading ? 'Verifying...' : 'Sign Up Free'}
             </button>
           </div>
           
@@ -198,6 +222,7 @@ export default function SignupFormCard() {
             <input
               type="text"
               placeholder="Enter OTP"
+              disabled={siteKeyMissing}
               value={otp}
               onChange={e => setOtp(e.target.value)}
               maxLength={6}
@@ -206,10 +231,10 @@ export default function SignupFormCard() {
           </div>
           <button
             onClick={handleVerifyOTP}
-            disabled={loading}
-            style={{ width: '100%', background: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
+            disabled={loading || turnstileLoading || siteKeyMissing || otp.length < 6}
+            style={{ width: '100%', background: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '28px', padding: '16px', fontSize: '16px', fontWeight: '700', cursor: 'pointer', opacity: (loading || turnstileLoading || siteKeyMissing) ? 0.7 : 1 }}
           >
-            {loading ? 'Verifying...' : 'Verify & Continue'}
+            {loading || turnstileLoading ? 'Verifying...' : 'Verify & Continue'}
           </button>
           <button
             onClick={() => { setStep('form'); setOtp(''); setError(''); }}
@@ -219,6 +244,17 @@ export default function SignupFormCard() {
           </button>
         </div>
       )}
+      {/* Hidden Turnstile Container */}
+      <div 
+        ref={containerRef} 
+        style={{ 
+          display: 'none', 
+          width: '1px', 
+          height: '1px', 
+          position: 'absolute', 
+          left: '-9999px' 
+        }} 
+      />
     </div>
   );
 }

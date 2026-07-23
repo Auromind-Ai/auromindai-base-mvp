@@ -104,6 +104,10 @@ const nextConfig = {
                 destination: `${BACKEND_URL}/:path*`,
             },
             {
+                source: '/api-proxy/:path*',
+                destination: `${BACKEND_URL}/:path*`,
+            },
+            {
                 source: '/ws/:path*',
                 destination: `${BACKEND_URL}/ws/:path*`,
             },
