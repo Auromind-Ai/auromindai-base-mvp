@@ -104,6 +104,7 @@ fallback_origins = [
     "http://orbionagents.com",
     "https://www.orbionagents.com",
     "http://www.orbionagents.com",
+    "https://hkfpvzwm-3000.inc1.devtunnels.ms"
    
     # Local development
     "http://localhost:3000",

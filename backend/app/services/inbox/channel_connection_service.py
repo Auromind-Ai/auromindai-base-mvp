@@ -322,19 +322,30 @@ class ChannelConnectionService:
         if not pages:
             raise HTTPException(400, "No Facebook Pages found")
 
-        page = pages[0]
-        page_id = page["id"]
-        page_access_token = page["access_token"]
+        page_id = None
+        page_access_token = None
+        ig_id = None
 
-        ig_data = requests.get(
-            f"https://graph.facebook.com/v19.0/{page_id}",
-            params={
-                "fields": "instagram_business_account",
-                "access_token": page_access_token,
-            },
-            timeout=10,
-        ).json()
-        ig_id = ig_data.get("instagram_business_account", {}).get("id")
+        for page in pages:
+            temp_page_id = page["id"]
+            temp_page_access_token = page["access_token"]
+
+            ig_data = requests.get(
+                f"https://graph.facebook.com/v19.0/{temp_page_id}",
+                params={
+                    "fields": "instagram_business_account",
+                    "access_token": temp_page_access_token,
+                },
+                timeout=10,
+            ).json()
+            
+            temp_ig_id = ig_data.get("instagram_business_account", {}).get("id")
+            if temp_ig_id:
+                page_id = temp_page_id
+                page_access_token = temp_page_access_token
+                ig_id = temp_ig_id
+                break
+
         if not ig_id:
             raise HTTPException(400, "No Instagram Business Account linked")
 

@@ -13,7 +13,8 @@ import {
     Minimize2,
     X,
     MessageSquare,
-    Paperclip
+    Paperclip,
+    AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
@@ -73,8 +74,18 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
         { icon: CheckCircle2, label: 'Create a task tracker', badge: 'New', color: 'text-slate-400' }
     ];
 
+    const [modalAlert, setModalAlert] = useState({ open: false, title: '', message: '' });
+    const showAlert = useCallback((message, title = "Validation Warning") => {
+        setModalAlert({ open: true, title, message });
+    }, []);
+
     const handleSendMessage = async () => {
         if (!inputValue.trim() || isStreaming) return;
+
+        if (inputValue.length > 96000) {
+            showAlert("Message length exceeds maximum allowed limit of 96000 characters.", "Limit Exceeded");
+            return;
+        }
 
         const userMessage = { role: 'user', content: inputValue };
         setMessages(prev => [...prev, userMessage]);
@@ -90,6 +101,20 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 model: 'auto',
                 use_rag: true
             }, abortControllerRef.current.signal);
+
+            if (!res.ok) {
+                let errText = "Failed to generate response.";
+                try {
+                    const errJson = await res.json();
+                    if (errJson.detail) {
+                        errText = Array.isArray(errJson.detail) ? errJson.detail.map(d => d.msg || d).join(', ') : errJson.detail;
+                    }
+                } catch (_) {}
+                setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${errText}`, isError: true }]);
+                setIsLoading(false);
+                setIsStreaming(false);
+                return;
+            }
 
             const reader = res.body.getReader();
             readerRef.current = reader;  // tracked for cleanup on unmount / stop
@@ -179,6 +204,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
     if (!isOpen) return null;
 
     return (
+        <>
         <AnimatePresence>
             <motion.div
                 initial={{ opacity: 0 }}
@@ -323,6 +349,7 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                                     type="text"
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
+                                    maxLength={96000}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey && !isStreaming) {
                                             e.preventDefault();
@@ -364,5 +391,59 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 </motion.div>
             </motion.div>
         </AnimatePresence>
+        {/* Custom Project Matching Alert Modal */}
+        <AnimatePresence>
+            {modalAlert.open && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+                    onClick={() => setModalAlert({ ...modalAlert, open: false })}
+                >
+                    <motion.div
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="relative w-full max-w-md bg-[#121218] border border-purple-500/30 shadow-2xl shadow-purple-950/80 rounded-2xl p-6 text-white overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-600/20 rounded-full blur-2xl pointer-events-none" />
+                        <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-rose-600/20 rounded-full blur-2xl pointer-events-none" />
+
+                        <div className="flex items-start gap-4">
+                            <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400 shadow-inner">
+                                <AlertTriangle size={22} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-semibold text-gray-100 mb-1">
+                                    {modalAlert.title || "Notice"}
+                                </h3>
+                                <p className="text-sm text-gray-300 leading-relaxed">
+                                    {modalAlert.message}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setModalAlert({ ...modalAlert, open: false })}
+                                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="mt-6 flex justify-end">
+                            <button
+                                onClick={() => setModalAlert({ ...modalAlert, open: false })}
+                                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-sm shadow-lg shadow-purple-600/25 transition-all active:scale-95"
+                            >
+                                Got it
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+        </>
     );
 }

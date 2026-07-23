@@ -334,7 +334,7 @@ export default function BrainPage() {
                             type="file"
                             ref={fileInputRef}
                             onChange={handleFileUpload}
-                            accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.csv"
+                            accept=".pdf,.docx,.doc,.txt,.md,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp"
                             className="hidden"
                             disabled={uploading}
                         />
@@ -342,7 +342,7 @@ export default function BrainPage() {
                             {uploading ? <Loader2 size={24} className="animate-spin" /> : <Upload size={24} />}
                         </div>
                         <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Upload Documents</h3>
-                        <p className="text-sm text-[#787878] font-medium mb-4">PDF, Excel, CSV, DOCX, or TXT (max 10MB)</p>
+                        <p className="text-sm text-[#787878] font-medium mb-4">PDF, Word, Excel, CSV, Images, or Text</p>
 
                         {/*  2. Button bg → #814AC8  */}
                         <button

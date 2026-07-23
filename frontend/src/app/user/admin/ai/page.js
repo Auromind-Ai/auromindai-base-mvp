@@ -35,6 +35,7 @@ import {
     BarChart2,
     Bell,
     MessageSquare,
+    AlertTriangle,
     //  NEW: scroll-to-bottom arrow 
     ChevronDown as ArrowDown,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ import { useSettings } from '@/context/SettingsContext';
 import { useAuth } from '@/context/AuthContext';
 import ChatSidebar from '@/components/ChatSidebar';
 import api from '@/lib/api';
+import { ALLOWED_FILE_EXTENSIONS, isFileExtensionAllowed } from '@/lib/fileValidation';
 import { useRouter } from 'next/navigation';
 import { Poppins } from 'next/font/google';
 import ReactMarkdown from "react-markdown";
@@ -208,6 +210,10 @@ export default function AuromindAIPage() {
     const [showScrollBottom, setShowScrollBottom] = useState(false);
     const scrollContainerRef = useRef(null);
     const skipNextSessionFetchRef = useRef(false);
+    const [modalAlert, setModalAlert] = useState({ open: false, title: '', message: '', type: 'warning' });
+    const showAlert = useCallback((message, title = "Validation Warning") => {
+        setModalAlert({ open: true, title, message, type: 'warning' });
+    }, []);
 
     const responseBufferRef = useRef('');
     const renderedTextRef = useRef('');
@@ -585,6 +591,10 @@ export default function AuromindAIPage() {
             setMessages(prev => [...prev, { role: 'assistant', content: "Groq model does not support image analysis. Please switch to Gemini or Claude.", isError: true }]);
             return;
         }
+        if (inputValue.length > 96000) {
+            showAlert("Message length exceeds maximum allowed limit of 96000 characters.", "Limit Exceeded");
+            return;
+        }
         const userMsg = inputValue;
         const attachedImgUrl = attachedFile?.type?.startsWith('image/') ? attachedFile.url : null;
         setInputValue('');
@@ -625,6 +635,26 @@ export default function AuromindAIPage() {
             setAttachedFile(null);
             setLastUploadedId(null);
             
+            if (!res.ok) {
+                let errText = "Failed to generate response.";
+                try {
+                    const errJson = await res.json();
+                    if (errJson.detail) {
+                        errText = Array.isArray(errJson.detail) ? errJson.detail.map(d => d.msg || d).join(', ') : errJson.detail;
+                    }
+                } catch (_) {}
+                setMessages(prev => {
+                    const updated = [...prev];
+                    if (updated.length && updated[updated.length - 1].isStreaming) {
+                        updated[updated.length - 1] = { role: 'assistant', content: `Error: ${errText}`, isError: true, isStreaming: false };
+                    }
+                    return updated;
+                });
+                setIsLoading(false);
+                setIsStreaming(false);
+                return;
+            }
+
             responseBufferRef.current = '';
             renderedTextRef.current = '';
             isAnimatingRef.current = false;
@@ -771,11 +801,10 @@ export default function AuromindAIPage() {
             e.target.value = '';
             return;
         }
-        const allowedTypes = ['application/pdf','image/png','image/jpeg','image/jpg','image/webp','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel','text/csv','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/msword','text/plain','text/markdown'];
-        const isTypeAllowed = allowedTypes.includes(file.type) || file.name.endsWith('.csv') || file.name.endsWith('.md') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
-        if (!isTypeAllowed && file.type) {
-            setMessages(prev => [...prev, { role: 'assistant', content: "I support PDF, Excel, CSV, Docs, and Images.", isError: true }]);
-            e.target.value = ''; return;
+        if (!isFileExtensionAllowed(file.name)) {
+            setMessages(prev => [...prev, { role: 'assistant', content: "Unsupported file type. Allowed formats: PDF, Word, Excel, CSV, Images, or Text.", isError: true }]);
+            e.target.value = '';
+            return;
         }
         e.target.value = '';
         setIsUploading(true);
@@ -1533,6 +1562,7 @@ export default function AuromindAIPage() {
                                                 value={inputValue}
                                                 onChange={(e) => setInputValue(e.target.value)}
                                                 onKeyDown={handleKeyDown}
+                                                maxLength={96000}
                                                 placeholder="Reply to Auromind..."
                                                 className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
                                                 rows={1}
@@ -1562,7 +1592,7 @@ export default function AuromindAIPage() {
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
-                accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.docx,.doc,.txt,.md"
+                accept={ALLOWED_FILE_EXTENSIONS}
                 onChange={handleFileUpload}
             />
             {/* Upgrade Modal */}
@@ -1599,6 +1629,59 @@ export default function AuromindAIPage() {
                                         Upgrade Now
                                     </button>
                                 </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            {/* Validation Alert Modal */}
+            <AnimatePresence>
+                {modalAlert.open && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+                        onClick={() => setModalAlert({ ...modalAlert, open: false })}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="relative w-full max-w-md bg-[#121218] border border-purple-500/30 shadow-2xl shadow-purple-950/80 rounded-2xl p-6 text-white overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-600/20 rounded-full blur-2xl pointer-events-none" />
+                            <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-rose-600/20 rounded-full blur-2xl pointer-events-none" />
+
+                            <div className="flex items-start gap-4">
+                                <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-400 shadow-inner">
+                                    <AlertTriangle size={22} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg font-semibold text-gray-100 mb-1">
+                                        {modalAlert.title || "Notice"}
+                                    </h3>
+                                    <p className="text-sm text-gray-300 leading-relaxed">
+                                        {modalAlert.message}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setModalAlert({ ...modalAlert, open: false })}
+                                    className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    onClick={() => setModalAlert({ ...modalAlert, open: false })}
+                                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-sm shadow-lg shadow-purple-600/25 transition-all active:scale-95"
+                                >
+                                    Got it
+                                </button>
                             </div>
                         </motion.div>
                     </motion.div>
