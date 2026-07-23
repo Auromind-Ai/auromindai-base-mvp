@@ -17,6 +17,10 @@ RUN playwright install-deps chromium
 # Copy application code
 COPY . .
 
+# Security Hardening: Run as non-root user
+RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Expose port
 EXPOSE 8000
 
