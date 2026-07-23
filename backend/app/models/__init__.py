@@ -41,5 +41,6 @@ from .automation import AutomationFlow
 from .message_execution import MessageExecution
 from .templates import Template
 from .flow_pack import FlowPack, FlowPackPurchase, PurchaseStatus
+from .notification_template import NotificationTemplate
 
 

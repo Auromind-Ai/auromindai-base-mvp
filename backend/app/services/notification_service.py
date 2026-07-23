@@ -1,15 +1,16 @@
 import logging
 import uuid
 from uuid import UUID
-from typing import Optional
+from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 from app.models.user import User
-from app.models.workspace import WorkspaceMember
+from app.models.workspace import Workspace, WorkspaceMember
 from app.models.notification import Notification
 from app.models.admin_audit_log import AdminAuditLog
 from app.core.notification_metrics import notification_metrics
 from app.workers.email_retry_worker import send_email_with_retry
+from app.services.notification_template_service import NotificationTemplateService
 
 logger = logging.getLogger("app")
 
@@ -53,7 +54,6 @@ class NotificationService:
         _DEDUPLICATION_STORE.add(deduplication_key)
         return False
 
-
     @staticmethod
     def clear_deduplication_store():
         _DEDUPLICATION_STORE.clear()
@@ -64,20 +64,21 @@ class NotificationService:
         user_id: UUID,
         workspace_id: Optional[UUID],
         type: str,
-        title: str,
-        message: str,
+        title: Optional[str] = None,
+        message: Optional[str] = None,
         send_email: bool = False,
         is_critical: bool = False,
         email_subject: Optional[str] = None,
         deduplication_key: Optional[str] = None,
-        resource: Optional[str] = None
+        resource: Optional[str] = None,
+        template_key: Optional[str] = None,
+        variables: Optional[Dict[str, Any]] = None
     ) -> Optional[Notification]:
         """
-        Create a notification for a specific user if their preferences allow it.
-        Opt-out model: if preference key is missing or not configured, notifications are enabled by default.
-        Critical notifications always bypass opt-out preferences and trigger an email.
-        Supports deduplication_key to prevent duplicate emails and notifications within a period.
-        Supports resource tag (e.g. 'ai_tokens', 'flow_executions', 'whatsapp_credits') for multi-tenant UI routing.
+        Create a dynamic notification for a specific user.
+        Fetches notification content from NotificationTemplate database table/cache.
+        Replaces {{placeholders}} dynamically using context variables (user name, workspace name, custom variables).
+        Falls back to built-in default templates or caller provided fallbacks if custom template is missing.
         """
         if deduplication_key and NotificationService.is_duplicate(deduplication_key):
             try:
@@ -93,6 +94,25 @@ class NotificationService:
         user = db.query(User).filter(User.id == clean_user_id).first()
         if not user:
             return None
+
+        clean_ws_id = _ensure_uuid(workspace_id)
+        ws_name = "Auromind"
+        if clean_ws_id:
+            ws = db.query(Workspace).filter(Workspace.id == clean_ws_id).first()
+            if ws and ws.name:
+                ws_name = ws.name
+
+        # Construct rendering context dictionary
+        context: Dict[str, Any] = {
+            "user_name": user.full_name or "User",
+            "email": user.email,
+            "workspace_name": ws_name,
+        }
+        if variables:
+            context.update(variables)
+
+        # Determine effective template key
+        effective_key = template_key or type
 
         # Map DB notification types to user preference JSONB keys
         mapping = {
@@ -111,7 +131,6 @@ class NotificationService:
         
         pref_key = mapping.get(type)
         if is_critical or not pref_key:
-            # Critical alerts or unknown types are enabled by default
             enabled = True
         else:
             prefs = user.preferences or {}
@@ -119,15 +138,37 @@ class NotificationService:
             
         if not enabled:
             return None
-            
+
+        # Fetch dynamic in-app template from NotificationTemplateService
+        in_app_tpl = NotificationTemplateService.get_template(db, effective_key, channel="in_app")
+        
+        rendered_title = title
+        rendered_message = message
+
+        if in_app_tpl:
+            if in_app_tpl.get("title"):
+                rendered_title = NotificationTemplateService.render_text(in_app_tpl["title"], context)
+            if in_app_tpl.get("message"):
+                rendered_message = NotificationTemplateService.render_text(in_app_tpl["message"], context)
+        elif title or message:
+            rendered_title = NotificationTemplateService.render_text(title, context) if title else "Notification"
+            rendered_message = NotificationTemplateService.render_text(message, context) if message else ""
+        else:
+            rendered_title = f"Alert: {type.replace('_', ' ').title()}"
+            rendered_message = f"You have a new update regarding {type.replace('_', ' ')}."
+
+        # Ensure fallbacks if still None
+        final_title = rendered_title or "Notification"
+        final_message = rendered_message or ""
+
         # Create and persist in-app notification
         notification = Notification(
             id=uuid.uuid4(),
             user_id=clean_user_id,
-            workspace_id=_ensure_uuid(workspace_id),
+            workspace_id=clean_ws_id,
             type=type,
-            title=title,
-            message=message,
+            title=final_title,
+            message=final_message,
             is_read=False
         )
         db.add(notification)
@@ -153,10 +194,10 @@ class NotificationService:
                 audit_entry = AdminAuditLog(
                     id=uuid.uuid4(),
                     admin_user_id=str(clean_user_id),
-                    action=f"SECURITY_EVENT:{title.upper().replace(' ', '_')}",
-                    workspace_id=_ensure_uuid(workspace_id),
-                    reason=message,
-                    new_value={"title": title, "type": type, "resource": resource}
+                    action=f"SECURITY_EVENT:{final_title.upper().replace(' ', '_')}",
+                    workspace_id=clean_ws_id,
+                    reason=final_message,
+                    new_value={"title": final_title, "type": type, "resource": resource}
                 )
                 db.add(audit_entry)
                 db.commit()
@@ -171,9 +212,23 @@ class NotificationService:
         # Trigger email if send_email is True or is_critical is True
         if (send_email or is_critical) and user.email:
             try:
-                subject = email_subject or f"[Auromind Security / Alert] {title}"
-                body = f"Hi {user.full_name or 'User'},\n\n{title}\n\n{message}\n\n— The Auromind Security Team"
-                send_email_with_retry(to_email=user.email, subject=subject, body=body, max_attempts=3)
+                email_tpl = NotificationTemplateService.get_template(db, effective_key, channel="email")
+                
+                final_email_subject = email_subject
+                final_email_body = None
+
+                if email_tpl:
+                    if email_tpl.get("subject"):
+                        final_email_subject = NotificationTemplateService.render_text(email_tpl["subject"], context)
+                    if email_tpl.get("message"):
+                        final_email_body = NotificationTemplateService.render_text(email_tpl["message"], context)
+
+                if not final_email_subject:
+                    final_email_subject = email_subject or f"[{ws_name} Alert] {final_title}"
+                if not final_email_body:
+                    final_email_body = f"Hi {user.full_name or 'User'},\n\n{final_title}\n\n{final_message}\n\n— The {ws_name} Security Team"
+
+                send_email_with_retry(to_email=user.email, subject=final_email_subject, body=final_email_body, max_attempts=3)
             except Exception as email_exc:
                 logger.error(f"Failed to dispatch notification email to {user.email}: {email_exc}")
         
@@ -184,16 +239,18 @@ class NotificationService:
         db: Session,
         workspace_id: UUID,
         type: str,
-        title: str,
-        message: str,
+        title: Optional[str] = None,
+        message: Optional[str] = None,
         send_email: bool = False,
         is_critical: bool = False,
         email_subject: Optional[str] = None,
         deduplication_key: Optional[str] = None,
-        resource: Optional[str] = None
+        resource: Optional[str] = None,
+        template_key: Optional[str] = None,
+        variables: Optional[Dict[str, Any]] = None
     ):
         """
-        Send a notification to all members of a specific workspace.
+        Send a notification to all members of a specific workspace dynamically.
         """
         clean_workspace_id = _ensure_uuid(workspace_id)
         if not clean_workspace_id:
@@ -216,6 +273,7 @@ class NotificationService:
                 is_critical=is_critical,
                 email_subject=email_subject,
                 deduplication_key=user_dedup_key,
-                resource=resource
+                resource=resource,
+                template_key=template_key,
+                variables=variables
             )
-

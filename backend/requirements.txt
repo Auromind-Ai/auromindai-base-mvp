@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 
 # AI embeddings CPU
 alembic
@@ -9,7 +10,6 @@ boto3
 celery[redis]==5.3.6
 cryptography
 ddgs
---extra-index-url https://download.pytorch.org/whl/cpu
 fastapi==0.135.1
 feedparser==6.0.12
 geopy==2.4.1
@@ -31,7 +31,7 @@ openai
 pydantic[email]
 pydantic==2.12.5
 pydantic-settings
-PyPDF2>=3.9.0
+PyPDF2>=3.0.0
 python-docx
 python-dotenv>=1.0.1
 python-jose[cryptography]

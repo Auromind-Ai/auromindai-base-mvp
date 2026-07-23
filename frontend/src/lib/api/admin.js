@@ -111,3 +111,32 @@ export async function getPlatformIntegrations() {
 export async function getSystemHealth(options = {}) {
   return client.get('/admin/system-health', options);
 }
+
+export async function getNotificationTemplates(params = {}) {
+  return client.get('/admin/notification-templates', { params });
+}
+
+export async function createNotificationTemplate(data) {
+  return client.post('/admin/notification-templates', data);
+}
+
+export async function updateNotificationTemplate(id, data) {
+  return client.put(`/admin/notification-templates/${id}`, data);
+}
+
+export async function toggleNotificationTemplate(id) {
+  return client.patch(`/admin/notification-templates/${id}/toggle`);
+}
+
+export async function deleteNotificationTemplate(id) {
+  return client.delete(`/admin/notification-templates/${id}`);
+}
+
+export async function testRenderNotificationTemplate(data) {
+  return client.post('/admin/notification-templates/test-render', data);
+}
+
+export async function seedDefaultNotificationTemplates() {
+  return client.post('/admin/notification-templates/seed-defaults');
+}
+
