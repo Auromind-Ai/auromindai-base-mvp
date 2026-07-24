@@ -440,3 +440,85 @@ async def test_s3_connection(
         _log_test_audit(db, admin_user, ip, "TEST_S3_CONNECTION", "FAILED", {"error": error_msg})
         return make_test_response(False, "s3", f"S3 connection failed: {error_msg}", latency, "S3_TEST_FAILED")
 
+
+@router.post("/settings/test/email_template")
+async def test_email_template(
+    request: Request,
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    import time
+    import os
+    start_time = time.time()
+    admin_user, ip = _get_audit_details(request)
+    
+    updates = payload.get("updates", {})
+    template_key = payload.get("template_key", "")
+    test_recipient = payload.get("test_recipient", "")
+    
+    if not test_recipient:
+        return make_test_response(False, "email_template", "Recipient email is required", 0, "INVALID_RECIPIENT")
+        
+    from app.services.platform_settings_service import get_prospective_settings
+    settings = get_prospective_settings(db, updates)
+    
+    # Temporarily override OS env vars or config_service settings to use these prospective SMTP settings
+    smtp_keys = ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "from_email"]
+    old_env = {}
+    for key in smtp_keys:
+        val = settings.get(key)
+        env_key = key.upper()
+        old_env[env_key] = os.environ.get(env_key)
+        if val is not None:
+            os.environ[env_key] = str(val)
+            
+    try:
+        from app.services.email_service import EmailService
+        
+        # Determine subject and body templates from prospective settings
+        db_subject = settings.get(f"{template_key}_subject") or "Test Email"
+        db_body = settings.get(f"{template_key}_body") or "This is a test email."
+        
+        # Build mock variables for the template
+        mock_vars = {
+            "user_name": "Test User",
+            "otp": "123456",
+            "otp_code": "123456",
+            "credits": "500",
+            "order_id": "order_test_987654",
+            "payment_id": "pay_test_123456",
+            "amount": "999.00",
+            "currency": "INR",
+            "workspace_name": "Test AI Workspace",
+            "customer_phone": "+1234567890",
+            "last_message": "Hello, I have a question about bulk pricing."
+        }
+        
+        subject = EmailService.render_template(db_subject, mock_vars)
+        body = EmailService.render_template(db_body, mock_vars)
+        
+        EmailService.send_email(
+            to_email=test_recipient,
+            subject=subject,
+            body=body
+        )
+        
+        latency = int((time.time() - start_time) * 1000)
+        _log_test_audit(db, admin_user, ip, f"TEST_EMAIL_TEMPLATE_{template_key.upper()}", "SUCCESS", {"to": test_recipient})
+        return make_test_response(True, "email_template", f"Test email sent successfully to {test_recipient}", latency)
+        
+    except Exception as e:
+        latency = int((time.time() - start_time) * 1000)
+        error_msg = str(e)
+        _log_test_audit(db, admin_user, ip, f"TEST_EMAIL_TEMPLATE_{template_key.upper()}", "FAILED", {"error": error_msg})
+        return make_test_response(False, "email_template", f"Failed to send test email: {error_msg}", latency, "EMAIL_TEST_FAILED")
+        
+    finally:
+        # Restore environment variables
+        for env_key, old_val in old_env.items():
+            if old_val is None:
+                os.environ.pop(env_key, None)
+            else:
+                os.environ[env_key] = old_val
+
+

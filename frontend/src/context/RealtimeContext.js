@@ -40,7 +40,7 @@ function resolveWebSocketBaseUrl() {
 
   const isProd = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
   if (isProd) {
-    return "wss://app.orbionagents.com";
+    return "wss://api.orbionagents.com";
   }
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";

@@ -146,7 +146,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
               type="button"
               onClick={handleClick}
               disabled={isCurrent || isEnterprise}
-              className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 flex items-center justify-center gap-2 ${buttonClass}`}
+              className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${buttonClass}`}
             >
               <span>{getCTA(plan.key)}</span>
               {isEnterprise && !isCurrent && <ChevronRight size={16} />}
@@ -311,7 +311,7 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
           <button
             type="button"
             onClick={() => setIsAnnual(prev => !prev)}
-            className={`relative inline-flex h-7 w-[52px] items-center rounded-full transition-colors duration-300 focus:outline-none ${
+            className={`relative inline-flex h-7 w-[52px] items-center rounded-full transition-colors duration-300 focus:outline-none cursor-pointer ${
               isAnnual ? 'bg-[#7C3AED]' : 'bg-white/20'
             }`}
           >

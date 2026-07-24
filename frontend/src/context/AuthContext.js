@@ -129,6 +129,7 @@ export function AuthProvider({ children }) {
       console.warn("Logout API call failed:", err?.message || err);
     } finally {
       removeToken();
+      localStorage.removeItem('auromind_logged_in');
       setUserState(null);
       setWorkspaceIdState(null);
       setWorkspacesState([]);

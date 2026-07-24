@@ -28,7 +28,7 @@ class TokenLedger(Base):
     completion_tokens = Column(Integer, nullable=True)
     total_tokens = Column(Integer, nullable=True)
     request_id = Column(String(255), nullable=True)
-    execution_id = Column(String(255), nullable=True, index=True)
+    execution_id = Column(String(255), nullable=True)
     feature_key = Column(String(100), nullable=True, index=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

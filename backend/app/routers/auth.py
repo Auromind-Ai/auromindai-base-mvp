@@ -96,6 +96,14 @@ def delete_auth_cookie(response: Response, request: Request, key: str, path: str
         samesite="none" if is_https else "lax",
         domain=cookie_domain,
     )
+    if cookie_domain is not None:
+        response.delete_cookie(
+            key=key,
+            path=path,
+            secure=is_https,
+            samesite="none" if is_https else "lax",
+            domain=None,
+        )
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None, session_id=None, csrf_token=None):
@@ -305,6 +313,21 @@ async def google_login(request: Request, type: str = "login", session_expiry_hou
     state_token = secrets.token_urlsafe(32)
     expiry_part = f":{session_expiry_hours}" if session_expiry_hours else ""
     state = f"{state_token}:{type}{expiry_part}"
+
+    auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        f"client_id={config_service.get('google_client_id')}&"
+        f"redirect_uri={urllib.parse.quote(redirect_uri)}&"
+        "response_type=code&"
+        "scope=openid%20email%20profile&"
+        "access_type=offline&"
+        "prompt=select_account&"
+        f"state={state}"
+    )
+    logger.debug(f"GOOGLE REDIRECT URI = {redirect_uri}")
+    logger.debug(f"FRONTEND URL = {settings.FRONTEND_URL}")
+    logger.debug(f"CLIENT ID = {config_service.get('google_client_id')}")
+    logger.debug(f"CLIENT SECRET EXISTS = {bool(config_service.get('google_client_secret'))}")
 
     # Capture the initiating frontend's origin dynamically from headers
     referer = request.headers.get("referer")
