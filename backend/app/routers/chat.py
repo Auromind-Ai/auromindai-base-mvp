@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.schemas.chat import ChatSessionCreate, ChatSessionResponse, ChatMessageResponse, UpdateSessionRequest, ChatStreamRequest, ChatQueryRequest
@@ -10,6 +10,7 @@ from app.routers.auth import get_current_user
 from app.core.security import verify_workspace_access
 from app.core.chat_provider import get_chat_service
 from app.core.exceptions import BillingError
+from app.core.rate_limiter import verify_chat_rate_limit
 from app.services.ai.chat_service import ChatService
 from app.services.inbox.session_service import SessionService
 
@@ -113,10 +114,12 @@ def update_session_title(
 @router.post("/query")
 async def chat_query(
     request: ChatQueryRequest,
+    req: Request,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     service: ChatService = Depends(get_chat_service),
 ):
+    verify_chat_rate_limit(req, current_user)
     try:
         workspace_id = verify_workspace_access(current_user, db)
         return await service.handle_chat_query(
@@ -125,6 +128,8 @@ async def chat_query(
             workspace_id=str(workspace_id),
             user_id=str(current_user.id),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[CHAT QUERY] error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -133,10 +138,12 @@ async def chat_query(
 @router.post("/stream")
 async def stream_chat(
     request: ChatStreamRequest,
+    req: Request,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
     service: ChatService = Depends(get_chat_service),
 ):
+    verify_chat_rate_limit(req, current_user)
     logger.info(f" RAW MODEL FROM REQUEST: {request.model}")
     workspace_id = verify_workspace_access(current_user, db)
     logger.info(f"[STREAM CHAT] user={current_user.id} workspace={workspace_id} session={request.session_id}")

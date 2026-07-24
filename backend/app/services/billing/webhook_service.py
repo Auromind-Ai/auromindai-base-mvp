@@ -490,3 +490,56 @@ class WebhookService:
             gateway_order_id=payment_payload.get("order_id") or "",
             description=f"Purchased AI Credit Pack: {pack.name}"
         )
+
+        # Send purchase confirmation email
+        try:
+            from app.models.workspace import WorkspaceMember, Workspace
+            from app.models.user import User
+            from app.services.platform_settings_service import get_setting
+            from app.services.email_service import EmailService
+            
+            # Fetch workspace owner
+            member = db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.role == "owner"
+            ).first()
+            if not member:
+                member = db.query(WorkspaceMember).filter(
+                    WorkspaceMember.workspace_id == workspace_id
+                ).first()
+                
+            if member:
+                user = db.query(User).filter(User.id == member.user_id).first()
+                workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+                if user and user.email:
+                    # Get templates
+                    db_subject = get_setting(db, "email_template_credits_purchased_subject") or "Receipt: WhatsApp Credits Added"
+                    db_body = get_setting(db, "email_template_credits_purchased_body")
+                    
+                    if db_body:
+                        # Render template variables
+                        currency = pack.currency.upper() if hasattr(pack, 'currency') else "INR"
+                        amount = float(pack.amount) if hasattr(pack, 'amount') else 0.0
+                        
+                        variables = {
+                            "user_name": user.full_name or user.email,
+                            "credits": str(pack.credits),
+                            "order_id": payment_payload.get("order_id") or "N/A",
+                            "payment_id": provider_payment_id or "N/A",
+                            "amount": f"{amount:.2f}",
+                            "currency": currency,
+                            "workspace_name": workspace.name if workspace else "Workspace"
+                        }
+                        
+                        subject = EmailService.render_template(db_subject, variables)
+                        body = EmailService.render_template(db_body, variables)
+                        
+                        EmailService.send_email(
+                            to_email=user.email,
+                            subject=subject,
+                            body=body
+                        )
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("auromind")
+            logger.error(f"Failed to send credit purchase confirmation email: {e}")

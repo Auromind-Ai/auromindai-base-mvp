@@ -107,16 +107,28 @@ app = FastAPI(
 
 register_exception_handlers(app)
 
-# ── CORS & Middleware ─────────────────────────────────────────────────────────
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000," \
-    "http://127.0.0.1:3000"
-).split(",")
+# Middleware
+allowed_origins = []
+fallback_origins = [
+    "https://orbionagents.com",
+    "http://orbionagents.com",
+    "https://www.orbionagents.com",
+    "http://www.orbionagents.com",
+    "https://hkfpvzwm-3000.inc1.devtunnels.ms"
+   
+    # Local development
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+for origin in fallback_origins:
+    if origin not in allowed_origins:
+        allowed_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

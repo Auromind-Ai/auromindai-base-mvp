@@ -12,29 +12,22 @@ const poppins = Poppins({
   display: "swap",
 });
 
-// ─── AutoVideo: always mounted, never unmounts ────────────────────────────────
 function AutoVideo({ src, active }) {
   const ref = useRef(null);
 
-  // First mount: force play
+  // Play only when active, pause when inactive to save system resources
   useEffect(() => {
     const vid = ref.current;
     if (!vid) return;
     vid.muted = true;
-    vid.play().catch(() => {});
-  }, []);
-
-  // When stage switches to this video, resume play
-  useEffect(() => {
-  const vid = ref.current;
-  if (!vid) return;
-  if (active) {
-    vid.dataset.stageActive = "true";
-    vid.play().catch(() => {});
-  } else {
-    vid.dataset.stageActive = "false";
-  }
-}, [active]);
+    if (active) {
+      vid.dataset.stageActive = "true";
+      vid.play().catch(() => {});
+    } else {
+      vid.dataset.stageActive = "false";
+      vid.pause();
+    }
+  }, [active]);
 
   return (
     <video

@@ -43,6 +43,7 @@ class BrainEntry(Base):
     file_size = Column(Integer, nullable=True)
     credits_charged = Column(Float, nullable=True)
     embedding_status = Column(String(50), nullable=True)
+    content_hash = Column(String(64), index=True, nullable=True)
 
 
 # Brain Chunks

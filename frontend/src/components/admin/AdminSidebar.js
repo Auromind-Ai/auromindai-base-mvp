@@ -115,7 +115,9 @@ export default function AdminSidebar() {
           <div className="space-y-1">
             {menu.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href
+              const cleanPathname = pathname ? pathname.replace(/\/$/, "") : ""
+              const cleanHref = item.href ? item.href.replace(/\/$/, "") : ""
+              const isActive = cleanPathname === cleanHref
 
               return (
                 <Link

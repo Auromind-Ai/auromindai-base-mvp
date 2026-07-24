@@ -7,6 +7,7 @@ from app.utils.text_chunker import Schunker
 import json
 from app.models.brain import BrainEntry
 from app.services.agentic_rag.embedding_service import get_embedding_generator
+from app.utils.text_validator import validate_ingestion_text
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,14 @@ class IngestionLayer:
          
         if not text or len(text.strip()) < 10:
             raise ValueError("Document text is too short")
+
+        # Validate duplicate, binary, low-quality, and spam before embedding generation
+        content_hash = validate_ingestion_text(
+            db=db,
+            workspace_id=workspace_id,
+            text=text,
+            check_duplicate=(existing_entry_id is None)
+        )
         
         # Generate parent entry ID
         parent_id = existing_entry_id if existing_entry_id else str(uuid.uuid4())
@@ -82,6 +91,7 @@ class IngestionLayer:
                 brain_entry.content = text[:5000]
                 brain_entry.content_type = content_type
                 brain_entry.metadata_json = metadata_json_str
+                brain_entry.content_hash = content_hash
                 if file_name is not None:
                     brain_entry.file_name = file_name
                 if file_size is not None:
@@ -105,7 +115,8 @@ class IngestionLayer:
                 file_name=file_name,
                 file_size=file_size,
                 credits_charged=credits_charged,
-                embedding_status=embedding_status or "completed"
+                embedding_status=embedding_status or "completed",
+                content_hash=content_hash
             )
             db.add(brain_entry)
 

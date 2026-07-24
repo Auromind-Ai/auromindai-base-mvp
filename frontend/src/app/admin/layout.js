@@ -10,11 +10,13 @@ export default function AdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  const isLoginPage = pathname === "/admin"
+  const isLoginPage = pathname === "/admin" || pathname === "/admin/"
 
   const [mounted, setMounted] = useState(false)
   const [authVerified, setAuthVerified] = useState(false)
   const [isNotFound, setIsNotFound] = useState(false)
+
+  console.log("[AdminLayout Render] pathname:", pathname, "isLoginPage:", isLoginPage, "authVerified:", authVerified, "isNotFound:", isNotFound);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -115,6 +117,7 @@ export default function AdminLayout({ children }) {
     }
     if (typeof window !== 'undefined') {
       window.sessionStorage?.removeItem("admin_csrf_token");
+      window.sessionStorage?.removeItem("admin_session_token");
     }
     // Redirect to the admin login page
     router.push("/admin")

@@ -40,8 +40,8 @@ export async function crawlWebsite(url, workspace_id, max_pages = 50) {
   return client.post('/brain/ingest/website', { url, max_pages, workspace_id });
 }
 
-export async function addTextKnowledge(title, content, workspace_id) {
-  return client.post('/brain/ingest/text', { title, content, workspace_id });
+export async function addTextKnowledge(title, content, workspace_id, collection = null) {
+  return client.post('/brain/ingest/text', { title, content, workspace_id, collection });
 }
 
 export async function getBrainEntries(workspace_id) {

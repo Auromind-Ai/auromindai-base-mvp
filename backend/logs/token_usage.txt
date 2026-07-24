@@ -1668,3 +1668,52 @@ TOTAL TOKENS USED: 2623
 Final Reply Text: '\n            There are multiple entities with the name "Aura" and their information seems to be unrelated. \n\nAura, the AI Agent for Unreal Engine and Unity, is now in public beta and helps game developers by handling tedious work, such as batch editing, debugging, and optimization, allowing them to stay in flow. It also turns written ideas into Blueprints, creating and editing gameplay systems.\n\nAura Intelligence has released a platform update that redefines workforce analytics, delivering unprecedented accuracy and depth, powered by Anthropic\'s Claude AI Model.\n\nAura, which provides AI-powered scam call and text protection, has introduced a new feature called Call Assistant, which answers calls from unknown numbers, filters out unwanted spam and scam calls, and only forwards legitimate inquiries to the user.\n\nNo recent information found about a single, specific "new" thing in Aura AI overall.\n\n            Sources:\n            • tryaura.dev\n• aura.com\n• prnewswire.com\n            \n\nFollow-up question:\nWhat benefits do game developers gain from using Aura AI\'s Blueprint creation feature?'
 Final Reply Token Count (Estimate): 158
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-07-22T05:53:49.995083Z
+User Query: "\nConversation History:\nSenderType.USER: hi\nSenderType.AI: Hello, I'm Veera. Welcome! How can I help you today?\nSenderType.USER: hi\nSenderType.USER: hi\n\nUser Message:\nhi\n"
+-----------------------------------------
+1. Function: mcp_layer.py:analyze_and_rewrite
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 384
+   Input/Query Tokens: 46
+   Output Tokens: 2
+   Total Tokens: 432
+   [Sys Prompt Snippet]: You are a STRICT Retrieval Query Optimization Agent.          ROLE:         Your ONLY task is to rew...
+   [User Input Snippet]: User Query:           Conversation History: SenderType.USER: hi SenderType.AI: Hello, I'm Veera. Wel...
+   [LLM Output Snippet]: hi
+
+2. Function: mcp_layer.py:decide_tool
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 605
+   Input/Query Tokens: 9
+   Output Tokens: 3
+   Total Tokens: 617
+   [Sys Prompt Snippet]: You are a deterministic AI Tool Router for a production SaaS system.      Your task is to select EXA...
+   [User Input Snippet]: User Query: 
+    hi
+
+    Selected Tool:
+   [LLM Output Snippet]: direct_answer
+
+3. Function: orchestrator_layer_support.py:add_followup
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 125
+   Input/Query Tokens: 68
+   Output Tokens: 7
+   Total Tokens: 200
+   [Sys Prompt Snippet]: You are a helpful assistant.          Based on the user's question and the answer,         generate ...
+   [User Input Snippet]: Question:           Conversation History: SenderType.USER: hi SenderType.AI: Hello, I'm Veera. Welco...
+   [LLM Output Snippet]: What's on your mind?
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 3
+Total System Tokens: 1114
+Total Input/Query Tokens: 123
+Total Output Tokens: 12
+TOTAL TOKENS USED: 1249
+-----------------------------------------
+Final Reply Text: "Hello! 👋 How can I help you today?\n\nWhat's on your mind?"
+Final Reply Token Count (Estimate): 12
+=========================================

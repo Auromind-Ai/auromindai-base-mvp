@@ -72,6 +72,14 @@ def delete_auth_cookie(response: Response, request: Request, key: str, path: str
         samesite="none" if is_https else "lax",
         domain=cookie_domain,
     )
+    if cookie_domain is not None:
+        response.delete_cookie(
+            key=key,
+            path=path,
+            secure=is_https,
+            samesite="none" if is_https else "lax",
+            domain=None,
+        )
 
 class CurrentUser:
     def __init__(self, user, workspace_id, impersonated=False, admin_id=None, session_id=None):
@@ -290,6 +298,7 @@ async def google_login(request: Request, type: str = "login", session_expiry_hou
         "response_type=code&"
         "scope=openid%20email%20profile&"
         "access_type=offline&"
+        "prompt=select_account&"
         f"state={state}"
     )
     logger.debug(f"GOOGLE REDIRECT URI = {redirect_uri}")

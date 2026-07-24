@@ -83,7 +83,38 @@ class RazorpayGateway(PaymentGateway):
     ) -> dict[str, Any]:
         plan_id = plan_config.provider_plan_ids.get(self.provider)
         if not plan_id:
-            raise ValueError(f"Razorpay plan is not configured for {plan_config.label}")
+            try:
+                # Create plan dynamically in Razorpay
+                plan_data = self.client.plan.create(data={
+                    "period": "monthly",
+                    "interval": 1,
+                    "item": {
+                        "name": f"Auromind {plan_config.label} Plan",
+                        "amount": plan_config.amount * 100, # convert to paise
+                        "currency": "INR",
+                        "description": plan_config.description or f"Subscription for {plan_config.label}"
+                    }
+                })
+                plan_id = plan_data["id"]
+                
+                # Save to database
+                from app.database import SessionLocal
+                from app.models.platform_setting import PlatformSetting
+                from app.services.platform_settings_service import clear_settings_cache
+                
+                with SessionLocal() as db:
+                    db_key = f"razorpay_{plan_config.key}_plan_id"
+                    setting = db.query(PlatformSetting).filter(PlatformSetting.key == db_key).first()
+                    if setting:
+                        setting.value = plan_id
+                    else:
+                        setting = PlatformSetting(key=db_key, value=plan_id, value_type="string")
+                        db.add(setting)
+                    db.commit()
+                clear_settings_cache()
+            except Exception as e:
+                raise ValueError(f"Razorpay plan is not configured for {plan_config.label} and dynamic creation failed: {str(e)}")
+
         if not self.public_key:
             raise ValueError("Razorpay public key not configured")
 

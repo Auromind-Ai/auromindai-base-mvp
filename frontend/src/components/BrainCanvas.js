@@ -81,7 +81,13 @@ export default function BrainCanvas({ progress }) {
       });
     }
 
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+
     function animate() {
+      if (isMobile) {
+        drawSphere(rotationRef.current);
+        return; // Draw once and skip active animation loop on mobile
+      }
       rotationRef.current += 0.008;
       drawSphere(rotationRef.current);
       animRef.current = requestAnimationFrame(animate);

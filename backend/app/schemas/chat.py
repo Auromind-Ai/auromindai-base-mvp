@@ -1,10 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
 class ChatSessionCreate(BaseModel):
-    title: Optional[str] = "New Chat"
+    title: Optional[str] = Field("New Chat", max_length=255)
     workspace_id: str
 
 class ChatSessionResponse(BaseModel):
@@ -28,10 +28,10 @@ class ChatMessageResponse(BaseModel):
         from_attributes = True
 
 class UpdateSessionRequest(BaseModel):
-    title: str
+    title: str = Field(..., max_length=255)
 
 class ChatStreamRequest(BaseModel):
-    message: str
+    message: str = Field(..., max_length=96000, description="Input message prompt limited to maximum 96000 characters to prevent oversized prompts, excessive token usage, and database bloat.")
     session_id: Optional[str] = None
     use_rag: bool = True
     model: str = "auto"
@@ -40,5 +40,5 @@ class ChatStreamRequest(BaseModel):
     source: str = "internal"
 
 class ChatQueryRequest(BaseModel):
-    message: str
+    message: str = Field(..., max_length=96000, description="Input query message limited to maximum 96000 characters to prevent oversized prompts, excessive token usage, and database bloat.")
     workspace_id: str

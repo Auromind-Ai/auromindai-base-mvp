@@ -1,4 +1,4 @@
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, Field
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -21,14 +21,14 @@ class IngestURLRequest(BaseModel):
     collection: Optional[str] = None
 
 class SearchRequest(BaseModel):
-    query: str
+    query: str = Field(..., max_length=96000, description="Search query limited to max 96000 characters")
     workspace_id: Optional[str] = None
     top_k: int = 5
     entry_ids: Optional[List[str]] = None
     collection: Optional[str] = None
 
 class QueryRequest(BaseModel):
-    question: str
+    question: str = Field(..., max_length=96000, description="Question prompt limited to max 96000 characters")
     workspace_id: Optional[str] = None
     top_k: int = 5
     include_sources: bool = True
