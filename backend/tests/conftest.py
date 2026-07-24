@@ -5,6 +5,12 @@ import json
 import secrets
 from datetime import datetime, timezone
 
+# Set default test environment variables
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+os.environ.setdefault("SECRET_KEY", "testsecret_12345678901234567890")
+os.environ.setdefault("ENCRYPTION_KEY", "12345678901234567890123456789012")
+os.environ.setdefault("ENVIRONMENT", "testing")
+
 # Add backend directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
