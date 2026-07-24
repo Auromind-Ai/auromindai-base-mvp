@@ -56,6 +56,26 @@ def get_supported_template_keys(db: Session = Depends(get_db)):
     return NotificationTemplateService.get_supported_template_keys(db)
 
 
+def validate_channel_selection(template_key: str, channel: str):
+    allowed = NotificationRegistry.get_allowed_channels(template_key)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Template key '{template_key}' is not registered."
+        )
+    if channel == "both":
+        if "email" not in allowed or "in_app" not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Template key '{template_key}' does not support 'Both' channel mode. Supported channel(s): {', '.join(allowed)}."
+            )
+    elif channel not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Channel '{channel}' is not allowed for '{template_key}'. Supported channel(s): {', '.join(allowed)}."
+        )
+
+
 @router.post("", response_model=NotificationTemplateResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=NotificationTemplateResponse, status_code=status.HTTP_201_CREATED)
 def create_notification_template(
@@ -70,15 +90,16 @@ def create_notification_template(
             detail=f"Template key '{data.template_key}' is not a production-supported backend event."
         )
 
-    # Check for existing key-channel pair
+    validate_channel_selection(data.template_key, data.channel)
+
+    # Check for existing template_key
     existing = db.query(NotificationTemplate).filter(
-        NotificationTemplate.template_key == data.template_key,
-        NotificationTemplate.channel == data.channel
+        NotificationTemplate.template_key == data.template_key
     ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Template with key '{data.template_key}' and channel '{data.channel}' already exists."
+            detail=f"Template with key '{data.template_key}' already exists."
         )
 
     admin_email = current_user.user.email if hasattr(current_user, "user") and current_user.user else "Platform Admin"
@@ -109,7 +130,7 @@ def create_notification_template(
     db.refresh(template)
 
     # Invalidate Cache
-    NotificationTemplateService.clear_cache(data.template_key, data.channel)
+    NotificationTemplateService.clear_cache(data.template_key)
     return template
 
 
@@ -145,6 +166,9 @@ def update_notification_template(
     if not template:
         raise HTTPException(status_code=404, detail="Notification template not found")
 
+    target_channel = data.channel if data.channel is not None else template.channel
+    validate_channel_selection(template.template_key, target_channel)
+
     old_value = {
         "name": template.name,
         "category": template.category,
@@ -174,7 +198,7 @@ def update_notification_template(
     db.commit()
     db.refresh(template)
 
-    NotificationTemplateService.clear_cache(template.template_key, template.channel)
+    NotificationTemplateService.clear_cache(template.template_key)
     return template
 
 
@@ -208,7 +232,7 @@ def toggle_notification_template_active(
     db.commit()
     db.refresh(template)
 
-    NotificationTemplateService.clear_cache(template.template_key, template.channel)
+    NotificationTemplateService.clear_cache(template.template_key)
     return template
 
 
@@ -240,7 +264,7 @@ def delete_notification_template(
     db.delete(template)
     db.commit()
 
-    NotificationTemplateService.clear_cache(key, channel)
+    NotificationTemplateService.clear_cache(key)
     return {"status": "success", "message": f"Template '{name}' deleted successfully."}
 
 
@@ -251,7 +275,7 @@ def test_render_notification_template(payload: TemplateTestRenderRequest):
     Default sample context values supplied if missing.
     """
     sample_context = {
-        "user_name": "Arun",
+        "user_name": "santhosh",
         "workspace_name": "AuroMind AI",
         "ip_address": "192.168.1.100",
         "login_time": "2026-07-23 18:45:00 UTC",

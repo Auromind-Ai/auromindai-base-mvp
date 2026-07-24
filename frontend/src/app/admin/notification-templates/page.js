@@ -35,7 +35,7 @@ import {
 } from '@/lib/api/admin';
 
 const CATEGORIES = ["All", "Security", "Billing", "Usage", "Workflow", "CRM", "AI"];
-const CHANNELS = ["All", "email", "in_app", "sms"];
+const CHANNELS = ["All", "email", "in_app", "both"];
 
 const CATEGORY_TEMPLATE_KEYS = {
   Security: [
@@ -107,7 +107,7 @@ export default function NotificationTemplatesAdminPage() {
     category: "Security",
     template_key: "",
     name: "",
-    channel: "email",
+    channel: "both",
     title: "",
     subject: "",
     message: "",
@@ -186,7 +186,7 @@ export default function NotificationTemplatesAdminPage() {
       } catch (err) {
         // Fallback local regex substitution if API fails
         const sample = {
-          user_name: "Arun",
+          user_name: "Santhosh",
           workspace_name: "AuroMind AI",
           ip_address: "192.168.1.100",
           login_time: "2026-07-23 18:45:00 UTC",
@@ -207,7 +207,8 @@ export default function NotificationTemplatesAdminPage() {
     const active = templates.filter(t => t.is_active).length;
     const emailCount = templates.filter(t => t.channel === "email").length;
     const inAppCount = templates.filter(t => t.channel === "in_app").length;
-    return { total, active, emailCount, inAppCount };
+    const bothCount = templates.filter(t => t.channel === "both").length;
+    return { total, active, emailCount, inAppCount, bothCount };
   }, [templates]);
 
   // Current selected event rich metadata schema
@@ -221,6 +222,31 @@ export default function NotificationTemplatesAdminPage() {
     return null;
   }, [formData.template_key, categoryTemplateKeys]);
 
+  // Compute allowed channel options based on current event key
+  const allowedChannelOptions = useMemo(() => {
+    const rawAllowed = currentEventMeta?.allowed_channels || currentEventMeta?.channels || ["email", "in_app"];
+    const supportsEmail = rawAllowed.includes("email");
+    const supportsInApp = rawAllowed.includes("in_app");
+
+    const opts = [];
+    if (supportsEmail) opts.push({ value: "email", label: "Email Only" });
+    if (supportsInApp) opts.push({ value: "in_app", label: "In-App Only" });
+    if (supportsEmail && supportsInApp) opts.push({ value: "both", label: "Both (Email + In-App)" });
+    return opts;
+  }, [currentEventMeta]);
+
+  // Ensure formData.channel is aligned with allowed options when key changes
+  useEffect(() => {
+    if (allowedChannelOptions.length > 0) {
+      const isCurrentAllowed = allowedChannelOptions.some(o => o.value === formData.channel);
+      if (!isCurrentAllowed) {
+        // Default to "both" if available, else first option
+        const bothOpt = allowedChannelOptions.find(o => o.value === "both");
+        setFormData(prev => ({ ...prev, channel: bothOpt ? "both" : allowedChannelOptions[0].value }));
+      }
+    }
+  }, [allowedChannelOptions]);
+
   const handleOpenCreate = () => {
     setEditingTemplate(null);
     const defaultCat = "Security";
@@ -232,7 +258,7 @@ export default function NotificationTemplatesAdminPage() {
       category: defaultCat,
       template_key: defaultKey,
       name: defaultName,
-      channel: "email",
+      channel: "both",
       title: "",
       subject: "",
       message: "",
@@ -282,7 +308,7 @@ export default function NotificationTemplatesAdminPage() {
       category: tpl.category || "Security",
       template_key: tpl.template_key || "",
       name: tpl.name || "",
-      channel: tpl.channel || "email",
+      channel: tpl.channel || "both",
       title: tpl.title || "",
       subject: tpl.subject || "",
       message: tpl.message || "",
@@ -558,14 +584,14 @@ export default function NotificationTemplatesAdminPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-medium tracking-wide uppercase ${
-                        tpl.channel === "email"
+                      <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-wide uppercase ${
+                        tpl.channel === "both"
+                          ? "bg-gradient-to-r from-purple-500/20 to-cyan-500/20 text-indigo-300 border border-indigo-500/30"
+                          : tpl.channel === "email"
                           ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                          : tpl.channel === "in_app"
-                          ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                          : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
                       }`}>
-                        {tpl.channel}
+                        {tpl.channel === "both" ? "Both (Email + In-App)" : tpl.channel === "email" ? "Email Only" : "In-App Only"}
                       </span>
                     </td>
                     <td className="px-6 py-4 max-w-xs truncate">
@@ -656,16 +682,17 @@ export default function NotificationTemplatesAdminPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Channel</label>
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Channel Mode</label>
                     <select
                       value={formData.channel}
-                      disabled={!!editingTemplate}
                       onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                     >
-                      <option value="email" className="bg-[#0f0f15]">Email</option>
-                      <option value="in_app" className="bg-[#0f0f15]">In-App</option>
-                      <option value="sms" className="bg-[#0f0f15]">SMS</option>
+                      {allowedChannelOptions.map(opt => (
+                        <option key={opt.value} value={opt.value} className="bg-[#0f0f15]">
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -855,7 +882,7 @@ export default function NotificationTemplatesAdminPage() {
                 </div>
 
                 <div className="p-3 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-[11px] text-indigo-300">
-                  💡 Sample values (e.g. <span className="font-mono text-white">user_name = "Arun"</span>, <span className="font-mono text-white">workspace_name = "AuroMind AI"</span>) are rendered live above before saving.
+                  💡 Sample values (e.g. <span className="font-mono text-white">user_name = "Santhosh"</span>, <span className="font-mono text-white">workspace_name = "AuroMind AI"</span>) are rendered live above before saving.
                 </div>
               </div>
 

@@ -10,7 +10,7 @@ from app.routers.auth import get_current_user
 from app.core.security import verify_workspace_access
 from app.core.chat_provider import get_chat_service
 from app.core.exceptions import BillingError
-from app.core.rate_limiter import verify_chat_rate_limit
+from app.core.rate_limit import verify_chat_rate_limit
 from app.services.ai.chat_service import ChatService
 from app.services.inbox.session_service import SessionService
 

@@ -17,7 +17,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "welcome_signup": {
             "name": "Welcome Signup Notification",
             "description": "Sent to new users immediately after successful account registration.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "email", "workspace_name"],
             "action_route": "/dashboard",
@@ -26,7 +26,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "new_device_login": {
             "name": "New Device Login Security Alert",
             "description": "Sent when a login occurs from an unrecognized device, browser, or IP location.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "login_time", "ip_address", "device", "browser", "location"],
             "action_route": "/settings/security",
@@ -35,7 +35,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "known_device_login": {
             "name": "Known Device Login Alert",
             "description": "Sent upon user login from a verified device.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "login_time", "ip_address", "device"],
             "action_route": "/settings/security",
@@ -44,7 +44,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "2fa_enabled": {
             "name": "2FA Two-Factor Authentication Enabled",
             "description": "Sent when 2FA TOTP protection is turned on for an account.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "login_time"],
             "action_route": "/settings/security",
@@ -53,7 +53,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "2fa_disabled": {
             "name": "2FA Two-Factor Authentication Disabled",
             "description": "Sent when 2FA TOTP protection is turned off.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "login_time"],
             "action_route": "/settings/security",
@@ -62,7 +62,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "recovery_codes": {
             "name": "2FA Recovery Codes Generated",
             "description": "Sent when new 2FA backup recovery codes are generated.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "login_time"],
             "action_route": "/settings/security",
@@ -71,7 +71,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "session_revoked": {
             "name": "Session Revoked Alert",
             "description": "Sent when an active login session is revoked.",
-            "channels": ["in_app", "email"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "ip_address", "device_info"],
             "action_route": "/settings/security",
@@ -80,7 +80,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "session_blocked": {
             "name": "Session and Device Blocked",
             "description": "Sent when a device/IP is blocked due to security violations.",
-            "channels": ["in_app", "email"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "ip_address", "device_info"],
             "action_route": "/settings/security",
@@ -89,7 +89,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "session_unblocked": {
             "name": "Session and Device Unblocked",
             "description": "Sent when a previously blocked session/IP is unblocked.",
-            "channels": ["in_app", "email"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "ip_address", "device_info"],
             "action_route": "/settings/security",
@@ -98,7 +98,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "account_deletion_requested": {
             "name": "Account Deletion Scheduled Notice",
             "description": "Sent when account deletion is requested (30-day grace period).",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "deletion_date"],
             "action_route": "/settings/account",
@@ -107,7 +107,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "account_deletion_cancelled": {
             "name": "Account Deletion Cancelled Notice",
             "description": "Sent when account deletion is cancelled and account restored.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name"],
             "action_route": "/settings/account",
@@ -116,7 +116,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "otp_code": {
             "name": "OTP Verification Code Email",
             "description": "Sent for passwordless login or 2FA verification.",
-            "channels": ["email"],
+            "allowed_channels": ["email"],
             "supports_subject": True,
             "placeholders": ["user_name", "otp", "auth_type"],
             "action_route": "/login",
@@ -127,7 +127,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "payment_success": {
             "name": "Payment Confirmation Notice",
             "description": "Sent upon successful subscription or credit pack invoice payment.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["amount", "invoice_id", "payment_date", "workspace_name"],
             "action_route": "/billing",
@@ -136,7 +136,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "payment_failed": {
             "name": "Payment Failure Warning",
             "description": "Sent when an invoice payment fails or card declined.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["amount", "error_message", "action_url", "workspace_name"],
             "action_route": "/billing",
@@ -145,7 +145,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "subscription_expiring_7d": {
             "name": "7-Day Subscription Expiry Notice",
             "description": "Sent 7 days before subscription expiration.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["expiry_date", "action_url", "workspace_name"],
             "action_route": "/billing",
@@ -154,7 +154,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "subscription_expiring_3d": {
             "name": "3-Day Urgent Subscription Expiry Notice",
             "description": "Sent 3 days before subscription expiration.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["expiry_date", "action_url", "workspace_name"],
             "action_route": "/billing",
@@ -165,7 +165,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "usage_80": {
             "name": "80% AI Token Quota Notice",
             "description": "Sent when workspace consumes 80% of allocated AI tokens.",
-            "channels": ["in_app", "email"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["resource_name", "used_amount", "total_limit", "workspace_name"],
             "action_route": "/billing/usage",
@@ -174,7 +174,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "usage_90": {
             "name": "90% AI Token Quota Warning",
             "description": "Sent when workspace consumes 90% of allocated AI tokens.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["resource_name", "used_amount", "total_limit", "workspace_name"],
             "action_route": "/billing/usage",
@@ -183,7 +183,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "usage_100": {
             "name": "100% AI Token Quota Limit Reached",
             "description": "Sent when workspace consumes 100% of AI tokens and tasks are paused.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["resource_name", "used_amount", "total_limit", "action_url"],
             "action_route": "/billing/upgrade",
@@ -194,7 +194,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "workflow_completed": {
             "name": "Workflow Run Success Alert",
             "description": "Sent upon successful execution of an automated workflow.",
-            "channels": ["in_app", "email"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["workflow_name", "duration", "workspace_name"],
             "action_route": "/automation/workflows",
@@ -203,7 +203,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "workflow_failed": {
             "name": "Workflow Run Execution Failure",
             "description": "Sent when an automated workflow fails or throws an exception.",
-            "channels": ["email", "in_app"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["workflow_name", "node_name", "error_message", "timestamp"],
             "action_route": "/automation/workflows",
@@ -214,7 +214,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "lead_alert": {
             "name": "New Lead Captured Alert",
             "description": "Sent when a new lead is captured via webhooks or inbox.",
-            "channels": ["in_app", "email"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["lead_name", "lead_email", "lead_score", "source"],
             "action_route": "/crm/leads",
@@ -225,7 +225,7 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "human_escalation": {
             "name": "AI Agent Human Escalation Event",
             "description": "Sent when an AI agent escalates a conversation to human agent.",
-            "channels": ["in_app", "email"],
+            "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["customer_name", "escalation_reason", "workspace_name"],
             "action_route": "/inbox",
@@ -264,35 +264,34 @@ class NotificationRegistry:
                 return cat
         return None
 
+    @classmethod
+    def get_allowed_channels(cls, template_key: str) -> List[str]:
+        meta = cls.get_metadata(template_key)
+        if meta and "allowed_channels" in meta:
+            return meta["allowed_channels"]
+        if meta and "channels" in meta:
+            return meta["channels"]
+        return ["email", "in_app"]
 
-# Built-in Default Fallback Templates for all categories
+
+# Built-in Default Fallback Templates (Exactly ONE record per template_key)
 DEFAULT_NOTIFICATION_TEMPLATES = [
     # --- Security Category ---
     {
         "category": "Security",
         "template_key": "welcome_signup",
-        "name": "Welcome Signup",
-        "channel": "email",
-        "title": "Welcome to {{workspace_name}}",
+        "name": "Welcome Signup Notification",
+        "channel": "both",
+        "title": "Welcome to {{workspace_name}}!",
         "subject": "Welcome to {{workspace_name}}, {{user_name}}!",
         "message": "Hi {{user_name}},\n\nWelcome to {{workspace_name}}! We are thrilled to have you on board. Explore your workspace and start building your AI solutions today.\n\nBest regards,\nThe {{workspace_name}} Team",
         "is_active": True
     },
     {
         "category": "Security",
-        "template_key": "welcome_signup",
-        "name": "Welcome Signup In-App",
-        "channel": "in_app",
-        "title": "Welcome to {{workspace_name}}!",
-        "subject": None,
-        "message": "Hello {{user_name}}, welcome to {{workspace_name}}! Get started by exploring your dashboard.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
         "template_key": "new_device_login",
-        "name": "New Device Login Email",
-        "channel": "email",
+        "name": "New Device Login Security Alert",
+        "channel": "both",
         "title": "Security Alert: New Device Login",
         "subject": "[Security Alert] New Login from Unrecognized Device",
         "message": "Hi {{user_name}},\n\nWe detected a login to your account from a new device or browser ({{device}}).\n\nIP Address: {{ip_address}}\nLocation: {{location}}\nTime: {{login_time}}\n\nIf this was not you, please reset your password immediately.\n\nSecurity Team",
@@ -300,59 +299,39 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     },
     {
         "category": "Security",
-        "template_key": "new_device_login",
-        "name": "New Device Login In-App",
-        "channel": "in_app",
-        "title": "Security Alert: New Device Login",
-        "subject": None,
-        "message": "New login detected from {{device}} (IP: {{ip_address}}) at {{login_time}}.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
         "template_key": "known_device_login",
-        "name": "Known Device Login In-App",
-        "channel": "in_app",
+        "name": "Known Device Login Alert",
+        "channel": "both",
         "title": "Successful Login",
-        "subject": None,
-        "message": "You logged in from {{ip_address}} at {{login_time}}.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
-        "template_key": "known_device_login",
-        "name": "Known Device Login Email",
-        "channel": "email",
-        "title": "Successful Login Notification",
         "subject": "Successful Login to {{workspace_name}}",
-        "message": "Hi {{user_name}},\n\nYou successfully logged in to {{workspace_name}} from {{device}} (IP: {{ip_address}}) at {{login_time}}.\n\nIf this was not you, please secure your account immediately.\n\nSecurity Team",
+        "message": "Hi {{user_name}},\n\nYou successfully logged in to {{workspace_name}} from {{device}} (IP: {{ip_address}}) at {{login_time}}.",
         "is_active": True
     },
     {
         "category": "Security",
         "template_key": "2fa_enabled",
         "name": "2FA Enabled Notification",
-        "channel": "email",
+        "channel": "both",
         "title": "Two-Factor Authentication Enabled",
         "subject": "2FA Enabled for Your Account",
-        "message": "Hi {{user_name}},\n\nTwo-Factor Authentication (2FA) has been successfully enabled for your account. Your account is now more secure.\n\nIf you did not make this change, please contact support immediately.",
+        "message": "Hi {{user_name}},\n\nTwo-Factor Authentication (2FA) has been successfully enabled for your account. Your account is now more secure.",
         "is_active": True
     },
     {
         "category": "Security",
         "template_key": "2fa_disabled",
         "name": "2FA Disabled Warning",
-        "channel": "email",
+        "channel": "both",
         "title": "Security Warning: 2FA Disabled",
         "subject": "[Security Warning] Two-Factor Authentication Disabled",
-        "message": "Hi {{user_name}},\n\nTwo-Factor Authentication (2FA) was disabled for your account at {{login_time}}.\n\nIf this was done by you, no further action is required. Otherwise, please enable 2FA immediately.",
+        "message": "Hi {{user_name}},\n\nTwo-Factor Authentication (2FA) was disabled for your account at {{login_time}}.",
         "is_active": True
     },
     {
         "category": "Security",
         "template_key": "recovery_codes",
         "name": "2FA Recovery Codes Generated",
-        "channel": "email",
+        "channel": "both",
         "title": "New 2FA Recovery Codes",
         "subject": "Your New 2FA Backup Recovery Codes",
         "message": "Hi {{user_name}},\n\nNew 2FA recovery backup codes were generated for your account. Please keep them in a safe place.\n\nTime: {{login_time}}",
@@ -362,37 +341,47 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
         "category": "Security",
         "template_key": "session_revoked",
         "name": "Session Revoked Alert",
-        "channel": "in_app",
+        "channel": "both",
         "title": "Session Revoked",
         "subject": "Security Notice: Session Revoked",
-        "message": "A active session from IP {{ip_address}} has been revoked.",
+        "message": "An active session from IP {{ip_address}} has been revoked.",
         "is_active": True
     },
     {
         "category": "Security",
         "template_key": "session_blocked",
         "name": "Session and Device Blocked Alert",
-        "channel": "in_app",
+        "channel": "both",
         "title": "Session and Device Blocked",
         "subject": "Security Warning: Device Blocked",
-        "message": "Session from IP {{ip_address}} has been blocked.",
+        "message": "Session from IP {{ip_address}} has been blocked due to security policies.",
+        "is_active": True
+    },
+    {
+        "category": "Security",
+        "template_key": "session_unblocked",
+        "name": "Session Unblocked Notice",
+        "channel": "both",
+        "title": "Session Unblocked",
+        "subject": "Security Notice: Session Unblocked",
+        "message": "Session from IP {{ip_address}} has been unblocked.",
         "is_active": True
     },
     {
         "category": "Security",
         "template_key": "account_deletion_requested",
         "name": "Account Deletion Requested Notice",
-        "channel": "email",
+        "channel": "both",
         "title": "Account Deletion Scheduled",
         "subject": "Your account is scheduled for deletion",
-        "message": "Hi {{user_name}},\n\nYour account has been scheduled for permanent deletion on {{deletion_date}}.\n\nIf you change your mind, simply log in before that date and cancel the deletion from your account settings.\n\nIf you did not request this, please contact support immediately.",
+        "message": "Hi {{user_name}},\n\nYour account has been scheduled for permanent deletion on {{deletion_date}}.\n\nIf you change your mind, simply log in before that date and cancel the deletion from your account settings.",
         "is_active": True
     },
     {
         "category": "Security",
         "template_key": "account_deletion_cancelled",
         "name": "Account Deletion Cancelled Notice",
-        "channel": "email",
+        "channel": "both",
         "title": "Account Deletion Cancelled",
         "subject": "Account deletion cancelled — you're back!",
         "message": "Hi {{user_name}},\n\nYour account deletion has been successfully cancelled. Your account is fully restored and active.",
@@ -413,41 +402,41 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     {
         "category": "Billing",
         "template_key": "payment_success",
-        "name": "Payment Successful",
-        "channel": "email",
+        "name": "Payment Confirmation Notice",
+        "channel": "both",
         "title": "Payment Confirmed",
         "subject": "Payment Received - {{workspace_name}} Invoice",
-        "message": "Hi {{user_name}},\n\nThank you for your payment of {{amount}} for {{workspace_name}}. Your subscription is active.\n\nInvoice ID: {{invoice_id}}\nDate: {{payment_date}}\n\nThank you for choosing {{workspace_name}}!",
+        "message": "Hi {{user_name}},\n\nThank you for your payment of {{amount}} for {{workspace_name}}. Your subscription is active.\n\nInvoice ID: {{invoice_id}}\nDate: {{payment_date}}",
         "is_active": True
     },
     {
         "category": "Billing",
         "template_key": "payment_failed",
-        "name": "Payment Failed",
-        "channel": "email",
+        "name": "Payment Failure Warning",
+        "channel": "both",
         "title": "Action Required: Payment Failed",
         "subject": "[Action Required] Payment Failure for {{workspace_name}}",
-        "message": "Hi {{user_name}},\n\nWe were unable to process your payment of {{amount}} for {{workspace_name}}.\n\nPlease update your billing information at {{action_url}} to prevent service interruption.\n\nBilling Team",
+        "message": "Hi {{user_name}},\n\nWe were unable to process your payment of {{amount}} for {{workspace_name}}.\n\nPlease update your billing information at {{action_url}} to prevent service interruption.",
         "is_active": True
     },
     {
         "category": "Billing",
         "template_key": "subscription_expiring_7d",
-        "name": "Subscription Renewal Warning (7 Days)",
-        "channel": "email",
+        "name": "7-Day Subscription Expiry Notice",
+        "channel": "both",
         "title": "Subscription Expiring Soon",
         "subject": "Notice: Your {{workspace_name}} Subscription Expires in 7 Days",
-        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} is set to expire on {{expiry_date}} (in 7 days).\n\nTo ensure uninterrupted service, please renew your plan at {{action_url}}.",
+        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} is set to expire on {{expiry_date}} (in 7 days).\n\nPlease renew your plan at {{action_url}}.",
         "is_active": True
     },
     {
         "category": "Billing",
         "template_key": "subscription_expiring_3d",
-        "name": "Subscription Renewal Alert (3 Days)",
-        "channel": "email",
+        "name": "3-Day Urgent Subscription Expiry Notice",
+        "channel": "both",
         "title": "Subscription Expiring in 3 Days",
         "subject": "Urgent: {{workspace_name}} Subscription Expires in 3 Days!",
-        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} will expire in 3 days on {{expiry_date}}.\n\nPlease renew immediately to prevent account downgrade.",
+        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} will expire in 3 days on {{expiry_date}}.\n\nPlease renew immediately to prevent service disruption.",
         "is_active": True
     },
 
@@ -455,8 +444,8 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     {
         "category": "Usage",
         "template_key": "usage_80",
-        "name": "Quota Usage 80%",
-        "channel": "in_app",
+        "name": "Quota Usage 80% Notice",
+        "channel": "both",
         "title": "Usage Warning (80%)",
         "subject": "Usage Notice: 80% Quota Reached for {{workspace_name}}",
         "message": "Hi {{user_name}}, {{workspace_name}} has consumed 80% of your {{resource_name}} limit. {{used_amount}} / {{total_limit}} consumed.",
@@ -465,10 +454,10 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     {
         "category": "Usage",
         "template_key": "usage_90",
-        "name": "Quota Usage 90%",
-        "channel": "in_app",
+        "name": "Quota Usage 90% Notice",
+        "channel": "both",
         "title": "Usage Warning (90%)",
-        "subject": "High Usage Alert: 90% Quota Reached",
+        "subject": "High Usage Alert: 90% Quota Reached for {{workspace_name}}",
         "message": "Warning: {{workspace_name}} has used 90% of your {{resource_name}} quota. Consider upgrading your plan to avoid limit blocks.",
         "is_active": True
     },
@@ -476,10 +465,10 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
         "category": "Usage",
         "template_key": "usage_100",
         "name": "Quota Usage Limit Reached (100%)",
-        "channel": "email",
+        "channel": "both",
         "title": "Quota Limit Exceeded",
         "subject": "[Important] {{resource_name}} Limit Reached for {{workspace_name}}",
-        "message": "Hi {{user_name}},\n\nYour workspace {{workspace_name}} has reached 100% of its {{resource_name}} limit ({{total_limit}}).\n\nUpgrade your plan now to restore full operations: {{action_url}}",
+        "message": "Hi {{user_name}},\n\nYour workspace {{workspace_name}} has reached 100% of its {{resource_name}} limit ({{total_limit}}). Upgrade your plan now to restore full operations.",
         "is_active": True
     },
 
@@ -487,10 +476,10 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     {
         "category": "Workflow",
         "template_key": "workflow_completed",
-        "name": "Workflow Run Execution Completed",
-        "channel": "in_app",
+        "name": "Workflow Run Success Alert",
+        "channel": "both",
         "title": "Workflow Completed",
-        "subject": "Workflow {{workflow_name}} Succeeded",
+        "subject": "Workflow Succeeded: {{workflow_name}}",
         "message": "Workflow '{{workflow_name}}' completed successfully in {{duration}}.",
         "is_active": True
     },
@@ -498,10 +487,10 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
         "category": "Workflow",
         "template_key": "workflow_failed",
         "name": "Workflow Run Execution Failure",
-        "channel": "email",
+        "channel": "both",
         "title": "Workflow Failed",
-        "subject": "Workflow Execution Failed: {{workflow_name}}",
-        "message": "Hi {{user_name}},\n\nWorkflow '{{workflow_name}}' in workspace {{workspace_name}} failed to execute.\n\nError details: {{error_message}}\nTime: {{timestamp}}",
+        "subject": "[Alert] Workflow Execution Failed: {{workflow_name}}",
+        "message": "Workflow '{{workflow_name}}' in workspace {{workspace_name}} failed to execute. Error: {{error_message}}.",
         "is_active": True
     },
 
@@ -509,8 +498,8 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     {
         "category": "CRM",
         "template_key": "lead_alert",
-        "name": "New High-Value Lead Alert",
-        "channel": "in_app",
+        "name": "New Lead Captured Alert",
+        "channel": "both",
         "title": "New Lead Alert",
         "subject": "New Lead Captured: {{lead_name}}",
         "message": "New lead '{{lead_name}}' ({{lead_email}}) captured for {{workspace_name}}. Lead Score: {{lead_score}}.",
@@ -521,10 +510,10 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     {
         "category": "AI",
         "template_key": "human_escalation",
-        "name": "AI Human Escalation Triggered",
-        "channel": "in_app",
+        "name": "AI Human Escalation Alert",
+        "channel": "both",
         "title": "Human Escalation Needed",
-        "subject": "AI Escalation: Customer Needs Support",
+        "subject": "[Urgent] AI Escalation: {{customer_name}} Needs Live Agent",
         "message": "AI Agent requires human intervention for conversation with {{customer_name}} in workspace {{workspace_name}}. Reason: {{escalation_reason}}.",
         "is_active": True
     }
@@ -554,20 +543,23 @@ class NotificationTemplateService:
         return pattern.sub(replace_match, template_text)
 
     @staticmethod
-    def _get_cache_key(template_key: str, channel: str) -> str:
-        return f"notif_tpl:{template_key}:{channel}"
+    def _get_cache_key(template_key: str) -> str:
+        return f"notif_tpl:{template_key}"
 
     @classmethod
     def clear_cache(cls, template_key: Optional[str] = None, channel: Optional[str] = None):
         """Invalidate template cache entries immediately"""
         global _MEMORY_TEMPLATE_CACHE
-        if template_key and channel:
-            _MEMORY_TEMPLATE_CACHE.pop((template_key, channel), None)
+        if template_key:
+            # Clear memory cache entries matching template_key
+            keys_to_remove = [k for k in _MEMORY_TEMPLATE_CACHE.keys() if k[0] == template_key or k == template_key]
+            for k in keys_to_remove:
+                _MEMORY_TEMPLATE_CACHE.pop(k, None)
             try:
                 import redis
                 if settings.REDIS_URL:
                     r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
-                    r.delete(cls._get_cache_key(template_key, channel))
+                    r.delete(cls._get_cache_key(template_key))
             except Exception:
                 pass
         else:
@@ -587,17 +579,17 @@ class NotificationTemplateService:
         cls,
         db: Session,
         template_key: str,
-        channel: str = "in_app"
+        channel: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """
-        Retrieve active template dictionary from Redis / Memory cache or Database.
-        If not found in DB or inactive, returns default fallback if present.
+        Retrieve active template dictionary for a given template_key from Redis / Memory cache or Database.
+        Exactly one template record exists per template_key.
         """
-        cache_tuple = (template_key, channel)
-        
+        cache_key = (template_key, "master")
+
         # 1. Check thread-safe memory cache
-        if cache_tuple in _MEMORY_TEMPLATE_CACHE:
-            cached_val = _MEMORY_TEMPLATE_CACHE[cache_tuple]
+        if cache_key in _MEMORY_TEMPLATE_CACHE:
+            cached_val = _MEMORY_TEMPLATE_CACHE[cache_key]
             if cached_val is not None:
                 return cached_val
 
@@ -606,10 +598,10 @@ class NotificationTemplateService:
             import redis
             if settings.REDIS_URL:
                 r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
-                cached_json = r.get(cls._get_cache_key(template_key, channel))
+                cached_json = r.get(cls._get_cache_key(template_key))
                 if cached_json:
                     data = json.loads(cached_json)
-                    _MEMORY_TEMPLATE_CACHE[cache_tuple] = data
+                    _MEMORY_TEMPLATE_CACHE[cache_key] = data
                     return data
         except Exception:
             pass
@@ -617,7 +609,6 @@ class NotificationTemplateService:
         # 3. Query Database
         db_tpl = db.query(NotificationTemplate).filter(
             NotificationTemplate.template_key == template_key,
-            NotificationTemplate.channel == channel,
             NotificationTemplate.is_active == True
         ).first()
 
@@ -633,42 +624,35 @@ class NotificationTemplateService:
                 "channel": db_tpl.channel,
                 "is_active": db_tpl.is_active,
             }
-            _MEMORY_TEMPLATE_CACHE[cache_tuple] = data
+            _MEMORY_TEMPLATE_CACHE[cache_key] = data
             try:
                 import redis
                 if settings.REDIS_URL:
                     r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
-                    r.setex(cls._get_cache_key(template_key, channel), 3600, json.dumps(data))
+                    r.setex(cls._get_cache_key(template_key), 3600, json.dumps(data))
             except Exception:
                 pass
             return data
 
         # 4. Fallback to built-in default templates
         fallback = next(
-            (t for t in DEFAULT_NOTIFICATION_TEMPLATES if t["template_key"] == template_key and t["channel"] == channel and t.get("is_active", True)),
+            (t for t in DEFAULT_NOTIFICATION_TEMPLATES if t["template_key"] == template_key and t.get("is_active", True)),
             None
         )
-        if not fallback:
-            # Secondary check: search fallback matching key with any channel
-            fallback = next(
-                (t for t in DEFAULT_NOTIFICATION_TEMPLATES if t["template_key"] == template_key and t.get("is_active", True)),
-                None
-            )
 
         if fallback:
-            _MEMORY_TEMPLATE_CACHE[cache_tuple] = fallback
+            _MEMORY_TEMPLATE_CACHE[cache_key] = fallback
             return fallback
 
         return None
 
     @classmethod
     def seed_default_templates(cls, db: Session, updated_by: str = "System Admin") -> int:
-        """Seed DB with default templates if missing"""
+        """Seed DB with default templates if missing (1 record per template_key)"""
         created_count = 0
         for item in DEFAULT_NOTIFICATION_TEMPLATES:
             existing = db.query(NotificationTemplate).filter(
-                NotificationTemplate.template_key == item["template_key"],
-                NotificationTemplate.channel == item["channel"]
+                NotificationTemplate.template_key == item["template_key"]
             ).first()
             if not existing:
                 new_tpl = NotificationTemplate(
@@ -693,3 +677,4 @@ class NotificationTemplateService:
     def get_supported_template_keys(cls, db: Optional[Session] = None) -> Dict[str, List[str]]:
         """Return ONLY production-supported notification keys registered in NotificationRegistry."""
         return NotificationRegistry.get_supported_events()
+

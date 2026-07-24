@@ -25,5 +25,5 @@ class NotificationTemplate(Base):
     updated_by = Column(String(255), nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("template_key", "channel", name="uix_notif_template_key_channel"),
+        UniqueConstraint("template_key", name="uix_notif_template_key"),
     )

@@ -154,19 +154,26 @@ class NotificationService:
         if not enabled:
             return None
 
-        # Fetch dynamic in-app template from NotificationTemplateService
-        in_app_tpl = NotificationTemplateService.get_template(db, effective_key, channel="in_app")
+        # Fetch dynamic master template for effective_key (1 template per key)
+        tpl = NotificationTemplateService.get_template(db, effective_key)
         
+        tpl_channel = tpl.get("channel", "in_app") if tpl else "in_app"
+        should_create_in_app = tpl_channel in ("in_app", "both")
+        should_send_email = (send_email or is_critical or tpl_channel in ("email", "both")) and bool(user.email)
+
         rendered_title = title
         rendered_message = message
+        rendered_email_subject = email_subject
 
-        if in_app_tpl:
-            if in_app_tpl.get("title"):
-                rendered_title = NotificationTemplateService.render_text(in_app_tpl["title"], context)
-            elif in_app_tpl.get("name"):
-                rendered_title = NotificationTemplateService.render_text(in_app_tpl["name"], context)
-            if in_app_tpl.get("message"):
-                rendered_message = NotificationTemplateService.render_text(in_app_tpl["message"], context)
+        if tpl:
+            if tpl.get("title"):
+                rendered_title = NotificationTemplateService.render_text(tpl["title"], context)
+            elif tpl.get("name"):
+                rendered_title = NotificationTemplateService.render_text(tpl["name"], context)
+            if tpl.get("message"):
+                rendered_message = NotificationTemplateService.render_text(tpl["message"], context)
+            if tpl.get("subject"):
+                rendered_email_subject = NotificationTemplateService.render_text(tpl["subject"], context)
         elif title or message:
             rendered_title = NotificationTemplateService.render_text(title, context) if title else "Notification"
             rendered_message = NotificationTemplateService.render_text(message, context) if message else ""
@@ -178,32 +185,34 @@ class NotificationService:
         final_title = rendered_title or "Notification"
         final_message = rendered_message or ""
 
-        # Create and persist in-app notification
-        notification = Notification(
-            id=uuid.uuid4(),
-            user_id=clean_user_id,
-            workspace_id=clean_ws_id,
-            type=type,
-            title=final_title,
-            message=final_message,
-            is_read=False
-        )
-        db.add(notification)
-        try:
-            db.commit()
-            db.refresh(notification)
+        notification = None
+        if should_create_in_app:
+            # Create and persist in-app notification
+            notification = Notification(
+                id=uuid.uuid4(),
+                user_id=clean_user_id,
+                workspace_id=clean_ws_id,
+                type=type,
+                title=final_title,
+                message=final_message,
+                is_read=False
+            )
+            db.add(notification)
             try:
-                notification_metrics.increment("notifications_sent_total")
-            except Exception:
-                pass
-        except Exception as db_exc:
-            db.rollback()
-            try:
-                notification_metrics.increment("notifications_failed_total")
-            except Exception:
-                pass
-            logger.error(f"Failed to persist notification: {db_exc}")
-            return None
+                db.commit()
+                db.refresh(notification)
+                try:
+                    notification_metrics.increment("notifications_sent_total")
+                except Exception:
+                    pass
+            except Exception as db_exc:
+                db.rollback()
+                try:
+                    notification_metrics.increment("notifications_failed_total")
+                except Exception:
+                    pass
+                logger.error(f"Failed to persist notification: {db_exc}")
+                return None
 
         # Automatically record security audit trail for critical / security events
         if type == "security_alert" or is_critical:
@@ -226,24 +235,11 @@ class NotificationService:
                 db.rollback()
                 logger.error(f"Failed to record security audit log: {audit_exc}")
 
-        # Trigger email if send_email is True or is_critical is True
-        if (send_email or is_critical) and user.email:
+        # Trigger email if should_send_email is True
+        if should_send_email and user.email:
             try:
-                email_tpl = NotificationTemplateService.get_template(db, effective_key, channel="email")
-                
-                final_email_subject = email_subject
-                final_email_body = None
-
-                if email_tpl:
-                    if email_tpl.get("subject"):
-                        final_email_subject = NotificationTemplateService.render_text(email_tpl["subject"], context)
-                    if email_tpl.get("message"):
-                        final_email_body = NotificationTemplateService.render_text(email_tpl["message"], context)
-
-                if not final_email_subject:
-                    final_email_subject = email_subject or f"[{ws_name} Alert] {final_title}"
-                if not final_email_body:
-                    final_email_body = f"Hi {user.full_name or 'User'},\n\n{final_title}\n\n{final_message}\n\n— The {ws_name} Security Team"
+                final_email_subject = rendered_email_subject or f"[{ws_name} Alert] {final_title}"
+                final_email_body = final_message or f"Hi {user.full_name or 'User'},\n\n{final_title}\n\n— The {ws_name} Team"
 
                 send_email_with_retry(to_email=user.email, subject=final_email_subject, body=final_email_body, max_attempts=3)
             except Exception as email_exc:

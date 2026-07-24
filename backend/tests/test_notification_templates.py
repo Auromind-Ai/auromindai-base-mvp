@@ -31,23 +31,23 @@ def db():
 def test_placeholder_render_text():
     template = "Hi {{user_name}}, welcome to {{workspace_name}}! IP: {{ip_address}}."
     context = {
-        "user_name": "Arun",
+        "user_name": "santhosh",
         "workspace_name": "AuroMind AI",
         "ip_address": "127.0.0.1"
     }
     rendered = NotificationTemplateService.render_text(template, context)
-    assert rendered == "Hi Arun, welcome to AuroMind AI! IP: 127.0.0.1."
+    assert rendered == "Hi santhosh, welcome to AuroMind AI! IP: 127.0.0.1."
 
 
 def test_placeholder_render_missing_keys():
     template = "Hello {{user_name}}, your code is {{otp_code}}."
-    context = {"user_name": "Arun"}
+    context = {"user_name": "santhosh"}
     rendered = NotificationTemplateService.render_text(template, context)
-    assert rendered == "Hello Arun, your code is ."
+    assert rendered == "Hello santhosh, your code is ."
 
 
 def test_template_service_fallback(db):
-    tpl = NotificationTemplateService.get_template(db, "welcome_signup", channel="email")
+    tpl = NotificationTemplateService.get_template(db, "welcome_signup")
     assert tpl is not None
     assert tpl["category"] == "Security"
     assert "{{workspace_name}}" in tpl["message"] or "{{user_name}}" in tpl["message"]
@@ -68,22 +68,44 @@ def test_template_crud_and_cache(db):
     db.add(new_tpl)
     db.commit()
 
-    fetched = NotificationTemplateService.get_template(db, "custom_security_alert", channel="in_app")
+    fetched = NotificationTemplateService.get_template(db, "custom_security_alert")
     assert fetched is not None
     assert fetched["name"] == "Custom Security Alert"
 
     # Update template
     new_tpl.message = "Updated security text for {{workspace_name}}."
     db.commit()
-    NotificationTemplateService.clear_cache("custom_security_alert", "in_app")
+    NotificationTemplateService.clear_cache("custom_security_alert")
 
-    fetched_updated = NotificationTemplateService.get_template(db, "custom_security_alert", channel="in_app")
+    fetched_updated = NotificationTemplateService.get_template(db, "custom_security_alert")
     assert fetched_updated["message"] == "Updated security text for {{workspace_name}}."
+
+
+def test_channel_validation_rules():
+    from fastapi import HTTPException
+    from app.routers.admin.notification_templates import validate_channel_selection
+
+    # 1. payment_success, usage_80, workflow_completed support email + in_app -> "both", "email", "in_app" are all valid
+    for key in ["payment_success", "usage_80", "usage_90", "usage_100", "workflow_completed", "workflow_failed", "lead_alert", "human_escalation", "welcome_signup"]:
+        validate_channel_selection(key, "both")
+        validate_channel_selection(key, "email")
+        validate_channel_selection(key, "in_app")
+
+    # 2. otp_code supports email only -> "both" and "in_app" fail with 400 Bad Request
+    validate_channel_selection("otp_code", "email")
+    with pytest.raises(HTTPException) as exc_info:
+        validate_channel_selection("otp_code", "both")
+    assert exc_info.value.status_code == 400
+    assert "otp_code" in exc_info.value.detail
+
+    with pytest.raises(HTTPException) as exc_info2:
+        validate_channel_selection("otp_code", "in_app")
+    assert exc_info2.value.status_code == 400
 
 
 def test_all_12_notification_events_e2e(db):
     """
-    E2E Smoke Test verifying all 12 template event categories:
+    E2E Smoke Test verifying template event categories:
     1. welcome_signup
     2. new_device_login
     3. known_device_login
@@ -200,7 +222,7 @@ def test_all_12_notification_events_e2e(db):
     assert n_esc is not None
 
     # Event 10: otp_code
-    otp_tpl = NotificationTemplateService.get_template(db, "otp_code", channel="email")
+    otp_tpl = NotificationTemplateService.get_template(db, "otp_code")
     assert otp_tpl is not None
     rendered_otp = NotificationTemplateService.render_text(otp_tpl["message"], {"user_name": "Smoke Test User", "otp": "987654", "auth_type": "Login"})
     assert "987654" in rendered_otp
@@ -222,15 +244,14 @@ def test_all_12_notification_events_e2e(db):
 
     # Event 12: Admin Live Edit & Cache Invalidation Reflection Test
     db_tpl = db.query(NotificationTemplate).filter(
-        NotificationTemplate.template_key == "known_device_login",
-        NotificationTemplate.channel == "in_app"
+        NotificationTemplate.template_key == "known_device_login"
     ).first()
     assert db_tpl is not None
 
     # Modify template in DB as Admin
     db_tpl.message = "ADMIN MODIFIED: Welcome back {{user_name}} from {{ip_address}}!"
     db.commit()
-    NotificationTemplateService.clear_cache("known_device_login", "in_app")
+    NotificationTemplateService.clear_cache("known_device_login")
 
     # Next notification trigger MUST reflect admin update immediately
     n_updated = NotificationService.notify(
@@ -253,13 +274,14 @@ def test_test_render_notification_template():
         title="Welcome Title"
     )
     res = test_render_notification_template(req)
-    assert res.rendered_subject == "Welcome Arun"
-    assert "Hello Arun, welcome to AuroMind AI!" in res.rendered_message
+    assert res.rendered_subject == "Welcome santhosh"
+    assert "Hello santhosh, welcome to AuroMind AI!" in res.rendered_message
 
     # Test without template_key
     req_no_key = TemplateTestRenderRequest(
         message="Test message for {{user_name}}"
     )
     res_no_key = test_render_notification_template(req_no_key)
-    assert "Test message for Arun" in res_no_key.rendered_message
+    assert "Test message for santhosh" in res_no_key.rendered_message
+
 
