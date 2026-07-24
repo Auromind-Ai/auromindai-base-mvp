@@ -103,5 +103,6 @@ class LegacyUpgradePlanRequest(BaseModel):
 
 from .plan_entitlement import PlanEntitlementBase, PlanEntitlementCreate, PlanEntitlementUpdate, PlanEntitlementResponse, EntitlementCheckRequest, EntitlementCheckResponse
 from .feature_billing_rule import FeatureBillingRuleBase, FeatureBillingRuleCreate, FeatureBillingRuleUpdate, FeatureBillingRuleResponse
+from . import lead_scoring
 
 

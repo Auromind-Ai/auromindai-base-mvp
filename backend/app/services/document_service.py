@@ -207,17 +207,16 @@ class URLScraperService:
     async def scrape_url(self, url: str) -> Dict[str, Any]:
        
            
-        # Validate URL
-        if not url.startswith(("http://", "https://")):
-            raise ValueError("URL must start with http:// or https://")
+        from app.utils.ssrf_protection import safe_httpx_get, is_safe_url
+        if not is_safe_url(url):
+            raise ValueError("URL points to an invalid or private network address.")
         
         try:
             async with httpx.AsyncClient(
                 timeout=self.TIMEOUT_SECONDS,
-                follow_redirects=True,
                 headers={"User-Agent": "AuromindAI/1.0 (Knowledge Indexer)"}
             ) as client:
-                response = await client.get(url)
+                response = await safe_httpx_get(client, url)
                 response.raise_for_status()
                 
                 # Check content length

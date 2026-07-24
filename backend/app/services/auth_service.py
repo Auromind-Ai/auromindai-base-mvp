@@ -4,11 +4,12 @@ from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.auth import get_password_hash, verify_password, create_access_token
 from app.services.platform_settings_service import get_setting
 import uuid
-from typing import Optional
+import time
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 from app.utils.auth import parse_user_agent
-from datetime import datetime, timezone
 from app.services.notification_template_service import NotificationTemplateService
+
 # Redis client helper with graceful in-memory fallback
 def _get_redis_client():
     try:
@@ -19,6 +20,8 @@ def _get_redis_client():
     except Exception:
         pass
     return None
+
+_in_memory_otp_store: Dict[str, Dict[str, Any]] = {}
 
 # In-memory fallbacks for login attempt tracking & device notification cooldowns
 _FAILED_ATTEMPTS_STORE = {}
@@ -344,13 +347,21 @@ class AuthService:
 
         otp = str(random.randint(100000, 999999))
        
+        # Store in Redis if available
         try:
             import redis
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             r.setex(f"otp:{email}", 300, otp)  # 5 mins expiry
         except Exception as e:
-            # Fallback for local
-            pass
+            import logging
+            logging.getLogger("auromind").warning(f"Redis unavailable for send_otp ({e}). Using in-memory fallback for {email}.")
+
+        # Always maintain in-memory fallback in case Redis fails during verify
+        _in_memory_otp_store[email] = {
+            "otp": otp,
+            "expires_at": time.time() + 300,
+            "attempts": 0
+        }
            
         try:
             
@@ -381,11 +392,15 @@ class AuthService:
         from app.core.config import settings
         from fastapi import HTTPException
         email = email.strip().lower()
+        saved_otp = None
+        redis_available = False
+        r = None
+        attempts_key = f"otp_attempts:{email}"
+
         try:
             import redis
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             
-            attempts_key = f"otp_attempts:{email}"
             attempts = r.get(attempts_key)
             if attempts and int(attempts) >= 5:
                 raise HTTPException(
@@ -395,21 +410,51 @@ class AuthService:
                 )
 
             saved_otp = r.get(f"otp:{email}")
-            if not saved_otp or saved_otp != otp:
-                # Increment failed attempts
-                r.incr(attempts_key)
-                r.expire(attempts_key, 300)
-                raise ValueError("Invalid or expired OTP")
-            
-            # Clear attempt counter on success
-            r.delete(f"otp:{email}")
-            r.delete(attempts_key)
+            redis_available = True
         except HTTPException:
             raise
         except Exception as e:
             import logging
-            logging.getLogger("auromind").error(f"OTP verification failed: {str(e)}")
+            logging.getLogger("auromind").warning(f"Redis unavailable during verify_otp ({e}). Using in-memory fallback.")
+
+        # Fallback to in-memory store if Redis was not reachable or had no saved_otp
+        if not saved_otp:
+            mem_data = _in_memory_otp_store.get(email)
+            if mem_data:
+                if time.time() > mem_data.get("expires_at", 0):
+                    _in_memory_otp_store.pop(email, None)
+                    raise ValueError("Invalid or expired OTP")
+                
+                if mem_data.get("attempts", 0) >= 5:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Too many failed attempts. Please try again after 5 minutes.",
+                        headers={"Retry-After": "300"}
+                    )
+                
+                saved_otp = mem_data.get("otp")
+
+        if not saved_otp or saved_otp != otp:
+            if redis_available and r:
+                try:
+                    r.incr(attempts_key)
+                    r.expire(attempts_key, 300)
+                except Exception:
+                    pass
+            mem_data = _in_memory_otp_store.get(email)
+            if mem_data:
+                mem_data["attempts"] = mem_data.get("attempts", 0) + 1
+
             raise ValueError("Invalid or expired OTP")
+        
+        # Clear attempt counter and stored OTP on success
+        if redis_available and r:
+            try:
+                r.delete(f"otp:{email}")
+                r.delete(attempts_key)
+            except Exception:
+                pass
+        _in_memory_otp_store.pop(email, None)
                
         if auth_type == "signup":
             user = db.query(User).filter(User.email == email).first()

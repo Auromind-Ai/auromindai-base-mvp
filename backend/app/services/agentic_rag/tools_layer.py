@@ -8,7 +8,7 @@ import numexpr as ne
 from app.models.brain import EmailMessage , MCPDecision
 import json
 from app.services.ai.llm_utils import safe_llm_call
-
+from app.utils.ssrf_protection import safe_httpx_sync_get, is_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +43,15 @@ class Toolslayer:
 
                 seen_domains.add(domain)
 
+                
+                if not is_safe_url(url):
+                    continue
+
                 try:
 
                     with httpx.Client(timeout=8) as client:
-                        page = client.get(
+                        page = safe_httpx_sync_get(
+                            client,
                             url,
                             headers={"User-Agent": "Mozilla/5.0"}
                         )

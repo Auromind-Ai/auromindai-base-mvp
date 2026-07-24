@@ -43,7 +43,7 @@ const nextConfig = {
                     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
                     { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
                     { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-                    { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' http://localhost:8000 ws://localhost:8000 http://127.0.0.1:8000 ws://127.0.0.1:8000 https: wss: ws: http:;" },
+                    { key: 'Content-Security-Policy', value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com https://calendar.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: https://*.razorpay.com; media-src 'self' blob: data: https:; font-src 'self' data: https: https://fonts.gstatic.com; connect-src 'self' http://localhost:8000 ws://localhost:8000 http://127.0.0.1:8000 ws://127.0.0.1:8000 https: wss: ws: http: https://api.razorpay.com https://lumberjack-cx.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com;" },
                 ],
             },
             {
@@ -112,6 +112,10 @@ const nextConfig = {
         return [
             {
                 source: '/api/:path*',
+                destination: `${BACKEND_URL}/:path*`,
+            },
+            {
+                source: '/api-proxy/:path*',
                 destination: `${BACKEND_URL}/:path*`,
             },
             {

@@ -33,41 +33,22 @@ class Webscrapper:
         
 
     def safety_check(self):
-        check = urlparse(self.url)
-
-        if check.scheme not in ["http", "https"]:
-            return False
-        
-        if not check.hostname:
-            return False
-        
-        try:
-            ip = socket.gethostbyname(check.hostname)
-            ip_obj = ipaddress.ip_address(ip)
-
-            if (ip_obj.is_private 
-                or ip_obj.is_loopback 
-                or ip_obj.is_link_local 
-                or ip_obj.is_reserved
-                or ip_obj.is_multicast
-                or ip_obj.is_unspecified):
-                return False
-            return True
-        except:
-            return False
-        finally:
-            print("safty checked")
+        from app.utils.ssrf_protection import is_safe_url
+        return is_safe_url(self.url)
 
     def detect_website(self):
         if not self.safety_check():
             return None
         
-        response = requests.get(
-            self.url,
-            timeout=10,
-            allow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-        )
+        from app.utils.ssrf_protection import safe_requests_get
+        try:
+            response = safe_requests_get(
+                self.url,
+                timeout=10,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            )
+        except Exception as e:
+            return None
         self.html = response.text
         self.soup = BeautifulSoup(self.html, "lxml")
         

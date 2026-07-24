@@ -23,6 +23,9 @@ export default function AdminLoginPage() {
       if (res && res.csrf_token) {
         sessionStorage.setItem("admin_csrf_token", res.csrf_token);
       }
+      if (res && res.admin_session_token) {
+        sessionStorage.setItem("admin_session_token", res.admin_session_token);
+      }
 
       // Successfully authenticated! Backend set the httpOnly cookie.
       // Redirect to dynamic dashboard route.

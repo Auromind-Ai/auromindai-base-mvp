@@ -15,8 +15,11 @@ function getCSRFToken() {
 
 export class APIClient {
   constructor(baseURL = '/api') {
-    const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
-    this.baseURL = isProd ? 'https://api.orbionagents.com' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
+    const isProd = typeof window !== 'undefined' 
+      && !window.location.hostname.includes('localhost') 
+      && !window.location.hostname.includes('127.0.0.1')
+      && !window.location.hostname.includes('devtunnels.ms');
+    this.baseURL = isProd ? 'https://undeputized-fertilely-adelaida.ngrok-free.dev' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
     this.requestHooks = [];
     this.responseHooks = [];
     this.csrfTokenGetter = () => null;
@@ -36,7 +39,10 @@ export class APIClient {
   }
 
   async requestRaw(endpoint, options = {}, isRetryAttempt = false) {
-    const isProd = typeof window !== 'undefined' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+    const isProd = typeof window !== 'undefined' 
+      && !window.location.hostname.includes('localhost') 
+      && !window.location.hostname.includes('127.0.0.1')
+      && !window.location.hostname.includes('devtunnels.ms');
     const url = isProd
       ? `${this.baseURL}${endpoint.startsWith('/api/') ? endpoint.substring(4) : (endpoint.startsWith('/backend/') ? endpoint.substring(8) : endpoint)}`
       : ((endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
@@ -47,12 +53,17 @@ export class APIClient {
     const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
     const { signal: optSignal, ...restOptions } = options;
 
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const adminSessionToken = typeof window !== 'undefined' ? sessionStorage.getItem('admin_session_token') : null;
+
     const config = {
       credentials: 'include', 
       ...restOptions,
       headers: {
         'ngrok-skip-browser-warning': 'true',
         ...(isPostOrPutOrPatch && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(adminSessionToken ? { 'X-Admin-Session': adminSessionToken } : {}),
         ...options.headers,
       },
     };

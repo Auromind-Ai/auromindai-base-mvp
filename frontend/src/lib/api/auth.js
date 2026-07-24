@@ -1,18 +1,19 @@
 import client from './client';
 
 // Authentication endpoints stubs
-export async function sendOTP(email, auth_type) {
-  return client.post('/auth/send-otp', { email, auth_type });
+export async function sendOTP(email, auth_type, turnstileToken = null) {
+  return client.post('/auth/send-otp', { email, auth_type, turnstile_token: turnstileToken });
 }
 
-export async function verifyOTP(email, otp, auth_type = 'login', full_name = null, workspace_name = null, session_expiry_hours = null) {
+export async function verifyOTP(email, otp, auth_type = 'login', full_name = null, workspace_name = null, session_expiry_hours = null, turnstileToken = null) {
   return client.post('/auth/verify-otp', {
     email,
     otp,
     auth_type,
     full_name,
     workspace_name,
-    session_expiry_hours
+    session_expiry_hours,
+    turnstile_token: turnstileToken
   });
 }
 

@@ -306,7 +306,67 @@ export async function getFlowQuota(workspace_id, options = {}) {
   return client.get(`/flow-packs/quota?workspace_id=${workspace_id}`, { ...options, headers });
 }
 
-export function openRazorpayCheckout({
+let razorpayScriptPromise = null;
+
+export function loadRazorpayScript(src = "https://checkout.razorpay.com/v1/checkout.js", timeoutMs = 15000) {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Razorpay SDK cannot be loaded on the server side."));
+  }
+
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  if (razorpayScriptPromise) {
+    return razorpayScriptPromise;
+  }
+
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector(`script[src="${src}"]`);
+
+    let timer = null;
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+    };
+
+    timer = setTimeout(() => {
+      razorpayScriptPromise = null;
+      reject(new Error("Razorpay SDK script load timed out. Please check your network connection or AdBlocker settings."));
+    }, timeoutMs);
+
+    const onScriptLoad = () => {
+      cleanup();
+      if (window.Razorpay) {
+        resolve(true);
+      } else {
+        razorpayScriptPromise = null;
+        reject(new Error("Razorpay SDK script loaded, but window.Razorpay is unavailable."));
+      }
+    };
+
+    const onScriptError = () => {
+      cleanup();
+      razorpayScriptPromise = null;
+      reject(new Error("Failed to load Razorpay SDK. Please check your internet connection or disable Brave Shields / AdBlocker."));
+    };
+
+    if (existingScript) {
+      existingScript.addEventListener("load", onScriptLoad, { once: true });
+      existingScript.addEventListener("error", onScriptError, { once: true });
+    } else {
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = onScriptLoad;
+      script.onerror = onScriptError;
+      document.body.appendChild(script);
+    }
+  });
+
+  return razorpayScriptPromise;
+}
+
+export async function openRazorpayCheckout({
   orderData,
   name = "Auromind",
   description = "",
@@ -314,8 +374,10 @@ export function openRazorpayCheckout({
   handler,
   ondismiss
 }) {
+  await loadRazorpayScript();
+
   if (!window.Razorpay) {
-    throw new Error("Razorpay checkout is still loading. Please retry in a few seconds.");
+    throw new Error("Razorpay SDK is unavailable.");
   }
 
   const options = {
@@ -337,5 +399,6 @@ export function openRazorpayCheckout({
   razorpay.open();
   return razorpay;
 }
+
 
 

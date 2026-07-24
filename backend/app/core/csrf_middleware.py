@@ -8,25 +8,29 @@ async def csrf_protection_middleware(request: Request, call_next):
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         path = request.url.path
         
-        # Bypass public login, OTP registration, and external provider callbacks/webhooks
+        # Group public auth & webhook prefixes for clean maintainability
+        PUBLIC_AUTH_PREFIXES = (
+            "/auth/login", "/api/auth/login",
+            "/auth/logout", "/api/auth/logout",
+            "/auth/send-otp", "/api/auth/send-otp",
+            "/auth/verify-otp", "/api/auth/verify-otp",
+            "/auth/signup", "/api/auth/signup",
+            "/auth/google", "/api/auth/google",
+        )
+        PUBLIC_WEBHOOK_PREFIXES = (
+            "/twilio/", "/api/twilio/",
+            "/whatsapp/", "/api/whatsapp/",
+            "/instagram/", "/api/instagram/",
+            "/meta/webhook", "/api/meta/webhook",
+            "/billing/webhook", "/api/billing/webhook",
+        )
+        PUBLIC_EXACT_PATHS = ("/", "/health")
+
         is_public = (
-            path.startswith("/auth/login")
-            or path.startswith("/api/auth/login")
-            or path.startswith("/auth/logout")
-            or path.startswith("/api/auth/logout")
-            or path.startswith("/auth/send-otp")
-            or path.startswith("/api/auth/send-otp")
-            or path.startswith("/auth/verify-otp")
-            or path.startswith("/api/auth/verify-otp")
-            or path.startswith("/auth/google")
-            or path.startswith("/api/auth/google")
-            or path.startswith("/twilio/webhook")
-            or path.startswith("/api/twilio/webhook")
-            or path.startswith("/meta/webhook")
-            or path.startswith("/api/meta/webhook")
-            or path == "/"
-            or path == "/health"
-            or path.startswith("/admin/") # admin sub-routes already use AdminConsoleMiddleware for CSRF validation
+            path.startswith(PUBLIC_AUTH_PREFIXES)
+            or path.startswith(PUBLIC_WEBHOOK_PREFIXES)
+            or path in PUBLIC_EXACT_PATHS
+            or path.startswith("/admin/") # admin sub-routes use AdminConsoleMiddleware for CSRF validation
         )
         
         if not is_public:

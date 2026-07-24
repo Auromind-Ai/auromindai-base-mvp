@@ -41,8 +41,9 @@ class EmailService:
 
         rendered = template_str
         for k, v in merged_vars.items():
-            placeholder = f"{{{{{k}}}}}"
-            rendered = rendered.replace(placeholder, str(v))
+            val_str = str(v) if v is not None else ""
+            rendered = rendered.replace(f"{{{{{k}}}}}", val_str)
+            rendered = rendered.replace(f"{{{k}}}", val_str)
         return rendered
 
     @staticmethod

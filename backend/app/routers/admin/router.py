@@ -153,6 +153,7 @@ async def admin_auth(
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
                 cookie_domain = "." + ".".join(parts[-2:])
                 
+    print(f"[admin_auth] Setting cookie. Value: {token[:15]}... Scheme: {request.url.scheme}, x-forwarded-proto: {request.headers.get('x-forwarded-proto')}, is_https: {is_https}, cookie_samesite: {cookie_samesite}, cookie_domain: {cookie_domain}", flush=True)
     # Set secure httpOnly cookie (30 minutes max age)
     response.set_cookie(
         key="admin_session",
@@ -165,7 +166,12 @@ async def admin_auth(
         domain=cookie_domain,
     )
     
-    return {"status": "success", "message": "Authenticated", "csrf_token": csrf_token}
+    return {
+        "status": "success",
+        "message": "Authenticated",
+        "csrf_token": csrf_token,
+        "admin_session_token": token
+    }
 
 @router.post("/logout", include_in_schema=False)
 async def admin_logout(request: Request, response: Response):

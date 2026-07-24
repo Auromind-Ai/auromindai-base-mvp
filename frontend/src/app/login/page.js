@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useBranding } from '@/context/BrandingContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus_Jakarta_Sans } from 'next/font/google';
+import { useTurnstile } from '@/hooks/useTurnstile';
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -56,6 +57,15 @@ const getErrorMessage = (err) => {
 };
 
 function LoginContent() {
+    const {
+        containerRef,
+        loading: turnstileLoading,
+        error: turnstileError,
+        siteKeyMissing,
+        execute: executeTurnstile,
+        initWidget: initTurnstileWidget
+    } = useTurnstile();
+
     const router = useRouter();
     const searchParams = useSearchParams();
     const redirectPath = searchParams.get('redirect');
@@ -74,6 +84,16 @@ function LoginContent() {
     const [deletionDate, setDeletionDate] = useState('');
     const [cancelRestoreLoading, setCancelRestoreLoading] = useState(false);
     const [showCanvas, setShowCanvas] = useState(false);
+
+    useEffect(() => {
+        initTurnstileWidget();
+    }, [initTurnstileWidget]);
+
+    useEffect(() => {
+        if (siteKeyMissing) {
+            setError("Verification service is misconfigured. Please contact support.");
+        }
+    }, [siteKeyMissing]);
 
     useEffect(() => {
         // Delay mounting of 3D Canvas until after initial form animations finish
@@ -133,7 +153,9 @@ function LoginContent() {
         setError('');
         setLoading(true);
         try {
-            await api.sendOTP(email, 'login');
+            const token = await executeTurnstile();
+            console.log("ACTUAL TURNSTILE TOKEN:", token);
+            await api.sendOTP(email, 'login', token);
             setStep('otp');
             setResendTimer(60);
         } catch (err) {
@@ -148,7 +170,9 @@ function LoginContent() {
         setError('');
         setLoading(true);
         try {
-            const data = await api.verifyOTP(email, otp, 'login');
+            const token = await executeTurnstile();
+            console.log("ACTUAL TURNSTILE TOKEN:", token);
+            const data = await api.verifyOTP(email, otp, 'login', null, null, null, token);
             //  2FA gate ─
             if (data?.requiresTwoFactor) {
                 setPendingToken(data.pending_token);
@@ -169,7 +193,6 @@ function LoginContent() {
             }
             //  END pending deletion gate ─
             if (!data?.access_token) throw new Error('Verification failed');
-            if (!data?.access_token) throw new Error('Verification failed');
             setToken(data.access_token);
             setUser(data.user);
             if (data.workspaces?.length > 0) {
@@ -188,7 +211,8 @@ function LoginContent() {
         setError('');
         setLoading(true);
         try {
-            await api.sendOTP(email, 'login');
+            const token = await executeTurnstile();
+            await api.sendOTP(email, 'login', token);
             setResendTimer(60);
             setOtp('');
         } catch (err) {
@@ -523,6 +547,7 @@ function LoginContent() {
                                             <input
                                                 type="email"
                                                 required
+                                                disabled={siteKeyMissing}
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
                                                 className="w-full bg-[#1A1825] border border-white/[0.06] hover:border-white/[0.12] focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 rounded-2xl py-4 px-5 text-white placeholder:text-zinc-600 focus:outline-none text-sm transition-all duration-200"
@@ -539,10 +564,10 @@ function LoginContent() {
                                     {/* Submit Button */}
                                     <button
                                         type="submit"
-                                        disabled={loading || !email}
+                                        disabled={loading || turnstileLoading || siteKeyMissing || !email}
                                         className="w-full bg-violet-600 hover:bg-violet-500 active:bg-violet-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors rounded-2xl py-4 flex items-center justify-center gap-2 text-white font-bold text-sm shadow-lg shadow-violet-900/30"
                                     >
-                                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue with Email'}
+                                        {loading || turnstileLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue with Email'}
                                     </button>
                                 </motion.form>
                             )}
@@ -568,7 +593,7 @@ function LoginContent() {
                                                 <input
                                                     type="text"
                                                     required
-                                                    maxLength={6}
+                                                    disabled={siteKeyMissing}
                                                     value={otp}
                                                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                                                     className="w-full bg-transparent py-3 px-2 text-white placeholder:text-white/10 focus:outline-none text-xl font-mono tracking-[0.3em]"
@@ -580,12 +605,12 @@ function LoginContent() {
                                     </div>
                                     <button
                                         type="submit"
-                                        disabled={loading || otp.length < 6}
+                                        disabled={loading || turnstileLoading || siteKeyMissing || otp.length < 6}
                                         className="relative w-full rounded-xl overflow-hidden group disabled:opacity-75 disabled:cursor-not-allowed h-11"
                                     >
                                         <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-90 group-hover:opacity-100 transition-opacity" />
                                         <div className="relative flex items-center justify-center h-full gap-2 text-white font-bold text-sm">
-                                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                                            {loading || turnstileLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                                                 <>Verify &amp; Log In <Sparkles className="w-4 h-4" /></>
                                             )}
                                         </div>
@@ -595,7 +620,7 @@ function LoginContent() {
                                             className="text-zinc-500 hover:text-white text-xs font-semibold transition-colors">
                                             ← Change email
                                         </button>
-                                        <button type="button" onClick={handleResend} disabled={resendTimer > 0 || loading}
+                                        <button type="button" onClick={handleResend} disabled={resendTimer > 0 || loading || turnstileLoading || siteKeyMissing}
                                             className="text-indigo-400 hover:text-indigo-300 disabled:text-zinc-600 disabled:cursor-not-allowed text-xs font-semibold transition-colors">
                                             {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend code'}
                                         </button>
@@ -708,6 +733,17 @@ function LoginContent() {
                     </p>
                 </div>
             </div>
+            {/* Hidden Turnstile Container */}
+            <div 
+                ref={containerRef} 
+                style={{ 
+                    display: 'none', 
+                    width: '1px', 
+                    height: '1px', 
+                    position: 'absolute', 
+                    left: '-9999px' 
+                }} 
+            />
         </div>
     );
 }

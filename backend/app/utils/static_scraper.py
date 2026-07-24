@@ -46,8 +46,12 @@ class Staticscraper():
             print(f"Scraping: {current_url}")
             visited.add(current_url)
 
+            from app.utils.ssrf_protection import safe_requests_get, is_safe_url
+            if not is_safe_url(current_url):
+                continue
+
             try:
-                response = requests.get(
+                response = safe_requests_get(
                     current_url,
                     timeout=10,
                     headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}

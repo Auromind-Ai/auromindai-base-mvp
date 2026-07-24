@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ENCRYPTION_KEY: Optional[str] = None
     """Fernet encryption key for sensitive data (auto-generated if not set)"""
+    TURNSTILE_SECRET_KEY: Optional[str] = None
 
     # MESSAGE QUEUE & CACHING
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -53,6 +54,15 @@ class Settings(BaseSettings):
 
     # LOGGING
     LOG_LEVEL: str = "INFO"
+
+    # INGESTION & TEXT VALIDATION CONFIGURATION
+    MIN_INGESTION_TEXT_LENGTH: int = 20
+    MIN_ALPHANUMERIC_RATIO: float = 0.35
+    MAX_UNBROKEN_WORD_LENGTH: int = 150
+    MIN_UNIQUE_WORD_RATIO: float = 0.12
+    MAX_URL_DENSITY_RATIO: float = 0.30
+    MAX_REPEATED_LINES: int = 6
+    MAX_NON_PRINTABLE_RATIO: float = 0.03
 
     model_config = SettingsConfigDict(
         env_file=".env",

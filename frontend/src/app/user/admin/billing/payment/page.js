@@ -76,7 +76,7 @@ function BillingContent() {
         DEFAULT_PROVIDER
       )
 
-      api.openRazorpayCheckout({
+      await api.openRazorpayCheckout({
         orderData: checkout,
         name: "Auromind",
         description: `${checkout.plan_label || "Pro"} subscription`,

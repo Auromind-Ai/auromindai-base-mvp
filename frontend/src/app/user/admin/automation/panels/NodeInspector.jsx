@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Settings, X, Timer, Plus, Play, Upload, AlertCircle, Trash2, Bot
+  Settings, X, Timer, Plus, Play, Upload, AlertCircle, Trash2, Bot, CheckCircle2
 } from 'lucide-react';
 import AskQuestionConfig from '@/components/AskQuestionConfig';
 import {
@@ -430,7 +430,7 @@ export default function NodeInspector({
                         {[
                           { value: 'lead_agent',    label: 'Lead',    emoji: '🎯', comingSoon: false },
                           { value: 'sales_agent',   label: 'Sales',   emoji: '💼', comingSoon: false  },
-                          { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: true  },
+                          { value: 'support_agent', label: 'Support', emoji: '🛟', comingSoon: false  },
                         ].map(({ value, label, emoji, comingSoon }) => {
                           const isSelected = (activeNode.config?.agent_type || 'lead_agent') === value;
                           return (
@@ -465,37 +465,27 @@ export default function NodeInspector({
                       </p>
                     </section>
 
-                    {activeNode.config?.agent_type !== 'sales_agent' && (
+                    {activeNode.config?.agent_type !== 'support_agent' && (
                       <section>
-                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Custom Prompt <span className="text-zinc-700">(optional)</span></label>
-                        <textarea
-                          value={activeNode.config?.prompt || ''}
-                          onChange={(e) => updateNodeConfig(activeNodeId, { prompt: e.target.value })}
-                          placeholder="Override AI behavior for this step..."
-                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white"
-                          rows={3}
-                        />
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
+                        <select
+                          value={activeNode.config?.business_type || 'saas'}
+                          onChange={(e) => updateNodeConfig(activeNodeId, { business_type: e.target.value })}
+                          className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
+                          style={{ backgroundColor: "#140D1F", color: "white" }}
+                        >
+                          <option value="saas">SaaS</option>
+                          <option value="ecommerce">E-Commerce</option>
+                          <option value="healthcare">Healthcare</option>
+                          <option value="education">Education</option>
+                          <option value="real_estate">Real Estate</option>
+                          <option value="finance">Finance</option>
+                          <option value="other">Other</option>
+                        </select>
                       </section>
                     )}
-                    <section>
-                      <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Business Type</label>
-                      <select
-                        value={activeNode.config?.business_type || 'saas'}
-                        onChange={(e) => updateNodeConfig(activeNodeId, { business_type: e.target.value })}
-                        className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2.5 text-sm text-white outline-none appearance-none cursor-pointer"
-                        style={{ backgroundColor: "#140D1F", color: "white" }}
-                      >
-                        <option value="saas">SaaS</option>
-                        <option value="ecommerce">E-Commerce</option>
-                        <option value="healthcare">Healthcare</option>
-                        <option value="education">Education</option>
-                        <option value="real_estate">Real Estate</option>
-                        <option value="finance">Finance</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </section>
 
-                    {activeNode.config?.agent_type !== 'sales_agent' && (
+                    {(activeNode.config?.agent_type === 'lead_agent' || !activeNode.config?.agent_type) && (
                       <section>
                         <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-2">Lead Fields</label>
                         <textarea
@@ -508,52 +498,57 @@ export default function NodeInspector({
                       </section>
                     )}
 
-                    <section className="space-y-3">
-                      <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
-                      {[
-                        { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
-                        ...(activeNode.config?.agent_type === 'sales_agent' ? [{ key: 'payment_enabled', label: 'Enable Payment' }] : [])
-                      ].map(({ key, label }) => (
-                        <div key={key} className="space-y-3">
-                          <label className="flex items-center gap-3 cursor-pointer group" data-no-drag>
-                            <div
-                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                              className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
-                                activeNode.config?.[key]
-                                  ? 'bg-indigo-500 border-indigo-500'
-                                  : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
-                              }`}
-                            >
-                              {activeNode.config?.[key] && (
-                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                                  <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              )}
-                            </div>
-                            <span
-                              onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
-                              className="text-sm text-white/80 group-hover:text-white transition"
-                            >
-                              {label}
-                            </span>
-                          </label>
-                          {key === 'payment_enabled' && activeNode.config?.[key] && (
-                            <div className="pl-8" data-no-drag>
-                              <input
-                                type="text"
-                                value={activeNode.config?.payment_link || ''}
-                                onChange={(e) => updateNodeConfig(activeNodeId, { payment_link: e.target.value })}
-                                placeholder="Paste payment link here"
-                                className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500/50 outline-none placeholder:text-zinc-600"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </section>
-                    {activeNode.config?.agent_type === 'sales_agent' && (
+                    {activeNode.config?.agent_type !== 'support_agent' && (
+                      <section className="space-y-3">
+                        <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">Options</label>
+                        {[
+                          { key: 'enable_demo_booking', label: 'Enable Demo Booking' },
+                          ...(activeNode.config?.agent_type === 'sales_agent' ? [{ key: 'payment_enabled', label: 'Enable Payment' }] : [])
+                        ].map(({ key, label }) => (
+                          <div key={key} className="space-y-3">
+                            <label className="flex items-center gap-3 cursor-pointer group" data-no-drag>
+                              <div
+                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                className={`w-5 h-5 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
+                                  activeNode.config?.[key]
+                                    ? 'bg-indigo-500 border-indigo-500'
+                                    : 'bg-[#140D1F] border-[#2B2C33] group-hover:border-indigo-500/50'
+                                }`}
+                              >
+                                {activeNode.config?.[key] && (
+                                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                                    <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                              </div>
+                              <span
+                                onClick={() => updateNodeConfig(activeNodeId, { [key]: !activeNode.config?.[key] })}
+                                className="text-sm text-white/80 group-hover:text-white transition"
+                              >
+                                {label}
+                              </span>
+                            </label>
+                            {key === 'payment_enabled' && activeNode.config?.[key] && (
+                              <div className="pl-8" data-no-drag>
+                                <input
+                                  type="text"
+                                  value={activeNode.config?.payment_link || ''}
+                                  onChange={(e) => updateNodeConfig(activeNodeId, { payment_link: e.target.value })}
+                                  placeholder="Paste payment link here"
+                                  className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500/50 outline-none placeholder:text-zinc-600"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </section>
+                    )}
+
+                    {['sales_agent', 'support_agent'].includes(activeNode.config?.agent_type) && (
                       <section className="space-y-4 pt-4 border-t border-white/5">
-                        <label className="text-[12px] font-semibold text-white tracking-wider block">Product Details & Knowledge</label>
+                        <label className="text-[12px] font-semibold text-white tracking-wider block">
+                          {activeNode.config?.agent_type === 'support_agent' ? 'Support Documents & Knowledge' : 'Product Details & Knowledge'}
+                        </label>
                         <p className="text-[10px] text-zinc-500 mb-2">Upload documents or manually add details. The AI will strictly answer from this context.</p>
                         
                         {/* File Upload Zone */}
@@ -581,23 +576,25 @@ export default function NodeInspector({
                         </div>
 
                         {/* Manual Text Entry */}
-                        <div>
-                           <textarea
-                             value={salesManualText}
-                             onChange={(e) => setSalesManualText(e.target.value)}
-                             placeholder="Or manually type product details, features, and pricing here..."
-                             className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500/50 outline-none resize-none h-24"
-                           />
-                           <div className="flex justify-end mt-2">
-                              <button
-                                onClick={handleSalesManualSave}
-                                disabled={uploading || !salesManualText.trim()}
-                                className="px-4 py-2 bg-indigo-500/20 text-indigo-300 rounded-lg text-xs font-semibold hover:bg-indigo-500/30 transition disabled:opacity-50"
-                              >
-                                {uploading ? 'Saving...' : 'Save Text'}
-                              </button>
-                           </div>
-                        </div>
+                        {activeNode.config?.agent_type === 'sales_agent' && (
+                          <div>
+                             <textarea
+                               value={salesManualText}
+                               onChange={(e) => setSalesManualText(e.target.value)}
+                               placeholder="Or manually type product details, features, and pricing here..."
+                               className="w-full bg-[#140D1F] border border-[#2B2C33] border-[0.5px] rounded-2xl px-4 py-3 text-sm text-white focus:border-indigo-500/50 outline-none resize-none h-24"
+                             />
+                             <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={handleSalesManualSave}
+                                  disabled={uploading || !salesManualText.trim()}
+                                  className="px-4 py-2 bg-indigo-500/20 text-indigo-300 rounded-lg text-xs font-semibold hover:bg-indigo-500/30 transition disabled:opacity-50"
+                                >
+                                  {uploading ? 'Saving...' : 'Save Text'}
+                                </button>
+                             </div>
+                          </div>
+                        )}
 
                         {/* Render attached entry IDs if any */}
                         {(activeNode.config?.entry_ids || []).length > 0 && (
@@ -733,7 +730,7 @@ export default function NodeInspector({
                       <p className="text-xs text-zinc-300 font-mono">
                         IF <span className="text-indigo-300">{activeNode.config?.field || 'user_input'}</span>{' '}
                         <span className="text-amber-300">{(activeNode.config?.operator || 'equals').replace('_', ' ')}</span>{' '}
-                        {activeNode.config?.operator !== 'is_empty' && <span className="text-emerald-300">"{activeNode.config?.compare_value || '...'}"</span>}
+                        {activeNode.config?.operator !== 'is_empty' && <span className="text-emerald-300">&quot;{activeNode.config?.compare_value || '...'}&quot;</span>}
                       </p>
                     </section>
                   </>

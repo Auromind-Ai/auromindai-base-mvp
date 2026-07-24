@@ -19,6 +19,7 @@ _ADMIN_CORS_ORIGINS = [
     "https://www.growwdigitel.cloud",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://hkfpvzwm-3000.inc1.devtunnels.ms"
 ]
 
 
@@ -71,13 +72,19 @@ class AdminConsoleMiddleware:
 
         # Guard admin routes
         if path.startswith(admin_prefix):
+            print(f"[AdminConsoleMiddleware] Guarding path: {path}. Method: {request.method}", flush=True)
+            print(f"[AdminConsoleMiddleware] Cookies received: {list(request.cookies.keys())}", flush=True)
+            
             # Auth endpoint is always public
             if path in (f"{admin_prefix}/auth", f"{admin_prefix}/auth/"):
                 await self.app(scope, receive, send)
                 return
 
-            token = request.cookies.get("admin_session")
+            token = request.cookies.get("admin_session") or request.headers.get("x-admin-session")
             is_authorized = False
+            payload = None
+            role = None
+            purpose = None
 
             if token:
                 try:
@@ -112,22 +119,33 @@ class AdminConsoleMiddleware:
                     pass
 
             if not is_authorized:
-                reject_reason = "Unknown"
                 if not token:
                     reject_reason = "Missing admin_session token/cookie"
-                elif not payload:
-                    reject_reason = "Invalid/Expired admin_session token"
-                elif role != "platform_admin" or purpose != "admin_console":
-                    reject_reason = f"Unauthorized role/purpose"
+                    logger.info(
+                        "Unauthorised admin request: %s %s from %s. Reason: %s",
+                        request.method,
+                        path,
+                        request.client.host if request.client else "unknown",
+                        reject_reason,
+                    )
                 else:
-                    reject_reason = "CSRF verification failed"
+                    if not payload:
+                        reject_reason = "Invalid/Expired admin_session token"
+                    elif role != "platform_admin" or purpose != "admin_console":
+                        reject_reason = "Unauthorized role/purpose"
+                    else:
+                        reject_reason = "CSRF verification failed"
 
-                logger.warning(
-                    "Unauthorised admin request: %s %s from %s",
-                    request.method,
-                    path,
-                    request.client.host if request.client else "unknown",
-                )
+                    logger.warning(
+                        "Unauthorised admin request: %s %s from %s. Reason: %s",
+                        request.method,
+                        path,
+                        request.client.host if request.client else "unknown",
+                        reject_reason,
+                    )
+
+                print(f"[AdminConsoleMiddleware] Unauthorized request. Reject reason: {reject_reason}", flush=True)
+
                 resp = _blocked_response(
                     scope, request,
                     status.HTTP_404_NOT_FOUND,
