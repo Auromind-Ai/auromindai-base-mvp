@@ -23,7 +23,7 @@ from app.services.automations.flow_ai_reply_handler import execute_ai_reply
 from app.core.celery_app import celery_app
 from app.models.message import Message, SenderType
 from app.models.message_execution import MessageExecution
-
+from app.services.notification_service import NotificationService
 
 def _trigger_send_next(conversation_id: Any, countdown: int = 1):
     from app.workers.flow_execution import send_next_pending_message
@@ -1199,13 +1199,19 @@ class FlowServiceV2:
                         },
                     )
                     try:
-                        from app.services.notification_service import NotificationService
                         NotificationService.notify_workspace(
                             db=db,
                             workspace_id=conversation.workspace_id,
                             type="workflow_failed",
-                            title="Workflow Failed",
-                            message=f"Workflow '{flow.name}' failed on node '{node.get('label') or current_node_id}': {str(node_exc)}"
+                            title=None,
+                            message=None,
+                            template_key="workflow_failed",
+                            variables={
+                                "workflow_name": flow.name,
+                                "node_name": node.get('label') or current_node_id,
+                                "error_message": str(node_exc),
+                                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                            }
                         )
                     except Exception as notif_exc:
                         logger.error(f"Failed to send workflow failure notification: {notif_exc}")
@@ -1281,13 +1287,18 @@ class FlowServiceV2:
         state.runtime_context["active_ai_session"] = False
 
         try:
-            from app.services.notification_service import NotificationService
+            
             NotificationService.notify_workspace(
                 db=db,
                 workspace_id=conversation.workspace_id,
                 type="workflow_completed",
-                title="Workflow Completed",
-                message=f"Workflow '{flow.name}' completed successfully."
+                title=None,
+                message=None,
+                template_key="workflow_completed",
+                variables={
+                    "workflow_name": flow.name,
+                    "duration": f"{duration_ms}ms" if 'duration_ms' in locals() else "1.2s"
+                }
             )
         except Exception as notif_exc:
             logger.error(f"Failed to send workflow completion notification: {notif_exc}")

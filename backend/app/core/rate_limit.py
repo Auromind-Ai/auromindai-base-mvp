@@ -12,7 +12,7 @@ logger = logging.getLogger("security_audit")
 DEFAULT_LIMITS = {
     "/upload": 10,
     "/brain": 30,
-    "/billing": 15,
+    "/billing": 60,
     "/auth/send-otp": 5,
     "global": 120,
 }

@@ -293,37 +293,55 @@ class TokenService:
                         db=db,
                         workspace_id=workspace_id,
                         type="usage_warning",
-                        title="AI Quota Limit Reached (100%)",
-                        message="Your workspace has reached 100% of its AI token quota limit. AI tasks will be paused until renewal or credit top-up.",
+                        title=None,
+                        message=None,
                         send_email=True,
                         is_critical=True,
-                        email_subject="[CRITICAL] AI Token Quota Limit Reached (100%)",
+                        email_subject=None,
                         deduplication_key=f"quota_warning:{workspace_id}:100",
-                        resource="ai_tokens"
+                        resource="ai_tokens",
+                        template_key="usage_100",
+                        variables={
+                            "resource_name": "AI Tokens",
+                            "used_amount": f"{balance.tokens_used:,}",
+                            "total_limit": f"{balance.tokens_added:,}"
+                        }
                     )
                 elif percent_used >= 90.0:
                     NotificationService.notify_workspace(
                         db=db,
                         workspace_id=workspace_id,
                         type="usage_warning",
-                        title="AI Quota Warning (90% Used)",
-                        message="Your workspace has consumed 90% of its AI token quota limit. Consider topping up credits to avoid service interruption.",
+                        title=None,
+                        message=None,
                         send_email=True,
-                        email_subject="[WARNING] AI Token Quota 90% Consumed",
+                        email_subject=None,
                         deduplication_key=f"quota_warning:{workspace_id}:90",
-                        resource="ai_tokens"
+                        resource="ai_tokens",
+                        template_key="usage_90",
+                        variables={
+                            "resource_name": "AI Tokens",
+                            "used_amount": f"{balance.tokens_used:,}",
+                            "total_limit": f"{balance.tokens_added:,}"
+                        }
                     )
                 elif percent_used >= 80.0:
                     NotificationService.notify_workspace(
                         db=db,
                         workspace_id=workspace_id,
                         type="usage_warning",
-                        title="AI Quota Notice (80% Used)",
-                        message="Your workspace has consumed 80% of its AI token quota limit.",
+                        title=None,
+                        message=None,
                         send_email=False,
-                        email_subject="[NOTICE] AI Token Quota 80% Consumed",
+                        email_subject=None,
                         deduplication_key=f"quota_warning:{workspace_id}:80",
-                        resource="ai_tokens"
+                        resource="ai_tokens",
+                        template_key="usage_80",
+                        variables={
+                            "resource_name": "AI Tokens",
+                            "used_amount": f"{balance.tokens_used:,}",
+                            "total_limit": f"{balance.tokens_added:,}"
+                        }
                     )
         except Exception as exc:
             import logging

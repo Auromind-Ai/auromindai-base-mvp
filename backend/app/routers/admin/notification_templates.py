@@ -14,7 +14,7 @@ from app.schemas.notification_template import (
     TemplateTestRenderRequest,
     TemplateTestRenderResponse
 )
-from app.services.notification_template_service import NotificationTemplateService
+from app.services.notification_template_service import NotificationTemplateService,NotificationRegistry
 from app.routers.auth import CurrentUser, get_current_user
 
 router = APIRouter(prefix="/notification-templates", tags=["admin_notification_templates"])
@@ -50,6 +50,12 @@ def get_notification_templates(
     return query.order_by(NotificationTemplate.category, NotificationTemplate.name).all()
 
 
+@router.get("/template-keys", response_model=dict)
+def get_supported_template_keys(db: Session = Depends(get_db)):
+    """Return all supported system template keys grouped by category."""
+    return NotificationTemplateService.get_supported_template_keys(db)
+
+
 @router.post("", response_model=NotificationTemplateResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=NotificationTemplateResponse, status_code=status.HTTP_201_CREATED)
 def create_notification_template(
@@ -57,6 +63,13 @@ def create_notification_template(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
+    
+    if not NotificationRegistry.is_supported(data.template_key):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Template key '{data.template_key}' is not a production-supported backend event."
+        )
+
     # Check for existing key-channel pair
     existing = db.query(NotificationTemplate).filter(
         NotificationTemplate.template_key == data.template_key,
@@ -246,7 +259,6 @@ def test_render_notification_template(payload: TemplateTestRenderRequest):
         "invoice_id": "INV-2026-001",
         "payment_date": "July 23, 2026",
         "expiry_date": "July 30, 2026",
-        "action_url": "https://app.auromind.ai/billing",
         "reset_link": "https://app.auromind.ai/reset-password",
         "resource_name": "AI Tokens",
         "used_amount": "80,000",
@@ -262,6 +274,18 @@ def test_render_notification_template(payload: TemplateTestRenderRequest):
         "timestamp": "2026-07-23 18:45:00 UTC",
         "location": "Chennai, India"
     }
+
+    # Inject registry action metadata if template_key is provided
+    if payload.template_key:
+        from app.services.notification_template_service import NotificationRegistry
+        from app.core.config import settings
+        raw_url = getattr(settings, "FRONTEND_URL", None)
+        base_app_url = (raw_url or "https://localhost:3000").rstrip("/")
+        reg_meta = NotificationRegistry.get_metadata(payload.template_key)
+        if reg_meta and "action_route" in reg_meta:
+            sample_context["action_route"] = reg_meta["action_route"]
+            sample_context["action_label"] = reg_meta.get("action_label", "")
+            sample_context["action_url"] = f"{base_app_url}{reg_meta['action_route']}"
 
     # Override sample values with explicit user variables if passed
     if payload.variables:

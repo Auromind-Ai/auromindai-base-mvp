@@ -1,7 +1,7 @@
 import re
 import json
 import logging
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from sqlalchemy.orm import Session
 
 from app.models.notification_template import NotificationTemplate
@@ -11,6 +11,259 @@ logger = logging.getLogger("app")
 
 # Thread-safe in-memory cache fallback for templates: key = (template_key, channel) -> dict
 _MEMORY_TEMPLATE_CACHE: Dict[Tuple[str, str], Optional[Dict[str, Any]]] = {}
+
+SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
+    "Security": {
+        "welcome_signup": {
+            "name": "Welcome Signup Notification",
+            "description": "Sent to new users immediately after successful account registration.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "email", "workspace_name"],
+            "action_route": "/dashboard",
+            "action_label": "Open Dashboard"
+        },
+        "new_device_login": {
+            "name": "New Device Login Security Alert",
+            "description": "Sent when a login occurs from an unrecognized device, browser, or IP location.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "login_time", "ip_address", "device", "browser", "location"],
+            "action_route": "/settings/security",
+            "action_label": "Security Settings"
+        },
+        "known_device_login": {
+            "name": "Known Device Login Alert",
+            "description": "Sent upon user login from a verified device.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "login_time", "ip_address", "device"],
+            "action_route": "/settings/security",
+            "action_label": "Security Settings"
+        },
+        "2fa_enabled": {
+            "name": "2FA Two-Factor Authentication Enabled",
+            "description": "Sent when 2FA TOTP protection is turned on for an account.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "login_time"],
+            "action_route": "/settings/security",
+            "action_label": "Security Settings"
+        },
+        "2fa_disabled": {
+            "name": "2FA Two-Factor Authentication Disabled",
+            "description": "Sent when 2FA TOTP protection is turned off.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "login_time"],
+            "action_route": "/settings/security",
+            "action_label": "Security Settings"
+        },
+        "recovery_codes": {
+            "name": "2FA Recovery Codes Generated",
+            "description": "Sent when new 2FA backup recovery codes are generated.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "login_time"],
+            "action_route": "/settings/security",
+            "action_label": "View Recovery Codes"
+        },
+        "session_revoked": {
+            "name": "Session Revoked Alert",
+            "description": "Sent when an active login session is revoked.",
+            "channels": ["in_app", "email"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "ip_address", "device_info"],
+            "action_route": "/settings/security",
+            "action_label": "Manage Sessions"
+        },
+        "session_blocked": {
+            "name": "Session and Device Blocked",
+            "description": "Sent when a device/IP is blocked due to security violations.",
+            "channels": ["in_app", "email"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "ip_address", "device_info"],
+            "action_route": "/settings/security",
+            "action_label": "Manage Sessions"
+        },
+        "session_unblocked": {
+            "name": "Session and Device Unblocked",
+            "description": "Sent when a previously blocked session/IP is unblocked.",
+            "channels": ["in_app", "email"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "ip_address", "device_info"],
+            "action_route": "/settings/security",
+            "action_label": "Manage Sessions"
+        },
+        "account_deletion_requested": {
+            "name": "Account Deletion Scheduled Notice",
+            "description": "Sent when account deletion is requested (30-day grace period).",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "deletion_date"],
+            "action_route": "/settings/account",
+            "action_label": "Account Settings"
+        },
+        "account_deletion_cancelled": {
+            "name": "Account Deletion Cancelled Notice",
+            "description": "Sent when account deletion is cancelled and account restored.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name"],
+            "action_route": "/settings/account",
+            "action_label": "Account Settings"
+        },
+        "otp_code": {
+            "name": "OTP Verification Code Email",
+            "description": "Sent for passwordless login or 2FA verification.",
+            "channels": ["email"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "otp", "auth_type"],
+            "action_route": "/login",
+            "action_label": "Login"
+        }
+    },
+    "Billing": {
+        "payment_success": {
+            "name": "Payment Confirmation Notice",
+            "description": "Sent upon successful subscription or credit pack invoice payment.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["amount", "invoice_id", "payment_date", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "View Billing"
+        },
+        "payment_failed": {
+            "name": "Payment Failure Warning",
+            "description": "Sent when an invoice payment fails or card declined.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["amount", "error_message", "action_url", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Retry Payment"
+        },
+        "subscription_expiring_7d": {
+            "name": "7-Day Subscription Expiry Notice",
+            "description": "Sent 7 days before subscription expiration.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["expiry_date", "action_url", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Renew Subscription"
+        },
+        "subscription_expiring_3d": {
+            "name": "3-Day Urgent Subscription Expiry Notice",
+            "description": "Sent 3 days before subscription expiration.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["expiry_date", "action_url", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Renew Subscription"
+        }
+    },
+    "Usage": {
+        "usage_80": {
+            "name": "80% AI Token Quota Notice",
+            "description": "Sent when workspace consumes 80% of allocated AI tokens.",
+            "channels": ["in_app", "email"],
+            "supports_subject": True,
+            "placeholders": ["resource_name", "used_amount", "total_limit", "workspace_name"],
+            "action_route": "/billing/usage",
+            "action_label": "View Usage"
+        },
+        "usage_90": {
+            "name": "90% AI Token Quota Warning",
+            "description": "Sent when workspace consumes 90% of allocated AI tokens.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["resource_name", "used_amount", "total_limit", "workspace_name"],
+            "action_route": "/billing/usage",
+            "action_label": "View Usage"
+        },
+        "usage_100": {
+            "name": "100% AI Token Quota Limit Reached",
+            "description": "Sent when workspace consumes 100% of AI tokens and tasks are paused.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["resource_name", "used_amount", "total_limit", "action_url"],
+            "action_route": "/billing/upgrade",
+            "action_label": "Upgrade Plan"
+        }
+    },
+    "Workflow": {
+        "workflow_completed": {
+            "name": "Workflow Run Success Alert",
+            "description": "Sent upon successful execution of an automated workflow.",
+            "channels": ["in_app", "email"],
+            "supports_subject": True,
+            "placeholders": ["workflow_name", "duration", "workspace_name"],
+            "action_route": "/automation/workflows",
+            "action_label": "View Workflow"
+        },
+        "workflow_failed": {
+            "name": "Workflow Run Execution Failure",
+            "description": "Sent when an automated workflow fails or throws an exception.",
+            "channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["workflow_name", "node_name", "error_message", "timestamp"],
+            "action_route": "/automation/workflows",
+            "action_label": "Review Workflow"
+        }
+    },
+    "CRM": {
+        "lead_alert": {
+            "name": "New Lead Captured Alert",
+            "description": "Sent when a new lead is captured via webhooks or inbox.",
+            "channels": ["in_app", "email"],
+            "supports_subject": True,
+            "placeholders": ["lead_name", "lead_email", "lead_score", "source"],
+            "action_route": "/crm/leads",
+            "action_label": "Open Lead"
+        }
+    },
+    "AI": {
+        "human_escalation": {
+            "name": "AI Agent Human Escalation Event",
+            "description": "Sent when an AI agent escalates a conversation to human agent.",
+            "channels": ["in_app", "email"],
+            "supports_subject": True,
+            "placeholders": ["customer_name", "escalation_reason", "workspace_name"],
+            "action_route": "/inbox",
+            "action_label": "Open Conversation"
+        }
+    }
+}
+
+
+class NotificationRegistry:
+    """Enterprise registry for verified backend-supported notification event keys and rich metadata."""
+    EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = SUPPORTED_NOTIFICATION_EVENTS
+
+    @classmethod
+    def get_supported_events(cls) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        return cls.EVENTS
+
+    @classmethod
+    def is_supported(cls, template_key: str) -> bool:
+        for cat_data in cls.EVENTS.values():
+            if template_key in cat_data:
+                return True
+        return False
+
+    @classmethod
+    def get_metadata(cls, template_key: str) -> Optional[Dict[str, Any]]:
+        for cat_data in cls.EVENTS.values():
+            if template_key in cat_data:
+                return cat_data[template_key]
+        return None
+
+    @classmethod
+    def get_category_for_key(cls, template_key: str) -> Optional[str]:
+        for cat, cat_data in cls.EVENTS.items():
+            if template_key in cat_data:
+                return cat
+        return None
+
 
 # Built-in Default Fallback Templates for all categories
 DEFAULT_NOTIFICATION_TEMPLATES = [
@@ -38,21 +291,41 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     {
         "category": "Security",
         "template_key": "new_device_login",
-        "name": "New Device Login",
+        "name": "New Device Login Email",
         "channel": "email",
         "title": "Security Alert: New Device Login",
         "subject": "[Security Alert] New Login from Unrecognized Device",
-        "message": "Hi {{user_name}},\n\nWe detected a login to your account from a new device or browser.\n\nIP Address: {{ip_address}}\nLocation: {{location}}\nTime: {{login_time}}\n\nIf this was not you, please reset your password immediately.\n\nSecurity Team",
+        "message": "Hi {{user_name}},\n\nWe detected a login to your account from a new device or browser ({{device}}).\n\nIP Address: {{ip_address}}\nLocation: {{location}}\nTime: {{login_time}}\n\nIf this was not you, please reset your password immediately.\n\nSecurity Team",
+        "is_active": True
+    },
+    {
+        "category": "Security",
+        "template_key": "new_device_login",
+        "name": "New Device Login In-App",
+        "channel": "in_app",
+        "title": "Security Alert: New Device Login",
+        "subject": None,
+        "message": "New login detected from {{device}} (IP: {{ip_address}}) at {{login_time}}.",
         "is_active": True
     },
     {
         "category": "Security",
         "template_key": "known_device_login",
-        "name": "Known Device Login",
+        "name": "Known Device Login In-App",
         "channel": "in_app",
         "title": "Successful Login",
         "subject": None,
         "message": "You logged in from {{ip_address}} at {{login_time}}.",
+        "is_active": True
+    },
+    {
+        "category": "Security",
+        "template_key": "known_device_login",
+        "name": "Known Device Login Email",
+        "channel": "email",
+        "title": "Successful Login Notification",
+        "subject": "Successful Login to {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nYou successfully logged in to {{workspace_name}} from {{device}} (IP: {{ip_address}}) at {{login_time}}.\n\nIf this was not you, please secure your account immediately.\n\nSecurity Team",
         "is_active": True
     },
     {
@@ -87,12 +360,52 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     },
     {
         "category": "Security",
-        "template_key": "account_locked",
-        "name": "Account Security Lockout",
+        "template_key": "session_revoked",
+        "name": "Session Revoked Alert",
+        "channel": "in_app",
+        "title": "Session Revoked",
+        "subject": "Security Notice: Session Revoked",
+        "message": "A active session from IP {{ip_address}} has been revoked.",
+        "is_active": True
+    },
+    {
+        "category": "Security",
+        "template_key": "session_blocked",
+        "name": "Session and Device Blocked Alert",
+        "channel": "in_app",
+        "title": "Session and Device Blocked",
+        "subject": "Security Warning: Device Blocked",
+        "message": "Session from IP {{ip_address}} has been blocked.",
+        "is_active": True
+    },
+    {
+        "category": "Security",
+        "template_key": "account_deletion_requested",
+        "name": "Account Deletion Requested Notice",
         "channel": "email",
-        "title": "Account Locked",
-        "subject": "[Urgent Security] Account Temporarily Locked",
-        "message": "Hi {{user_name}},\n\nYour account has been temporarily locked due to multiple failed login attempts from IP {{ip_address}}.\n\nPlease reset your password using the link: {{reset_link}}",
+        "title": "Account Deletion Scheduled",
+        "subject": "Your account is scheduled for deletion",
+        "message": "Hi {{user_name}},\n\nYour account has been scheduled for permanent deletion on {{deletion_date}}.\n\nIf you change your mind, simply log in before that date and cancel the deletion from your account settings.\n\nIf you did not request this, please contact support immediately.",
+        "is_active": True
+    },
+    {
+        "category": "Security",
+        "template_key": "account_deletion_cancelled",
+        "name": "Account Deletion Cancelled Notice",
+        "channel": "email",
+        "title": "Account Deletion Cancelled",
+        "subject": "Account deletion cancelled — you're back!",
+        "message": "Hi {{user_name}},\n\nYour account deletion has been successfully cancelled. Your account is fully restored and active.",
+        "is_active": True
+    },
+    {
+        "category": "Security",
+        "template_key": "otp_code",
+        "name": "OTP Verification Code Email",
+        "channel": "email",
+        "title": "Verification Code",
+        "subject": "Your {{auth_type}} Verification Code",
+        "message": "Hi {{user_name}},\n\nYour verification code is {{otp}}. It will expire in 5 minutes.\n\nIf you did not request this, please ignore this message.",
         "is_active": True
     },
 
@@ -375,3 +688,8 @@ class NotificationTemplateService:
             db.commit()
             cls.clear_cache()
         return created_count
+
+    @classmethod
+    def get_supported_template_keys(cls, db: Optional[Session] = None) -> Dict[str, List[str]]:
+        """Return ONLY production-supported notification keys registered in NotificationRegistry."""
+        return NotificationRegistry.get_supported_events()

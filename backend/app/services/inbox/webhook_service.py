@@ -22,7 +22,7 @@ from decimal import Decimal
 from app.services.wcc_service import WCCService
 from app.models.wcc import WCCRateCard
 from app.core.logger import logger
-
+from app.services.notification_service import NotificationService
 
 # ─
 # FIX 1: Auto-create / update Lead on every inbound message
@@ -68,13 +68,19 @@ def upsert_lead(
         db.flush()
 
         try:
-            from app.services.notification_service import NotificationService
             NotificationService.notify_workspace(
                 db=db,
                 workspace_id=workspace_id,
                 type="lead_alert",
-                title="New Lead Captured",
-                message=f"A new lead was captured via {source.upper()} (Phone: {phone or 'N/A'})"
+                title=None,
+                message=None,
+                template_key="lead_alert",
+                variables={
+                    "lead_name": phone or "New Lead",
+                    "lead_email": phone or "N/A",
+                    "lead_score": "0",
+                    "source": source.upper()
+                }
             )
         except Exception as e:
             import logging

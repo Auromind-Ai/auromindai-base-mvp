@@ -106,107 +106,108 @@ class MCPLayer:
     #LLM decides which tool to use
     async def decide_tool(self, query: str, model: str | None = None):
 
-        prompt = (
-            "You are a deterministic AI Tool Router for a production SaaS system.\n\n"
-            "Your task is to select EXACTLY ONE tool.\n\n"
-            "Return ONLY the tool name.\n"
-            "Do NOT explain."
-        )
-    Do NOT answer.
+        prompt = f"""
+        You are a deterministic AI Tool Router for a production SaaS system.
 
-    --------------------------------------------------
-    AVAILABLE TOOLS
+        Your task is to select EXACTLY ONE tool.
 
-    vector_db → internal knowledge (documents, policies, PDFs, company data)
-    web_search → external/public information (internet, real-time data)
-    calculator → pure math expressions only
-    direct_answer → greetings or casual chat
-    direct_storage → database records (emails, messages, structured data)
-    reasoning → content generation (analysis, explanation, summarization)
+        Return ONLY the tool name.
+        Do NOT explain.
+        Do NOT answer.
 
-    --------------------------------------------------
-    CORE PRINCIPLE
+        --------------------------------------------------
+        AVAILABLE TOOLS
 
-    Select the tool based on where the answer is most likely to be retrieved from.
+        vector_db → internal knowledge (documents, policies, PDFs, company data)
+        web_search → external/public information (internet, real-time data)
+        calculator → pure math expressions only
+        direct_answer → greetings or casual chat
+        direct_storage → database records (emails, messages, structured data)
+        reasoning → content generation (analysis, explanation, summarization)
 
-    --------------------------------------------------
-    DECISION LOGIC
+        --------------------------------------------------
+        CORE PRINCIPLE
 
-    1. INTERNAL KNOWLEDGE (vector_db)
-    Select this when the query depends on:
-    - private, company-specific, or uploaded data
-    - structured documents or stored knowledge
-    - exact retrieval from a controlled knowledge base
+        Select the tool based on where the answer is most likely to be retrieved from.
 
-    2. EXTERNAL KNOWLEDGE (web_search)
-    Select this when the query depends on:
-    - publicly available information
-    - general world knowledge
-    - current, dynamic, or real-time data
-    --------------------------------------------------
-    BUSINESS CONTEXT OVERRIDE (CRITICAL)
+        --------------------------------------------------
+        DECISION LOGIC
 
-    If the query refers to:
-    - product features
-    - pricing plans
-    - subscription details
-    - service offerings
+        1. INTERNAL KNOWLEDGE (vector_db)
+        Select this when the query depends on:
+        - private, company-specific, or uploaded data
+        - structured documents or stored knowledge
+        - exact retrieval from a controlled knowledge base
 
-    → ALWAYS select vector_db
+        2. EXTERNAL KNOWLEDGE (web_search)
+        Select this when the query depends on:
+        - publicly available information
+        - general world knowledge
+        - current, dynamic, or real-time data
+        --------------------------------------------------
+        BUSINESS CONTEXT OVERRIDE (CRITICAL)
 
-    Even if the query asks for:
-    - comparison
-    - explanation
-    - details
+        If the query refers to:
+        - product features
+        - pricing plans
+        - subscription details
+        - service offerings
 
-    Because this information exists in internal product data.
-    3. GENERATED RESPONSE (reasoning)
-    Select this when:
-    - the answer must be created or inferred
-    - no direct source is required
-    - the task involves explanation, comparison, or ideation
+        → ALWAYS select vector_db
 
-    4. SPECIAL CASES (STRICT)
+        Even if the query asks for:
+        - comparison
+        - explanation
+        - details
 
-    - If the query is a pure mathematical expression → calculator
-    - If the query is a greeting or casual message → direct_answer
-    - If the query involves retrieving structured records (emails/messages) → direct_storage
+        Because this information exists in internal product data.
+        3. GENERATED RESPONSE (reasoning)
+        Select this when:
+        - the answer must be created or inferred
+        - no direct source is required
+        - the task involves explanation, comparison, or ideation
 
-    --------------------------------------------------
-    DISAMBIGUATION RULE
+        4. SPECIAL CASES (STRICT)
 
-    When multiple tools seem possible:
-    - Prefer external sources for general knowledge
-    - Prefer internal sources only when clearly required
-    - Do not assume internal data unless explicitly implied
+        - If the query is a pure mathematical expression → calculator
+        - If the query is a greeting or casual message → direct_answer
+        - If the query involves retrieving structured records (emails/messages) → direct_storage
 
-    --------------------------------------------------
-    FALLBACK RULE
+        --------------------------------------------------
+        DISAMBIGUATION RULE
 
-    If the source of truth is unclear AND the query is about 
-    real-time or public internet data:
-    → select web_search
-    Otherwise:
-    → select vector_db
-    --------------------------------------------------
+        When multiple tools seem possible:
+        - Prefer external sources for general knowledge
+        - Prefer internal sources only when clearly required
+        - Do not assume internal data unless explicitly implied
 
-    OUTPUT FORMAT
+        --------------------------------------------------
+        FALLBACK RULE
 
-    Return ONLY one of the following:
+        If the source of truth is unclear AND the query is about 
+        real-time or public internet data:
+        → select web_search
+        Otherwise:
+        → select vector_db
+        --------------------------------------------------
 
-    vector_db
-    web_search
-    calculator
-    direct_answer
-    direct_storage
-    reasoning
+        OUTPUT FORMAT
 
-    --------------------------------------------------
+        Return ONLY one of the following:
 
-    User Query:
-    {query}
+        vector_db
+        web_search
+        calculator
+        direct_answer
+        direct_storage
+        reasoning
 
-    Selected Tool:
+        --------------------------------------------------
+
+        User Query:
+        {query}
+
+        Selected Tool:
         """
         
         decision = await safe_llm_call(prompt, model=model)

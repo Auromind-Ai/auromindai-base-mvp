@@ -6,7 +6,9 @@ from app.services.platform_settings_service import get_setting
 import uuid
 from typing import Optional
 from datetime import datetime, timezone, timedelta
-
+from app.utils.auth import parse_user_agent
+from datetime import datetime, timezone
+from app.services.notification_template_service import NotificationTemplateService
 # Redis client helper with graceful in-memory fallback
 def _get_redis_client():
     try:
@@ -186,7 +188,7 @@ class AuthService:
             EntitlementOrchestrator.on_workspace_created(db, workspace.id)
             db.commit()
 
-            # Welcome notification + email for new signup
+            # Welcome notification + email for new signup using NotificationTemplate
             try:
                 from app.services.notification_service import NotificationService
                 NotificationService.notify(
@@ -194,10 +196,16 @@ class AuthService:
                     user_id=user.id,
                     workspace_id=workspace.id,
                     type="workspace_alert",
-                    title="Welcome to AuroMind!",
-                    message=f"Welcome {user.full_name}! Your workspace '{workspace.name}' is ready.",
+                    title=None,
+                    message=None,
                     send_email=True,
-                    email_subject="Welcome to AuroMind AI"
+                    email_subject=None,
+                    template_key="welcome_signup",
+                    variables={
+                        "user_name": user.full_name or user.email.split("@")[0].title(),
+                        "email": user.email,
+                        "workspace_name": workspace.name
+                    }
                 )
             except Exception as notif_exc:
                 import logging
@@ -236,28 +244,47 @@ class AuthService:
         db.add(user_session)
         db.commit()
 
-        # Send Security Alert ONLY if login is from a New Device
-        if is_new_device:
-            from app.utils.auth import parse_user_agent
-            fingerprint = parse_user_agent(device_info)
-            dedup_key = f"new_device:{user.id}:{fingerprint}"
+        # Send dynamic Login Notification (New Device vs Known Device) using Notification Template Management
+        if not is_new_user:
+          
+            device_name = parse_user_agent(device_info) if device_info else "Unknown Device/Browser"
+            login_time_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            template_key = "new_device_login" if is_new_device else "known_device_login"
+            dedup_key = f"{template_key}:{user.id}:{session_id}"
+
+            ws_name = workspaces[0][0].name if workspaces else "Auromind"
+            ws_id = uuid.UUID(workspace_id) if workspace_id else None
+
             try:
                 from app.services.notification_service import NotificationService
                 NotificationService.notify(
                     db=db,
                     user_id=user.id,
-                    workspace_id=None,
+                    workspace_id=ws_id,
                     type="security_alert",
-                    title="New Device Login Detected",
-                    message=f"New login detected from an unrecognized device/browser ({fingerprint}) at IP {ip_address or 'Unknown IP'}.",
-                    is_critical=True,
-                    send_email=True,
-                    email_subject="[SECURITY ALERT] New Login from Unrecognized Device",
-                    deduplication_key=dedup_key
+                    title=None,          # Loaded dynamically from DB NotificationTemplate / Fallback
+                    message=None,        # Loaded dynamically from DB NotificationTemplate / Fallback
+                    send_email=True,     # Dispatch email if template or default is configured
+                    is_critical=is_new_device,
+                    email_subject=None,  # Loaded dynamically from DB NotificationTemplate / Fallback
+                    deduplication_key=dedup_key,
+                    template_key=template_key,
+                    variables={
+                        "user_name": user.full_name or user.email.split("@")[0].title(),
+                        "email": user.email,
+                        "workspace_name": ws_name,
+                        "ip_address": ip_address or "Unknown IP",
+                        "device_info": device_info or "Unknown Device",
+                        "device": device_name,
+                        "browser": device_name,
+                        "location": user_session.location or "Unknown Location",
+                        "login_time": login_time_str
+                    }
                 )
             except Exception as notif_exc:
                 import logging
-                logging.getLogger("app").error(f"Failed to send email login alert notification: {notif_exc}")
+                logging.getLogger("app").error(f"Failed to send login notification using template '{template_key}': {notif_exc}")
 
 
 
@@ -326,15 +353,27 @@ class AuthService:
             pass
            
         try:
+            
+            otp_tpl = NotificationTemplateService.get_template(db, "otp_code", channel="email")
+            context = {
+                "email": email,
+                "user_name": user.full_name if user else email.split("@")[0].title(),
+                "otp": otp,
+                "auth_type": auth_type.title()
+            }
+            
+            subject = NotificationTemplateService.render_text(otp_tpl["subject"], context) if (otp_tpl and otp_tpl.get("subject")) else f"Your {auth_type.title()} Verification Code"
+            body = NotificationTemplateService.render_text(otp_tpl["message"], context) if (otp_tpl and otp_tpl.get("message")) else f"Your verification code is {otp}. It will expire in 5 minutes."
+
             EmailService.send_email(
                 to_email=email,
-                subject=f"Your {auth_type.title()} Verification Code",
-                body=f"Your verification code is {otp}. It will expire in 5 minutes."
+                subject=subject,
+                body=body
             )
         except Exception as e:
             import logging
             logger = logging.getLogger("auromind")
-            logger.error(f"Failed to send verification email via SMTP: {str(e)}. Falling back to console logging.")
+            logger.error(f"Failed to send verification email via SMTP: {str(e)}.")
         return True
 
     @staticmethod

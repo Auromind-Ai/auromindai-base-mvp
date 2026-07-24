@@ -1,10 +1,10 @@
-"""Account lifecycle service — deletion request, cancellation, background cleanup."""
 
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 
 from app.models import User
 from app.services.email_service import EmailService
+from app.services.notification_service import NotificationService
 
 GRACE_DAYS = 30
 
@@ -26,17 +26,21 @@ class AccountService:
 
         formatted = deletion_date.strftime("%B %d, %Y")
         try:
-            EmailService.send_email(
-                to_email=user.email,
-                subject="Your account is scheduled for deletion",
-                body=(
-                    f"Hi {user.full_name},\n\n"
-                    f"Your Auromind account has been scheduled for permanent deletion on {formatted}.\n\n"
-                    f"If you change your mind, simply log in before that date and cancel the deletion "
-                    f"from your account settings.\n\n"
-                    f"If you did not request this, please contact support immediately.\n\n"
-                    f"— The Auromind Team"
-                ),
+            NotificationService.notify(
+                db=db,
+                user_id=user.id,
+                workspace_id=None,
+                type="security_alert",
+                title=None,
+                message=None,
+                send_email=True,
+                is_critical=True,
+                email_subject=None,
+                template_key="account_deletion_requested",
+                variables={
+                    "user_name": user.full_name or user.email,
+                    "deletion_date": formatted
+                }
             )
         except Exception as e:
             print(f"[AccountService] Failed to send deletion email: {e}")
@@ -59,15 +63,19 @@ class AccountService:
         db.commit()
 
         try:
-            EmailService.send_email(
-                to_email=user.email,
-                subject="Account deletion cancelled — you're back!",
-                body=(
-                    f"Hi {user.full_name},\n\n"
-                    f"Your account deletion has been successfully cancelled. "
-                    f"Your Auromind account is fully restored and active.\n\n"
-                    f"— The Auromind Team"
-                ),
+            NotificationService.notify(
+                db=db,
+                user_id=user.id,
+                workspace_id=None,
+                type="security_alert",
+                title=None,
+                message=None,
+                send_email=True,
+                email_subject=None,
+                template_key="account_deletion_cancelled",
+                variables={
+                    "user_name": user.full_name or user.email
+                }
             )
         except Exception as e:
             print(f"[AccountService] Failed to send cancellation email: {e}")
@@ -76,11 +84,6 @@ class AccountService:
 
     @staticmethod
     def run_permanent_deletion(db: Session) -> int:
-        """
-        Background job — call daily.
-        Permanently anonymises accounts whose grace period has expired.
-        Returns count of accounts processed.
-        """
         now = datetime.now(timezone.utc)
         expired_users = (
             db.query(User)

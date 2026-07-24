@@ -102,17 +102,32 @@ class NotificationService:
             if ws and ws.name:
                 ws_name = ws.name
 
+        effective_key = template_key or type
+
+        # Resolve registry action metadata automatically
+        from app.services.notification_template_service import NotificationRegistry
+        from app.core.config import settings
+        
+        raw_frontend_url = getattr(settings, "FRONTEND_URL", None)
+        base_app_url = (raw_frontend_url or "https://localhost:3000").rstrip("/")
+        reg_meta = NotificationRegistry.get_metadata(effective_key)
+
         # Construct rendering context dictionary
         context: Dict[str, Any] = {
             "user_name": user.full_name or "User",
             "email": user.email,
             "workspace_name": ws_name,
         }
+        if reg_meta:
+            if "action_route" in reg_meta:
+                context["action_route"] = reg_meta["action_route"]
+            if "action_label" in reg_meta:
+                context["action_label"] = reg_meta["action_label"]
+            if "action_route" in reg_meta:
+                context["action_url"] = f"{base_app_url}{reg_meta['action_route']}"
+
         if variables:
             context.update(variables)
-
-        # Determine effective template key
-        effective_key = template_key or type
 
         # Map DB notification types to user preference JSONB keys
         mapping = {
@@ -148,6 +163,8 @@ class NotificationService:
         if in_app_tpl:
             if in_app_tpl.get("title"):
                 rendered_title = NotificationTemplateService.render_text(in_app_tpl["title"], context)
+            elif in_app_tpl.get("name"):
+                rendered_title = NotificationTemplateService.render_text(in_app_tpl["name"], context)
             if in_app_tpl.get("message"):
                 rendered_message = NotificationTemplateService.render_text(in_app_tpl["message"], context)
         elif title or message:

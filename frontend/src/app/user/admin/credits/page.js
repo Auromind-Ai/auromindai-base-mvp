@@ -164,30 +164,29 @@ export default function CreditsPage() {
         }
     };
 
-    // Initial load
+    // Initial load for general credit stats
     useEffect(() => {
         if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
             fetchWccBalance();
             fetchCreditSummary();
-            fetchCreditHistory(creditHistoryPage);
-            fetchWccSessions(wccSessionsPage);
             fetchCreditPacks();
             fetchWccRates();
         }
     }, [workspaceId]);
 
-    // Handle page changes
+    // Handle initial load & page changes for Credit History
     useEffect(() => {
         if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
             fetchCreditHistory(creditHistoryPage);
         }
-    }, [creditHistoryPage]);
+    }, [workspaceId, creditHistoryPage]);
 
+    // Handle initial load & page changes for WCC Sessions
     useEffect(() => {
         if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
             fetchWccSessions(wccSessionsPage);
         }
-    }, [wccSessionsPage]);
+    }, [workspaceId, wccSessionsPage]);
 
     const estimatedCost = audienceSize * (estimatorRates[msgType] || 0);
 

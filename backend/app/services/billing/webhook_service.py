@@ -13,7 +13,8 @@ from app.models.plan import Plan
 from app.models.credit_pack import CreditPack
 from app.services.billing.token_service import TokenService
 from app.services.billing.gateway import get_gateway
-
+from app.services.notification_service import NotificationService
+from datetime import datetime, timezone
 
 class WebhookService:
     def __init__(self, token_service: TokenService):
@@ -298,17 +299,23 @@ class WebhookService:
         )
 
         try:
-            from app.services.notification_service import NotificationService
+         
             NotificationService.notify_workspace(
                 db=db,
                 workspace_id=subscription.workspace_id,
                 type="billing_alert",
-                title="Payment Successful",
-                message=f"Your payment of {payment.amount} {payment.currency} was processed successfully.",
+                title=None,
+                message=None,
                 send_email=True,
-                email_subject="[AUROMIND BILLING] Payment Successful",
+                email_subject=None,
                 deduplication_key=f"payment_success:{payment.id}",
-                resource="subscription"
+                resource="subscription",
+                template_key="payment_success",
+                variables={
+                    "amount": f"{payment.amount} {payment.currency}",
+                    "invoice_id": str(payment.id),
+                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
+                }
             )
         except Exception as notif_exc:
             import logging
@@ -393,20 +400,24 @@ class WebhookService:
         db.flush()
 
         try:
-            from app.services.notification_service import NotificationService
             target_ws_id = payment.workspace_id if payment else (subscription.workspace_id if subscription else None)
             if target_ws_id:
                 NotificationService.notify_workspace(
                     db=db,
                     workspace_id=target_ws_id,
                     type="billing_alert",
-                    title="Payment Failed",
-                    message=f"Payment of {amount} {currency} failed. Reason: {failure_reason or 'Transaction declined'}. Please update your payment method.",
+                    title=None,
+                    message=None,
                     send_email=True,
                     is_critical=True,
-                    email_subject="[ACTION REQUIRED] Payment Failed - Subscription Past Due",
+                    email_subject=None,
                     deduplication_key=f"payment_failed:{payment_payload.get('id')}",
-                    resource="subscription"
+                    resource="subscription",
+                    template_key="payment_failed",
+                    variables={
+                        "amount": f"{amount} {currency}",
+                        "error_message": failure_reason or "Transaction declined"
+                    }
                 )
         except Exception as notif_exc:
             import logging
@@ -529,17 +540,22 @@ class WebhookService:
         )
 
         try:
-            from app.services.notification_service import NotificationService
             NotificationService.notify_workspace(
                 db=db,
                 workspace_id=workspace_id,
                 type="billing_alert",
-                title="Credit Pack Purchase Successful",
-                message=f"Successfully purchased '{pack.name}' ({pack.credits} credits granted).",
+                title=None,
+                message=None,
                 send_email=True,
-                email_subject="[AUROMIND BILLING] Credit Pack Purchase Confirmation",
+                email_subject=None,
                 deduplication_key=f"credit_pack_success:{payment.id}",
-                resource="ai_tokens"
+                resource="ai_tokens",
+                template_key="payment_success",
+                variables={
+                    "amount": f"{pack.credits} AI Credits ({pack.name})",
+                    "invoice_id": str(payment.id),
+                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
+                }
             )
         except Exception as notif_exc:
             import logging

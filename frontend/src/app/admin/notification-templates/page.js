@@ -30,11 +30,50 @@ import {
   toggleNotificationTemplate,
   deleteNotificationTemplate,
   testRenderNotificationTemplate,
-  seedDefaultNotificationTemplates
+  seedDefaultNotificationTemplates,
+  getSupportedNotificationTemplateKeys
 } from '@/lib/api/admin';
 
 const CATEGORIES = ["All", "Security", "Billing", "Usage", "Workflow", "CRM", "AI"];
 const CHANNELS = ["All", "email", "in_app", "sms"];
+
+const CATEGORY_TEMPLATE_KEYS = {
+  Security: [
+    "welcome_signup",
+    "new_device_login",
+    "known_device_login",
+    "2fa_enabled",
+    "2fa_disabled",
+    "recovery_codes",
+    "session_revoked",
+    "session_blocked",
+    "session_unblocked",
+    "account_deletion_requested",
+    "account_deletion_cancelled",
+    "otp_code"
+  ],
+  Billing: [
+    "payment_success",
+    "payment_failed",
+    "subscription_expiring_7d",
+    "subscription_expiring_3d"
+  ],
+  Usage: [
+    "usage_80",
+    "usage_90",
+    "usage_100"
+  ],
+  Workflow: [
+    "workflow_completed",
+    "workflow_failed"
+  ],
+  CRM: [
+    "lead_alert"
+  ],
+  AI: [
+    "human_escalation"
+  ]
+};
 
 const COMMON_PLACEHOLDERS = [
   "{{user_name}}",
@@ -82,6 +121,22 @@ export default function NotificationTemplatesAdminPage() {
   const [renderedSubjectPreview, setRenderedSubjectPreview] = useState("");
   const [renderedBodyPreview, setRenderedBodyPreview] = useState("");
 
+  const [categoryTemplateKeys, setCategoryTemplateKeys] = useState(CATEGORY_TEMPLATE_KEYS);
+
+  useEffect(() => {
+    async function loadKeys() {
+      try {
+        const res = await getSupportedNotificationTemplateKeys();
+        if (res && typeof res === 'object' && Object.keys(res).length > 0) {
+          setCategoryTemplateKeys(res);
+        }
+      } catch (err) {
+        console.warn("Failed to load backend template keys dynamically, using local fallback:", err);
+      }
+    }
+    loadKeys();
+  }, []);
+
   const fetchTemplates = async () => {
     setLoading(true);
     try {
@@ -90,7 +145,10 @@ export default function NotificationTemplatesAdminPage() {
         channel: selectedChannel !== "All" ? selectedChannel : undefined,
         search: search || undefined
       });
-      setTemplates(Array.isArray(res.data) ? res.data : (res.data?.templates || []));
+      const list = Array.isArray(res) 
+        ? res 
+        : (Array.isArray(res?.data) ? res.data : (res?.templates || res?.data?.templates || []));
+      setTemplates(list);
     } catch (err) {
       console.error("Failed to fetch notification templates:", err);
       setMessage({ type: "error", text: "Failed to load notification templates." });
@@ -117,6 +175,7 @@ export default function NotificationTemplatesAdminPage() {
     const timer = setTimeout(async () => {
       try {
         const res = await testRenderNotificationTemplate({
+          template_key: formData.template_key,
           title: formData.title,
           subject: formData.subject,
           message: formData.message || ""
@@ -151,12 +210,28 @@ export default function NotificationTemplatesAdminPage() {
     return { total, active, emailCount, inAppCount };
   }, [templates]);
 
+  // Current selected event rich metadata schema
+  const currentEventMeta = useMemo(() => {
+    if (!formData.template_key || !categoryTemplateKeys) return null;
+    for (const catData of Object.values(categoryTemplateKeys)) {
+      if (typeof catData === 'object' && !Array.isArray(catData) && catData[formData.template_key]) {
+        return catData[formData.template_key];
+      }
+    }
+    return null;
+  }, [formData.template_key, categoryTemplateKeys]);
+
   const handleOpenCreate = () => {
     setEditingTemplate(null);
+    const defaultCat = "Security";
+    const secKeys = categoryTemplateKeys[defaultCat];
+    const validKeysList = Array.isArray(secKeys) ? secKeys : Object.keys(secKeys || {});
+    const defaultKey = validKeysList[0] || "welcome_signup";
+    const defaultName = defaultKey ? defaultKey.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") + " Notification" : "";
     setFormData({
-      category: "Security",
-      template_key: "",
-      name: "",
+      category: defaultCat,
+      template_key: defaultKey,
+      name: defaultName,
       channel: "email",
       title: "",
       subject: "",
@@ -164,6 +239,41 @@ export default function NotificationTemplatesAdminPage() {
       is_active: true
     });
     setIsModalOpen(true);
+  };
+
+  const handleCategoryChange = (newCategory) => {
+    const rawVal = categoryTemplateKeys[newCategory];
+    const validKeys = Array.isArray(rawVal) ? rawVal : Object.keys(rawVal || {});
+    const newKey = validKeys.includes(formData.template_key) ? formData.template_key : (validKeys[0] || "");
+    const formattedName = newKey ? newKey.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") + " Notification" : "";
+    setFormData(prev => ({
+      ...prev,
+      category: newCategory,
+      template_key: newKey,
+      name: formattedName
+    }));
+  };
+
+  const handleTemplateKeyChange = (newKey, explicitCat = null) => {
+    let targetCat = explicitCat;
+    if (!targetCat) {
+      targetCat = Object.keys(categoryTemplateKeys).find(cat => {
+        const rawVal = categoryTemplateKeys[cat];
+        if (Array.isArray(rawVal)) {
+          return rawVal.includes(newKey);
+        } else if (rawVal && typeof rawVal === 'object') {
+          return newKey in rawVal;
+        }
+        return false;
+      }) || formData.category;
+    }
+    const formattedName = newKey ? newKey.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") + " Notification" : "";
+    setFormData(prev => ({
+      ...prev,
+      category: targetCat,
+      template_key: newKey,
+      name: formattedName
+    }));
   };
 
   const handleOpenEdit = (tpl) => {
@@ -235,9 +345,9 @@ export default function NotificationTemplatesAdminPage() {
     setSeeding(true);
     try {
       const res = await seedDefaultNotificationTemplates();
-      const text = res.data?.message || "Default templates seeded successfully.";
+      const text = res?.message || res?.data?.message || "Default templates seeded successfully.";
       setMessage({ type: "success", text });
-      fetchTemplates();
+      await fetchTemplates();
     } catch (err) {
       console.error("Seed error:", err);
       setMessage({ type: "error", text: "Failed to seed default notification templates." });
@@ -535,8 +645,9 @@ export default function NotificationTemplatesAdminPage() {
                     <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Category</label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      disabled={!!editingTemplate}
+                      onChange={(e) => handleCategoryChange(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
                     >
                       {CATEGORIES.filter(c => c !== "All").map(cat => (
                         <option key={cat} value={cat} className="bg-[#0f0f15]">{cat}</option>
@@ -548,8 +659,9 @@ export default function NotificationTemplatesAdminPage() {
                     <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Channel</label>
                     <select
                       value={formData.channel}
+                      disabled={!!editingTemplate}
                       onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
                     >
                       <option value="email" className="bg-[#0f0f15]">Email</option>
                       <option value="in_app" className="bg-[#0f0f15]">In-App</option>
@@ -559,16 +671,60 @@ export default function NotificationTemplatesAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Template Key</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. welcome_signup, payment_success"
-                    value={formData.template_key}
-                    disabled={!!editingTemplate}
-                    onChange={(e) => setFormData({ ...formData, template_key: e.target.value })}
-                    required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 disabled:opacity-50 font-mono"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">Template Key</label>
+                    {editingTemplate && <span className="text-[10px] text-amber-400 font-medium font-mono">System Identifier (Read Only)</span>}
+                  </div>
+                  {editingTemplate ? (
+                    <input
+                      type="text"
+                      value={formData.template_key}
+                      disabled={true}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-400 focus:outline-none opacity-60 font-mono cursor-not-allowed"
+                    />
+                  ) : (
+                    <select
+                      value={formData.template_key}
+                      onChange={(e) => handleTemplateKeyChange(e.target.value)}
+                      required
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono"
+                    >
+                      {Object.entries(categoryTemplateKeys).map(([category, eventsData]) => {
+                        const keysList = Array.isArray(eventsData) ? eventsData : Object.keys(eventsData || {});
+                        return (
+                          <optgroup key={category} label={`── ${category} ──`} className="bg-[#0f0f15] text-indigo-400 font-bold">
+                            {keysList.map(key => (
+                              <option key={key} value={key} className="bg-[#0f0f15] text-white font-mono">
+                                {key}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                    </select>
+                  )}
+                  {currentEventMeta?.description && (
+                    <p className="text-[11px] text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 p-2 rounded-lg mt-1.5 flex items-start gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" />
+                      <span>{currentEventMeta.description}</span>
+                    </p>
+                  )}
+                  {currentEventMeta?.action_route && (
+                    <div className="grid grid-cols-2 gap-3 bg-white/[0.02] border border-white/10 rounded-xl p-3 mt-2">
+                      <div>
+                        <span className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Action Route (Read Only)</span>
+                        <code className="text-xs text-indigo-300 bg-indigo-500/10 px-2 py-1 rounded font-mono block truncate border border-indigo-500/20">
+                          {currentEventMeta.action_route}
+                        </code>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Action Label (Read Only)</span>
+                        <span className="text-xs text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded font-medium block truncate border border-emerald-500/20">
+                          {currentEventMeta.action_label || "View Details"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -599,7 +755,7 @@ export default function NotificationTemplatesAdminPage() {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider">Message Body Template</label>
-                    <span className="text-[10px] text-gray-400">Supports {{placeholders}}</span>
+                    <span className="text-[10px] text-gray-400">Supports {"{{placeholders}}"}</span>
                   </div>
                   <textarea
                     rows={6}
@@ -614,19 +770,35 @@ export default function NotificationTemplatesAdminPage() {
                 {/* Click-to-insert placeholder pills */}
                 <div>
                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-                    <Code className="w-3.5 h-3.5 text-indigo-400" /> Insert Placeholders:
+                    <Code className="w-3.5 h-3.5 text-indigo-400" /> Insert Event Placeholders:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {COMMON_PLACEHOLDERS.map(ph => (
-                      <button
-                        type="button"
-                        key={ph}
-                        onClick={() => handleInsertPlaceholder(ph)}
-                        className="px-2 py-1 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-mono hover:bg-indigo-500/20 transition-colors"
-                      >
-                        {ph}
-                      </button>
-                    ))}
+                    {currentEventMeta?.placeholders && currentEventMeta.placeholders.length > 0 ? (
+                      currentEventMeta.placeholders.map(p => {
+                        const ph = `{{${p}}}`;
+                        return (
+                          <button
+                            type="button"
+                            key={ph}
+                            onClick={() => handleInsertPlaceholder(ph)}
+                            className="px-2 py-1 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-mono hover:bg-indigo-500/25 transition-colors font-semibold"
+                          >
+                            {ph}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      COMMON_PLACEHOLDERS.map(ph => (
+                        <button
+                          type="button"
+                          key={ph}
+                          onClick={() => handleInsertPlaceholder(ph)}
+                          className="px-2 py-1 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-mono hover:bg-indigo-500/20 transition-colors"
+                        >
+                          {ph}
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
 

@@ -40,6 +40,7 @@ class NotificationTemplateResponse(NotificationTemplateBase):
 
 
 class TemplateTestRenderRequest(BaseModel):
+    template_key: Optional[str] = Field(None, description="Optional key e.g. welcome_signup to resolve action metadata")
     subject: Optional[str] = None
     message: str
     title: Optional[str] = None

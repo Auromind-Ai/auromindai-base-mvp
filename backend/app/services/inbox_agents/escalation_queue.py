@@ -2,7 +2,7 @@ from app.core.logger import logger
 from datetime import datetime
 from app.models import HumanEscalation
 import uuid
-
+from app.services.notification_service import NotificationService
 
 class EscalationQueue:
 
@@ -45,13 +45,17 @@ class EscalationQueue:
                 self.db.refresh(escalation)
 
                 try:
-                    from app.services.notification_service import NotificationService
                     NotificationService.notify_workspace(
                         db=self.db,
                         workspace_id=escalation_data["workspace_id"],
                         type="ai_agent_event",
-                        title="Human Escalation Triggered",
-                        message=f"Conversation escalated. Reason: {escalation_data['reason']}"
+                        title=None,
+                        message=None,
+                        template_key="human_escalation",
+                        variables={
+                            "customer_name": "Customer",
+                            "escalation_reason": escalation_data.get("reason", "Intervention required")
+                        }
                     )
                 except Exception as notif_exc:
                     self.logger.error(f"Failed to send escalation notification: {notif_exc}")

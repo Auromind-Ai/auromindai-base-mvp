@@ -140,3 +140,7 @@ export async function seedDefaultNotificationTemplates() {
   return client.post('/admin/notification-templates/seed-defaults');
 }
 
+export async function getSupportedNotificationTemplateKeys() {
+  return client.get('/admin/notification-templates/template-keys');
+}
+
