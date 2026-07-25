@@ -18,7 +18,9 @@ RUN playwright install-deps chromium
 COPY . .
 
 # Security Hardening: Run as non-root user
-RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
+RUN adduser --disabled-password --gecos "" appuser && \
+    mkdir -p /app/temp_uploads /app/logs && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Expose port

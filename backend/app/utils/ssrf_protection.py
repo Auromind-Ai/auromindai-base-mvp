@@ -18,7 +18,7 @@ def is_safe_url(url: str) -> bool:
             return False
         
         hostname_lower = hostname.lower()
-        if hostname_lower in ("localhost", "0.0.0.0", "127.0.0.1", "::1", "metadata.google.internal"):
+        if hostname_lower in ("localhost", "0.0.0.0", "127.0.0.1", "::1", "metadata.google.internal"):  # nosec B104
             return False
         
         addr_info = socket.getaddrinfo(hostname, None)

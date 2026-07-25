@@ -64,6 +64,10 @@ async def ingest_document(
         entry_id = str(uuid.uuid4())
         temp_dir = os.path.join(os.getcwd(), "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
+        try:
+            os.chmod(temp_dir, 0o750)  # nosec B103
+        except Exception:
+            pass
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -205,6 +209,10 @@ async def ingest_sales_document(
         entry_id = str(uuid.uuid4())
         temp_dir = os.path.join(os.getcwd(), "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
+        try:
+            os.chmod(temp_dir, 0o750)  # nosec B103
+        except Exception:
+            pass
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -342,6 +350,10 @@ async def ingest_support_document(
         entry_id = str(uuid.uuid4())
         temp_dir = os.path.join(os.getcwd(), "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
+        try:
+            os.chmod(temp_dir, 0o750)  # nosec B103
+        except Exception:
+            pass
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
