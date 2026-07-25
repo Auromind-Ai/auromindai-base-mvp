@@ -26,6 +26,7 @@ import FlowModals from './modals/FlowModals';
 
 // Helper Imports
 import {
+  MAX_BUTTONS,
   MAX_KEYWORDS,
   sanitizeFlowData,
   validateFlowGraph,

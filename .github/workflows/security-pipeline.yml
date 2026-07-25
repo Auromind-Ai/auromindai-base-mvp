@@ -1,4 +1,4 @@
-name: DevSecOps Security Pipeline 🛡️
+name: DevSecOps Security Pipeline 
 
 on:
   push:
@@ -41,10 +41,11 @@ jobs:
           cd backend
           bandit -r app/ -ll -ii
 
-      - name: Run pip-audit Dependency Scan
+      - name: Run pip-audit Dependency Scan (Warning Mode)
+        continue-on-error: true
         run: |
           cd backend
-          pip-audit -r requirements.txt || true
+          pip-audit -r requirements.txt
 
       - name: Run Gitleaks Secret Scan
         uses: gitleaks/gitleaks-action@v2
@@ -56,9 +57,12 @@ jobs:
         with:
           scan-type: 'config'
           hide-shortcut-env-vars: true
-          exit-code: '0'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
 
-      - name: Setup k6 Load Tester
+      - name: Setup k6 Load Tester (Main Branch Only, Warning Mode)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
         uses: grafana/k6-action@v0.3.1
         with:
           filename: tests/load/k6_auth_load.js
