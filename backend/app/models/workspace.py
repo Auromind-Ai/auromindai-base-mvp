@@ -44,6 +44,7 @@ class Workspace(Base):
     twilio_account_sid = Column(Text, nullable=True)
     twilio_auth_token = Column(Text, nullable=True)
     twilio_phone_number = Column(String(50), nullable=True)
+    twilio_messaging_service_sid = Column(String(255), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

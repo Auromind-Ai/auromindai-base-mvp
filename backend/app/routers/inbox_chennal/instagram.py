@@ -19,6 +19,8 @@ def connect_instagram(
 ):
     workspace_id = verify_workspace_access(current_user, db, data.get("workspace_id"))
     data["workspace_id"] = workspace_id
+    if not data.get("code"):
+        raise HTTPException(status_code=400, detail="Missing required credential: code is required")
     return ChannelConnectionService.connect_instagram(db, data)
 
 

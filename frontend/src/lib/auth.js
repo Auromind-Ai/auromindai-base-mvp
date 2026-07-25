@@ -5,22 +5,14 @@ let memoryWorkspace = null;
 /* ---------------- TOKEN ---------------- */
 
 export const setToken = (token) => {
-  if (isBrowser && token) {
-    localStorage.setItem("auth_token", token);
-  }
+  // Rely strictly on HttpOnly secure cookie.
 };
 
 export const getToken = () => {
-  if (isBrowser) {
-    return localStorage.getItem("auth_token");
-  }
   return null;
 };
 
 export const removeToken = () => {
-  if (isBrowser) {
-    localStorage.removeItem("auth_token");
-  }
   memoryUser = null;
   memoryWorkspace = null;
   if (isBrowser) {

@@ -25,13 +25,28 @@ def connect_twilio(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    verify_workspace_access(current_user, db, payload.workspace_id)
-    workspace = db.query(Workspace).filter(Workspace.id == payload.workspace_id).first()
+    from app.core.security import to_uuid
+    ws_uuid = to_uuid(payload.workspace_id)
+    verify_workspace_access(current_user, db, ws_uuid)
+    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
+
+    # Twilio duplicate check: check if already connected to another workspace
+    existing_twilio = db.query(Workspace).filter(
+        ((Workspace.twilio_account_sid == payload.sid) | (Workspace.twilio_phone_number == payload.phone)),
+        Workspace.id != ws_uuid
+    ).first()
+    if existing_twilio:
+        raise HTTPException(
+            status_code=400,
+            detail="This Twilio Account or Phone Number is already connected to another workspace."
+        )
+
     workspace.twilio_account_sid = payload.sid
     workspace.twilio_auth_token = payload.token
     workspace.twilio_phone_number = payload.phone
+    workspace.twilio_messaging_service_sid = payload.messaging_service_sid
     db.commit()
     return {"status": "connected", "message": "Twilio connected successfully"}
 

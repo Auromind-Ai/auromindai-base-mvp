@@ -22,17 +22,8 @@ export async function updateChatSession(session_id, title) {
 
 // Streaming chat endpoint returning raw response
 export async function streamChat(body, signal = null) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  const url = `${client.baseURL}/chat/stream`;
-
-  return fetch(url, {
+  return client.requestRaw('/chat/stream', {
     method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    },
     body: JSON.stringify(body),
     signal
   });
@@ -47,16 +38,8 @@ export async function submitFeedback(body) {
 }
 
 export async function stopChat(sessionId = null) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  const url = `${client.baseURL}/chat/stop`;
-  return fetch(url, {
+  return client.requestRaw('/chat/stop', {
     method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ session_id: sessionId }),
+    body: JSON.stringify({ session_id: sessionId })
   });
 }

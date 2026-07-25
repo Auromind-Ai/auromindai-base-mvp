@@ -112,7 +112,7 @@ class AgentOrchestration:
                     ctx.reservation_id = str(reservation.id)
                     reservation_created = True
 
-            return await self._process_message_internal(payload, channel, skip_send, db)
+            return await self._process_message_internal_core(payload, channel, skip_send, db)
 
         finally:
             exc_type, _, _ = sys.exc_info()
@@ -152,7 +152,7 @@ class AgentOrchestration:
                 self.db.close()
                 self.db = None
 
-    async def _process_message_internal(self, payload, channel, skip_send, db):
+    async def _process_message_internal_core(self, payload, channel, skip_send, db):
         data = self.normalize_message(payload, channel)
 
         user_id      = data.get("user_id")

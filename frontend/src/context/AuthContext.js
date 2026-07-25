@@ -20,13 +20,25 @@ export function AuthProvider({ children }) {
   const [workspaces, setWorkspacesState] = useState([]);
   const [workspaceId, setWorkspaceIdState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [csrfToken, setCsrfTokenState] = useState(null);
+  const csrfTokenRef = useRef(null);
   const fetchingRef = useRef(false);
+
+  useEffect(() => {
+    api.setCSRFTokenGetter(() => csrfTokenRef.current);
+  }, []);
 
   const refreshUser = async (signal) => {
     setLoading(true);
     try {
       const userData = await api.getCurrentUser({ signal });
       const profile = userData?.user || userData;
+      const csrf = userData?.csrf_token || profile?.csrf_token;
+      
+      if (csrf) {
+        setCsrfTokenState(csrf);
+        csrfTokenRef.current = csrf;
+      }
       
       if (!profile || !profile.email) {
         throw new Error("No user profile returned");
@@ -121,6 +133,8 @@ export function AuthProvider({ children }) {
       setUserState(null);
       setWorkspaceIdState(null);
       setWorkspacesState([]);
+      setCsrfTokenState(null);
+      csrfTokenRef.current = null;
       setUser(null);
       setWorkspace(null);
       window.location.replace('/login');
@@ -141,6 +155,7 @@ export function AuthProvider({ children }) {
       workspaceId,
       workspaces,
       loading,
+      csrfToken,
       setUser: setUserState,
       setWorkspaceId,
       logout,

@@ -89,22 +89,7 @@ function LoginContent() {
         }
     }, [user, authLoading, router, redirectPath]);
 
-    useEffect(() => {
-        if (typeof window !== 'undefined' && window.location.hash) {
-            const hash = window.location.hash.substring(1);
-            if (hash.startsWith('token=')) {
-                const token = hash.split('=')[1];
-                setToken(token);
-                window.history.replaceState(null, '', window.location.pathname);
-                refreshUser().then(() => {
-                    router.push(redirectPath || '/user/admin/dashboard');
-                }).catch((err) => {
-                    console.error("Failed to refresh user after OAuth callback:", err);
-                    setError("Failed to initialize session. Please try again.");
-                });
-            }
-        }
-    }, [router, redirectPath, refreshUser]);
+
 
     useEffect(() => {
         const err = searchParams.get('error');

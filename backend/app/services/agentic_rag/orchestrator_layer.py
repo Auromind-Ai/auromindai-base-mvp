@@ -194,6 +194,26 @@ class OrchestratorLayer:
         logger.info(f"DEBUG: web_search_enabled = {web_search_enabled}")
         fallback_triggered = False
 
+        # Bypass expensive RAG pipeline for gibberish/unwanted queries; route directly to the reasoning agent for a single lightweight LLM call to save tokens and prevent 429
+        from app.utils.gibberish_detection import is_gibberish_or_unwanted
+        detection = is_gibberish_or_unwanted(query)
+        if detection["is_unwanted"]:
+            logger.info(f"[Gibberish Detected] query: '{query}', reason: '{detection['reason']}', score: {detection['score']:.2f}")
+            confidence = compute_confidence(tool="direct_answer")
+            meta_payload = {
+                "query": query,
+                "rewritten_query": query,
+                "tool": "direct_answer",
+                "model": model,
+                "confidence_score": confidence,
+                "source": "direct_answer"
+            }
+            yield {"meta": meta_payload}
+            from app.services.agentic_rag.reasoning_agent import run_reasoning_stream
+            async for chunk in run_reasoning_stream(query, model=model):
+                yield chunk
+            return
+
         small_talk = None
         if not web_search_enabled:
             small_talk = self.helpers.get_small_talk_response(query)
@@ -740,6 +760,23 @@ class OrchestratorLayer:
         logger.info(f"DEBUG: web_search_enabled = {web_search_enabled}")
 
         fallback_triggered = False
+
+        # Bypass expensive RAG pipeline for gibberish/unwanted queries; route directly to the reasoning agent for a single lightweight LLM call to save tokens and prevent 429
+        from app.utils.gibberish_detection import is_gibberish_or_unwanted
+        detection = is_gibberish_or_unwanted(query)
+        if detection["is_unwanted"]:
+            logger.info(f"[Gibberish Detected] query: '{query}', reason: '{detection['reason']}', score: {detection['score']:.2f}")
+            confidence = compute_confidence(tool="direct_answer")
+            from app.services.agentic_rag.reasoning_agent import run_reasoning
+            reasoning_res = await run_reasoning(query, model=model)
+            return self.mcp.format_response(
+                reasoning_res,
+                query,
+                query,
+                "direct_answer",
+                confidence,
+                model=model,
+            )
 
         small_talk = None
         if not web_search_enabled:

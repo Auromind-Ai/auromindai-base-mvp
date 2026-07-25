@@ -220,6 +220,7 @@ class IntegrationService:
                 ws.twilio_account_sid = None
                 ws.twilio_auth_token = None
                 ws.twilio_phone_number = None
+                ws.twilio_messaging_service_sid = None
                 db.commit()
                 return True
             return False

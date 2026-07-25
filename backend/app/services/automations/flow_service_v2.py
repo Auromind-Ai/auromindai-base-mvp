@@ -196,6 +196,36 @@ class FlowServiceV2:
                 )
             )
 
+            # Check for 5-minute inactivity session expiry
+            if is_mid_conversation:
+                from datetime import datetime, timezone, timedelta
+                cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+                updated_at = state.updated_at
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+
+                if updated_at < cutoff:
+                    logger.info(f"⏳ Conversation session expired due to inactivity (> 5 mins) for conversation {conversation.id}. Resetting flow state.")
+                    try:
+                        from app.services.inbox.channel_service import ChannelService
+                        ChannelService.send_message(
+                            conversation,
+                            "Your session has expired due to inactivity. Send a message to start again.",
+                            metadata={"source": "session_timeout_expiry"}
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send session expiry message: {e}")
+
+                    state.active_flow_id = None
+                    state.current_node_id = None
+                    state.pending_button = None
+                    state.button_expires_at = None
+                    state.pending_question = None
+                    state.question_expires_at = None
+                    state.runtime_context = {}
+                    self._persist_state(db, state)
+                    is_mid_conversation = False
+
             # Check for explicit reset command
             if is_mid_conversation and self._is_reset_command(inbound_text):
                 logger.info(f"🔄 Reset command detected. Clearing state for conversation {conversation.id}")

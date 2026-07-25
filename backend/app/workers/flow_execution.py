@@ -696,6 +696,49 @@ def sweep_stuck_messages():
                 countdown=1
             )
 
+        # Sweep expired flow sessions (inactive for > 5 minutes)
+        cutoff_flow = datetime.now(timezone.utc) - timedelta(minutes=5)
+        expired_states = (
+            db.query(FlowExecutionState)
+            .filter(
+                FlowExecutionState.active_flow_id.isnot(None),
+                FlowExecutionState.updated_at < cutoff_flow
+            )
+            .all()
+        )
+
+        for state in expired_states:
+            is_mid = (
+                state.current_node_id is not None
+                or state.pending_button is not None
+                or state.pending_question is not None
+            )
+            if not is_mid:
+                continue
+
+            logger.info(f"⏳ Proactively expiring inactive flow execution state for conversation={state.conversation_id}")
+
+            conv = db.query(Conversation).filter(Conversation.id == state.conversation_id).first()
+            if conv:
+                try:
+                    from app.services.inbox.channel_service import ChannelService
+                    ChannelService.send_message(
+                        conv,
+                        "Your session has expired due to inactivity. Send a message to start again.",
+                        metadata={"source": "session_timeout_expiry"}
+                    )
+                except Exception as send_err:
+                    logger.error(f"Failed to send proactive session expiry message for conversation {state.conversation_id}: {send_err}")
+
+            state.active_flow_id = None
+            state.current_node_id = None
+            state.pending_button = None
+            state.button_expires_at = None
+            state.pending_question = None
+            state.question_expires_at = None
+            state.runtime_context = {}
+            db.commit()
+
     except Exception as e:
         db.rollback()
         logger.error(f"[sweep_stuck_messages] Error sweeping stuck messages: {e}")

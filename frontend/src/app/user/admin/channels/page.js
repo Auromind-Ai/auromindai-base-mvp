@@ -660,6 +660,25 @@ function TwilioOnboardingModal({
                                     />
                                     <p className="text-[10px] text-white/45 mt-1.5">Use a WhatsApp-enabled number</p>
                                 </div>
+
+                                <div>
+                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
+                                        Messaging Service SID (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                        value={twilioForm.messagingServiceSid}
+                                        onChange={e => setTwilioForm(prev => ({ ...prev, messagingServiceSid: e.target.value }))}
+                                        className="w-full rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.09)',
+                                        }}
+                                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(242,47,70,0.06)'; }}
+                                        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                    />
+                                </div>
                             </div>
                             {/* ─── END EXISTING FORM FIELDS ─── */}
 
@@ -870,7 +889,7 @@ export default function ChannelsPage() {
     const [twilioStep, setTwilioStep] = useState(null);
     // ────────────────────────────────────────────────────────────────────────
 
-    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '' });
+    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '', messagingServiceSid: '' });
     const [showAuthToken, setShowAuthToken] = useState(false);
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({});
@@ -1092,35 +1111,60 @@ const disconnectChannel = async (channelId) => {
 
     // ── submitTwilio — EXISTING FUNCTION, NOT MODIFIED ──────────────────────
     const submitTwilio = async () => {
-        const { sid, token, phone } = twilioForm;
+        const { sid, token, phone, messagingServiceSid } = twilioForm;
         
-        if (!sid.trim()) {
+        const cleanSid = sid.trim();
+        const cleanToken = token.trim();
+        const cleanPhone = phone.trim();
+        const cleanMessagingServiceSid = messagingServiceSid ? messagingServiceSid.trim() : "";
+
+        if (!cleanSid) {
             showToast("⚠️ Twilio Account SID is required");
             return;
         }
-        if (!token.trim()) {
+        if (!/^AC[a-zA-Z0-9]{32}$/.test(cleanSid)) {
+            showToast("⚠️ Twilio Account SID must start with 'AC' followed by 32 alphanumeric characters");
+            return;
+        }
+
+        if (!cleanToken) {
             showToast("⚠️ Twilio Auth Token is required");
             return;
         }
-        if (!phone.trim()) {
+        if (!/^[a-zA-Z0-9]{32}$/.test(cleanToken)) {
+            showToast("⚠️ Twilio Auth Token must be a 32-character alphanumeric string");
+            return;
+        }
+
+        if (!cleanPhone) {
             showToast("⚠️ Twilio Phone Number is required");
+            return;
+        }
+        if (!/^\+[1-9]\d{6,14}$/.test(cleanPhone)) {
+            showToast("⚠️ Phone number must follow Twilio's E.164 format, starting with '+' followed by 7 to 15 digits (e.g., +14155552671)");
+            return;
+        }
+
+        if (cleanMessagingServiceSid && !/^MG[a-zA-Z0-9]{32}$/.test(cleanMessagingServiceSid)) {
+            showToast("⚠️ Messaging Service SID must start with 'MG' followed by 32 alphanumeric characters");
             return;
         }
 
         setTwilioSubmitting(true);
         try {
             const data = await api.connectTwilio({ 
-                sid: sid.trim(), 
-                token: token.trim(), 
-                phone: phone.trim(), 
-                workspace_id: workspace?.id 
+                sid: cleanSid, 
+                token: cleanToken, 
+                phone: cleanPhone, 
+                workspace_id: workspace?.id,
+                messaging_service_sid: cleanMessagingServiceSid || null
             });
 
             if (data.status === 'connected') {
                 setStatuses(prev => ({ ...prev, twilio: true }));
-                setConnectedInfo(prev => ({ ...prev, twilio: phone.trim() }));
+                setConnectedInfo(prev => ({ ...prev, twilio: cleanPhone }));
                 localStorage.setItem("twilio_connected", "true");
-                localStorage.setItem("twilio_phone", phone.trim());
+                localStorage.setItem("twilio_phone", cleanPhone);
                 setShowTwilioModal(false);
                 showToast("✅ Twilio configuration saved successfully");
             } else {

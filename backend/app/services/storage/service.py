@@ -121,6 +121,36 @@ class S3StorageProvider(StorageProvider):
         return f"https://{self.bucket_name}.s3.amazonaws.com/{quote(file_path, safe='/')}"
 
 
+from pathlib import Path
+import os
+
+
+class LocalStorageProvider(StorageProvider):
+    def __init__(self, upload_dir: str = "temp_uploads"):
+        self.upload_dir = Path(upload_dir)
+        self.upload_dir.mkdir(parents=True, exist_ok=True)
+
+    async def save_file(self, file_path: str, content: bytes, content_type: str = None) -> str:
+        dest_path = self.upload_dir / file_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(dest_path.write_bytes, content)
+        return self.get_public_url(file_path)
+
+    async def delete_file(self, file_path: str) -> bool:
+        dest_path = self.upload_dir / file_path
+        if dest_path.exists():
+            try:
+                dest_path.unlink()
+                return True
+            except Exception:
+                return False
+        return False
+
+    def get_public_url(self, file_path: str) -> str:
+        clean_path = quote(file_path, safe='/')
+        return f"/temp_uploads/{clean_path}"
+
+
 class StorageService:
     def __init__(self, provider: Optional[StorageProvider] = None):
         self.provider = provider or self._build_provider()
@@ -129,10 +159,18 @@ class StorageService:
         from app.services.config_service import config_service
         name = config_service.get("storage_provider", "SUPABASE").upper()
         if name == "SUPABASE":
-            return SupabaseStorageProvider()
+            try:
+                return SupabaseStorageProvider()
+            except Exception as e:
+                print(f"[STORAGE FALLBACK] SupabaseStorageProvider failed ({e}), using LocalStorageProvider.")
+                return LocalStorageProvider()
         if name == "S3":
-            return S3StorageProvider()
-        raise ValueError(f"Unsupported STORAGE_PROVIDER: {name}")
+            try:
+                return S3StorageProvider()
+            except Exception as e:
+                print(f"[STORAGE FALLBACK] S3StorageProvider failed ({e}), using LocalStorageProvider.")
+                return LocalStorageProvider()
+        return LocalStorageProvider()
 
     async def save_file(self, file_path: str, content: bytes, content_type: str = None) -> str:
         return await self.provider.save_file(file_path, content, content_type)

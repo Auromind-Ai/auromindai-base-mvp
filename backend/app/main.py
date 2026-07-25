@@ -11,6 +11,7 @@ from app.core.request_logger import RequestLoggingMiddleware
 from app.core.exception_handlers import register_exception_handlers
 from app.core.uuid_validation import UUIDValidationMiddleware
 from app.core.admin_middleware import AdminConsoleMiddleware
+from app.core.csrf_middleware import csrf_protection_middleware
 from app.core.startup import ( init_schedulers,
     shutdown_schedulers, init_llm_router,
     init_pubsub, shutdown_pubsub,
@@ -127,6 +128,7 @@ app.add_middleware(MetricsMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(UUIDValidationMiddleware)
 app.add_middleware(AdminConsoleMiddleware)
+app.middleware("http")(csrf_protection_middleware)
 
 
 # Health 
@@ -142,16 +144,19 @@ async def health_check():
 app.include_router(preferences.router, prefix="/users", tags=["preferences"])
 app.include_router(security.router, prefix="/user", tags=["security"])
 app.include_router(notifications.router)
+app.include_router(notifications.router, prefix="/api")
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(account_router, prefix="/account", tags=["account"])
 app.include_router(two_factor_router, prefix="/2fa", tags=["2fa"])                                         
-app.include_router(conversations.router)                                 
-app.include_router(twilio_webhook.router) 
+
+
+# Mount webhook and channel routers under root and /api prefix for compatibility
+app.include_router(conversations.router)
+app.include_router(twilio_webhook.router)
 app.include_router(meta_what.router)
 app.include_router(instagram.router)
 
-# Mount webhook and channel routers under /api prefix for compatibility with direct webhook calls
 app.include_router(conversations.router, prefix="/api")
 app.include_router(twilio_webhook.router, prefix="/api")
 app.include_router(meta_what.router, prefix="/api")

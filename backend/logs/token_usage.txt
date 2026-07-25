@@ -1717,3 +1717,90 @@ TOTAL TOKENS USED: 1249
 Final Reply Text: "Hello! 👋 How can I help you today?\n\nWhat's on your mind?"
 Final Reply Token Count (Estimate): 12
 =========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-07-25T11:01:28.990898Z
+User Query: 'hrtjtykyu'
+-----------------------------------------
+1. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 214
+   Input/Query Tokens: 10
+   Output Tokens: 58
+   Total Tokens: 282
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    hrtjtykyu
+
+    Final Answer:
+   [LLM Output Snippet]: It appears that the input "hrtjtykyu" does not form a coherent or recognizable query. As a result, I...
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 214
+Total Input/Query Tokens: 10
+Total Output Tokens: 58
+TOTAL TOKENS USED: 282
+-----------------------------------------
+Final Reply Text: 'It appears that the input "hrtjtykyu" does not form a coherent or recognizable query. As a result, I am unable to provide a meaningful response. If you could provide a clear and specific question or topic, I would be more than happy to assist you.'
+Final Reply Token Count (Estimate): 45
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-07-25T11:16:05.625644Z
+User Query: 'hrtjtykyu'
+-----------------------------------------
+1. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 214
+   Input/Query Tokens: 10
+   Output Tokens: 96
+   Total Tokens: 320
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    hrtjtykyu
+
+    Final Answer:
+   [LLM Output Snippet]: It appears that the input "hrtjtykyu" does not form a recognizable or meaningful query in the Englis...
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 214
+Total Input/Query Tokens: 10
+Total Output Tokens: 96
+TOTAL TOKENS USED: 320
+-----------------------------------------
+Final Reply Text: 'It appears that the input "hrtjtykyu" does not form a recognizable or meaningful query in the English language or any other widely recognized language or code. As a result, I am unable to determine the intent or provide a relevant response based on the provided input.\n\nIf you could provide a clearer or more specific query, I would be more than happy to assist you with explanations, summarizations, comparisons, analyses, or generation of content as per your request.'
+Final Reply Token Count (Estimate): 78
+=========================================
+=========================================
+TOKEN USAGE REPORT (Agentic RAG)
+Timestamp: 2026-07-25T11:33:14.577082Z
+User Query: 'hrtjtykyu'
+-----------------------------------------
+1. Function: reasoning_agent.py:run_reasoning
+   Provider: groq | Model: llama-3.3-70b-versatile
+   System Prompt Tokens: 214
+   Input/Query Tokens: 10
+   Output Tokens: 97
+   Total Tokens: 321
+   [Sys Prompt Snippet]: You are an advanced AI assistant.            Your job is to understand the user's query and respond ...
+   [User Input Snippet]: User Query: 
+    hrtjtykyu
+
+    Final Answer:
+   [LLM Output Snippet]: It appears that the input "hrtjtykyu" does not form a coherent or recognizable query in the English ...
+
+-----------------------------------------
+TOTAL SUMMARY:
+Total Calls: 1
+Total System Tokens: 214
+Total Input/Query Tokens: 10
+Total Output Tokens: 97
+TOTAL TOKENS USED: 321
+-----------------------------------------
+Final Reply Text: 'It appears that the input "hrtjtykyu" does not form a coherent or recognizable query in the English language. As a result, I am unable to determine the intent or provide a meaningful response.\n\nIf you could provide a clearer or more specific query, I would be happy to assist you with explanation, summarization, comparison, analysis, or generation as needed. Please feel free to rephrase or provide more context so I can better understand and address your question.'
+Final Reply Token Count (Estimate): 77
+=========================================

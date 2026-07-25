@@ -297,6 +297,23 @@ class WebhookService:
             payment=payment,
         )
 
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_workspace(
+                db=db,
+                workspace_id=subscription.workspace_id,
+                type="billing_alert",
+                title="Payment Successful",
+                message=f"Your payment of {payment.amount} {payment.currency} was processed successfully.",
+                send_email=True,
+                email_subject="[AUROMIND BILLING] Payment Successful",
+                deduplication_key=f"payment_success:{payment.id}",
+                resource="subscription"
+            )
+        except Exception as notif_exc:
+            import logging
+            logging.getLogger("auromind").error(f"Failed to send payment success notification: {notif_exc}")
+
     def _handle_subscription_cancelled(
         self,
         db: Session,
@@ -374,6 +391,26 @@ class WebhookService:
             payment.status = PaymentStatus.failed
             payment.failure_reason = failure_reason
         db.flush()
+
+        try:
+            from app.services.notification_service import NotificationService
+            target_ws_id = payment.workspace_id if payment else (subscription.workspace_id if subscription else None)
+            if target_ws_id:
+                NotificationService.notify_workspace(
+                    db=db,
+                    workspace_id=target_ws_id,
+                    type="billing_alert",
+                    title="Payment Failed",
+                    message=f"Payment of {amount} {currency} failed. Reason: {failure_reason or 'Transaction declined'}. Please update your payment method.",
+                    send_email=True,
+                    is_critical=True,
+                    email_subject="[ACTION REQUIRED] Payment Failed - Subscription Past Due",
+                    deduplication_key=f"payment_failed:{payment_payload.get('id')}",
+                    resource="subscription"
+                )
+        except Exception as notif_exc:
+            import logging
+            logging.getLogger("auromind").error(f"Failed to send payment failure notification: {notif_exc}")
 
     
 
@@ -491,55 +528,19 @@ class WebhookService:
             description=f"Purchased AI Credit Pack: {pack.name}"
         )
 
-        # Send purchase confirmation email
         try:
-            from app.models.workspace import WorkspaceMember, Workspace
-            from app.models.user import User
-            from app.services.platform_settings_service import get_setting
-            from app.services.email_service import EmailService
-            
-            # Fetch workspace owner
-            member = db.query(WorkspaceMember).filter(
-                WorkspaceMember.workspace_id == workspace_id,
-                WorkspaceMember.role == "owner"
-            ).first()
-            if not member:
-                member = db.query(WorkspaceMember).filter(
-                    WorkspaceMember.workspace_id == workspace_id
-                ).first()
-                
-            if member:
-                user = db.query(User).filter(User.id == member.user_id).first()
-                workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
-                if user and user.email:
-                    # Get templates
-                    db_subject = get_setting(db, "email_template_credits_purchased_subject") or "Receipt: WhatsApp Credits Added"
-                    db_body = get_setting(db, "email_template_credits_purchased_body")
-                    
-                    if db_body:
-                        # Render template variables
-                        currency = pack.currency.upper() if hasattr(pack, 'currency') else "INR"
-                        amount = float(pack.amount) if hasattr(pack, 'amount') else 0.0
-                        
-                        variables = {
-                            "user_name": user.full_name or user.email,
-                            "credits": str(pack.credits),
-                            "order_id": payment_payload.get("order_id") or "N/A",
-                            "payment_id": provider_payment_id or "N/A",
-                            "amount": f"{amount:.2f}",
-                            "currency": currency,
-                            "workspace_name": workspace.name if workspace else "Workspace"
-                        }
-                        
-                        subject = EmailService.render_template(db_subject, variables)
-                        body = EmailService.render_template(db_body, variables)
-                        
-                        EmailService.send_email(
-                            to_email=user.email,
-                            subject=subject,
-                            body=body
-                        )
-        except Exception as e:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_workspace(
+                db=db,
+                workspace_id=workspace_id,
+                type="billing_alert",
+                title="Credit Pack Purchase Successful",
+                message=f"Successfully purchased '{pack.name}' ({pack.credits} credits granted).",
+                send_email=True,
+                email_subject="[AUROMIND BILLING] Credit Pack Purchase Confirmation",
+                deduplication_key=f"credit_pack_success:{payment.id}",
+                resource="ai_tokens"
+            )
+        except Exception as notif_exc:
             import logging
-            logger = logging.getLogger("auromind")
-            logger.error(f"Failed to send credit purchase confirmation email: {e}")
+            logging.getLogger("auromind").error(f"Failed to send credit pack purchase notification: {notif_exc}")

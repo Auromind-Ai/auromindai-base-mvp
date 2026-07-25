@@ -19,6 +19,8 @@ async def connect_whatsapp(
 ):
     workspace_id = verify_workspace_access(current_user, db, data.get("workspace_id"))
     data["workspace_id"] = workspace_id
+    if not data.get("code") and not data.get("fb_access_token"):
+        raise HTTPException(status_code=400, detail="Missing required credentials: code or fb_access_token is required")
     try:
         return ChannelConnectionService.connect_meta_whatsapp(db, data)
     except HTTPException as e:
@@ -65,9 +67,11 @@ async def get_channels_status(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    from app.core.security import to_uuid
+    ws_uuid = to_uuid(workspace_id)
     try:
         from app.models.workspace import Workspace
-        workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+        workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
         if not workspace:
             raise HTTPException(status_code=404, detail="Workspace not found")
         
@@ -99,9 +103,11 @@ async def disconnect_channel(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    verify_workspace_access(current_user, db, workspace_id)
+    from app.core.security import to_uuid
+    ws_uuid = to_uuid(workspace_id)
+    verify_workspace_access(current_user, db, ws_uuid)
     from app.models.workspace import Workspace
-    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
     
@@ -119,6 +125,7 @@ async def disconnect_channel(
         workspace.twilio_account_sid = None
         workspace.twilio_auth_token = None
         workspace.twilio_phone_number = None
+        workspace.twilio_messaging_service_sid = None
     else:
         raise HTTPException(status_code=400, detail="Invalid channel type")
         

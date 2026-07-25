@@ -94,6 +94,8 @@ async def upload_file(
     file_type = get_file_type(real_mime)
 
     workspace_id = verify_workspace_access(current_user, db)
+    if isinstance(workspace_id, str):
+        workspace_id = uuid.UUID(workspace_id)
 
     file_extension = MIME_EXTENSION_MAP.get(real_mime, "")
     unique_filename = f"{uuid.uuid4()}{file_extension}"

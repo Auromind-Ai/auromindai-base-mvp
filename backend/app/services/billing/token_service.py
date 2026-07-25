@@ -275,7 +275,61 @@ class TokenService:
                 
             db.flush()
             
+        # ── Quota warnings MUST live outside the savepoint ──────────────
+        # notify() → db.commit() would collapse begin_nested() if called
+        # inside it, breaking rollback safety for the ledger mutations above.
+        self._check_usage_quota_warnings(db, str(workspace_id))
+
         return reservation
+
+    def _check_usage_quota_warnings(self, db: Session, workspace_id: str):
+        try:
+            balance = self._get_token_balance_locked(db, str(workspace_id))
+            if balance.tokens_added > 0:
+                percent_used = (balance.tokens_used / balance.tokens_added) * 100.0
+                from app.services.notification_service import NotificationService
+                if percent_used >= 100.0:
+                    NotificationService.notify_workspace(
+                        db=db,
+                        workspace_id=workspace_id,
+                        type="usage_warning",
+                        title="AI Quota Limit Reached (100%)",
+                        message="Your workspace has reached 100% of its AI token quota limit. AI tasks will be paused until renewal or credit top-up.",
+                        send_email=True,
+                        is_critical=True,
+                        email_subject="[CRITICAL] AI Token Quota Limit Reached (100%)",
+                        deduplication_key=f"quota_warning:{workspace_id}:100",
+                        resource="ai_tokens"
+                    )
+                elif percent_used >= 90.0:
+                    NotificationService.notify_workspace(
+                        db=db,
+                        workspace_id=workspace_id,
+                        type="usage_warning",
+                        title="AI Quota Warning (90% Used)",
+                        message="Your workspace has consumed 90% of its AI token quota limit. Consider topping up credits to avoid service interruption.",
+                        send_email=True,
+                        email_subject="[WARNING] AI Token Quota 90% Consumed",
+                        deduplication_key=f"quota_warning:{workspace_id}:90",
+                        resource="ai_tokens"
+                    )
+                elif percent_used >= 80.0:
+                    NotificationService.notify_workspace(
+                        db=db,
+                        workspace_id=workspace_id,
+                        type="usage_warning",
+                        title="AI Quota Notice (80% Used)",
+                        message="Your workspace has consumed 80% of its AI token quota limit.",
+                        send_email=False,
+                        email_subject="[NOTICE] AI Token Quota 80% Consumed",
+                        deduplication_key=f"quota_warning:{workspace_id}:80",
+                        resource="ai_tokens"
+                    )
+        except Exception as exc:
+            import logging
+            logging.getLogger("auromind").error(f"Failed to check quota warnings for workspace {workspace_id}: {exc}")
+
+
 
     def finalize_token_usage(
         self,

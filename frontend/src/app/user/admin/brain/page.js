@@ -26,11 +26,11 @@ export default function BrainPage() {
     const { workspaceId } = useAuth();
 
     // Fetch brain entries and stats
-    const fetchData = async () => {
+    const fetchData = async (silent = false) => {
         if (!workspaceId) return;
 
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const [entriesRes, statsRes] = await Promise.all([
                 api.getBrainEntries(workspaceId),
                 api.getBrainStats(workspaceId)
@@ -45,7 +45,7 @@ export default function BrainPage() {
             console.error('Failed to fetch brain data:', err);
             setError('Failed to load knowledge base');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -64,6 +64,8 @@ export default function BrainPage() {
             const result = await api.uploadDocument(file, workspaceId);
             setCurrentEntryId(result.entry_id);
             setSuccess("File uploaded. Processing started.");
+            // Silent refresh so the newly uploaded pending entry appears immediately
+            await fetchData(true);
         } catch (err) {
             setError(err.message || 'Upload failed');
         } finally {
@@ -84,7 +86,7 @@ export default function BrainPage() {
             const result = await api.syncURL(urlInput.trim(), workspaceId);
             setSuccess(`Synced "${result.title}" - ${result.chunks_created} chunks created`);
             setUrlInput('');
-            await fetchData();
+            await fetchData(true);
         } catch (err) {
             setError(err.message || 'URL sync failed');
         } finally {
@@ -103,7 +105,7 @@ export default function BrainPage() {
             const result = await api.crawlWebsite(urlInput.trim(), workspaceId, 50);
             setSuccess(`🎉 Indexed ${result.pages_crawled} pages (${result.chunks_created} chunks) from your website!`);
             setUrlInput('');
-            await fetchData();
+            await fetchData(true);
         } catch (err) {
             setError(err.message || 'Website crawl failed');
         } finally {
@@ -120,7 +122,7 @@ export default function BrainPage() {
         try {
             await api.deleteBrainEntry(entryId, workspaceId);
             setSuccess('Entry deleted successfully');
-            await fetchData();
+            await fetchData(true);
         } catch (err) {
             setError(err.message || 'Delete failed');
         } finally {
@@ -326,7 +328,10 @@ export default function BrainPage() {
                         <div className="mb-4 flex justify-center">
                           <FileProgress 
                           entryId={currentEntryId} 
-                          onDone={() => setCurrentEntryId(null)}
+                          onDone={async () => {
+                              setCurrentEntryId(null);
+                              await fetchData(true);
+                          }}
                           />
                          </div>
                         )}

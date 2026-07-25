@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import UpgradeModal from '@/components/UpgradeModal';
 
 //  Icons (inline SVG to avoid extra deps) 
 const Icon = ({ d, size = 16, className = '' }) => (
@@ -351,6 +352,7 @@ function PhonePreview({ form, actionMode }) {
 //  Main Component ─
 export default function CreateTemplatePage() {
   const { workspaceId } = useAuth();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [form, setForm] = useState({
     category: 'MARKETING',
     language: 'en_US',
@@ -436,7 +438,14 @@ export default function CreateTemplatePage() {
       }
       setGeneratedTemplates(templates);
     } catch (err) {
-      console.error(err);
+      console.warn('[Template Generator Handler]:', err?.message || err);
+      const errStr = String(err?.message || err?.data?.detail || err).toLowerCase();
+      const isQuotaOrLimit = err?.status === 402 || err?.status === 403 || err?.status === 429 || errStr.includes('quota') || errStr.includes('limit') || errStr.includes('insufficient') || errStr.includes('upgrade') || errStr.includes('overages');
+      if (isQuotaOrLimit) {
+        setShowUpgradeModal(true);
+      } else {
+        alert(err.message || 'Failed to generate template');
+      }
     }
   };
 
@@ -956,6 +965,7 @@ export default function CreateTemplatePage() {
           </div>
         </div>
       </div>
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 }

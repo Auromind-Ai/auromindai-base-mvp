@@ -315,6 +315,12 @@ class WebhookService:
                                 db.rollback()
                                 logger.error(f"Failed to commit database updates for status {wamid}: {commit_exc}")
 
+                contacts = value.get("contacts") or []
+                contact_name = None
+                if contacts and isinstance(contacts, list) and len(contacts) > 0:
+                    profile = contacts[0].get("profile") or {}
+                    contact_name = profile.get("name")
+
                 messages = value.get("messages") or []
                 if not messages:
                     logger.info("No 'messages' array in payload (might be a status update). Skipping message processing.")
@@ -340,6 +346,7 @@ class WebhookService:
                             body=body,
                             phone=from_number,
                             message_external_id=message.get("id"),
+                            contact_name=contact_name,
                             metadata={
                                 "interactive_value": interactive_value,
                                 "interactive_label": interactive_label,
