@@ -5,16 +5,20 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.routers.auth import get_current_user, CurrentUser
 from app.services.account_service import AccountService
+from app.schemas.account import (
+    AccountDeletionRequestResponse,
+    AccountDeletionCancelResponse,
+)
 
 router = APIRouter()
 
 
-@router.post("/request-deletion")
+@router.post("/request-deletion", response_model=AccountDeletionRequestResponse)
 async def request_deletion(
     response: Response,
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> AccountDeletionRequestResponse:
     """Schedule the authenticated user's account for deletion (30-day grace period)."""
     try:
         result = AccountService.request_deletion(db, current_user.id)
@@ -33,11 +37,11 @@ async def request_deletion(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.post("/cancel-deletion")
+@router.post("/cancel-deletion", response_model=AccountDeletionCancelResponse)
 async def cancel_deletion(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> AccountDeletionCancelResponse:
     """Cancel a pending deletion and fully restore the account."""
     try:
         return AccountService.cancel_deletion(db, current_user.id)
