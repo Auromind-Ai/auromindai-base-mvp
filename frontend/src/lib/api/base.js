@@ -1,8 +1,8 @@
 console.log("API INFRASTRUCTURE VERSION: 2.1.0");
 
 // Timeout constants
-const DEFAULT_TIMEOUT_MS = 30_000;   // 30s for regular API calls
-const ADMIN_TIMEOUT_MS   = 15_000;   // 15s for admin panel calls
+const DEFAULT_TIMEOUT_MS = 60_000;   // 60s for regular API calls
+const ADMIN_TIMEOUT_MS   = 45_000;   // 45s for admin panel calls
 const STREAM_TIMEOUT_MS  = 120_000;  // 2min for streaming endpoints
 
 
@@ -19,7 +19,7 @@ export class APIClient {
       && !window.location.hostname.includes('localhost') 
       && !window.location.hostname.includes('127.0.0.1')
       && !window.location.hostname.includes('devtunnels.ms');
-    this.baseURL = isProd ? 'https://undeputized-fertilely-adelaida.ngrok-free.dev' : (process.env.NEXT_PUBLIC_API_URL || baseURL);
+    this.baseURL = isProd ? `${window.location.protocol}//${window.location.host}/api` : (process.env.NEXT_PUBLIC_API_URL || baseURL);
     this.requestHooks = [];
     this.responseHooks = [];
     this.csrfTokenGetter = () => null;
@@ -39,15 +39,14 @@ export class APIClient {
   }
 
   async requestRaw(endpoint, options = {}, isRetryAttempt = false) {
-    const isProd = typeof window !== 'undefined' 
-      && !window.location.hostname.includes('localhost') 
-      && !window.location.hostname.includes('127.0.0.1')
-      && !window.location.hostname.includes('devtunnels.ms');
-    const url = isProd
-      ? `${this.baseURL}${endpoint.startsWith('/api/') ? endpoint.substring(4) : (endpoint.startsWith('/backend/') ? endpoint.substring(8) : endpoint)}`
-      : ((endpoint.startsWith('/api/') || endpoint.startsWith('/backend/'))
-        ? endpoint
-        : `${this.baseURL}${endpoint}`);
+    let url;
+    if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+      url = endpoint;
+    } else {
+      const cleanEndpoint = endpoint.startsWith('/api/') ? endpoint.substring(4) : (endpoint.startsWith('/backend/') ? endpoint.substring(8) : endpoint);
+      const formattedEndpoint = cleanEndpoint.startsWith('/') ? cleanEndpoint : `/${cleanEndpoint}`;
+      url = `${this.baseURL}${formattedEndpoint}`;
+    }
 
     const method = (options.method || 'GET').toUpperCase();
     const isPostOrPutOrPatch = ['POST', 'PUT', 'PATCH'].includes(method);
@@ -96,9 +95,9 @@ export class APIClient {
     let isTimeout = false;
     const controller = optSignal ? null : new AbortController();
 
-    const isAdminEndpoint = endpoint.startsWith('/admin') || url.includes('/admin');
+    const isAdminEndpoint = endpoint.startsWith('/admin');
     const isStreamEndpoint = endpoint.includes('/stream') || endpoint.includes('/ws') || endpoint.includes('/events');
-    const timeoutMs = isAdminEndpoint ? ADMIN_TIMEOUT_MS : isStreamEndpoint ? STREAM_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+    const timeoutMs = options.timeout || (isAdminEndpoint ? ADMIN_TIMEOUT_MS : isStreamEndpoint ? STREAM_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
 
     const timeoutId = controller ? setTimeout(() => { isTimeout = true; controller.abort('timeout'); }, timeoutMs) : null;
     config.signal = optSignal || controller?.signal;

@@ -25,7 +25,11 @@ class EmbeddingGenerator:
         device: str,
     ) -> None:
         logger.info("Loading embedding model: %s on %s", model_name, device)
-        self._model = SentenceTransformer(model_name, device=device)
+        try:
+            self._model = SentenceTransformer(model_name, device=device, local_files_only=True)
+        except Exception:
+            logger.warning("Local files not found for embedding model %s, falling back to online download", model_name)
+            self._model = SentenceTransformer(model_name, device=device)
         self._dimension: int = self._model.get_sentence_embedding_dimension()
         logger.info(
             "Embedding model loaded: %s | dimension=%d", model_name, self._dimension

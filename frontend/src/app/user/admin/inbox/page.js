@@ -1270,12 +1270,7 @@ function InboxContent() {
         try {
             const data = await api.get(`/api/messages/${id}`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
-            setMessages(data.filter(m => {
-                const status = m.status?.toLowerCase();
-                const senderType = m.sender_type?.toLowerCase();
-                return status === 'sent' || status === 'delivered' || status === 'received'
-                    || senderType === 'user' || senderType === 'agent' || senderType === 'ai';
-            }));
+            setMessages(data);
         } catch (e) { console.error('Message fetch error:', e); }
     }, []);
 

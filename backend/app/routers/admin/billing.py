@@ -28,6 +28,7 @@ from app.services.billing import BillingService
 from jose import jwt
 from app.core.config import settings
 from app.core.admin_security import verify_admin_workspace
+from decimal import Decimal
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ class AdjustCreditsRequest(BaseModel):
 
 
 class AdjustWalletRequest(BaseModel):
-    amount: float
+    amount: Decimal
     reason: str
 
 
@@ -643,7 +644,7 @@ async def adjust_wallet(
         action="WALLET_ADJUSTED",
         workspace_id=ws_uuid,
         old_value={"balance": old_bal},
-        new_value={"balance": new_bal, "adjustment": payload.amount},
+        new_value={"balance": new_bal, "adjustment": float(payload.amount)},
         reason=payload.reason,
         request=request
     )

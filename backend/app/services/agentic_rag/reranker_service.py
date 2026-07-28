@@ -16,7 +16,11 @@ class RerankerService:
  
     def __init__(self, model_name: str) -> None:
         logger.info("Loading reranker model: %s", model_name)
-        self._model = CrossEncoder(model_name)
+        try:
+            self._model = CrossEncoder(model_name, local_files_only=True)
+        except Exception:
+            logger.warning("Local files not found for reranker model %s, falling back to online download", model_name)
+            self._model = CrossEncoder(model_name)
         logger.info("Reranker model loaded successfully: %s", model_name)
 
     def predict(self, pairs: list) -> list:
