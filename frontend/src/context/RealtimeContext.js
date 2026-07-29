@@ -28,8 +28,8 @@ const MAX_RECONNECT_DELAY_MS = 30000;
 const STALE_SOCKET_MS = 120000;
 
 function resolveWebSocketBaseUrl() {
-  const explicit = process.env.NEXT_PUBLIC_WS_URL;
-  if (explicit) {
+  const explicit = process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL;
+  if (explicit && explicit !== '/api') {
     return explicit
       .replace(/^http:/, "ws:")
       .replace(/^https:/, "wss:")
@@ -38,13 +38,6 @@ function resolveWebSocketBaseUrl() {
 
   if (typeof window === "undefined") return "";
 
-  const isProd = !window.location.hostname.includes('localhost') 
-    && !window.location.hostname.includes('127.0.0.1')
-    && !window.location.hostname.includes('devtunnels.ms');
-  if (isProd) {
-    return "wss://https://undeputized-fertilely-adelaida.ngrok-free.dev";
-  }
-
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}`;
 }
@@ -52,7 +45,9 @@ function resolveWebSocketBaseUrl() {
 function buildWebSocketUrl(userId) {
   const baseUrl = resolveWebSocketBaseUrl();
   if (!baseUrl || !userId) return null;
-  return `${baseUrl}/ws/${encodeURIComponent(userId)}`;
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+  return `${baseUrl}/ws/${encodeURIComponent(userId)}${tokenParam}`;
 }
 
 export function RealtimeProvider({ user, workspace, children }) {

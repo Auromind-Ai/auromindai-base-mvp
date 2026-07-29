@@ -56,6 +56,27 @@ services:
       redis:
         condition: service_healthy
 
+  security-tools:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.security
+    container_name: auromind_security_tools
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:Arunjack007@db:5432/auromindai
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: testsecret_12345678901234567890
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+
   celery_worker:
     build:
       context: ./backend

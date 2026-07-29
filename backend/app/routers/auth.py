@@ -182,7 +182,8 @@ async def get_current_user(
             imp_db = db.query(ImpersonationSession).filter(
                 ImpersonationSession.session_id == impersonation_id
             ).first()
-            if not imp_db or imp_db.used:
+            now = datetime.now(timezone.utc)
+            if not imp_db or not imp_db.used or (imp_db.expires_at and imp_db.expires_at < now):
                 logger.warning(f"❌ Impersonation session {impersonation_id} is revoked or inactive")
                 log_security_event("impersonation_invalid", request, {"impersonation_id": impersonation_id}, user_id=user_id)
                 raise credentials_exception
@@ -659,7 +660,7 @@ async def stop_impersonation(request: Request, response: Response, db: Session =
                     ImpersonationSession.session_id == imp_id
                 ).first()
                 if imp_db:
-                    imp_db.used = True
+                    imp_db.expires_at = datetime.now(timezone.utc)
                     db.commit()
                 log_security_event("impersonation_stopped", request, {"impersonation_id": imp_id})
         except Exception as e:

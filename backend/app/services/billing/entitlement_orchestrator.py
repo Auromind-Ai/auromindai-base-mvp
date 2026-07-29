@@ -19,7 +19,7 @@ from app.services.wcc_service import WCCService
 from app.models.wcc import WCCRechargeLog
 from app.models.token_ledger import TokenLedger
 from app.models.billing import Payment
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 class AIBillingProvisioner(IAIBillingProvisioner):
     def initialize(self, db: Session, workspace_id: uuid.UUID, entitlement: PlanEntitlement) -> None:
@@ -160,14 +160,17 @@ class EntitlementOrchestrator:
         subscription = (
             db.query(Subscription)
             .filter(
-                Subscription.workspace_id == workspace_id,
+                or_(
+                    Subscription.workspace_id == workspace_id,
+                    Subscription.workspace_id == str(workspace_id)
+                ),
                 Subscription.status == SubscriptionStatus.active
             )
             .order_by(Subscription.created_at.desc())
             .first()
         )
         if not subscription:
-            raise ValueError(f"No active subscription found for workspace {workspace_id}")
+            return
 
         entitlement = EntitlementService.get_workspace_entitlement(db, workspace_id)
 

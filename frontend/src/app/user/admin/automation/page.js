@@ -26,13 +26,15 @@ import FlowModals from './modals/FlowModals';
 
 // Helper Imports
 import {
+  MAX_BUTTONS,
   MAX_KEYWORDS,
   sanitizeFlowData,
   validateFlowGraph,
   wouldCreateCycle,
   normalizeButtons,
   createDefaultButton,
-  getHandleIdForButton
+  getHandleIdForButton,
+  isConditionNode
 } from './helpers';
 
 export default function AutomationCanvas() {
@@ -189,7 +191,7 @@ export default function AutomationCanvas() {
     }
   }, []);
 
-  async function fetchFlows() {
+  async function fetchFlows(shouldSelectCanvas = false) {
     try {
       const data = await api.getFlows();
       console.log('fetchFlows received:', data?.length, data);
@@ -207,7 +209,21 @@ export default function AutomationCanvas() {
         }
         
         if (itemToSelect) {
-          handleSelectAutomation(itemToSelect);
+          try {
+            const freshItem = await api.getFlowById(itemToSelect.id);
+            const sanitizedItem = sanitizeFlowData(freshItem);
+            setSelectedItem(sanitizedItem);
+            setNodes(sanitizedItem.nodes || []);
+            setEdges(sanitizedItem.edges || []);
+          } catch (e) {
+            const sanitizedItem = sanitizeFlowData(itemToSelect);
+            setSelectedItem(sanitizedItem);
+            setNodes(sanitizedItem.nodes || []);
+            setEdges(sanitizedItem.edges || []);
+          }
+          if (shouldSelectCanvas) {
+            setCurrentView('canvas');
+          }
         }
       }
     } catch (e) { console.error(e); }
@@ -216,7 +232,7 @@ export default function AutomationCanvas() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
-    fetchFlows();
+    fetchFlows(false);
     fetchFlowQuota();
     const handleKeyDown = (e) => { if (e.code === 'Space') setIsSpacePressed(true); };
     const handleKeyUp = (e) => { if (e.code === 'Space') setIsSpacePressed(false); };
@@ -261,25 +277,20 @@ export default function AutomationCanvas() {
 
     const performToggle = async () => {
       try {
-        const updated = await api.saveFlow({
-          id: flow.id,
-          name: flow.name,
-          trigger_type: flow.trigger_type || 'msg_recv',
-          nodes: flow.nodes || [],
-          edges: flow.edges || [],
-          status: newStatus
-        });
-        setAutomations(prev => prev.map(a => a.id === updated.id ? updated : a));
+        const updated = await api.updateFlowStatus(flow.id, newStatus);
+        const sanitizedUpdated = sanitizeFlowData(updated);
+        setAutomations(prev => prev.map(a => a.id === sanitizedUpdated.id ? sanitizedUpdated : a));
         if (selectedItem?.id === flow.id) {
-          setSelectedItem(updated);
+          setSelectedItem(sanitizedUpdated);
         }
         fetchFlowQuota();
+        showToast(`Flow status updated to ${newStatus}!`, "success");
       } catch (e) {
         console.error(e);
         setCustomModal({
           open: true,
           title: 'Status Update Failed',
-          message: 'Failed to update status: ' + e.message,
+          message: 'Failed to update status: ' + (e.message || 'Unknown error'),
           confirmText: 'Dismiss',
           isConfirm: false,
           confirmColor: 'bg-[#814AC8] hover:bg-[#723bb3]',
@@ -1121,14 +1132,18 @@ export default function AutomationCanvas() {
                   onChange={(e) => setTempName(e.target.value)}
                   onBlur={() => {
                     if (tempName.trim()) {
-                      setSelectedItem(prev => ({ ...prev, name: tempName.trim() }));
+                      const updatedName = tempName.trim();
+                      setSelectedItem(prev => ({ ...prev, name: updatedName }));
+                      setAutomations(prev => prev.map(a => a.id === selectedItem?.id ? { ...a, name: updatedName } : a));
                     }
                     setIsEditingName(false);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       if (tempName.trim()) {
-                        setSelectedItem(prev => ({ ...prev, name: tempName.trim() }));
+                        const updatedName = tempName.trim();
+                        setSelectedItem(prev => ({ ...prev, name: updatedName }));
+                        setAutomations(prev => prev.map(a => a.id === selectedItem?.id ? { ...a, name: updatedName } : a));
                       }
                       setIsEditingName(false);
                     } else if (e.key === 'Escape') {

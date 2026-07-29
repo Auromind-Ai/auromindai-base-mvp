@@ -100,6 +100,9 @@ class IntentPrototypeManager:
         self._initialized = True
 
     def check_intent(self, message_embedding: np.ndarray, category: str, threshold: float = 75.0) -> tuple[bool, str, float]:
+        if message_embedding is None:
+            return False, "", 0.0
+            
         if not self._initialized:
             self.initialize()
             
@@ -156,8 +159,9 @@ def detect_intent_signals(message: str) -> dict[str, Any]:
     # Check semantics using embedding if any of the intents aren't matched by regex
     message_embedding = None
     if not pricing_intent or not payment_intent or not budget_acceptance:
-        generator = get_embedding_generator()
-        message_embedding = generator.generate_query_embedding(text_lower)
+        if word_count >= 3:
+            generator = get_embedding_generator()
+            message_embedding = generator.generate_query_embedding(text_lower)
 
     if not pricing_intent:
         pricing_intent, pricing_match_ex, pricing_score = _intent_manager.check_intent(message_embedding, "pricing")

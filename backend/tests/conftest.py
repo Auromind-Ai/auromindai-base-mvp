@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 # Set default test environment variables
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 os.environ.setdefault("SECRET_KEY", "testsecret_12345678901234567890")
-os.environ.setdefault("ENCRYPTION_KEY", "12345678901234567890123456789012")
+os.environ.setdefault("ENCRYPTION_KEY", "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=")
 os.environ.setdefault("ENVIRONMENT", "testing")
 
 # Add backend directory to sys.path
@@ -116,12 +116,21 @@ def test_app(redis_mock, mock_config, mock_db_session):
     async def upload_endpoint():
         return {"status": "success"}
 
+    @app.get("/health")
+    async def health_endpoint():
+        return {"status": "ok", "database": "connected"}
+
     @app.get("/brain/chat")
     async def brain_endpoint():
         return {"status": "success"}
 
     app.include_router(auth.router, prefix="/auth")
     return app
+
+
+@pytest.fixture
+def db(mock_db_session):
+    return mock_db_session
 
 
 @pytest.fixture

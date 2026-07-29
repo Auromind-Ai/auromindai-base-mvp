@@ -115,7 +115,9 @@ class EntitlementService:
             usage = db.query(AutomationFlow).filter(
                 AutomationFlow.workspace_id == workspace_id
             ).count()
-            plan_limit = getattr(entitlement, "max_flows", None) or getattr(entitlement, "flow", 5)
+            plan_limit = getattr(entitlement, "flow", None)
+            if plan_limit is None or plan_limit == 0:
+                plan_limit = getattr(entitlement, "automation_limit", None) or 5
             if plan_limit == -1:
                 limit = -1
             else:

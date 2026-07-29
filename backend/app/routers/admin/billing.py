@@ -28,6 +28,7 @@ from app.services.billing import BillingService
 from jose import jwt
 from app.core.config import settings
 from app.core.admin_security import verify_admin_workspace
+from decimal import Decimal
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ class AdjustCreditsRequest(BaseModel):
 
 
 class AdjustWalletRequest(BaseModel):
-    amount: float
+    amount: Decimal
     reason: str
 
 
@@ -602,12 +603,13 @@ async def adjust_wallet(
         
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws_uuid).first()
     if not wallet:
-        wallet = WCCWallet(workspace_id=ws_uuid, balance=0.0)
+        wallet = WCCWallet(workspace_id=ws_uuid, balance=Decimal("0.00"))
         db.add(wallet)
         db.flush()
         
     old_bal = float(wallet.balance)
-    wallet.balance += payload.amount
+    adjustment_decimal = Decimal(str(payload.amount))
+    wallet.balance += adjustment_decimal
     db.commit()
     
     new_bal = float(wallet.balance)
@@ -615,7 +617,7 @@ async def adjust_wallet(
     if payload.amount >= 0:
         log_entry = WCCRechargeLog(
             workspace_id=ws_uuid,
-            amount=payload.amount,
+            amount=adjustment_decimal,
             currency="INR",
             gateway_order_id=f"admin_adjust_{uuid.uuid4()}",
             gateway_payment_id=f"admin_adjust_{uuid.uuid4()}",
@@ -629,8 +631,8 @@ async def adjust_wallet(
             category="service",
             status="success",
             message_count=1,
-            debit_amount=abs(payload.amount),
-            rate_applied=0.0
+            debit_amount=abs(adjustment_decimal),
+            rate_applied=Decimal("0.00")
         )
         db.add(log_entry)
         
@@ -642,7 +644,7 @@ async def adjust_wallet(
         action="WALLET_ADJUSTED",
         workspace_id=ws_uuid,
         old_value={"balance": old_bal},
-        new_value={"balance": new_bal, "adjustment": payload.amount},
+        new_value={"balance": new_bal, "adjustment": float(payload.amount)},
         reason=payload.reason,
         request=request
     )
@@ -680,10 +682,30 @@ async def override_subscription(
         sub.status = SubscriptionStatus.cancelled
         sub.canceled_at = datetime.now(timezone.utc)
         
+    req_status = (payload.status or "active").strip().lower()
+    if req_status == "active":
+        sub_status = SubscriptionStatus.active
+        pay_status = PaymentStatus.paid
+    elif req_status == "pending":
+        sub_status = SubscriptionStatus.pending
+        pay_status = PaymentStatus.pending
+    elif req_status in {"cancelled", "canceled"}:
+        sub_status = SubscriptionStatus.cancelled
+        pay_status = PaymentStatus.failed
+    elif req_status == "expired":
+        sub_status = SubscriptionStatus.expired
+        pay_status = PaymentStatus.failed
+    elif req_status in {"past_due", "pastdue"}:
+        sub_status = SubscriptionStatus.past_due
+        pay_status = PaymentStatus.pending
+    else:
+        sub_status = SubscriptionStatus.active
+        pay_status = PaymentStatus.paid
+
     new_sub = Subscription(
         workspace_id=ws_uuid,
         plan_id=plan.id,
-        status=SubscriptionStatus.active if payload.status == "active" else SubscriptionStatus.pending,
+        status=sub_status,
         billing_cycle="monthly",
         is_admin_override=True,
         start_date=datetime.now(timezone.utc),
@@ -699,7 +721,7 @@ async def override_subscription(
         subscription_id=new_sub.id,
         amount=plan.price,
         currency=plan.currency,
-        status=PaymentStatus.paid,
+        status=pay_status,
         provider="manual",
         provider_payment_id=f"manual_override_{uuid.uuid4()}",
         provider_order_id=f"manual_override_{uuid.uuid4()}",
@@ -707,7 +729,8 @@ async def override_subscription(
     db.add(payment)
     db.flush()
     
-    EntitlementOrchestrator.renew_subscription(db, ws_uuid, payment)
+    if sub_status == SubscriptionStatus.active:
+        EntitlementOrchestrator.renew_subscription(db, ws_uuid, payment)
     db.commit()
     
     log_audit(
@@ -777,9 +800,9 @@ async def reset_wallet(
     old_bal = float(wallet.balance) if wallet else 0.0
     
     if wallet:
-        wallet.balance = 0.0
+        wallet.balance = Decimal("0.00")
     else:
-        wallet = WCCWallet(workspace_id=ws_uuid, balance=0.0)
+        wallet = WCCWallet(workspace_id=ws_uuid, balance=Decimal("0.00"))
         db.add(wallet)
         
     db.commit()
@@ -966,9 +989,9 @@ async def recalculate_balances_op(
 ):
     wallets = db.query(WCCWallet).all()
     for w in wallets:
-        recharges_sum = db.query(func.sum(WCCRechargeLog.amount)).filter(WCCRechargeLog.workspace_id == w.workspace_id, WCCRechargeLog.status == "success").scalar() or 0.0
-        debits_sum = db.query(func.sum(WCCTransaction.debit_amount)).filter(WCCTransaction.workspace_id == w.workspace_id, WCCTransaction.status == "success").scalar() or 0.0
-        w.balance = recharges_sum - debits_sum
+        recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(WCCRechargeLog.workspace_id == w.workspace_id, WCCRechargeLog.status == "success").scalar()
+        debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(WCCRechargeLog.workspace_id == w.workspace_id, WCCTransaction.status == "success").scalar()
+        w.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
     db.commit()
     
     log_audit(
@@ -1228,17 +1251,17 @@ async def recalculate_wallet_op(
         
     old_bal = float(wallet.balance)
     
-    recharges_sum = db.query(func.sum(WCCRechargeLog.amount)).filter(
+    recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(
         WCCRechargeLog.workspace_id == ws_uuid,
         WCCRechargeLog.status == "success"
-    ).scalar() or 0.0
+    ).scalar()
     
-    debits_sum = db.query(func.sum(WCCTransaction.debit_amount)).filter(
+    debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(
         WCCTransaction.workspace_id == ws_uuid,
         WCCTransaction.status == "success"
-    ).scalar() or 0.0
+    ).scalar()
     
-    wallet.balance = recharges_sum - debits_sum
+    wallet.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
     db.commit()
     new_bal = float(wallet.balance)
     
@@ -1455,16 +1478,18 @@ async def get_billing_diagnostics(db: Session = Depends(get_db)):
     wallet_ledger_mismatch = []
     wallets = db.query(WCCWallet).all()
     for w in wallets:
-        recharges_sum = db.query(func.sum(WCCRechargeLog.amount)).filter(
+        recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(
             WCCRechargeLog.workspace_id == w.workspace_id,
             WCCRechargeLog.status == "success"
-        ).scalar() or Decimal("0.00")
+        ).scalar()
         
-        debits_sum = db.query(func.sum(WCCTransaction.debit_amount)).filter(
+        debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(
             WCCTransaction.workspace_id == w.workspace_id,
             WCCTransaction.status == "success"
-        ).scalar() or Decimal("0.00")
+        ).scalar()
         
+        recharges_sum = Decimal(str(recharges_raw or "0.00"))
+        debits_sum = Decimal(str(debits_raw or "0.00"))
         expected_balance = recharges_sum - debits_sum
         if abs(w.balance - expected_balance) > Decimal("0.01"):
             ws = db.query(Workspace).filter(Workspace.id == w.workspace_id).first()
@@ -1646,17 +1671,17 @@ async def repair_billing_op(
             wallet = WCCService.get_balance(db, workspace_id)
         old_val = {"balance": float(wallet.balance)}
         
-        recharges_sum = db.query(func.sum(WCCRechargeLog.amount)).filter(
+        recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(
             WCCRechargeLog.workspace_id == workspace_id,
             WCCRechargeLog.status == "success"
-        ).scalar() or Decimal("0.00")
+        ).scalar()
         
-        debits_sum = db.query(func.sum(WCCTransaction.debit_amount)).filter(
+        debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(
             WCCTransaction.workspace_id == workspace_id,
             WCCTransaction.status == "success"
-        ).scalar() or Decimal("0.00")
+        ).scalar()
         
-        wallet.balance = recharges_sum - debits_sum
+        wallet.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
         db.commit()
         
         new_val = {"balance": float(wallet.balance)}
@@ -1691,6 +1716,71 @@ async def repair_billing_op(
         repaired_details = {"payment_id": payment_id_str, "status": "pending"}
         log_audit(db, admin_user, "PAYMENT_RETRY_TRIGGERED", payment.workspace_id, {"status": old_status}, {"status": "pending"}, "One-click diagnostics repair", request)
         
+    elif issue_type == "retry_recharge":
+        recharge_log_id_str = metadata.get("recharge_log_id")
+        if not recharge_log_id_str:
+            raise HTTPException(status_code=400, detail="recharge_log_id metadata required")
+        try:
+            recharge_log_id = uuid.UUID(recharge_log_id_str)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid recharge_log_id UUID format")
+        recharge = db.query(WCCRechargeLog).filter(WCCRechargeLog.id == recharge_log_id).first()
+        if not recharge:
+            raise HTTPException(status_code=404, detail="Recharge log not found")
+        if recharge.status != "success":
+            recharge.status = "success"
+            wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == recharge.workspace_id).first()
+            if not wallet:
+                wallet = WCCService.get_balance(db, recharge.workspace_id)
+            old_bal = float(wallet.balance)
+            wallet.balance += recharge.amount
+            db.commit()
+            new_bal = float(wallet.balance)
+            repaired_details = {"recharge_id": recharge_log_id_str, "new_balance": new_bal}
+            log_audit(db, admin_user, "RECHARGE_RETRY_SUCCESS", recharge.workspace_id, {"balance": old_bal, "status": "pending"}, {"balance": new_bal, "status": "success"}, "One-click diagnostics repair", request)
+        else:
+            repaired_details = {"message": "Recharge already marked as success"}
+
+    elif issue_type == "retry_credit_purchase":
+        payment_id_str = metadata.get("payment_id")
+        if not payment_id_str:
+            raise HTTPException(status_code=400, detail="payment_id metadata required")
+        try:
+            payment_id = uuid.UUID(payment_id_str)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid payment_id UUID format")
+        payment = db.query(Payment).filter(Payment.id == payment_id).first()
+        if not payment:
+            raise HTTPException(status_code=404, detail="Payment record not found")
+        if payment.status != PaymentStatus.paid:
+            pack_id = "credits_custom"
+            credits = 100.0
+            if payment.raw_payload:
+                notes = payment.raw_payload.get("notes", {})
+                pack_id = notes.get("pack_id", pack_id)
+            pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id).first()
+            if pack:
+                credits = float(pack.credits)
+            old_status = payment.status.value
+            payment.status = PaymentStatus.paid
+            db.commit()
+
+            credit_service = BillingService().token_service
+            credit_service.grant_purchased_credits(
+                db=db,
+                workspace_id=str(payment.workspace_id),
+                credits=credits,
+                payment_id=str(payment.id),
+                gateway_order_id=payment.provider_order_id or "manual",
+                description=f"Admin Manual Repair Credit Pack: {pack.name if pack else pack_id}"
+            )
+            db.commit()
+            new_bal = float(credit_service.get_token_balance(db, str(payment.workspace_id)).balance)
+            repaired_details = {"payment_id": payment_id_str, "new_balance": new_bal}
+            log_audit(db, admin_user, "CREDIT_PURCHASE_RETRY_SUCCESS", payment.workspace_id, {"status": old_status}, {"status": "paid", "balance": new_bal}, "One-click diagnostics repair", request)
+        else:
+            repaired_details = {"message": "Payment already paid"}
+
     elif issue_type == "duplicate_ledger":
         ref_key = metadata.get("reference_key")
         if not ref_key:
@@ -1706,6 +1796,7 @@ async def repair_billing_op(
             db.commit()
             repaired_details = {"deleted_ids": deleted_ids}
             log_audit(db, admin_user, "REPAIR_DUPLICATE_LEDGER", None, {"count": len(entries)}, {"count": 1}, f"Deleted duplicate entries for {ref_key}", request)
+
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported issue_type: {issue_type}")
         
@@ -1850,17 +1941,17 @@ async def manual_provision_op(
                 db.commit()
                 
         # Recalculate balances
-        recharges_sum = db.query(func.sum(WCCRechargeLog.amount)).filter(
+        recharges_raw = db.query(func.sum(WCCRechargeLog.amount)).filter(
             WCCRechargeLog.workspace_id == ws_id,
             WCCRechargeLog.status == "success"
-        ).scalar() or Decimal("0.00")
+        ).scalar()
         
-        debits_sum = db.query(func.sum(WCCTransaction.debit_amount)).filter(
+        debits_raw = db.query(func.sum(WCCTransaction.debit_amount)).filter(
             WCCTransaction.workspace_id == ws_id,
             WCCTransaction.status == "success"
-        ).scalar() or Decimal("0.00")
+        ).scalar()
         
-        wallet.balance = recharges_sum - debits_sum
+        wallet.balance = Decimal(str(recharges_raw or "0.00")) - Decimal(str(debits_raw or "0.00"))
         db.commit()
         
         repaired_details = {"repaired_workspace_billing": True, "new_balance": float(wallet.balance)}

@@ -27,3 +27,11 @@ env.txt
 backend/.env
 
 hf_cache/
+
+# Databases & Runtime State
+*.db
+*.sqlite
+*.sqlite3
+celerybeat-schedule
+token_usage.txt
+bandit_report.json

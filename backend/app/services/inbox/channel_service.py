@@ -309,15 +309,27 @@ class ChannelService:
                 components=components
             )
         else:
-            rendered_body = body
-            if metadata.get("buttons"):
-                rendered_body = ChannelService._render_button_text(body, metadata.get("buttons") or [])
-            if metadata.get("media_url"):
-                logger.warning(
-                    "Meta WhatsApp media dispatch is not implemented in ChannelService yet; sending text fallback"
+            buttons = metadata.get("buttons")
+            media_url = metadata.get("media_url")
+            message_type = metadata.get("message_type") or "image"
+
+            if buttons:
+                message_id = service.send_interactive_buttons(
+                    to_number,
+                    text=body,
+                    buttons=buttons,
+                    media_url=media_url,
+                    media_type=message_type if media_url else None
                 )
-                rendered_body = rendered_body or "Media received"
-            message_id = service.send_text_message(to_number, rendered_body)
+            elif media_url:
+                message_id = service.send_media_message(
+                    to=to_number,
+                    media_url=media_url,
+                    media_type=message_type,
+                    caption=body
+                )
+            else:
+                message_id = service.send_text_message(to_number, body)
 
         if not message_id:
             raise RuntimeError("Meta WhatsApp send failed")

@@ -74,7 +74,7 @@ class GuardrailsService:
             self.logger.warning("Validation failed: empty query")
             return False
 
-        if len(query) > 2000:
+        if len(query) > 96000:
             self.logger.warning("Validation failed: query too long")
             return False
 

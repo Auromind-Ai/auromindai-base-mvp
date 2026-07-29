@@ -259,6 +259,7 @@ def upgrade() -> None:
     sa.Column('twilio_account_sid', sa.Text(), nullable=True),
     sa.Column('twilio_auth_token', sa.Text(), nullable=True),
     sa.Column('twilio_phone_number', sa.String(length=50), nullable=True),
+    sa.Column('twilio_messaging_service_sid', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['billing_owner_id'], ['users.id'], ondelete='SET NULL'),

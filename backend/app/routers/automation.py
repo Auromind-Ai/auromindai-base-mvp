@@ -105,8 +105,13 @@ async def save_flow(
 
     if request.id:
         # Update existing flow
+        try:
+            flow_uuid = uuid.UUID(request.id) if isinstance(request.id, str) else request.id
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid flow UUID format")
+
         flow = db.query(AutomationFlow).filter(
-            AutomationFlow.id == request.id,
+            AutomationFlow.id == flow_uuid,
             AutomationFlow.workspace_id == workspace_id 
         ).first()
         
@@ -128,7 +133,9 @@ async def save_flow(
     
     # Create new flow
     entitlement = EntitlementService.get_workspace_entitlement(db, workspace_id)
-    plan_limit = entitlement.flow if hasattr(entitlement, "flow") else 5
+    plan_limit = getattr(entitlement, "flow", None)
+    if plan_limit is None or plan_limit == 0:
+        plan_limit = getattr(entitlement, "automation_limit", None) or 5
     
     if plan_limit != -1:
         current_flows = db.query(AutomationFlow).filter(

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Plus, Sparkles, Layers, MousePointer2, Trash2, CheckCircle2, X
+  Search, Plus, Sparkles, Layers, MousePointer2, Trash2, CheckCircle2, X, Pencil
 } from 'lucide-react';
 import { getUser, getWorkspaceIdFromToken } from '@/lib/auth';
 import api from '@/lib/api';
@@ -33,9 +33,9 @@ export default function DashboardView({
   const handleCreateFlowClick = () => {
     const isUnlimited = flowQuota?.total === -1;
     const limit = isUnlimited ? Infinity : (flowQuota?.total ?? 5);
-    const existingFlowsCount = automations.length;
+    const activeFlowsCount = automations.filter(a => a.status === 'Active').length;
 
-    if (existingFlowsCount >= limit) {
+    if (activeFlowsCount >= limit) {
       setReachedLimitWarning(true);
       setIsPurchaseFlowModalOpen(true);
     } else {
@@ -154,12 +154,13 @@ export default function DashboardView({
     }
   };
 
+  const usedFlows = automations.length;
   const usedActive = automations.filter(a => a.status === 'Active').length;
   const planBase = flowQuota?.plan_base || 5;
   const purchasedFlows = flowQuota?.purchased || 0;
   const isUnlimited = flowQuota?.total === -1;
   const totalLimit = isUnlimited ? '∞' : (flowQuota?.total || 5);
-  const percentage = isUnlimited ? 100 : Math.round((usedActive / (flowQuota?.total || 5)) * 100);
+  const percentage = isUnlimited ? 100 : Math.round((usedFlows / (flowQuota?.total || 5)) * 100);
   const filteredAutomations = automations.filter(flow =>
     (flow.name || '').toLowerCase().includes(search.toLowerCase())
   );
@@ -182,7 +183,7 @@ export default function DashboardView({
           <div className="bg-[#13131a]/60 border border-white/[0.06] rounded-2xl p-6 shadow-xl backdrop-blur-md flex flex-col justify-between min-h-[200px] relative overflow-hidden group">
             <div className="absolute -right-16 -top-16 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
             <div className="relative z-10 w-full">
-              <h3 className="text-sm font-bold text-white mb-4">Active Flows</h3>
+              <h3 className="text-sm font-bold text-white mb-4">Flow Quota Usage</h3>
               
               {/* Circular Progress Indicator */}
               <div className="flex items-center gap-6">
@@ -212,14 +213,14 @@ export default function DashboardView({
                 
                 <div className="space-y-1">
                   <div className="text-2xl font-black text-white tracking-tight leading-none">
-                    {usedActive} <span className="text-xs font-bold text-white/40">/ {totalLimit}</span>
+                    {usedFlows} <span className="text-xs font-bold text-white/40">/ {totalLimit}</span>
                   </div>
-                  <div className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Flows Active</div>
+                  <div className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Flows Created ({usedActive} Active)</div>
                 </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/50 font-medium">
-                <span>Plan: {planBase} | Purchased: +{purchasedFlows} | Total: {totalLimit}</span>
+                <span>Plan: {planBase} | Purchased: +{purchasedFlows} | Total Quota: {totalLimit}</span>
                 <span>•</span>
                 <span>AI Enabled: {automations.filter(a => a.nodes?.some(n => n.type === 'action' && n.config?.type === 'brain_query')).length}</span>
               </div>
@@ -321,10 +322,10 @@ export default function DashboardView({
                           </button>
                           <button
                             onClick={() => handleSelectAutomation(flow)}
-                            title="Open Wire Editor"
-                            className="p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-white transition-all duration-300 rounded-lg hover:bg-white/5"
+                            title="Edit Flow"
+                            className="p-2 text-zinc-400 opacity-60 hover:opacity-100 hover:text-purple-400 transition-all duration-300 rounded-lg hover:bg-white/5"
                           >
-                            <MousePointer2 size={14} />
+                            <Pencil size={14} />
                           </button>
                           <button
                             onClick={() => handleDeleteFlow(flow.id)}

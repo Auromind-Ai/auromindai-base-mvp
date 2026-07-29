@@ -2,11 +2,18 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
+import { Poppins } from 'next/font/google';
 import { Instagram, Mail, Search,
          ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap, ExternalLink,
          MessageSquare, Phone, RefreshCw, Cpu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+
+const poppins = Poppins({
+    subsets: ['latin'],
+    weight: ['300', '400', '500', '600', '700', '800'],
+    variable: '--font-poppins',
+});
 
 const showToast = (message) => {
     if (typeof window === 'undefined') return;
@@ -78,6 +85,7 @@ const CHANNELS_DATA = [
     id: 'whatsapp',
     name: 'WhatsApp Business',
     subHeader: 'Meta Cloud API',
+    subHeaderBelow: true,
     badgeColor: 'bg-green-500/20 text-green-400 border border-green-500/30',
     description: 'Connect your whatsApp business number to automate replies and manage conversations.',
     iconBg: 'from-green-400 to-green-600',
@@ -90,6 +98,7 @@ const CHANNELS_DATA = [
     categoryDot: 'bg-green-500',
     connectBtnClass: 'text-white',
     connectBtnStyle: { background: '#140D1F', border: '0.2px solid #49E967', boxShadow: '0 0 12px -5px #49E967' },
+    hoverGlow: '0 0 25px rgba(73,233,103,0.55), 0 4px 18px rgba(0,0,0,0.5)',
     icon: WhatsAppIcon,
     type: 'channel',
     category: 'messaging',
@@ -111,6 +120,7 @@ const CHANNELS_DATA = [
     categoryDot: 'bg-pink-500',
     connectBtnClass: 'text-white',
     connectBtnStyle: { background: '#140D1F', border: '0.2px solid #C7368D', boxShadow: '0 0 12px -5px #C7368D' },
+    hoverGlow: '0 0 25px rgba(199,54,141,0.55), 0 4px 18px rgba(0,0,0,0.5)',
     icon: Instagram,
     type: 'channel',
     category: 'social media',
@@ -131,7 +141,8 @@ const CHANNELS_DATA = [
     categoryLabel: 'SMS & WhatsApp',
     categoryDot: 'bg-red-500',
     connectBtnClass: 'text-white',
-    connectBtnStyle: { background: '#140D1F', border: '0.2px solid #CE272D', boxShadow: '0 0 12px -5px #C7368D' },
+    connectBtnStyle: { background: '#140D1F', border: '0.2px solid #CE272D', boxShadow: '0 0 12px -5px #CE272D' },
+    hoverGlow: '0 0 25px rgba(206,39,45,0.55), 0 4px 18px rgba(0,0,0,0.5)',
     icon: TwilioIcon,
     type: 'channel',
     category: 'sms',
@@ -177,7 +188,7 @@ const INTEGRATIONS_DATA = [
         id: 'gmail',
         name: 'Gmail',
         subHeader: 'Google',
-        subHeaderBelow: false,
+        subHeaderBelow: true,
         badgeColor: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
         description: 'Connect your Gmail account to manage outreach, draft replies, and monitor inboxes.',
         iconBg: 'from-red-400 via-yellow-400 to-green-400',
@@ -187,6 +198,7 @@ const INTEGRATIONS_DATA = [
         categoryDot: 'bg-yellow-500',
         connectBtnClass: 'text-white',
         connectBtnStyle: { background: '#140D1F', border: '0.2px solid #FBBC05', boxShadow: '0 0 12px -5px #FBBC05' },
+        hoverGlow: '0 0 25px rgba(251,188,5,0.55), 0 4px 18px rgba(0,0,0,0.5)',
         icon: GmailIcon,
         type: 'integration',
         category: 'email',
@@ -195,7 +207,7 @@ const INTEGRATIONS_DATA = [
         id: 'google_calendar',
         name: 'Google Calendar',
         subHeader: 'Google',
-        subHeaderBelow: false,
+        subHeaderBelow: true,
         badgeColor: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
         description: 'Sync availability, coordinate meetings, and book appointments automatically in Google Calendar.',
         iconBg: 'from-blue-400 to-blue-600',
@@ -205,6 +217,7 @@ const INTEGRATIONS_DATA = [
         categoryDot: 'bg-blue-500',
         connectBtnClass: 'text-white',
         connectBtnStyle: { background: '#140D1F', border: '0.2px solid #1A73E8', boxShadow: '0 0 12px -5px #1A73E8' },
+        hoverGlow: '0 0 25px rgba(26,115,232,0.55), 0 4px 18px rgba(0,0,0,0.5)',
         icon: GoogleCalendarIcon,
         type: 'integration',
         category: 'calendar',
@@ -660,25 +673,6 @@ function TwilioOnboardingModal({
                                     />
                                     <p className="text-[10px] text-white/45 mt-1.5">Use a WhatsApp-enabled number</p>
                                 </div>
-
-                                <div>
-                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
-                                        Messaging Service SID (Optional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                        value={twilioForm.messagingServiceSid}
-                                        onChange={e => setTwilioForm(prev => ({ ...prev, messagingServiceSid: e.target.value }))}
-                                        className="w-full rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
-                                        style={{
-                                            background: 'rgba(255,255,255,0.03)',
-                                            border: '1px solid rgba(255,255,255,0.09)',
-                                        }}
-                                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(242,47,70,0.06)'; }}
-                                        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; e.currentTarget.style.boxShadow = 'none'; }}
-                                    />
-                                </div>
                             </div>
                             {/* ─── END EXISTING FORM FIELDS ─── */}
 
@@ -812,7 +806,7 @@ export default function ChannelsPage() {
             }));
             if (data.gmail?.email) setConnectedInfo(prev => ({ ...prev, gmail: data.gmail.email }));
             if (data.calendar?.email) setConnectedInfo(prev => ({ ...prev, google_calendar: data.calendar.email }));
-            
+           
             // Sync WhatsApp Status and Info
             if (data.whatsapp?.connected) {
                 setConnectedInfo(prev => ({ ...prev, whatsapp: data.whatsapp.phone || "Connected" }));
@@ -889,7 +883,7 @@ export default function ChannelsPage() {
     const [twilioStep, setTwilioStep] = useState(null);
     // ────────────────────────────────────────────────────────────────────────
 
-    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '', messagingServiceSid: '' });
+    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '' });
     const [showAuthToken, setShowAuthToken] = useState(false);
     const [twilioSubmitting, setTwilioSubmitting] = useState(false);
     const [connectedInfo, setConnectedInfo] = useState({});
@@ -1111,60 +1105,35 @@ const disconnectChannel = async (channelId) => {
 
     // ── submitTwilio — EXISTING FUNCTION, NOT MODIFIED ──────────────────────
     const submitTwilio = async () => {
-        const { sid, token, phone, messagingServiceSid } = twilioForm;
-        
-        const cleanSid = sid.trim();
-        const cleanToken = token.trim();
-        const cleanPhone = phone.trim();
-        const cleanMessagingServiceSid = messagingServiceSid ? messagingServiceSid.trim() : "";
-
-        if (!cleanSid) {
+        const { sid, token, phone } = twilioForm;
+       
+        if (!sid.trim()) {
             showToast("⚠️ Twilio Account SID is required");
             return;
         }
-        if (!/^AC[a-zA-Z0-9]{32}$/.test(cleanSid)) {
-            showToast("⚠️ Twilio Account SID must start with 'AC' followed by 32 alphanumeric characters");
-            return;
-        }
-
-        if (!cleanToken) {
+        if (!token.trim()) {
             showToast("⚠️ Twilio Auth Token is required");
             return;
         }
-        if (!/^[a-zA-Z0-9]{32}$/.test(cleanToken)) {
-            showToast("⚠️ Twilio Auth Token must be a 32-character alphanumeric string");
-            return;
-        }
-
-        if (!cleanPhone) {
+        if (!phone.trim()) {
             showToast("⚠️ Twilio Phone Number is required");
-            return;
-        }
-        if (!/^\+[1-9]\d{6,14}$/.test(cleanPhone)) {
-            showToast("⚠️ Phone number must follow Twilio's E.164 format, starting with '+' followed by 7 to 15 digits (e.g., +14155552671)");
-            return;
-        }
-
-        if (cleanMessagingServiceSid && !/^MG[a-zA-Z0-9]{32}$/.test(cleanMessagingServiceSid)) {
-            showToast("⚠️ Messaging Service SID must start with 'MG' followed by 32 alphanumeric characters");
             return;
         }
 
         setTwilioSubmitting(true);
         try {
-            const data = await api.connectTwilio({ 
-                sid: cleanSid, 
-                token: cleanToken, 
-                phone: cleanPhone, 
-                workspace_id: workspace?.id,
-                messaging_service_sid: cleanMessagingServiceSid || null
+            const data = await api.connectTwilio({
+                sid: sid.trim(),
+                token: token.trim(),
+                phone: phone.trim(),
+                workspace_id: workspace?.id
             });
 
             if (data.status === 'connected') {
                 setStatuses(prev => ({ ...prev, twilio: true }));
-                setConnectedInfo(prev => ({ ...prev, twilio: cleanPhone }));
+                setConnectedInfo(prev => ({ ...prev, twilio: phone.trim() }));
                 localStorage.setItem("twilio_connected", "true");
-                localStorage.setItem("twilio_phone", cleanPhone);
+                localStorage.setItem("twilio_phone", phone.trim());
                 setShowTwilioModal(false);
                 showToast("✅ Twilio configuration saved successfully");
             } else {
@@ -1206,7 +1175,7 @@ const disconnectChannel = async (channelId) => {
     };
 
     return (
-        <div className="min-h-screen bg-black text-white font-sans">
+        <div className={`min-h-screen bg-black text-white ${poppins.className}`}>
             <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
 
                 {/*  Header  */}
@@ -1216,7 +1185,7 @@ const disconnectChannel = async (channelId) => {
                         <p className="text-white/70 text-[15px] max-w-md leading-relaxed mb-4">
                             Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
                         </p>
-                    </div>                                   
+                    </div>                                  
 
                     <div className="hidden md:flex items-center justify-center flex-shrink-0 pointer-events-none select-none">
                         <Image
@@ -1419,15 +1388,15 @@ const disconnectChannel = async (channelId) => {
                                             onMouseEnter={() => setHoveredBtn(item.id)}
                                             onMouseLeave={() => setHoveredBtn(null)}
                                             onClick={() => disconnectIntegration(item.id)}
-                                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
+                                            className="group/disc flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300"
                                             title="Click to disconnect">
                                             {hoveredBtn === item.id ? (
                                                 <>
-                                                    <X size={14} /> Disconnect
+                                                    <X size={14} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Check size={14} /> Connected
+                                                    <Check size={14} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
                                                 </>
                                             )}
                                         </button>
@@ -1435,8 +1404,21 @@ const disconnectChannel = async (channelId) => {
                                         <button
                                             onClick={() => handleConnect(item.id)}
                                             disabled={isConnecting || !workspace}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed`}
-                                            style={item.connectBtnStyle}>
+                                            className={`group/btn relative overflow-hidden flex items-center gap-2 px-4.5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none`}
+                                            style={item.connectBtnStyle}
+                                            onMouseEnter={(e) => {
+                                                if (!isConnecting && workspace && item.hoverGlow) {
+                                                    e.currentTarget.style.boxShadow = item.hoverGlow;
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isConnecting && workspace && item.connectBtnStyle?.boxShadow) {
+                                                    e.currentTarget.style.boxShadow = item.connectBtnStyle.boxShadow;
+                                                }
+                                            }}>
+                                            {/* Shimmer sweep */}
+                                            <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+
                                             {isConnecting ? (
                                                 <>
                                                     <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -1444,8 +1426,8 @@ const disconnectChannel = async (channelId) => {
                                                 </>
                                             ) : (
                                                 <>
-                                                    Connect
-                                                    <ChevronRight size={14} />
+                                                    <span className="relative z-10">Connect</span>
+                                                    <ChevronRight size={14} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
                                                 </>
                                             )}
                                         </button>
@@ -1487,12 +1469,21 @@ const disconnectChannel = async (channelId) => {
                                                 <Icon />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center flex-wrap gap-2 mb-1.5">
-                                                    <h3 className="text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
-                                                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
-                                                        {item.subHeader}
-                                                    </span>
-                                                </div>
+                                                {item.subHeaderBelow ? (
+                                                    <div className="mb-1.5">
+                                                        <h3 className="text-[17px] font-semibold text-white leading-tight mb-1">{item.name}</h3>
+                                                        <span className={`inline-block text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                            {item.subHeader}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center flex-wrap gap-2 mb-1.5">
+                                                        <h3 className="text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
+                                                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                            {item.subHeader}
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 <p className="text-white/60 text-[12px] leading-relaxed">{item.description}</p>
                                                 {isConnected && info && <p className="mt-2 text-[11px] text-white/60 font-mono">{info}</p>}
                                                 {isConnecting && <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>}
@@ -1511,15 +1502,15 @@ const disconnectChannel = async (channelId) => {
                                                 onMouseEnter={() => setHoveredBtn(item.id)}
                                                 onMouseLeave={() => setHoveredBtn(null)}
                                                 onClick={() => disconnectIntegration(item.id)}
-                                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all"
+                                                className="group/disc flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300"
                                                 title="Click to disconnect">
                                                 {hoveredBtn === item.id ? (
                                                     <>
-                                                        <X size={14} /> Disconnect
+                                                        <X size={14} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <Check size={14} /> Connected
+                                                        <Check size={14} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
                                                     </>
                                                 )}
                                             </button>
@@ -1527,9 +1518,32 @@ const disconnectChannel = async (channelId) => {
                                             <button
                                                 onClick={() => handleConnect(item.id)}
                                                 disabled={isConnecting || !workspace}
-                                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all ${item.connectBtnClass} disabled:opacity-40`}
-                                                style={item.connectBtnStyle}>
-                                                {isConnecting ? <><span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />Connecting...</> : <>Connect <ChevronRight size={14} /></>}
+                                                className={`group/btn relative overflow-hidden flex items-center gap-2 px-4.5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none`}
+                                                style={item.connectBtnStyle}
+                                                onMouseEnter={(e) => {
+                                                    if (!isConnecting && workspace && item.hoverGlow) {
+                                                        e.currentTarget.style.boxShadow = item.hoverGlow;
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!isConnecting && workspace && item.connectBtnStyle?.boxShadow) {
+                                                        e.currentTarget.style.boxShadow = item.connectBtnStyle.boxShadow;
+                                                    }
+                                                }}>
+                                                {/* Shimmer sweep */}
+                                                <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+
+                                                {isConnecting ? (
+                                                    <>
+                                                        <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                        Connecting...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="relative z-10">Connect</span>
+                                                        <ChevronRight size={14} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
+                                                    </>
+                                                )}
                                             </button>
                                         )}
                                     </div>

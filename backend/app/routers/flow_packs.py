@@ -182,7 +182,9 @@ def get_quota(
             current_user, db, workspace_id, x_workspace_id
         )
         entitlement = EntitlementService.get_workspace_entitlement(db, resolved_ws_id)
-        plan_base = getattr(entitlement, "flow", 5)
+        plan_base = getattr(entitlement, "flow", None)
+        if plan_base is None or plan_base == 0:
+            plan_base = getattr(entitlement, "automation_limit", None) or 5
 
         purchased = db.query(func.sum(FlowPackPurchase.flows_count)).filter(
             FlowPackPurchase.workspace_id == uuid.UUID(resolved_ws_id),
@@ -192,8 +194,7 @@ def get_quota(
         total = -1 if plan_base == -1 else (plan_base + purchased)
 
         used = db.query(AutomationFlow).filter(
-            AutomationFlow.workspace_id == uuid.UUID(resolved_ws_id),
-            AutomationFlow.status == "Active"
+            AutomationFlow.workspace_id == uuid.UUID(resolved_ws_id)
         ).count()
 
         return {

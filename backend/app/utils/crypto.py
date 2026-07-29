@@ -5,7 +5,9 @@ def _get_fernet_key() -> bytes:
     key = settings.ENCRYPTION_KEY
 
     if not key:
-        raise RuntimeError("ENCRYPTION_KEY is required in production")
+        if getattr(settings, "ENVIRONMENT", "development").lower() == "production":
+            raise RuntimeError("ENCRYPTION_KEY is required in production")
+        return Fernet.generate_key()
 
     if isinstance(key, str):
         key = key.encode()
