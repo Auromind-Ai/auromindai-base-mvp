@@ -7,7 +7,6 @@ import {
     Trash2,
     Pin,
     Plus,
-    MoreHorizontal,
     X
 } from 'lucide-react';
 
@@ -99,7 +98,7 @@ export default function ChatSidebar({
                     >
                         <div className="flex flex-col h-full">
 
-                            {/*  Header: Chat history + close/new  */}
+                            {/* Header: Chat history + close/new */}
                             <div className="px-5 pt-5 pb-4 flex items-center justify-between flex-shrink-0">
                                 <div className="flex items-center gap-3">
                                     <button
@@ -122,7 +121,7 @@ export default function ChatSidebar({
                                 </button>
                             </div>
 
-                            {/*  Search  */}
+                            {/* Search */}
                             <div className="px-4 pb-4 flex-shrink-0">
                                 <div
                                     className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.09]"
@@ -140,10 +139,10 @@ export default function ChatSidebar({
                                 </div>
                             </div>
 
-                            {/*  Scrollable content  */}
+                            {/* Scrollable content */}
                             <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5 [scrollbar-width:none]">
 
-                                {/*  PINNED section  */}
+                                {/* PINNED section */}
                                 {pinnedSessions.length > 0 && (
                                     <div>
                                         <p className="text-[13px] font-semibold mb-3 text-gray-400">
@@ -171,10 +170,10 @@ export default function ChatSidebar({
                                     </div>
                                 )}
 
-                                {/*  RECENT section  */}
+                                {/* RECENT section */}
                                 {recentSessions.length > 0 && (
                                     <div>
-                                        <p className="text-[13px] font-semibold mb-3 text-[#e2dad7]">
+                                        <p className="text-[13px] font-medium mb-3 text-[#e2dad7]">
                                             Recent
                                         </p>
                                         {/* All recent cards in ONE container with dividers */}
@@ -296,8 +295,6 @@ function SessionCard({
     formatTime,
     standalone
 }) {
-    const [showMenu, setShowMenu] = useState(false);
-
     const cardClasses = standalone
         ? `border rounded-xl ${
             isActive
@@ -314,10 +311,9 @@ function SessionCard({
         <div
             className={`relative group/card cursor-pointer transition-all ${cardClasses}`}
             onClick={onSelect}
-            onMouseLeave={() => setShowMenu(false)}
         >
             <div className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center justify-between gap-2">
                     {isEditing ? (
                         <div className="flex items-center gap-1 w-full" onClick={e => e.stopPropagation()}>
                             <input
@@ -333,58 +329,45 @@ function SessionCard({
                             />
                         </div>
                     ) : (
-                        <p
-                            className="text-[14px] font-medium truncate flex-1 leading-snug text-white"
-                        >
-                            {session.title || 'New Chat'}
-                        </p>
+                        <>
+                            <p className="text-[14px] font-medium truncate flex-1 leading-snug text-white">
+                                {session.title || 'New Chat'}
+                            </p>
+                            <div className="flex-shrink-0 flex items-center justify-end min-h-[22px]">
+                                {/* Timestamp: visible by default, disappears on hover */}
+                                <span className="text-[11px] text-gray-500 group-hover/card:hidden">
+                                    {formatTime()}
+                                </span>
+                                {/* Edit & Delete buttons: hidden by default, shown on hover */}
+                                <div className="hidden group-hover/card:flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEdit(e);
+                                        }}
+                                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                                        title="Edit"
+                                    >
+                                        <Edit2 size={13} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDelete(e);
+                                        }}
+                                        className="p-1 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                                        title="Delete"
+                                    >
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+                            </div>
+                        </>
                     )}
-                    <span
-                        className="text-[11px] flex-shrink-0 mt-0.5 text-gray-500"
-                    >
-                        {formatTime()}
-                    </span>
                 </div>
-                <p
-                    className="text-[12px] truncate mt-0.5 leading-snug text-gray-500"
-                >
+                <p className="text-[12px] truncate mt-0.5 leading-snug text-gray-500">
                     {session.preview || session.last_message || ''}
                 </p>
-            </div>
-
-            {/* Three dots / Edit & Delete menu */}
-            <div className="absolute right-2 bottom-1.5 z-20 flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                {showMenu ? (
-                    <div className="flex items-center gap-1 bg-[#1a1a24] border border-white/10 rounded-md p-1 shadow-lg animate-in fade-in zoom-in-95 duration-100">
-                        <button
-                            onClick={(e) => {
-                                onEdit(e);
-                                setShowMenu(false);
-                            }}
-                            className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                            title="Edit"
-                        >
-                            <Edit2 size={12} />
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                onDelete(e);
-                                setShowMenu(false);
-                            }}
-                            className="p-1 rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-                            title="Delete"
-                        >
-                            <Trash2 size={12} />
-                        </button>
-                    </div>
-                ) : (
-                    <button
-                        onClick={() => setShowMenu(true)}
-                        className="p-1 rounded-md text-gray-500 hover:text-gray-300 transition-colors opacity-0 group-hover/card:opacity-100"
-                    >
-                        <MoreHorizontal size={14} />
-                    </button>
-                )}
             </div>
         </div>
     );

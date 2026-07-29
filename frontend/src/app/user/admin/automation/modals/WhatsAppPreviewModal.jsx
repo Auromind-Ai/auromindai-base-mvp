@@ -27,8 +27,8 @@ export default function WhatsAppPreviewModal({
           >
             <div className="w-full h-full border-[12px] border-[#0a0a0a] rounded-[48px] shadow-2xl bg-[#0a0a0a] relative">
               <div className="flex flex-col h-full overflow-hidden rounded-[36px] bg-[#0b141a] relative">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[30px] bg-black rounded-b-3xl z-50"></div>
-                <div className="flex items-center justify-between gap-4 bg-[#202c33] px-4 py-3 h-16 z-40 relative">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[26px] bg-black rounded-b-2xl z-50 pointer-events-none"></div>
+                <div className="flex items-center justify-between gap-4 bg-[#202c33] px-4 pt-8 pb-3 z-40 relative">
                   <div className="flex items-center gap-3">
                     <button className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">

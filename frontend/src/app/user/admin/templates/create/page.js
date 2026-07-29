@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Poppins } from 'next/font/google';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import UpgradeModal from '@/components/UpgradeModal';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+});
 
 //  Icons (inline SVG to avoid extra deps) 
 const Icon = ({ d, size = 16, className = '' }) => (
@@ -68,61 +75,40 @@ const Input = ({ label, hint, placeholder, value, onChange, className = '' }) =>
   </div>
 );
 
-//  Phone Preview Component (extracted to avoid deep nesting in return) 
+// ── Phone Preview Component (extracted to avoid deep nesting in return) ──
 function PhonePreview({ form, actionMode }) {
-  const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' opacity='0.06'%3E%3Ctext x='5' y='20' font-size='14' fill='white'%3E%F0%9F%98%8A%3C/text%3E%3Ctext x='40' y='15' font-size='12' fill='white'%3E%F0%9F%93%B7%3C/text%3E%3Ctext x='60' y='35' font-size='11' fill='white'%3E%F0%9F%8E%B5%3C/text%3E%3Ctext x='10' y='50' font-size='11' fill='white'%3E%E2%9D%A4%EF%B8%8F%3C/text%3E%3Ctext x='45' y='55' font-size='13' fill='white'%3E%F0%9F%8C%9F%3C/text%3E%3Ctext x='20' y='72' font-size='12' fill='white'%3E%F0%9F%93%B1%3C/text%3E%3Ctext x='58' y='70' font-size='11' fill='white'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E")`;
+  const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' opacity='0.08'%3E%3Cpath d='M10 10h12v12H10zM40 50h12v12H40zM70 20h12v12H70zM20 70h12v12H20zM70 70h12v12H70z' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='25' cy='35' r='5' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='75' cy='45' r='6' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Cpath d='M45 15l10 10-10 10M15 85l10-10 10 10' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E")`;
+  const videoRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(err => console.error("Video preview play error:", err));
+      }
+    }
+  };
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'hidden', height: '560px' }}>
       <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', width: '300px', position: 'relative' }}>
 
-        {/*  Status Bar — IphoneMockup style: OUTSIDE phone shell, overlays notch  */}
-        <div style={{
-          position: 'absolute',
-          top: '18px',
-          left: '0',
-          right: '0',
-          zIndex: 10,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 28px',
-          color: 'white',
-          fontSize: '12px',
-          fontWeight: '600',
-          pointerEvents: 'none',
-        }}>
-          <span>9:05</span>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            {/* WiFi */}
-            <svg width="14" height="11" viewBox="0 0 15 11" fill="none" style={{ display: 'block' }}>
-              <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="white"/>
-              <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
-              <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
-            </svg>
-            {/* Battery */}
-            <svg width="22" height="11" viewBox="0 0 24 12" fill="none" style={{ display: 'block' }}>
-              <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="white" strokeOpacity="0.55"/>
-              <rect x="1.5" y="1.5" width="17" height="9" rx="1.5" fill="white"/>
-              <path d="M22 4V8C22.8 7.6 23.5 6.85 23.5 6C23.5 5.15 22.8 4.4 22 4Z" fill="white" fillOpacity="0.4"/>
-            </svg>
-          </div>
-        </div>
-
-        {/*  Phone outer shell — IphoneMockup exact style  */}
+        {/* ── Phone outer shell ── */}
         <div style={{
           width: '300px',
           borderRadius: '44px',
-          background: '#0d0d0e',
+          background: '#14121b',
           padding: '10px',
-          border: '1.5px solid rgba(255,255,255,0.18)',
-          boxShadow: '0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.05), 0 52px 110px rgba(0,0,0,0.88), 0 0 70px rgba(129,74,200,0.12)',
+          border: '1.5px solid rgba(255,255,255,0.12)',
+          boxShadow: '0 0 0 8px #14121b, 0 20px 60px rgba(0,0,0,0.9)',
           position: 'relative',
         }}>
 
-          {/*  Phone screen  */}
+          {/* ── Phone screen ── */}
           <div style={{
-            background: '#0d0d14',
+            background: '#0c0b11',
             borderRadius: '36px',
             overflow: 'hidden',
             position: 'relative',
@@ -131,171 +117,216 @@ function PhonePreview({ form, actionMode }) {
             flexDirection: 'column',
           }}>
 
-            {/* Dynamic Island — IphoneMockup exact */}
+            {/* ── Top Header Section (#1C1C1C Fill Color) ── */}
             <div style={{
-              width: '100px',
-              height: '28px',
-              background: '#000',
-              borderRadius: '20px',
-              margin: '12px auto 0',
-              flexShrink: 0,
-            }} />
-
-            {/*  WA Header — IphoneMockup style  */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 14px',
-              background: '#1a1a2e',
+              background: '#1C1C1C',
+              padding: '10px 14px 10px',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
               flexShrink: 0,
             }}>
-              {/* Back arrow */}
-              <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <svg width="9" height="16" viewBox="0 0 10 17" fill="none">
-                  <path d="M9 1L1.5 8.5L9 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-
-              {/* Avatar — IphoneMockup style: purple gradient + letter */}
+              {/* Status bar row: 9:05 + Dynamic Island + Icons */}
               <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: '#814AC8',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '13px',
-                fontWeight: '700',
-                flexShrink: 0,
-                position: 'relative',
+                justifyContent: 'space-between',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '600',
+                marginBottom: '8px',
               }}>
-                A
-                {/* Online dot — IphoneMockup style */}
-                <span style={{
-                  position: 'absolute',
-                  bottom: '1px',
-                  right: '1px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: '#22c55e',
-                  border: '1.5px solid #1a1a2e',
+                <span style={{ minWidth: '40px' }}>9:05</span>
+
+                {/* Dynamic Island Pill Notch */}
+                <div style={{
+                  width: '80px',
+                  height: '20px',
+                  background: '#000000',
+                  borderRadius: '14px',
                 }} />
+
+                <div style={{ display: 'flex', gap: '5px', alignItems: 'center', minWidth: '40px', justifyContent: 'flex-end' }}>
+                  {/* WiFi */}
+                  <svg width="13" height="10" viewBox="0 0 15 11" fill="none">
+                    <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="white"/>
+                    <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                  </svg>
+                  {/* Battery */}
+                  <svg width="20" height="10" viewBox="0 0 24 12" fill="none">
+                    <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="white" strokeOpacity="0.8"/>
+                    <rect x="1.5" y="1.5" width="17" height="9" rx="1.5" fill="white"/>
+                    <path d="M22 4V8C22.8 7.6 23.5 6.85 23.5 6C23.5 5.15 22.8 4.4 22 4Z" fill="white" fillOpacity="0.6"/>
+                  </svg>
+                </div>
               </div>
 
-              {/* Name + status */}
-              <div style={{ flex: 1 }}>
-                <div style={{ color: 'white', fontSize: '13px', fontWeight: '600', lineHeight: '1.2' }}>Auromind</div>
-                <div style={{ color: '#22c55e', fontSize: '10px' }}>online</div>
-              </div>
+              {/* Header content */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                {/* Back arrow */}
+                <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  <svg width="9" height="16" viewBox="0 0 10 17" fill="none">
+                    <path d="M9 1L1.5 8.5L9 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
 
-              {/* Actions — IphoneMockup: video + phone only */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                  <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.899L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
-                    stroke="rgba(255,255,255,0.72)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 11.5 19.79 19.79 0 01.08 2.83 2 2 0 012.07 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
-                    stroke="rgba(255,255,255,0.72)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                {/* Avatar */}
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: '#2A2A2A',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  flexShrink: 0,
+                  overflow: 'hidden'
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+
+                {/* Name + status */}
+                <div style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}>
+                  <div style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: '600', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Auromind</div>
+                  <div style={{ color: '#8E8E93', fontSize: '10px' }}>Business account</div>
+                </div>
+
+                {/* Actions: video + phone */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                    <rect width="14" height="12" x="2" y="6" rx="2" />
+                  </svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 11.5 19.79 19.79 0 01.08 2.83 2 2 0 012.07 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+                  </svg>
+                </div>
               </div>
             </div>
 
-            {/*  Chat area — dark bg + WA pattern  */}
+            {/* ── Chat area ── */}
             <div style={{
               flex: 1,
-              padding: '12px',
-              background: '#0d0d1a',
+              padding: '14px 12px',
+              background: '#0c0b11',
               backgroundImage: whatsappPattern,
-              backgroundSize: '80px 80px',
+              backgroundSize: '100px 100px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
-              minHeight: '380px',
+              gap: '10px',
+              minHeight: '430px',
             }}>
-              <div style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
+              <div style={{ alignSelf: 'flex-start', width: '100%' }}>
 
                 {/* Message bubble */}
                 <div style={{
-                  background: '#1e2a45',
-                  borderRadius: '16px 16px 16px 4px',
+                  background: '#1C1C1C',
+                  borderRadius: '18px',
                   overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  padding: '14px 16px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                 }}>
 
-                  {/* Media header — image/video */}
+                  {/* Media header */}
                   {(form.type === 'IMAGE' || form.type === 'VIDEO') && form.mediaPreviewUrl && (
-                    <div style={{ width: '100%', aspectRatio: '1.91 / 1', overflow: 'hidden', background: '#000', position: 'relative' }}>
+                    <div
+                      onClick={form.type === 'VIDEO' ? togglePlay : undefined}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1.91 / 1',
+                        overflow: 'hidden',
+                        background: '#000',
+                        borderRadius: '12px',
+                        marginBottom: '10px',
+                        position: 'relative',
+                        cursor: form.type === 'VIDEO' ? 'pointer' : 'default'
+                      }}
+                    >
                       {form.type === 'IMAGE' ? (
                         <img src={form.mediaPreviewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       ) : (
-                        <video src={form.mediaPreviewUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <video
+                          ref={videoRef}
+                          src={form.mediaPreviewUrl}
+                          playsInline
+                          preload="metadata"
+                          onPlay={() => setIsPlaying(true)}
+                          onPause={() => setIsPlaying(false)}
+                          onEnded={() => setIsPlaying(false)}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
                       )}
-                      {form.type === 'VIDEO' && (
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                      {form.type === 'VIDEO' && !isPlaying && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style={{ marginLeft: '2px' }}><path d="M8 5v14l11-7z" /></svg>
                           </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  <div style={{ padding: '10px 12px' }}>
+                  <div>
                     {form.header && (
-                      <div style={{ fontWeight: '700', marginBottom: '4px', fontSize: '12px', color: 'white' }}>
+                      <div style={{ fontWeight: '700', marginBottom: '6px', fontSize: '13px', color: '#ffffff' }}>
                         {form.header}
                       </div>
                     )}
-                    <div style={{ color: 'white', fontSize: '11px', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    <div style={{ color: '#ffffff', fontSize: '12px', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: '400' }}>
                       {form.message
                         ? form.message
-                        : <span style={{ color: 'rgba(255,255,255,0.3)' }}>Your message will appear here...</span>
+                        : <span style={{ color: 'rgba(255,255,255,0.4)' }}>Hey {"{{1}}"}, just a reminder.</span>
                       }
                     </div>
                     {form.footer && (
-                      <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '10px', marginTop: '6px' }}>
+                      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', marginTop: '6px' }}>
                         {form.footer}
                       </div>
                     )}
-                    <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '9px', textAlign: 'right', marginTop: '4px' }}>
+                    <div style={{ color: '#8E8E93', fontSize: '10px', textAlign: 'right', marginTop: '6px' }}>
                       11:30 AM
                     </div>
                   </div>
-
-                  {/* CTA button */}
-                  {actionMode === 'cta' && (
-                    <div style={{
-                      borderTop: '1px solid rgba(255,255,255,0.1)',
-                      padding: '9px 12px',
-                      textAlign: 'center',
-                      color: '#4da3ff',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      letterSpacing: '0.3px',
-                    }}>
-                      🔗 {form.ctaBtnTitle || 'Buy Now'}
-                    </div>
-                  )}
                 </div>
+
+                {/* CTA Action button below message bubble */}
+                {actionMode === 'cta' && (
+                  <div style={{
+                    marginTop: '8px',
+                    background: '#1C1C1C',
+                    borderRadius: '16px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    color: '#2d60ff',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                  }}>
+                    {form.ctaBtnTitle || 'Buy Now'}
+                  </div>
+                )}
 
                 {/* Quick reply buttons */}
                 {actionMode === 'quick' && (
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                     {['Yes', 'No'].map(r => (
                       <div key={r} style={{
-                        background: '#1e2a45',
-                        border: '1px solid rgba(77,163,255,0.4)',
-                        borderRadius: '20px',
-                        padding: '5px 14px',
-                        color: '#4da3ff',
-                        fontSize: '11px',
+                        background: '#1C1C1C',
+                        borderRadius: '16px',
+                        padding: '10px 18px',
+                        color: '#2d60ff',
+                        fontSize: '12px',
                         fontWeight: '600',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                       }}>
                         {r}
                       </div>
@@ -304,46 +335,9 @@ function PhonePreview({ form, actionMode }) {
                 )}
               </div>
             </div>
-
-            {/*  Input bar — IphoneMockup style  */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              background: '#1a1a2e',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-              flexShrink: 0,
-            }}>
-              <div style={{
-                flex: 1,
-                background: 'rgba(255,255,255,0.06)',
-                borderRadius: '20px',
-                padding: '6px 14px',
-                color: 'rgba(255,255,255,0.3)',
-                fontSize: '11px',
-              }}>
-                Message
-              </div>
-              {/* Send button — IphoneMockup purple gradient */}
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                background: '#814AC8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            </div>
-
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -354,7 +348,7 @@ export default function CreateTemplatePage() {
   const { workspaceId } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [form, setForm] = useState({
-    category: 'MARKETING',
+    category: 'UTILITY',
     language: 'en_US',
     name: '',
     type: 'TEXT',
@@ -551,48 +545,46 @@ export default function CreateTemplatePage() {
   ];
 
   return (
-    <div className="flex h-screen bg-[#05010D] text-white overflow-hidden font-sans">
+    <div className={`${poppins.className} flex h-screen bg-[#05010D] text-white overflow-hidden`} style={{ fontFamily: "'Poppins', sans-serif" }}>
 
-      {/* Mobile overlay */}
+      {/* Mobile & Tablet Overlay Backdrop */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-20 md:hidden"
+        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/*  SIDEBAR  */}
+      {/*  CATEGORIES SIDEBAR  */}
       <aside className={`
-        fixed md:static z-30 flex flex-col h-full w-[240px] md:w-[210px] lg:w-[240px] bg-[#060010] border-r border-[#1A0B2E]
+        fixed lg:static top-0 left-0 z-50 flex flex-col h-full w-[240px] lg:w-[240px] bg-[#060010] border-r border-[#1A0B2E] shadow-2xl lg:shadow-none
         transition-transform duration-300
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 template-scroll">
           <div className="pt-4 pb-1">
-            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Categories</p>
-            <CatItem iconKey="template" label="Utility"        active={false}
-              onClick={() => setForm({ ...form, category: 'UTILITY' })} />
-            <CatItem iconKey="template" label="Marketing"      active={form.category === 'MARKETING'}
-              onClick={() => setForm({ ...form, category: 'MARKETING' })} />
+            <p className="text-[14px] text-white font-medium tracking-widest px-3 mb-2">Categories</p>
+            <CatItem iconKey="template" label="Utility"        active={form.category === 'UTILITY'}
+              onClick={() => { setForm({ ...form, category: 'UTILITY' }); setSidebarOpen(false); }} />
             <CatItem iconKey="template" label="Authentication" active={form.category === 'AUTHENTICATION'}
-              onClick={() => setForm({ ...form, category: 'AUTHENTICATION' })} />
+              onClick={() => { setForm({ ...form, category: 'AUTHENTICATION' }); setSidebarOpen(false); }} />
           </div>
           <div className="pt-4 pb-1">
             <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Template Type</p>
             <CatItem iconKey="text"  label="Text"  active={form.type === 'TEXT'}
-              onClick={() => setForm({ ...form, type: 'TEXT' })} />
+              onClick={() => { setForm({ ...form, type: 'TEXT' }); setSidebarOpen(false); }} />
             <CatItem iconKey="image" label="Image" active={form.type === 'IMAGE'}
-              onClick={() => setForm({ ...form, type: 'IMAGE' })} />
+              onClick={() => { setForm({ ...form, type: 'IMAGE' }); setSidebarOpen(false); }} />
             <CatItem iconKey="video" label="Video" active={form.type === 'VIDEO'}
-              onClick={() => setForm({ ...form, type: 'VIDEO' })} />
+              onClick={() => { setForm({ ...form, type: 'VIDEO' }); setSidebarOpen(false); }} />
           </div>
 
           <div className="pt-4 pb-1">
             <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Language</p>
             <CatItem iconKey="text" label="English (US)"    active={form.language === 'en_US'}
-              onClick={() => setForm({ ...form, language: 'en_US' })} />
+              onClick={() => { setForm({ ...form, language: 'en_US' }); setSidebarOpen(false); }} />
             <CatItem iconKey="text" label="Tamil (தமிழ்)"   active={form.language === 'ta'}
-              onClick={() => setForm({ ...form, language: 'ta' })} />
+              onClick={() => { setForm({ ...form, language: 'ta' }); setSidebarOpen(false); }} />
             <CatItem iconKey="text" label="Hindi (हिन्दी)"  active={form.language === 'hi'}
-              onClick={() => setForm({ ...form, language: 'hi' })} />
+              onClick={() => { setForm({ ...form, language: 'hi' }); setSidebarOpen(false); }} />
           </div>
         </nav>
       </aside>
@@ -600,11 +592,11 @@ export default function CreateTemplatePage() {
       {/*  MAIN CONTENT  */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Top bar (mobile) */}
+        {/* Top bar (mobile < 768px) */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-[#1A0B2E]">
           <button onClick={() => setSidebarOpen(true)}
-            className="p-1.5 rounded-lg border border-[#24113A] text-[#B7B3C7]">
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            className="p-1.5 rounded-lg border border-[#24113A] text-[#B7B3C7] hover:bg-white/5 active:scale-95 transition-all">
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="3" y1="12" x2="21" y2="12" />
               <line x1="3" y1="18" x2="21" y2="18" />
@@ -613,10 +605,22 @@ export default function CreateTemplatePage() {
           <h1 className="text-base font-semibold">New Template Message</h1>
         </div>
 
-        {/* Page header */}
-        <div className="hidden md:block px-8 pt-7 pb-5 border-b border-[#1A0B2E]">
-          <h1 className="text-3xl font-bold text-white tracking-tight">New Templates Message</h1>
-          <p className="text-white/60 text-sm mt-1">Create, manage and approve WhatsApp Business templates.</p>
+        {/* Page header (tablet md & desktop lg) */}
+        <div className="hidden md:flex items-center gap-4 px-6 lg:px-8 pt-6 pb-5 border-b border-[#1A0B2E]">
+          <button onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-2 rounded-lg border border-[#24113A] text-[#B7B3C7] hover:bg-white/5 hover:text-white active:scale-95 transition-all"
+            title="Toggle Categories"
+          >
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">New Templates Message</h1>
+            <p className="text-white/60 text-sm mt-0.5">Create, manage and approve WhatsApp Business templates.</p>
+          </div>
         </div>
 
         {/* Scrollable body */}

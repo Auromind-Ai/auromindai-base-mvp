@@ -208,19 +208,19 @@ const NotificationBell = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p
-                          className={`text-xs truncate ${
-                            !item.is_read ? 'font-semibold text-white/90' : 'text-zinc-400'
+                          className={`text-[13px] truncate ${
+                            !item.is_read ? 'font-bold text-white' : 'font-medium text-zinc-300'
                           }`}
                         >
                           {item.title}
                         </p>
-                        <span className="text-[10px] text-zinc-500 flex-shrink-0">
+                        <span className="text-[10px] text-zinc-500 flex-shrink-0 font-medium">
                           {formatRelativeTime(item.created_at)}
                         </span>
                       </div>
                       <p
-                        className={`text-xs mt-0.5 break-words line-clamp-2 leading-relaxed ${
-                          !item.is_read ? 'text-zinc-300 font-medium' : 'text-zinc-500'
+                        className={`text-[11px] mt-1 break-words line-clamp-2 leading-snug ${
+                          !item.is_read ? 'text-zinc-400 font-normal' : 'text-zinc-500 font-normal'
                         }`}
                       >
                         {item.message}

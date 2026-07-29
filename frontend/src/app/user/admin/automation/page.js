@@ -1200,8 +1200,11 @@ export default function AutomationCanvas() {
             <span className="text-[12px] text-white/80">
               Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
             </span>
-            <div className={`ml-auto px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${flowValidation.isValid ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-amber-500/30 bg-amber-500/10 text-amber-400'}`}>
-              {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
+            <div className="ml-auto flex items-center gap-2 text-xs font-medium select-none">
+              <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+                {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
+              </span>
             </div>
           </div>
           {flowValidation.errors.length > 0 && (

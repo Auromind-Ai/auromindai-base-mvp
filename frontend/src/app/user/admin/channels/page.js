@@ -1289,7 +1289,7 @@ const disconnectChannel = async (channelId) => {
 
                 {/*  Channel Cards  */}
                 {filteredChannels.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
                     {filteredChannels.map((item) => {
                         const isConnected  = statuses[item.id];
                         const isConnecting = connecting === item.id;
@@ -1325,7 +1325,7 @@ const disconnectChannel = async (channelId) => {
                                             {item.subHeaderBelow ? (
                                                 <div className="mb-1.5">
                                                     <h3 className="text-[17px] font-semibold text-white leading-tight mb-1">{item.name}</h3>
-                                                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full tracking-wider ${item.badgeColor}`}>
                                                         {item.subHeader}
                                                     </span>
                                                 </div>
@@ -1446,7 +1446,7 @@ const disconnectChannel = async (channelId) => {
                     <p className="text-white/70 text-[15px] max-w-md leading-relaxed mb-8">
                         Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
                         {filteredIntegrations.map((item) => {
                             const isConnected  = statuses[item.id];
                             const isConnecting = connecting === item.id;
@@ -1479,7 +1479,7 @@ const disconnectChannel = async (channelId) => {
                                                 ) : (
                                                     <div className="flex items-center flex-wrap gap-2 mb-1.5">
                                                         <h3 className="text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
-                                                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full tracking-wider ${item.badgeColor}`}>
                                                             {item.subHeader}
                                                         </span>
                                                     </div>

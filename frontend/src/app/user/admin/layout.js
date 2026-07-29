@@ -171,7 +171,7 @@ function AdminLayoutContent({ children }) {
                     />
                 )}
                 <Icon size={16} strokeWidth={2} className={`relative z-10 transition-colors duration-150 ${isActive ? 'text-white' : 'text-[#7e7e7e] group-hover:text-white'}`} />
-                <span className="relative z-10">{item.label}</span>
+                <span className="relative z-10 truncate">{item.label}</span>
             </Link>
         );
     };
@@ -214,7 +214,7 @@ if (!user) {
         <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
             {/* Desktop Sidebar */}
             <aside
-                className={`${poppins.className} hidden md:flex w-[320px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
+                className={`${poppins.className} hidden md:flex md:w-[220px] lg:w-[320px] shrink-0 flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
             >
                 {/* Profile Section */}
                 <div className="flex items-center gap-3 px-5 pt-6 pb-5">

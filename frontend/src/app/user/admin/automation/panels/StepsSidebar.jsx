@@ -36,16 +36,8 @@ export default function StepsSidebar({
             <div>
               <p className="text-[13px] font-semibold text-white/90 mb-2.5">Trigger</p>
               <div
-                className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-default"
                 style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.border = '1px solid rgba(16,185,129,0.35)';
-                  e.currentTarget.style.background = 'rgba(16,185,129,0.05)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
-                  e.currentTarget.style.background = '#161622';
-                }}
               >
                 {/* Green circle icon */}
                 <div
@@ -73,16 +65,8 @@ export default function StepsSidebar({
 
                 {/* Reply Message — purple filled */}
                 <div
-                  className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                  className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-default"
                   style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.border = '1px solid rgba(139,92,246,0.4)';
-                    e.currentTarget.style.background = 'rgba(139,92,246,0.07)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
-                    e.currentTarget.style.background = '#161622';
-                  }}
                 >
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
@@ -101,16 +85,8 @@ export default function StepsSidebar({
 
                 {/* Configuration — dark circle */}
                 <div
-                  className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                  className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-default"
                   style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.border = '1px solid rgba(255,255,255,0.18)';
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
-                    e.currentTarget.style.background = '#161622';
-                  }}
                 >
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
@@ -129,16 +105,8 @@ export default function StepsSidebar({
 
                 {/* AI Generation — purple filled */}
                 <div
-                  className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-pointer transition-all duration-200"
+                  className="flex items-center gap-3.5 p-3.5 rounded-2xl cursor-default"
                   style={{ background: '#161622', border: '1px solid rgba(255,255,255,0.07)' }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.border = '1px solid rgba(139,92,246,0.4)';
-                    e.currentTarget.style.background = 'rgba(139,92,246,0.07)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.border = '1px solid rgba(255,255,255,0.07)';
-                    e.currentTarget.style.background = '#161622';
-                  }}
                 >
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"

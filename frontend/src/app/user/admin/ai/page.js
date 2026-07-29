@@ -1049,7 +1049,7 @@ export default function AuromindAIPage() {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: 0.15, duration: 0.5 }}
-                                            className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-2 text-white"
+                                            className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-center mb-2 text-white"
                                         >
                                             {greeting},{' '}
                                             <span
@@ -1163,7 +1163,7 @@ export default function AuromindAIPage() {
                                         {/* Get started cards */}
                                         <div className="w-full max-w-4xl mt-10">
                                             <p className="text-[13px] font-medium text-gray-400 mb-4">Get started with</p>
-                                            <div className="grid grid-cols-2 md:flex md:flex-row md:gap-5 gap-5">
+                                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
                                                 {GET_STARTED_CARDS.map((card, i) => (
                                                     <motion.button
                                                         key={i}
@@ -1174,7 +1174,7 @@ export default function AuromindAIPage() {
                                                         className="starter-card relative flex flex-col justify-between
                                                             p-4 rounded-2xl border border-white/20
                                                             transition-all duration-300 text-left group overflow-hidden
-                                                            min-h-[180px] md:min-h-[220px]"
+                                                            min-h-[180px] lg:min-h-[220px]"
                                                         style={{ background: card.cardBg, backgroundColor: 'rgba(7,0,18,0.7)' }}
                                                     >
                                                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl pointer-events-none"

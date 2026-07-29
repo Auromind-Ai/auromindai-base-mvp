@@ -103,7 +103,7 @@ function BentoMetricCard({ metric, i, rgb }) {
       onPointerMove={onMove}
       onPointerLeave={onLeave}
       onClick={onClick}
-      className="relative group rounded-2xl p-5 border border-purple-300/30 bg-[#070012] hover:border-white/10 transition-all cursor-default overflow-hidden bento-card"
+      className="relative group rounded-2xl p-4 border border-purple-300/30 bg-[#070012] hover:border-white/10 transition-all cursor-default overflow-hidden bento-card"
       style={{
         '--r': rgb.r, '--g': rgb.g, '--b': rgb.b,
         '--gx': '50%', '--gy': '50%', '--gi': 0,
@@ -128,20 +128,20 @@ function BentoMetricCard({ metric, i, rgb }) {
       </div>
       <div className="relative z-10 h-full flex flex-col justify-between">
         <div>
-          <h3 className="text-[18px] font-medium text-white/85 tracking-[-0.01em]">
+          <h3 className="text-[14px] font-medium text-white/85 tracking-[-0.01em]">
             {metric.label}
           </h3>
         </div>
-        <div className="mt-7">
-          <div className="text-[22px] sm:text-[24px] font-semibold text-white leading-none tracking-tight flex items-baseline gap-2">
+        <div className="mt-3.5">
+          <div className="text-[19px] sm:text-[21px] font-semibold text-white leading-none tracking-tight flex items-baseline gap-2">
             {metric.value}
             {metric.change && metric.change !== '—' && (
-              <span className={`text-sm ${metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-zinc-400'}`}>
+              <span className={`text-xs ${metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-zinc-400'}`}>
                 {metric.change}
               </span>
             )}
           </div>
-          <p className="mt-3 text-[14px] text-white/80 font-medium">
+          <p className="mt-1.5 text-[12px] text-white/75 font-medium">
             {metric.subtext}
           </p>
         </div>
@@ -448,8 +448,8 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
   const data2026 = currentData.length ? currentData : Array(months.length).fill(0);
   const data2025 = priorData.length ? priorData : Array(months.length).fill(0);
 
-  const W = 520, H = 200;
-  const padL = 58, padR = 30, padT = 20, padB = 36;
+  const W = 520, H = 160;
+  const padL = 54, padR = 24, padT = 16, padB = 28;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
@@ -510,7 +510,7 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className="w-full h-auto"
-      style={{ minHeight: 150 }}
+      style={{ minHeight: 120 }}
       onMouseLeave={() => { setActiveIdx(null); setTooltip(null); }}
     >
       <defs>
@@ -566,25 +566,25 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
 
       {yLabels.map((v) => {
         const { rupee, num } = formatYLabel(v);
-        const y = yOf(v) + 4;
+        const y = yOf(v) + 3;
         return (
           <text
             key={v}
-            x={padL - 8}
+            x={padL - 6}
             y={y}
             textAnchor="end"
-            fontSize="9.5"
+            fontSize="8"
             fill="rgba(255,255,255,0.75)"
             fontFamily="inherit"
           >
             <tspan
               fontFamily="system-ui, -apple-system, 'Segoe UI', sans-serif"
-              fontSize="9"
+              fontSize="7.5"
               dy="0"
             >{rupee}</tspan>
             <tspan
               fontFamily="inherit"
-              fontSize="9.5"
+              fontSize="8"
               dy="0"
             >{num}</tspan>
           </text>
@@ -594,9 +594,9 @@ function MonthlyRevenueChart({ months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'], cur
       {months.map((m, i) => (
         <text
           key={m}
-          x={xOf(i)} y={padT + chartH + 22}
+          x={xOf(i)} y={padT + chartH + 18}
           textAnchor="middle"
-          fontSize="10"
+          fontSize="8.5"
           fill={activeIdx === i ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)'}
           fontFamily="inherit"
           style={{ transition: 'fill 150ms ease' }}
@@ -784,17 +784,17 @@ function RecentActivityCard({ activities = [] }) {
       className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-visible flex flex-col relative h-full"
       onMouseLeave={handleMouseLeave}
     >
-      <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10 flex-shrink-0">
-        <h2 className="text-[18px] font-semibold text-white/90">Recent Activity</h2>
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/10 flex-shrink-0">
+        <h2 className="text-[15px] font-semibold text-white/90">Recent Activity</h2>
         <button
           onClick={() => setShowModal(true)}
-          className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
+          className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
-      <div className="px-6 pb-3 pt-1 flex flex-col justify-start flex-1 recent-activity-list overflow-y-auto custom-scrollbar">
+      <div className="px-5 pb-2 pt-1 flex flex-col justify-start flex-1 recent-activity-list overflow-y-auto custom-scrollbar">
         {activities.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-8 text-sm">
+          <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 py-6 text-xs">
             No recent activity
           </div>
         ) : (
@@ -805,8 +805,8 @@ function RecentActivityCard({ activities = [] }) {
               onMouseEnter={() => handleMouseEnter(i)}
               className="
                 activity-item
-                flex items-center gap-3
-                py-[10px]
+                flex items-center gap-2.5
+                py-[6px]
                 border-b border-white/[0.04]
                 last:border-0
                 cursor-default
@@ -815,13 +815,13 @@ function RecentActivityCard({ activities = [] }) {
                 hover:translate-x-2
                 hover:bg-white/[0.03]
                 hover:rounded-lg
-                hover:px-3
+                hover:px-2.5
               "
             >
               <span
                 className="
-                  w-[9px]
-                  h-[9px]
+                  w-[8px]
+                  h-[8px]
                   rounded-full
                   border-2
                   border-white/20
@@ -835,7 +835,7 @@ function RecentActivityCard({ activities = [] }) {
               <span
                 className="
                   flex-1
-                  text-sm
+                  text-xs
                   text-white/70
                   transition-all duration-300
                   group-hover:text-white
@@ -844,7 +844,7 @@ function RecentActivityCard({ activities = [] }) {
               >
                 {a.label}
               </span>
-              <span className="text-[11px] text-zinc-500 whitespace-nowrap">{a.time}</span>
+              <span className="text-[10px] text-zinc-500 whitespace-nowrap">{a.time}</span>
             </div>
           ))
         )}
@@ -964,18 +964,18 @@ function QuickActionsCard({ onAddLeadClick }) {
 
   return (
     <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden h-full">
-      <div className="px-6 pt-6 pb-2">
-        <h2 className="text-[18px] font-semibold text-white/90">Quick Actions</h2>
-        <p className="text-xs text-white/70 mt-1">Perform important task in one click</p>
+      <div className="px-5 pt-4 pb-1">
+        <h2 className="text-[15px] font-semibold text-white/90">Quick Actions</h2>
+        <p className="text-[11px] text-white/70 mt-0.5">Perform important task in one click</p>
       </div>
-      <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {QUICK_ACTIONS.map((action, i) => {
           const Icon = action.icon;
           return (
             <div
               key={i}
               onClick={() => handleAction(action.title)}
-              className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-5 cursor-pointer overflow-hidden`}
+              className={`quick-action-card ${action.cardClass} relative flex flex-col rounded-xl border p-3.5 cursor-pointer overflow-hidden`}
               style={{
                 borderColor: 'rgba(255,255,255,0.1)',
                 background: action.bgBase,
@@ -983,19 +983,19 @@ function QuickActionsCard({ onAddLeadClick }) {
             >
               {/* Icon — sits above the glow layer (z-10) */}
               <div
-                className={`relative z-10 w-11 h-11 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center mb-4 flex-shrink-0`}
+                className={`relative z-10 w-9 h-9 rounded-xl bg-gradient-to-br ${action.iconGradient} flex items-center justify-center mb-2.5 flex-shrink-0`}
                 style={{ boxShadow: action.iconShadow }}
               >
-                <Icon size={20} className="text-white" />
+                <Icon size={16} className="text-white" />
               </div>
 
               {/* Text content — also above glow */}
               <div className="relative z-10 flex flex-col flex-1">
-                <h3 className="text-sm font-semibold text-white/90 mb-1">{action.title}</h3>
-                <p className="text-xs text-white/75 leading-relaxed flex-1">{action.desc}</p>
-                <div className="flex justify-end mt-4">
-                  <button className="qa-arrow-btn w-8 h-8 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
-                    <ArrowUpRight size={14} className="text-white/60" />
+                <h3 className="text-[13px] font-semibold text-white/90 mb-0.5">{action.title}</h3>
+                <p className="text-[11px] text-white/75 leading-snug flex-1">{action.desc}</p>
+                <div className="flex justify-end mt-2.5">
+                  <button className="qa-arrow-btn w-7 h-7 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
+                    <ArrowUpRight size={13} className="text-white/60" />
                   </button>
                 </div>
               </div>
@@ -1017,30 +1017,30 @@ function AIInsightsCard({ insights = [] }) {
   };
   return (
     <section className="rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden flex flex-col h-full relative">
-      <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b border-white/10">
-        <h2 className="text-[18px] font-semibold text-white/90">AI Insights</h2>
+      <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-white/10">
+        <h2 className="text-[15px] font-semibold text-white/90">AI Insights</h2>
         <button 
         onClick={() => setShowModal(true)}
-        className="text-xs text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/20 font-medium">
+        className="text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/20 font-medium">
           View all
         </button>
       </div>
-      <div className="flex-1 px-5 py-4 space-y-3">
+      <div className="flex-1 px-4 py-3 space-y-2">
         {insights.map((item, i) => {
           const Icon = iconMap[item.icon_type] || Sparkles;
           return (
             <div
               key={i}
-              className="ai-insight-item flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/[0.015] cursor-pointer group"
+              className="ai-insight-item flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-white/[0.015] cursor-pointer group"
             >
-              <div className={`w-10 h-10 rounded-xl ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
-                <Icon size={18} className={item.icon_color} />
+              <div className={`w-8 h-8 rounded-lg ${item.icon_bg} flex items-center justify-center flex-shrink-0`}>
+                <Icon size={15} className={item.icon_color} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white/85 leading-tight">{item.title}</p>
-                <p className="text-xs text-white/75 mt-0.5 leading-relaxed">{item.subtitle}</p>
+                <p className="text-[13px] font-medium text-white/85 leading-tight">{item.title}</p>
+                <p className="text-[11px] text-white/70 mt-0.5 leading-tight">{item.subtitle}</p>
               </div>
-              <ArrowRight size={15} className="text-white group-hover:text-purple-400 transition-colors flex-shrink-0" />
+              <ArrowRight size={14} className="text-white group-hover:text-purple-400 transition-colors flex-shrink-0" />
             </div>
           );
         })}
@@ -1196,12 +1196,12 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-zinc-400 hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
+        className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-xs text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
       >
-        <Calendar size={14} />
-        <span className="hidden xs:inline">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
-        <span className="xs:hidden">{labels[period]}</span>
-        <ChevronDown size={14} className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <Calendar size={14} className="text-purple-400" />
+        <span className="hidden xs:inline font-medium">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
+        <span className="xs:hidden font-medium">{labels[period]}</span>
+        <ChevronDown size={14} className={`text-white/60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
@@ -1211,7 +1211,7 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed max-w-[280px] sm:w-56 rounded-xl bg-[#0e0e1a] border border-white/10 p-1.5 shadow-2xl z-[100] backdrop-blur-xl flex flex-col gap-1"
+            className="fixed max-w-[280px] sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[100] backdrop-blur-2xl flex flex-col gap-1"
             style={dropdownStyle}
           >
             {options.map((opt) => {
@@ -1224,14 +1224,16 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
                     onPeriodChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex flex-col ${
+                  className={`w-full text-left px-3.5 py-2.5 rounded-lg transition-colors flex flex-col ${
                     isSelected
-                      ? 'bg-purple-600/20 text-purple-300'
-                      : 'text-zinc-400 hover:bg-white/5 hover:text-white'
+                      ? 'bg-purple-600/30 border border-purple-500/40 text-white'
+                      : 'text-white/90 hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <span className="text-xs font-medium">{opt.label}</span>
-                  <span className="text-[10px] text-zinc-500 mt-0.5 font-normal">
+                  <span className={`text-xs ${isSelected ? 'font-bold text-white' : 'font-semibold text-white/90'}`}>
+                    {opt.label}
+                  </span>
+                  <span className={`text-[11px] mt-0.5 ${isSelected ? 'text-purple-200 font-medium' : 'text-white/60'}`}>
                     {formatDisplayRange(optDates.startDate, optDates.endDate)}
                   </span>
                 </button>
@@ -1310,13 +1312,13 @@ export default function DashboardPage() {
           Admin Viewing Mode — you are viewing this dashboard as the user.
         </div>
       )}
-      <div className="max-w-[1600px] mx-auto space-y-8">
+      <div className="max-w-[1600px] mx-auto space-y-5">
 
         {/* HEADER */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white/90">Dashboard</h1>
-            <p className="text-m text-white/90 lg:mt-2">Good morning! Here are your key actions for today.</p>
+            <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-white/90">Dashboard</h1>
+            <p className="text-xs text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
           </div>
           <div className="flex items-center gap-3 justify-end w-full sm:w-auto">
           <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
@@ -1333,25 +1335,25 @@ export default function DashboardPage() {
         </div>
 
         {/* ROW 1: Monthly Revenue + Recent Activity */}
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 overflow-visible ${cardStateClass}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 overflow-visible ${cardStateClass}`}>
           {/* Monthly Revenue — 2/3 */}
           <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden">
-            <div className="px-6 pt-6 pb-2">
-              <h2 className="text-[18px] font-semibold text-white/90">Monthly Revenue</h2>
-              <p className="text-[14px] text-white/80 mt-1">This year vs last year (INR)</p>
+            <div className="px-5 pt-4 pb-1">
+              <h2 className="text-[15px] font-semibold text-white/90">Monthly Revenue</h2>
+              <p className="text-[12px] text-white/70 mt-0.5">This year vs last year (INR)</p>
             </div>
             {/* Legend */}
-            <div className="flex items-center justify-center gap-5 px-6 pt-3 pb-2">
+            <div className="flex items-center justify-center gap-5 px-5 pt-1.5 pb-1">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
-                <span className="text-xs text-white/60">{revenue.current_year || new Date().getFullYear()}</span>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#39ff7e', boxShadow: '0 0 8px #39ff7e' }} />
+                <span className="text-[11px] text-white/60">{revenue.current_year || new Date().getFullYear()}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
-                <span className="text-xs text-white/60">{revenue.prior_year || new Date().getFullYear() - 1}</span>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#b794f4', boxShadow: '0 0 8px #b794f4' }} />
+                <span className="text-[11px] text-white/60">{revenue.prior_year || new Date().getFullYear() - 1}</span>
               </div>
             </div>
-            <div className="px-4 pb-5">
+            <div className="px-3 pb-3">
               <MonthlyRevenueChart 
                 months={revenue.months} 
                 currentData={revenue.current_data} 
@@ -1369,7 +1371,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ROW 2: Quick Actions + AI Insights */}
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 ${cardStateClass}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 ${cardStateClass}`}>
           <div className="lg:col-span-2 h-full">
             <QuickActionsCard onAddLeadClick={() => setShowAddLead(true)} />
           </div>
