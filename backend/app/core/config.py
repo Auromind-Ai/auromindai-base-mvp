@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     TURNSTILE_SECRET_KEY: Optional[str] = None
 
     # MESSAGE QUEUE & CACHING
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://redis:6379/0"
 
     # ADMIN & SECURITY
     OWNER_SECRET_KEY: Optional[str] = None
