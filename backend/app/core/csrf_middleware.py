@@ -8,9 +8,16 @@ async def csrf_protection_middleware(request: Request, call_next):
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         path = request.url.path
         
+        # Check if the path is an external provider webhook
+        is_webhook = (
+            (path.endswith("/webhook") or "/webhook/" in path)
+            and not "/admin/" in path
+        )
+        
         # Bypass public login, OTP registration, and external provider callbacks/webhooks
         is_public = (
-            path.startswith("/auth/login")
+            is_webhook
+            or path.startswith("/auth/login")
             or path.startswith("/api/auth/login")
             or path.startswith("/auth/logout")
             or path.startswith("/api/auth/logout")
@@ -31,16 +38,20 @@ async def csrf_protection_middleware(request: Request, call_next):
         )
         
         if not is_public:
-            header_token = request.headers.get("x-csrf-token")
             token = request.cookies.get("auth_token")
+            # If the auth_token cookie is not present in the request, skip CSRF validation.
+            # (No cookie to protect against CSRF hijack, request will be verified by auth headers or fail at endpoint dependencies)
+            if not token:
+                return await call_next(request)
+
+            header_token = request.headers.get("x-csrf-token")
             expected_token = None
             
-            if token:
-                try:
-                    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-                    expected_token = payload.get("csrf_token")
-                except JWTError:
-                    pass
+            try:
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+                expected_token = payload.get("csrf_token")
+            except JWTError:
+                pass
             
             import logging
             log = logging.getLogger("app")
