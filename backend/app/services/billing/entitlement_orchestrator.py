@@ -75,7 +75,8 @@ class WCCBillingProvisioner(IWCCBillingProvisioner):
             raise ValueError(f"No active subscription found for workspace {workspace_id}")
 
         # Get or create wallet
-        wallet = WCCService.get_balance(db, workspace_id)
+        WCCService.get_balance(db, workspace_id)
+        wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).with_for_update().first()
         
         promo_amount = entitlement.included_wcc_wallet
         if promo_amount > 0:
@@ -157,13 +158,13 @@ class EntitlementOrchestrator:
     @classmethod
     def renew_subscription(cls, db: Session, workspace_id: uuid.UUID, payment: Any | None = None) -> None:
         
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
+
         subscription = (
             db.query(Subscription)
             .filter(
-                or_(
-                    Subscription.workspace_id == workspace_id,
-                    Subscription.workspace_id == str(workspace_id)
-                ),
+                Subscription.workspace_id == workspace_id,
                 Subscription.status == SubscriptionStatus.active
             )
             .order_by(Subscription.created_at.desc())
@@ -223,7 +224,8 @@ class EntitlementOrchestrator:
 
 
         # 2. WCC Wallet Reset Policy
-        wallet = WCCService.get_balance(db, workspace_id)
+        WCCService.get_balance(db, workspace_id)
+        wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).with_for_update().first()
         if entitlement.included_wallet_reset_policy == "EXPIRE":
             wallet.balance = Decimal("0.00")
             db.flush()
@@ -288,7 +290,8 @@ class EntitlementOrchestrator:
                     db.flush()
 
                 if current_entitlement.included_wallet_reset_policy == "EXPIRE":
-                    wallet = WCCService.get_balance(db, workspace_id)
+                    WCCService.get_balance(db, workspace_id)
+                    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).with_for_update().first()
                     wallet.balance = Decimal("0.00")
                     db.flush()
 

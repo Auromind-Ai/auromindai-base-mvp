@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime
 import pytz
 from datetime import timedelta
@@ -24,11 +26,11 @@ class CalendarExecutor:
         calendar_enabled = get_setting(db, "enable_calendar_integration", True)
 
         if not calendar_enabled:
-            print("Calendar integration disabled by admin")
+            logger.info("Calendar integration disabled by admin")
             return
         try:
 
-            print("Calendar executor started")
+            logger.info("Calendar executor started")
 
             #Extract meeting info
             meeting = self.extract_meeting(action)
@@ -48,7 +50,7 @@ class CalendarExecutor:
             #Smart reschedule if needed
             if conflict:
                 # meeting = self.smart_reschedule(db, meeting, workspace_id)
-                print("Conflict detected but reschedule disabled. Keeping original time.")
+                logger.info("Conflict detected but reschedule disabled. Keeping original time.")
 
             #Store event
             event = self.store_event_db(db, workspace_id, meeting)
@@ -75,7 +77,7 @@ class CalendarExecutor:
                 created_event = self.sync_google_calendar(service, event)
 
                 if not created_event:
-                    print("Event creation failed")
+                    logger.error("Event creation failed")
                     return
 
             #Create reminders
@@ -84,12 +86,12 @@ class CalendarExecutor:
             #Send notification
             self.notify_send(event)
 
-            print("Calendar executor completed successfully")
+            logger.info("Calendar executor completed successfully")
             return created_event
 
         except Exception as e:
 
-            print("Calendar executor error:", e)
+            logger.error(f"Calendar executor error: {e}")
 
     def extract_meeting(self, action):
 
@@ -109,7 +111,7 @@ class CalendarExecutor:
             "location": location or "Unknown"
         }
 
-        print("Meeting extracted:", meeting)
+        logger.info(f"Meeting extracted: {meeting}")
 
         return meeting
     
@@ -155,7 +157,7 @@ class CalendarExecutor:
 
         meeting["datetime"] = meeting_datetime
 
-        print("Meeting date/time parsed:", meeting_datetime)
+        logger.info(f"Meeting date/time parsed: {meeting_datetime}")
 
         return meeting
     
@@ -167,14 +169,14 @@ class CalendarExecutor:
         try:
             source_tz = pytz.timezone(timezone_str)
         except Exception:
-            print(f"Invalid timezone {timezone_str}. Attempting location fallback...")
+            logger.warning(f"Invalid timezone {timezone_str}. Attempting location fallback...")
             detected_tz = self.detect_timezone_from_location(timezone_str)
             try:
                 source_tz = pytz.timezone(detected_tz)
                 meeting["timezone"] = detected_tz
-                print(f"Fallback succeeded: resolved to {detected_tz}")
+                logger.info(f"Fallback succeeded: resolved to {detected_tz}")
             except Exception:
-                print("Fallback failed. Defaulting to UTC")
+                logger.warning("Fallback failed. Defaulting to UTC")
                 source_tz = pytz.utc
                 meeting["timezone"] = "UTC"
 
@@ -190,7 +192,7 @@ class CalendarExecutor:
         meeting["local_datetime"] = localized_dt
         meeting["utc_datetime"] = utc_dt
 
-        print("Timezone converted to UTC:", utc_dt)
+        logger.info(f"Timezone converted to UTC: {utc_dt}")
 
         return meeting
 
@@ -260,17 +262,17 @@ class CalendarExecutor:
         ).first()
 
         if existing_event:
-            print("Conflict detected with event:", existing_event.id)
+            logger.info(f"Conflict detected with event: {existing_event.id}")
             return True
 
-        print("No meeting conflict")
+        logger.info("No meeting conflict")
         return False
 
     # def smart_reschedule(self, db, meeting, workspace_id):
 
     #     original_time = meeting.get("utc_datetime")
 
-    #     print("Attempting smart reschedule...")
+    #     logger.info("Attempting smart reschedule...")
 
     #     # Try next slots
     #     possible_offsets = [
@@ -288,10 +290,10 @@ class CalendarExecutor:
     #         conflict = self.conflict_detection(db, meeting, workspace_id)
 
     #         if not conflict:
-    #             print("Rescheduled meeting to:", new_time)
+    #             logger.info(f"Rescheduled meeting to: {new_time}")
     #             return meeting
 
-    #     print("No free slot found. Keeping original time.")
+    #     logger.info("No free slot found. Keeping original time.")
     #     meeting["utc_datetime"] = original_time
 
     #     return meeting
@@ -316,14 +318,14 @@ class CalendarExecutor:
             db.commit()
             db.refresh(event)
 
-            print("Calendar event stored:", event.id)
+            logger.info(f"Calendar event stored: {event.id}")
 
             return event
 
         except Exception as e:
 
             db.rollback()
-            print("Error storing calendar event:", e)
+            logger.error(f"Error storing calendar event: {e}")
             return None
         
     def sync_google_calendar(self, service, event):
@@ -375,7 +377,7 @@ class CalendarExecutor:
             conferenceDataVersion=1
         ).execute()
 
-        print("Google Calendar event created:", created_event["id"])
+        logger.info(f'Google Calendar event created: {created_event["id"]}')
 
         meet_link = (
             created_event
@@ -412,13 +414,13 @@ class CalendarExecutor:
                 }
             ]
 
-            print("Reminders created:", reminders)
+            logger.info(f"Reminders created: {reminders}")
 
             return reminders
 
         except Exception as e:
 
-            print("Reminder creation error:", e)
+            logger.error(f"Reminder creation error: {e}")
             return []
     
     def notify_send(self, event):
@@ -432,7 +434,7 @@ class CalendarExecutor:
                 "event_id": str(event.id)
             }
 
-            print("Sending notification:", notification)
+            logger.info(f"Sending notification: {notification}")
 
             # Later you can push this to notification service
             # Example:
@@ -442,5 +444,5 @@ class CalendarExecutor:
 
         except Exception as e:
 
-            print("Notification error:", e)
+            logger.error(f"Notification error: {e}")
             return None

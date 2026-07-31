@@ -219,7 +219,7 @@ def seed_settings_from_env(db: Session):
                         except Exception:
                             pass
             
-            if not setting or not db_val or db_val.strip() == "":
+            if not setting or not db_val or db_val.strip() == "" or db_key.startswith("smtp_") or db_key == "from_email":
                 str_value, value_type = _serialize_value(val)
                 if db_key in ["smtp_port", "system_metrics_update_interval", "billing_reservation_ttl_seconds"]:
                     try:
@@ -229,13 +229,19 @@ def seed_settings_from_env(db: Session):
                 elif db_key == "scheduler_enabled":
                     str_value, value_type = _serialize_value(val.lower() in ("true", "1", "yes"))
                 
+                if db_key == "smtp_password" and str_value:
+                    if " " in str_value:
+                        str_value = str_value.replace(" ", "").strip()
+
                 if db_key in SENSITIVE_KEYS:
                     if str_value and not is_encrypted(str_value):
                         str_value = encrypt_value(str_value)
 
                 if setting:
-                    setting.value = str_value
-                    setting.value_type = value_type
+                    if setting.value != str_value:
+                        setting.value = str_value
+                        setting.value_type = value_type
+                        updates_made = True
                 else:
                     new_setting = PlatformSetting(
                         key=db_key,
@@ -243,7 +249,7 @@ def seed_settings_from_env(db: Session):
                         value_type=value_type
                     )
                     db.add(new_setting)
-                updates_made = True
+                    updates_made = True
 
     # Seed default branding configs if not present in DB
     default_brand = {

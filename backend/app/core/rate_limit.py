@@ -15,9 +15,9 @@ logger = logging.getLogger("security_audit")
 DEFAULT_LIMITS = {
     "/upload": 10,
     "/brain": 30,
-    "/billing": 60,
+    "/billing": 180,
     "/auth/send-otp": 5,
-    "global": 120,
+    "global": 300,
 }
 
 DEFAULT_MAX_UPLOAD_MB = 25

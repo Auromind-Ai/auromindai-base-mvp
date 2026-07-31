@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Arunjack007@
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: auromindai
     ports:
       - "5435:5432"
@@ -64,9 +64,9 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:Arunjack007@db:5432/auromindai
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/auromindai
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: testsecret_12345678901234567890
+      SECRET_KEY: ${SECRET_KEY}
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app
@@ -88,10 +88,11 @@ services:
 
     command: >
       sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
-             until PGPASSWORD=Arunjack007@ psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
+             until PGPASSWORD=$$POSTGRES_PASSWORD psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
              sleep 2 &&
              celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat"
     environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
@@ -115,10 +116,11 @@ services:
     restart: unless-stopped
     command: >
       sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
-             until PGPASSWORD=Arunjack007@ psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
+             until PGPASSWORD=$$POSTGRES_PASSWORD psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
              sleep 2 &&
              celery -A app.core.celery_app beat --loglevel=info"
     environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1

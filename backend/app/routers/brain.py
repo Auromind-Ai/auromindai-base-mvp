@@ -81,7 +81,6 @@ async def ingest_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -147,7 +146,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -160,7 +158,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -173,7 +170,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -226,7 +222,6 @@ async def ingest_sales_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -288,7 +283,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -301,7 +295,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -314,7 +307,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -365,7 +357,6 @@ async def ingest_support_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -427,7 +418,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -440,7 +430,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -453,7 +442,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass

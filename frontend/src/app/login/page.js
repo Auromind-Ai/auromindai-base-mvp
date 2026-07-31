@@ -154,7 +154,7 @@ function LoginContent() {
         setLoading(true);
         try {
             const token = await executeTurnstile();
-            console.log("ACTUAL TURNSTILE TOKEN:", token);
+            // token retrieved
             await api.sendOTP(email, 'login', token);
             setStep('otp');
             setResendTimer(60);
@@ -171,7 +171,7 @@ function LoginContent() {
         setLoading(true);
         try {
             const token = await executeTurnstile();
-            console.log("ACTUAL TURNSTILE TOKEN:", token);
+            // token retrieved
             const data = await api.verifyOTP(email, otp, 'login', null, null, null, token);
             //  2FA gate ─
             if (data?.requiresTwoFactor) {

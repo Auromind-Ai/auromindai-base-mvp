@@ -43,8 +43,6 @@ function InstagramCallbackContent() {
             return;
         }
 
-        console.log("CODE:", code);
-        console.log("WORKSPACE:", workspace_id);
 
         const connectInstagram = async () => {
             try {
@@ -52,7 +50,6 @@ function InstagramCallbackContent() {
                     code,
                     workspace_id,
                 });
-                console.log("FULL RESPONSE:", data);
 
                 setStatus("Connected! Redirecting...");
 

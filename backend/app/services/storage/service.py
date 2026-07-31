@@ -136,6 +136,12 @@ class LocalStorageProvider(StorageProvider):
         await asyncio.to_thread(dest_path.write_bytes, content)
         return self.get_public_url(file_path)
 
+    def _save_file_sync(self, file_path: str, content: bytes, content_type: str = None) -> str:
+        dest_path = self.upload_dir / file_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        dest_path.write_bytes(content)
+        return self.get_public_url(file_path)
+
     async def delete_file(self, file_path: str) -> bool:
         dest_path = self.upload_dir / file_path
         if dest_path.exists():

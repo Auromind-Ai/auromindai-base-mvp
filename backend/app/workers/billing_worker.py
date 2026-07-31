@@ -8,6 +8,7 @@ from app.models.billing import Payment
 from app.models.wcc import WCCTransaction, WCCRechargeLog
 from app.core.enums import SubscriptionStatus, PaymentStatus
 from sqlalchemy import func
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,6 @@ logger = logging.getLogger(__name__)
     name="app.workers.billing_worker.cleanup_abandoned_pending_subscriptions",
 )
 def cleanup_abandoned_pending_subscriptions():
-    """Daily Celery Beat Task: Automatically cancels pending subscription checkout initializations older than 24 hours."""
     db = SessionLocal()
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -110,6 +110,41 @@ def wcc_daily_reconciliation():
         return {"reconciled_workspaces": len(summary)}
     except Exception as exc:
         logger.error(f"[wcc_daily_reconciliation] Error: {exc}")
+        raise exc
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.workers.billing_worker.cleanup_abandoned_wcc_recharges",
+)
+def cleanup_abandoned_wcc_recharges():
+    """Celery Beat Task: Automatically cancels/fails pending WCC recharges older than 24 hours."""
+    logger.info("[cleanup_abandoned_wcc_recharges] Starting cleanup of abandoned WCC recharges")
+    db = SessionLocal()
+    try:
+        expiry_hours = settings.WCC_PENDING_EXPIRY_HOURS
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=expiry_hours)
+        abandoned = (
+            db.query(WCCRechargeLog)
+            .filter(
+                WCCRechargeLog.status == "pending",
+                WCCRechargeLog.created_at < cutoff
+            )
+            .all()
+        )
+        cancelled_count = 0
+        for r in abandoned:
+            r.status = "failed"
+            r.updated_at = datetime.now(timezone.utc)
+            cancelled_count += 1
+            
+        db.commit()
+        logger.info(f"[cleanup_abandoned_wcc_recharges] Auto-failed {cancelled_count} pending WCC recharges older than {expiry_hours} hours.")
+        return {"failed_count": cancelled_count}
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"[cleanup_abandoned_wcc_recharges] Error: {exc}")
         raise exc
     finally:
         db.close()

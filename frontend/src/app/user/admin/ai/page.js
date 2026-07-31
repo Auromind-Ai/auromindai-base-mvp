@@ -677,7 +677,6 @@ export default function AuromindAIPage() {
                     try {
                         const data = JSON.parse(line);
                         if (data.status) {
-                            console.log("STATUS (execute):", data.status);
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
                         }
                         if (data.content) {
@@ -738,7 +737,7 @@ export default function AuromindAIPage() {
                 setShowUpgradeModal(true);
                 setMessages(prev => prev.filter((msg, i) => i !== prev.length - 1));
             } else if (err.name === 'AbortError') {
-                console.log('Fetch aborted by user');
+                // Silently handled
             } else if (err.status === 409 || (err.data && err.data.detail === 'previous_generation_stopping')) {
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? {
                     ...msg,
@@ -884,7 +883,6 @@ export default function AuromindAIPage() {
                     try {
                         const data = JSON.parse(line);
                         if (data.status) {
-                            console.log("STATUS (saveEdit):", data.status);
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
                         }
                         if (data.content) {
@@ -902,7 +900,7 @@ export default function AuromindAIPage() {
             isStreamActiveRef.current = false;
             isAnimatingRef.current = false;
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            if (err.name === 'AbortError') { console.log('Fetch aborted'); }
+            if (err.name === 'AbortError') { /* Silently handled */ }
             else {
                 console.error(err);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
@@ -947,7 +945,6 @@ export default function AuromindAIPage() {
                     try {
                         const data = JSON.parse(line);
                         if (data.status) {
-                            console.log("STATUS (regenerate):", data.status);
                             setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, status: data.status } : msg));
                         }
                         if (data.content) {
@@ -965,7 +962,7 @@ export default function AuromindAIPage() {
             isStreamActiveRef.current = false;
             isAnimatingRef.current = false;
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            if (err.name === 'AbortError') { console.log('Fetch aborted'); }
+            if (err.name === 'AbortError') { /* Silently handled */ }
             else {
                 console.error(err);
                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));

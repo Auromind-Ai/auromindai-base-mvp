@@ -774,6 +774,9 @@ class TokenService:
         gateway_order_id: str,
         description: str = "Purchased AI Credit Pack",
     ) -> TokenLedger:
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
+
         reference_key = f"purchase:{workspace_id}:{payment_id}"
         existing = (
             db.query(TokenLedger)
@@ -804,10 +807,8 @@ class TokenService:
                 )
                 db.add(entry)
                 db.flush()
-            db.commit()
             return entry
         except Exception:
-            db.rollback()
             existing = (
                 db.query(TokenLedger)
                 .filter(TokenLedger.reference_key == reference_key)

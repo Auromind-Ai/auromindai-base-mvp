@@ -75,9 +75,7 @@ export default function SignupFormCard() {
       const mappedError = getErrorMessage(err);
       setError(mappedError);
       if (mappedError.includes("Account already exists")) {
-        console.log("Setting redirect timeout to /login");
         setTimeout(() => {
-          console.log("Executing redirect to /login via router.push");
           router.push('/login');
         }, 3000);
       }

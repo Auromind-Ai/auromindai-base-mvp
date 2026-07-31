@@ -16,7 +16,6 @@ export default function AdminLayout({ children }) {
   const [authVerified, setAuthVerified] = useState(false)
   const [isNotFound, setIsNotFound] = useState(false)
 
-  console.log("[AdminLayout Render] pathname:", pathname, "isLoginPage:", isLoginPage, "authVerified:", authVerified, "isNotFound:", isNotFound);
 
   useEffect(() => {
     const timer = setTimeout(() => {

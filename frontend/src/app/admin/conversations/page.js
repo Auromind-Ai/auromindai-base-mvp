@@ -15,7 +15,6 @@ export default function ConversationsPage() {
       try {
         setLoading(true)
         const data = await api.getPlatformConversations()
-          console.log("API Response:", data)
         setConversations(Array.isArray(data) ? data : data.conversations || [])
         setError(null)
       } catch (err) {

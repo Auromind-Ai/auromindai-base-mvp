@@ -194,7 +194,6 @@ export default function AutomationCanvas() {
   async function fetchFlows(shouldSelectCanvas = false) {
     try {
       const data = await api.getFlows();
-      console.log('fetchFlows received:', data?.length, data);
       if (Array.isArray(data)) {
         const sanitizedFlows = data.map(sanitizeFlowData);
         setAutomations(sanitizedFlows);
@@ -682,7 +681,6 @@ export default function AutomationCanvas() {
         edges,
         status: selectedItem.status || 'Active'
       };
-      console.log("Saving Wire Payload:", JSON.stringify(payload, null, 2));
       const saved = await api.saveFlow(payload);
       const sanitizedSaved = sanitizeFlowData(saved);
       setAutomations(prev => prev.map(a => 

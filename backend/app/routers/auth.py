@@ -248,15 +248,15 @@ from app.services.turnstile_service import verify_turnstile_token
 @router.post("/send-otp")
 async def send_otp(request_obj: Request, request: SendOTPRequest, db: Session = Depends(get_db)):
     ip_address = get_client_ip(request_obj)
-    print(f"[Auth Router] /send-otp hit. Email: {request.email}, Token: {request.turnstile_token[:15] if request.turnstile_token else 'None'}")
+    logger.debug(f"[Auth Router] /send-otp hit. Email: {request.email}, Token: {request.turnstile_token[:15] if request.turnstile_token else 'None'}")
     
     # 1. Rate Limiting Check (IP & Account)
     check_login_rate_limits(ip_address, request.email)
     
     # 2. Turnstile Verification Check
-    print("[Auth Router] /send-otp calling verify_turnstile_token")
+    logger.debug("[Auth Router] /send-otp calling verify_turnstile_token")
     await verify_turnstile_token(request.turnstile_token, remote_ip=ip_address)
-    print("[Auth Router] /send-otp verify_turnstile_token passed successfully")
+    logger.debug("[Auth Router] /send-otp verify_turnstile_token passed successfully")
 
     try:
         AuthService.send_otp(db, request.email, request.auth_type)
@@ -272,15 +272,15 @@ from fastapi import Response
 @router.post("/verify-otp")
 async def verify_otp(request_obj: Request, request: VerifyOTPRequest, response: Response, db: Session = Depends(get_db)):
     ip_address = get_client_ip(request_obj)
-    print(f"[Auth Router] /verify-otp hit. Email: {request.email}, Token: {request.turnstile_token[:15] if request.turnstile_token else 'None'}")
+    logger.debug(f"[Auth Router] /verify-otp hit. Email: {request.email}, Token: {request.turnstile_token[:15] if request.turnstile_token else 'None'}")
     
     # 1. Rate Limiting Check (IP & Account)
     check_login_rate_limits(ip_address, request.email)
     
     # 2. Turnstile Verification Check
-    print("[Auth Router] /verify-otp calling verify_turnstile_token")
+    logger.debug("[Auth Router] /verify-otp calling verify_turnstile_token")
     await verify_turnstile_token(request.turnstile_token, remote_ip=ip_address)
-    print("[Auth Router] /verify-otp verify_turnstile_token passed successfully")
+    logger.debug("[Auth Router] /verify-otp verify_turnstile_token passed successfully")
     try:
         user_agent = request_obj.headers.get("user-agent", "unknown")
         device_info = parse_user_agent(user_agent)

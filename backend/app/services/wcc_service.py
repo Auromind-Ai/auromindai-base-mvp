@@ -5,6 +5,7 @@ from sqlalchemy import update, func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.models.wcc import WCCWallet, WCCRateCard, WCCTransaction, WCCRechargeLog
+from app.models.workspace import Workspace
 from app.services.billing.gateway import get_gateway
 from app.services.billing import normalize_workspace_id
 from app.core.logger import logger
@@ -126,11 +127,38 @@ class WCCService:
         Create a recharge log and call Razorpay client to generate an order.
         """
         workspace_id = normalize_workspace_id(workspace_id)
+        workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+        if not workspace:
+            raise ValueError(f"Workspace {workspace_id} not found")
+
+        # Calculate GST on backend
+        from app.services.billing.gst_service import GSTService
+        gst_calcs = GSTService.calculate_gst(
+            amount=amount,
+            customer_state=workspace.billing_state,
+            customer_country=workspace.billing_country or "IN",
+            product_type="wcc_recharge",
+            db=db
+        )
+
         recharge_log = WCCRechargeLog(
             workspace_id=workspace_id,
             amount=amount,
             currency="INR",
-            status="pending"
+            status="pending",
+            # Save GST details
+            subtotal=gst_calcs["subtotal"],
+            gst_rate=gst_calcs["gst_rate"],
+            gst_amount=gst_calcs["gst_amount"],
+            cgst=gst_calcs["cgst"],
+            sgst=gst_calcs["sgst"],
+            igst=gst_calcs["igst"],
+            taxable_amount=gst_calcs["taxable_amount"],
+            total_amount=gst_calcs["total_amount"],
+            place_of_supply=gst_calcs["place_of_supply"],
+            customer_state=gst_calcs["customer_state"],
+            customer_country=gst_calcs["customer_country"],
+            customer_gstin=workspace.billing_gstin
         )
         db.add(recharge_log)
         db.flush()  # Flush instead of commit to avoid transaction ownership
@@ -138,8 +166,8 @@ class WCCService:
         try:
             # Get Razorpay gateway
             gateway = get_gateway("razorpay")
-            # Razorpay expects amount in paise (integer)
-            amount_paise = int(amount * Decimal("100.00"))
+            # Razorpay expects amount in paise (integer) - total_amount includes GST
+            amount_paise = int(gst_calcs["total_amount"] * Decimal("100.00"))
 
             order_payload = {
                 "amount": amount_paise,
@@ -185,7 +213,7 @@ class WCCService:
         gateway = get_gateway("razorpay")
         webhook_event = gateway.handle_webhook(body, signature)
 
-        if webhook_event.event_type != "payment.captured":
+        if webhook_event.event_type not in ("payment.captured", "payment.failed"):
             return {"status": "ignored", "event_type": webhook_event.event_type}
 
         payment_data = webhook_event.entity.get("payment", {})
@@ -204,6 +232,20 @@ class WCCService:
         if not recharge_log:
             raise ValueError(f"Recharge log not found for order {gateway_order_id}")
 
+        if webhook_event.event_type == "payment.failed":
+            if recharge_log.status == "pending":
+                raw_method = payment_data.get("method")
+                recharge_log.payment_method = str(raw_method) if raw_method else "upi"
+                recharge_log.gateway_payment_id = gateway_payment_id
+                recharge_log.status = "failed"
+                recharge_log.updated_at = func.now()
+                db.flush()
+            return {
+                "status": "failed",
+                "recharge_log_id": str(recharge_log.id),
+                "gateway_payment_id": gateway_payment_id
+            }
+
         if recharge_log.status == "success":
             return {
                 "status": "duplicate",
@@ -212,7 +254,7 @@ class WCCService:
             }
 
         # Verify amount matches (convert paise to Decimal)
-        expected_amount = recharge_log.amount
+        expected_amount = recharge_log.total_amount
         received_amount = Decimal(amount_paise) / Decimal("100.00")
         if abs(expected_amount - received_amount) > Decimal("0.01"):
             logger.warning(
@@ -220,6 +262,8 @@ class WCCService:
             )
 
         # Update recharge log
+        raw_method = payment_data.get("method")
+        recharge_log.payment_method = str(raw_method) if raw_method else "upi"
         recharge_log.gateway_payment_id = gateway_payment_id
         recharge_log.status = "success"
         recharge_log.updated_at = func.now()
@@ -238,20 +282,52 @@ class WCCService:
             db.add(wallet)
             db.flush()
 
-        wallet.balance += received_amount
+        wallet.balance += recharge_log.taxable_amount
         wallet.updated_at = func.now()
 
         db.flush()  # Flush instead of commit
 
+        # Generate Tax Invoice for WCC Recharge
+        try:
+            from app.services.billing.invoice_service import InvoiceService
+            gst_calcs = {
+                "subtotal": recharge_log.subtotal,
+                "gst_rate": recharge_log.gst_rate,
+                "gst_amount": recharge_log.gst_amount,
+                "cgst": recharge_log.cgst,
+                "sgst": recharge_log.sgst,
+                "igst": recharge_log.igst,
+                "taxable_amount": recharge_log.taxable_amount,
+                "total_amount": recharge_log.total_amount,
+                "place_of_supply": recharge_log.place_of_supply,
+                "customer_state": recharge_log.customer_state,
+                "customer_country": recharge_log.customer_country
+            }
+            # Check if invoice already exists for this recharge
+            from app.models.invoice import Invoice
+            existing_invoice = db.query(Invoice).filter(Invoice.wcc_recharge_log_id == recharge_log.id).first()
+            if not existing_invoice:
+                InvoiceService.create_invoice(
+                    db=db,
+                    workspace_id=recharge_log.workspace_id,
+                    amount=recharge_log.total_amount,
+                    currency=recharge_log.currency,
+                    gst_calculations=gst_calcs,
+                    product_type="wcc_recharge",
+                    wcc_recharge_log_id=recharge_log.id
+                )
+        except Exception as invoice_err:
+            logger.error(f"Failed to generate Invoice for WCC recharge {recharge_log.id}: {invoice_err}")
+
         logger.info(
-            f"Successfully credited {received_amount} INR to workspace {recharge_log.workspace_id} "
+            f"Successfully credited {recharge_log.taxable_amount} INR (taxable) to workspace {recharge_log.workspace_id} "
             f"via Razorpay payment {gateway_payment_id}"
         )
 
         return {
             "status": "success",
             "recharge_log_id": str(recharge_log.id),
-            "amount_credited": float(received_amount),
+            "amount_credited": float(recharge_log.taxable_amount),
             "new_balance": float(wallet.balance)
         }
 
@@ -292,7 +368,6 @@ class WCCService:
         # Check tenant isolation
         if recharge_log.workspace_id != workspace_id:
             raise ValueError("Workspace context mismatch for recharge log")
-
         if recharge_log.status == "success":
             # Idempotent response
             wallet = cls.get_balance(db, workspace_id)
@@ -300,12 +375,20 @@ class WCCService:
                 "status": "success",
                 "message": "Recharge already successfully verified",
                 "recharge_log_id": str(recharge_log.id),
-                "amount_credited": float(recharge_log.amount),
+                "amount_credited": float(recharge_log.taxable_amount),
                 "new_balance": float(wallet.balance)
             }
 
-        # Update status
+        # Verify amount matches (convert paise to Decimal)
+        expected_amount = recharge_log.total_amount
+        received_amount = Decimal(payment_data.amount) / Decimal("100.00")
+        if abs(expected_amount - received_amount) > Decimal("0.01"):
+            raise ValueError(f"Payment amount mismatch: got {received_amount}, expected {expected_amount}")
+
+        # Update status & payment method
+        raw_method = getattr(payment_data, 'method', None) or (payment_data.get('method') if isinstance(payment_data, dict) else None)
         recharge_log.gateway_payment_id = payment_id
+        recharge_log.payment_method = str(raw_method) if raw_method else "upi"
         recharge_log.status = "success"
         recharge_log.updated_at = func.now()
 
@@ -323,13 +406,45 @@ class WCCService:
             db.add(wallet)
             db.flush()
 
-        wallet.balance += recharge_log.amount
+        wallet.balance += recharge_log.taxable_amount
         wallet.updated_at = func.now()
 
         db.flush()
 
+        # Generate Tax Invoice for WCC Recharge
+        try:
+            from app.services.billing.invoice_service import InvoiceService
+            gst_calcs = {
+                "subtotal": recharge_log.subtotal,
+                "gst_rate": recharge_log.gst_rate,
+                "gst_amount": recharge_log.gst_amount,
+                "cgst": recharge_log.cgst,
+                "sgst": recharge_log.sgst,
+                "igst": recharge_log.igst,
+                "taxable_amount": recharge_log.taxable_amount,
+                "total_amount": recharge_log.total_amount,
+                "place_of_supply": recharge_log.place_of_supply,
+                "customer_state": recharge_log.customer_state,
+                "customer_country": recharge_log.customer_country
+            }
+            # Check if invoice already exists for this recharge
+            from app.models.invoice import Invoice
+            existing_invoice = db.query(Invoice).filter(Invoice.wcc_recharge_log_id == recharge_log.id).first()
+            if not existing_invoice:
+                InvoiceService.create_invoice(
+                    db=db,
+                    workspace_id=recharge_log.workspace_id,
+                    amount=recharge_log.total_amount,
+                    currency=recharge_log.currency,
+                    gst_calculations=gst_calcs,
+                    product_type="wcc_recharge",
+                    wcc_recharge_log_id=recharge_log.id
+                )
+        except Exception as invoice_err:
+            logger.error(f"Failed to generate Invoice for WCC recharge {recharge_log.id}: {invoice_err}")
+
         logger.info(
-            f"Successfully verified WCC recharge of {recharge_log.amount} INR for workspace {workspace_id} "
+            f"Successfully verified WCC recharge of {recharge_log.taxable_amount} INR (taxable) for workspace {workspace_id} "
             f"via Razorpay payment {payment_id}"
         )
 
@@ -337,7 +452,7 @@ class WCCService:
             "status": "success",
             "message": "Recharge successfully verified",
             "recharge_log_id": str(recharge_log.id),
-            "amount_credited": float(recharge_log.amount),
+            "amount_credited": float(recharge_log.taxable_amount),
             "new_balance": float(wallet.balance)
         }
 

@@ -92,7 +92,22 @@ class WCCRechargeLog(Base):
     currency = Column(String(3), default="INR", nullable=False)
     gateway_order_id = Column(String(255), index=True, nullable=True)
     gateway_payment_id = Column(String(255), index=True, unique=True, nullable=True)
+    payment_method = Column(String(50), nullable=True)
     status = Column(String(50), default="pending", nullable=False)  # pending, success, failed
+
+    # GST columns
+    subtotal = Column(Numeric(12, 2), nullable=True)
+    gst_rate = Column(Numeric(5, 2), nullable=True)
+    gst_amount = Column(Numeric(12, 2), nullable=True)
+    cgst = Column(Numeric(12, 2), nullable=True)
+    sgst = Column(Numeric(12, 2), nullable=True)
+    igst = Column(Numeric(12, 2), nullable=True)
+    taxable_amount = Column(Numeric(12, 2), nullable=True)
+    total_amount = Column(Numeric(12, 2), nullable=True)
+    place_of_supply = Column(String(100), nullable=True)
+    customer_state = Column(String(100), nullable=True)
+    customer_country = Column(String(100), nullable=True)
+    customer_gstin = Column(String(50), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

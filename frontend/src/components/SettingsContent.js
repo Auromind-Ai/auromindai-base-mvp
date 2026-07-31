@@ -1547,7 +1547,7 @@ function MyAccountSection({
 
 export default function SettingsContent({ email }) {
   const { user, logout, refreshUser } = useAuth();
-  console.log('=== SETTINGS DEBUG ===', { user, email });
+  
   const [activeSection, setActiveSection] = useState('my-account');
   const [preferredName, setPreferredName] = useState('User');
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);

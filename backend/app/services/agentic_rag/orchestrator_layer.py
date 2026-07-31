@@ -244,7 +244,7 @@ class OrchestratorLayer:
             scraper = Webscrapper(start_url)
             single_page = bool(start_url)
             scraped_data = scraper.scrapper_choose(single_page)
-            print(scraped_data)
+            logger.debug(f"Scraped data: {scraped_data}")
 
             if not scraped_data or isinstance(scraped_data, str):
                 meta_payload = {
@@ -804,7 +804,7 @@ class OrchestratorLayer:
             scraper = Webscrapper(start_url)
             single_page = bool(start_url)
             scraped_data = scraper.scrapper_choose(single_page)
-            print(scraped_data)
+            logger.debug(f"Scraped data: {scraped_data}")
 
             if not scraped_data or isinstance(scraped_data, str):
                 return self.mcp.format_response("Unable to read the website.", query, model=model)

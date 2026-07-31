@@ -18,6 +18,8 @@ class InvoiceStatus(str, enum.Enum):
     open = "open"
     paid = "paid"
     void = "void"
+    cancelled = "cancelled"
+    refunded = "refunded"
 
 class PlatformRole(str, enum.Enum):
     USER = "user"
