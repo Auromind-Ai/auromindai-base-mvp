@@ -314,7 +314,7 @@ def create_template(
     }
     meta_response = submit_to_meta(meta_payload, workspace)
     if meta_response.get("error"):
-        print("META ERROR:", meta_response)
+        logger.error(f"META ERROR: {meta_response}")
         new_template.status = "rejected"
         db.commit()
 
@@ -324,7 +324,7 @@ def create_template(
         raise HTTPException(400, f"Template rejected by Meta: {error_msg}")
     
     else:
-        print("META SUCCESS:", meta_response)
+        logger.info(f"META SUCCESS: {meta_response}")
         new_template.meta_template_id = meta_response.get("id")
         new_template.status = "pending"
 
@@ -496,7 +496,7 @@ def check_template_status(
     )
     url = f"https://graph.facebook.com/v19.0/{workspace.meta_waba_id}/message_templates"
     headers = {"Authorization": f"Bearer {workspace.meta_access_token}"}
-    res = requests.get(url, headers=headers)
+    res = requests.get(url, headers=headers, timeout=10)
     meta_templates = res.json().get("data", [])
 
     for t in templates:
@@ -554,7 +554,7 @@ def send_message(
         "Content-Type": "application/json",
     }
 
-    res = requests.post(url, json=payload, headers=headers)
+    res = requests.post(url, json=payload, headers=headers, timeout=10)
     return res.json()
 
 
@@ -604,7 +604,7 @@ def submit_template(
 
     meta_response = submit_to_meta(meta_payload, workspace)
     if meta_response.get("error"):
-        print("META SUBMIT ERROR:", meta_response)
+        logger.error(f"META SUBMIT ERROR: {meta_response}")
         template.status = "rejected"
         db.commit()
         error_msg = meta_response.get("error", {}).get(
@@ -613,7 +613,7 @@ def submit_template(
         raise HTTPException(400, f"Template rejected by Meta: {error_msg}")
     
     else:
-        print("META SUBMIT SUCCESS:", meta_response)
+        logger.info(f"META SUBMIT SUCCESS: {meta_response}")
         template.meta_template_id = meta_response.get("id")
         template.status = "pending"
 

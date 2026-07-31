@@ -1,8 +1,7 @@
 import json
 import math
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from app.routers.auth import get_current_user
-from app.core.rate_limiter import verify_chat_rate_limit
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
@@ -15,8 +14,6 @@ import os
 import shutil
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.utils.website_scraper import Webscrapper
-from app.utils.text_validator import validate_ingestion_text
-from app.utils.file_validator import validate_file_upload
 from app.core.exceptions import BillingError, WorkspaceAccessError
 from app.core.security import verify_workspace_access
 from app.schemas.brain import *
@@ -52,11 +49,25 @@ async def ingest_document(
     billing_service = None
     try:
         logger.info(f"[INGEST DOCUMENT] user={current_user.id} workspace={workspace_id} file={file.filename}")
-        file_ext = validate_file_upload(file)
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
+        allowed_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
+        file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
 
         entry_id = str(uuid.uuid4())
         temp_dir = os.path.join(os.getcwd(), "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
+        try:
+            os.chmod(temp_dir, 0o750)  # nosec B103
+        except Exception:
+            pass
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -70,7 +81,6 @@ async def ingest_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -136,7 +146,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -149,7 +158,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -162,7 +170,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -183,11 +190,25 @@ async def ingest_sales_document(
     billing_service = None
     try:
         logger.info(f"[INGEST SALES DOCUMENT] user={current_user.id} workspace={workspace_id} file={file.filename}")
-        file_ext = validate_file_upload(file)
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
+        allowed_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
+        file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
 
         entry_id = str(uuid.uuid4())
         temp_dir = os.path.join(os.getcwd(), "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
+        try:
+            os.chmod(temp_dir, 0o750)  # nosec B103
+        except Exception:
+            pass
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -201,7 +222,6 @@ async def ingest_sales_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -263,7 +283,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -276,7 +295,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -289,7 +307,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -310,11 +327,25 @@ async def ingest_support_document(
     billing_service = None
     try:
         logger.info(f"[INGEST SUPPORT DOCUMENT] user={current_user.id} workspace={workspace_id} file={file.filename}")
-        file_ext = validate_file_upload(file)
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
+        allowed_extensions = {".pdf", ".docx", ".txt", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".webp"}
+        file_ext = "." + file.filename.split(".")[-1].lower() if "." in file.filename else ""
+
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Allowed: {', '.join(allowed_extensions)}"
+            )
 
         entry_id = str(uuid.uuid4())
         temp_dir = os.path.join(os.getcwd(), "temp_uploads")
         os.makedirs(temp_dir, exist_ok=True)
+        try:
+            os.chmod(temp_dir, 0o750)  # nosec B103
+        except Exception:
+            pass
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -326,7 +357,6 @@ async def ingest_support_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -388,7 +418,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -401,7 +430,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -414,7 +442,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -526,7 +553,8 @@ async def ingest_text(
 
     try:
         logger.info(f"[INGEST TEXT] user={current_user.id} workspace={workspace_id}")
-        validate_ingestion_text(db=db, workspace_id=workspace_id, text=request.content)
+        if len(request.content.strip()) < 20:
+            raise HTTPException(status_code=400, detail="Content too short (minimum 20 characters)")
 
         ingestion_metadata = {}
         if request.region: ingestion_metadata["region"] = request.region
@@ -847,11 +875,10 @@ async def search_knowledge(
 @router.post("/query", response_model=QueryResponse)
 async def query_knowledge(
     request: QueryRequest,
-    req: Request,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    verify_chat_rate_limit(req, current_user)
+    
     workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
     try:

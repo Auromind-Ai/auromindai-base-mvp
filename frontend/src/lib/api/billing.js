@@ -171,6 +171,26 @@ export async function getWccSessions(workspace_id, page = 1, limit = 10) {
   });
 }
 
+export async function getInvoices(workspace_id, { page = 1, limit = 10, search = '', type = '', sort = 'desc' } = {}) {
+  const params = new URLSearchParams({ page, limit, sort });
+  if (search) params.append('search', search);
+  if (type) params.append('type', type);
+
+  return client.get(`/billing/invoices?${params.toString()}`, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
+}
+
+export async function getWccUserRechargeLogs(workspace_id, { page = 1, limit = 10, search = '', status = '', sort = 'desc' } = {}) {
+  const params = new URLSearchParams({ page, limit, sort });
+  if (search) params.append('search', search);
+  if (status) params.append('status', status);
+
+  return client.get(`/wallet/wcc/recharges?${params.toString()}`, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
+}
+
 // Admin Billing Operations & Diagnostics
 export async function getWorkspaceLedger(workspaceId, page = 1, limit = 20) {
   return client.get(`/admin/billing/workspaces/${workspaceId}/ledger?page=${page}&limit=${limit}`);
@@ -306,7 +326,67 @@ export async function getFlowQuota(workspace_id, options = {}) {
   return client.get(`/flow-packs/quota?workspace_id=${workspace_id}`, { ...options, headers });
 }
 
-export function openRazorpayCheckout({
+let razorpayScriptPromise = null;
+
+export function loadRazorpayScript(src = "https://checkout.razorpay.com/v1/checkout.js", timeoutMs = 15000) {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Razorpay SDK cannot be loaded on the server side."));
+  }
+
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  if (razorpayScriptPromise) {
+    return razorpayScriptPromise;
+  }
+
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector(`script[src="${src}"]`);
+
+    let timer = null;
+    const cleanup = () => {
+      if (timer) clearTimeout(timer);
+    };
+
+    timer = setTimeout(() => {
+      razorpayScriptPromise = null;
+      reject(new Error("Razorpay SDK script load timed out. Please check your network connection or AdBlocker settings."));
+    }, timeoutMs);
+
+    const onScriptLoad = () => {
+      cleanup();
+      if (window.Razorpay) {
+        resolve(true);
+      } else {
+        razorpayScriptPromise = null;
+        reject(new Error("Razorpay SDK script loaded, but window.Razorpay is unavailable."));
+      }
+    };
+
+    const onScriptError = () => {
+      cleanup();
+      razorpayScriptPromise = null;
+      reject(new Error("Failed to load Razorpay SDK. Please check your internet connection or disable Brave Shields / AdBlocker."));
+    };
+
+    if (existingScript) {
+      existingScript.addEventListener("load", onScriptLoad, { once: true });
+      existingScript.addEventListener("error", onScriptError, { once: true });
+    } else {
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = onScriptLoad;
+      script.onerror = onScriptError;
+      document.body.appendChild(script);
+    }
+  });
+
+  return razorpayScriptPromise;
+}
+
+export async function openRazorpayCheckout({
   orderData,
   name = "Auromind",
   description = "",
@@ -314,8 +394,10 @@ export function openRazorpayCheckout({
   handler,
   ondismiss
 }) {
+  await loadRazorpayScript();
+
   if (!window.Razorpay) {
-    throw new Error("Razorpay checkout is still loading. Please retry in a few seconds.");
+    throw new Error("Razorpay SDK is unavailable.");
   }
 
   const options = {
@@ -337,5 +419,39 @@ export function openRazorpayCheckout({
   razorpay.open();
   return razorpay;
 }
+
+export async function getPlatformSettings() {
+  return client.get('/admin/settings');
+}
+
+export async function updatePlatformSettings(settings) {
+  return client.post('/admin/settings', settings);
+}
+
+export async function getSalesRegister(month = null, year = null) {
+  const params = new URLSearchParams();
+  if (month) params.append('month', month);
+  if (year) params.append('year', year);
+  return client.get(`/billing/admin/sales-register?${params.toString()}`);
+}
+
+export async function getTaxSummary(year = null) {
+  const params = new URLSearchParams();
+  if (year) params.append('year', year);
+  return client.get(`/billing/admin/tax-summary?${params.toString()}`);
+}
+
+export async function getWorkspaceBillingProfile(workspace_id) {
+  return client.get(`/billing/workspace/${workspace_id}/profile`, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
+}
+
+export async function updateWorkspaceBillingProfile(workspace_id, payload) {
+  return client.patch(`/billing/workspace/${workspace_id}/profile`, payload, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
+}
+
 
 

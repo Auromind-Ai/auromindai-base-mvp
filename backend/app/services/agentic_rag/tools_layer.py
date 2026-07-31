@@ -8,7 +8,7 @@ import numexpr as ne
 from app.models.brain import EmailMessage , MCPDecision
 import json
 from app.services.ai.llm_utils import safe_llm_call
-
+from app.utils.ssrf_protection import safe_httpx_sync_get, is_safe_url
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class Toolslayer:
 
                 seen_domains.add(domain)
 
-                from app.utils.ssrf_protection import safe_httpx_sync_get, is_safe_url
+                
                 if not is_safe_url(url):
                     continue
 

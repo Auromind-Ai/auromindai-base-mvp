@@ -1,8 +1,11 @@
 # Reset admin rate limit trigger
 import time
+import logging
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from app.schemas.admin import AdminAuthRequest
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 from . import (
     ai_actions,
     dashboard,
@@ -25,7 +28,8 @@ from . import (
     templates,
     entitlements,
     feature_rules,
-    flow_packs
+    flow_packs,
+    notification_templates
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -152,7 +156,7 @@ async def admin_auth(
             if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
                 cookie_domain = "." + ".".join(parts[-2:])
                 
-    print(f"[admin_auth] Setting cookie. Value: {token[:15]}... Scheme: {request.url.scheme}, x-forwarded-proto: {request.headers.get('x-forwarded-proto')}, is_https: {is_https}, cookie_samesite: {cookie_samesite}, cookie_domain: {cookie_domain}", flush=True)
+    logger.debug(f"[admin_auth] Setting cookie. Value: {token[:15]}... Scheme: {request.url.scheme}, x-forwarded-proto: {request.headers.get('x-forwarded-proto')}, is_https: {is_https}, cookie_samesite: {cookie_samesite}, cookie_domain: {cookie_domain}")
     # Set secure httpOnly cookie (30 minutes max age)
     response.set_cookie(
         key="admin_session",
@@ -225,3 +229,4 @@ router.include_router(templates.router, dependencies=admin_deps)
 router.include_router(entitlements.router, dependencies=admin_deps)
 router.include_router(feature_rules.router, dependencies=admin_deps)
 router.include_router(flow_packs.router, dependencies=admin_deps)
+router.include_router(notification_templates.router, dependencies=admin_deps)

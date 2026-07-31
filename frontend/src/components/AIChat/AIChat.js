@@ -349,7 +349,6 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                                     type="text"
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
-                                    maxLength={96000}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey && !isStreaming) {
                                             e.preventDefault();

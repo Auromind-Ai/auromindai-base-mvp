@@ -4,8 +4,11 @@ from app.models.workspace import Workspace, WorkspaceMember
 from app.utils.auth import get_password_hash, verify_password, create_access_token
 from app.services.platform_settings_service import get_setting
 import uuid
-from typing import Optional
+import time
+from typing import Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
+from app.utils.auth import parse_user_agent
+from app.services.notification_template_service import NotificationTemplateService
 
 # Redis client helper with graceful in-memory fallback
 def _get_redis_client():
@@ -17,6 +20,8 @@ def _get_redis_client():
     except Exception:
         pass
     return None
+
+_in_memory_otp_store: Dict[str, Dict[str, Any]] = {}
 
 # In-memory fallbacks for login attempt tracking & device notification cooldowns
 _FAILED_ATTEMPTS_STORE = {}
@@ -110,171 +115,7 @@ class AuthService:
 
 
 
-    @staticmethod
-    def login(db: Session, email: str, password: str = None, ip_address: str = None, device_info: str = None, session_expiry_hours: Optional[int] = None):
-        email = email.strip().lower()
 
-        if AuthService.is_locked_out(email):
-            raise ValueError("Account temporarily locked due to 5 consecutive failed login attempts. Please try again in 15 minutes.")
-
-        user = db.query(User).filter(User.email == email).first()
-       
-        if not user:
-            user = User(
-                email=email,
-                password_hash="$2b$12$eImiTXuWVxfM37uY4JANjO.GkY.Jk1p3Vb9S3gqZ5k6L7M8N9O0P1",
-                full_name=email.split('@')[0].title()
-            )
-            db.add(user)
-            db.flush()
-           
-            # Create default workspace
-            workspace = Workspace(
-                name=f"{user.full_name}'s Workspace",
-                created_by=user.id,
-            )
-            db.add(workspace)
-            db.flush()
-           
-            # Add user as workspace member
-            member = WorkspaceMember(
-                workspace_id=workspace.id,
-                user_id=user.id,
-                role="founder"
-            )
-            db.add(member)
-            db.commit()
-
-            # Initialize billing entitlement orchestrator
-            from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
-            EntitlementOrchestrator.on_workspace_created(db, workspace.id)
-            db.commit()
-
-            db.refresh(user)
-        elif password:
-            is_valid = False
-            try:
-                is_valid = verify_password(password, user.password_hash) if user.password_hash else False
-            except Exception:
-                is_valid = False
-
-            if not is_valid:
-                failed_count = AuthService.record_failed_attempt(email)
-                if failed_count >= 5:
-                    AuthService.set_lockout(email, minutes=15)
-                    try:
-                        from app.services.notification_service import NotificationService
-                        NotificationService.notify(
-                            db=db,
-                            user_id=user.id,
-                            workspace_id=None,
-                            type="security_alert",
-                            title="Account Temporarily Locked",
-                            message=f"5 consecutive failed login attempts detected for your account. Locked for 15 minutes. IP: {ip_address or 'Unknown IP'}",
-                            is_critical=True,
-                            email_subject="[SECURITY ALERT] Account Locked Due to Multiple Failed Logins"
-                        )
-                    except Exception:
-                        pass
-                raise ValueError("Account locked due to 5 consecutive failed login attempts. A security email alert has been sent.")
-            raise ValueError("Invalid email or password")
-
-       
-        if not user.is_active:
-            raise ValueError("User account is inactive")
-
-        # Successful authentication — clear failed attempt counters
-        AuthService.clear_failed_attempts(email)
-       
-        # Get user's workspaces
-        workspaces = db.query(Workspace, WorkspaceMember.role).join(
-            WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
-        ).filter(WorkspaceMember.user_id == user.id).all()
-
-        # Get workspace id
-        workspace_id = str(workspaces[0][0].id) if workspaces else None
-
-        # Check if login is from a new device / unrecognized IP
-        prior_session = db.query(UserSession).filter(
-            UserSession.user_id == user.id,
-            (UserSession.ip_address == (ip_address or "Unknown IP")) | 
-            (UserSession.device_info == (device_info or "Unknown Device"))
-        ).first()
-
-        is_new_device = prior_session is None
-
-        # Create session
-        session_id = str(uuid.uuid4())
-        user_session = UserSession(
-            id=session_id,
-            user_id=user.id,
-            device_info=device_info or "Unknown Device",
-            ip_address=ip_address or "Unknown IP",
-            location=None,
-        )
-        db.add(user_session)
-        db.commit()
-
-        if is_new_device:
-            from app.utils.auth import parse_user_agent
-            fingerprint = parse_user_agent(device_info)
-            cooldown_key = f"new_device_cooldown:{user.id}:{fingerprint}"
-
-            if not AuthService.is_device_alert_on_cooldown(cooldown_key):
-                AuthService.set_device_alert_cooldown(cooldown_key, hours=1)
-                try:
-                    from app.services.notification_service import NotificationService
-                    NotificationService.notify(
-                        db=db,
-                        user_id=user.id,
-                        workspace_id=None,
-                        type="security_alert",
-                        title="New Device Login Detected",
-                        message=f"New login detected from a new device/browser ({fingerprint}) at IP {ip_address or 'Unknown IP'}.",
-                        is_critical=True,
-                        email_subject="[SECURITY ALERT] New Login from Unrecognized Device",
-                        deduplication_key=cooldown_key
-                    )
-                except Exception as notif_exc:
-                    import logging
-                    logging.getLogger("app").error(f"Failed to send login alert notification: {notif_exc}")
-
-
-
-        import secrets
-        csrf_token = secrets.token_urlsafe(32)
-        expires_delta = timedelta(hours=session_expiry_hours) if session_expiry_hours else None
-        access_token = create_access_token(
-            data={
-                "sub": str(user.id),
-                "email": user.email,
-                "workspace_id": workspace_id,
-                "session_id": session_id,
-                "csrf_token": csrf_token
-            },
-            expires_delta=expires_delta
-        )
-       
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "csrf_token": csrf_token,
-            "user": {
-                "id": str(user.id),
-                "email": user.email,
-                "full_name": user.full_name,
-                "csrf_token": csrf_token
-            },
-            "workspaces": [
-                {
-                    "id": str(ws.id),
-                    "name": ws.name,
-                    "role": role,
-                    "plan_type": getattr(ws, "plan_type", "starter")
-                }
-                for ws, role in workspaces
-            ]
-        }
    
     @staticmethod
     def get_user_by_id(db: Session, user_id: str):
@@ -350,7 +191,7 @@ class AuthService:
             EntitlementOrchestrator.on_workspace_created(db, workspace.id)
             db.commit()
 
-            # Welcome notification + email for new signup
+            # Welcome notification + email for new signup using NotificationTemplate
             try:
                 from app.services.notification_service import NotificationService
                 NotificationService.notify(
@@ -358,10 +199,16 @@ class AuthService:
                     user_id=user.id,
                     workspace_id=workspace.id,
                     type="workspace_alert",
-                    title="Welcome to AuroMind!",
-                    message=f"Welcome {user.full_name}! Your workspace '{workspace.name}' is ready.",
+                    title=None,
+                    message=None,
                     send_email=True,
-                    email_subject="Welcome to AuroMind AI"
+                    email_subject=None,
+                    template_key="welcome_signup",
+                    variables={
+                        "user_name": user.full_name or user.email.split("@")[0].title(),
+                        "email": user.email,
+                        "workspace_name": workspace.name
+                    }
                 )
             except Exception as notif_exc:
                 import logging
@@ -400,28 +247,47 @@ class AuthService:
         db.add(user_session)
         db.commit()
 
-        # Send Security Alert ONLY if login is from a New Device
-        if is_new_device:
-            from app.utils.auth import parse_user_agent
-            fingerprint = parse_user_agent(device_info)
-            dedup_key = f"new_device:{user.id}:{fingerprint}"
+        # Send dynamic Login Notification (New Device vs Known Device) using Notification Template Management
+        if not is_new_user:
+          
+            device_name = parse_user_agent(device_info) if device_info else "Unknown Device/Browser"
+            login_time_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            template_key = "new_device_login" if is_new_device else "known_device_login"
+            dedup_key = f"{template_key}:{user.id}:{session_id}"
+
+            ws_name = workspaces[0][0].name if workspaces else "Auromind"
+            ws_id = uuid.UUID(workspace_id) if workspace_id else None
+
             try:
                 from app.services.notification_service import NotificationService
                 NotificationService.notify(
                     db=db,
                     user_id=user.id,
-                    workspace_id=None,
+                    workspace_id=ws_id,
                     type="security_alert",
-                    title="New Device Login Detected",
-                    message=f"New login detected from an unrecognized device/browser ({fingerprint}) at IP {ip_address or 'Unknown IP'}.",
-                    is_critical=True,
-                    send_email=True,
-                    email_subject="[SECURITY ALERT] New Login from Unrecognized Device",
-                    deduplication_key=dedup_key
+                    title=None,          # Loaded dynamically from DB NotificationTemplate / Fallback
+                    message=None,        # Loaded dynamically from DB NotificationTemplate / Fallback
+                    send_email=True,     # Dispatch email if template or default is configured
+                    is_critical=is_new_device,
+                    email_subject=None,  # Loaded dynamically from DB NotificationTemplate / Fallback
+                    deduplication_key=dedup_key,
+                    template_key=template_key,
+                    variables={
+                        "user_name": user.full_name or user.email.split("@")[0].title(),
+                        "email": user.email,
+                        "workspace_name": ws_name,
+                        "ip_address": ip_address or "Unknown IP",
+                        "device_info": device_info or "Unknown Device",
+                        "device": device_name,
+                        "browser": device_name,
+                        "location": user_session.location or "Unknown Location",
+                        "login_time": login_time_str
+                    }
                 )
             except Exception as notif_exc:
                 import logging
-                logging.getLogger("app").error(f"Failed to send email login alert notification: {notif_exc}")
+                logging.getLogger("app").error(f"Failed to send login notification using template '{template_key}': {notif_exc}")
 
 
 
@@ -481,20 +347,34 @@ class AuthService:
 
         otp = str(random.randint(100000, 999999))
        
+        # Store in Redis if available
         try:
             import redis
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             r.setex(f"otp:{email}", 300, otp)  # 5 mins expiry
         except Exception as e:
-            # Fallback for local
-            pass
+            import logging
+            logging.getLogger("auromind").warning(f"Redis unavailable for send_otp ({e}). Using in-memory fallback for {email}.")
+
+        # Always maintain in-memory fallback in case Redis fails during verify
+        _in_memory_otp_store[email] = {
+            "otp": otp,
+            "expires_at": time.time() + 300,
+            "attempts": 0
+        }
            
         try:
-            db_subject = get_setting(db, "email_template_otp_subject") or f"Your {auth_type.title()} Verification Code"
-            db_body = get_setting(db, "email_template_otp_body") or f"Your verification code is {{otp}}. It will expire in 5 minutes."
             
-            subject = EmailService.render_template(db_subject, {"otp": otp, "auth_type": auth_type.title()})
-            body = EmailService.render_template(db_body, {"otp": otp, "auth_type": auth_type.title()})
+            otp_tpl = NotificationTemplateService.get_template(db, "otp_code", channel="email")
+            context = {
+                "email": email,
+                "user_name": user.full_name if user else email.split("@")[0].title(),
+                "otp": otp,
+                "auth_type": auth_type.title()
+            }
+            
+            subject = NotificationTemplateService.render_text(otp_tpl["subject"], context) if (otp_tpl and otp_tpl.get("subject")) else f"Your {auth_type.title()} Verification Code"
+            body = NotificationTemplateService.render_text(otp_tpl["message"], context) if (otp_tpl and otp_tpl.get("message")) else f"Your verification code is {otp}. It will expire in 5 minutes."
 
             EmailService.send_email(
                 to_email=email,
@@ -504,7 +384,7 @@ class AuthService:
         except Exception as e:
             import logging
             logger = logging.getLogger("auromind")
-            logger.error(f"Failed to send verification email via SMTP: {str(e)}. Falling back to console logging.")
+            logger.error(f"Failed to send verification email via SMTP: {str(e)}.")
         return True
 
     @staticmethod
@@ -512,11 +392,15 @@ class AuthService:
         from app.core.config import settings
         from fastapi import HTTPException
         email = email.strip().lower()
+        saved_otp = None
+        redis_available = False
+        r = None
+        attempts_key = f"otp_attempts:{email}"
+
         try:
             import redis
             r = redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2.0, socket_timeout=2.0)
             
-            attempts_key = f"otp_attempts:{email}"
             attempts = r.get(attempts_key)
             if attempts and int(attempts) >= 5:
                 raise HTTPException(
@@ -526,21 +410,51 @@ class AuthService:
                 )
 
             saved_otp = r.get(f"otp:{email}")
-            if not saved_otp or saved_otp != otp:
-                # Increment failed attempts
-                r.incr(attempts_key)
-                r.expire(attempts_key, 300)
-                raise ValueError("Invalid or expired OTP")
-            
-            # Clear attempt counter on success
-            r.delete(f"otp:{email}")
-            r.delete(attempts_key)
+            redis_available = True
         except HTTPException:
             raise
         except Exception as e:
             import logging
-            logging.getLogger("auromind").error(f"OTP verification failed: {str(e)}")
+            logging.getLogger("auromind").warning(f"Redis unavailable during verify_otp ({e}). Using in-memory fallback.")
+
+        # Fallback to in-memory store if Redis was not reachable or had no saved_otp
+        if not saved_otp:
+            mem_data = _in_memory_otp_store.get(email)
+            if mem_data:
+                if time.time() > mem_data.get("expires_at", 0):
+                    _in_memory_otp_store.pop(email, None)
+                    raise ValueError("Invalid or expired OTP")
+                
+                if mem_data.get("attempts", 0) >= 5:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="Too many failed attempts. Please try again after 5 minutes.",
+                        headers={"Retry-After": "300"}
+                    )
+                
+                saved_otp = mem_data.get("otp")
+
+        if not saved_otp or saved_otp != otp:
+            if redis_available and r:
+                try:
+                    r.incr(attempts_key)
+                    r.expire(attempts_key, 300)
+                except Exception:
+                    pass
+            mem_data = _in_memory_otp_store.get(email)
+            if mem_data:
+                mem_data["attempts"] = mem_data.get("attempts", 0) + 1
+
             raise ValueError("Invalid or expired OTP")
+        
+        # Clear attempt counter and stored OTP on success
+        if redis_available and r:
+            try:
+                r.delete(f"otp:{email}")
+                r.delete(attempts_key)
+            except Exception:
+                pass
+        _in_memory_otp_store.pop(email, None)
                
         if auth_type == "signup":
             user = db.query(User).filter(User.email == email).first()

@@ -262,14 +262,23 @@ class BillingService:
                 raise ValueError("Requested plan does not match provider subscription")
 
             plan_config = self.plan_service._get_plan_config(db, provider_plan_key)
-            expected_amount = self._to_provider_minor_units(plan_config.amount)
+            # Calculate expected GST amount
+            from app.services.billing.gst_service import GSTService
+            from decimal import Decimal
+            gst_calcs = GSTService.calculate_gst(
+                amount=Decimal(str(plan_config.amount)),
+                customer_state=workspace.billing_state,
+                customer_country=workspace.billing_country or "IN",
+                product_type="subscription",
+                db=db
+            )
+            expected_amount = int(gst_calcs["total_amount"] * Decimal("100.00"))
+            
             if fetched_payment.amount != expected_amount:
                 raise ValueError(
-        f"Payment amount mismatch: got {fetched_payment.amount} paise "
-        f"({fetched_payment.amount / 100}), "
-        f"expected {expected_amount} paise "
-        f"({plan_config.amount}) — check Razorpay plan vs DB pro_plan_price"
-    )
+                    f"Payment amount mismatch: got {fetched_payment.amount} paise, "
+                    f"expected {expected_amount} paise (includes GST)"
+                )
 
             if fetched_payment.status not in {"captured", "authorized"}:
                 raise ValueError("Payment is not in a successful state")
@@ -354,8 +363,18 @@ class BillingService:
         workspace = self._get_workspace_for_user(db, workspace_id, user_id)
         gateway = self._resolve_gateway(provider)
 
+        # Calculate GST on backend
+        from app.services.billing.gst_service import GSTService
+        from decimal import Decimal
+        gst_calcs = GSTService.calculate_gst(
+            amount=Decimal(str(pack.amount)),
+            customer_state=workspace.billing_state,
+            customer_country=workspace.billing_country or "IN",
+            product_type="ai_credits",
+            db=db
+        )
         # Razorpay expects amount in paise (integer)
-        amount_paise = int(pack.amount * 100)
+        amount_paise = int(gst_calcs["total_amount"] * Decimal("100.00"))
 
         order_payload = {
             "amount": amount_paise,
@@ -407,6 +426,12 @@ class BillingService:
             raise ValueError("Payment not captured")
 
         notes = fetched_payment.raw.get("notes", {}) if fetched_payment.raw else {}
+        
+        # Verify workspace context (Issue #2)
+        notes_workspace_id = notes.get("workspace_id")
+        if not notes_workspace_id or str(notes_workspace_id) != str(workspace.id):
+            raise ValueError("Payment does not belong to this workspace")
+
         pack_id = notes.get("pack_id")
         if not pack_id:
             raise ValueError("Missing pack_id in payment metadata")
@@ -415,6 +440,20 @@ class BillingService:
         pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id, CreditPack.is_active == True).first()
         if not pack:
             raise ValueError(f"Unknown credit pack: {pack_id}")
+
+        # Calculate GST on backend
+        from app.services.billing.gst_service import GSTService
+        from decimal import Decimal
+        gst_calcs = GSTService.calculate_gst(
+            amount=Decimal(str(pack.amount)),
+            customer_state=workspace.billing_state,
+            customer_country=workspace.billing_country or "IN",
+            product_type="ai_credits",
+            db=db
+        )
+        expected_amount = int(gst_calcs["total_amount"] * Decimal("100.00"))
+        if fetched_payment.amount != expected_amount:
+            raise ValueError(f"Payment amount mismatch: got {fetched_payment.amount} paise, expected {expected_amount} paise")
 
         # Check if already processed (idempotency check)
         from app.models.token_ledger import TokenLedger
@@ -433,15 +472,16 @@ class BillingService:
             currency = pack.currency
 
         subscription = self.subscription_service._get_active_subscription(db, workspace_id)
-        if not subscription:
-            raise ValueError("No active subscription found for workspace to attach payment to")
 
         payment = self.payment_service._record_successful_payment(
             db=db,
             provider=provider,
-            subscription=subscription,
             payment_payload=fetched_payment.raw or {},
             plan_config=DummyPlanConfig(),
+            workspace_id=workspace_id,
+            subscription=subscription,
+            payment_type="ai_credit_recharge",
+            description=f"AI Credit Pack ({pack.name})",
         )
 
         # Grant credits
@@ -536,15 +576,90 @@ class BillingService:
             )
             .first()
         )
-        
-        payments = (
+                # Query Payments
+        db_payments = (
             db.query(Payment)
             .filter(Payment.workspace_id == workspace.id)
             .order_by(Payment.created_at.desc())
-            .limit(50)
             .all()
         )
-        latest_payment = payments[0] if payments else None
+        # Query WCC Recharge Logs
+        from app.models.wcc import WCCRechargeLog
+        wcc_recharges = (
+            db.query(WCCRechargeLog)
+            .filter(WCCRechargeLog.workspace_id == workspace.id)
+            .order_by(WCCRechargeLog.created_at.desc())
+            .all()
+        )
+
+        from app.models.invoice import Invoice
+        invoices = db.query(Invoice).filter(Invoice.workspace_id == workspace.id).all()
+        payment_to_invoice = {inv.payment_id: inv for inv in invoices if inv.payment_id}
+        wcc_to_invoice = {inv.wcc_recharge_log_id: inv for inv in invoices if inv.wcc_recharge_log_id}
+
+        all_items = []
+        for p in db_payments:
+            linked_inv = payment_to_invoice.get(p.id)
+            p_type = getattr(p, "payment_type", None) or ("subscription" if p.subscription_id else "ai_credit_recharge")
+            p_desc = getattr(p, "description", None) or ("Pro Plan Subscription" if p_type == "subscription" else "AI Credit Recharge")
+            
+            gst_amount = float(p.gst_amount) if p.gst_amount is not None else 0.0
+            total_amount = float(p.total_amount) if p.total_amount is not None else (float(p.amount) / 100.0 if p.amount else 0.0)
+            if linked_inv:
+                gst_amount = float(linked_inv.gst_amount or 0.0)
+                total_amount = float(linked_inv.total_amount or 0.0)
+
+            all_items.append({
+                "id": str(p.id),
+                "date": self._serialize_datetime(p.created_at),
+                "amount": total_amount,
+                "gst_amount": gst_amount,
+                "status": p.status.value.upper() if hasattr(p.status, "value") else str(p.status).upper(),
+                "payment_id": p.provider_payment_id or "N/A",
+                "payment_type": p_type,
+                "payment_method": getattr(p, 'payment_method', None) or "card",
+                "provider": p.provider or "razorpay",
+                "description": p_desc,
+                "invoice_available": True if (linked_inv and linked_inv.pdf_url) else False,
+                "invoice_id": str(linked_inv.id) if linked_inv else None,
+                "invoice_number": linked_inv.invoice_number if linked_inv else None,
+                "created_at_dt": p.created_at
+            })
+
+        for r in wcc_recharges:
+            linked_inv = wcc_to_invoice.get(r.id)
+            gst_amount = float(r.gst_amount) if getattr(r, 'gst_amount', None) is not None else 0.0
+            total_amount = float(r.total_amount) if getattr(r, 'total_amount', None) is not None else float(r.amount)
+            if linked_inv:
+                gst_amount = float(linked_inv.gst_amount or 0.0)
+                total_amount = float(linked_inv.total_amount or 0.0)
+
+            all_items.append({
+                "id": str(r.id),
+                "date": self._serialize_datetime(r.created_at),
+                "amount": total_amount,
+                "gst_amount": gst_amount,
+                "status": r.status.upper(),
+                "payment_id": r.gateway_payment_id or r.gateway_order_id or "N/A",
+                "payment_type": "wallet_recharge",
+                "payment_method": getattr(r, 'payment_method', None) or "upi",
+                "provider": "razorpay",
+                "description": f"WhatsApp Wallet Recharge (₹{r.amount})",
+                "invoice_available": True if (linked_inv and linked_inv.pdf_url) else False,
+                "invoice_id": str(linked_inv.id) if linked_inv else None,
+                "invoice_number": linked_inv.invoice_number if linked_inv else None,
+                "created_at_dt": r.created_at
+            })
+
+        # Sort all items descending by date
+        all_items.sort(key=lambda x: x["created_at_dt"].timestamp() if x["created_at_dt"] else 0, reverse=True)
+        recent_items = all_items[:50]
+
+        # Clean temporary sorting key
+        for item in recent_items:
+            item.pop("created_at_dt", None)
+
+        latest_payment = recent_items[0] if recent_items else None
 
         # Get the plan key
         current_plan_key = "free"
@@ -569,7 +684,7 @@ class BillingService:
         usage_percent = round((used_tokens / total_tokens) * 100, 1) if total_tokens > 0 else 0
 
         # billing_status logic remains the same
-        if latest_payment and latest_payment.status == PaymentStatus.failed:
+        if latest_payment and latest_payment["status"] in ("FAILED", "PAYMENT_FAILED"):
             billing_status = "FAILED"
         elif subscription and subscription.status == SubscriptionStatus.cancelled:
             billing_status = "CANCELLED"
@@ -602,15 +717,7 @@ class BillingService:
                 "current_period_end": self._serialize_datetime(subscription.current_period_end if subscription else None),
                 "provider": subscription.provider if subscription else None,
             },
-            "payments": [
-                {
-                    "id": str(p.id),
-                    "date": self._serialize_datetime(p.created_at),
-                    "amount": p.amount,
-                    "status": p.status.value.upper(),
-                    "payment_id": p.provider_payment_id,
-                } for p in payments
-            ],
+            "payments": recent_items,
             "plans": [self.plan_service._serialize_plan(db, key) for key in ("free", "pro", "enterprise")],
         }
     def check_token_limit(self, db: Session, workspace_id: str) -> TokenLimitStatus:
@@ -693,7 +800,7 @@ class BillingService:
         credits_used = float(balance.tokens_used)
         credits_reserved = float(balance.tokens_reserved)
 
-        days_remaining = float(credits_balance / burn_rate) if burn_rate > 0 else -1.0
+        days_remaining = round(float(credits_balance / burn_rate), 2) if burn_rate > 0 else -1.0
 
         # Determine health status
         if credits_added > 0:

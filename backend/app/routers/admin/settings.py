@@ -195,8 +195,10 @@ async def test_smtp_connection(
     
     smtp_host = settings.get("smtp_host", "")
     smtp_port_val = settings.get("smtp_port")
-    smtp_user = settings.get("smtp_user", "")
-    smtp_password = settings.get("smtp_password", "")
+    smtp_user = str(settings.get("smtp_user", "")).strip()
+    smtp_password = str(settings.get("smtp_password", "")).strip()
+    if smtp_password and "gmail.com" in str(smtp_host).lower():
+        smtp_password = smtp_password.replace(" ", "")
     
     if not smtp_host or not smtp_port_val:
         return make_test_response(False, "smtp", "Missing host or port", 0, "INVALID_CONFIGURATION")

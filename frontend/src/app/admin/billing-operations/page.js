@@ -13,7 +13,8 @@ import {
   Database,
   ArrowRightLeft,
   Shield,
-  Workflow
+  Workflow,
+  Percent
 } from "lucide-react"
 
 import api from "@/lib/api"
@@ -27,6 +28,7 @@ import FlowPacksTab from "@/components/admin/billing/FlowPacksTab"
 import PlanEntitlementsTab from "@/components/admin/billing/PlanEntitlementsTab"
 import RateCardsTab from "@/components/admin/billing/RateCardsTab"
 import AuditLogsTab from "@/components/admin/billing/AuditLogsTab"
+import GstSettingsTab from "@/components/admin/billing/GstSettingsTab"
 
 export default function BillingOperationsPage() {
   const [activeTab, setActiveTab] = useState("workspace")
@@ -133,6 +135,7 @@ export default function BillingOperationsPage() {
           { id: "flow-packs", name: "Flow Packs", icon: Workflow },
           { id: "plan-entitlements", name: "Plan Entitlements", icon: Shield },
           { id: "rate-cards", name: "WCC Rate Cards", icon: Wallet },
+          { id: "gst-settings", name: "GST & Tax Invoices", icon: Percent },
           { id: "audit-logs", name: "Admin Audit Logs", icon: FileText }
         ].map((tab) => {
           const Icon = tab.icon
@@ -239,6 +242,14 @@ export default function BillingOperationsPage() {
         {activeTab === "audit-logs" && (
           <AuditLogsTab
             setError={setError}
+            setActionLoading={setActionLoading}
+          />
+        )}
+        
+        {activeTab === "gst-settings" && (
+          <GstSettingsTab
+            setError={setError}
+            setSuccess={setSuccess}
             setActionLoading={setActionLoading}
           />
         )}

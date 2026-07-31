@@ -30,7 +30,6 @@ export default function SystemHealthPage() {
       setError(null)
 
       const json = await api.getSystemHealth({ signal })
-      console.log('Fetched system health:', json)
 
       setData(json)
       setLastUpdated(new Date().toISOString())

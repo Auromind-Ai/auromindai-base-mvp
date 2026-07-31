@@ -32,6 +32,7 @@ class AdminLoginRequest(BaseModel):
 class SendOTPRequest(BaseModel):
     email: str
     auth_type: str  # "login" or "signup"
+    turnstile_token: Optional[str] = None
 
 
 class VerifyOTPRequest(BaseModel):
@@ -41,5 +42,6 @@ class VerifyOTPRequest(BaseModel):
     full_name: str | None = None
     workspace_name: str | None = None
     session_expiry_hours: int | None = None
+    turnstile_token: Optional[str] = None
 
 

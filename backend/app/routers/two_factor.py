@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
+from datetime import datetime, timezone
 from app.database import get_db
 from app.models import User
 from app.routers.auth import get_current_user, CurrentUser
@@ -144,10 +144,15 @@ async def verify_setup(
             user_id=current_user.id,
             workspace_id=None,
             type="security_alert",
-            title="Two-Factor Authentication Enabled",
-            message="Two-Factor Authentication (2FA) has been successfully enabled on your account.",
+            title=None,
+            message=None,
             is_critical=True,
-            email_subject="[SECURITY ALERT] Two-Factor Authentication Enabled"
+            email_subject=None,
+            template_key="2fa_enabled",
+            variables={
+                "user_name": current_user.full_name or current_user.email,
+                "login_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
         )
     except Exception as notif_exc:
         import logging
@@ -273,10 +278,15 @@ async def disable(
             user_id=current_user.id,
             workspace_id=None,
             type="security_alert",
-            title="Two-Factor Authentication Disabled",
-            message="WARNING: Two-Factor Authentication (2FA) has been disabled on your account.",
+            title=None,
+            message=None,
             is_critical=True,
-            email_subject="[SECURITY ALERT] Two-Factor Authentication Disabled"
+            email_subject=None,
+            template_key="2fa_disabled",
+            variables={
+                "user_name": current_user.full_name or current_user.email,
+                "login_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
         )
     except Exception as notif_exc:
         import logging
@@ -312,15 +322,21 @@ async def regenerate_recovery_codes(
 
     try:
         from app.services.notification_service import NotificationService
+        from datetime import datetime, timezone
         NotificationService.notify(
             db=db,
             user_id=current_user.id,
             workspace_id=None,
             type="security_alert",
-            title="2FA Recovery Codes Regenerated",
-            message="New 2FA backup recovery codes have been generated for your account. Old recovery codes are no longer valid.",
+            title=None,
+            message=None,
             is_critical=True,
-            email_subject="[SECURITY ALERT] 2FA Recovery Codes Regenerated"
+            email_subject=None,
+            template_key="recovery_codes",
+            variables={
+                "user_name": current_user.full_name or current_user.email,
+                "login_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
         )
     except Exception as notif_exc:
         import logging

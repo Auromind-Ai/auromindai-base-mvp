@@ -39,7 +39,8 @@ class WhatsAppService:
             response = requests.post(
                 self.base_url,
                 json=payload,
-                headers=self._headers()
+                headers=self._headers(),
+                timeout=10
             )
 
             # Log response status for verification
@@ -90,7 +91,8 @@ class WhatsAppService:
             response = requests.post(
                 self.base_url,
                 json=payload,
-                headers=self._headers()
+                headers=self._headers(),
+                timeout=10
             )
 
             # Log response status for verification
@@ -123,7 +125,8 @@ class WhatsAppService:
             response = requests.post(
                 self.base_url,
                 json=payload,
-                headers=self._headers()
+                headers=self._headers(),
+                timeout=10
             )
 
             if response.status_code != 200:

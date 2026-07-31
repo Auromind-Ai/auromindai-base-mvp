@@ -41,8 +41,9 @@ class EmailService:
 
         rendered = template_str
         for k, v in merged_vars.items():
-            placeholder = f"{{{{{k}}}}}"
-            rendered = rendered.replace(placeholder, str(v))
+            val_str = str(v) if v is not None else ""
+            rendered = rendered.replace(f"{{{{{k}}}}}", val_str)
+            rendered = rendered.replace(f"{{{k}}}", val_str)
         return rendered
 
     @staticmethod
@@ -50,13 +51,15 @@ class EmailService:
         from app.services.config_service import config_service
         smtp_server = config_service.get("smtp_host", "smtp.gmail.com")
         smtp_port = int(config_service.get("smtp_port", 587))
-        smtp_user = config_service.get("smtp_user", "")
-        smtp_password = config_service.get("smtp_password", "")
-       
+        smtp_user = str(config_service.get("smtp_user", "")).strip()
+        smtp_password = str(config_service.get("smtp_password", "")).strip()
+        if smtp_password and "gmail.com" in str(smtp_server).lower():
+            smtp_password = smtp_password.replace(" ", "")
+
         logger.info(f"SMTP Host Loaded: {smtp_server}")
         logger.info(f"SMTP User Loaded: {smtp_user}")
         logger.info(f"SMTP Password Configured: {bool(smtp_password)}")
-       
+
         if not smtp_user or not smtp_password:
             logger.warning("SMTP credentials not configured. Simulating email send.")
             logger.info(f"--- SIMULATING EMAIL SEND ---")

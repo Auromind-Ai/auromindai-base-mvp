@@ -77,26 +77,13 @@ export default function DashboardView({
       return;
     }
 
-    if (!window.Razorpay) {
-      setCustomModal({
-        open: true,
-        title: 'Error',
-        message: 'Razorpay checkout is loading. Please retry in a few seconds.',
-        confirmText: 'Dismiss',
-        isConfirm: false,
-        confirmColor: 'bg-rose-600 hover:bg-rose-500',
-        onConfirm: () => setCustomModal(prev => ({ ...prev, open: false }))
-      });
-      return;
-    }
-
     setIsProcessingPayment(true);
 
     try {
       const res = await api.initiateFlowPackPurchase(wsId, pack.pack_id || pack.id);
       const orderData = res.data ?? res;
 
-      api.openRazorpayCheckout({
+      await api.openRazorpayCheckout({
         orderData,
         name: 'Auromind',
         description: `Flow Pack - ${pack.name || pack.label}`,

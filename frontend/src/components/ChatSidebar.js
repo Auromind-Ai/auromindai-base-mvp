@@ -95,8 +95,7 @@ export default function ChatSidebar({
                         animate={{ x: 0 }}
                         exit={{ x: '-100%' }}
                         transition={{ type: "tween", ease: "easeOut", duration: 0.25 }}
-                        className="fixed inset-y-0 left-0 md:left-[320px] z-50 w-full md:w-[340px] flex flex-col shadow-2xl will-change-transform"
-                        style={{ background: '#0f0f13' }}
+                        className="fixed inset-y-0 left-0 md:left-[320px] z-50 w-full md:w-[340px] flex flex-col shadow-2xl will-change-transform bg-[#0f0f13]"
                     >
                         <div className="flex flex-col h-full">
 
@@ -105,8 +104,7 @@ export default function ChatSidebar({
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={toggleSidebar}
-                                        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all"
-                                        style={{ background: 'transparent' }}
+                                        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent"
                                         title="Close"
                                     >
                                         <X size={16} />
@@ -117,8 +115,7 @@ export default function ChatSidebar({
                                 </div>
                                 <button
                                     onClick={onCreateSession}
-                                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all"
-                                    style={{ background: 'transparent' }}
+                                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent"
                                     title="New Chat"
                                 >
                                     <Plus size={16} />
@@ -128,20 +125,15 @@ export default function ChatSidebar({
                             {/*  Search  */}
                             <div className="px-4 pb-4 flex-shrink-0">
                                 <div
-                                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
-                                    style={{
-                                        background: 'rgba(255,255,255,0.04)',
-                                        border: '1px solid rgba(255,255,255,0.09)'
-                                    }}
+                                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.09]"
                                 >
-                                    <Search size={14} className="flex-shrink-0" style={{ color: '#6b7280' }} />
+                                    <Search size={14} className="flex-shrink-0 text-gray-500" />
                                     <input
                                         type="text"
                                         placeholder="Search or start new chat"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="bg-transparent text-[13px] outline-none w-full"
-                                        style={{ color: '#d1d5db' }}
+                                        className="bg-transparent text-[13px] outline-none w-full text-gray-300"
                                         onFocus={e => e.target.placeholder = ''}
                                         onBlur={e => e.target.placeholder = 'Search or start new chat'}
                                     />
@@ -149,12 +141,12 @@ export default function ChatSidebar({
                             </div>
 
                             {/*  Scrollable content  */}
-                            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5" style={{ scrollbarWidth: 'none' }}>
+                            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-5 [scrollbar-width:none]">
 
                                 {/*  PINNED section  */}
                                 {pinnedSessions.length > 0 && (
                                     <div>
-                                        <p className="text-[13px] font-semibold mb-3" style={{ color: '#9ca3af' }}>
+                                        <p className="text-[13px] font-semibold mb-3 text-gray-400">
                                             Pinned
                                         </p>
                                         <div className="space-y-2.5">
@@ -182,21 +174,17 @@ export default function ChatSidebar({
                                 {/*  RECENT section  */}
                                 {recentSessions.length > 0 && (
                                     <div>
-                                        <p className="text-[13px] font-semibold mb-3" style={{ color: '#9ca3af' }}>
+                                        <p className="text-[13px] font-semibold mb-3 text-[#e2dad7]">
                                             Recent
                                         </p>
                                         {/* All recent cards in ONE container with dividers */}
                                         <div
-                                            className="rounded-xl overflow-hidden"
-                                            style={{
-                                                border: '1px solid rgba(255,255,255,0.09)',
-                                                background: 'rgba(255,255,255,0.025)'
-                                            }}
+                                            className="rounded-xl overflow-hidden border border-white/[0.09] bg-white/[0.025]"
                                         >
                                             {recentSessions.map((session, idx) => (
                                                 <div key={session.id}>
                                                     {idx !== 0 && (
-                                                        <div style={{ height: '1px', background: 'rgba(255,255,255,0.07)', margin: '0 14px' }} />
+                                                        <div className="h-px bg-white/[0.07] mx-3.5" />
                                                     )}
                                                     <SessionCard
                                                         session={session}
@@ -221,7 +209,7 @@ export default function ChatSidebar({
                                 {/* Empty state */}
                                 {sessions.length === 0 && (
                                     <div className="text-center mt-14 px-4">
-                                        <p className="text-[12px]" style={{ color: '#4b5563' }}>No chat history found</p>
+                                        <p className="text-[12px] text-gray-600">No chat history found</p>
                                     </div>
                                 )}
                             </div>
@@ -239,8 +227,7 @@ export default function ChatSidebar({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-y-0 left-0 md:left-[320px] right-0 z-40 pointer-events-auto"
-                        style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+                        className="fixed inset-y-0 left-0 md:left-[320px] right-0 z-40 pointer-events-auto bg-black/50 backdrop-blur-sm"
                         onClick={toggleSidebar}
                     />
                 )}
@@ -311,30 +298,23 @@ function SessionCard({
 }) {
     const [showMenu, setShowMenu] = useState(false);
 
-    const baseCardStyle = standalone
-        ? {
-            border: `1px solid ${isActive ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.09)'}`,
-            background: isActive ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
-            borderRadius: '12px',
-        }
-        : {
-            background: isActive ? 'rgba(255,255,255,0.05)' : 'transparent',
-        };
+    const cardClasses = standalone
+        ? `border rounded-xl ${
+            isActive
+                ? 'border-white/[0.18] bg-white/[0.06]'
+                : 'border-white/[0.09] bg-white/[0.03] hover:bg-white/[0.05]'
+          }`
+        : `${
+            isActive
+                ? 'bg-white/[0.05]'
+                : 'bg-transparent hover:bg-white/[0.035]'
+          }`;
 
     return (
         <div
-            className="relative group/card cursor-pointer transition-all"
-            style={baseCardStyle}
+            className={`relative group/card cursor-pointer transition-all ${cardClasses}`}
             onClick={onSelect}
-            onMouseEnter={e => {
-                if (!isActive && !standalone) e.currentTarget.style.background = 'rgba(255,255,255,0.035)';
-                if (!isActive && standalone) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-            }}
-            onMouseLeave={e => {
-                if (!isActive && !standalone) e.currentTarget.style.background = 'transparent';
-                if (!isActive && standalone) e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                setShowMenu(false);
-            }}
+            onMouseLeave={() => setShowMenu(false)}
         >
             <div className="px-4 py-3">
                 <div className="flex items-start justify-between gap-2">
@@ -344,12 +324,7 @@ function SessionCard({
                                 type="text"
                                 value={editTitle}
                                 onChange={(e) => setEditTitle(e.target.value)}
-                                className="flex-1 text-[13px] px-2 py-0.5 rounded outline-none"
-                                style={{
-                                    background: 'rgba(255,255,255,0.1)',
-                                    border: '1px solid rgba(255,255,255,0.2)',
-                                    color: '#e5e7eb'
-                                }}
+                                className="flex-1 text-[13px] px-2 py-0.5 rounded outline-none bg-white/10 border border-white/20 text-gray-200"
                                 autoFocus
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') onSave(e);
@@ -359,22 +334,19 @@ function SessionCard({
                         </div>
                     ) : (
                         <p
-                            className="text-[14px] font-bold truncate flex-1 leading-snug"
-                            style={{ color: '#ffffff' }}
+                            className="text-[14px] font-medium truncate flex-1 leading-snug text-white"
                         >
                             {session.title || 'New Chat'}
                         </p>
                     )}
                     <span
-                        className="text-[11px] flex-shrink-0 mt-0.5"
-                        style={{ color: '#6b7280' }}
+                        className="text-[11px] flex-shrink-0 mt-0.5 text-gray-500"
                     >
                         {formatTime()}
                     </span>
                 </div>
                 <p
-                    className="text-[12px] truncate mt-0.5 leading-snug"
-                    style={{ color: '#6b7280' }}
+                    className="text-[12px] truncate mt-0.5 leading-snug text-gray-500"
                 >
                     {session.preview || session.last_message || ''}
                 </p>

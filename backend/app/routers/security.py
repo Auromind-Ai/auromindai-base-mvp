@@ -63,8 +63,14 @@ async def revoke_session(
             user_id=current_user.id,
             workspace_id=None,
             type="security_alert",
-            title="Session Revoked",
-            message=f"A session from IP {session_entry.ip_address} has been successfully revoked."
+            title=None,
+            message=None,
+            template_key="session_revoked",
+            variables={
+                "user_name": current_user.full_name or current_user.email,
+                "ip_address": session_entry.ip_address or "Unknown IP",
+                "device_info": session_entry.device_info or "Unknown Device"
+            }
         )
     except Exception as notif_exc:
         logger.error(f"Failed to send session revocation notification: {notif_exc}")
@@ -96,8 +102,14 @@ async def block_session(
             user_id=current_user.id,
             workspace_id=None,
             type="security_alert",
-            title="Session and Device Blocked",
-            message=f"Session from IP {session_entry.ip_address} has been blocked."
+            title=None,
+            message=None,
+            template_key="session_blocked",
+            variables={
+                "user_name": current_user.full_name or current_user.email,
+                "ip_address": session_entry.ip_address or "Unknown IP",
+                "device_info": session_entry.device_info or "Unknown Device"
+            }
         )
     except Exception as notif_exc:
         logger.error(f"Failed to send session block notification: {notif_exc}")
@@ -202,8 +214,14 @@ async def unblock_session(
             user_id=current_user.id,
             workspace_id=None,
             type="security_alert",
-            title="Session Unblocked",
-            message=f"Session from IP {session_entry.ip_address} has been unblocked."
+            title=None,
+            message=None,
+            template_key="session_unblocked",
+            variables={
+                "user_name": current_user.full_name or current_user.email,
+                "ip_address": session_entry.ip_address or "Unknown IP",
+                "device_info": session_entry.device_info or "Unknown Device"
+            }
         )
     except Exception as notif_exc:
         logger.error(f"Failed to send session unblock notification: {notif_exc}")

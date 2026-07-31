@@ -44,11 +44,15 @@ def check_subscription_expiries(db: Session) -> dict:
                     db=db,
                     workspace_id=sub.workspace_id,
                     type="billing_alert",
-                    title="Subscription Expiring in 7 Days",
-                    message=f"Your workspace subscription is scheduled to expire on {formatted_date}. Please renew to prevent service interruption.",
+                    title=None,
+                    message=None,
                     send_email=True,
-                    email_subject="[AUROMIND BILLING] Subscription Expiring in 7 Days",
-                    deduplication_key=f"sub_reminder:{sub_id_str}:7day"
+                    email_subject=None,
+                    deduplication_key=f"sub_reminder:{sub_id_str}:7day",
+                    template_key="subscription_expiring_7d",
+                    variables={
+                        "expiry_date": formatted_date
+                    }
                 )
                 reminders_sent["7_day"] += 1
             except Exception as e:
@@ -60,12 +64,16 @@ def check_subscription_expiries(db: Session) -> dict:
                     db=db,
                     workspace_id=sub.workspace_id,
                     type="billing_alert",
-                    title="Action Required: Subscription Expiring in 3 Days",
-                    message=f"URGENT: Your workspace subscription will expire in 3 days on {formatted_date}. Renew today to retain access to all features.",
+                    title=None,
+                    message=None,
                     send_email=True,
                     is_critical=True,
-                    email_subject="[ACTION REQUIRED] Your Auromind Subscription Expires in 3 Days",
-                    deduplication_key=f"sub_reminder:{sub_id_str}:3day"
+                    email_subject=None,
+                    deduplication_key=f"sub_reminder:{sub_id_str}:3day",
+                    template_key="subscription_expiring_3d",
+                    variables={
+                        "expiry_date": formatted_date
+                    }
                 )
                 reminders_sent["3_day"] += 1
             except Exception as e:

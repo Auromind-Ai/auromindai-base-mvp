@@ -49,8 +49,19 @@ class FlowPackService:
         workspace = self._get_workspace_for_user(db, workspace_id, user_id)
         gateway = get_gateway(provider)
 
+        # Calculate GST on backend
+        from app.services.billing.gst_service import GSTService
+        from decimal import Decimal
+        gst_calcs = GSTService.calculate_gst(
+            amount=Decimal(str(pack.price)),
+            customer_state=workspace.billing_state,
+            customer_country=workspace.billing_country or "IN",
+            product_type="flow_packs",
+            db=db
+        )
+
         # Razorpay expects amount in paise (integer)
-        amount_paise = int(pack.price * 100)
+        amount_paise = int(gst_calcs["total_amount"] * Decimal("100.00"))
 
         order_payload = {
             "amount": amount_paise,
@@ -77,7 +88,20 @@ class FlowPackService:
             currency=pack.currency,
             provider=provider,
             gateway_order_id=order_data["id"],
-            status=PurchaseStatus.INITIATED.value
+            status=PurchaseStatus.INITIATED.value,
+            # Save GST details
+            subtotal=gst_calcs["subtotal"],
+            gst_rate=gst_calcs["gst_rate"],
+            gst_amount=gst_calcs["gst_amount"],
+            cgst=gst_calcs["cgst"],
+            sgst=gst_calcs["sgst"],
+            igst=gst_calcs["igst"],
+            taxable_amount=gst_calcs["taxable_amount"],
+            total_amount=gst_calcs["total_amount"],
+            place_of_supply=gst_calcs["place_of_supply"],
+            customer_state=gst_calcs["customer_state"],
+            customer_country=gst_calcs["customer_country"],
+            customer_gstin=workspace.billing_gstin
         )
         db.add(purchase)
         db.commit()
@@ -162,10 +186,10 @@ class FlowPackService:
                 raise ValueError(f"Payment not captured. Status: {fetched_payment.status}")
 
             # Verify amount matches (Razorpay amount is in paise)
-            expected_amount_paise = int(purchase.amount_paid * 100)
+            expected_amount_paise = int(purchase.total_amount * 100)
             if int(fetched_payment.amount) != expected_amount_paise:
                 raise ValueError(
-                    f"Payment amount mismatch. Expected {expected_amount_paise} paise, got {fetched_payment.amount} paise."
+                    f"Payment amount mismatch. Expected {expected_amount_paise} paise, got {fetched_payment.amount} paise (includes GST)."
                 )
 
             # Verify purchase status is still initiated
@@ -177,6 +201,37 @@ class FlowPackService:
             purchase.gateway_payment_id = payment_id
             purchase.gateway_signature = signature
             purchase.verified_at = func.now()
+            db.flush()
+
+            # Generate Tax Invoice for Flow Pack purchase
+            try:
+                from app.services.billing.invoice_service import InvoiceService
+                gst_calcs = {
+                    "subtotal": purchase.subtotal,
+                    "gst_rate": purchase.gst_rate,
+                    "gst_amount": purchase.gst_amount,
+                    "cgst": purchase.cgst,
+                    "sgst": purchase.sgst,
+                    "igst": purchase.igst,
+                    "taxable_amount": purchase.taxable_amount,
+                    "total_amount": purchase.total_amount,
+                    "place_of_supply": purchase.place_of_supply,
+                    "customer_state": purchase.customer_state,
+                    "customer_country": purchase.customer_country
+                }
+                InvoiceService.create_invoice(
+                    db=db,
+                    workspace_id=purchase.workspace_id,
+                    amount=purchase.total_amount,
+                    currency=purchase.currency,
+                    gst_calculations=gst_calcs,
+                    product_type="flow_packs",
+                    flow_pack_purchase_id=purchase.id
+                )
+            except Exception as invoice_err:
+                import logging
+                logging.getLogger("auromind").error(f"Failed to generate Invoice for flow pack purchase {purchase.id}: {invoice_err}")
+
             db.commit()
 
             return {

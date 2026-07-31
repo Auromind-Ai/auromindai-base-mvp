@@ -20,9 +20,17 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.add_column('workspaces', sa.Column('twilio_messaging_service_sid', sa.String(length=255), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = [col['name'] for col in inspector.get_columns('workspaces')]
+    if 'twilio_messaging_service_sid' not in columns:
+        op.add_column('workspaces', sa.Column('twilio_messaging_service_sid', sa.String(length=255), nullable=True))
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_column('workspaces', 'twilio_messaging_service_sid')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = [col['name'] for col in inspector.get_columns('workspaces')]
+    if 'twilio_messaging_service_sid' in columns:
+        op.drop_column('workspaces', 'twilio_messaging_service_sid')

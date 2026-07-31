@@ -4,11 +4,14 @@ import sys
 
 # Set up environment variables for app configuration
 os.environ.setdefault("SECRET_KEY", "change_me_locally")
-os.environ.setdefault("DATABASE_URL", "postgresql://postgres.ublqbbvjcrmsngroambn:RagavanV%40%23123@aws-1-ap-southeast-2.pooler.supabase.com:6543/postgres")
+os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/postgres")
 
+import pytest
 from app.database import SessionLocal
 from app.services.agentic_rag.rag_service import get_rag_service
 
+@pytest.mark.skip(reason="Manual integration test requiring live database and workspace ID")
+@pytest.mark.anyio
 async def test_reasoning_bypass():
     orchestration = get_rag_service()
     db = SessionLocal()

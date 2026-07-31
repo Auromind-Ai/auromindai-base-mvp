@@ -1,27 +1,140 @@
-# Backend dependencies
-backend/node_modules/
-backend/auromind.db
-backend/temp_uploads/
-__pycache__/
-*.pyc
 
-# Frontend dependencies
-frontend/node_modules/
-frontend/.next/
-frontend/out/
+# Auromind AI MVP - Production-Ready Git Ignore Rules
 
-# Environment files
+
+
+# Secrets & Environment Variables
 .env
 .env.local
 .env.*.local
 .env.production
 .env.development
+*.env
+*.env.txt
+env.txt
 
-# General
-.DS_Store
-*.log
 
-/generated/prisma
-backend/.env
+# Python Runtime Caches & Compiled Bytecode
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+
+# Virtual Environments
+
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+
+# Databases & Local State
+
+*.db
+*.sqlite
+*.sqlite3
+!prod_seed.db
+celerybeat-schedule
+celerybeat-schedule.db
+celerybeat-schedule.bak
+celerybeat-schedule.dir
+backend/celerybeat-schedule
+backend/dynamic_output.json
+
+
+# AI / Model / Download Cache
 
 hf_cache/
+**/hf_cache/
+.cache/
+chroma_db/
+faiss_index/
+*.faiss
+
+
+# Logs & Security Scan Reports
+
+logs/
+backend/logs/
+*.log
+bandit_report.json
+backend/bandit_report.json
+token_usage.txt
+
+
+# Node.js & Next.js Build Artifacts
+
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+.vercel
+
+
+# Media, Temp Uploads & Local Storage Fallback
+
+temp_uploads/
+backend/temp_uploads/
+downloads/
+
+
+# Testing & Code Coverage Reports
+
+.pytest_cache/
+backend/.pytest_cache/
+.coverage
+backend/.coverage
+coverage.xml
+coverage/
+htmlcov/
+tests/pytest_log.txt
+backend/tests/pytest_log.txt
+
+
+# SSL / Encryption Certificates & Private Keys
+
+*.pem
+*.key
+*.crt
+
+
+# Operating System & IDE Configs
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

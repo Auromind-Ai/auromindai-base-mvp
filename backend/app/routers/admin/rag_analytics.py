@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import Literal
+import logging
 from app.database import get_db
 from app.services.agentic_rag.analytics_service import AnalyticsService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["admin"])
 
@@ -17,7 +20,7 @@ def get_dashboard(
     try:
         data = service.get_dashboard_metrics(range=range)
     except Exception as e:
-        print("Analytics error:", e)
+        logger.error(f"Analytics error: {e}")
         return _empty_response()
 
     # tool_performance — full dict {tool: {total, positive, negative, accuracy}}

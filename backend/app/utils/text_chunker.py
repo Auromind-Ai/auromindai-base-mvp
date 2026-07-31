@@ -238,7 +238,7 @@ class Schunker:
 
         for idx, chunk in enumerate(merged_chunks):
             normalized = re.sub(r"\s+", " ", chunk.strip().lower())
-            chunk_id = hashlib.md5(normalized.encode()).hexdigest()
+            chunk_id = hashlib.sha256(normalized.encode()).hexdigest()
 
             if chunk_id in seen_hashes:
                 continue  # Skip duplicate

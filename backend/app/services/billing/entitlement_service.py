@@ -126,6 +126,24 @@ class EntitlementService:
                     FlowPackPurchase.status == "success"
                 ).scalar() or 0
                 limit = plan_limit + purchased
+        elif resource in ("ai_topup", "ai_credit_recharge", "can_topup_ai"):
+            allowed = bool(getattr(entitlement, "allow_ai_topup", True))
+            return {
+                "allowed": allowed,
+                "current": 0,
+                "limit": 1 if allowed else 0,
+                "remaining": 1 if allowed else 0,
+                "reason": None if allowed else "AI Credit top-up is not available for your current plan. Please upgrade to Pro."
+            }
+        elif resource in ("wcc_recharge", "wallet_recharge", "can_recharge_wcc"):
+            allowed = bool(getattr(entitlement, "allow_wcc_recharge", True))
+            return {
+                "allowed": allowed,
+                "current": 0,
+                "limit": 1 if allowed else 0,
+                "remaining": 1 if allowed else 0,
+                "reason": None if allowed else "WhatsApp Wallet recharge is not available for your current plan. Please upgrade to Pro."
+            }
         else:
             raise ValueError(f"Unknown entitlement resource type: {resource}")
 

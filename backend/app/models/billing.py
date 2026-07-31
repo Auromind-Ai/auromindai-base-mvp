@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import (Column,ForeignKey,String,DateTime,func,Text,Integer,Enum,Index)
+from sqlalchemy import (Column,ForeignKey,String,DateTime,func,Text,Integer,Numeric,Enum,Index)
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 from app.core.enums import PaymentStatus
@@ -43,9 +43,26 @@ class Payment(Base):
     )
 
     provider = Column(String(50), default="razorpay", nullable=False)
+    payment_method = Column(String(50), nullable=True)
+    payment_type = Column(String(50), nullable=True)
+    description = Column(String(255), nullable=True)
 
     provider_payment_id = Column(String, index=True)
     provider_order_id = Column(String, index=True)
+
+    # GST columns
+    subtotal = Column(Numeric(12, 2), nullable=True)
+    gst_rate = Column(Numeric(5, 2), nullable=True)
+    gst_amount = Column(Numeric(12, 2), nullable=True)
+    cgst = Column(Numeric(12, 2), nullable=True)
+    sgst = Column(Numeric(12, 2), nullable=True)
+    igst = Column(Numeric(12, 2), nullable=True)
+    taxable_amount = Column(Numeric(12, 2), nullable=True)
+    total_amount = Column(Numeric(12, 2), nullable=True)
+    place_of_supply = Column(String(100), nullable=True)
+    customer_state = Column(String(100), nullable=True)
+    customer_country = Column(String(100), nullable=True)
+    customer_gstin = Column(String(50), nullable=True)
 
     failure_reason = Column(Text)
 

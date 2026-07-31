@@ -11,6 +11,9 @@ from app.models.subscription import Subscription
 from app.models.plan import Plan
 from app.core.enums import SubscriptionStatus
 from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/tokens")
@@ -70,12 +73,12 @@ async def update_token_limit(
 ):
 
     ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
-    print("Workspace fetched for token limit update:", ws)
+    logger.debug(f"Workspace fetched for token limit update: {ws}")
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    print("Updating token limit for workspace:", workspace_id, "with data:", data.get("custom_token_limit"))
+    logger.info(f"Updating token limit for workspace: {workspace_id} with data: {data.get('custom_token_limit')}")
     ws.custom_token_limit = data.get("custom_token_limit")
 
     db.commit()
-    print("Token limit updated for workspace:", workspace_id)
+    logger.info(f"Token limit updated for workspace: {workspace_id}")
     return {"message": "Token limit updated"}

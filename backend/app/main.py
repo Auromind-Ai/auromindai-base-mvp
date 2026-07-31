@@ -9,6 +9,7 @@ from app.core.logger import logger
 from app.core.metrics import setup_system_metrics, start_system_metrics_updater, stop_system_metrics_updater
 from app.core.request_logger import RequestLoggingMiddleware
 from app.core.exception_handlers import register_exception_handlers
+from app.core.rate_limit import RateLimitMiddleware
 from app.core.uuid_validation import UUIDValidationMiddleware
 from app.core.admin_middleware import AdminConsoleMiddleware
 from app.core.csrf_middleware import csrf_protection_middleware
@@ -105,7 +106,6 @@ fallback_origins = [
     "http://orbionagents.com",
     "https://www.orbionagents.com",
     "http://www.orbionagents.com",
-    "https://hkfpvzwm-3000.inc1.devtunnels.ms"
    
     # Local development
     "http://localhost:3000",
@@ -124,6 +124,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(MetricsMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(UUIDValidationMiddleware)
@@ -179,4 +180,3 @@ app.include_router(flow_packs.admin_router)
 app.include_router(upload.router,tags=["upload"])
 app.include_router(lead_scoring_router, tags=["lead-scoring"])
 app.include_router(realtime_router)
-

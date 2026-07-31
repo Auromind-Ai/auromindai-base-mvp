@@ -8,6 +8,6 @@ def submit_to_meta(payload, workspace):
         "Content-Type": "application/json"
     }
 
-    res = requests.post(url, json=payload, headers=headers)
+    res = requests.post(url, json=payload, headers=headers, timeout=10)
 
     return res.json()

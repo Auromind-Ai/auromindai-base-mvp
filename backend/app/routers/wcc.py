@@ -154,6 +154,14 @@ def initiate_wcc_recharge(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload
         )
+        from app.services.billing.entitlement_service import EntitlementService
+        import uuid
+        ent = EntitlementService.get_workspace_entitlement(db, uuid.UUID(resolved_ws_id))
+        if not ent.allow_wcc_recharge:
+            raise HTTPException(
+                status_code=403,
+                detail="WhatsApp Wallet recharge is not available for your current plan. Please upgrade to Pro."
+            )
         result = WCCService.initiate_recharge(
             db=db,
             workspace_id=resolved_ws_id,
@@ -281,3 +289,84 @@ def get_wcc_sessions(
     except Exception as e:
         logger.error(f"Error fetching WCC sessions: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/recharges")
+def get_user_wcc_recharges(
+    page: int = 1,
+    limit: int = 10,
+    search: str | None = None,
+    status: str | None = None,
+    sort: str = "desc",
+    workspace_id: str | None = None,
+    x_workspace_id: str | None = Header(None),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    try:
+        import uuid
+        from sqlalchemy import or_, desc, asc
+        from app.models.wcc import WCCRechargeLog
+
+        resolved_ws_id = resolve_and_verify_workspace(
+            current_user, db, workspace_id, x_workspace_id
+        )
+        ws_uuid = uuid.UUID(resolved_ws_id)
+
+        query = db.query(WCCRechargeLog).filter(WCCRechargeLog.workspace_id == ws_uuid)
+
+        if status:
+            query = query.filter(WCCRechargeLog.status == status.lower())
+
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    WCCRechargeLog.gateway_payment_id.ilike(pattern),
+                    WCCRechargeLog.gateway_order_id.ilike(pattern),
+                )
+            )
+
+        if sort == "asc":
+            query = query.order_by(asc(WCCRechargeLog.created_at))
+        else:
+            query = query.order_by(desc(WCCRechargeLog.created_at))
+
+        total = query.count()
+        offset = (page - 1) * limit
+        recharges = query.offset(offset).limit(limit).all()
+
+        data = [
+            {
+                "id": str(r.id),
+                "date": r.created_at.isoformat() if r.created_at else None,
+                "amount": float(r.amount),
+                "currency": r.currency,
+                "status": r.status,
+                "payment_id": r.gateway_payment_id or r.gateway_order_id or "N/A",
+                "gateway_order_id": r.gateway_order_id,
+                "gateway_payment_id": r.gateway_payment_id,
+                "payment_type": "wallet_recharge",
+                "payment_method": getattr(r, 'payment_method', None) or "upi",
+                "provider": "razorpay",
+                "description": f"WhatsApp Wallet Recharge (₹{r.amount})",
+                "invoice_available": True if r.status == "success" else False,
+            }
+            for r in recharges
+        ]
+
+        pages = (total + limit - 1) // limit if limit > 0 else 1
+
+        return {
+            "recharges": data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total,
+                "pages": max(pages, 1),
+            },
+        }
+    except Exception as e:
+        logger.error(f"Error fetching user WCC recharges: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+

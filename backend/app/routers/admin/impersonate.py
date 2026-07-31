@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.impersonation import ImpersonationSession
 from app.utils.auth import create_access_token
-from app.routers.auth import CurrentUser, get_current_user
+from app.routers.auth import CurrentUser, get_current_user, set_auth_cookie
 from app.core.deps import require_platform_admin_session
 from app.core.config import settings
 
@@ -186,15 +186,35 @@ def start_impersonation(
     workspaces = db.query(Workspace, WorkspaceMember.role).join(
         WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id
     ).filter(WorkspaceMember.user_id == user.id).all()
-
     workspace_id = str(workspaces[0][0].id) if workspaces else None
+
+    import secrets
+    csrf_token = secrets.token_urlsafe(32)
+
+    # Fast validation key in Redis for active impersonation tracking
+    if r_client:
+        try:
+            r_client.setex(
+                f"impersonation:{session_id}",
+                900,  # 15 minutes TTL matching token duration
+                json.dumps({
+                    "status": "active",
+                    "admin_id": str(admin_id),
+                    "target_user_id": str(user.id),
+                    "expires_at": expires_at.isoformat() if isinstance(expires_at, datetime) else str(expires_at)
+                })
+            )
+        except Exception as e:
+            logger.error(f"Failed to set active impersonation key in Redis: {e}")
 
     token_data = {
         "sub": str(user.id),
         "email": user.email,
         "workspace_id": workspace_id,
         "impersonated": True,
-        "admin_id": str(admin_id)
+        "admin_id": str(admin_id),
+        "impersonation_id": str(session_id),
+        "csrf_token": csrf_token
     }
 
     token = create_access_token(
@@ -206,45 +226,23 @@ def start_impersonation(
     existing_backup = request.cookies.get("admin_backup_token")
     admin_token = existing_backup or request.cookies.get("auth_token")
 
-    is_https = (
-        request.url.scheme == "https"
-        or request.headers.get("x-forwarded-proto") == "https"
-    )
-    cookie_samesite = "none" if is_https else "lax"
-    
-    cookie_domain = None
-    request_host = request.url.hostname
-    if settings.FRONTEND_URL and request_host:
-        from urllib.parse import urlparse
-        parsed = urlparse(settings.FRONTEND_URL)
-        if parsed.hostname and (request_host == parsed.hostname or request_host.endswith("." + parsed.hostname)):
-            parts = parsed.hostname.split(".")
-            if len(parts) >= 2 and not parsed.hostname.replace(".", "").isdigit() and "localhost" not in parsed.hostname:
-                cookie_domain = "." + ".".join(parts[-2:])
-    
     # Store admin token in backup cookie
     if admin_token:
-        response.set_cookie(
+        set_auth_cookie(
+            response=response,
+            request=request,
             key="admin_backup_token",
             value=admin_token,
-            httponly=True,
-            secure=is_https,
-            samesite=cookie_samesite,
-            path="/",
             max_age=60 * 15,
-            domain=cookie_domain,
         )
 
     # Set auth_token to impersonated user token
-    response.set_cookie(
+    set_auth_cookie(
+        response=response,
+        request=request,
         key="auth_token",
         value=token,
-        httponly=True,
-        secure=is_https,
-        samesite=cookie_samesite,
-        path="/",
         max_age=60 * 15,
-        domain=cookie_domain,
     )
 
     return {

@@ -1,6 +1,9 @@
 """Daily background job — permanent account deletion after grace period."""
 
+import logging
 from apscheduler.schedulers.background import BackgroundScheduler
+
+logger = logging.getLogger(__name__)
 
 _scheduler = None   # module-level, so it isn't garbage collected
 
@@ -20,9 +23,9 @@ def register_deletion_job() -> None:
         try:
             count = AccountService.run_permanent_deletion(db)
             if count:
-                print(f"[DeletionJob] Processed {count} expired account(s).")
+                logger.info(f"[DeletionJob] Processed {count} expired account(s).")
         except Exception as e:
-            print(f"[DeletionJob] Unexpected error: {e}")
+            logger.error(f"[DeletionJob] Unexpected error: {e}")
         finally:
             db.close()
 
@@ -36,4 +39,4 @@ def register_deletion_job() -> None:
         replace_existing=True,
     )
     _scheduler.start()
-    print("[DeletionJob] Daily deletion job registered — runs at 02:00 UTC.")
+    logger.info("[DeletionJob] Daily deletion job registered — runs at 02:00 UTC.")

@@ -401,7 +401,7 @@ class MemoryService:
         workspace_id, conversation_id = self._normalize_scope(workspace_id, conversation_id)
         try:
             msg_hash = (
-                hashlib.md5(message.strip().lower().encode()).hexdigest()
+                hashlib.sha256(message.strip().lower().encode()).hexdigest()
                 if message
                 else ""
             )

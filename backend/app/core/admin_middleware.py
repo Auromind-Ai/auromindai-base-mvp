@@ -72,8 +72,8 @@ class AdminConsoleMiddleware:
 
         # Guard admin routes
         if path.startswith(admin_prefix):
-            print(f"[AdminConsoleMiddleware] Guarding path: {path}. Method: {request.method}", flush=True)
-            print(f"[AdminConsoleMiddleware] Cookies received: {list(request.cookies.keys())}", flush=True)
+            logger.debug(f"[AdminConsoleMiddleware] Guarding path: {path}. Method: {request.method}")
+            logger.debug(f"[AdminConsoleMiddleware] Cookies received: {list(request.cookies.keys())}")
             
             # Auth endpoint is always public
             if path in (f"{admin_prefix}/auth", f"{admin_prefix}/auth/"):
@@ -144,7 +144,7 @@ class AdminConsoleMiddleware:
                         reject_reason,
                     )
 
-                print(f"[AdminConsoleMiddleware] Unauthorized request. Reject reason: {reject_reason}", flush=True)
+                logger.debug(f"[AdminConsoleMiddleware] Unauthorized request. Reject reason: {reject_reason}")
 
                 resp = _blocked_response(
                     scope, request,

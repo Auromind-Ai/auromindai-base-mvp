@@ -13,7 +13,12 @@ from app.models.plan import Plan
 from app.models.credit_pack import CreditPack
 from app.services.billing.token_service import TokenService
 from app.services.billing.gateway import get_gateway
-
+from app.services.notification_service import NotificationService
+from app.models.wcc import WCCRechargeLog
+from app.models.invoice import Invoice
+from app.core.enums import InvoiceStatus
+from app.services.billing.invoice_service import InvoiceService
+from datetime import datetime, timezone
 
 class WebhookService:
     def __init__(self, token_service: TokenService):
@@ -136,6 +141,9 @@ class WebhookService:
 
                 elif webhook.event_type in {"subscription.cancelled", "subscription.completed"}:
                     self._handle_subscription_cancelled(db, gateway.provider, webhook.entity)
+
+                elif webhook.event_type in {"payment.refunded", "refund.created"}:
+                    self._handle_refund_webhook(db, gateway.provider, webhook.entity)
 
                 # MARK AS PROCESSED
                 webhook_event.processed = True
@@ -298,17 +306,23 @@ class WebhookService:
         )
 
         try:
-            from app.services.notification_service import NotificationService
+         
             NotificationService.notify_workspace(
                 db=db,
                 workspace_id=subscription.workspace_id,
                 type="billing_alert",
-                title="Payment Successful",
-                message=f"Your payment of {payment.amount} {payment.currency} was processed successfully.",
+                title=None,
+                message=None,
                 send_email=True,
-                email_subject="[AUROMIND BILLING] Payment Successful",
+                email_subject=None,
                 deduplication_key=f"payment_success:{payment.id}",
-                resource="subscription"
+                resource="subscription",
+                template_key="payment_success",
+                variables={
+                    "amount": f"{payment.amount} {payment.currency}",
+                    "invoice_id": str(payment.id),
+                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
+                }
             )
         except Exception as notif_exc:
             import logging
@@ -393,20 +407,24 @@ class WebhookService:
         db.flush()
 
         try:
-            from app.services.notification_service import NotificationService
             target_ws_id = payment.workspace_id if payment else (subscription.workspace_id if subscription else None)
             if target_ws_id:
                 NotificationService.notify_workspace(
                     db=db,
                     workspace_id=target_ws_id,
                     type="billing_alert",
-                    title="Payment Failed",
-                    message=f"Payment of {amount} {currency} failed. Reason: {failure_reason or 'Transaction declined'}. Please update your payment method.",
+                    title=None,
+                    message=None,
                     send_email=True,
                     is_critical=True,
-                    email_subject="[ACTION REQUIRED] Payment Failed - Subscription Past Due",
+                    email_subject=None,
                     deduplication_key=f"payment_failed:{payment_payload.get('id')}",
-                    resource="subscription"
+                    resource="subscription",
+                    template_key="payment_failed",
+                    variables={
+                        "amount": f"{amount} {currency}",
+                        "error_message": failure_reason or "Transaction declined"
+                    }
                 )
         except Exception as notif_exc:
             import logging
@@ -501,8 +519,6 @@ class WebhookService:
 
         # Fetch active subscription for the payment record
         subscription = self.subscription_service._get_active_subscription(db, workspace_id)
-        if not subscription:
-            raise ValueError("No active subscription found for workspace to attach payment to")
 
         # Create mock PlanConfig for payment record helper
         class DummyPlanConfig:
@@ -513,9 +529,12 @@ class WebhookService:
         payment = self.payment_service._record_successful_payment(
             db=db,
             provider=provider,
-            subscription=subscription,
             payment_payload=payment_payload,
             plan_config=DummyPlanConfig(),
+            workspace_id=workspace_id,
+            subscription=subscription,
+            payment_type="ai_credit_recharge",
+            description=f"AI Credit Pack ({pack.name})",
         )
 
         # Grant credits
@@ -523,24 +542,87 @@ class WebhookService:
             db=db,
             workspace_id=workspace_id,
             credits=float(pack.credits),
-            payment_id=str(payment.id),
+            payment_id=provider_payment_id,
             gateway_order_id=payment_payload.get("order_id") or "",
             description=f"Purchased AI Credit Pack: {pack.name}"
         )
 
         try:
-            from app.services.notification_service import NotificationService
             NotificationService.notify_workspace(
                 db=db,
                 workspace_id=workspace_id,
                 type="billing_alert",
-                title="Credit Pack Purchase Successful",
-                message=f"Successfully purchased '{pack.name}' ({pack.credits} credits granted).",
+                title=None,
+                message=None,
                 send_email=True,
-                email_subject="[AUROMIND BILLING] Credit Pack Purchase Confirmation",
+                email_subject=None,
                 deduplication_key=f"credit_pack_success:{payment.id}",
-                resource="ai_tokens"
+                resource="ai_tokens",
+                template_key="payment_success",
+                variables={
+                    "amount": f"{pack.credits} AI Credits ({pack.name})",
+                    "invoice_id": str(payment.id),
+                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
+                }
             )
         except Exception as notif_exc:
             import logging
             logging.getLogger("auromind").error(f"Failed to send credit pack purchase notification: {notif_exc}")
+
+    def _handle_refund_webhook(
+        self,
+        db: Session,
+        provider: str,
+        entity: dict[str, Any]
+    ) -> None:
+        # Extract refund and payment objects
+        refund_data = entity.get("refund", {}).get("entity") or entity.get("refund") or entity
+        payment_data = entity.get("payment", {}).get("entity") or entity.get("payment") or {}
+        
+        payment_id = refund_data.get("payment_id") or payment_data.get("id")
+        if not payment_id:
+            return
+        
+        # Find payment record in DB
+        payment = (
+            db.query(Payment)
+            .filter(
+                Payment.provider == provider,
+                Payment.provider_payment_id == payment_id
+            )
+            .with_for_update()
+            .first()
+        )
+        if not payment:
+            # If not found, check WCCRechargeLog
+            recharge_log = (
+                db.query(WCCRechargeLog)
+                .filter(WCCRechargeLog.gateway_payment_id == payment_id)
+                .with_for_update()
+                .first()
+            )
+            if recharge_log:
+                recharge_log.status = "refunded"
+                # Check if invoice exists and reverse it
+                invoice = db.query(Invoice).filter(Invoice.wcc_recharge_log_id == recharge_log.id).first()
+                if invoice and invoice.status != InvoiceStatus.refunded:
+                    InvoiceService.create_credit_note(db, invoice, "WhatsApp Wallet Refund")
+                db.flush()
+            return
+        
+        # Mark payment as refunded in DB
+        payment.status = PaymentStatus.refunded
+        db.flush()
+        
+        # Find the original Invoice associated with this payment
+        invoice = (
+            db.query(Invoice)
+            .filter(Invoice.payment_id == payment.id)
+            .with_for_update()
+            .first()
+        )
+        if invoice and invoice.status != InvoiceStatus.refunded:
+            # Create a Credit Note and reverse the GST
+            InvoiceService.create_credit_note(db, invoice, "Payment refunded")
+        
+        db.flush()

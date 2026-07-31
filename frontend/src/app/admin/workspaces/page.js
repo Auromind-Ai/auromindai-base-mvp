@@ -143,7 +143,6 @@ useEffect(() => {
 
                 <tbody>
                   {workspaces.map((workspace) => (
-                    console.log(workspace),
                     <tr key={workspace.id} className="border-b border-white/5">
 
                       <td className="py-4 px-4 text-white">

@@ -30,6 +30,20 @@ class Workspace(Base):
     plan_type = Column(String(50), default="starter")
     overage_enabled = Column(Boolean, default=False, nullable=False)
 
+    # BILLING & GST DETAILS
+    billing_state = Column(String(100), nullable=True)
+    billing_country = Column(String(100), nullable=True, default="IN")
+    billing_address = Column(Text, nullable=True)
+    billing_city = Column(String(100), nullable=True)
+    billing_postal_code = Column(String(20), nullable=True)
+    billing_contact_name = Column(String(255), nullable=True)
+    billing_email = Column(String(255), nullable=True)
+    billing_phone = Column(String(50), nullable=True)
+    has_gst_registration = Column(Boolean, default=False, nullable=True)
+    billing_gstin = Column(String(50), nullable=True)
+    legal_business_name = Column(String(255), nullable=True)
+    business_type = Column(String(100), nullable=True)
+
     #META WHATSAPP FIELDS
     meta_access_token = Column(Text, nullable=True)
     meta_business_id = Column(String(255), nullable=True)

@@ -84,13 +84,25 @@ class RazorpayGateway(PaymentGateway):
         plan_id = plan_config.provider_plan_ids.get(self.provider)
         if not plan_id:
             try:
-                # Create plan dynamically in Razorpay
+                # Compute GST on the plan amount
+                from app.services.billing.gst_service import GSTService
+                from decimal import Decimal
+                gst_calcs = GSTService.calculate_gst(
+                    amount=Decimal(str(plan_config.amount)),
+                    customer_state=workspace.billing_state,
+                    customer_country=workspace.billing_country or "IN",
+                    product_type="subscription",
+                    db=None
+                )
+                total_amount = gst_calcs["total_amount"]
+
+                # Create plan dynamically in Razorpay with GST included
                 plan_data = self.client.plan.create(data={
                     "period": "monthly",
                     "interval": 1,
                     "item": {
                         "name": f"Auromind {plan_config.label} Plan",
-                        "amount": plan_config.amount * 100, # convert to paise
+                        "amount": int(total_amount * 100), # convert to paise
                         "currency": "INR",
                         "description": plan_config.description or f"Subscription for {plan_config.label}"
                     }
@@ -213,9 +225,10 @@ class RazorpayGateway(PaymentGateway):
                 "subscription": payload.get("subscription", {}).get("entity", {}),
                 "payment": payload.get("payment", {}).get("entity", {}),
             }
-        elif event_name in {"payment.captured", "payment.failed"}:
+        elif event_name in {"payment.captured", "payment.failed", "payment.refunded", "refund.created"}:
             entity = {
                 "payment": payload.get("payment", {}).get("entity", {}),
+                "refund": payload.get("refund", {}).get("entity", {}),
                 "subscription": payload.get("subscription", {}).get("entity", {}),
             }
         else:

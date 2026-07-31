@@ -1,8 +1,8 @@
 console.log("API INFRASTRUCTURE VERSION: 2.1.0");
 
 // Timeout constants
-const DEFAULT_TIMEOUT_MS = 30_000;   // 30s for regular API calls
-const ADMIN_TIMEOUT_MS   = 15_000;   // 15s for admin panel calls
+const DEFAULT_TIMEOUT_MS = 60_000;   // 60s for regular API calls
+const ADMIN_TIMEOUT_MS   = 45_000;   // 45s for admin panel calls
 const STREAM_TIMEOUT_MS  = 120_000;  // 2min for streaming endpoints
 
 
@@ -95,9 +95,9 @@ export class APIClient {
     let isTimeout = false;
     const controller = optSignal ? null : new AbortController();
 
-    const isAdminEndpoint = endpoint.startsWith('/admin') || url.includes('/admin');
+    const isAdminEndpoint = endpoint.startsWith('/admin');
     const isStreamEndpoint = endpoint.includes('/stream') || endpoint.includes('/ws') || endpoint.includes('/events');
-    const timeoutMs = isAdminEndpoint ? ADMIN_TIMEOUT_MS : isStreamEndpoint ? STREAM_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+    const timeoutMs = options.timeout || (isAdminEndpoint ? ADMIN_TIMEOUT_MS : isStreamEndpoint ? STREAM_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
 
     const timeoutId = controller ? setTimeout(() => { isTimeout = true; controller.abort('timeout'); }, timeoutMs) : null;
     config.signal = optSignal || controller?.signal;

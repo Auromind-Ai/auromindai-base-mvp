@@ -24,7 +24,6 @@ function BillingContent() {
   const [plans, setPlans] = useState([])
 
   useEffect(() => {
-    console.log(LOG_PREFIX, "Workspace detected:", workspaceId)
 
     if (!workspaceId) {
       console.error(LOG_PREFIX, "Workspace not found. Please sign in again.")
@@ -39,8 +38,6 @@ function BillingContent() {
           api.getPricing(), 
         ])
 
-        console.log(LOG_PREFIX, "Billing:", billing)
-        console.log(LOG_PREFIX, "Settings:", settingsData)
 
         setCurrentPlan(billing?.current_plan || "free")
         setSettings(settingsData)
@@ -57,7 +54,6 @@ function BillingContent() {
   }, [workspaceId])
 
   const logBillingFlow = (step, data) => {
-    console.log(FLOW_LOG_PREFIX, step, data)
   }
 
   const handleUpgrade = async (planKey) => {
@@ -76,7 +72,7 @@ function BillingContent() {
         DEFAULT_PROVIDER
       )
 
-      api.openRazorpayCheckout({
+      await api.openRazorpayCheckout({
         orderData: checkout,
         name: "Auromind",
         description: `${checkout.plan_label || "Pro"} subscription`,
@@ -90,11 +86,9 @@ function BillingContent() {
             subscription_id: response.razorpay_subscription_id || checkout.subscription_id,
             signature: response.razorpay_signature,
           }
-          console.log("PAYLOAD GOING TO BACKEND:", payload); 
           try {
            const result = await api.verifyBillingPayment(payload)
 
-            console.log("VERIFY RESULT:", result)
 
             if (!result || (result.status !== "ACTIVE" && result.status !== "already_verified")) {
               throw new Error("Payment not activated")
@@ -102,10 +96,8 @@ function BillingContent() {
 
             //  THE MAGIC LOGIC: Chat-la irunthu vantha, angae return anuppu!
             if (source === 'chat') {
-                console.log(LOG_PREFIX, "Payment Successful! Redirecting back to chat page...");
                 router.push('/user/admin/ai')  
             } else {
-                console.log(LOG_PREFIX, "Payment Successful! Staying on billing page.");
                 const updated = await api.getBillingStatus(workspaceId)
                 setCurrentPlan(updated.current_plan)
             }
