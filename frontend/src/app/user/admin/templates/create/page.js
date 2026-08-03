@@ -48,7 +48,7 @@ const icons = {
 const CatItem = ({ iconKey, label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200
+    className={`w-full flex items-center gap-2.5 sm:gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-normal sm:font-medium transition-all duration-200
       ${active
         ? 'bg-[#1A0B2E] text-white border border-[#3D1F6B]'
         : 'text-[#B7B3C7] hover:text-white hover:bg-[#110820]'
@@ -62,10 +62,10 @@ const CatItem = ({ iconKey, label, active, onClick }) => (
 //  Input ─
 const Input = ({ label, hint, placeholder, value, onChange, className = '' }) => (
   <div className={className}>
-    {label && <p className="text-white text-sm font-medium mb-1">{label}</p>}
-    {hint && <p className="text-white/60 text-xs mb-3 leading-relaxed">{hint}</p>}
+    {label && <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">{label}</p>}
+    {hint && <p className="text-white/60 text-[11px] sm:text-xs mb-2 sm:mb-3 leading-relaxed font-normal">{hint}</p>}
     <input
-      className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm text-white
+      className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal text-white
         placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]-500 focus:ring-2
         focus:ring-[#814AC8]/20 transition-all duration-300"
       placeholder={placeholder}
@@ -549,15 +549,15 @@ export default function CreateTemplatePage() {
 
       {/* Mobile & Tablet Overlay Backdrop */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+        <div className="fixed inset-0 bg-black/60 z-40 xl:hidden"
           onClick={() => setSidebarOpen(false)} />
       )}
 
       {/*  CATEGORIES SIDEBAR  */}
       <aside className={`
-        fixed lg:static top-0 left-0 z-50 flex flex-col h-full w-[240px] lg:w-[240px] bg-[#060010] border-r border-[#1A0B2E] shadow-2xl lg:shadow-none
+        fixed xl:static top-0 left-0 z-50 flex flex-col h-full w-[240px] xl:w-[240px] bg-[#060010] border-r border-[#1A0B2E] shadow-2xl xl:shadow-none
         transition-transform duration-300
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
       `}>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 template-scroll">
           <div className="pt-4 pb-1">
@@ -602,13 +602,13 @@ export default function CreateTemplatePage() {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <h1 className="text-base font-semibold">New Template Message</h1>
+          <h1 className="text-xs sm:text-base font-normal sm:font-semibold">New Template Message</h1>
         </div>
 
         {/* Page header (tablet md & desktop lg) */}
         <div className="hidden md:flex items-center gap-4 px-6 lg:px-8 pt-6 pb-5 border-b border-[#1A0B2E]">
           <button onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg border border-[#24113A] text-[#B7B3C7] hover:bg-white/5 hover:text-white active:scale-95 transition-all"
+            className="xl:hidden p-2 rounded-lg border border-[#24113A] text-[#B7B3C7] hover:bg-white/5 hover:text-white active:scale-95 transition-all"
             title="Toggle Categories"
           >
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -625,22 +625,22 @@ export default function CreateTemplatePage() {
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto template-scroll">
-          <div className="flex flex-col lg:flex-row gap-6 p-4 sm:p-6 max-w-[1400px] mx-auto">
+          <div className="flex flex-col xl:flex-row gap-6 p-4 sm:p-6 max-w-[1400px] mx-auto">
 
             {/*  FORM COLUMN  */}
             <div className="flex-1 min-w-0 space-y-6">
 
               {/* Generate with AI */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 sm:p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
-                  <h2 className="text-2xl font-bold text-center mb-1">Generate with AI</h2>
-                  <p className="text-white/60 text-sm text-center mb-6 max-w-lg mx-auto leading-relaxed">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
+                  <h2 className="text-lg sm:text-2xl font-semibold sm:font-bold text-center mb-1">Generate with AI</h2>
+                  <p className="text-white/60 text-xs sm:text-sm font-normal text-center mb-4 sm:mb-6 max-w-lg mx-auto leading-relaxed">
                     Generate professional message templates in seconds using AI-powered
                     content suggestions and smart personalization.
                   </p>
                   <div className="relative mb-4">
-                    <p className="text-white text-m font-medium mb-1">Write your prompt here*</p>
-                    <p className="text-white/60 text-[13px] mb-2">
+                    <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Write your prompt here*</p>
+                    <p className="text-white/60 text-[11px] sm:text-[13px] font-normal mb-2">
                       "Describe the template you want to create and AI will generate it for you."
                     </p>
                     <textarea
@@ -648,7 +648,7 @@ export default function CreateTemplatePage() {
                       placeholder="Write your prompt here..."
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
-                      className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm
+                      className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
                         text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
                         focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
                     />
@@ -663,7 +663,7 @@ export default function CreateTemplatePage() {
                         <button
                           key={key}
                           onClick={() => setTone(key)}
-                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200
+                          className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-normal sm:font-medium transition-all duration-200
                             ${tone === key
                               ? 'bg-[#814AC8] text-white shadow-[0_0_16px_rgba(168,85,247,0.4)]'
                               : 'bg-transparent border border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/50 hover:text-white'
@@ -676,7 +676,7 @@ export default function CreateTemplatePage() {
                     <button
                       onClick={handleGenerate}
                       disabled={!aiPrompt || aiPrompt.trim() === ''}
-                      className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium
+                      className={`flex items-center gap-2 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-normal sm:font-medium
                         transition-all duration-300 hover:scale-[1.02]
                         ${!aiPrompt
                           ? 'bg-[#1A0B2E] text-[#4A4359] cursor-not-allowed'
@@ -734,21 +734,21 @@ export default function CreateTemplatePage() {
 
               {/* Header Media Upload — IMAGE / VIDEO types */}
               {(form.type === 'IMAGE' || form.type === 'VIDEO') && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <p className="text-white text-m font-medium mb-1">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">
                     Header ({form.type === 'IMAGE' ? 'Image' : 'Video'}) <span className="text-white/60 font-normal">(Optional)</span>
                   </p>
-                  <p className="text-white/60 text-xs mb-3 leading-relaxed">
+                  <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3 leading-relaxed">
                     Upload {form.type === 'IMAGE' ? 'an image' : 'a video'} for your template header.
                   </p>
 
                   {!form.mediaPreviewUrl ? (
-                    <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#3D1F6B] rounded-2xl py-8 cursor-pointer hover:border-[#814AC8] transition-all duration-200">
-                      <Icon d={form.type === 'IMAGE' ? icons.image : icons.video} size={26} className="text-[#814AC8]" />
-                      <span className="text-sm text-white/70">
+                    <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#3D1F6B] rounded-2xl py-6 sm:py-8 cursor-pointer hover:border-[#814AC8] transition-all duration-200">
+                      <Icon d={form.type === 'IMAGE' ? icons.image : icons.video} size={24} className="text-[#814AC8]" />
+                      <span className="text-xs sm:text-sm font-normal text-white/70">
                         Drag &amp; Drop or <span className="text-[#c490e8] underline">Browse File</span>
                       </span>
-                      <span className="text-[11px] text-[#4A4359]">
+                      <span className="text-[10px] sm:text-[11px] text-[#4A4359]">
                         {form.type === 'IMAGE' ? 'JPG, PNG, WEBP • Max 5MB' : 'MP4, MOV • Max 16MB'}
                       </span>
                       <input
@@ -761,15 +761,15 @@ export default function CreateTemplatePage() {
                   ) : (
                     <div className="flex items-center gap-3 bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
                       {form.type === 'IMAGE' ? (
-                        <img src={form.mediaPreviewUrl} alt={form.mediaName} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                        <img src={form.mediaPreviewUrl} alt={form.mediaName} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
                       ) : (
-                        <video src={form.mediaPreviewUrl} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                        <video src={form.mediaPreviewUrl} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate">{form.mediaName}</p>
-                        <p className="text-xs text-white/50">{(form.mediaSize / (1024 * 1024)).toFixed(1)} MB</p>
+                        <p className="text-xs sm:text-sm font-normal text-white truncate">{form.mediaName}</p>
+                        <p className="text-[10px] sm:text-xs text-white/50">{(form.mediaSize / (1024 * 1024)).toFixed(1)} MB</p>
                       </div>
-                      <label className="px-3 py-1.5 rounded-lg border border-[#24113A] text-xs text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white cursor-pointer transition-all duration-200">
+                      <label className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-[#24113A] text-[11px] sm:text-xs text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white cursor-pointer transition-all duration-200">
                         Replace
                         <input
                           type="file"
@@ -790,33 +790,33 @@ export default function CreateTemplatePage() {
               )}
 
               {/* Message Body */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <p className="text-white text-m font-medium mb-1">Message Content</p>
-                <p className="text-white/60 text-xs mb-3 leading-relaxed">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Message Content</p>
+                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3 leading-relaxed">
                   Use text formatting - *bold*, _italic_ &amp; ~strikethrough~<br />
                   Your message content. Upto 1024 characters are allowed.<br />
                   {'e.g – Hello {{1}}, your code will expire in {{2}} mins.'}
                 </p>
                 <div className="relative">
                   <textarea
-                    rows={6}
+                    rows={5}
                     placeholder="Hi {{1}}..."
                     value={form.message}
                     onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm
-                      text-white placeholder:text-[#4A4359] focus:outline-none focus:-[#814AC8]
+                    className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
+                      text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
                       focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
                   />
-                  <span className="absolute bottom-3 right-4 text-[11px] text-[#4A4359]">
+                  <span className="absolute bottom-2.5 right-3 text-[10px] sm:text-[11px] text-[#4A4359]">
                     {form.message.length} / 1024
                   </span>
                 </div>
-                <div className="flex gap-2 mt-3 flex-wrap">
+                <div className="flex gap-1.5 sm:gap-2 mt-2.5 sm:mt-3 flex-wrap">
                   {['{{1}}', '{{2}}', '{{3}}', '{{4}}', '{{5}}'].map((v) => (
                     <button
                       key={v}
                       onClick={() => insertVar(v)}
-                      className="px-3 py-1 rounded-full border border-[#814AC8]/40 text-[#814AC8] text-xs
+                      className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border border-[#814AC8]/40 text-[#814AC8] text-[11px] sm:text-xs font-normal
                         hover:bg-[#814AC8]/20 hover:border-[#814AC8] hover:shadow-[0_0_10px_rgba(129,74,200,0.2)]
                         transition-all duration-200"
                     >
@@ -839,13 +839,13 @@ export default function CreateTemplatePage() {
 
               {/* Interactive Actions */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <p className="text-white text-m font-medium mb-1">Interactive Actions</p>
-                  <p className="text-white/60 text-xs mb-4 leading-relaxed">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Interactive Actions</p>
+                  <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 sm:mb-4 leading-relaxed">
                     In addition to your message, you can send actions with your message. Maximum 25 characters
                     are allowed in CTA button title &amp; Quick Replies.
                   </p>
-                  <div className="flex gap-2 mb-5 flex-wrap">
+                  <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-5 flex-wrap">
                     {[
                       { key: 'none',  label: 'None' },
                       { key: 'cta',   label: 'Quick to Actions' },
@@ -854,7 +854,7 @@ export default function CreateTemplatePage() {
                       <button
                         key={key}
                         onClick={() => setActionMode(key)}
-                        className={`px-5 py-2 rounded-xl text-sm font-medium border transition-all duration-200
+                        className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-normal sm:font-medium border transition-all duration-200
                           ${actionMode === key
                             ? 'border-[#814AC8] text-[#c490e8] bg-[#814AC8]/10 shadow-[0_0_12px_rgba(129,74,200,0.2)]'
                             : 'border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white'
@@ -865,40 +865,40 @@ export default function CreateTemplatePage() {
                     ))}
                   </div>
                   {actionMode === 'cta' && (
-                    <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-4">
+                    <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-3.5 sm:p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-medium text-white">Call to Action</p>
-                        <span className="text-[10px] text-green-400">20 Characters left</span>
+                        <p className="text-xs sm:text-sm font-normal sm:font-medium text-white">Call to Action</p>
+                        <span className="text-[10px] text-green-400 font-normal">20 Characters left</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <p className="text-white/60 text-xs mb-1">Action Type</p>
+                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Action Type</p>
                           <input defaultValue="URL"
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
+                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
                               text-white focus:outline-none focus:border-[#814AC8]/60" />
                         </div>
                         <div>
-                          <p className="text-white/60 text-xs mb-1">Button Title</p>
+                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Button Title</p>
                           <input
                             value={form.ctaBtnTitle}
                             onChange={(e) => setForm({ ...form, ctaBtnTitle: e.target.value })}
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
+                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
                               text-white focus:outline-none focus:border-[#814AC8]/60"
                           />
                         </div>
                         <div>
-                          <p className="text-white/60 text-xs mb-1">Website URL</p>
+                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Website URL</p>
                           <input
                             placeholder="URL"
                             value={form.cta}
                             onChange={(e) => setForm({ ...form, cta: e.target.value })}
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
+                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
                               text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]/60"
                           />
                         </div>
                       </div>
                       <button className="w-full mt-3 py-2.5 rounded-xl border border-[#24113A] text-[#B7B3C7]
-                        text-sm hover:border-[#814AC8]/40 hover:text-white transition-all duration-200">
+                        text-xs sm:text-sm font-normal hover:border-[#814AC8]/40 hover:text-white transition-all duration-200">
                         + Add Another Action
                       </button>
                     </div>
@@ -909,7 +909,7 @@ export default function CreateTemplatePage() {
               {/* Submit */}
               <button
                 onClick={handleSubmit}
-                className="w-full py-3.5 rounded-2xl font-semibold text-white
+                className="w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-normal sm:font-semibold text-xs sm:text-base text-white
                   bg-[#814AC8]
                   shadow-[0_0_30px_rgba(168,85,247,0.3)]
                   hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:scale-[1.01]
@@ -920,12 +920,12 @@ export default function CreateTemplatePage() {
             </div>
 
             {/* ── RIGHT PANEL ── */}
-            <div className="w-full lg:w-[300px] shrink-0 flex flex-col gap-5">
+            <div className="w-full xl:w-[300px] shrink-0 flex flex-col gap-5">
 
               {/* Template Preview card */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
-                <h3 className="text-white font-semibold mb-1">Template Preview</h3>
-                <p className="text-white/60 text-xs mb-4 leading-relaxed">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
+                <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white mb-1">Template Preview</h3>
+                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 sm:mb-4 leading-relaxed">
                   Your template message preview. It will update as you fill in the values in the form.
                 </p>
                 <PhonePreview form={form} actionMode={actionMode} />
@@ -933,18 +933,18 @@ export default function CreateTemplatePage() {
               {/* ↑ Template Preview card closes here */}
 
               {/* Sample Values */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <h3 className="text-white font-semibold mb-4">Sample Values</h3>
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white mb-3 sm:mb-4">Sample Values</h3>
                 <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
-                  <p className="text-white text-[13px] font-medium mb-1">About Variables</p>
-                  <p className="text-white/60 text-[12px] mb-3">
+                  <p className="text-white text-[11px] sm:text-[13px] font-normal sm:font-medium mb-1">About Variables</p>
+                  <p className="text-white/60 text-[10px] sm:text-[12px] font-normal mb-2.5 sm:mb-3">
                     {'Use {{1}}, {{2}}, etc. to personalize your message.'}
                   </p>
                   <div className="space-y-2">
                     {sampleVars.map(({ key, label }) => (
                       <div key={key} className="flex items-center justify-between border-b border-[#1A0B2E] pb-2">
-                        <span className="text-[#814AC8] text-xs font-mono">{key}</span>
-                        <span className="text-[#B7B3C7] text-xs">{label}</span>
+                        <span className="text-[#814AC8] text-[10px] sm:text-xs font-mono">{key}</span>
+                        <span className="text-[#B7B3C7] text-[10px] sm:text-xs font-normal">{label}</span>
                       </div>
                     ))}
                   </div>
@@ -952,14 +952,14 @@ export default function CreateTemplatePage() {
               </div>
 
               {/* Pro Tip */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 p-1.5 bg-[#814AC8]/20 rounded-lg">
                     <Icon d={icons.tip} size={14} className="text-[#c490e8]" />
                   </div>
                   <div>
-                    <p className="text-white text-sm font-semibold mb-1">Pro Tip</p>
-                    <p className="text-white/60 text-xs leading-relaxed">
+                    <p className="text-white text-xs sm:text-sm font-normal sm:font-semibold mb-0.5 sm:mb-1">Pro Tip</p>
+                    <p className="text-white/60 text-[11px] sm:text-xs font-normal leading-relaxed">
                       Maximize engagement by adding up to 20 actions. These will appear as button to your users.
                     </p>
                   </div>

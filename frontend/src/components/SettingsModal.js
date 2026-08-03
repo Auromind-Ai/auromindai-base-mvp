@@ -1,13 +1,21 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import SettingsContent from './SettingsContent';
 
 const SettingsModal = ({ isOpen, onClose }) => {
-    if (!isOpen) return null;
+    const [mounted, setMounted] = useState(false);
 
-    return (
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!isOpen || !mounted) return null;
+
+    const modalJSX = (
         <AnimatePresence>
             {isOpen && (
                 <>
@@ -17,7 +25,7 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300]"
                     />
 
                     {/* Modal */}
@@ -26,12 +34,12 @@ const SettingsModal = ({ isOpen, onClose }) => {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-[calc(100%-2rem)] md:w-[90vw] lg:w-[85vw] lg:max-w-[1000px] h-[calc(100%-2rem)] md:h-[85vh] lg:h-[80vh] lg:max-h-[750px] bg-[#1f1f1f] rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col"
+                        className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 w-[calc(100%-2rem)] md:w-[90vw] lg:w-[85vw] lg:max-w-[1000px] h-[calc(100%-2rem)] md:h-[85vh] lg:h-[80vh] lg:max-h-[750px] bg-[#1f1f1f] rounded-xl shadow-2xl z-[310] overflow-hidden flex flex-col"
                     >
                         {/* Close Button - Top Right Absolute */}
                         <button
                             onClick={onClose}
-                            className="absolute top-4 right-4 p-1.5 rounded-md hover:bg-[#333] text-[#787878] hover:text-white transition-colors z-[60]"
+                            className="absolute top-4 right-4 p-1.5 rounded-md hover:bg-[#333] text-[#787878] hover:text-white transition-colors z-[320]"
                         >
                             <X size={18} />
                         </button>
@@ -44,6 +52,8 @@ const SettingsModal = ({ isOpen, onClose }) => {
             )}
         </AnimatePresence>
     );
+
+    return createPortal(modalJSX, document.body);
 };
 
 export default SettingsModal;

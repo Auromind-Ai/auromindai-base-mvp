@@ -47,13 +47,27 @@ export default function NodeInspector({
   return (
     <AnimatePresence>
       {activeNode && (
-        <motion.aside
-          initial={{ x: 450, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 450, opacity: 0 }}
-          className="absolute right-3 top-51 bottom-0 max-h-[85vh] w-[360px] z-[120] bg-[#15161C] border border-[#22252D] rounded-[20px] shadow-2xl flex flex-col overflow-hidden text-left"
-        >
-          <div className="px-5 py-2 border-b border-white/5 flex items-center justify-between bg-[#13131a]">
+        <>
+          {/* Mobile backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActiveNodeId(null)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[180] md:hidden"
+          />
+
+          <motion.aside
+            initial={{ y: 300, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 300, opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed inset-x-0 bottom-0 max-h-[85vh] w-full z-[190] bg-[#15161C] border-t border-x border-[#22252D] rounded-t-[24px] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden text-left md:absolute md:right-3 md:top-51 md:bottom-0 md:max-h-[85vh] md:w-[360px] md:rounded-[20px] md:border md:shadow-2xl md:inset-x-auto"
+          >
+            {/* Drag Handle for Mobile Bottom Sheet */}
+            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-2 shrink-0 md:hidden" />
+
+            <div className="px-5 py-2.5 border-b border-white/5 flex items-center justify-between bg-[#13131a]">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center">
                 <Settings size={15} className="text-violet-400" />
@@ -799,7 +813,8 @@ export default function NodeInspector({
               </button>
             </div>
           )}
-        </motion.aside>
+          </motion.aside>
+        </>
       )}
     </AnimatePresence>
   );

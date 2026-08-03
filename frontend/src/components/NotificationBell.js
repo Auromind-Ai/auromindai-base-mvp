@@ -127,11 +127,7 @@ const NotificationBell = () => {
     }
   };
 
-  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  const panelStyle = isMobile
-    ? { top: dropdownPos.top, left: 16, right: 16 }
-    : { top: dropdownPos.top, right: dropdownPos.right };
+  const panelStyle = { top: dropdownPos.top, right: dropdownPos.right };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -155,7 +151,7 @@ const NotificationBell = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed max-w-80 sm:w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+            className="fixed max-w-60 sm:w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
             style={panelStyle}
           >
             {/* Header */}

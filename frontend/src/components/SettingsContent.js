@@ -1561,6 +1561,14 @@ export default function SettingsContent({ email }) {
   const [cancelDelLoading, setCancelDelLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const mainContentRef = useRef(null);
+
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0;
+    }
+  }, [activeSection]);
+
   useEffect(() => {
     if (user?.full_name) setPreferredName(user.full_name);
   }, [user]);
@@ -1788,7 +1796,7 @@ export default function SettingsContent({ email }) {
           {/* ════════════════════════════════════════
               RIGHT CONTENT AREA
           ════════════════════════════════════════ */}
-          <main className={`flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden xl:block' : 'block'}`}>
+          <main ref={mainContentRef} className={`flex-1 bg-[#070012] p-5 sm:p-6 md:p-8 lg:p-10 min-w-0 min-h-0 overflow-y-auto ${sidebarOpen ? 'hidden xl:block' : 'block'}`}>
             {renderContent()}
           </main>
         </div>

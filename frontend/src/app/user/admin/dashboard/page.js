@@ -406,7 +406,7 @@ function BentoMetricsGrid({ metrics }) {
           }
         }
       `}</style>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         {metrics.map((metric, i) => (
           <BentoMetricCard key={metric.label} metric={metric} i={i} rgb={rgb} />
         ))}
@@ -968,7 +968,7 @@ function QuickActionsCard({ onAddLeadClick }) {
         <h2 className="text-[15px] font-semibold text-white/90">Quick Actions</h2>
         <p className="text-[11px] text-white/70 mt-0.5">Perform important task in one click</p>
       </div>
-      <div className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="p-3.5 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
         {QUICK_ACTIONS.map((action, i) => {
           const Icon = action.icon;
           return (
@@ -1211,7 +1211,7 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed max-w-[280px] sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[100] backdrop-blur-2xl flex flex-col gap-1"
+            className="fixed max-w-[200px] sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[100] backdrop-blur-2xl flex flex-col gap-1"
             style={dropdownStyle}
           >
             {options.map((opt) => {
@@ -1320,13 +1320,15 @@ export default function DashboardPage() {
             <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-white/90">Dashboard</h1>
             <p className="text-xs text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
           </div>
-          <div className="flex items-center gap-3 justify-end w-full sm:w-auto">
-          <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
-          <NotificationBell />
-          <div className="relative z-50 ml-1">
-              <CreditRingDropdown user={user} size={36} />
+          <div className="flex items-center w-full sm:w-auto gap-3">
+            <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
+            <div className="flex items-center gap-3 ml-auto sm:ml-0">
+              <NotificationBell />
+              <div className="relative z-50">
+                <CreditRingDropdown user={user} size={36} />
+              </div>
+            </div>
           </div>
-        </div>
         </header>
 
         {/* METRICS GRID */}
@@ -1335,7 +1337,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ROW 1: Monthly Revenue + Recent Activity */}
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 overflow-visible ${cardStateClass}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 overflow-visible ${cardStateClass}`}>
           {/* Monthly Revenue — 2/3 */}
           <section className="lg:col-span-2 rounded-2xl border border-purple-300/30 bg-[#070012] backdrop-blur-xl overflow-hidden">
             <div className="px-5 pt-4 pb-1">
@@ -1364,18 +1366,20 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* Recent Activity — 1/3 */}
-          <div className="h-full">
+          {/* Recent Activity — 1/3 xl, full-width lg */}
+          <div className="lg:col-span-2 xl:col-span-1 h-full">
             <RecentActivityCard activities={activities} />
           </div>
         </div>
 
         {/* ROW 2: Quick Actions + AI Insights */}
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5 ${cardStateClass}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5 ${cardStateClass}`}>
           <div className="lg:col-span-2 h-full">
             <QuickActionsCard onAddLeadClick={() => setShowAddLead(true)} />
           </div>
-          <AIInsightsCard insights={insights} />
+          <div className="lg:col-span-2 xl:col-span-1">
+            <AIInsightsCard insights={insights} />
+          </div>
         </div>
 
       </div>

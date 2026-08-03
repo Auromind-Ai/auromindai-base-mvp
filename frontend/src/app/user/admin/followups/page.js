@@ -26,7 +26,7 @@ export default function FollowUpsPage() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
         <div className="relative rounded-xl overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 opacity-90" />
           <div className="absolute inset-0 bg-black/40 backdrop-blur-xl border border-white/10" />
@@ -70,7 +70,7 @@ export default function FollowUpsPage() {
       </div>
 
       {/* MAIN GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
 
         {/* FOLLOW UPS */}
         <div className="lg:col-span-2 rounded-xl border border-white/10 bg-[#0f0f15]">
