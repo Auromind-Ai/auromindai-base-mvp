@@ -12,6 +12,7 @@ from app.workers.ingestion_worker import process_document_background
 import uuid
 import os
 import shutil
+import tempfile
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.utils.website_scraper import Webscrapper
 from app.core.exceptions import BillingError, WorkspaceAccessError
@@ -24,6 +25,43 @@ from app.services.ai.execution_service import AIFeatureRegistry,AIExecutionServi
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_temp_upload_dir() -> str:
+    
+    # Respect custom environment variable
+    env_dir = os.environ.get("TEMP_UPLOAD_DIR")
+    if env_dir:
+        try:
+            os.makedirs(env_dir, exist_ok=True)
+            # Verify write access by writing a tiny test file
+            test_path = os.path.join(env_dir, f".write_test_{uuid.uuid4().hex}")
+            with open(test_path, "w") as f:
+                f.write("test")
+            os.remove(test_path)
+            return env_dir
+        except Exception as e:
+            logger.warning(f"Configured TEMP_UPLOAD_DIR '{env_dir}' is not writable: {e}. Falling back...")
+
+    # Try default local path
+    default_dir = os.path.join(os.getcwd(), "temp_uploads")
+    try:
+        os.makedirs(default_dir, exist_ok=True)
+        # Verify write access by writing a tiny test file
+        test_path = os.path.join(default_dir, f".write_test_{uuid.uuid4().hex}")
+        with open(test_path, "w") as f:
+            f.write("test")
+        os.remove(test_path)
+        return default_dir
+    except Exception as e:
+        logger.warning(f"Default upload directory '{default_dir}' is not writable: {e}. Falling back to system temp.")
+
+    # Fallback to system-level temp directory
+    sys_temp_dir = os.path.join(tempfile.gettempdir(), "auromind_uploads")
+    os.makedirs(sys_temp_dir, exist_ok=True)
+    return sys_temp_dir
+
+
 router = APIRouter(prefix="/brain", tags=["brain"])
 
 
@@ -62,12 +100,7 @@ async def ingest_document(
             )
 
         entry_id = str(uuid.uuid4())
-        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
-        os.makedirs(temp_dir, exist_ok=True)
-        try:
-            os.chmod(temp_dir, 0o750)  # nosec B103
-        except Exception:
-            pass
+        temp_dir = get_temp_upload_dir()
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -203,12 +236,7 @@ async def ingest_sales_document(
             )
 
         entry_id = str(uuid.uuid4())
-        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
-        os.makedirs(temp_dir, exist_ok=True)
-        try:
-            os.chmod(temp_dir, 0o750)  # nosec B103
-        except Exception:
-            pass
+        temp_dir = get_temp_upload_dir()
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -340,12 +368,7 @@ async def ingest_support_document(
             )
 
         entry_id = str(uuid.uuid4())
-        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
-        os.makedirs(temp_dir, exist_ok=True)
-        try:
-            os.chmod(temp_dir, 0o750)  # nosec B103
-        except Exception:
-            pass
+        temp_dir = get_temp_upload_dir()
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:

@@ -280,6 +280,23 @@ class ChannelConnectionService:
         except Exception as e:
             logger.error(f"Failed to subscribe app to WABA webhooks: {e}")
 
+        # Register the phone number to enable messaging (important for Embedded Signup)
+        try:
+            whatsapp_pin = config_service.get("meta_whatsapp_pin") or config_service.get("whatsapp_pin") or "123456"
+            logger.info("Registering WhatsApp phone number %s with PIN: %s", phone_number_id, whatsapp_pin)
+            register_res = requests.post(
+                f"https://graph.facebook.com/v21.0/{phone_number_id}/register",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={
+                    "messaging_product": "whatsapp",
+                    "pin": whatsapp_pin
+                },
+                timeout=10,
+            )
+            logger.info("WhatsApp registration status: %s, response: %s", register_res.status_code, register_res.text)
+        except Exception as e:
+            logger.error("Failed to automatically register WhatsApp phone number: %s", e)
+
         db.commit()
 
         return {

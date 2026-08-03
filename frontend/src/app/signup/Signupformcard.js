@@ -4,6 +4,7 @@ import { useTurnstile } from '@/hooks/useTurnstile';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { setToken } from '@/lib/auth';
 import { useAuth } from '@/context/AuthContext';
 
 const getErrorMessage = (err) => {
@@ -94,7 +95,9 @@ export default function SignupFormCard() {
     try {
       const token = await executeTurnstile();
       const data = await api.verifyOTP(email, otp, 'signup', fullName, null, null, token);
-      // Cookies are set by the server; local token caching is disabled for security.
+      if (data?.access_token) {
+        setToken(data.access_token);
+      }
       await refreshUser();
       router.push('/user/admin/dashboard');
     } catch (err) {

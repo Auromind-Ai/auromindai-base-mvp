@@ -1009,6 +1009,10 @@ export default function ChannelsPage() {
     };
 
     const startWhatsAppSignup = () => {
+        if (typeof window === 'undefined' || !window.FB) {
+            alert("Facebook SDK is not loaded yet. If you are using an adblocker or private browsing mode, please disable tracking protection for this site and try again in a moment.");
+            return;
+        }
         setConnecting('whatsapp');
         window.FB.login(
             (response) => {

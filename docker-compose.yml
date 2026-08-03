@@ -33,6 +33,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: app
     container_name: auromind_backend
     env_file:
       - ./backend/.env
@@ -41,12 +42,20 @@ services:
       sh -c "alembic upgrade heads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75"
     environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app
+      - /app/temp_uploads
       - ./hf_cache:/models/huggingface
     ports:
       - "8000:8000"
@@ -59,12 +68,19 @@ services:
   security-tools:
     build:
       context: ./backend
-      dockerfile: Dockerfile.security
+      dockerfile: Dockerfile
+      target: security
     container_name: auromind_security_tools
+    restart: "no"
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/auromindai
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY}
     volumes:
@@ -81,24 +97,42 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: app
     container_name: auromind_celery_worker
     env_file:
       - ./backend/.env
     restart: unless-stopped
 
-    command: >
-      sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
-             until PGPASSWORD=$$POSTGRES_PASSWORD psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
-             sleep 2 &&
-             celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat"
+    command: |
+      sh -c "python -c \"import textwrap; exec(textwrap.dedent('''
+      import time
+      from app.database import engine
+      for i in range(60):
+          try:
+              with engine.connect():
+                  print('Database connection successful!')
+                  break
+          except Exception as e:
+              print(f'Waiting for database ({i}/60)...')
+              time.sleep(1)
+      else:
+          print('Database connection timed out!')
+      '''))\" && celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat"
     environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app
+      - /app/temp_uploads
       - ./hf_cache:/models/huggingface
     depends_on:
       db:
@@ -110,23 +144,41 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: app
     container_name: auromind_celery_beat
     env_file:
       - ./backend/.env
     restart: unless-stopped
-    command: >
-      sh -c "until pg_isready -h db -U postgres -d auromindai; do echo 'Waiting for database...'; sleep 1; done &&
-             until PGPASSWORD=$$POSTGRES_PASSWORD psql -h db -U postgres -d auromindai -c 'SELECT 1;' >/dev/null 2>&1; do echo 'Waiting for database query readiness...'; sleep 1; done &&
-             sleep 2 &&
-             celery -A app.core.celery_app beat --loglevel=info"
+    command: |
+      sh -c "python -c \"import textwrap; exec(textwrap.dedent('''
+      import time
+      from app.database import engine
+      for i in range(60):
+          try:
+              with engine.connect():
+                  print('Database connection successful!')
+                  break
+          except Exception as e:
+              print(f'Waiting for database ({i}/60)...')
+              time.sleep(1)
+      else:
+          print('Database connection timed out!')
+      '''))\" && celery -A app.core.celery_app beat --loglevel=info"
     environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app
+      - /app/temp_uploads
       - ./hf_cache:/models/huggingface
     depends_on:
       db:

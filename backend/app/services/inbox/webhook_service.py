@@ -51,10 +51,16 @@ def upsert_lead(
         Lead.conversation_id == conversation_id,
     ).first()
 
+    # Get conversation to retrieve contact_name
+    from app.models.conversation import Conversation
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conv_name = conv.contact_name if conv else None
+
     if not lead:
         lead = Lead(
             workspace_id=str(workspace_id),
             conversation_id=conversation_id,
+            name=conv_name,
             phone=phone,
             source=source,
             status="new",
@@ -76,7 +82,7 @@ def upsert_lead(
                 message=None,
                 template_key="lead_alert",
                 variables={
-                    "lead_name": phone or "New Lead",
+                    "lead_name": conv_name or phone or "New Lead",
                     "lead_email": phone or "N/A",
                     "lead_score": "0",
                     "source": source.upper()
@@ -87,6 +93,8 @@ def upsert_lead(
             logging.getLogger(__name__).error(f"Failed to send lead alert notification: {e}")
     else:
         lead.last_activity_at = datetime.now(timezone.utc)
+        if (not lead.name or lead.name == lead.phone) and conv_name and conv_name != lead.phone:
+            lead.name = conv_name
         db.flush()
 
     return lead

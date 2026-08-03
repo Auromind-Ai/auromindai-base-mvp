@@ -261,7 +261,7 @@ const normalizeLead = (lead) => {
     if (!lead) return null;
     return {
         id: lead.lead_id || lead.id,
-        name: lead.name || 'Unknown Lead',
+        name: lead.name || lead.phone || 'Unknown Lead',
         phone: lead.phone || '',
         source: lead.source || 'manual',
         channel: getChannelKey(lead.source),

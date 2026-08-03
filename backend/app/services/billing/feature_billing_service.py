@@ -32,6 +32,9 @@ class FeatureBillingService:
         unit_dec = Decimal(str(rule.unit_value))
         cost_dec = Decimal(str(rule.credit_cost))
 
+        if rule.billing_type == "FLAT":
+            return cost_dec
+
         return (usage_dec / unit_dec) * cost_dec
 
     @classmethod

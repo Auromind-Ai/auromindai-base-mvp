@@ -195,7 +195,10 @@ class ConversationService:
             if external_id and not conversation.external_id:
                 conversation.external_id = external_id
             if contact_name:
-                conversation.contact_name = contact_name
+                is_new_numeric = contact_name.isdigit()
+                is_old_numeric = conversation.contact_name and conversation.contact_name.isdigit()
+                if not conversation.contact_name or is_old_numeric or not is_new_numeric:
+                    conversation.contact_name = contact_name
             if profile_pic:
                 conversation.profile_pic = profile_pic
             db.flush()
