@@ -5,8 +5,12 @@ let memoryWorkspace = null;
 /* ---------------- TOKEN ---------------- */
 
 export const setToken = (token) => {
-  if (isBrowser && token) {
-    localStorage.setItem("auth_token", token);
+  if (isBrowser) {
+    if (token) {
+      localStorage.setItem('auth_token', token);
+    } else {
+      localStorage.removeItem('auth_token');
+    }
   }
 };
 

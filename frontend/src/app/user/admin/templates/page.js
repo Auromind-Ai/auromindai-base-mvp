@@ -760,25 +760,30 @@ function SidebarItem({ id, label, Icon, active, onClick }) {
       onClick={onClick}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      className="flex items-center gap-[10px] px-[13px] py-[9px] rounded-[10px] border-none text-[13px] cursor-pointer w-auto md:w-full shrink-0 whitespace-nowrap text-left transition-all duration-[180ms]"
+      className="flex items-center gap-2 md:gap-[10px] px-3 sm:px-[13px] py-1.5 sm:py-[9px] rounded-xl md:rounded-[10px] text-xs sm:text-[13px] cursor-pointer w-auto md:w-full shrink-0 text-left transition-all duration-[180ms] border"
       style={{
         background: active
           ? '#814AC8'
           : hov
             ? 'rgba(129,74,200,0.15)'
-            : 'transparent',
-        color: active ? '#ffffff' : hov ? '#C49FE0' : 'rgba(255,255,255,0.5)',
+            : 'rgba(129,74,200,0.06)',
+        borderColor: active
+          ? '#814AC8'
+          : hov
+            ? 'rgba(129,74,200,0.3)'
+            : 'rgba(255,255,255,0.08)',
+        color: active ? '#ffffff' : hov ? '#C49FE0' : 'rgba(255,255,255,0.7)',
         fontWeight: active ? 700 : 500,
         boxShadow: active ? '0 2px 14px rgba(129,74,200,0.4)' : 'none',
         fontFamily: 'var(--sans)',
       }}
     >
       <Icon
-        size={15}
+        size={14}
         strokeWidth={active ? 2.2 : 1.6}
-        color={active ? '#ffffff' : hov ? '#C49FE0' : 'rgba(255,255,255,0.4)'}
+        color={active ? '#ffffff' : hov ? '#C49FE0' : 'rgba(255,255,255,0.5)'}
       />
-      {label}
+      <span>{label}</span>
     </button>
   );
 }
@@ -977,7 +982,7 @@ export default function TemplatesPage() {
 
           {!loading && (
             <div
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-[10px] sm:gap-[13px] mb-[26px] sm:mb-[34px] w-full"
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-[10px] sm:gap-[13px] mb-[26px] sm:mb-[34px] w-full"
               style={{ animation: 'fadeIn 0.5s 0.1s ease both' }}
             >
               {STAT_CFG.map(cfg => {
@@ -1004,125 +1009,104 @@ export default function TemplatesPage() {
           )}
 
           
+          {/* Search, Status Tabs & Grid/List Controls */}
           <div
-            className="flex flex-col md:flex-row items-stretch md:items-center gap-2 mb-[26px] w-full"
+            className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mb-[26px] w-full"
             style={{ animation: 'fadeIn 0.5s 0.15s ease both' }}
           >
-            <div
-              className="flex items-center gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-4 py-[13px] sm:py-[17px] flex-1 transition-[border-color] duration-[150ms]"
-              onFocusCapture={e => e.currentTarget.style.borderColor = '#814AC8'}
-              onBlurCapture={e => e.currentTarget.style.borderColor = '#1e1e3f'}
-            >
-              <Search size={13} color="#7f7fa3" className="shrink-0" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search templates…"
-                className="bg-transparent border-none outline-none text-white text-[13px] w-full"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="bg-none border-none text-[#7f7fa3] cursor-pointer p-0 flex"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 md:shrink-0">
-              {/* Tabs — horizontally scrollable on narrow screens */}
-              <div className="flex items-center gap-1 bg-[#070012] border border-[#1e1e3f] rounded-[12px] px-2 sm:px-4 py-3 shrink-0 overflow-x-auto flex-1 md:flex-initial">
-                {TABS.map(tab => {
-                  const active = viewSource === 'user' && activeTab === tab;
-                  const cnt = countFor(tab);
-                  return (
-                    <button
-                      key={tab}
-                      onClick={() => {
-                        setViewSource('user');
-                        setActiveTab(tab);
-                        setActiveCategory(null);
-                      }}
-                      className="flex items-center gap-[6px] px-[10px] sm:px-[14px] py-[7px] rounded-[9px] border-none text-[13px] cursor-pointer whitespace-nowrap shrink-0 transition-all duration-[150ms]"
-                      style={{
-                        background: active ? '#814AC8' : 'transparent',
-                        color: active ? '#fff' : 'rgba(255,255,255,0.7)',
-                        fontWeight: active ? 700 : 500,
-                        boxShadow: active ? '0 2px 14px rgba(129,74,200,0.4)' : 'none',
-                        fontFamily: 'var(--sans)',
-                      }}
-                      onMouseEnter={e => {
-                        if (!active) {
-                          e.currentTarget.style.color = '#f0f0ff';
-                          e.currentTarget.style.background = 'rgba(129,74,200,0.1)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!active) {
-                          e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
-                          e.currentTarget.style.background = 'transparent';
-                        }
-                      }}
-                    >
-                      {tab}
-                      <span
-                        className="text-[11px] font-bold px-[7px] py-[1px] rounded-full min-w-[20px] text-center"
-                        style={{
-                          background: active ? 'rgba(255,255,255,0.2)' : 'rgba(136,136,187,0.15)',
-                          color: active ? '#fff' : '#55557a',
-                        }}
-                      >
-                        {cnt}
-                      </span>
-                    </button>
-                  );
-                })}
+            {/* Search input + Grid/List toggle on mobile */}
+            <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
+              <div
+                className="flex items-center gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[14px] px-3.5 sm:px-4 py-2.5 sm:py-[17px] flex-1 transition-[border-color] duration-[150ms]"
+                onFocusCapture={e => e.currentTarget.style.borderColor = '#814AC8'}
+                onBlurCapture={e => e.currentTarget.style.borderColor = '#1e1e3f'}
+              >
+                <Search size={14} color="#7f7fa3" className="shrink-0" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search templates…"
+                  className="bg-transparent border-none outline-none text-white text-xs sm:text-[13px] w-full"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="bg-none border-none text-[#7f7fa3] cursor-pointer p-0 flex"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </div>
 
-              {/* Right controls */}
-              <div className="flex items-center gap-2 shrink-0">
+              {/* Right controls (Grid/List View) */}
+              <div className="flex items-center gap-1.5 shrink-0">
                 {[['grid', LayoutGrid], ['list', List]].map(([mode, ModeIcon]) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
-                    className="flex items-center justify-center cursor-pointer transition-all duration-[150ms] w-10 h-10 sm:w-[52px] sm:h-[52px] shrink-0"
+                    className="flex items-center justify-center cursor-pointer transition-all duration-[150ms] w-[42px] h-[42px] sm:w-[52px] sm:h-[52px] shrink-0"
                     style={{
-                      borderRadius: 14,
+                      borderRadius: 12,
                       border: `1.5px solid ${viewMode === mode ? '#814AC8' : '#2a2a4a'}`,
                       background: viewMode === mode ? '#814AC8' : '#0d0d1e',
                       color: '#ffffff',
                       boxShadow: viewMode === mode ? '0 2px 14px rgba(129,74,200,0.4)' : 'none',
                     }}
-                    onMouseEnter={e => {
-                      if (viewMode !== mode) {
-                        e.currentTarget.style.borderColor = '#814AC8';
-                        e.currentTarget.style.background = 'rgba(129,74,200,0.12)';
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (viewMode !== mode) {
-                        e.currentTarget.style.borderColor = '#2a2a4a';
-                        e.currentTarget.style.background = '#0d0d1e';
-                      }
-                    }}
                   >
-                    <ModeIcon size={20} strokeWidth={1.8} color="#ffffff" />
+                    <ModeIcon size={16} strokeWidth={1.8} color="#ffffff" />
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Status Tabs — Flex Wrapped on Mobile, No horizontal scroll */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-[#070012] border border-[#1e1e3f] rounded-[14px] p-2 sm:px-4 sm:py-3 w-full md:w-auto">
+              {TABS.map(tab => {
+                const active = viewSource === 'user' && activeTab === tab;
+                const cnt = countFor(tab);
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      setViewSource('user');
+                      setActiveTab(tab);
+                      setActiveCategory(null);
+                    }}
+                    className="flex items-center gap-1.5 sm:gap-[6px] px-2.5 sm:px-[14px] py-1.5 sm:py-[7px] rounded-[9px] border-none text-xs sm:text-[13px] cursor-pointer whitespace-nowrap transition-all duration-[150ms]"
+                    style={{
+                      background: active ? '#814AC8' : 'rgba(255,255,255,0.04)',
+                      color: active ? '#fff' : 'rgba(255,255,255,0.7)',
+                      fontWeight: active ? 700 : 500,
+                      boxShadow: active ? '0 2px 14px rgba(129,74,200,0.4)' : 'none',
+                      fontFamily: 'var(--sans)',
+                    }}
+                  >
+                    <span>{tab}</span>
+                    <span
+                      className="text-[10px] sm:text-[11px] font-bold px-1.5 sm:px-[7px] py-[1px] rounded-full min-w-[18px] sm:min-w-[20px] text-center"
+                      style={{
+                        background: active ? 'rgba(255,255,255,0.2)' : 'rgba(136,136,187,0.2)',
+                        color: active ? '#fff' : '#9999cc',
+                      }}
+                    >
+                      {cnt}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-3 items-start">
+          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 items-start">
+            {/* Category & Industry Section — Flex Wrapped on Mobile */}
             <div
-              className="w-full md:w-[200px] lg:w-[240px] shrink-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-[16px_14px] md:p-[20px_14px] md:sticky md:top-[80px]"
+              className="w-full md:w-[180px] lg:w-[200px] xl:w-[240px] shrink-0 bg-[#070012] border border-[#1e1e3f] rounded-[18px] p-3.5 sm:p-[20px_14px] md:sticky md:top-[80px]"
               style={{ animation: 'fadeIn 0.5s 0.2s ease both' }}
             >
-              <p className="m-0 mb-2 ml-1 text-[10px] font-bold text-[rgba(255,255,255,0.9)] uppercase tracking-[0.12em]">
+              <p className="m-0 mb-2 ml-1 text-[10px] sm:text-[11px] font-bold text-[rgba(255,255,255,0.9)] uppercase tracking-[0.12em]">
                 Categories
               </p>
-              <div className="flex flex-row md:flex-col gap-[6px] md:gap-[2px] mb-[14px] md:mb-[22px] overflow-x-auto md:overflow-visible pb-1 md:pb-0">
+              <div className="flex flex-wrap md:flex-col gap-1.5 sm:gap-2 md:gap-[2px] mb-3.5 md:mb-[22px]">
                 {CATEGORIES.map(({ id, label, Icon }) => (
                   <SidebarItem
                     key={id} id={id} label={label} Icon={Icon}
@@ -1136,10 +1120,10 @@ export default function TemplatesPage() {
                 ))}
               </div>
 
-              <p className="m-0 mb-[10px] ml-1 text-[11px] font-bold text-[rgba(255,255,255,0.9)] uppercase tracking-[0.1em]">
+              <p className="m-0 mb-2 ml-1 text-[10px] sm:text-[11px] font-bold text-[rgba(255,255,255,0.9)] uppercase tracking-[0.12em]">
                 Industry
               </p>
-              <div className="flex flex-row md:flex-col gap-[6px] md:gap-[2px] overflow-x-auto md:overflow-visible pb-1 md:pb-0">
+              <div className="flex flex-wrap md:flex-col gap-1.5 sm:gap-2 md:gap-[2px]">
                 {INDUSTRIES.map(({ id, label, Icon }) => (
                   <SidebarItem
                     key={id} id={id} label={label} Icon={Icon}
@@ -1198,7 +1182,7 @@ export default function TemplatesPage() {
                   className={`grid ${
                     viewMode === 'list'
                       ? 'grid-cols-1 gap-[9px]'
-                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[14px]'
+                      : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-[14px]'
                   }`}
                 >
                   {filtered.map((tpl, i) => (

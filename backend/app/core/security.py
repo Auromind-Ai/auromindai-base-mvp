@@ -8,10 +8,13 @@ def to_uuid(val):
         return None
     if isinstance(val, uuid.UUID):
         return val
+    s_val = str(val).strip()
+    if s_val.lower() in ("null", "undefined", "none", ""):
+        return None
     try:
-        return uuid.UUID(str(val))
+        return uuid.UUID(s_val)
     except (ValueError, TypeError, AttributeError):
-        return val
+        return None
 
 def verify_workspace_access(
     current_user, 
@@ -19,13 +22,14 @@ def verify_workspace_access(
     target_workspace_id: uuid.UUID | str = None
 ) -> str:
     user_id = to_uuid(current_user.id)
-    if target_workspace_id:
-        ws_id = to_uuid(target_workspace_id)
+    ws_id = to_uuid(target_workspace_id) if target_workspace_id else None
+
+    if ws_id:
         membership = db.query(WorkspaceMember).filter(
             WorkspaceMember.user_id == user_id,
             WorkspaceMember.workspace_id == ws_id
         ).first()
-        check_id = str(target_workspace_id)
+        check_id = str(ws_id)
     else:
         membership = db.query(WorkspaceMember).filter(
             WorkspaceMember.user_id == user_id

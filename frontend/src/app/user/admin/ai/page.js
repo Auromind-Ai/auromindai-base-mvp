@@ -1039,14 +1039,14 @@ export default function AuromindAIPage() {
                                         animate={{ opacity: mounted ? 1 : 0, y: mounted ? 0 : 16 }}
                                         exit={{ opacity: 0, y: -16 }}
                                         transition={{ duration: 0.5, ease: "easeOut" }}
-                                        className="flex flex-col items-center w-full px-4 pt-16 pb-32 md:pt-32 relative z-10"
+                                        className="flex flex-col items-center w-full px-4 pt-8 pb-32 md:pt-32 relative z-10"
                                     >
                                         {/* Greeting */}
                                         <motion.h1
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: 0.15, duration: 0.5 }}
-                                            className="text-4xl md:text-5xl font-bold tracking-tight text-center mb-2 text-white"
+                                            className="text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight text-center mb-1 md:mb-2 text-white"
                                         >
                                             {greeting},{' '}
                                             <span
@@ -1063,7 +1063,7 @@ export default function AuromindAIPage() {
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             transition={{ delay: 0.25, duration: 0.5 }}
-                                            className="text-gray-400 text-base mb-10 text-center"
+                                            className="text-gray-400 text-xs md:text-base mb-6 md:mb-10 text-center"
                                         >
                                             Let&apos;s get things done. What would you like to accomplish today?
                                         </motion.p>
@@ -1096,7 +1096,7 @@ export default function AuromindAIPage() {
                                                         onChange={(e) => setInputValue(e.target.value)}
                                                         onKeyDown={handleKeyDown}
                                                         placeholder="Ask me Anything..."
-                                                        className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed min-h-[80px]"
+                                                        className="w-full bg-transparent text-gray-100 placeholder:text-gray-600 text-[13px] md:text-[15px] resize-none outline-none leading-relaxed min-h-[60px] md:min-h-[80px]"
                                                     />
                                                 </div>
                                                 <div className="flex items-center justify-between px-5 pb-4 pt-2 border-t border-white/10">
@@ -1160,7 +1160,7 @@ export default function AuromindAIPage() {
                                         {/* Get started cards */}
                                         <div className="w-full max-w-4xl mt-10">
                                             <p className="text-[13px] font-medium text-gray-400 mb-4">Get started with</p>
-                                            <div className="grid grid-cols-2 md:flex md:flex-row md:gap-5 gap-5">
+                                            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
                                                 {GET_STARTED_CARDS.map((card, i) => (
                                                     <motion.button
                                                         key={i}
@@ -1169,22 +1169,24 @@ export default function AuromindAIPage() {
                                                         transition={{ delay: 0.1 + i * 0.06, duration: 0.4 }}
                                                         onClick={() => setInputValue(card.label)}
                                                         className="starter-card relative flex flex-col justify-between
-                                                            p-4 rounded-2xl border border-white/20
+                                                            p-3 md:p-4 rounded-2xl border border-white/20
                                                             transition-all duration-300 text-left group overflow-hidden
-                                                            min-h-[180px] md:min-h-[220px]"
+                                                            min-h-[140px] md:min-h-[180px] lg:min-h-[220px]"
                                                         style={{ background: card.cardBg, backgroundColor: 'rgba(7,0,18,0.7)' }}
                                                     >
                                                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl pointer-events-none"
                                                             style={{ background: card.cardBg }} />
-                                                        <div className={`relative z-10 w-10 h-10 rounded-xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-lg mb-3`}>
-                                                            <card.icon size={19} className="text-white" />
+                                                        <div className={`relative z-10 w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br ${card.gradient} flex items-center justify-center shadow-lg mb-2 md:mb-3`}>
+                                                            <card.icon size={15} className="text-white md:hidden" />
+                                                            <card.icon size={19} className="text-white hidden md:block" />
                                                         </div>
                                                         <div className="relative z-10 flex-1">
-                                                            <p className="text-[15px] font-medium text-gray-200 mb-1 leading-snug">{card.label}</p>
-                                                            <p className="text-[13px] text-white/60 leading-snug">{card.description}</p>
+                                                            <p className="text-[12px] md:text-[15px] font-medium text-gray-200 mb-1 leading-snug">{card.label}</p>
+                                                            <p className="text-[11px] md:text-[13px] text-white/60 leading-snug">{card.description}</p>
                                                         </div>
-                                                        <div className="absolute bottom-3 right-3 z-10 w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-purple-600/30 group-hover:border-purple-500/40 transition-all">
-                                                            <ArrowUpRight size={20} className="text-white/70 group-hover:text-purple-300 transition-colors group-hover:rotate-45 transition-all duration-300" />
+                                                        <div className="absolute bottom-2 right-2 md:bottom-3 md:right-3 z-10 w-7 h-7 md:w-10 md:h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-purple-600/30 group-hover:border-purple-500/40 transition-all">
+                                                            <ArrowUpRight size={14} className="text-white/70 group-hover:text-purple-300 transition-colors group-hover:rotate-45 transition-all duration-300 md:hidden" />
+                                                            <ArrowUpRight size={20} className="text-white/70 group-hover:text-purple-300 transition-colors group-hover:rotate-45 transition-all duration-300 hidden md:block" />
                                                         </div>
                                                     </motion.button>
                                                 ))}

@@ -127,11 +127,7 @@ const NotificationBell = () => {
     }
   };
 
-  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  const panelStyle = isMobile
-    ? { top: dropdownPos.top, left: 16, right: 16 }
-    : { top: dropdownPos.top, right: dropdownPos.right };
+  const panelStyle = { top: dropdownPos.top, right: dropdownPos.right };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -155,7 +151,7 @@ const NotificationBell = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed max-w-80 sm:w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+            className="fixed max-w-60 sm:w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
             style={panelStyle}
           >
             {/* Header */}
@@ -208,19 +204,19 @@ const NotificationBell = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p
-                          className={`text-xs truncate ${
-                            !item.is_read ? 'font-semibold text-white/90' : 'text-zinc-400'
+                          className={`text-[13px] truncate ${
+                            !item.is_read ? 'font-bold text-white' : 'font-medium text-zinc-300'
                           }`}
                         >
                           {item.title}
                         </p>
-                        <span className="text-[10px] text-zinc-500 flex-shrink-0">
+                        <span className="text-[10px] text-zinc-500 flex-shrink-0 font-medium">
                           {formatRelativeTime(item.created_at)}
                         </span>
                       </div>
                       <p
-                        className={`text-xs mt-0.5 break-words line-clamp-2 leading-relaxed ${
-                          !item.is_read ? 'text-zinc-300 font-medium' : 'text-zinc-500'
+                        className={`text-[11px] mt-1 break-words line-clamp-2 leading-snug ${
+                          !item.is_read ? 'text-zinc-400 font-normal' : 'text-zinc-500 font-normal'
                         }`}
                       >
                         {item.message}

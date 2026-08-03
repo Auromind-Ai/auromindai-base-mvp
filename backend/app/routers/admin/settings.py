@@ -9,6 +9,8 @@ from jose import jwt
 from app.core.config import settings as core_settings
 from app.services.platform_settings_service import get_prospective_settings
 import time
+import logging
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 SENSITIVE_MASK = "••••••••"
@@ -57,6 +59,8 @@ async def update_platform_settings(
         else:
             ip = request.headers.get("x-real-ip", request.client.host if request.client else "unknown").strip()
 
+        t_start = time.perf_counter()
+
         # Fetch old values of the keys being updated
         from app.models.platform_setting import PlatformSetting
         old_settings = db.query(PlatformSetting).filter(PlatformSetting.key.in_(updates.keys())).all()
@@ -73,8 +77,13 @@ async def update_platform_settings(
                 val = _parse_value(val, s.value_type)
             old_values[s.key] = val
 
+        t_old = time.perf_counter()
+        logger.warning(f"TIMING: Fetching old settings took {t_old - t_start:.3f}s")
+
         # Now update the settings
         result = update_settings(db, updates)
+        t_update = time.perf_counter()
+        logger.warning(f"TIMING: update_settings took {t_update - t_old:.3f}s")
 
         # Diff old and new values to check for changes
         changes_old = {}
@@ -115,13 +124,22 @@ async def update_platform_settings(
             )
             db.add(log)
 
+        t_audit = time.perf_counter()
+        logger.warning(f"TIMING: Audit log setup took {t_audit - t_update:.3f}s")
+
         # Synchronize plans table
         from app.services.billing.plan_service import PlanService
         plan_service = PlanService()
         for plan_key in ["free", "pro", "enterprise"]:
             config = plan_service._get_plan_config(db, plan_key)
             plan_service._get_or_create_plan(db, config)
+
+        t_plans = time.perf_counter()
+        logger.warning(f"TIMING: Sync plans took {t_plans - t_audit:.3f}s")
+
         db.commit()
+        t_commit = time.perf_counter()
+        logger.warning(f"TIMING: db.commit took {t_commit - t_plans:.3f}s")
 
         return _sanitize_response(result)
     except ValueError as ve:

@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react"
 
+import { Poppins } from "next/font/google"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import HistoryModal from "@/components/common/HistoryModal"
@@ -30,6 +31,12 @@ import {
   formatBillingAmount,
   formatPaymentMethod,
 } from "@/lib/utils/activityMapper"
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-poppins",
+})
 
 export default function BillingHistoryPage() {
   const { workspaceId } = useAuth()
@@ -332,22 +339,22 @@ export default function BillingHistoryPage() {
         <div style={cardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 10, fontWeight: 500 }}>Your current plan</p>
+              <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6, fontWeight: 500 }}>Your current plan</p>
               {loading ? (
-                <div style={skeletonStyle(120, 40)} />
+                <div style={skeletonStyle(120, 32)} />
               ) : (
                 <>
-                  <h2 style={{ fontSize: 32, fontWeight: 700, margin: 0, letterSpacing: "-1px", color: "#fff" }}>
+                  <h2 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px 0", letterSpacing: "-0.5px", color: "#fff" }}>
                     {currentPlanLabel}
                   </h2>
-                  <p style={{ fontSize: 15, color: "#9ca3af", marginTop: 6 }}>
+                  <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>
                     {currentPlanPrice} / month
                   </p>
                 </>
               )}
             </div>
             {!loading && (
-              <span style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#f5faf7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600 }}>
+              <span style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#f5faf7", borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 600 }}>
                 Active
               </span>
             )}
@@ -355,65 +362,78 @@ export default function BillingHistoryPage() {
 
           {/* Feature Pills */}
           {!loading && activePlanFeatures.length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 20, marginBottom: 24 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14, marginBottom: 14 }}>
               {activePlanFeatures.map((feat, idx) => (
-                <span key={`${feat}-${idx}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.25)", color: "#f1eff7", borderRadius: 20, padding: "5px 12px", fontSize: 11, fontWeight: 500 }}>
+                <span key={`${feat}-${idx}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.25)", color: "#f1eff7", borderRadius: 16, padding: "3px 10px", fontSize: 11, fontWeight: 500 }}>
                   {getFeatureIcon(feat)} {feat}
                 </span>
               ))}
             </div>
           )}
 
-          {loading ? (
-            <div style={skeletonStyle(140, 42)} />
-          ) : (
-            <a
-              href="/user/admin/billing/payment"
-              style={{ display: "inline-block", background: "linear-gradient(135deg, #7c3aed, #9333ea)", color: "#fff", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, textDecoration: "none", transition: "opacity 0.2s" }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-            >
-              Upgrade plan
-            </a>
-          )}
+          <div style={{ marginTop: 26 }}>
+            {loading ? (
+              <div style={skeletonStyle(120, 34)} />
+            ) : (
+              <a
+                href="/user/admin/billing/payment"
+                style={{
+                  display: "inline-block",
+                  background: "#814AC8",
+                  color: "#fff",
+                  borderRadius: 8,
+                  padding: "8px 20px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: "none",
+                  transition: "opacity 0.2s"
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
+                onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+              >
+                Upgrade plan
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Plan Details Card */}
-        <div style={cardStyle}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Plan Details</p>
+        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 10 }}>Plan Details</p>
           {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[1, 2, 3, 4].map(i => <div key={i} style={skeletonStyle("100%", 44)} />)}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[1, 2, 3, 4].map(i => <div key={i} style={skeletonStyle("100%", 34)} />)}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column" }}>
               {[
                 {
-                  icon: <RefreshCw size={16} color="#9ca3af" />,
+                  icon: <RefreshCw size={14} color="#9ca3af" />,
                   label: "Billing Cycle",
                   value: billing?.subscription?.billing_cycle || billing?.billing_cycle || "Monthly",
                 },
                 {
-                  icon: <Calendar size={16} color="#9ca3af" />,
+                  icon: <Calendar size={14} color="#9ca3af" />,
                   label: "Next Billing Date",
                   value: formatBillingDate(billing?.subscription?.current_period_end || billing?.next_billing_date),
                 },
                 {
-                  icon: <IndianRupee size={16} color="#9ca3af" />,
+                  icon: <IndianRupee size={14} color="#9ca3af" />,
                   label: "Amount",
                   value: currentPlanPrice || "—",
                 },
                 {
-                  icon: <CreditCard size={16} color="#9ca3af" />,
+                  icon: <CreditCard size={14} color="#9ca3af" />,
                   label: "Payment Method",
                   value: billing?.payments && billing.payments.length > 0 && billing.payments[0].payment_method
                     ? formatPaymentMethod(billing.payments[0].payment_method, billing.payments[0].provider).label
                     : "—",
                 },
               ].map((row, idx, arr) => (
-                <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {row.icon}
                     </span>
                     <span style={{ fontSize: 13, color: "#9ca3af" }}>{row.label}</span>
@@ -423,6 +443,7 @@ export default function BillingHistoryPage() {
               ))}
             </div>
           )}
+          </div>
         </div>
 
         {/* Billing Profile Card - Default Compact Summary View */}
@@ -1098,8 +1119,8 @@ function StatusPill({ status }) {
 const cardStyle = {
   background: "#070012",
   border: "0.43px solid rgba(157, 157, 157, 0.3)",
-  borderRadius: 20, 
-  padding: "24px",
+  borderRadius: 16, 
+  padding: "16px 20px",
 }
 
 const skeletonStyle = (w, h) => ({

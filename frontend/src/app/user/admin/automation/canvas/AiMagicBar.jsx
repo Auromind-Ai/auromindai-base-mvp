@@ -49,7 +49,7 @@ export default function AiMagicBar({
 
   return (
     <>
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[80%] max-w-[760px] z-[150]">
+      <div className="fixed bottom-[calc(62px+env(safe-area-inset-bottom,0px))] md:absolute md:bottom-6 left-1/2 -translate-x-1/2 w-[94%] md:w-[80%] max-w-[760px] z-[150]">
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-violet-600/20 via-indigo-600/20 to-violet-600/20 rounded-[28px] opacity-0 blur-2xl group-hover:opacity-100 transition-all duration-700" />
           <div className="relative bg-[#13131a]/98 backdrop-blur-2xl border border-white/8 rounded-[24px] px-4 py-3 flex items-center gap-4 shadow-2xl">

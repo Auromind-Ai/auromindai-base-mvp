@@ -15,12 +15,20 @@ export default function RepositorySidebar({
   return (
     <AnimatePresence>
       {sidebarOpen && (
-        <motion.aside
-          initial={{ x: -450, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -450, opacity: 0 }}
-          className="absolute left-4 top-20 bottom-28 w-72 z-[110] bg-[#13131a]/98 backdrop-blur-3xl border border-white/8 rounded-2xl shadow-2xl flex flex-col"
-        >
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[150] md:hidden"
+          />
+          <motion.aside
+            initial={{ x: -450, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -450, opacity: 0 }}
+            className="fixed left-2 right-2 top-16 bottom-20 z-[160] bg-[#13131a]/98 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl flex flex-col md:absolute md:left-4 md:right-auto md:top-20 md:bottom-28 md:w-72 md:z-[110]"
+          >
           <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Layers size={16} className="text-violet-400" />
@@ -161,6 +169,7 @@ export default function RepositorySidebar({
             ))}
           </div>
         </motion.aside>
+        </>
       )}
     </AnimatePresence>
   );

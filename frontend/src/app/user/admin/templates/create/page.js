@@ -1,9 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Poppins } from 'next/font/google';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import UpgradeModal from '@/components/UpgradeModal';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+});
 
 //  Icons (inline SVG to avoid extra deps) 
 const Icon = ({ d, size = 16, className = '' }) => (
@@ -41,7 +48,7 @@ const icons = {
 const CatItem = ({ iconKey, label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all duration-200
+    className={`w-full flex items-center gap-2.5 sm:gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-normal sm:font-medium transition-all duration-200
       ${active
         ? 'bg-[#1A0B2E] text-white border border-[#3D1F6B]'
         : 'text-[#B7B3C7] hover:text-white hover:bg-[#110820]'
@@ -55,10 +62,10 @@ const CatItem = ({ iconKey, label, active, onClick }) => (
 //  Input ─
 const Input = ({ label, hint, placeholder, value, onChange, className = '' }) => (
   <div className={className}>
-    {label && <p className="text-white text-sm font-medium mb-1">{label}</p>}
-    {hint && <p className="text-white/60 text-xs mb-3 leading-relaxed">{hint}</p>}
+    {label && <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">{label}</p>}
+    {hint && <p className="text-white/60 text-[11px] sm:text-xs mb-2 sm:mb-3 leading-relaxed font-normal">{hint}</p>}
     <input
-      className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm text-white
+      className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal text-white
         placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]-500 focus:ring-2
         focus:ring-[#814AC8]/20 transition-all duration-300"
       placeholder={placeholder}
@@ -68,61 +75,40 @@ const Input = ({ label, hint, placeholder, value, onChange, className = '' }) =>
   </div>
 );
 
-//  Phone Preview Component (extracted to avoid deep nesting in return) 
+// ── Phone Preview Component (extracted to avoid deep nesting in return) ──
 function PhonePreview({ form, actionMode }) {
-  const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' opacity='0.06'%3E%3Ctext x='5' y='20' font-size='14' fill='white'%3E%F0%9F%98%8A%3C/text%3E%3Ctext x='40' y='15' font-size='12' fill='white'%3E%F0%9F%93%B7%3C/text%3E%3Ctext x='60' y='35' font-size='11' fill='white'%3E%F0%9F%8E%B5%3C/text%3E%3Ctext x='10' y='50' font-size='11' fill='white'%3E%E2%9D%A4%EF%B8%8F%3C/text%3E%3Ctext x='45' y='55' font-size='13' fill='white'%3E%F0%9F%8C%9F%3C/text%3E%3Ctext x='20' y='72' font-size='12' fill='white'%3E%F0%9F%93%B1%3C/text%3E%3Ctext x='58' y='70' font-size='11' fill='white'%3E%E2%9C%88%EF%B8%8F%3C/text%3E%3C/svg%3E")`;
+  const whatsappPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' opacity='0.08'%3E%3Cpath d='M10 10h12v12H10zM40 50h12v12H40zM70 20h12v12H70zM20 70h12v12H20zM70 70h12v12H70z' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='25' cy='35' r='5' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Ccircle cx='75' cy='45' r='6' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3Cpath d='M45 15l10 10-10 10M15 85l10-10 10 10' fill='none' stroke='%23ffffff' stroke-width='1'/%3E%3C/svg%3E")`;
+  const videoRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(err => console.error("Video preview play error:", err));
+      }
+    }
+  };
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', overflow: 'hidden', height: '560px' }}>
       <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', width: '300px', position: 'relative' }}>
 
-        {/*  Status Bar — IphoneMockup style: OUTSIDE phone shell, overlays notch  */}
-        <div style={{
-          position: 'absolute',
-          top: '18px',
-          left: '0',
-          right: '0',
-          zIndex: 10,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '0 28px',
-          color: 'white',
-          fontSize: '12px',
-          fontWeight: '600',
-          pointerEvents: 'none',
-        }}>
-          <span>9:05</span>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            {/* WiFi */}
-            <svg width="14" height="11" viewBox="0 0 15 11" fill="none" style={{ display: 'block' }}>
-              <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="white"/>
-              <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
-              <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
-            </svg>
-            {/* Battery */}
-            <svg width="22" height="11" viewBox="0 0 24 12" fill="none" style={{ display: 'block' }}>
-              <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="white" strokeOpacity="0.55"/>
-              <rect x="1.5" y="1.5" width="17" height="9" rx="1.5" fill="white"/>
-              <path d="M22 4V8C22.8 7.6 23.5 6.85 23.5 6C23.5 5.15 22.8 4.4 22 4Z" fill="white" fillOpacity="0.4"/>
-            </svg>
-          </div>
-        </div>
-
-        {/*  Phone outer shell — IphoneMockup exact style  */}
+        {/* ── Phone outer shell ── */}
         <div style={{
           width: '300px',
           borderRadius: '44px',
-          background: '#0d0d0e',
+          background: '#14121b',
           padding: '10px',
-          border: '1.5px solid rgba(255,255,255,0.18)',
-          boxShadow: '0 0 0 8px #0d0d0e, 0 0 0 9.5px rgba(255,255,255,0.05), 0 52px 110px rgba(0,0,0,0.88), 0 0 70px rgba(129,74,200,0.12)',
+          border: '1.5px solid rgba(255,255,255,0.12)',
+          boxShadow: '0 0 0 8px #14121b, 0 20px 60px rgba(0,0,0,0.9)',
           position: 'relative',
         }}>
 
-          {/*  Phone screen  */}
+          {/* ── Phone screen ── */}
           <div style={{
-            background: '#0d0d14',
+            background: '#0c0b11',
             borderRadius: '36px',
             overflow: 'hidden',
             position: 'relative',
@@ -131,171 +117,216 @@ function PhonePreview({ form, actionMode }) {
             flexDirection: 'column',
           }}>
 
-            {/* Dynamic Island — IphoneMockup exact */}
+            {/* ── Top Header Section (#1C1C1C Fill Color) ── */}
             <div style={{
-              width: '100px',
-              height: '28px',
-              background: '#000',
-              borderRadius: '20px',
-              margin: '12px auto 0',
-              flexShrink: 0,
-            }} />
-
-            {/*  WA Header — IphoneMockup style  */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 14px',
-              background: '#1a1a2e',
+              background: '#1C1C1C',
+              padding: '10px 14px 10px',
               borderBottom: '1px solid rgba(255,255,255,0.06)',
               flexShrink: 0,
             }}>
-              {/* Back arrow */}
-              <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <svg width="9" height="16" viewBox="0 0 10 17" fill="none">
-                  <path d="M9 1L1.5 8.5L9 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-
-              {/* Avatar — IphoneMockup style: purple gradient + letter */}
+              {/* Status bar row: 9:05 + Dynamic Island + Icons */}
               <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: '#814AC8',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                fontSize: '13px',
-                fontWeight: '700',
-                flexShrink: 0,
-                position: 'relative',
+                justifyContent: 'space-between',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: '600',
+                marginBottom: '8px',
               }}>
-                A
-                {/* Online dot — IphoneMockup style */}
-                <span style={{
-                  position: 'absolute',
-                  bottom: '1px',
-                  right: '1px',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: '#22c55e',
-                  border: '1.5px solid #1a1a2e',
+                <span style={{ minWidth: '40px' }}>9:05</span>
+
+                {/* Dynamic Island Pill Notch */}
+                <div style={{
+                  width: '80px',
+                  height: '20px',
+                  background: '#000000',
+                  borderRadius: '14px',
                 }} />
+
+                <div style={{ display: 'flex', gap: '5px', alignItems: 'center', minWidth: '40px', justifyContent: 'flex-end' }}>
+                  {/* WiFi */}
+                  <svg width="13" height="10" viewBox="0 0 15 11" fill="none">
+                    <path d="M7.5 8.5C8.05 8.5 8.5 8.95 8.5 9.5C8.5 10.05 8.05 10.5 7.5 10.5C6.95 10.5 6.5 10.05 6.5 9.5C6.5 8.95 6.95 8.5 7.5 8.5Z" fill="white"/>
+                    <path d="M4.2 6.2C5.1 5.4 6.25 5 7.5 5C8.75 5 9.9 5.4 10.8 6.2" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M1.5 3.8C3.1 2.35 5.2 1.5 7.5 1.5C9.8 1.5 11.9 2.35 13.5 3.8" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+                  </svg>
+                  {/* Battery */}
+                  <svg width="20" height="10" viewBox="0 0 24 12" fill="none">
+                    <rect x="0.5" y="0.5" width="20" height="11" rx="2.5" stroke="white" strokeOpacity="0.8"/>
+                    <rect x="1.5" y="1.5" width="17" height="9" rx="1.5" fill="white"/>
+                    <path d="M22 4V8C22.8 7.6 23.5 6.85 23.5 6C23.5 5.15 22.8 4.4 22 4Z" fill="white" fillOpacity="0.6"/>
+                  </svg>
+                </div>
               </div>
 
-              {/* Name + status */}
-              <div style={{ flex: 1 }}>
-                <div style={{ color: 'white', fontSize: '13px', fontWeight: '600', lineHeight: '1.2' }}>Auromind</div>
-                <div style={{ color: '#22c55e', fontSize: '10px' }}>online</div>
-              </div>
+              {/* Header content */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                {/* Back arrow */}
+                <button style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  <svg width="9" height="16" viewBox="0 0 10 17" fill="none">
+                    <path d="M9 1L1.5 8.5L9 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
 
-              {/* Actions — IphoneMockup: video + phone only */}
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                  <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.899L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
-                    stroke="rgba(255,255,255,0.72)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 11.5 19.79 19.79 0 01.08 2.83 2 2 0 012.07 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
-                    stroke="rgba(255,255,255,0.72)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                {/* Avatar */}
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: '#2A2A2A',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  flexShrink: 0,
+                  overflow: 'hidden'
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+
+                {/* Name + status */}
+                <div style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}>
+                  <div style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: '600', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Auromind</div>
+                  <div style={{ color: '#8E8E93', fontSize: '10px' }}>Business account</div>
+                </div>
+
+                {/* Actions: video + phone */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.934a.5.5 0 0 0-.777-.416L16 11" />
+                    <rect width="14" height="12" x="2" y="6" rx="2" />
+                  </svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 11.5 19.79 19.79 0 01.08 2.83 2 2 0 012.07 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+                  </svg>
+                </div>
               </div>
             </div>
 
-            {/*  Chat area — dark bg + WA pattern  */}
+            {/* ── Chat area ── */}
             <div style={{
               flex: 1,
-              padding: '12px',
-              background: '#0d0d1a',
+              padding: '14px 12px',
+              background: '#0c0b11',
               backgroundImage: whatsappPattern,
-              backgroundSize: '80px 80px',
+              backgroundSize: '100px 100px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
-              minHeight: '380px',
+              gap: '10px',
+              minHeight: '430px',
             }}>
-              <div style={{ alignSelf: 'flex-start', maxWidth: '88%' }}>
+              <div style={{ alignSelf: 'flex-start', width: '100%' }}>
 
                 {/* Message bubble */}
                 <div style={{
-                  background: '#1e2a45',
-                  borderRadius: '16px 16px 16px 4px',
+                  background: '#1C1C1C',
+                  borderRadius: '18px',
                   overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  padding: '14px 16px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                 }}>
 
-                  {/* Media header — image/video */}
+                  {/* Media header */}
                   {(form.type === 'IMAGE' || form.type === 'VIDEO') && form.mediaPreviewUrl && (
-                    <div style={{ width: '100%', aspectRatio: '1.91 / 1', overflow: 'hidden', background: '#000', position: 'relative' }}>
+                    <div
+                      onClick={form.type === 'VIDEO' ? togglePlay : undefined}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1.91 / 1',
+                        overflow: 'hidden',
+                        background: '#000',
+                        borderRadius: '12px',
+                        marginBottom: '10px',
+                        position: 'relative',
+                        cursor: form.type === 'VIDEO' ? 'pointer' : 'default'
+                      }}
+                    >
                       {form.type === 'IMAGE' ? (
                         <img src={form.mediaPreviewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       ) : (
-                        <video src={form.mediaPreviewUrl} muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <video
+                          ref={videoRef}
+                          src={form.mediaPreviewUrl}
+                          playsInline
+                          preload="metadata"
+                          onPlay={() => setIsPlaying(true)}
+                          onPause={() => setIsPlaying(false)}
+                          onEnded={() => setIsPlaying(false)}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
                       )}
-                      {form.type === 'VIDEO' && (
-                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                      {form.type === 'VIDEO' && !isPlaying && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style={{ marginLeft: '2px' }}><path d="M8 5v14l11-7z" /></svg>
                           </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  <div style={{ padding: '10px 12px' }}>
+                  <div>
                     {form.header && (
-                      <div style={{ fontWeight: '700', marginBottom: '4px', fontSize: '12px', color: 'white' }}>
+                      <div style={{ fontWeight: '700', marginBottom: '6px', fontSize: '13px', color: '#ffffff' }}>
                         {form.header}
                       </div>
                     )}
-                    <div style={{ color: 'white', fontSize: '11px', lineHeight: '1.7', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    <div style={{ color: '#ffffff', fontSize: '12px', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: '400' }}>
                       {form.message
                         ? form.message
-                        : <span style={{ color: 'rgba(255,255,255,0.3)' }}>Your message will appear here...</span>
+                        : <span style={{ color: 'rgba(255,255,255,0.4)' }}>Hey {"{{1}}"}, just a reminder.</span>
                       }
                     </div>
                     {form.footer && (
-                      <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '10px', marginTop: '6px' }}>
+                      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '10px', marginTop: '6px' }}>
                         {form.footer}
                       </div>
                     )}
-                    <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '9px', textAlign: 'right', marginTop: '4px' }}>
+                    <div style={{ color: '#8E8E93', fontSize: '10px', textAlign: 'right', marginTop: '6px' }}>
                       11:30 AM
                     </div>
                   </div>
-
-                  {/* CTA button */}
-                  {actionMode === 'cta' && (
-                    <div style={{
-                      borderTop: '1px solid rgba(255,255,255,0.1)',
-                      padding: '9px 12px',
-                      textAlign: 'center',
-                      color: '#4da3ff',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      letterSpacing: '0.3px',
-                    }}>
-                      🔗 {form.ctaBtnTitle || 'Buy Now'}
-                    </div>
-                  )}
                 </div>
+
+                {/* CTA Action button below message bubble */}
+                {actionMode === 'cta' && (
+                  <div style={{
+                    marginTop: '8px',
+                    background: '#1C1C1C',
+                    borderRadius: '16px',
+                    padding: '12px',
+                    textAlign: 'center',
+                    color: '#2d60ff',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                  }}>
+                    {form.ctaBtnTitle || 'Buy Now'}
+                  </div>
+                )}
 
                 {/* Quick reply buttons */}
                 {actionMode === 'quick' && (
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                     {['Yes', 'No'].map(r => (
                       <div key={r} style={{
-                        background: '#1e2a45',
-                        border: '1px solid rgba(77,163,255,0.4)',
-                        borderRadius: '20px',
-                        padding: '5px 14px',
-                        color: '#4da3ff',
-                        fontSize: '11px',
+                        background: '#1C1C1C',
+                        borderRadius: '16px',
+                        padding: '10px 18px',
+                        color: '#2d60ff',
+                        fontSize: '12px',
                         fontWeight: '600',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                       }}>
                         {r}
                       </div>
@@ -304,46 +335,9 @@ function PhonePreview({ form, actionMode }) {
                 )}
               </div>
             </div>
-
-            {/*  Input bar — IphoneMockup style  */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              background: '#1a1a2e',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-              flexShrink: 0,
-            }}>
-              <div style={{
-                flex: 1,
-                background: 'rgba(255,255,255,0.06)',
-                borderRadius: '20px',
-                padding: '6px 14px',
-                color: 'rgba(255,255,255,0.3)',
-                fontSize: '11px',
-              }}>
-                Message
-              </div>
-              {/* Send button — IphoneMockup purple gradient */}
-              <div style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                background: '#814AC8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            </div>
-
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -354,7 +348,7 @@ export default function CreateTemplatePage() {
   const { workspaceId } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [form, setForm] = useState({
-    category: 'MARKETING',
+    category: 'UTILITY',
     language: 'en_US',
     name: '',
     type: 'TEXT',
@@ -551,48 +545,46 @@ export default function CreateTemplatePage() {
   ];
 
   return (
-    <div className="flex h-screen bg-[#05010D] text-white overflow-hidden font-sans">
+    <div className={`${poppins.className} flex h-screen bg-[#05010D] text-white overflow-hidden`} style={{ fontFamily: "'Poppins', sans-serif" }}>
 
-      {/* Mobile overlay */}
+      {/* Mobile & Tablet Overlay Backdrop */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-20 md:hidden"
+        <div className="fixed inset-0 bg-black/60 z-40 xl:hidden"
           onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/*  SIDEBAR  */}
+      {/*  CATEGORIES SIDEBAR  */}
       <aside className={`
-        fixed md:static z-30 flex flex-col h-full w-[240px] md:w-[210px] lg:w-[240px] bg-[#060010] border-r border-[#1A0B2E]
+        fixed xl:static top-0 left-0 z-50 flex flex-col h-full w-[240px] xl:w-[240px] bg-[#060010] border-r border-[#1A0B2E] shadow-2xl xl:shadow-none
         transition-transform duration-300
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'}
       `}>
         <nav className="flex-1 overflow-y-auto p-3 space-y-1 template-scroll">
           <div className="pt-4 pb-1">
-            <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Categories</p>
-            <CatItem iconKey="template" label="Utility"        active={false}
-              onClick={() => setForm({ ...form, category: 'UTILITY' })} />
-            <CatItem iconKey="template" label="Marketing"      active={form.category === 'MARKETING'}
-              onClick={() => setForm({ ...form, category: 'MARKETING' })} />
+            <p className="text-[14px] text-white font-medium tracking-widest px-3 mb-2">Categories</p>
+            <CatItem iconKey="template" label="Utility"        active={form.category === 'UTILITY'}
+              onClick={() => { setForm({ ...form, category: 'UTILITY' }); setSidebarOpen(false); }} />
             <CatItem iconKey="template" label="Authentication" active={form.category === 'AUTHENTICATION'}
-              onClick={() => setForm({ ...form, category: 'AUTHENTICATION' })} />
+              onClick={() => { setForm({ ...form, category: 'AUTHENTICATION' }); setSidebarOpen(false); }} />
           </div>
           <div className="pt-4 pb-1">
             <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Template Type</p>
             <CatItem iconKey="text"  label="Text"  active={form.type === 'TEXT'}
-              onClick={() => setForm({ ...form, type: 'TEXT' })} />
+              onClick={() => { setForm({ ...form, type: 'TEXT' }); setSidebarOpen(false); }} />
             <CatItem iconKey="image" label="Image" active={form.type === 'IMAGE'}
-              onClick={() => setForm({ ...form, type: 'IMAGE' })} />
+              onClick={() => { setForm({ ...form, type: 'IMAGE' }); setSidebarOpen(false); }} />
             <CatItem iconKey="video" label="Video" active={form.type === 'VIDEO'}
-              onClick={() => setForm({ ...form, type: 'VIDEO' })} />
+              onClick={() => { setForm({ ...form, type: 'VIDEO' }); setSidebarOpen(false); }} />
           </div>
 
           <div className="pt-4 pb-1">
             <p className="text-[14px] text-white font-medium uppercase tracking-widest px-3 mb-2">Language</p>
             <CatItem iconKey="text" label="English (US)"    active={form.language === 'en_US'}
-              onClick={() => setForm({ ...form, language: 'en_US' })} />
+              onClick={() => { setForm({ ...form, language: 'en_US' }); setSidebarOpen(false); }} />
             <CatItem iconKey="text" label="Tamil (தமிழ்)"   active={form.language === 'ta'}
-              onClick={() => setForm({ ...form, language: 'ta' })} />
+              onClick={() => { setForm({ ...form, language: 'ta' }); setSidebarOpen(false); }} />
             <CatItem iconKey="text" label="Hindi (हिन्दी)"  active={form.language === 'hi'}
-              onClick={() => setForm({ ...form, language: 'hi' })} />
+              onClick={() => { setForm({ ...form, language: 'hi' }); setSidebarOpen(false); }} />
           </div>
         </nav>
       </aside>
@@ -600,43 +592,55 @@ export default function CreateTemplatePage() {
       {/*  MAIN CONTENT  */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Top bar (mobile) */}
+        {/* Top bar (mobile < 768px) */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-[#1A0B2E]">
           <button onClick={() => setSidebarOpen(true)}
-            className="p-1.5 rounded-lg border border-[#24113A] text-[#B7B3C7]">
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            className="p-1.5 rounded-lg border border-[#24113A] text-[#B7B3C7] hover:bg-white/5 active:scale-95 transition-all">
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="3" y1="12" x2="21" y2="12" />
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <h1 className="text-base font-semibold">New Template Message</h1>
+          <h1 className="text-xs sm:text-base font-normal sm:font-semibold">New Template Message</h1>
         </div>
 
-        {/* Page header */}
-        <div className="hidden md:block px-8 pt-7 pb-5 border-b border-[#1A0B2E]">
-          <h1 className="text-3xl font-bold text-white tracking-tight">New Templates Message</h1>
-          <p className="text-white/60 text-sm mt-1">Create, manage and approve WhatsApp Business templates.</p>
+        {/* Page header (tablet md & desktop lg) */}
+        <div className="hidden md:flex items-center gap-4 px-6 lg:px-8 pt-6 pb-5 border-b border-[#1A0B2E]">
+          <button onClick={() => setSidebarOpen(true)}
+            className="xl:hidden p-2 rounded-lg border border-[#24113A] text-[#B7B3C7] hover:bg-white/5 hover:text-white active:scale-95 transition-all"
+            title="Toggle Categories"
+          >
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">New Templates Message</h1>
+            <p className="text-white/60 text-sm mt-0.5">Create, manage and approve WhatsApp Business templates.</p>
+          </div>
         </div>
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto template-scroll">
-          <div className="flex flex-col lg:flex-row gap-6 p-4 sm:p-6 max-w-[1400px] mx-auto">
+          <div className="flex flex-col xl:flex-row gap-6 p-4 sm:p-6 max-w-[1400px] mx-auto">
 
             {/*  FORM COLUMN  */}
             <div className="flex-1 min-w-0 space-y-6">
 
               {/* Generate with AI */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 sm:p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
-                  <h2 className="text-2xl font-bold text-center mb-1">Generate with AI</h2>
-                  <p className="text-white/60 text-sm text-center mb-6 max-w-lg mx-auto leading-relaxed">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-8 shadow-[0_0_40px_rgba(168,85,247,0.08)]">
+                  <h2 className="text-lg sm:text-2xl font-semibold sm:font-bold text-center mb-1">Generate with AI</h2>
+                  <p className="text-white/60 text-xs sm:text-sm font-normal text-center mb-4 sm:mb-6 max-w-lg mx-auto leading-relaxed">
                     Generate professional message templates in seconds using AI-powered
                     content suggestions and smart personalization.
                   </p>
                   <div className="relative mb-4">
-                    <p className="text-white text-m font-medium mb-1">Write your prompt here*</p>
-                    <p className="text-white/60 text-[13px] mb-2">
+                    <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Write your prompt here*</p>
+                    <p className="text-white/60 text-[11px] sm:text-[13px] font-normal mb-2">
                       "Describe the template you want to create and AI will generate it for you."
                     </p>
                     <textarea
@@ -644,7 +648,7 @@ export default function CreateTemplatePage() {
                       placeholder="Write your prompt here..."
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
-                      className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm
+                      className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
                         text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
                         focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
                     />
@@ -659,7 +663,7 @@ export default function CreateTemplatePage() {
                         <button
                           key={key}
                           onClick={() => setTone(key)}
-                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200
+                          className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-normal sm:font-medium transition-all duration-200
                             ${tone === key
                               ? 'bg-[#814AC8] text-white shadow-[0_0_16px_rgba(168,85,247,0.4)]'
                               : 'bg-transparent border border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/50 hover:text-white'
@@ -672,7 +676,7 @@ export default function CreateTemplatePage() {
                     <button
                       onClick={handleGenerate}
                       disabled={!aiPrompt || aiPrompt.trim() === ''}
-                      className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium
+                      className={`flex items-center gap-2 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-normal sm:font-medium
                         transition-all duration-300 hover:scale-[1.02]
                         ${!aiPrompt
                           ? 'bg-[#1A0B2E] text-[#4A4359] cursor-not-allowed'
@@ -730,21 +734,21 @@ export default function CreateTemplatePage() {
 
               {/* Header Media Upload — IMAGE / VIDEO types */}
               {(form.type === 'IMAGE' || form.type === 'VIDEO') && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <p className="text-white text-m font-medium mb-1">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">
                     Header ({form.type === 'IMAGE' ? 'Image' : 'Video'}) <span className="text-white/60 font-normal">(Optional)</span>
                   </p>
-                  <p className="text-white/60 text-xs mb-3 leading-relaxed">
+                  <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3 leading-relaxed">
                     Upload {form.type === 'IMAGE' ? 'an image' : 'a video'} for your template header.
                   </p>
 
                   {!form.mediaPreviewUrl ? (
-                    <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#3D1F6B] rounded-2xl py-8 cursor-pointer hover:border-[#814AC8] transition-all duration-200">
-                      <Icon d={form.type === 'IMAGE' ? icons.image : icons.video} size={26} className="text-[#814AC8]" />
-                      <span className="text-sm text-white/70">
+                    <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#3D1F6B] rounded-2xl py-6 sm:py-8 cursor-pointer hover:border-[#814AC8] transition-all duration-200">
+                      <Icon d={form.type === 'IMAGE' ? icons.image : icons.video} size={24} className="text-[#814AC8]" />
+                      <span className="text-xs sm:text-sm font-normal text-white/70">
                         Drag &amp; Drop or <span className="text-[#c490e8] underline">Browse File</span>
                       </span>
-                      <span className="text-[11px] text-[#4A4359]">
+                      <span className="text-[10px] sm:text-[11px] text-[#4A4359]">
                         {form.type === 'IMAGE' ? 'JPG, PNG, WEBP • Max 5MB' : 'MP4, MOV • Max 16MB'}
                       </span>
                       <input
@@ -757,15 +761,15 @@ export default function CreateTemplatePage() {
                   ) : (
                     <div className="flex items-center gap-3 bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
                       {form.type === 'IMAGE' ? (
-                        <img src={form.mediaPreviewUrl} alt={form.mediaName} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                        <img src={form.mediaPreviewUrl} alt={form.mediaName} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
                       ) : (
-                        <video src={form.mediaPreviewUrl} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                        <video src={form.mediaPreviewUrl} className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate">{form.mediaName}</p>
-                        <p className="text-xs text-white/50">{(form.mediaSize / (1024 * 1024)).toFixed(1)} MB</p>
+                        <p className="text-xs sm:text-sm font-normal text-white truncate">{form.mediaName}</p>
+                        <p className="text-[10px] sm:text-xs text-white/50">{(form.mediaSize / (1024 * 1024)).toFixed(1)} MB</p>
                       </div>
-                      <label className="px-3 py-1.5 rounded-lg border border-[#24113A] text-xs text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white cursor-pointer transition-all duration-200">
+                      <label className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-[#24113A] text-[11px] sm:text-xs text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white cursor-pointer transition-all duration-200">
                         Replace
                         <input
                           type="file"
@@ -786,33 +790,33 @@ export default function CreateTemplatePage() {
               )}
 
               {/* Message Body */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <p className="text-white text-m font-medium mb-1">Message Content</p>
-                <p className="text-white/60 text-xs mb-3 leading-relaxed">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Message Content</p>
+                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-2 sm:mb-3 leading-relaxed">
                   Use text formatting - *bold*, _italic_ &amp; ~strikethrough~<br />
                   Your message content. Upto 1024 characters are allowed.<br />
                   {'e.g – Hello {{1}}, your code will expire in {{2}} mins.'}
                 </p>
                 <div className="relative">
                   <textarea
-                    rows={6}
+                    rows={5}
                     placeholder="Hi {{1}}..."
                     value={form.message}
                     onChange={(e) => setForm({ ...form, message: e.target.value })}
-                    className="w-full bg-[#0B0613] border border-[#24113A] rounded-2xl px-4 py-3 text-sm
-                      text-white placeholder:text-[#4A4359] focus:outline-none focus:-[#814AC8]
+                    className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl sm:rounded-2xl px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-normal
+                      text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]
                       focus:ring-2 focus:ring-[#814AC8]/20 transition-all duration-300 resize-none"
                   />
-                  <span className="absolute bottom-3 right-4 text-[11px] text-[#4A4359]">
+                  <span className="absolute bottom-2.5 right-3 text-[10px] sm:text-[11px] text-[#4A4359]">
                     {form.message.length} / 1024
                   </span>
                 </div>
-                <div className="flex gap-2 mt-3 flex-wrap">
+                <div className="flex gap-1.5 sm:gap-2 mt-2.5 sm:mt-3 flex-wrap">
                   {['{{1}}', '{{2}}', '{{3}}', '{{4}}', '{{5}}'].map((v) => (
                     <button
                       key={v}
                       onClick={() => insertVar(v)}
-                      className="px-3 py-1 rounded-full border border-[#814AC8]/40 text-[#814AC8] text-xs
+                      className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border border-[#814AC8]/40 text-[#814AC8] text-[11px] sm:text-xs font-normal
                         hover:bg-[#814AC8]/20 hover:border-[#814AC8] hover:shadow-[0_0_10px_rgba(129,74,200,0.2)]
                         transition-all duration-200"
                     >
@@ -835,13 +839,13 @@ export default function CreateTemplatePage() {
 
               {/* Interactive Actions */}
               {!isAuth && (
-                <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                  <p className="text-white text-m font-medium mb-1">Interactive Actions</p>
-                  <p className="text-white/60 text-xs mb-4 leading-relaxed">
+                <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-6 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                  <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-1">Interactive Actions</p>
+                  <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 sm:mb-4 leading-relaxed">
                     In addition to your message, you can send actions with your message. Maximum 25 characters
                     are allowed in CTA button title &amp; Quick Replies.
                   </p>
-                  <div className="flex gap-2 mb-5 flex-wrap">
+                  <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-5 flex-wrap">
                     {[
                       { key: 'none',  label: 'None' },
                       { key: 'cta',   label: 'Quick to Actions' },
@@ -850,7 +854,7 @@ export default function CreateTemplatePage() {
                       <button
                         key={key}
                         onClick={() => setActionMode(key)}
-                        className={`px-5 py-2 rounded-xl text-sm font-medium border transition-all duration-200
+                        className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-normal sm:font-medium border transition-all duration-200
                           ${actionMode === key
                             ? 'border-[#814AC8] text-[#c490e8] bg-[#814AC8]/10 shadow-[0_0_12px_rgba(129,74,200,0.2)]'
                             : 'border-[#24113A] text-[#B7B3C7] hover:border-[#814AC8]/40 hover:text-white'
@@ -861,40 +865,40 @@ export default function CreateTemplatePage() {
                     ))}
                   </div>
                   {actionMode === 'cta' && (
-                    <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-4">
+                    <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-3.5 sm:p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-medium text-white">Call to Action</p>
-                        <span className="text-[10px] text-green-400">20 Characters left</span>
+                        <p className="text-xs sm:text-sm font-normal sm:font-medium text-white">Call to Action</p>
+                        <span className="text-[10px] text-green-400 font-normal">20 Characters left</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <p className="text-white/60 text-xs mb-1">Action Type</p>
+                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Action Type</p>
                           <input defaultValue="URL"
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
+                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
                               text-white focus:outline-none focus:border-[#814AC8]/60" />
                         </div>
                         <div>
-                          <p className="text-white/60 text-xs mb-1">Button Title</p>
+                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Button Title</p>
                           <input
                             value={form.ctaBtnTitle}
                             onChange={(e) => setForm({ ...form, ctaBtnTitle: e.target.value })}
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
+                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
                               text-white focus:outline-none focus:border-[#814AC8]/60"
                           />
                         </div>
                         <div>
-                          <p className="text-white/60 text-xs mb-1">Website URL</p>
+                          <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-1">Website URL</p>
                           <input
                             placeholder="URL"
                             value={form.cta}
                             onChange={(e) => setForm({ ...form, cta: e.target.value })}
-                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-sm
+                            className="w-full bg-[#0B0613] border border-[#24113A] rounded-xl px-3 py-2 text-xs sm:text-sm font-normal
                               text-white placeholder:text-[#4A4359] focus:outline-none focus:border-[#814AC8]/60"
                           />
                         </div>
                       </div>
                       <button className="w-full mt-3 py-2.5 rounded-xl border border-[#24113A] text-[#B7B3C7]
-                        text-sm hover:border-[#814AC8]/40 hover:text-white transition-all duration-200">
+                        text-xs sm:text-sm font-normal hover:border-[#814AC8]/40 hover:text-white transition-all duration-200">
                         + Add Another Action
                       </button>
                     </div>
@@ -905,7 +909,7 @@ export default function CreateTemplatePage() {
               {/* Submit */}
               <button
                 onClick={handleSubmit}
-                className="w-full py-3.5 rounded-2xl font-semibold text-white
+                className="w-full py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-normal sm:font-semibold text-xs sm:text-base text-white
                   bg-[#814AC8]
                   shadow-[0_0_30px_rgba(168,85,247,0.3)]
                   hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:scale-[1.01]
@@ -916,12 +920,12 @@ export default function CreateTemplatePage() {
             </div>
 
             {/* ── RIGHT PANEL ── */}
-            <div className="w-full lg:w-[300px] shrink-0 flex flex-col gap-5">
+            <div className="w-full xl:w-[300px] shrink-0 flex flex-col gap-5">
 
               {/* Template Preview card */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
-                <h3 className="text-white font-semibold mb-1">Template Preview</h3>
-                <p className="text-white/60 text-xs mb-4 leading-relaxed">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.08)]">
+                <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white mb-1">Template Preview</h3>
+                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-3 sm:mb-4 leading-relaxed">
                   Your template message preview. It will update as you fill in the values in the form.
                 </p>
                 <PhonePreview form={form} actionMode={actionMode} />
@@ -929,18 +933,18 @@ export default function CreateTemplatePage() {
               {/* ↑ Template Preview card closes here */}
 
               {/* Sample Values */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
-                <h3 className="text-white font-semibold mb-4">Sample Values</h3>
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+                <h3 className="text-xs sm:text-base font-normal sm:font-semibold text-white mb-3 sm:mb-4">Sample Values</h3>
                 <div className="bg-[#0D021A] border border-[#24113A] rounded-2xl p-3">
-                  <p className="text-white text-[13px] font-medium mb-1">About Variables</p>
-                  <p className="text-white/60 text-[12px] mb-3">
+                  <p className="text-white text-[11px] sm:text-[13px] font-normal sm:font-medium mb-1">About Variables</p>
+                  <p className="text-white/60 text-[10px] sm:text-[12px] font-normal mb-2.5 sm:mb-3">
                     {'Use {{1}}, {{2}}, etc. to personalize your message.'}
                   </p>
                   <div className="space-y-2">
                     {sampleVars.map(({ key, label }) => (
                       <div key={key} className="flex items-center justify-between border-b border-[#1A0B2E] pb-2">
-                        <span className="text-[#814AC8] text-xs font-mono">{key}</span>
-                        <span className="text-[#B7B3C7] text-xs">{label}</span>
+                        <span className="text-[#814AC8] text-[10px] sm:text-xs font-mono">{key}</span>
+                        <span className="text-[#B7B3C7] text-[10px] sm:text-xs font-normal">{label}</span>
                       </div>
                     ))}
                   </div>
@@ -948,14 +952,14 @@ export default function CreateTemplatePage() {
               </div>
 
               {/* Pro Tip */}
-              <div className="bg-[#090014] border border-[#24113A] rounded-[24px] p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
+              <div className="bg-[#090014] border border-[#24113A] rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_0_30px_rgba(168,85,247,0.05)]">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 p-1.5 bg-[#814AC8]/20 rounded-lg">
                     <Icon d={icons.tip} size={14} className="text-[#c490e8]" />
                   </div>
                   <div>
-                    <p className="text-white text-sm font-semibold mb-1">Pro Tip</p>
-                    <p className="text-white/60 text-xs leading-relaxed">
+                    <p className="text-white text-xs sm:text-sm font-normal sm:font-semibold mb-0.5 sm:mb-1">Pro Tip</p>
+                    <p className="text-white/60 text-[11px] sm:text-xs font-normal leading-relaxed">
                       Maximize engagement by adding up to 20 actions. These will appear as button to your users.
                     </p>
                   </div>
