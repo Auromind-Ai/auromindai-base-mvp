@@ -13,6 +13,12 @@ async def verify_turnstile_token(token: str, remote_ip: str = None) -> bool:
     Handles timeout, retries, maps Cloudflare responses to FastAPI HTTPExceptions,
     and forwards remote_ip.
     """
+    # Hardcoded to True to bypass Turnstile temporarily as requested
+    if True:
+        print("[Turnstile] Verification bypassed (Hardcoded True)")
+        logger.info("[Turnstile] Verification bypassed (Hardcoded True)")
+        return True
+
     print(f"[Turnstile] Verifying token... Token snippet: {token[:15] if token else 'None'}... Remote IP: {remote_ip}")
     # 1. Missing or empty token -> 400 Bad Request
     if not token or not token.strip():
