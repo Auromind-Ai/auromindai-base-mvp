@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from app.models import User
 from app.services.email_service import EmailService
 from app.services.notification_service import NotificationService
+import logging
+
+logger = logging.getLogger(__name__)
 
 GRACE_DAYS = 30
 
@@ -43,7 +46,7 @@ class AccountService:
                 }
             )
         except Exception as e:
-            print(f"[AccountService] Failed to send deletion email: {e}")
+            logger.error(f"[AccountService] Failed to send deletion email: {e}")
 
         return {
             "deletion_scheduled_at": deletion_date.isoformat(),
@@ -78,7 +81,7 @@ class AccountService:
                 }
             )
         except Exception as e:
-            print(f"[AccountService] Failed to send cancellation email: {e}")
+            logger.error(f"[AccountService] Failed to send cancellation email: {e}")
 
         return {"message": "Account deletion cancelled. Your account has been fully restored."}
 
@@ -106,10 +109,10 @@ class AccountService:
                 # Email is kept as audit trail but account is inaccessible
                 count += 1
             except Exception as e:
-                print(f"[DeletionJob] Failed to process user {user.id}: {e}")
+                logger.error(f"[DeletionJob] Failed to process user {user.id}: {e}")
 
         if count:
             db.commit()
-            print(f"[DeletionJob] Permanently deleted {count} account(s).")
+            logger.info(f"[DeletionJob] Permanently deleted {count} account(s).")
 
         return count

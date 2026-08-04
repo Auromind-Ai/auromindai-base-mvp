@@ -6,13 +6,38 @@ import secrets
 from datetime import datetime, timezone
 
 # Set default test environment variables
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test_temp.db")
 os.environ.setdefault("SECRET_KEY", "testsecret_12345678901234567890")
 os.environ.setdefault("ENCRYPTION_KEY", "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=")
 os.environ.setdefault("ENVIRONMENT", "testing")
 
 # Add backend directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_temp_db():
+    # Setup: delete test_temp.db before running tests to start clean
+    temp_db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "test_temp.db"))
+    if os.path.exists(temp_db_path):
+        try:
+            os.remove(temp_db_path)
+        except Exception:
+            pass
+            
+    # Re-create tables so they are fresh for the tests
+    from app.database import engine, Base
+    import app.models
+    Base.metadata.create_all(bind=engine)
+            
+    yield
+    
+    # Teardown: delete test_temp.db after tests complete
+    if os.path.exists(temp_db_path):
+        try:
+            os.remove(temp_db_path)
+        except Exception:
+            pass
+
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

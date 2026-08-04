@@ -1,5 +1,6 @@
 'use client';
 
+import { Poppins } from 'next/font/google';
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -9,7 +10,8 @@ import {
   Tag, Bell, Wand2, X, Split, Activity, MousePointer2, Trash2,
   Menu, ChevronLeft, Layers, Terminal, Cpu, Globe, Maximize,
   Settings, Database, Cloud, AlertCircle, Eye, EyeOff, Monitor,
-  ZoomIn, ZoomOut, Upload, Timer, HelpCircle, FileText, Pencil
+  ZoomIn, ZoomOut, Upload, Timer, HelpCircle, FileText, Pencil,
+  Brain, LayoutDashboard, BrainCircuit, BarChart2, GitBranch, Inbox
 } from 'lucide-react';
 import api from '@/lib/api';
 import { getToken, getWorkspaceIdFromToken, getUser } from '@/lib/auth';
@@ -36,6 +38,12 @@ import {
   getHandleIdForButton,
   isConditionNode
 } from './helpers';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+});
 
 export default function AutomationCanvas() {
   const [automations, setAutomations] = useState([]);
@@ -76,6 +84,11 @@ export default function AutomationCanvas() {
   const [flowQuota, setFlowQuota] = useState({ plan_base: 5, purchased: 0, total: 5, used: 0 });
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState('');
+
+  // ─ MOBILE RESPONSIVE STATES ─
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [tabletMenuOpen, setTabletMenuOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState('canvas');
 
   // ─ MODAL & TOAST STATE ─
   const [toasts, setToasts] = useState([]);
@@ -194,7 +207,6 @@ export default function AutomationCanvas() {
   async function fetchFlows(shouldSelectCanvas = false) {
     try {
       const data = await api.getFlows();
-      console.log('fetchFlows received:', data?.length, data);
       if (Array.isArray(data)) {
         const sanitizedFlows = data.map(sanitizeFlowData);
         setAutomations(sanitizedFlows);
@@ -682,7 +694,6 @@ export default function AutomationCanvas() {
         edges,
         status: selectedItem.status || 'Active'
       };
-      console.log("Saving Wire Payload:", JSON.stringify(payload, null, 2));
       const saved = await api.saveFlow(payload);
       const sanitizedSaved = sanitizeFlowData(saved);
       setAutomations(prev => prev.map(a => 
@@ -1097,17 +1108,16 @@ export default function AutomationCanvas() {
   const flowValidation = validateFlowGraph(nodes, edges);
 
   return (
-    <div className={`${zenMode ? 'fixed inset-0 z-[200]' : 'relative w-full h-screen'} bg-[#0d0d12] text-zinc-200 overflow-hidden font-sans select-none border-t border-white/5`}>
+    <div className={`${poppins.className} ${zenMode ? 'fixed inset-0 z-[200]' : 'relative w-full h-screen'} bg-[#0d0d12] text-zinc-200 overflow-hidden select-none border-t border-white/5`} style={{ fontFamily: "'Poppins', sans-serif" }}>
 
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-5%] left-[-5%] w-[40%] h-[40%] bg-indigo-500/5 blur-[200px] rounded-full" />
         <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-violet-600/5 blur-[200px] rounded-full" />
       </div>
 
-      {/* FLOATING HEADER */}
-      <header className="absolute top-5 left-0 right-0 h-[82px] z-[100] flex items-center justify-center px-4 bg-[#13131a] border-b border-white/5 shadow-xl">
-      <div className="flex items-center justify-between px-4 py-2.5 my-2 rounded-2xl border border-white/15 bg-white/[0.03] w-[1479px] mx-auto gap-0">
-         
+      {/* DESKTOP HEADER (>1024px) */}
+      <header className="hidden lg:flex absolute top-5 left-0 right-0 h-[82px] z-[100] items-center justify-center px-4 bg-[#13131a] border-b border-white/5 shadow-xl">
+        <div className="flex items-center justify-between px-4 py-2.5 my-2 rounded-2xl border border-white/15 bg-white/[0.03] w-[1479px] mx-auto gap-0">
           {/* LEFT: Flows button + title */}
           <div className="flex items-center gap-2">
             <button
@@ -1171,51 +1181,154 @@ export default function AutomationCanvas() {
             </div>
           </div>
 
-          {/* DIVIDER */}
           <div className="w-px h-8 bg-white/10 mx-2" />
 
           {/* RIGHT: actions */}
           <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 text-xs font-medium text-zinc-300 mr-2"
-          >
-            <Layers size={13} /> Flows List
-          </button>
-          <button
-            onClick={() => setZenMode(!zenMode)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-xs font-medium ${zenMode ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-[#1e1e2a] border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-200'}`}
-          >
-            {zenMode ? <EyeOff size={13} /> : <Eye size={13} />}
-            {zenMode ? 'Exit Zen' : 'Zen mode'}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving || !selectedItem || !flowValidation.isValid}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 disabled:opacity-40 transition text-xs font-medium text-zinc-300"
-          >
-            <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
-          </button>
-          <button
-            onClick={handleCreateNew}
-            className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#814AC8] hover:bg-violet-500 transition text-xs font-semibold text-white shadow-lg shadow-violet-600/30"
-          >
-            <Plus size={15} /> New Wire
-          </button>
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 text-xs font-medium text-zinc-300 mr-2"
+            >
+              <Layers size={13} /> Flows List
+            </button>
+            <button
+              onClick={() => setZenMode(!zenMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-xs font-medium ${zenMode ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'bg-[#1e1e2a] border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-200'}`}
+            >
+              {zenMode ? <EyeOff size={13} /> : <Eye size={13} />}
+              {zenMode ? 'Exit Zen' : 'Zen mode'}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving || !selectedItem || !flowValidation.isValid}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1e2a] border border-white/10 hover:border-white/20 disabled:opacity-40 transition text-xs font-medium text-zinc-300"
+            >
+              <Save size={13} /> {isSaving ? 'Syncing...' : 'Sync Wire'}
+            </button>
+            <button
+              onClick={handleCreateNew}
+              className="flex items-center gap-2 px-5 py-2 rounded-full bg-[#814AC8] hover:bg-violet-500 transition text-xs font-semibold text-white shadow-lg shadow-violet-600/30"
+            >
+              <Plus size={15} /> New Wire
+            </button>
           </div>
         </div>
       </header>
 
-      {/* FLOW HEALTH BAR */}
-      <div className="absolute top-26 left-0 right-0 z-[95]">
+      {/* TABLET HEADER (768px - 1024px) */}
+      <header className="hidden md:flex lg:hidden absolute top-0 left-0 right-0 h-16 z-[100] items-center justify-between px-4 bg-[#13131a] border-b border-white/10 shadow-xl">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSelectedItem(null);
+              setCurrentView('dashboard');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold transition-all mr-2"
+          >
+            <ChevronLeft size={14} />
+            <span>Flows</span>
+          </button>
+          <div className="w-8 h-8 rounded-xl bg-[#814AC8] flex items-center justify-center shadow-md">
+            <Sparkles size={14} className="text-white" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-white tracking-wider">Agentic Orchestrator</span>
+            <span className="text-[11px] font-medium text-white/60 truncate max-w-[140px]">{selectedItem?.name || "Untitled Wire"}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1e1e2a] border border-white/10 text-xs text-zinc-300"
+          >
+            <Layers size={13} /> Flows List
+          </button>
+          <button
+            onClick={handleCreateNew}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#814AC8] text-xs font-semibold text-white"
+          >
+            <Plus size={14} /> New Wire
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setTabletMenuOpen(!tabletMenuOpen)}
+              className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {tabletMenuOpen && (
+              <div className="absolute right-0 top-10 w-44 bg-[#161622] border border-white/15 rounded-xl shadow-2xl p-1.5 z-[150] space-y-1">
+                <button
+                  onClick={() => { setZenMode(!zenMode); setTabletMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left"
+                >
+                  {zenMode ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {zenMode ? 'Exit Zen' : 'Zen mode'}
+                </button>
+                <button
+                  onClick={() => { handleSave(); setTabletMenuOpen(false); }}
+                  disabled={isSaving || !selectedItem || !flowValidation.isValid}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 rounded-lg text-left disabled:opacity-40"
+                >
+                  <Save size={14} /> Sync Wire
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* MOBILE HEADER (<768px) */}
+      <header className="flex md:hidden items-center justify-between px-4 py-2.5 bg-[#0E0F15] border-b border-white/10 relative z-[100] h-14">
+        {/* Left: Flows button */}
+        <button
+          onClick={() => {
+            setSelectedItem(null);
+            setCurrentView('dashboard');
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold transition-all"
+        >
+          <ChevronLeft size={14} />
+          <span>Flows</span>
+        </button>
+
+        {/* Center: Agentic Orchestrator + Wire Name */}
+        <div className="flex flex-col items-center text-center">
+          <div className="flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-lg bg-[#814AC8] flex items-center justify-center">
+              <Sparkles size={11} className="text-white" />
+            </div>
+            <span className="text-xs font-bold text-white tracking-wider">Agentic Orchestrator</span>
+          </div>
+          <span className="text-[11px] font-medium text-white/60 truncate max-w-[150px] mt-0.5">
+            {selectedItem?.name || "Untitled Wire"}
+          </span>
+        </div>
+
+        {/* Right: Three-dot Menu (⋮) */}
+        <button
+          onClick={() => setMoreMenuOpen(true)}
+          className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300 hover:text-white"
+          aria-label="More Options"
+        >
+          <MoreHorizontal size={18} />
+        </button>
+      </header>
+
+      {/* DESKTOP/TABLET FLOW HEALTH BAR */}
+      <div className="hidden md:block absolute top-20 lg:top-26 left-0 right-0 z-[95]">
         <div className="bg-[#13131a] border-b border-white/5 px-6 py-3">
           <div className="flex items-center gap-4">
             <span className="text-[14px] font-Regular text-white tracking-widest">Flow Health</span>
             <span className="text-[12px] text-white/80">
               Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
             </span>
-            <div className={`ml-auto px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${flowValidation.isValid ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-amber-500/30 bg-amber-500/10 text-amber-400'}`}>
-              {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
+            <div className="ml-auto flex items-center gap-2 text-xs font-medium select-none">
+              <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+                {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
+              </span>
             </div>
           </div>
           {flowValidation.errors.length > 0 && (
@@ -1235,8 +1348,38 @@ export default function AutomationCanvas() {
         </div>
       </div>
 
+      {/* MOBILE FLOW HEALTH CARD (<768px) */}
+      <div className="block md:hidden relative z-[95] bg-[#13131a] border-b border-white/10 px-4 py-2.5">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="text-xs font-bold text-white tracking-wider">Flow Health</span>
+          <div className="flex items-center gap-1.5 text-[11px] font-medium">
+            <span className={`w-2 h-2 rounded-full ${flowValidation.isValid ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            <span className={flowValidation.isValid ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}>
+              {flowValidation.isValid ? 'Ready to save' : 'Validation required'}
+            </span>
+          </div>
+        </div>
+        <p className="text-[11px] text-white/70">
+          Execution preview reaches {flowValidation.reachableNodeIds.size} of {nodes.length} node{nodes.length === 1 ? '' : 's'}.
+        </p>
+        {flowValidation.errors.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {flowValidation.errors.map((item, index) => (
+              <div key={`mob-err-${index}`} className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-300">{item}</div>
+            ))}
+          </div>
+        )}
+        {flowValidation.warnings.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {flowValidation.warnings.map((item, index) => (
+              <div key={`mob-warn-${index}`} className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-300">{item}</div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ZOOM CONTROLS */}
-      <div className="absolute right-4 bottom-32 z-50 flex flex-col gap-1.5 bg-[#13131a]/95 border border-white/8 rounded-xl p-2 shadow-lg">
+      <div className="absolute right-4 bottom-36 md:bottom-32 z-50 flex flex-col gap-1.5 bg-[#13131a]/95 border border-white/8 rounded-xl p-2 shadow-lg">
         <button onClick={() => setZoom(prev => Math.min(prev + 0.1, 2))} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-zinc-300 text-sm font-bold">+</button>
         <button onClick={() => setZoom(prev => Math.max(prev - 0.1, 0.4))} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-zinc-300 text-sm font-bold">−</button>
         <div className="text-center text-[9px] text-zinc-500 py-0.5">{Math.round(zoom * 100)}%</div>
@@ -1368,7 +1511,131 @@ export default function AutomationCanvas() {
         handleCreateNewConfirm={handleCreateNewConfirm}
       />
 
+      {/* MORE MENU BOTTOM SHEET (<768px) */}
+      <AnimatePresence>
+        {moreMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMoreMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[210] md:hidden"
+            />
+            <motion.div
+              initial={{ y: 250 }}
+              animate={{ y: 0 }}
+              exit={{ y: 250 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed inset-x-0 bottom-0 z-[220] bg-[#14151C] border-t border-white/15 rounded-t-[24px] p-5 shadow-2xl space-y-2 md:hidden"
+            >
+              <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-3" />
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 text-center text-white/70">
+                Actions Menu
+              </h3>
+
+              <button
+                onClick={() => {
+                  setSidebarOpen(!sidebarOpen);
+                  setMoreMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white hover:bg-white/10 transition"
+              >
+                <Layers size={16} className="text-violet-400" />
+                <span>Flow List</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setZenMode(!zenMode);
+                  setMoreMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white hover:bg-white/10 transition"
+              >
+                {zenMode ? <EyeOff size={16} className="text-indigo-400" /> : <Eye size={16} className="text-indigo-400" />}
+                <span>{zenMode ? 'Exit Zen Mode' : 'Zen Mode'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleSave();
+                  setMoreMenuOpen(false);
+                }}
+                disabled={isSaving || !selectedItem || !flowValidation.isValid}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white hover:bg-white/10 transition disabled:opacity-40"
+              >
+                <Save size={16} className="text-emerald-400" />
+                <span>{isSaving ? 'Syncing...' : 'Sync Wire'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  handleCreateNew();
+                  setMoreMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#814AC8] text-xs font-semibold text-white hover:bg-violet-500 transition shadow-lg"
+              >
+                <Plus size={16} />
+                <span>New Wire</span>
+              </button>
+
+              <button
+                onClick={() => setMoreMenuOpen(false)}
+                className="w-full py-2.5 text-xs text-zinc-400 hover:text-white text-center font-medium mt-2"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* FIXED BOTTOM NAVIGATION BAR (<768px) */}
+      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-[160] bg-[#0E0F15]/95 backdrop-blur-2xl border-t border-white/10 px-6 pt-2.5 pb-[calc(10px+env(safe-area-inset-bottom,0px))] items-center justify-around">
+        <button
+          onClick={() => {
+            setMobileTab('canvas');
+            setCurrentView('canvas');
+          }}
+          className={`flex flex-col items-center gap-1 text-[11px] font-medium transition ${
+            mobileTab === 'canvas' ? 'text-[#814AC8]' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <Sparkles size={18} />
+          <span>Canvas</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setMobileTab('flows');
+            setSidebarOpen(true);
+          }}
+          className={`flex flex-col items-center gap-1 text-[11px] font-medium transition ${
+            mobileTab === 'flows' ? 'text-[#814AC8]' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <Layers size={18} />
+          <span>Flows</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setMobileTab('more');
+            setMoreMenuOpen(true);
+          }}
+          className={`flex flex-col items-center gap-1 text-[11px] font-medium transition ${
+            mobileTab === 'more' ? 'text-[#814AC8]' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+        >
+          <MoreHorizontal size={18} />
+          <span>More</span>
+        </button>
+      </nav>
+
       <style jsx global>{`
+        body, button, input, select, textarea, div, span, p, h1, h2, h3, h4, h5, h6 {
+          font-family: 'Poppins', sans-serif !important;
+        }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 20px; }

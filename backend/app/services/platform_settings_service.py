@@ -219,7 +219,7 @@ def seed_settings_from_env(db: Session):
                         except Exception:
                             pass
             
-            if not setting or not db_val or db_val.strip() == "":
+            if not setting or not db_val or db_val.strip() == "" or db_key.startswith("smtp_") or db_key == "from_email":
                 str_value, value_type = _serialize_value(val)
                 if db_key in ["smtp_port", "system_metrics_update_interval", "billing_reservation_ttl_seconds"]:
                     try:
@@ -229,13 +229,19 @@ def seed_settings_from_env(db: Session):
                 elif db_key == "scheduler_enabled":
                     str_value, value_type = _serialize_value(val.lower() in ("true", "1", "yes"))
                 
+                if db_key == "smtp_password" and str_value:
+                    if " " in str_value:
+                        str_value = str_value.replace(" ", "").strip()
+
                 if db_key in SENSITIVE_KEYS:
                     if str_value and not is_encrypted(str_value):
                         str_value = encrypt_value(str_value)
 
                 if setting:
-                    setting.value = str_value
-                    setting.value_type = value_type
+                    if setting.value != str_value:
+                        setting.value = str_value
+                        setting.value_type = value_type
+                        updates_made = True
                 else:
                     new_setting = PlatformSetting(
                         key=db_key,
@@ -243,7 +249,7 @@ def seed_settings_from_env(db: Session):
                         value_type=value_type
                     )
                     db.add(new_setting)
-                updates_made = True
+                    updates_made = True
 
     # Seed default branding configs if not present in DB
     default_brand = {
@@ -551,8 +557,12 @@ def get_prospective_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, 
 
 
 def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
+    t_start = time.perf_counter()
+
     # 1. Get prospective settings
     prospective = get_prospective_settings(db, updates)
+    t_prospect = time.perf_counter()
+    logger.warning(f"TIMING [internal]: get_prospective_settings took {t_prospect - t_start:.3f}s")
 
     # 2. Perform validations on prospective settings
     # 2.1 Google Client ID / Secret together
@@ -597,10 +607,21 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
             if not (sub_url and sub_key and sub_bucket):
                 raise ValueError("Supabase URL, Service Role Key, and Supabase Bucket are required when SUPABASE is the selected Storage Provider.")
 
+    t_valid = time.perf_counter()
+    logger.warning(f"TIMING [internal]: Validations took {t_valid - t_prospect:.3f}s")
+
+    # 3. Batch query existing settings to prevent N+1 DB lookups inside the loop
+    existing_settings = {
+        s.key: s 
+        for s in db.query(PlatformSetting).filter(PlatformSetting.key.in_(updates.keys())).all()
+    }
+    t_batch_query = time.perf_counter()
+    logger.warning(f"TIMING [internal]: batch query took {t_batch_query - t_valid:.3f}s")
+
     for key, value in updates.items():
         str_value, value_type = _serialize_value(value)
 
-        setting = db.query(PlatformSetting).filter(PlatformSetting.key == key).first()
+        setting = existing_settings.get(key)
 
         #  HANDLE SENSITIVE KEYS SAFELY
         if key in SENSITIVE_KEYS:
@@ -621,7 +642,12 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
             )
             db.add(setting)
 
+    t_loop = time.perf_counter()
+    logger.warning(f"TIMING [internal]: loop updates took {t_loop - t_batch_query:.3f}s")
+
     db.commit()
+    t_commit = time.perf_counter()
+    logger.warning(f"TIMING [internal]: db.commit took {t_commit - t_loop:.3f}s")
 
     # clear cache
     global _cache, _cache_timestamp
@@ -633,8 +659,15 @@ def update_settings(db: Session, updates: Dict[str, Any]) -> Dict[str, Any]:
         config_service.clear_cache()
     except Exception:
         pass
+    
+    t_cache = time.perf_counter()
+    logger.warning(f"TIMING [internal]: clear cache took {t_cache - t_commit:.3f}s")
 
-    return get_all_settings(db)
+    all_settings = get_all_settings(db)
+    t_end = time.perf_counter()
+    logger.warning(f"TIMING [internal]: get_all_settings took {t_end - t_cache:.3f}s")
+
+    return all_settings
 
 
 def migrate_sensitive_settings(db: Session) -> dict[str, int]:

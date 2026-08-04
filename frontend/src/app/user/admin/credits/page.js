@@ -8,9 +8,12 @@ import {
   Zap, TrendingUp, Clock, Wallet, Info,
   Calculator, History, Plus, Sparkles, CheckCircle2,
   AlertTriangle, ArrowRight, Coins, X, HelpCircle,
-  Minus, PieChart, Receipt, Gauge
+  Minus, PieChart, Receipt, Gauge, Download, FileText
 } from 'lucide-react';
 import api from '@/lib/api';
+import HistoryModal from '@/components/common/HistoryModal';
+import { TABLE_PREVIEW_LIMIT, TRANSACTION_TYPES } from '@/lib/constants/billingConstants';
+import { formatBillingDate, formatBillingAmount, getActivityMeta, formatPaymentMethod } from '@/lib/utils/activityMapper';
 
 const poppins = Poppins({
     subsets: ['latin'],
@@ -42,14 +45,15 @@ export default function CreditsPage() {
     const [creditHistoryLoading, setCreditHistoryLoading] = useState(true);
     const [creditHistoryPage, setCreditHistoryPage] = useState(1);
     const [creditHistoryTotal, setCreditHistoryTotal] = useState(0);
-    const [creditHistoryVisible, setCreditHistoryVisible] = useState(5);
 
     // WCC Sessions History State
     const [wccSessions, setWccSessions] = useState([]);
     const [wccSessionsLoading, setWccSessionsLoading] = useState(true);
     const [wccSessionsPage, setWccSessionsPage] = useState(1);
-    const [wccSessionsTotal, setWccSessionsTotal] = useState(0);
-    const [wccSessionsVisible, setWccSessionsVisible] = useState(5);
+
+    // WCC Recharge History State
+    const [wccRecharges, setWccRecharges] = useState([]);
+    const [wccRechargesLoading, setWccRechargesLoading] = useState(true);
 
     // WCC Rates State
     const [wccRates, setWccRates] = useState([]);
@@ -65,17 +69,20 @@ export default function CreditsPage() {
     const [creditPacksLoading, setCreditPacksLoading] = useState(true);
 
     // Modals & Action Loading State
-    const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
     const [rechargeAmount, setRechargeAmount] = useState('1000');
     const [customAmount, setCustomAmount] = useState('');
     const [toastMessage, setToastMessage] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
 
+    // History Modals
+    const [isWccRechargeHistoryModalOpen, setIsWccRechargeHistoryModalOpen] = useState(false);
+    const [isAiCreditHistoryModalOpen, setIsAiCreditHistoryModalOpen] = useState(false);
+
     // Estimator State
     const [audienceSize, setAudienceSize] = useState(1000);
     const [msgType, setMsgType] = useState('marketing');
 
-    // ---- Presentational-only UI state (added for redesign; does not touch business logic) ----
+    // UI state
     const [selectedPackIndex, setSelectedPackIndex] = useState(0);
     const [activityView, setActivityView] = useState('transactions'); // 'transactions' | 'billing'
     const addFundsRef = useRef(null);
@@ -124,8 +131,6 @@ export default function CreditsPage() {
         }
     };
 
-
-
     // Fetch WCC Sessions History
     const fetchWccSessions = async (page) => {
         if (!workspaceId) return;
@@ -134,11 +139,25 @@ export default function CreditsPage() {
             const res = await api.getWccSessions(workspaceId, page, 10);
             const data = res.data ?? res;
             setWccSessions(data.sessions ?? []);
-            setWccSessionsTotal(data.total_count ?? 0);
         } catch (err) {
             console.error('[WCC] Failed to fetch sessions:', err);
         } finally {
             setWccSessionsLoading(false);
+        }
+    };
+
+    // Fetch WCC Recharge History
+    const fetchWccRecharges = async () => {
+        if (!workspaceId) return;
+        try {
+            setWccRechargesLoading(true);
+            const res = await api.getWccUserRechargeLogs(workspaceId, { page: 1, limit: TABLE_PREVIEW_LIMIT });
+            const data = res.data ?? res;
+            setWccRecharges(data.recharges ?? []);
+        } catch (err) {
+            console.error('[WCC RECHARGES] Failed to fetch user recharges:', err);
+        } finally {
+            setWccRechargesLoading(false);
         }
     };
 
@@ -164,7 +183,6 @@ export default function CreditsPage() {
             const ratesList = res.data ?? res ?? [];
             setWccRates(ratesList);
 
-            // Populate estimator rates mapping for Indian region (or default first matching)
             const map = { ...estimatorRates };
             ratesList.forEach(item => {
                 if (item.region === 'IN' || !item.region) {
@@ -177,29 +195,55 @@ export default function CreditsPage() {
         }
     };
 
-    // Initial load for general credit stats
-    useEffect(() => {
-        if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
-            fetchWccBalance();
-            fetchCreditSummary();
-            fetchCreditPacks();
-            fetchWccRates();
+    // Workspace Entitlements State
+    const [workspaceEntitlements, setWorkspaceEntitlements] = useState(null);
+
+    const fetchWorkspaceEntitlements = async () => {
+        if (!workspaceId) return;
+        try {
+            const res = await api.getWorkspaceEntitlements(workspaceId);
+            setWorkspaceEntitlements(res.data ?? res ?? null);
+        } catch (err) {
+            console.error('[ENTITLEMENTS] Failed to fetch workspace entitlements:', err);
         }
+    };
+
+    // Initial load - Batched with in-flight guard to prevent rate-limit over-fetching
+    const isInitialDataLoadingRef = useRef(false);
+
+    useEffect(() => {
+        if (!workspaceId || workspaceId === 'undefined' || workspaceId === 'null') return;
+        if (isInitialDataLoadingRef.current) return;
+        isInitialDataLoadingRef.current = true;
+
+        const loadAllCreditsData = async () => {
+            await Promise.allSettled([
+                fetchWccBalance(),
+                fetchCreditSummary(),
+                fetchCreditPacks(),
+                fetchWccRates(),
+                fetchWccRecharges(),
+                fetchWorkspaceEntitlements(),
+                fetchCreditHistory(creditHistoryPage),
+                fetchWccSessions(wccSessionsPage)
+            ]);
+            isInitialDataLoadingRef.current = false;
+        };
+
+        loadAllCreditsData();
     }, [workspaceId]);
 
-    // Handle initial load & page changes for Credit History
     useEffect(() => {
         if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
             fetchCreditHistory(creditHistoryPage);
         }
-    }, [workspaceId, creditHistoryPage]);
+    }, [creditHistoryPage]);
 
-    // Handle initial load & page changes for WCC Sessions
     useEffect(() => {
         if (workspaceId && workspaceId !== 'undefined' && workspaceId !== 'null') {
             fetchWccSessions(wccSessionsPage);
         }
-    }, [workspaceId, wccSessionsPage]);
+    }, [wccSessionsPage]);
 
     const estimatedCost = audienceSize * (estimatorRates[msgType] || 0);
 
@@ -208,9 +252,13 @@ export default function CreditsPage() {
         setTimeout(() => setToastMessage(null), 4000);
     };
 
-    // WCC Recharge Order Flow
+    // WCC Recharge Order Flow with Optimistic Balance Update & Promise.all() Refetching
     const handleRechargeSubmit = async (e) => {
         e.preventDefault();
+        if (workspaceEntitlements && workspaceEntitlements.allow_wcc_recharge === false) {
+            triggerToast('⚠️ WhatsApp Wallet recharge is not available for your current plan. Please upgrade to Pro.');
+            return;
+        }
         const amount = rechargeAmount === 'custom' ? parseFloat(customAmount) : parseFloat(rechargeAmount);
         if (isNaN(amount) || amount <= 0) {
             triggerToast('⚠️ Please enter a valid recharge amount');
@@ -230,8 +278,12 @@ export default function CreditsPage() {
                 name: 'Auromind',
                 description: `WCC Wallet Recharge - ₹${amount}`,
                 handler: async (response) => {
+                    const previousBalance = wccBalance;
                     try {
                         setActionLoading(true);
+                        // Optimistically update wallet balance
+                        setWccBalance(prev => (prev || 0) + amount);
+
                         const verifyPayload = {
                             workspace_id: workspaceId,
                             razorpay_order_id: response.razorpay_order_id,
@@ -239,13 +291,21 @@ export default function CreditsPage() {
                             razorpay_signature: response.razorpay_signature,
                         };
                         await api.verifyWccRecharge(verifyPayload);
-                        await fetchWccBalance();
-                        setIsRechargeModalOpen(false);
                         setCustomAmount('');
                         triggerToast(`✅ Wallet successfully recharged with ₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`);
+
+                        // Refetch all metrics simultaneously
+                        await Promise.all([
+                            fetchWccBalance(),
+                            fetchCreditSummary(),
+                            fetchCreditHistory(creditHistoryPage),
+                            fetchWccRecharges()
+                        ]);
                     } catch (verifyErr) {
                         console.error('[WCC RECHARGE] Verification failed:', verifyErr);
+                        setWccBalance(previousBalance);
                         triggerToast('⚠️ Payment received but verification failed. Contact support.');
+                        await fetchWccBalance();
                     } finally {
                         setActionLoading(false);
                     }
@@ -263,6 +323,10 @@ export default function CreditsPage() {
 
     // Credit Pack Purchase Flow
     const handlePurchaseCreditPack = async (packId, packName, amount) => {
+        if (workspaceEntitlements && workspaceEntitlements.allow_ai_topup === false) {
+            triggerToast('⚠️ AI Credit top-up is not available for your current plan. Please upgrade to Pro.');
+            return;
+        }
         if (!workspaceId) {
             triggerToast('⚠️ Workspace context missing.');
             return;
@@ -289,8 +353,14 @@ export default function CreditsPage() {
                         };
                         await api.verifyCreditPackPayment(verifyPayload);
                         triggerToast(`✅ Successfully purchased ${packName}!`);
-                        fetchCreditSummary();
-                        fetchCreditHistory(creditHistoryPage);
+
+                        // Refetch metrics in parallel
+                        await Promise.all([
+                            fetchCreditSummary(),
+                            fetchCreditHistory(creditHistoryPage),
+                            fetchWccBalance(),
+                            fetchWccRecharges()
+                        ]);
                     } catch (verifyErr) {
                         console.error('[CREDITS PURCHASE] Verification failed:', verifyErr);
                         triggerToast('⚠️ Payment received but verification failed. Contact support.');
@@ -309,44 +379,42 @@ export default function CreditsPage() {
         }
     };
 
-    // Helper to format dates safely
-    const formatDate = (value) => {
-        if (!value) return '—';
-        try {
-            return new Date(value).toLocaleDateString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        } catch {
-            return '—';
+    const handleRechargeWalletClick = () => {
+        if (activeTab === 'ai') {
+            const pack = creditPacks[selectedPackIndex] || creditPacks[0];
+            if (pack) {
+                handlePurchaseCreditPack(pack.pack_id, pack.name, parseFloat(pack.amount));
+            } else {
+                setActiveTab('wcc');
+                setTimeout(scrollToAddFunds, 100);
+            }
+        } else {
+            scrollToAddFunds();
         }
     };
 
-    // Helper to format credits safely with configurable precision
-    const formatCredits = (value, precision = 2) => {
-        if (value === undefined || value === null || isNaN(Number(value))) return '—';
-        return Number(value).toLocaleString(undefined, {
-            minimumFractionDigits: precision,
-            maximumFractionDigits: precision
+    const scrollToAddFunds = () => {
+        addFundsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    const formatCredits = (num, decimals = 0) => {
+        if (num === null || num === undefined) return '0';
+        return Number(num).toLocaleString('en-IN', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
         });
     };
 
-    // Helper to calculate Used Today from daily_usage
     const getUsedToday = () => {
-        if (!creditSummary || !creditSummary.daily_usage) return '—';
+        if (!creditSummary?.daily_usage?.length) return '0.00';
         const todayStr = new Date().toISOString().split('T')[0];
-        const todayUsage = creditSummary.daily_usage.find(item => (item.date || item.day) === todayStr);
-        return todayUsage ? formatCredits(todayUsage.credits_used, 2) : '0.00';
+        const todayEntry = creditSummary.daily_usage.find(d => d.date === todayStr);
+        return todayEntry ? formatCredits(todayEntry.credits_used, 2) : '0.00';
     };
 
-    // ---- Presentation-only derived values (pure display math over already-fetched data; no new API calls, no change to stored calculations) ----
-    const balanceNum = Number(creditSummary?.credits_balance ?? 0);
-    const usedNum = Number(creditSummary?.credits_used ?? 0);
-    const cycleTotal = balanceNum + usedNum;
-    const usedPct = cycleTotal > 0 ? Math.min(100, (usedNum / cycleTotal) * 100) : 0;
+    const cycleTotal = Number(creditSummary?.monthly_grant ?? creditSummary?.credits_added ?? 0);
+    const cycleUsed = Number(creditSummary?.credits_used ?? 0);
+    const usedPct = cycleTotal > 0 ? Math.min((cycleUsed / cycleTotal) * 100, 100) : 0;
     const remainingPct = cycleTotal > 0 ? Math.max(0, 100 - usedPct) : 0;
 
     const avgDailyBurn = creditSummary?.avg_daily_burn ?? (
@@ -355,7 +423,6 @@ export default function CreditsPage() {
             : null
     );
 
-    // Group AI credit history by entry_type for a "where credits go" breakdown, purely for display
     const distributionPalette = ['#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#38bdf8'];
     const distributionMap = {};
     creditHistory.forEach(item => {
@@ -374,7 +441,6 @@ export default function CreditsPage() {
             color: distributionPalette[i % distributionPalette.length]
         }));
 
-    // WCC wallet health zone (Empty / Low / Healthy / Full) - purely presentational threshold on existing balance value
     const walletZones = [
         { key: 'Empty', color: '#f43f5e' },
         { key: 'Low', color: '#f59e0b' },
@@ -389,10 +455,6 @@ export default function CreditsPage() {
         return 3;
     };
     const walletZoneIndex = getWalletZoneIndex(wccBalance);
-
-    const scrollToAddFunds = () => {
-        addFundsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
 
     const rechargeAmountNumber = rechargeAmount === 'custom'
         ? (parseFloat(customAmount) || 0)
@@ -430,31 +492,31 @@ export default function CreditsPage() {
 
             <div className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 relative z-10">
                 {/* Header */}
-                <div className="mb-6">
-                    <h1 className="text-3xl lg:text-[34px] font-medium text-white tracking-tight font-display mb-2">Credits &amp; Wallet</h1>
-                    <p className="text-[#8f8f97] text-sm font-medium max-w-3xl leading-relaxed font-sans">
-                        Track <span className="text-purple-400 font-semibold">AI Workspace Credits</span> usage and your <span className="text-emerald-400 font-semibold">WhatsApp (WCC)</span> prepaid balance in one place — with live burn rate, forecasts, and recharge tools.
+                <div className="mb-4 sm:mb-6">
+                    <h1 className="text-xl sm:text-3xl lg:text-[34px] font-normal sm:font-medium text-white tracking-tight font-display mb-1.5 sm:mb-2">Credits &amp; Wallet</h1>
+                    <p className="text-[#8f8f97] text-xs sm:text-sm font-normal sm:font-medium max-w-3xl leading-relaxed font-sans">
+                        Track <span className="text-purple-400 font-normal sm:font-semibold">AI Workspace Credits</span> usage and your <span className="text-emerald-400 font-normal sm:font-semibold">WhatsApp (WCC)</span> prepaid balance in one place — with live burn rate, forecasts, and recharge tools.
                     </p>
                 </div>
 
                 {/* Tab Switcher */}
-                <div className="flex border-b border-white/5 mb-6 overflow-x-auto no-scrollbar gap-7">
+                <div className="flex border-b border-white/5 mb-5 sm:mb-6 overflow-x-auto no-scrollbar gap-5 sm:gap-7">
                     <button
                         onClick={() => setActiveTab('ai')}
-                        className={`flex items-center gap-2 pb-3.5 text-sm tracking-tight border-b-2 transition-all shrink-0 select-none cursor-pointer ${
+                        className={`flex items-center gap-2 pb-2.5 sm:pb-3.5 text-xs sm:text-sm tracking-tight border-b-2 transition-all shrink-0 select-none cursor-pointer ${
                             activeTab === 'ai'
-                            ? 'border-purple-500 text-purple-400 font-bold'
-                            : 'border-transparent text-zinc-500 hover:text-zinc-300 font-semibold'
+                            ? 'border-purple-500 text-purple-400 font-normal sm:font-bold'
+                            : 'border-transparent text-zinc-500 hover:text-zinc-300 font-normal sm:font-semibold'
                         }`}
                     >
                         AI Workspace Credits
                     </button>
                     <button
                         onClick={() => setActiveTab('wcc')}
-                        className={`flex items-center gap-2 pb-3.5 text-sm tracking-tight border-b-2 transition-all shrink-0 select-none cursor-pointer ${
+                        className={`flex items-center gap-2 pb-2.5 sm:pb-3.5 text-xs sm:text-sm tracking-tight border-b-2 transition-all shrink-0 select-none cursor-pointer ${
                             activeTab === 'wcc'
-                            ? 'border-emerald-500 text-emerald-400 font-bold'
-                            : 'border-transparent text-zinc-500 hover:text-zinc-300 font-semibold'
+                            ? 'border-emerald-500 text-emerald-400 font-normal sm:font-bold'
+                            : 'border-transparent text-zinc-500 hover:text-zinc-300 font-normal sm:font-semibold'
                         }`}
                     >
                         WhatsApp Credits (WCC)
@@ -466,38 +528,38 @@ export default function CreditsPage() {
                     <div className="animate-in fade-in-50 duration-300 space-y-6">
 
                         {/* Row 1: Wallet Overview + Recharge Packs */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
 
                             {/* Wallet Overview (spans 2 cols) */}
-                            <div className="lg:col-span-2 bg-[#0e0e14] rounded-2xl p-6 md:p-7 border border-white/5 shadow-xl relative overflow-hidden">
-                                <p className="text-white/60 text-[14px] font-medium mb-4">Wallet Overview</p>
-                                <p className="text-zinc-400 text-xs font-medium mb-5">AI Workspace Credits available</p>
+                            <div className="lg:col-span-2 bg-[#0e0e14] rounded-2xl p-4 sm:p-7 border border-white/5 shadow-xl relative overflow-hidden">
+                                <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-3 sm:mb-4">Wallet Overview</p>
+                                <p className="text-zinc-400 text-[11px] sm:text-xs font-normal sm:font-medium mb-3 sm:mb-5">AI Workspace Credits available</p>
 
-                                <div className="text-4xl md:text-5xl font-bold tracking-tight text-white leading-none mb-7">
+                                <div className="text-2xl sm:text-4xl md:text-5xl font-semibold sm:font-bold tracking-tight text-white leading-none mb-5 sm:mb-7">
                                     {creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_balance, 2)}
                                 </div>
 
-                                <div className="flex flex-wrap items-center gap-x-8 gap-y-3 mb-8 text-sm">
+                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-6 sm:mb-8 text-xs sm:text-sm">
                                     <div>
-                                        <span className="text-white/55 text-xs mr-1.5">Used today</span>
-                                        <span className="font-semibold text-white">{creditSummaryLoading ? '...' : getUsedToday()}</span>
+                                        <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used today</span>
+                                        <span className="font-normal sm:font-semibold text-white">{creditSummaryLoading ? '...' : getUsedToday()}</span>
                                     </div>
                                     <div>
-                                        <span className="text-white/55 text-xs mr-1.5">Used this month</span>
-                                        <span className="font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_used, 2)}</span>
+                                        <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used this month</span>
+                                        <span className="font-normal sm:font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_used, 2)}</span>
                                     </div>
                                     <div>
                                         <span className="text-white/55 text-xs mr-1.5">Runway</span>
                                         <span className="font-semibold text-white">
-                                            {creditSummaryLoading ? '...' : (!creditSummary || creditSummary.days_remaining === -1 || creditSummary.days_remaining == null) ? '—' : `${creditSummary.days_remaining} days`}
+                                            {creditSummaryLoading ? '...' : (!creditSummary || creditSummary.days_remaining === -1 || creditSummary.days_remaining == null) ? '—' : `${Number(creditSummary.days_remaining).toFixed(2)} days`}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="mb-6">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-bold text-zinc-400">Credit Used</span>
-                                        <span className="text-xs font-bold text-purple-300">{cycleTotal > 0 ? `${usedPct.toFixed(2)} %` : '—'}</span>
+                                <div className="mb-5 sm:mb-6">
+                                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                        <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-zinc-400">Credit Used</span>
+                                        <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-purple-300">{cycleTotal > 0 ? `${usedPct.toFixed(2)} %` : '—'}</span>
                                     </div>
                                     <div className="h-2 w-full rounded-full bg-white/5 overflow-hidden">
                                         <div
@@ -508,7 +570,7 @@ export default function CreditsPage() {
                                 </div>
 
                                 <button
-                                    onClick={() => triggerToast('ℹ️ AI credits are replenished upon your plan subscription renewal cycle.')}
+                                    onClick={handleRechargeWalletClick}
                                     className="px-6 py-3 bg-[#814AC8] hover:bg-[#905ad6] text-white font-medium text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-purple-900/30 cursor-pointer"
                                 >
                                     Recharge Wallet
@@ -516,9 +578,9 @@ export default function CreditsPage() {
                             </div>
 
                             {/* Recharge Packs (sidebar) */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-6 border border-white/5 shadow-xl flex flex-col">
-                                <p className="text-white/60 text-[14px] font-medium mb-1">Recharge packs</p>
-                                <p className="text-white text-base font-medium mb-4">Top up AI Credits</p>
+                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-6 border border-white/5 shadow-xl flex flex-col">
+                                <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Recharge packs</p>
+                                <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-3 sm:mb-4">Top up AI Credits</p>
 
                                 {creditPacksLoading ? (
                                     <div className="flex justify-center py-10">
@@ -531,7 +593,7 @@ export default function CreditsPage() {
                                                 key={pack.id}
                                                 type="button"
                                                 onClick={() => setSelectedPackIndex(idx)}
-                                                className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+                                                className={`w-full text-left p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer ${
                                                     selectedPackIndex === idx
                                                         ? 'border-purple-500 bg-purple-500/5'
                                                         : 'border-white/5 bg-white/[0.02] hover:border-white/15'
@@ -539,12 +601,12 @@ export default function CreditsPage() {
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div>
-                                                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">{pack.name}</div>
-                                                        <div className="text-lg font-extrabold text-white leading-none">
+                                                        <div className="text-[9px] sm:text-[10px] font-normal sm:font-bold text-zinc-500 uppercase tracking-widest mb-1">{pack.name}</div>
+                                                        <div className="text-sm sm:text-lg font-semibold sm:font-extrabold text-white leading-none">
                                                             ₹{parseFloat(pack.amount).toLocaleString('en-IN')}
-                                                            <span className="text-[11px] font-medium text-zinc-500 ml-1">per month</span>
+                                                            <span className="text-[10px] sm:text-[11px] font-normal sm:font-medium text-zinc-500 ml-1">per month</span>
                                                         </div>
-                                                        <div className="text-xs font-medium text-zinc-500 mt-1">{pack.credits.toLocaleString()} AI credits</div>
+                                                        <div className="text-[11px] sm:text-xs font-normal sm:font-medium text-zinc-500 mt-1">{pack.credits.toLocaleString()} AI credits</div>
                                                     </div>
                                                     <span className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
                                                         selectedPackIndex === idx ? 'border-purple-500' : 'border-zinc-600'
@@ -561,29 +623,40 @@ export default function CreditsPage() {
                                     </div>
                                 )}
 
+                                {workspaceEntitlements?.allow_ai_topup === false && (
+                                    <div className="mt-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
+                                        <AlertTriangle size={15} className="shrink-0" />
+                                        <span>AI Credit top-up is disabled on your plan. Upgrade to Pro plan to purchase top-up credits.</span>
+                                    </div>
+                                )}
+
                                 <button
-                                    disabled={creditPacks.length === 0 || actionLoading}
+                                    disabled={creditPacks.length === 0 || actionLoading || workspaceEntitlements?.allow_ai_topup === false}
+                                    title={workspaceEntitlements?.allow_ai_topup === false ? "Upgrade to Pro to purchase AI Credits." : ""}
                                     onClick={() => {
+                                        if (workspaceEntitlements?.allow_ai_topup === false) {
+                                            triggerToast("⚠️ AI Credit top-up is not available for your current plan. Please upgrade to Pro.");
+                                            return;
+                                        }
                                         const pack = creditPacks[selectedPackIndex];
                                         if (pack) handlePurchaseCreditPack(pack.pack_id, pack.name, parseFloat(pack.amount));
                                     }}
-                                    className="mt-4 w-full py-3 bg-[#814AC808] hover:bg-[#814AC8] hover:text-white text-[#814AC8] font-medium text-sm rounded-xl border border-purple-500/30 transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="mt-4 w-full py-2.5 sm:py-3 bg-[#814AC808] hover:bg-[#814AC8] hover:text-white text-[#814AC8] font-normal sm:font-medium text-xs sm:text-sm rounded-xl border border-purple-500/30 transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                    Purchase selected pack
+                                    {workspaceEntitlements?.allow_ai_topup === false ? "Upgrade plan to top up" : "Purchase selected pack"}
                                 </button>
                             </div>
                         </div>
 
                         {/* Row 2: Credit Health / Credit Distribution / Activity */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ gridAutoRows: '1fr' }}>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" style={{ gridAutoRows: '1fr' }}>
 
                             {/* Credit Health */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-6 md:p-7 border border-white/5 shadow-xl flex flex-col overflow-hidden">
-                                <p className="text-white/60 text-[14px] font-medium mb-1">Credit Health</p>
-                                <p className="text-white text-base font-medium mb-10">Monthly Cycle</p>
+                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-7 border border-white/5 shadow-xl flex flex-col overflow-hidden">
+                                <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Credit Health</p>
+                                <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-6 sm:mb-10">Monthly Cycle</p>
 
                                 <div className="flex flex-col sm:flex-row items-start gap-6 sm:gap-5">
-                                    {/* Circle - left side */}
                                     <div className="relative w-32 h-32 sm:w-36 sm:h-36 shrink-0">
                                         <svg viewBox="0 0 100 100" className="w-32 h-32 sm:w-36 sm:h-36 -rotate-90">
                                             <defs>
@@ -601,48 +674,47 @@ export default function CreditsPage() {
                                             />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-2xl sm:text-3xl font-extrabold text-white">{cycleTotal > 0 ? `${remainingPct.toFixed(0)}%` : '—'}</span>
-                                            <span className="text-[11px] text-zinc-500 font-semibold mt-1">Remaining</span>
+                                            <span className="text-lg sm:text-3xl font-semibold sm:font-extrabold text-white">{cycleTotal > 0 ? `${remainingPct.toFixed(0)}%` : '—'}</span>
+                                            <span className="text-[10px] sm:text-[11px] text-zinc-500 font-normal sm:font-semibold mt-0.5 sm:mt-1">Remaining</span>
                                         </div>
                                     </div>
 
-                                    {/* Details - right side */}
                                     <div className="flex-1 w-full space-y-3 text-sm">
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500">Monthly grant</span>
-                                            <span className="font-bold text-white">{creditSummary?.monthly_grant != null ? formatCredits(creditSummary.monthly_grant, 2) : (cycleTotal > 0 ? formatCredits(cycleTotal, 2) : '—')}</span>
+                                            <span className="text-zinc-500 font-normal">Monthly grant</span>
+                                            <span className="font-normal sm:font-bold text-white">{creditSummary?.monthly_grant != null ? formatCredits(creditSummary.monthly_grant, 2) : (cycleTotal > 0 ? formatCredits(cycleTotal, 2) : '—')}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500">Used this cycle</span>
-                                            <span className="font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_used, 2)}</span>
+                                            <span className="text-zinc-500 font-normal">Used this cycle</span>
+                                            <span className="font-normal sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_used, 2)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500">Avg. daily burn (7d)</span>
-                                            <span className="font-bold text-white">{avgDailyBurn != null ? formatCredits(avgDailyBurn, 2) : '—'}</span>
+                                            <span className="text-zinc-500 font-normal">Avg. daily burn (7d)</span>
+                                            <span className="font-normal sm:font-bold text-white">{avgDailyBurn != null ? formatCredits(avgDailyBurn, 2) : '—'}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-zinc-500">Cycle resets</span>
-                                            <span className="font-bold text-emerald-400">{creditSummary?.cycle_reset_date ? formatDate(creditSummary.cycle_reset_date).split(',')[0] : '—'}</span>
+                                            <span className="font-bold text-emerald-400">{creditSummary?.cycle_reset_date ? formatBillingDate(creditSummary.cycle_reset_date) : '—'}</span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Credit Distribution */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-6 md:p-7 border border-white/5 shadow-xl flex flex-col overflow-hidden">
-                                <p className="text-white/60 text-[14px] font-medium mb-1">Credit Distribution</p>
-                                <p className="text-white text-base font-medium mb-1">Where credits go <span className="text-zinc-500 text-xs font-medium">- recent history</span></p>
-                                <p className="text-2xl font-extrabold text-white mt-4 mb-1">
+                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-7 border border-white/5 shadow-xl flex flex-col overflow-hidden">
+                                <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Credit Distribution</p>
+                                <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-1">Where credits go <span className="text-zinc-500 text-[11px] sm:text-xs font-normal">- recent history</span></p>
+                                <p className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white mt-3 sm:mt-4 mb-1">
                                     {distributionTotal > 0 ? formatCredits(distributionTotal, 2) : '0.00'}
-                                    <span className="text-xs font-medium text-zinc-500 ml-1.5">credits consumed</span>
+                                    <span className="text-[11px] sm:text-xs font-normal text-zinc-500 ml-1.5">credits consumed</span>
                                 </p>
 
-                                <div className="space-y-5 mt-7 flex-1">
+                                <div className="space-y-4 sm:space-y-5 mt-5 sm:mt-7 flex-1">
                                     {distributionEntries.length > 0 ? distributionEntries.map((entry) => (
                                         <div key={entry.label}>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-semibold text-zinc-300 capitalize">{entry.label}</span>
-                                                <span className="text-[11px] font-bold text-zinc-500">
+                                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                                                <span className="text-[11px] sm:text-xs font-normal sm:font-semibold text-zinc-300 capitalize">{entry.label}</span>
+                                                <span className="text-[10px] sm:text-[11px] font-normal sm:font-bold text-zinc-500">
                                                     {formatCredits(entry.value, 0)} credits <span className="text-zinc-400">{entry.pct.toFixed(0)}%</span>
                                                 </span>
                                             </div>
@@ -662,17 +734,26 @@ export default function CreditsPage() {
                             {/* Activity: Transactions & Billing */}
                             <div className="bg-[#0e0e14] rounded-2xl border border-white/5 shadow-xl overflow-hidden flex flex-col">
                                 <div className="p-6 md:p-7 pb-0">
-                                    <p className="text-white/60 text-[14px] font-medium mb-2">Activity</p>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-white/60 text-[14px] font-medium">Activity</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsAiCreditHistoryModalOpen(true)}
+                                            className="text-xs text-purple-400 hover:text-purple-300 font-semibold cursor-pointer"
+                                        >
+                                            View all
+                                        </button>
+                                    </div>
                                     <div className="flex justify-center w-full bg-white/[0.03] p-1 rounded-lg border border-white/5">
                                         <button
                                             onClick={() => setActivityView('transactions')}
-                                            className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${activityView === 'transactions' ? 'bg-[#814AC8]/25 text-white' : 'text-zinc-400 hover:text-white'}`}
+                                            className={`px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-normal sm:font-bold transition-all cursor-pointer ${activityView === 'transactions' ? 'bg-[#814AC8]/25 text-white' : 'text-zinc-400 hover:text-white'}`}
                                         >
                                             Transactions
                                         </button>
                                         <button
                                             onClick={() => setActivityView('billing')}
-                                            className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${activityView === 'billing' ? 'bg-[#814AC8]/25 text-white' : 'text-zinc-400 hover:text-white'}`}
+                                            className={`px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-normal sm:font-bold transition-all cursor-pointer ${activityView === 'billing' ? 'bg-[#814AC8]/25 text-white' : 'text-zinc-400 hover:text-white'}`}
                                         >
                                             Billing
                                         </button>
@@ -686,23 +767,23 @@ export default function CreditsPage() {
                                                 <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-purple-500" />
                                             </div>
                                         ) : creditHistory.length > 0 ? (
-                                            creditHistory.map((item) => {
+                                            creditHistory.slice(0, TABLE_PREVIEW_LIMIT).map((item) => {
                                                 const value = Number(item.credits_delta ?? 0);
                                                 const isDeduction = value < 0;
                                                 return (
-                                                    <div key={item.id} className="px-6 md:px-7 py-3.5 flex items-center justify-between">
+                                                    <div key={item.id} className="px-4 sm:px-7 py-3 flex items-center justify-between">
                                                         <div>
                                                             <p className="text-xs font-medium text-zinc-200">{item.description || 'System Process'}</p>
-                                                            <p className="text-[10px] text-zinc-400 mt-0.5">{formatDate(item.created_at)}</p>
+                                                            <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
                                                         </div>
-                                                        <span className={`text-xs font-bold ${isDeduction ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                        <span className={`text-[11px] sm:text-xs font-normal sm:font-bold ${isDeduction ? 'text-rose-400' : 'text-emerald-400'}`}>
                                                             {isDeduction ? '' : '+'}{formatCredits(item.credits_delta, 2)}
                                                         </span>
                                                     </div>
                                                 );
                                             })
                                         ) : (
-                                            <div className="text-center py-10 text-zinc-500 text-xs">No AI usage yet.</div>
+                                            <div className="text-center py-10 text-zinc-500 text-xs font-normal">No AI usage yet.</div>
                                         )
                                     ) : (
                                         creditHistoryLoading ? (
@@ -716,26 +797,26 @@ export default function CreditsPage() {
                                                 return type === 'purchase' || type === 'token_grant' || type === 'topup' || type === 'plan_credits' || delta > 0;
                                             });
                                             return billingEntries.length > 0 ? (
-                                                billingEntries.slice(0, 8).map((item) => (
+                                                billingEntries.slice(0, TABLE_PREVIEW_LIMIT).map((item) => (
                                                     <div key={item.id} className="px-6 md:px-7 py-3.5 flex items-center justify-between">
                                                         <div>
                                                             <p className="text-xs font-medium text-zinc-200">{item.description || 'Credit Addition'}</p>
-                                                            <p className="text-[10px] text-zinc-400 mt-0.5">{formatDate(item.created_at)}</p>
+                                                            <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
                                                         </div>
-                                                        <span className="text-xs font-bold text-emerald-400">
+                                                        <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-emerald-400">
                                                             +{formatCredits(Math.abs(Number(item.credits_delta ?? 0)), 2)}
                                                         </span>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="text-center py-10 text-zinc-500 text-xs">No billing history yet. Purchase a credit pack to see entries here.</div>
+                                                <div className="text-center py-10 text-zinc-500 text-xs font-normal">No billing history yet. Purchase a credit pack to see entries here.</div>
                                             );
                                         })()
                                     )}
                                 </div>
                             </div>
                         </div>
-                     
+
                     </div>
                 )}
 
@@ -744,12 +825,12 @@ export default function CreditsPage() {
                     <div className="space-y-6 animate-in fade-in-50 duration-300">
 
                         {/* Prepaid WCC Wallet Card - full width */}
-                        <div className="bg-[#0e0e14] rounded-2xl p-6 md:p-8 border border-white/5 shadow-xl">
-                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                        <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-8 border border-white/5 shadow-xl">
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
                                 <div className="flex-1">
-                                    <p className="text-white/70 text-[13px] font-medium mb-1">WhatsApp conversation wallet (WCC)</p>
+                                    <p className="text-white/70 text-xs sm:text-[13px] font-normal sm:font-medium mb-1">WhatsApp conversation wallet (WCC)</p>
 
-                                    <div className="text-4xl md:text-5xl font-semibold tracking-tight text-white leading-none my-4">
+                                    <div className="text-2xl sm:text-4xl md:text-5xl font-semibold sm:font-bold tracking-tight text-white leading-none my-3 sm:my-4">
                                         {wccBalanceLoading ? '...' : `₹${(wccBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                                     </div>
 
@@ -768,12 +849,12 @@ export default function CreditsPage() {
                                         </div>
                                         <div className="flex justify-between mt-2">
                                             {walletZones.map((zone) => (
-                                                <span key={zone.key} className="text-[10px] font-semibold text-zinc-500">{zone.key}</span>
+                                                <span key={zone.key} className="text-[9px] sm:text-[10px] font-normal sm:font-semibold text-zinc-500">{zone.key}</span>
                                             ))}
                                         </div>
                                     </div>
 
-                                    <p className="text-zinc-400 text-xs leading-relaxed mt-4 mb-5 max-w-xl">
+                                    <p className="text-zinc-400 text-[11px] sm:text-xs font-normal leading-relaxed mt-3 sm:mt-4 mb-4 sm:mb-5 max-w-xl">
                                         {wccBalance > 0
                                             ? 'Your wallet is active. Recharge anytime to keep Marketing, Utility, Authentication and Service-window conversations running.'
                                             : 'Your wallet is empty, so message sending is currently paused. Recharge to resume Marketing, Utility, Authentication and Service-window conversations instantly.'}
@@ -783,15 +864,15 @@ export default function CreditsPage() {
                         </div>
 
                         {/* Cost Calculator + Add Funds - equal height, side by side */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
 
                             {/* WCC Campaign Cost Calculator */}
-                            <div className="lg:col-span-2 bg-[#0e0e14] rounded-2xl border border-white/5 p-6 md:p-7 shadow-xl flex flex-col">
-                                <p className="text-white/70 text-[13px] font-medium mb-1">Cost Calculator</p>
-                                <p className="text-white text-base font-semibold mb-1">What will this campaign cost?</p>
-                                <p className="text-zinc-500 text-xs mb-5">Pick a conversation type — pricing updates as you go.</p>
+                            <div className="lg:col-span-2 bg-[#0e0e14] rounded-2xl border border-white/5 p-4 sm:p-7 shadow-xl flex flex-col">
+                                <p className="text-white/70 text-xs sm:text-[13px] font-normal sm:font-medium mb-1">Cost Calculator</p>
+                                <p className="text-white text-xs sm:text-base font-normal sm:font-semibold mb-1">What will this campaign cost?</p>
+                                <p className="text-zinc-500 text-[11px] sm:text-xs font-normal mb-4 sm:mb-5">Pick a conversation type — pricing updates as you go.</p>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 mb-5 sm:mb-6">
                                     {[
                                         { key: 'marketing', label: 'Marketing', rate: estimatorRates.marketing, unit: 'msg' },
                                         { key: 'utility', label: 'Utility', rate: estimatorRates.utility, unit: 'msg' },
@@ -802,22 +883,22 @@ export default function CreditsPage() {
                                             key={opt.key}
                                             type="button"
                                             onClick={() => setMsgType(opt.key)}
-                                            className={`px-3 py-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                                            className={`px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-normal sm:font-bold border transition-all cursor-pointer ${
                                                 msgType === opt.key
                                                     ? 'bg-[#110229] border-[#814ac8] text-white'
                                                     : 'bg-white/[0.02] border-white/5 text-white/80 hover:text-white hover:border-white/35'
                                             }`}
                                         >
                                             {opt.label}
-                                            <div className="text-[9px] font-semibold text-zinc-500 mt-0.5">
+                                            <div className="text-[9px] font-normal sm:font-semibold text-zinc-500 mt-0.5">
                                                 {opt.key === 'service' ? 'Free / custom reply' : `₹${(opt.rate || 0).toFixed(3)} / ${opt.unit}`}
                                             </div>
                                         </button>
                                     ))}
                                 </div>
 
-                                <div className="mb-6">
-                                    <label className="block text-[11px] font-bold text-white/60 mb-2">Target Audience Size</label>
+                                <div className="mb-5 sm:mb-6">
+                                    <label className="block text-[10px] sm:text-[11px] font-normal sm:font-bold text-white/60 mb-2">Target Audience Size</label>
                                     <div className="flex gap-3">
                                         <input
                                             type="range"
@@ -833,32 +914,31 @@ export default function CreditsPage() {
                                             min="1"
                                             value={audienceSize}
                                             onChange={(e) => setAudienceSize(Math.max(1, parseInt(e.target.value) || 0))}
-                                            className="w-20 px-2.5 py-1 bg-[#1c1c24] border border-white/5 rounded-lg text-sm text-center font-bold text-white focus:outline-none focus:border-emerald-500"
+                                            className="w-16 sm:w-20 px-2 sm:px-2.5 py-1 bg-[#1c1c24] border border-white/5 rounded-lg text-xs sm:text-sm text-center font-normal sm:font-bold text-white focus:outline-none focus:border-emerald-500"
                                         />
                                     </div>
                                 </div>
 
-                                {/* Calculation Results Panel */}
                                 <div className="mt-auto p-4 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
                                     <div>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Estimated Cost</p>
-                                        <div className="text-2xl font-black text-white">
+                                        <p className="text-[9px] sm:text-[10px] font-normal sm:font-black uppercase tracking-widest text-zinc-500 mb-0.5 sm:mb-1">Estimated Cost</p>
+                                        <div className="text-lg sm:text-2xl font-semibold sm:font-black text-white">
                                             ₹{estimatedCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </div>
-                                        <p className="text-[10px] text-white/60 mt-1">Calculated at Indian Meta rates</p>
+                                        <p className="text-[9px] sm:text-[10px] text-white/60 font-normal mt-0.5 sm:mt-1">Calculated at Indian Meta rates</p>
                                     </div>
 
                                     <div className="w-full sm:w-auto flex sm:justify-end">
                                         {wccBalance >= estimatedCost ? (
-                                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-                                                <CheckCircle2 size={14} />
+                                            <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] sm:text-xs font-normal sm:font-semibold">
+                                                <CheckCircle2 size={13} />
                                                 <span>Balance sufficient for this campaign size</span>
                                             </div>
                                         ) : (
-                                            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
-                                                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                                            <div className="flex items-start gap-1.5 sm:gap-2 p-2 sm:p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] sm:text-xs font-normal sm:font-medium">
+                                                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                                                 <div>
-                                                    <span className="font-bold">Insufficient balance.</span> Needs top-up of ₹{(estimatedCost - wccBalance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.
+                                                    <span className="font-normal sm:font-bold">Insufficient balance.</span> Needs top-up of ₹{(estimatedCost - wccBalance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.
                                                 </div>
                                             </div>
                                         )}
@@ -866,39 +946,39 @@ export default function CreditsPage() {
                                 </div>
                             </div>
 
-                            {/* Add Funds (inline recharge form, replaces the old modal; same handler & state) */}
+                            {/* Add Funds (inline recharge form) */}
                             <div ref={addFundsRef} className="bg-[#0e0e14] rounded-2xl border border-white/5 p-6 md:p-7 shadow-xl flex flex-col">
                                 <p className="text-white/70 text-[13px] font-medium mb-1">Add Funds</p>
                                 <p className="text-white text-base font-semibold mb-5">Recharge wallet</p>
 
-                                <form onSubmit={handleRechargeSubmit} className="space-y-5 flex-1 flex flex-col">
-                                    <div className="flex items-center justify-center gap-4">
+                                <form onSubmit={handleRechargeSubmit} className="space-y-4 sm:space-y-5 flex-1 flex flex-col">
+                                    <div className="flex items-center justify-center gap-3 sm:gap-4">
                                         <button
                                             type="button"
                                             onClick={() => adjustRechargeAmount(-100)}
-                                            className="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer"
+                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer"
                                         >
-                                            <Minus size={14} />
+                                            <Minus size={13} />
                                         </button>
-                                        <div className="text-2xl font-extrabold text-white tabular-nums">
+                                        <div className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white tabular-nums">
                                             ₹{rechargeAmountNumber.toLocaleString('en-IN')}
                                         </div>
                                         <button
                                             type="button"
                                             onClick={() => adjustRechargeAmount(100)}
-                                            className="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer"
+                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer"
                                         >
-                                            <Plus size={14} />
+                                            <Plus size={13} />
                                         </button>
                                     </div>
 
-                                    <div className="grid grid-cols-4 gap-2">
+                                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                                         {['500', '1000', '1500', '2000'].map((val) => (
                                             <button
                                                 key={val}
                                                 type="button"
                                                 onClick={() => { setRechargeAmount(val); setCustomAmount(''); }}
-                                                className={`py-2 rounded-lg text-[11px] font-bold transition-all border cursor-pointer ${
+                                                className={`py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-[11px] font-normal sm:font-bold transition-all border cursor-pointer ${
                                                     rechargeAmount === val
                                                      ? 'bg-[#110229] border-[#814ac8] text-white'
                                                     : 'bg-white/[0.02] border-white/5 text-white/80 hover:text-white hover:border-white/35'
@@ -909,39 +989,226 @@ export default function CreditsPage() {
                                         ))}
                                     </div>
 
-                                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
-                                        <p className="text-[10px] font-black text-white/70 mb-1.5">This buys you approximately</p>
-                                        <div className="text-2xl font-extrabold text-white">{approxConversations.toLocaleString('en-IN')}</div>
-                                        <p className="text-[10px] text-white/60 mt-1">Marketing Conversations</p>
+                                    <div className="p-3 sm:p-4 rounded-xl bg-white/[0.02] border border-white/5 text-center">
+                                        <p className="text-[9px] sm:text-[10px] font-normal sm:font-black text-white/70 mb-1">This buys you approximately</p>
+                                        <div className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white">{approxConversations.toLocaleString('en-IN')}</div>
+                                        <p className="text-[9px] sm:text-[10px] text-white/60 font-normal mt-0.5 sm:mt-1">Marketing Conversations</p>
                                     </div>
+
+                                    {workspaceEntitlements?.allow_wcc_recharge === false && (
+                                        <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
+                                            <AlertTriangle size={15} className="shrink-0" />
+                                            <span>WhatsApp Wallet recharge is disabled on your current plan. Please upgrade to Pro plan to unlock wallet recharges.</span>
+                                        </div>
+                                    )}
 
                                     <button
                                         type="submit"
-                                        disabled={actionLoading}
+                                        disabled={actionLoading || workspaceEntitlements?.allow_wcc_recharge === false}
                                         className={`mt-auto w-full py-3 text-white font-medium text-sm rounded-lg transition-all active:scale-95 shadow-lg shadow-emerald-900/10 flex items-center justify-center gap-1.5 cursor-pointer ${
-                                            actionLoading ? 'bg-emerald-700 cursor-not-allowed opacity-70' : 'bg-[#814ac8] hover:bg-[#905ad6]'
+                                            workspaceEntitlements?.allow_wcc_recharge === false
+                                                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-60'
+                                                : actionLoading ? 'bg-emerald-700 cursor-not-allowed opacity-70' : 'bg-[#814ac8] hover:bg-[#905ad6]'
                                         }`}
                                     >
                                         <CheckCircle2 size={16} />
-                                        {actionLoading ? 'Processing...' : 'Add funds to wallet'}
+                                        {workspaceEntitlements?.allow_wcc_recharge === false
+                                            ? 'Recharge Disabled (Upgrade to Pro)'
+                                            : actionLoading ? 'Processing...' : 'Add funds to wallet'}
                                     </button>
                                 </form>
                             </div>
                         </div>
 
-                        {/* WCC Recharge Logs Section - full width */}
+                        {/* WCC Recharge History Section - Real Data + View All Modal + Action-oriented Empty State */}
                         <div className="bg-[#0e0e14] rounded-2xl border border-white/5 overflow-hidden shadow-xl">
-                            <div className="px-5 md:px-7 py-4 border-b border-white/5 bg-white/[0.02] flex items-center gap-2">
-                                <Plus size={16} className="text-zinc-400" />
-                                <h3 className="font-bold text-sm text-white tracking-tight">Recharge History</h3>
+                            <div className="px-5 md:px-7 py-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Plus size={16} className="text-zinc-400" />
+                                    <h3 className="font-bold text-sm text-white tracking-tight">Recharge History</h3>
+                                </div>
+                                {wccRecharges.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsWccRechargeHistoryModalOpen(true)}
+                                        className="text-xs font-semibold text-purple-400 hover:text-purple-300 cursor-pointer"
+                                    >
+                                        View all recharges
+                                    </button>
+                                )}
                             </div>
-                            <div className="text-center py-12 text-zinc-500 text-xs">
-                                No recharge history available.
-                            </div>
+
+                            {wccRechargesLoading ? (
+                                <div className="p-8 space-y-3">
+                                    {[1, 2, 3].map(i => <div key={i} className="h-10 w-full rounded-lg bg-white/5 animate-pulse" />)}
+                                </div>
+                            ) : wccRecharges.length === 0 ? (
+                                <div className="text-center py-12 px-6 flex flex-col items-center justify-center">
+                                    <Wallet size={36} className="text-zinc-600 mb-3" />
+                                    <p className="text-sm font-semibold text-zinc-300 mb-1">No recharge history yet</p>
+                                    <p className="text-xs text-zinc-500 max-w-sm mb-5">Recharge your wallet to start using WhatsApp Credits for Marketing, Utility and Service conversations.</p>
+                                    <button
+                                        type="button"
+                                        onClick={scrollToAddFunds}
+                                        className="px-5 py-2.5 bg-[#814ac8] hover:bg-[#905ad6] text-white font-semibold text-xs rounded-xl shadow-lg shadow-purple-900/30 transition-all active:scale-95 cursor-pointer"
+                                    >
+                                        Recharge Wallet
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                            <tr className="bg-white/[0.02] border-b border-white/5 text-zinc-500 font-semibold uppercase text-[10px]">
+                                                <th className="p-4 px-6">Date</th>
+                                                <th className="p-4 px-6">Amount</th>
+                                                <th className="p-4 px-6">Transaction ID</th>
+                                                <th className="p-4 px-6">Status</th>
+                                                <th className="p-4 px-6">Method</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5 text-zinc-300">
+                                            {wccRecharges.slice(0, TABLE_PREVIEW_LIMIT).map((r) => (
+                                                <tr key={r.id || r.payment_id} className="hover:bg-white/[0.02]">
+                                                    <td className="p-4 px-6">{formatBillingDate(r.date, true)}</td>
+                                                    <td className="p-4 px-6 font-bold text-white">₹{r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                                    <td className="p-4 px-6 font-mono text-zinc-400 text-[11px]">{r.payment_id || 'N/A'}</td>
+                                                    <td className="p-4 px-6">
+                                                        <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-block ${
+                                                            r.status === 'success' || r.status === 'PAID'
+                                                                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                                                : r.status === 'failed'
+                                                                ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                                                : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                                                        }`}>
+                                                            {r.status === 'success' ? 'Success' : r.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 px-6 font-medium text-zinc-200" title={formatPaymentMethod(r.payment_method || r.method, r.provider).tooltip}>
+                                                        {formatPaymentMethod(r.payment_method || r.method, r.provider).label}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
             </div>
+
+            {/* Universal History Modal for WCC Recharge History */}
+            <HistoryModal
+                isOpen={isWccRechargeHistoryModalOpen}
+                onClose={() => setIsWccRechargeHistoryModalOpen(false)}
+                title="WCC Wallet Recharge History"
+                subtitle="Full log of prepaid WhatsApp wallet recharge transactions"
+                emptyStateText="No recharge logs found"
+                emptyStateSubtext="You have not initiated any WhatsApp wallet recharges yet."
+                emptyStateAction={{
+                    label: "Recharge Wallet Now",
+                    onClick: scrollToAddFunds
+                }}
+                fetchDataFn={({ page, limit, search, status, sort }) =>
+                    api.getWccUserRechargeLogs(workspaceId, { page, limit, search, status, sort })
+                }
+                columns={[
+                    {
+                        key: "date",
+                        label: "Date & Time",
+                        render: (r) => <span className="text-zinc-300">{formatBillingDate(r.date, true)}</span>
+                    },
+                    {
+                        key: "amount",
+                        label: "Amount",
+                        render: (r) => <span className="font-bold text-emerald-400">₹{r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    },
+                    {
+                        key: "payment_id",
+                        label: "Payment / Order ID",
+                        render: (r) => <span className="font-mono text-zinc-400 text-[11px]">{r.payment_id || r.gateway_order_id || "N/A"}</span>
+                    },
+                    {
+                        key: "status",
+                        label: "Status",
+                        render: (r) => (
+                            <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold inline-block ${
+                                r.status === 'success'
+                                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                    : r.status === 'failed'
+                                    ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                    : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'
+                            }`}>
+                                {r.status === 'success' ? 'Success' : r.status}
+                            </span>
+                        )
+                    },
+                    {
+                        key: "method",
+                        label: "Method",
+                        render: (r) => {
+                            const m = formatPaymentMethod(r.payment_method || r.method, r.provider);
+                            return (
+                                <span className="font-semibold text-white" title={m.tooltip}>
+                                    {m.label}
+                                </span>
+                            );
+                        }
+                    }
+                ]}
+            />
+
+            {/* Universal History Modal for AI Credit History */}
+            <HistoryModal
+                isOpen={isAiCreditHistoryModalOpen}
+                onClose={() => setIsAiCreditHistoryModalOpen(false)}
+                title="AI Workspace Credit History"
+                subtitle="Complete log of credit grants, topups, and feature usages"
+                fetchDataFn={async ({ page }) => {
+                    const res = await api.getCreditHistory(workspaceId, page);
+                    const data = res.data ?? res;
+                    return {
+                        data: data.entries || [],
+                        pagination: {
+                            page,
+                            limit: 10,
+                            total: data.total || (data.entries || []).length,
+                            pages: Math.ceil((data.total || (data.entries || []).length) / 10) || 1
+                        }
+                    };
+                }}
+                columns={[
+                    {
+                        key: "date",
+                        label: "Date",
+                        render: (r) => formatBillingDate(r.created_at, true)
+                    },
+                    {
+                        key: "description",
+                        label: "Description",
+                        render: (r) => <span className="font-medium text-white">{r.description || "System Process"}</span>
+                    },
+                    {
+                        key: "type",
+                        label: "Type",
+                        render: (r) => <span className="text-zinc-400 capitalize">{r.entry_type || "usage"}</span>
+                    },
+                    {
+                        key: "delta",
+                        label: "Credits Delta",
+                        render: (r) => {
+                            const val = Number(r.credits_delta ?? 0);
+                            const isNeg = val < 0;
+                            return (
+                                <span className={`font-bold ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {isNeg ? '' : '+'}{formatCredits(r.credits_delta, 2)}
+                                </span>
+                            );
+                        }
+                    }
+                ]}
+            />
 
             {/* Razorpay Checkout Script */}
             <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />

@@ -171,6 +171,26 @@ export async function getWccSessions(workspace_id, page = 1, limit = 10) {
   });
 }
 
+export async function getInvoices(workspace_id, { page = 1, limit = 10, search = '', type = '', sort = 'desc' } = {}) {
+  const params = new URLSearchParams({ page, limit, sort });
+  if (search) params.append('search', search);
+  if (type) params.append('type', type);
+
+  return client.get(`/billing/invoices?${params.toString()}`, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
+}
+
+export async function getWccUserRechargeLogs(workspace_id, { page = 1, limit = 10, search = '', status = '', sort = 'desc' } = {}) {
+  const params = new URLSearchParams({ page, limit, sort });
+  if (search) params.append('search', search);
+  if (status) params.append('status', status);
+
+  return client.get(`/wallet/wcc/recharges?${params.toString()}`, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
+}
+
 // Admin Billing Operations & Diagnostics
 export async function getWorkspaceLedger(workspaceId, page = 1, limit = 20) {
   return client.get(`/admin/billing/workspaces/${workspaceId}/ledger?page=${page}&limit=${limit}`);
@@ -398,6 +418,39 @@ export async function openRazorpayCheckout({
   const razorpay = new window.Razorpay(options);
   razorpay.open();
   return razorpay;
+}
+
+export async function getPlatformSettings() {
+  return client.get('/admin/settings');
+}
+
+export async function updatePlatformSettings(settings) {
+  return client.post('/admin/settings', settings);
+}
+
+export async function getSalesRegister(month = null, year = null) {
+  const params = new URLSearchParams();
+  if (month) params.append('month', month);
+  if (year) params.append('year', year);
+  return client.get(`/billing/admin/sales-register?${params.toString()}`);
+}
+
+export async function getTaxSummary(year = null) {
+  const params = new URLSearchParams();
+  if (year) params.append('year', year);
+  return client.get(`/billing/admin/tax-summary?${params.toString()}`);
+}
+
+export async function getWorkspaceBillingProfile(workspace_id) {
+  return client.get(`/billing/workspace/${workspace_id}/profile`, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
+}
+
+export async function updateWorkspaceBillingProfile(workspace_id, payload) {
+  return client.patch(`/billing/workspace/${workspace_id}/profile`, payload, {
+    headers: { 'X-Workspace-Id': workspace_id }
+  });
 }
 
 

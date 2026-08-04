@@ -12,6 +12,7 @@ from app.workers.ingestion_worker import process_document_background
 import uuid
 import os
 import shutil
+import tempfile
 from app.services.agentic_rag.rag_service import get_rag_service
 from app.utils.website_scraper import Webscrapper
 from app.core.exceptions import BillingError, WorkspaceAccessError
@@ -25,6 +26,43 @@ from app.core.pagination import SkipLimitParams, paginate_query
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_temp_upload_dir() -> str:
+    
+    # Respect custom environment variable
+    env_dir = os.environ.get("TEMP_UPLOAD_DIR")
+    if env_dir:
+        try:
+            os.makedirs(env_dir, exist_ok=True)
+            # Verify write access by writing a tiny test file
+            test_path = os.path.join(env_dir, f".write_test_{uuid.uuid4().hex}")
+            with open(test_path, "w") as f:
+                f.write("test")
+            os.remove(test_path)
+            return env_dir
+        except Exception as e:
+            logger.warning(f"Configured TEMP_UPLOAD_DIR '{env_dir}' is not writable: {e}. Falling back...")
+
+    # Try default local path
+    default_dir = os.path.join(os.getcwd(), "temp_uploads")
+    try:
+        os.makedirs(default_dir, exist_ok=True)
+        # Verify write access by writing a tiny test file
+        test_path = os.path.join(default_dir, f".write_test_{uuid.uuid4().hex}")
+        with open(test_path, "w") as f:
+            f.write("test")
+        os.remove(test_path)
+        return default_dir
+    except Exception as e:
+        logger.warning(f"Default upload directory '{default_dir}' is not writable: {e}. Falling back to system temp.")
+
+    # Fallback to system-level temp directory
+    sys_temp_dir = os.path.join(tempfile.gettempdir(), "auromind_uploads")
+    os.makedirs(sys_temp_dir, exist_ok=True)
+    return sys_temp_dir
+
+
 router = APIRouter(prefix="/brain", tags=["brain"])
 
 
@@ -63,12 +101,7 @@ async def ingest_document(
             )
 
         entry_id = str(uuid.uuid4())
-        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
-        os.makedirs(temp_dir, exist_ok=True)
-        try:
-            os.chmod(temp_dir, 0o750)  # nosec B103
-        except Exception:
-            pass
+        temp_dir = get_temp_upload_dir()
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -82,7 +115,6 @@ async def ingest_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -148,7 +180,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -161,7 +192,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -174,7 +204,6 @@ async def ingest_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -208,12 +237,7 @@ async def ingest_sales_document(
             )
 
         entry_id = str(uuid.uuid4())
-        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
-        os.makedirs(temp_dir, exist_ok=True)
-        try:
-            os.chmod(temp_dir, 0o750)  # nosec B103
-        except Exception:
-            pass
+        temp_dir = get_temp_upload_dir()
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -227,7 +251,6 @@ async def ingest_sales_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Sales File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -289,7 +312,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -302,7 +324,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -315,7 +336,6 @@ async def ingest_sales_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Sales File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Sales File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -349,12 +369,7 @@ async def ingest_support_document(
             )
 
         entry_id = str(uuid.uuid4())
-        temp_dir = os.path.join(os.getcwd(), "temp_uploads")
-        os.makedirs(temp_dir, exist_ok=True)
-        try:
-            os.chmod(temp_dir, 0o750)  # nosec B103
-        except Exception:
-            pass
+        temp_dir = get_temp_upload_dir()
         temp_file_path = os.path.join(temp_dir, f"{entry_id}_{file.filename}")
 
         with open(temp_file_path, "wb") as buffer:
@@ -366,7 +381,6 @@ async def ingest_support_document(
         size_mb = file_size / 1_000_000.0
         credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
 
-        print(f"\n>>> [BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits...")
         logger.info(f"[BILLING RESERVATION] Support File: '{file.filename}' | Size: {file_size} bytes ({size_mb:.4f} MB) | Reserving {credits_cost:.4f} credits")
 
         reservation = billing_service.token_service.reserve_feature_credits(
@@ -428,7 +442,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -441,7 +454,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass
@@ -454,7 +466,6 @@ async def ingest_support_document(
                     reservation_id=reservation.id,
                     reason="upload_api_failed"
                 )
-                print(f"\n>>> [BILLING REFUND] Released reservation for Support File: '{file.filename}' (Reservation ID: {reservation.id}) due to upload failure.")
                 logger.info(f"[BILLING REFUND] Released reservation for Support File: '{file.filename}' due to upload failure.")
             except Exception:
                 pass

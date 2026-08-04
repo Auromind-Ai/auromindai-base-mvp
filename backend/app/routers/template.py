@@ -44,10 +44,11 @@ def fix_template_boundaries(text: str) -> str:
     if not text:
         return text
     stripped = text.strip()
-    if re.match(r"^\{\{\d+\}\}", stripped):
+    if re.match(r"^[\s.,!?;:]*\{\{\d+\}\}", stripped):
         text = "Hello, " + text
-    if re.search(r"\{\{\d+\}\}\s*$", text):
-        text = text.rstrip() + ". Thank you!"
+    match = re.search(r"\{\{(\d+)\}\}[\s.,!?;:]*$", text)
+    if match:
+        text = re.sub(r"\{\{\d+\}\}[\s.,!?;:]*$", f"{{{{{match.group(1)}}}}} shortly.", text)
     return text
 
 def fix_floating_variables(text: str) -> str:
@@ -57,11 +58,13 @@ def fix_floating_variables(text: str) -> str:
     new_lines = []
     for line in lines:
         stripped = line.strip()
-        if re.match(r"^\{\{\d+\}\}$", stripped):
+        if re.match(r"^\{\{\d+\}\}[\s.,!?;:]*$", stripped):
+            var_match = re.search(r"\{\{(\d+)\}\}", stripped)
+            var_num = var_match.group(1) if var_match else "1"
             if new_lines:
-                new_lines[-1] = new_lines[-1].rstrip() + " " + stripped
+                new_lines[-1] = new_lines[-1].rstrip() + f" {{{{{var_num}}}}}"
             else:
-                new_lines.append("Hello, " + stripped)
+                new_lines.append(f"Hello, {{{{{var_num}}}}}")
         else:
             new_lines.append(line)
     return "\n".join(new_lines)
@@ -69,7 +72,14 @@ def fix_floating_variables(text: str) -> str:
 def format_template_variables(text: str | None) -> str | None:
     if not text:
         return text
-    formatted = re.sub(r"(?<!\{)\{(\d+)\}(?!\})", r"{{\1}}", text)
+    
+    # 1. Normalize single braces `{something}` to `{{something}}`
+    text = re.sub(r"(?<!\{)\{([^{}]+)\}(?!\})", r"{{\1}}", text)
+    
+    # 2. Convert all named placeholders `{{var_name}}` to sequential integers: `{{1}}`, `{{2}}`...
+    count = [1]
+    formatted = re.sub(r"\{\{[^{}]+\}\}", lambda m: f"{{{{{count.insert(0, count[0]+1) or count[1]}}}}}" , text)
+    
     formatted = fix_floating_variables(formatted)
     formatted = fix_template_boundaries(formatted)
     return formatted
@@ -312,19 +322,62 @@ def create_template(
         "language": data.language,
         "components": components,
     }
-    meta_response = submit_to_meta(meta_payload, workspace)
+    try:
+        meta_response = submit_to_meta(meta_payload, workspace)
+    except Exception as e:
+        logger.error(f"Failed to submit template to Meta: {e}")
+        new_template.status = "rejected"
+        db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to submit template to Meta due to a connection timeout. Please check your template list or try again in a moment."
+        )
+
     if meta_response.get("error"):
-        print("META ERROR:", meta_response)
+        error_info = meta_response.get("error", {})
+        subcode = error_info.get("error_subcode")
+        
+        # If the template already exists in Meta's system (subcode 2388024)
+        if subcode == 2388024:
+            logger.info(f"Template already exists on Meta. Fetching its details to recover template ID.")
+            try:
+                # Retrieve from Meta
+                url = f"https://graph.facebook.com/v19.0/{workspace.meta_waba_id}/message_templates?name={data.name}"
+                headers = {
+                    "Authorization": f"Bearer {workspace.meta_access_token}"
+                }
+                # Use a generous 20-second timeout for retrieval
+                import requests
+                get_res = requests.get(url, headers=headers, timeout=20)
+                if get_res.status_code == 200:
+                    templates_list = get_res.json().get("data", [])
+                    matched_template = None
+                    for t in templates_list:
+                        if t.get("name") == data.name and t.get("language") == data.language:
+                            matched_template = t
+                            break
+                    
+                    if matched_template:
+                        meta_template_id = matched_template.get("id")
+                        meta_status = matched_template.get("status", "").lower()
+                        new_template.meta_template_id = meta_template_id
+                        new_template.status = meta_status if meta_status in ["approved", "pending", "rejected"] else "pending"
+                        db.commit()
+                        logger.info(f"Successfully recovered template from Meta: ID={meta_template_id}, Status={new_template.status}")
+                        return {"status": "submitted"}
+            except Exception as get_exc:
+                logger.error(f"Failed to recover template from Meta: {get_exc}")
+        
+        # Default error handling if not recovered
+        logger.error(f"META ERROR: {meta_response}")
         new_template.status = "rejected"
         db.commit()
 
-        error_msg = meta_response.get("error", {}).get(
-            "message", "Unknown error from Meta"
-        )
+        error_msg = error_info.get("message", "Unknown error from Meta")
         raise HTTPException(400, f"Template rejected by Meta: {error_msg}")
     
     else:
-        print("META SUCCESS:", meta_response)
+        logger.info(f"META SUCCESS: {meta_response}")
         new_template.meta_template_id = meta_response.get("id")
         new_template.status = "pending"
 
@@ -604,7 +657,7 @@ def submit_template(
 
     meta_response = submit_to_meta(meta_payload, workspace)
     if meta_response.get("error"):
-        print("META SUBMIT ERROR:", meta_response)
+        logger.error(f"META SUBMIT ERROR: {meta_response}")
         template.status = "rejected"
         db.commit()
         error_msg = meta_response.get("error", {}).get(
@@ -613,7 +666,7 @@ def submit_template(
         raise HTTPException(400, f"Template rejected by Meta: {error_msg}")
     
     else:
-        print("META SUBMIT SUCCESS:", meta_response)
+        logger.info(f"META SUBMIT SUCCESS: {meta_response}")
         template.meta_template_id = meta_response.get("id")
         template.status = "pending"
 

@@ -14,7 +14,6 @@ export default function AIActivityPage() {
     setLoading(true)
     const response = await api.getAIActivity()
     const result = response
-    console.log('Fetched AI actions:', result)
     setData(result)
   } catch (err) {
     setError(err.message)

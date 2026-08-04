@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef, Suspense } from "react";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 function InstagramCallbackContent() {
     const searchParams = useSearchParams();
@@ -11,8 +12,10 @@ function InstagramCallbackContent() {
     const [status, setStatus] = useState("Connecting Instagram...");
     const [isError, setIsError] = useState(false);
     const hasRun = useRef(false); // prevent double execution
+    const { loading } = useAuth();
 
     useEffect(() => {
+        if (loading) return;
         if (!searchParams || hasRun.current) return;
         hasRun.current = true;
 
@@ -43,8 +46,6 @@ function InstagramCallbackContent() {
             return;
         }
 
-        console.log("CODE:", code);
-        console.log("WORKSPACE:", workspace_id);
 
         const connectInstagram = async () => {
             try {
@@ -52,7 +53,6 @@ function InstagramCallbackContent() {
                     code,
                     workspace_id,
                 });
-                console.log("FULL RESPONSE:", data);
 
                 setStatus("Connected! Redirecting...");
 
@@ -68,7 +68,7 @@ function InstagramCallbackContent() {
         };
 
         connectInstagram();
-    }, [searchParams, router]);
+    }, [searchParams, router, loading]);
 
     return (
         <div className="min-h-screen bg-[#050508] flex items-center justify-center p-6 text-white font-sans">

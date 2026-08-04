@@ -1014,7 +1014,7 @@ class AgentOrchestration:
                             reservation = billing_service.token_service.reserve_feature_credits(
                                 db=db,
                                 workspace_id=workspace_id,
-                                feature_key="ai_chat",
+                                feature_key="chat",
                                 unit_amount=float(total_tokens),
                                 reference_key=reference_key,
                                 description=f"Agent Execution ({curr_agent}) tokens",

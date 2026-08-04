@@ -21,6 +21,12 @@ class SubscriptionService:
 
         provider_id = subscription_data.get("id")
 
+        if isinstance(workspace_id, str):
+            try:
+                workspace_id = uuid.UUID(workspace_id)
+            except ValueError:
+                pass
+
        
         subscription = self._get_subscription_by_provider_id(db, provider, provider_id)
 
@@ -90,6 +96,9 @@ class SubscriptionService:
         return subscription
 
     def _get_active_subscription(self, db: Session, workspace_id: str) -> Subscription | None:
+        import uuid
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
         return (
             db.query(Subscription)
             .filter(

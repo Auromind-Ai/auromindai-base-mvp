@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Brain, UploadCloud, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe, MoreVertical, LayoutGrid, List as ListIcon, SlidersHorizontal } from 'lucide-react';
+import { Brain, UploadCloud, Link, FileText, CheckCircle2, Trash2, Search, Loader2, AlertCircle, X, Globe, LayoutGrid, List as ListIcon, SlidersHorizontal } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import FileProgress from "./FileProgress";
@@ -195,16 +195,17 @@ export default function BrainPage() {
     const getStatusMeta = (status) => {
         const s = (status || 'indexed').toLowerCase();
         let label = status || 'Indexed';
-        if (s === 'completed' || s === 'indexed') label = 'completed';
-        else if (s === 'failed') label = 'Failed';
-        else if (s === 'syncing') label = 'Syncing';
-        else if (s === 'processing') label = 'Processing';
-        else if (s === 'unknown') label = 'Unknown';
+        let color = 'text-white/60';
+        if (s === 'completed' || s === 'indexed') { label = 'completed'; color = 'text-emerald-400'; }
+        else if (s === 'failed') { label = 'Failed'; color = 'text-rose-400'; }
+        else if (s === 'syncing') { label = 'Syncing'; color = 'text-amber-400'; }
+        else if (s === 'processing') { label = 'Processing'; color = 'text-amber-400'; }
+        else if (s === 'unknown') { label = 'Unknown'; color = 'text-white/40'; }
         
         if (label && label.length > 0) {
             label = label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
         }
-        return { label };
+        return { label, color };
     };
 
     const sortedEntries = [...filteredEntries].sort((a, b) => {
@@ -231,8 +232,8 @@ export default function BrainPage() {
                 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
             `}</style>
 
-        <div className="w-full bg-[#07070a] min-h-screen pt-6 md:pt-10 lg:pt-12 pb-6" style={{ fontFamily: "'Poppins', sans-serif" }}>
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-8 space-y-6">
+        <div className="w-full bg-[#07070a] min-h-screen pt-3 md:pt-10 lg:pt-12 pb-4 md:pb-6" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <div className="max-w-[1400px] mx-auto px-3 sm:px-6 md:px-8 space-y-4 md:space-y-6">
             {/* Notifications */}
             {success && (
                 <div className="fixed top-4 right-4 z-50 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg animate-in fade-in slide-in-from-top-2">
@@ -253,33 +254,33 @@ export default function BrainPage() {
                 </div>
             )}
 
-            <div className="mb-10">
-                <h1 className="text-xl lg:text-3xl font-semibold text-white tracking-tight">
+            <div className="mb-4 md:mb-10">
+                <h1 className="text-base md:text-xl lg:text-3xl font-semibold text-white tracking-tight">
                     Brain (Knowledge Base)
                 </h1>
 
-                <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
                     Upload documents and sync websites to train your AI on your business knowledge.
                 </p>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6">
 
             {/* Card 1 */}
             <div
-                className="relative rounded-xl p-4 md:p-6 border border-white/20
+                className="relative rounded-xl p-3 md:p-6 border border-white/20
                 bg-[#070012]
                 backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
             >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
 
-                <div className="w-10 h-10 md:w-11 md:h-11 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400">
-                    <Brain size={20} />
+                <div className="w-8 h-8 md:w-11 md:h-11 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400">
+                    <Brain size={16} className="md:w-5 md:h-5" />
                 </div>
 
                 <div>
-                    <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white">
+                    <div className="text-lg sm:text-2xl md:text-3xl font-bold text-white">
                     {loading ? '-' : <AnimatedCounter value={stats.knowledge_entries || entries.length} />}
                     </div>
 
@@ -294,14 +295,14 @@ export default function BrainPage() {
 
             {/* Card 2 */}
             <div
-                className="relative rounded-xl p-4 md:p-6 border border-white/20
+                className="relative rounded-xl p-3 md:p-6 border border-white/20
                 bg-[#070012]
                 backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
             >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
 
-                <div className="w-11 h-11 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
-                    <CheckCircle2 size={20} />
+                <div className="w-8 h-8 md:w-11 md:h-11 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                    <CheckCircle2 size={16} className="md:w-5 md:h-5" />
                 </div>
 
                 <div>
@@ -309,7 +310,7 @@ export default function BrainPage() {
                     {loading ? '-' : <AnimatedCounter value={stats.indexed_chunks || 0} />}
                     </div>
 
-                    <div className="text-xs text-white/60">
+                    <div className="text-[10px] md:text-xs text-white/60">
                     Indexed Chunks
                     </div>
                 </div>
@@ -320,14 +321,14 @@ export default function BrainPage() {
 
             {/* Card 3 */}
             <div
-                className="relative rounded-xl p-4 md:p-6 border border-white/20
+                className="relative rounded-xl p-3 md:p-6 border border-white/20
                 bg-[#070012]
                 backdrop-blur-xl hover:-translate-y-1 hover:shadow-xl transition-all"
             >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
 
-                <div className="w-11 h-11 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400">
-                    <FileText size={20} />
+                <div className="w-8 h-8 md:w-11 md:h-11 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-400">
+                    <FileText size={16} className="md:w-5 md:h-5" />
                 </div>
 
                 <div>
@@ -335,7 +336,7 @@ export default function BrainPage() {
                     {loading ? '-' : stats.status || 'Empty'}
                     </div>
 
-                    <div className="text-xs text-white/60">
+                    <div className="text-[10px] md:text-xs text-white/60">
                     Status
                     </div>
                 </div>
@@ -346,10 +347,10 @@ export default function BrainPage() {
             </div>
 
             {/* Upload Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6">
 
                 {/*  Document Upload card — gradient changed to #814AC8  */}
-                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#070012] hover:border-[#814AC8]/50">
+                <div className="relative rounded-xl p-3 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#070012] hover:border-[#814AC8]/50">
 
                     
 
@@ -373,11 +374,11 @@ export default function BrainPage() {
                             className="hidden"
                             disabled={uploading}
                         />
-                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-white mx-auto mb-3 group-hover:scale-110 transition-transform">
-                            {uploading ? <Loader2 size={24} className="animate-spin" /> : <UploadCloud size={46} strokeWidth={1.5} />}
+                        <div className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center text-white mx-auto mb-2 md:mb-3 group-hover:scale-110 transition-transform">
+                            {uploading ? <Loader2 size={20} className="animate-spin" /> : <UploadCloud size={32} strokeWidth={1.5} className="md:w-[46px] md:h-[46px]" />}
                         </div>
-                        <h3 className="font-bold text-[#D4D4D4] mb-1 tracking-tight">Upload Documents</h3>
-                        <p className="text-sm text-[#787878] font-medium mb-4">PDF, Word, Excel, CSV, Images, or Text</p>
+                        <h3 className="font-bold text-[#D4D4D4] text-sm md:text-base mb-1 tracking-tight">Upload Documents</h3>
+                        <p className="text-xs md:text-sm text-[#787878] font-medium mb-3 md:mb-4">PDF, Word, Excel, CSV, Images, or Text</p>
 
                         {/*  2. Button bg → #814AC8  */}
                         <button
@@ -397,14 +398,14 @@ export default function BrainPage() {
                 </div>
 
                 {/*  Website Sync card — gradient changed to #814AC8  */}
-                <div className="relative rounded-xl p-4 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#070012]">
+                <div className="relative rounded-xl p-3 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center group overflow-hidden bg-[#070012]">
 
                     <div className="relative">
-                        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-white mx-auto mb-3 group-hover:scale-110 transition-transform">
-                            {(syncing || crawling) ? <Loader2 size={24} className="animate-spin" /> : <Globe size={46} strokeWidth={1.5} />}
+                        <div className="w-9 h-9 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center text-white mx-auto mb-2 md:mb-3 group-hover:scale-110 transition-transform">
+                            {(syncing || crawling) ? <Loader2 size={20} className="animate-spin" /> : <Globe size={32} strokeWidth={1.5} className="md:w-[46px] md:h-[46px]" />}
                         </div>
-                        <h3 className="font-semibold text-[#D4D4D4] mb-1 tracking-tight">Sync Your Website</h3>
-                        <p className="text-sm text-[#787878] font-medium mb-4">Index your entire website into the AI Brain</p>
+                        <h3 className="font-semibold text-[#D4D4D4] text-sm md:text-base mb-1 tracking-tight">Sync Your Website</h3>
+                        <p className="text-xs md:text-sm text-[#787878] font-medium mb-3 md:mb-4">Index your entire website into the AI Brain</p>
                         <div className="flex flex-col gap-3 max-w-sm mx-auto">
                             <input
                                 type="text"
@@ -462,41 +463,41 @@ export default function BrainPage() {
             </div>
 
             {/* Indexed Knowledge */}
-            <div className="rounded-xl border border-white/10 overflow-hidden shadow-xl mb-8 bg-[#070012] backdrop-blur-xl">
+            <div className="rounded-xl border border-white/10 overflow-hidden shadow-xl mb-4 md:mb-8 bg-[#070012] backdrop-blur-xl">
 
                 {/* Header */}
-                <div className="p-4 md:p-5 border-b border-white/10 flex flex-col gap-4">
+                <div className="p-3 md:p-5 border-b border-white/10 flex flex-col gap-3 md:gap-4">
                     <div className="flex items-center justify-between gap-3">
                         <div>
-                            <h2 className="font-bold text-[#D4D4D4] tracking-tight text-base md:text-lg">Indexed Knowledge</h2>
+                            <h2 className="font-bold text-[#D4D4D4] tracking-tight text-sm md:text-lg">Indexed Knowledge</h2>
                             <p className="text-xs text-white/40 mt-0.5 hidden sm:block">Manage and monitor all your knowledge sources.</p>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#814AC8] bg-[#814AC8]/10 border border-[#814AC8]/20 px-2.5 py-1 rounded-full whitespace-nowrap">
+                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-[#814AC8] bg-[#814AC8]/10 border border-[#814AC8]/20 px-2 py-0.5 md:px-2.5 md:py-1 rounded-full whitespace-nowrap">
                             {loading ? '...' : `${sortedEntries.length} items`}
                         </span>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-row gap-2">
                         {/* Search */}
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#565656]" />
+                        <div className="relative flex-1 min-w-0">
+                            <Search className="absolute left-2.5 md:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 md:w-4 md:h-4 text-[#565656]" />
                             <input
                                 type="text"
-                                placeholder="Search sources by name or type..."
+                                placeholder="Search..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-[#0d0d14] border border-white/10 rounded-xl text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none transition-all font-medium"
+                                className="w-full pl-8 md:pl-10 pr-2 md:pr-4 py-2 md:py-2.5 bg-[#0d0d14] border border-white/10 rounded-xl text-xs md:text-sm text-[#D4D4D4] placeholder:text-[#565656] focus:outline-none transition-all font-medium"
                                 onFocus={e => e.currentTarget.style.borderColor = 'rgba(129,74,200,0.5)'}
                                 onBlur={e => e.currentTarget.style.borderColor = ''}
                             />
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                             {/* Filters */}
                             <div className="relative">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); setShowFilters(v => !v); }}
-                                    className="flex items-center gap-1.5 px-3.5 py-2.5 bg-[#0d0d14] border border-white/10 rounded-xl text-xs font-medium text-[#D4D4D4] hover:border-[#814AC8]/40 transition-all"
+                                    className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3.5 py-2 md:py-2.5 bg-[#0d0d14] border border-white/10 rounded-xl text-xs font-medium text-[#D4D4D4] hover:border-[#814AC8]/40 transition-all"
                                 >
                                     <SlidersHorizontal size={14} />
                                     Filters
@@ -571,7 +572,7 @@ export default function BrainPage() {
                             {sortedEntries.map((item) => {
                                 const status = getStatusMeta(item.status);
                                 return (
-                                    <div key={item.id} className="px-4 py-3.5 hover:bg-white/[0.03] transition-all group">
+                                    <div key={item.id} className="px-3 py-2.5 md:px-4 md:py-3.5 hover:bg-white/[0.03] transition-all group">
                                         {/* Desktop row */}
                                         <div className="hidden md:grid grid-cols-[minmax(0,1fr)_130px_130px_130px_44px] gap-3 items-center">
                                             <div className="flex items-center gap-3 min-w-0">
@@ -590,21 +591,12 @@ export default function BrainPage() {
                                             <span className="text-xs text-white/50">{formatDate(item.created_at)}</span>
                                             <div className="relative flex justify-end">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
-                                                    className="p-1.5 text-[#565656] hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirmation({ isOpen: true, entryId: item.id }); }}
+                                                    className="p-1.5 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                    title="Delete entry"
                                                 >
-                                                    <MoreVertical size={16} />
+                                                    <Trash2 size={16} />
                                                 </button>
-                                                {openMenuId === item.id && (
-                                                    <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-9 w-36 bg-[#111116] border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
-                                                        <button
-                                                            onClick={() => { setDeleteConfirmation({ isOpen: true, entryId: item.id }); setOpenMenuId(null); }}
-                                                            className="w-full flex items-center gap-2 text-left px-3.5 py-2.5 text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
-                                                        >
-                                                            <Trash2 size={13} /> Delete
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
 
@@ -616,34 +608,25 @@ export default function BrainPage() {
                                                         {item.content_type === 'url' ? <Link size={16} /> : <FileText size={16} />}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <div className="font-medium text-[#D4D4D4] text-sm truncate">{item.title}</div>
+                                                        <div className="font-medium text-[#D4D4D4] text-xs md:text-sm truncate">{item.title}</div>
                                                         <div className="text-[10px] text-white/40">{item.word_count || 0} words</div>
                                                     </div>
                                                 </div>
                                                 <div className="relative shrink-0">
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
-                                                        className="p-1.5 text-[#565656] hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmation({ isOpen: true, entryId: item.id }); }}
+                                                        className="p-1.5 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                        title="Delete entry"
                                                     >
-                                                        <MoreVertical size={16} />
+                                                        <Trash2 size={16} />
                                                     </button>
-                                                    {openMenuId === item.id && (
-                                                        <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-9 w-36 bg-[#111116] border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
-                                                            <button
-                                                                onClick={() => { setDeleteConfirmation({ isOpen: true, entryId: item.id }); setOpenMenuId(null); }}
-                                                                className="w-full flex items-center gap-2 text-left px-3.5 py-2.5 text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
-                                                            >
-                                                                <Trash2 size={13} /> Delete
-                                                            </button>
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-2 pl-12">
-                                                <span className="text-[10px] font-medium text-white/50 bg-white/5 px-2 py-1 rounded-md uppercase">{item.content_type || 'File'}</span>
-                                                <span className="text-[10px] font-medium text-white/60">
-                                                    {status.label}
-                                                </span>
+                                            <div className="flex items-center gap-1.5 pl-12 flex-wrap">
+                                                <span className="text-[10px] font-semibold text-[#814AC8] bg-[#814AC8]/10 border border-[#814AC8]/20 px-2 py-0.5 rounded-md uppercase tracking-wide">{item.content_type || 'File'}</span>
+                                                <span className="text-white/20 text-[10px]">·</span>
+                                                <span className={`text-[10px] font-medium ${status.color}`}>{status.label}</span>
+                                                <span className="text-white/20 text-[10px]">·</span>
                                                 <span className="text-[10px] text-white/40">{formatDate(item.created_at)}</span>
                                             </div>
                                         </div>
@@ -665,21 +648,12 @@ export default function BrainPage() {
                                         </div>
                                         <div className="relative">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === item.id ? null : item.id); }}
-                                                className="p-1.5 text-[#565656] hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                                                onClick={(e) => { e.stopPropagation(); setDeleteConfirmation({ isOpen: true, entryId: item.id }); }}
+                                                className="p-1.5 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                title="Delete entry"
                                             >
-                                                <MoreVertical size={16} />
+                                                <Trash2 size={16} />
                                             </button>
-                                            {openMenuId === item.id && (
-                                                <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-9 w-36 bg-[#111116] border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden">
-                                                    <button
-                                                        onClick={() => { setDeleteConfirmation({ isOpen: true, entryId: item.id }); setOpenMenuId(null); }}
-                                                        className="w-full flex items-center gap-2 text-left px-3.5 py-2.5 text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition-colors"
-                                                    >
-                                                        <Trash2 size={13} /> Delete
-                                                    </button>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                     <div className="font-medium text-[#D4D4D4] text-sm truncate mb-1">{item.title}</div>

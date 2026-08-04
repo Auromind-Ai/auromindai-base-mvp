@@ -5,19 +5,29 @@ let memoryWorkspace = null;
 /* ---------------- TOKEN ---------------- */
 
 export const setToken = (token) => {
-  // Rely strictly on HttpOnly secure cookie.
+  if (isBrowser) {
+    if (token) {
+      localStorage.setItem('auth_token', token);
+    } else {
+      localStorage.removeItem('auth_token');
+    }
+  }
 };
 
 export const getToken = () => {
+  if (isBrowser) {
+    return localStorage.getItem("auth_token");
+  }
   return null;
 };
 
 export const removeToken = () => {
-  memoryUser = null;
-  memoryWorkspace = null;
   if (isBrowser) {
+    localStorage.removeItem("auth_token");
     localStorage.removeItem('auromind_logged_in');
   }
+  memoryUser = null;
+  memoryWorkspace = null;
 };
 
 export const setUser = (user) => {

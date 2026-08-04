@@ -135,6 +135,15 @@ function AdminLayoutContent({ children }) {
     }, []);
 
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+    useEffect(() => {
+        if (isMobileOpen && typeof window !== 'undefined') {
+            window.scrollTo({ left: 0, behavior: 'instant' });
+            if (document.documentElement) document.documentElement.scrollLeft = 0;
+            if (document.body) document.body.scrollLeft = 0;
+        }
+    }, [isMobileOpen]);
+
     const isAIPage = pathname && (pathname === '/user/admin/ai' || pathname.includes('/admin/ai'));
 
     const renderNavItem = (item, isMobile = false) => {
@@ -171,7 +180,7 @@ function AdminLayoutContent({ children }) {
                     />
                 )}
                 <Icon size={16} strokeWidth={2} className={`relative z-10 transition-colors duration-150 ${isActive ? 'text-white' : 'text-[#7e7e7e] group-hover:text-white'}`} />
-                <span className="relative z-10">{item.label}</span>
+                <span className="relative z-10 truncate">{item.label}</span>
             </Link>
         );
     };
@@ -214,7 +223,7 @@ if (!user) {
         <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
             {/* Desktop Sidebar */}
             <aside
-                className={`${poppins.className} hidden md:flex w-[320px] flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
+                className={`${poppins.className} hidden md:flex md:w-[220px] lg:w-[240px] xl:w-[320px] shrink-0 flex-col border-r border-[var(--notion-border)] bg-[var(--notion-sidebar)] h-screen sticky top-0 z-10`}
             >
                 {/* Profile Section */}
                 <div className="flex items-center gap-3 px-5 pt-6 pb-5">
@@ -257,7 +266,7 @@ if (!user) {
 
             {/* Mobile Drawer (Sheet) */}
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-                <SheetContent side="left" className="p-0 w-[300px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
+                <SheetContent side="left" className="p-0 w-[200px] bg-[var(--notion-sidebar)] border-r border-[var(--notion-border)] text-[var(--notion-text)] shadow-2xl">
                     <div className={`${poppins.className} flex flex-col h-full bg-[#0f0f12]`}>
                         {/* Workspace Brand */}
                         <div className="h-14 flex items-center px-4 border-b border-white/5">

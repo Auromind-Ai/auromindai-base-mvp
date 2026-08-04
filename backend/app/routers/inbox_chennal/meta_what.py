@@ -1,4 +1,5 @@
 import logging
+import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.core.security import verify_workspace_access
@@ -50,14 +51,20 @@ async def verify_webhook(request: Request):
 
 @router.post("/whatsapp/webhook")
 async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
+    print("\n[DEBUG WEBHOOK] === INCOMING META WHATSAPP WEBHOOK POST REQUEST ===")
     logger.info("=== INCOMING META WHATSAPP WEBHOOK ===")
     try:
         data = await request.json()
+        print(f"[DEBUG WEBHOOK] Raw Payload: {json.dumps(data)}")
         logger.info(f"Raw Webhook Payload: {data}")
-        return await WebhookService.handle_meta_whatsapp_webhook(data, db)
+        res = await WebhookService.handle_meta_whatsapp_webhook(data, db)
+        print(f"[DEBUG WEBHOOK] Result from WebhookService: {res}")
+        return res
     except Exception as exc:
+        print(f"[DEBUG WEBHOOK] CRITICAL ERROR: {exc}")
         logger.exception(f"Webhook processing error: {exc}")
         return {"status": "error"}
+
 
 
 @router.get("/channels/status")

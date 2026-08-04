@@ -479,7 +479,9 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                 {getDisplayName(lead, ch.id)}
                             </h4>
                             {isInstagram && (
-                                <p className="text-[12px] text-white/50 mt-0.5">@priya__002</p>
+                                <p className="text-[12px] text-white/50 mt-0.5">
+                                    {lead.contact_name && !/^\d+$/.test(lead.contact_name) ? (lead.contact_name.startsWith('@') ? lead.contact_name : `@${lead.contact_name}`) : 'Instagram User'}
+                                </p>
                             )}
                             {!isInstagram && lead.phone && (
                                 <p className="text-[12px] text-white/50 mt-0.5">{lead.phone}</p>
@@ -1129,6 +1131,10 @@ function InboxContent() {
     const { subscribe, subscribeConversation, unsubscribeConversation } = useRealtime();
 
     const [ch, setCh] = useState(CHANNELS[0]);
+    const channelRef = useRef(ch);
+    useEffect(() => {
+        channelRef.current = ch;
+    }, [ch]);
     const [activeFilter, setActiveFilter] = useState(3);
     const [conversations, setConversations] = useState([]);
     const [messages, setMessages] = useState([]);
@@ -1270,7 +1276,9 @@ function InboxContent() {
         try {
             const data = await api.get(`/api/messages/${id}`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
-            setMessages(data);
+            if (id === leadRef.current?.id) {
+                setMessages(data);
+            }
         } catch (e) { console.error('Message fetch error:', e); }
     }, []);
 
@@ -1281,9 +1289,15 @@ function InboxContent() {
     const fetchConversations = useCallback(async ({ selectFirst = false, statusOverride = null } = {}) => {
         if (!workspace?.id) return;
         const statusParam = statusOverride || getStatusParam(activeFilter);
+        const currentChannel = ch.id;
         try {
             const data = await api.get(`/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}&status=${statusParam}`);
             if (!Array.isArray(data)) { console.warn("Conversations API non-array:", data); return; }
+            
+            if (channelRef.current.id !== currentChannel) {
+                return;
+            }
+
             setConversations(data);
 
             if (data.length === 0) {

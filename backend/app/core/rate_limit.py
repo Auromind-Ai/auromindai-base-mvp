@@ -15,13 +15,13 @@ logger = logging.getLogger("security_audit")
 DEFAULT_LIMITS = {
     "/upload": 10,
     "/brain": 30,
-    "/billing": 60,
+    "/billing": 180,
     "/auth/send-otp": 5,
-    "global": 120,
+    "global": 300,
 }
 
 DEFAULT_MAX_UPLOAD_MB = 25
-DEFAULT_MAX_CONCURRENT_AI = 3
+DEFAULT_MAX_CONCURRENT_AI = 15
 
 _in_memory_store = defaultdict(deque)
 _store_lock = Lock()
@@ -225,7 +225,7 @@ class RateLimitMiddleware:
         if r_client:
             try:
                 # 3. Concurrent Request Limiter for /brain AI endpoints
-                if path.startswith("/brain"):
+                if path.startswith("/brain") and not any(x in path for x in ["/status/", "/entries", "/stats"]):
                     max_concurrent = _get_dynamic_setting("max_concurrent_ai_requests", DEFAULT_MAX_CONCURRENT_AI)
                     concurrency_key = f"concurrency:brain:{ip}"
                     active_concurrent = r_client.incr(concurrency_key)

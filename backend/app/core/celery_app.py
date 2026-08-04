@@ -90,6 +90,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.billing_worker.cleanup_expired_subscriptions",
         "schedule": crontab(hour=5, minute=0),
     },
+    "cleanup-abandoned-wcc-recharges": {
+        "task": "app.workers.billing_worker.cleanup_abandoned_wcc_recharges",
+        "schedule": crontab(minute=0),
+    },
 }
 
 # @celery_app.on_after_finalize.connect

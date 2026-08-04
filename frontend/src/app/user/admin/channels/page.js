@@ -50,15 +50,15 @@ const showToast = (message) => {
 
 const API = '/api';
 
-const WhatsAppIcon = () => (
-    <svg viewBox="0 0 48 48" width="62" height="62" fill="none" xmlns="http://www.w3.org/2000/svg">
+const WhatsAppIcon = ({ className = "w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" }) => (
+    <svg viewBox="0 0 48 48" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="24" cy="24" r="24" fill="#14c956"/>
         <path d="M34.5 13.4C32.1 11 28.9 9.6 25.5 9.6c-7 0-12.7 5.7-12.7 12.7 0 2.2.6 4.4 1.7 6.3L12.6 35l6.6-1.7c1.8 1 3.8 1.5 5.9 1.5 7 0 12.7-5.7 12.7-12.7-.1-3.4-1.5-6.5-3.3-8.7zm-9 19.5c-1.9 0-3.7-.5-5.3-1.4l-.4-.2-3.9 1 1-3.8-.2-.4c-1-1.6-1.6-3.5-1.6-5.4 0-5.6 4.6-10.2 10.2-10.2 2.7 0 5.3 1.1 7.2 2.9 1.9 1.9 3 4.4 3 7.1.2 5.8-4.4 10.4-10 10.4zm5.6-7.6c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1c-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9s0-.5.2-.6l.5-.6c.1-.2.2-.4.3-.6 0-.2 0-.4-.1-.6s-.7-1.7-1-2.3c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.5 1 2.9 1.2 3.1c.2.2 2 3 4.9 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.2-.2-.5-.4z" fill="white"/>
     </svg>
 );
 
-const TwilioIcon = () => (
-    <svg viewBox="0 0 48 48" width="62" height="62" xmlns="http://www.w3.org/2000/svg">
+const TwilioIcon = ({ className = "w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" }) => (
+    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg">
         <circle cx="24" cy="24" r="24" fill="#F22F46"/>
         <circle cx="24" cy="24" r="9" fill="none" stroke="white" strokeWidth="3.5"/>
         <circle cx="24" cy="15.5" r="2.8" fill="white"/>
@@ -149,8 +149,8 @@ const CHANNELS_DATA = [
     },
 ];
 
-const GmailIcon = () => (
-    <svg viewBox="0 0 48 48" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+const GmailIcon = ({ className = "w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" }) => (
+    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg">
         <path fill="#4caf50" d="M45,16.2l-5,2.75l-5,4.75L35,40h7c1.657,0,3-1.343,3-3V16.2z"/>
         <path fill="#1e88e5" d="M3,16.2l3.614,1.71L13,23.7V40H6c-1.657,0-3-1.343-3-3V16.2z"/>
         <polygon fill="#e53935" points="35,11.2 24,19.45 13,11.2 12,17 13,23.7 24,31.95 35,23.7 36,17"/>
@@ -159,8 +159,8 @@ const GmailIcon = () => (
     </svg>
 );
 
-const GoogleCalendarIcon = () => (
-    <svg viewBox="0 0 48 48" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+const GoogleCalendarIcon = ({ className = "w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" }) => (
+    <svg viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg">
         <defs>
             <clipPath id="gcal-clip">
                 <rect x="2" y="2" width="44" height="44" rx="8"/>
@@ -248,13 +248,11 @@ const CATEGORY_OPTIONS = [
     { value: 'calendar', label: 'Calendar' },
 ];
 
-// ── Twilio Onboarding Modal ───────────────────────────────────────────────────
+// ── Twilio Onboarding Modal ──────────────────────// ── Twilio Onboarding Modal ───────────────────────────────────────────────────
 // Step labels for progress bar
 const TWILIO_STEPS = [
-    { num: 1, label: 'Intro' },
-    { num: 2, label: 'Overview' },
-    { num: 3, label: 'Credentials' },
-    { num: 4, label: 'Connect' },
+    { num: 1, label: 'Credentials' },
+    { num: 2, label: 'Connect' },
 ];
 
 function TwilioOnboardingModal({
@@ -273,14 +271,13 @@ function TwilioOnboardingModal({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6"
             style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
         >
             {/* Modal container */}
             <div
-                className="relative w-full rounded-2xl overflow-hidden"
+                className="relative w-full max-w-[480px] sm:max-w-[500px] max-h-[90vh] flex flex-col rounded-2xl overflow-hidden"
                 style={{
-                    maxWidth: '500px',
                     background: 'linear-gradient(145deg, #0f0305 0%, #0d0d0d 60%, #0a0305 100%)',
                     border: '1px solid rgba(242,47,70,0.18)',
                     boxShadow: '0 0 80px rgba(242,47,70,0.12), 0 0 0 1px rgba(255,255,255,0.03), 0 24px 60px rgba(0,0,0,0.6)',
@@ -288,14 +285,14 @@ function TwilioOnboardingModal({
             >
                 {/* Top gradient line */}
                 <div
-                    className="h-px w-full"
+                    className="h-px w-full shrink-0"
                     style={{
                         background: 'linear-gradient(90deg, transparent 0%, rgba(242,47,70,0.8) 30%, rgba(242,47,70,1) 50%, rgba(242,47,70,0.8) 70%, transparent 100%)',
                     }}
                 />
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 pt-5 pb-4">
+                <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 shrink-0">
                     <div className="flex items-center gap-2.5">
                         <div
                             className="w-7 h-7 rounded-lg flex items-center justify-center"
@@ -306,7 +303,7 @@ function TwilioOnboardingModal({
                         >
                             <TwilioIconSm size={16} />
                         </div>
-                        <span className="text-[13px] font-semibold text-white/70 tracking-wide">
+                        <span className="text-xs sm:text-[13px] font-semibold text-white/70 tracking-wide">
                             Connect Twilio
                         </span>
                     </div>
@@ -323,11 +320,10 @@ function TwilioOnboardingModal({
 
                 {/* Step Progress (hidden on success) */}
                 {!isSuccess && (
-                    <div className="px-6 pb-5">
+                    <div className="px-4 sm:px-6 pb-4 shrink-0">
                         <div className="flex items-center gap-1.5 mb-2">
                             {TWILIO_STEPS.map((s) => {
                                 const active = typeof twilioStep === 'number' && twilioStep >= s.num;
-                                const current = twilioStep === s.num;
                                 return (
                                     <div key={s.num} className="flex-1 relative">
                                         <div
@@ -343,166 +339,24 @@ function TwilioOnboardingModal({
                                 );
                             })}
                         </div>
-                        <p className="text-[11px] text-white/25 font-medium">
-                            Step {twilioStep} of 4
+                        <p className="text-[10px] sm:text-[11px] text-white/25 font-medium">
+                            Step {twilioStep} of 2
                         </p>
                     </div>
                 )}
 
                 {/* ─── Step Content ─────────────────────────────────────── */}
-                <div className="px-6 pb-6">
+                <div className="px-4 sm:px-6 pb-5 sm:pb-6 overflow-y-auto custom-scrollbar flex-1">
 
-                    {/* ── STEP 1: Welcome ── */}
+                    {/* ── STEP 1: Get Credentials ── */}
                     {twilioStep === 1 && (
                         <div>
-                            <div className="text-center mb-6">
-                                <div
-                                    className="w-[72px] h-[72px] rounded-[20px] flex items-center justify-center mx-auto mb-5"
-                                    style={{
-                                        background: 'linear-gradient(145deg, #F22F46 0%, #7a1422 100%)',
-                                        boxShadow: '0 0 40px rgba(242,47,70,0.35), 0 8px 24px rgba(0,0,0,0.4)',
-                                    }}
-                                >
-                                    <TwilioIconSm size={40} />
-                                </div>
-                                <h2 className="text-[22px] font-semibold text-white mb-2 tracking-tight">
-                                    Connect Twilio
-                                </h2>
-                                <p className="text-[13px] text-white/45 leading-relaxed max-w-[300px] mx-auto">
-                                    Follow these simple steps to connect Twilio in less than 2 minutes.
-                                </p>
-                            </div>
-
-                            {/* Feature list */}
-                            <div className="space-y-2.5 mb-7">
-                                {[
-                                    { icon: MessageSquare, label: 'Send WhatsApp Messages', desc: 'Reach customers on their preferred platform' },
-                                    { icon: Phone, label: 'Send SMS Messages', desc: 'Broadcast and automate text campaigns' },
-                                    { icon: RefreshCw, label: 'Receive Customer Replies', desc: 'Two-way conversations in your inbox' },
-                                    { icon: Cpu, label: 'Automate Conversations', desc: 'AI-powered flows with Twilio routing' },
-                                ].map((feat, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex items-center gap-3.5 p-3.5 rounded-xl transition-all duration-200"
-                                        style={{
-                                            background: 'rgba(255,255,255,0.03)',
-                                            border: '1px solid rgba(255,255,255,0.06)',
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(242,47,70,0.06)'; e.currentTarget.style.borderColor = 'rgba(242,47,70,0.18)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
-                                    >
-                                        <div
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                                            style={{ background: 'rgba(242,47,70,0.12)', border: '1px solid rgba(242,47,70,0.2)' }}
-                                        >
-                                            <feat.icon size={15} className="text-red-400" />
-                                        </div>
-                                        <div>
-                                            <div className="text-[13px] font-medium text-white">{feat.label}</div>
-                                            <div className="text-[11px] text-white/35 mt-0.5">{feat.desc}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <button
-                                onClick={() => setTwilioStep(2)}
-                                className="w-full py-3 rounded-xl text-white font-semibold text-[14px] flex items-center justify-center gap-2 transition-all duration-200"
-                                style={{
-                                    background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
-                                    boxShadow: '0 0 24px rgba(242,47,70,0.35), 0 4px 12px rgba(0,0,0,0.3)',
-                                }}
-                                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 32px rgba(242,47,70,0.5), 0 4px 12px rgba(0,0,0,0.3)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 24px rgba(242,47,70,0.35), 0 4px 12px rgba(0,0,0,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                            >
-                                Get Started <ChevronRight size={16} />
-                            </button>
-                        </div>
-                    )}
-
-                    {/* ── STEP 2: What is Twilio ── */}
-                    {twilioStep === 2 && (
-                        <div>
-                            <h2 className="text-[20px] font-semibold text-white mb-1.5 tracking-tight">What is Twilio?</h2>
-                            <p className="text-[13px] text-white/40 mb-5 leading-relaxed">
-                                A quick overview of what Twilio does for your workspace.
-                            </p>
-
-                            <div className="grid grid-cols-2 gap-3 mb-7">
-                                {[
-                                    {
-                                        emoji: '💬',
-                                        title: 'WhatsApp & SMS',
-                                        desc: 'Send & receive messages on both platforms seamlessly.',
-                                    },
-                                    {
-                                        emoji: '📡',
-                                        title: 'Reliable & Scalable',
-                                        desc: 'Enterprise-grade reliability with global reach.',
-                                    },
-                                    {
-                                        emoji: '🔄',
-                                        title: 'Auto Replies',
-                                        desc: 'Automate customer conversation flows with AI.',
-                                    },
-                                    {
-                                        emoji: '⚡',
-                                        title: 'Quick Setup',
-                                        desc: 'Connect in under 2 minutes with just your credentials.',
-                                    },
-                                ].map((card, i) => (
-                                    <div
-                                        key={i}
-                                        className="p-4 rounded-xl transition-all duration-200"
-                                        style={{
-                                            background: 'rgba(255,255,255,0.03)',
-                                            border: '1px solid rgba(255,255,255,0.07)',
-                                        }}
-                                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.2)'; e.currentTarget.style.background = 'rgba(242,47,70,0.05)'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                                    >
-                                        <div className="text-[24px] mb-2.5">{card.emoji}</div>
-                                        <div className="text-[12px] font-semibold text-white mb-1 leading-tight">{card.title}</div>
-                                        <div className="text-[11px] text-white/35 leading-relaxed">{card.desc}</div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setTwilioStep(1)}
-                                    className="px-5 py-2.5 rounded-xl text-[13px] text-white/50 transition-all duration-200"
-                                    style={{ border: '1px solid rgba(255,255,255,0.1)' }}
-                                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    onClick={() => setTwilioStep(3)}
-                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition-all duration-200"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
-                                        boxShadow: '0 0 20px rgba(242,47,70,0.28)',
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(242,47,70,0.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.28)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                                >
-                                    Continue Setup <ChevronRight size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── STEP 3: Get Credentials ── */}
-                    {twilioStep === 3 && (
-                        <div>
-                            <h2 className="text-[20px] font-semibold text-white mb-1.5 tracking-tight">Get Your Credentials</h2>
-                            <p className="text-[13px] text-white/60 mb-5 leading-relaxed">
+                            <h2 className="text-lg sm:text-[20px] font-semibold text-white mb-1.5 tracking-tight">Get Your Credentials</h2>
+                            <p className="text-xs sm:text-[13px] text-white/60 mb-4 sm:mb-5 leading-relaxed">
                                 Follow these steps to retrieve your Twilio credentials.
                             </p>
 
-                            <div className="space-y-2.5 mb-5">
+                            <div className="space-y-2 sm:space-y-2.5 mb-4 sm:mb-5">
                                 {[
                                     {
                                         num: 1,
@@ -524,10 +378,15 @@ function TwilioOnboardingModal({
                                         title: 'Get Your Phone Number',
                                         desc: 'Purchase or use an existing WhatsApp-enabled number.',
                                     },
+                                    {
+                                        num: 5,
+                                        title: 'Connect Your Twilio Account by using below mentioned link',
+                                        desc: 'www.example.com',
+                                    },  
                                 ].map((step) => (
                                     <div
                                         key={step.num}
-                                        className="flex items-start gap-3.5 p-3.5 rounded-xl transition-all duration-200"
+                                        className="flex items-start gap-2.5 sm:gap-3.5 p-3 sm:p-3.5 rounded-xl transition-all duration-200"
                                         style={{
                                             background: 'rgba(255,255,255,0.03)',
                                             border: '1px solid rgba(255,255,255,0.06)',
@@ -536,7 +395,7 @@ function TwilioOnboardingModal({
                                         onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
                                     >
                                         <div
-                                            className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[11px] font-bold"
+                                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[10px] sm:text-[11px] font-bold"
                                             style={{
                                                 background: 'rgba(242,47,70,0.15)',
                                                 border: '1px solid rgba(242,47,70,0.3)',
@@ -546,8 +405,8 @@ function TwilioOnboardingModal({
                                             {step.num}
                                         </div>
                                         <div>
-                                            <div className="text-[13px] font-regular text-white mb-0.5">{step.title}</div>
-                                            <div className="text-[11px] text-white/60 leading-relaxed">{step.desc}</div>
+                                            <div className="text-xs sm:text-[13px] font-regular text-white mb-0.5">{step.title}</div>
+                                            <div className="text-[10px] sm:text-[11px] text-white/60 leading-relaxed">{step.desc}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -558,7 +417,7 @@ function TwilioOnboardingModal({
                                 href="https://console.twilio.com"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[13px] font-medium mb-5 transition-all duration-200"
+                                className="flex items-center justify-center gap-2 w-full py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] font-medium mb-4 sm:mb-5 transition-all duration-200"
                                 style={{
                                     border: '1px solid rgba(242,47,70,0.3)',
                                     color: '#F22F46',
@@ -571,44 +430,32 @@ function TwilioOnboardingModal({
                                 Open Twilio Console
                             </a>
 
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setTwilioStep(2)}
-                                    className="px-5 py-2.5 rounded-xl text-[13px] text-white/50 transition-all duration-200"
-                                    style={{ border: '1px solid rgba(255,255,255,0.1)' }}
-                                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    onClick={() => setTwilioStep(4)}
-                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition-all duration-200"
-                                    style={{
-                                        background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
-                                        boxShadow: '0 0 20px rgba(242,47,70,0.28)',
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(242,47,70,0.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.28)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                                >
-                                    I Have My Credentials <ChevronRight size={14} />
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => setTwilioStep(2)}
+                                className="w-full py-2.5 rounded-xl text-white font-semibold text-xs sm:text-[13px] flex items-center justify-center gap-2 transition-all duration-200"
+                                style={{
+                                    background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
+                                    boxShadow: '0 0 20px rgba(242,47,70,0.28)',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(242,47,70,0.45)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.28)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                            >
+                                I Have My Credentials <ChevronRight size={14} />
+                            </button>
                         </div>
                     )}
 
-                    {/* ── STEP 4: Enter Credentials (EXISTING FORM - UNCHANGED LOGIC) ── */}
-                    {twilioStep === 4 && (
+                    {/* ── STEP 2: Enter Credentials ── */}
+                    {twilioStep === 2 && (
                         <div>
-                            <h2 className="text-[20px] font-semibold text-white mb-1.5 tracking-tight">Enter Your Credentials</h2>
-                            <p className="text-[13px] text-white/60 mb-5 leading-relaxed">
+                            <h2 className="text-lg sm:text-[20px] font-semibold text-white mb-1.5 tracking-tight">Enter Your Credentials</h2>
+                            <p className="text-xs sm:text-[13px] text-white/60 mb-4 sm:mb-5 leading-relaxed">
                                 Paste your Twilio details below to complete the connection.
                             </p>
 
-                            {/* ─── EXISTING FORM FIELDS — DO NOT MODIFY LOGIC ─── */}
-                            <div className="space-y-4 mb-6">
+                            <div className="space-y-3.5 sm:space-y-4 mb-5 sm:mb-6">
                                 <div>
-                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
+                                    <label className="block text-[10px] sm:text-[11px] text-white/60 mb-1 sm:mb-1.5 uppercase tracking-widest font-medium">
                                         Twilio Account SID
                                     </label>
                                     <input
@@ -616,7 +463,7 @@ function TwilioOnboardingModal({
                                         placeholder="ACxxxxxxxx..."
                                         value={twilioForm.sid}
                                         onChange={e => setTwilioForm(prev => ({ ...prev, sid: e.target.value }))}
-                                        className="w-full rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
+                                        className="w-full rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
                                         style={{
                                             background: 'rgba(255,255,255,0.03)',
                                             border: '1px solid rgba(255,255,255,0.09)',
@@ -627,7 +474,7 @@ function TwilioOnboardingModal({
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
+                                    <label className="block text-[10px] sm:text-[11px] text-white/60 mb-1 sm:mb-1.5 uppercase tracking-widest font-medium">
                                         Twilio Auth Token
                                     </label>
                                     <div className="relative">
@@ -636,7 +483,7 @@ function TwilioOnboardingModal({
                                             placeholder="Your Twilio Auth Token"
                                             value={twilioForm.token}
                                             onChange={e => setTwilioForm(prev => ({ ...prev, token: e.target.value }))}
-                                            className="w-full rounded-xl pl-4 pr-11 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
+                                            className="w-full rounded-xl pl-3 sm:pl-4 pr-10 sm:pr-11 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
                                             style={{
                                                 background: 'rgba(255,255,255,0.03)',
                                                 border: '1px solid rgba(255,255,255,0.09)',
@@ -655,7 +502,7 @@ function TwilioOnboardingModal({
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] text-white/60 mb-1.5 uppercase tracking-widest font-medium">
+                                    <label className="block text-[10px] sm:text-[11px] text-white/60 mb-1 sm:mb-1.5 uppercase tracking-widest font-medium">
                                         Twilio Phone Number
                                     </label>
                                     <input
@@ -663,7 +510,7 @@ function TwilioOnboardingModal({
                                         placeholder="+1234567890"
                                         value={twilioForm.phone}
                                         onChange={e => setTwilioForm(prev => ({ ...prev, phone: e.target.value }))}
-                                        className="w-full rounded-xl px-4 py-2.5 text-white text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
+                                        className="w-full rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-white text-xs sm:text-[13px] placeholder:text-white/40 outline-none font-mono transition-all duration-200"
                                         style={{
                                             background: 'rgba(255,255,255,0.03)',
                                             border: '1px solid rgba(255,255,255,0.09)',
@@ -671,33 +518,31 @@ function TwilioOnboardingModal({
                                         onFocus={e => { e.currentTarget.style.borderColor = 'rgba(242,47,70,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(242,47,70,0.06)'; }}
                                         onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; e.currentTarget.style.boxShadow = 'none'; }}
                                     />
-                                    <p className="text-[10px] text-white/45 mt-1.5">Use a WhatsApp-enabled number</p>
+                                    <p className="text-[10px] text-white/45 mt-1">Use a WhatsApp-enabled number</p>
                                 </div>
                             </div>
-                            {/* ─── END EXISTING FORM FIELDS ─── */}
 
-                            <div className="flex gap-3">
+                            <div className="flex gap-2.5 sm:gap-3">
                                 <button
-                                    onClick={() => setTwilioStep(3)}
+                                    onClick={() => setTwilioStep(1)}
                                     disabled={twilioSubmitting}
-                                    className="px-5 py-2.5 rounded-xl text-[13px] text-white/50 transition-all duration-200 disabled:opacity-30"
+                                    className="px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-[13px] text-white/50 transition-all duration-200 disabled:opacity-30"
                                     style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                                     onMouseEnter={e => { if (!twilioSubmitting) { e.currentTarget.style.color = 'rgba(255,255,255,0.9)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; } }}
                                     onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                                 >
                                     Back
                                 </button>
-                                {/* Calls the EXISTING submitTwilio function — unchanged */}
                                 <button
                                     onClick={submitTwilio}
                                     disabled={twilioSubmitting}
-                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-[13px] flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
+                                    className="flex-1 py-2.5 rounded-xl text-white font-semibold text-xs sm:text-[13px] flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
                                     style={{
                                         background: 'linear-gradient(135deg, #F22F46 0%, #c0233a 100%)',
                                         boxShadow: '0 0 20px rgba(242,47,70,0.3)',
                                     }}
                                     onMouseEnter={e => { if (!twilioSubmitting) { e.currentTarget.style.boxShadow = '0 0 28px rgba(242,47,70,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                    onMouseLeave={e => { if (!twilioSubmitting) { e.currentTarget.style.boxShadow = '0 0 20px rgba(242,47,70,0.3)'; e.currentTarget.style.transform = 'translateY(0)'; } }}
                                 >
                                     {twilioSubmitting ? (
                                         <>
@@ -714,10 +559,9 @@ function TwilioOnboardingModal({
 
                     {/* ── SUCCESS SCREEN ── */}
                     {twilioStep === 'success' && (
-                        <div className="text-center py-5">
-                            {/* Animated green check */}
+                        <div className="text-center py-4 sm:py-5">
                             <div
-                                className="w-[80px] h-[80px] rounded-full flex items-center justify-center mx-auto mb-6"
+                                className="w-16 h-16 sm:w-[80px] sm:h-[80px] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6"
                                 style={{
                                     background: 'radial-gradient(circle, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.04) 70%)',
                                     border: '2px solid rgba(34,197,94,0.3)',
@@ -725,19 +569,19 @@ function TwilioOnboardingModal({
                                     animation: 'scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                                 }}
                             >
-                                <Check size={34} className="text-green-400" strokeWidth={2.5} />
+                                <Check size={30} className="text-green-400" strokeWidth={2.5} />
                             </div>
 
-                            <h2 className="text-[20px] font-semibold text-white mb-2.5 tracking-tight">
+                            <h2 className="text-lg sm:text-[20px] font-semibold text-white mb-2 tracking-tight">
                                 Twilio Connected Successfully
                             </h2>
-                            <p className="text-[13px] text-white/45 leading-relaxed max-w-[280px] mx-auto mb-8">
+                            <p className="text-xs sm:text-[13px] text-white/45 leading-relaxed max-w-[280px] mx-auto mb-6 sm:mb-8">
                                 You can now send and receive WhatsApp and SMS messages through Twilio.
                             </p>
 
                             <button
                                 onClick={() => setTwilioStep(null)}
-                                className="px-10 py-3 rounded-xl text-white font-semibold text-[14px] transition-all duration-200"
+                                className="px-8 sm:px-10 py-2.5 sm:py-3 rounded-xl text-white font-semibold text-xs sm:text-[14px] transition-all duration-200"
                                 style={{
                                     background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
                                     boxShadow: '0 0 24px rgba(34,197,94,0.3)',
@@ -771,26 +615,38 @@ export default function ChannelsPage() {
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces.find((item) => item.id === workspaceId) || null;
 
-    useEffect(() => {
-        // Load statuses from localStorage
-        const waConnected = localStorage.getItem("whatsapp_connected") === "true";
+    const [statuses, setStatuses] = useState(() => {
+        if (typeof window === 'undefined') return { whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false };
+        return {
+            whatsapp: localStorage.getItem("whatsapp_connected") === "true",
+            instagram: localStorage.getItem("instagram_connected") === "true",
+            gmail: false,
+            twilio: localStorage.getItem("twilio_connected") === "true",
+            google_calendar: false
+        };
+    });
+    const [hoveredBtn, setHoveredBtn] = useState(null);
+    const [connecting, setConnecting] = useState(null);
+
+    // ── Twilio state ────────────────────────────────────────────────────────
+    const [showTwilioModal, setShowTwilioModal] = useState(false);
+    const [twilioStep, setTwilioStep] = useState(null);
+    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '' });
+    const [showAuthToken, setShowAuthToken] = useState(false);
+    const [twilioSubmitting, setTwilioSubmitting] = useState(false);
+    const [connectedInfo, setConnectedInfo] = useState(() => {
+        if (typeof window === 'undefined') return {};
         const waPhone = localStorage.getItem("whatsapp_phone");
-        const igConnected = localStorage.getItem("instagram_connected") === "true";
         const igUsername = localStorage.getItem("instagram_username");
-        const twConnected = localStorage.getItem("twilio_connected") === "true";
         const twPhone = localStorage.getItem("twilio_phone");
-
-        setStatuses(prev => ({
-            ...prev,
-            whatsapp: waConnected,
-            instagram: igConnected,
-            twilio: twConnected
-        }));
-
-        if (waPhone) setConnectedInfo(prev => ({ ...prev, whatsapp: waPhone }));
-        if (igUsername) setConnectedInfo(prev => ({ ...prev, instagram: igUsername }));
-        if (twPhone) setConnectedInfo(prev => ({ ...prev, twilio: twPhone }));
-    }, []);
+        const info = {};
+        if (waPhone) info.whatsapp = waPhone;
+        if (igUsername) info.instagram = igUsername;
+        if (twPhone) info.twilio = twPhone;
+        return info;
+    });
+    const [whatsappPhoneId, setWhatsappPhoneId] = useState('');
+    const [whatsappWabaId, setWhatsappWabaId] = useState('');
 
     const loadIntegrationStatus = useCallback(async () => {
         try {
@@ -843,7 +699,7 @@ export default function ChannelsPage() {
         } catch (err) {
             console.error('Failed to load integration status:', err);
         }
-    }, [workspace?.id]);
+    }, [workspace]);
 
     const loadChannelsStatus = async () => {
         try {
@@ -866,35 +722,18 @@ export default function ChannelsPage() {
     };
 
     useEffect(() => {
-        if (workspace?.id) loadIntegrationStatus();
+        if (!workspace?.id) return;
+        const fetchStatus = async () => {
+            await loadIntegrationStatus();
+        };
+        fetchStatus();
     }, [workspace?.id, loadIntegrationStatus]);
 
-    const [statuses, setStatuses] = useState({
-        whatsapp: false, instagram: false, gmail: false, twilio: false, google_calendar: false
-    });
-    const [hoveredBtn, setHoveredBtn] = useState(null);
-
-    const [connecting, setConnecting] = useState(null);
-
-    // ── Twilio state ────────────────────────────────────────────────────────
-    // showTwilioModal kept for submitTwilio compatibility (it still calls setShowTwilioModal)
-    const [showTwilioModal, setShowTwilioModal] = useState(false);
-    // twilioStep drives the new onboarding UI: null | 1 | 2 | 3 | 4 | 'success'
-    const [twilioStep, setTwilioStep] = useState(null);
-    // ────────────────────────────────────────────────────────────────────────
-
-    const [twilioForm, setTwilioForm] = useState({ sid: '', token: '', phone: '' });
-    const [showAuthToken, setShowAuthToken] = useState(false);
-    const [twilioSubmitting, setTwilioSubmitting] = useState(false);
-    const [connectedInfo, setConnectedInfo] = useState({});
-    const [whatsappPhoneId, setWhatsappPhoneId] = useState('');
-    const [whatsappWabaId, setWhatsappWabaId] = useState('');
-
     // ─── Detect successful Twilio connection and advance to success screen ───
-    // Watches twilioSubmitting transition (true → false) while on step 4
+    // Watches twilioSubmitting transition (true → false) while on step 2
     const prevTwilioSubmitting = useRef(false);
     useEffect(() => {
-        if (prevTwilioSubmitting.current === true && !twilioSubmitting && statuses.twilio && twilioStep === 4) {
+        if (prevTwilioSubmitting.current === true && !twilioSubmitting && statuses.twilio && twilioStep === 2) {
             setTwilioStep('success');
         }
         prevTwilioSubmitting.current = twilioSubmitting;
@@ -936,7 +775,9 @@ export default function ChannelsPage() {
             const q = searchQuery.trim().toLowerCase();
             items = items.filter(item =>
                 item.name.toLowerCase().includes(q) ||
-                item.description.toLowerCase().includes(q)
+                item.description.toLowerCase().includes(q) ||
+                (item.categoryLabel && item.categoryLabel.toLowerCase().includes(q)) ||
+                (item.category && item.category.toLowerCase().includes(q))
             );
         }
 
@@ -947,7 +788,10 @@ export default function ChannelsPage() {
 
         // Category filter
         if (categoryFilter !== 'all') {
-            items = items.filter(item => item.category === categoryFilter);
+            items = items.filter(item =>
+                (item.category && item.category.toLowerCase() === categoryFilter.toLowerCase()) ||
+                (item.categoryLabel && item.categoryLabel.toLowerCase().includes(categoryFilter.toLowerCase()))
+            );
         }
 
         // Sort
@@ -979,7 +823,6 @@ export default function ChannelsPage() {
                 if (data?.type === 'WA_EMBEDDED_SIGNUP') {
                     if (data.event === 'FINISH') {
                         const { phone_number_id, waba_id } = data.data;
-                        console.log('WhatsApp signup finished, FB.login callback will handle connection:', { phone_number_id, waba_id });
                     } else if (data.event === 'CANCEL') {
                         setConnecting(null);
                     } else if (data.event === 'ERROR') {
@@ -1010,6 +853,10 @@ export default function ChannelsPage() {
     };
 
     const startWhatsAppSignup = () => {
+        if (typeof window === 'undefined' || !window.FB) {
+            alert("Facebook SDK is not loaded yet. If you are using an adblocker or private browsing mode, please disable tracking protection for this site and try again in a moment.");
+            return;
+        }
         setConnecting('whatsapp');
         window.FB.login(
             (response) => {
@@ -1175,121 +1022,149 @@ const disconnectChannel = async (channelId) => {
     };
 
     return (
-        <div className={`min-h-screen bg-black text-white ${poppins.className}`}>
-            <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+        <div className={`w-full h-full min-h-screen bg-black text-white overflow-y-auto custom-scrollbar ${poppins.className}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 lg:py-10">
 
                 {/*  Header  */}
-                <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-10 gap-6">
-                    <div className="pt-2 md:pb-2">
-                        <h1 className="text-3xl lg:text-4xl font-medium text-white tracking-tight mb-5">Channels</h1>
-                        <p className="text-white/70 text-[15px] max-w-md leading-relaxed mb-4">
-                            Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
-                        </p>
-                    </div>                                  
-
-                    <div className="hidden md:flex items-center justify-center flex-shrink-0 pointer-events-none select-none">
-                        <Image
-                            src="/images/ChannelImage.webp"
-                            alt="AI Assistant"
-                            className="object-contain drop-shadow-2xl"
-                            width={432}
-                            height={288}
-                            quality={100}
-                            priority
-                        />
-                    </div>
+                <div className="mb-6 sm:mb-8 lg:mb-10">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold sm:font-medium text-white tracking-tight mb-2 sm:mb-3">
+                        Channels
+                    </h1>
+                    <p className="text-white/70 text-xs sm:text-sm lg:text-[15px] max-w-xl leading-relaxed">
+                        Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
+                    </p>
                 </div>
 
                 {/*  Toolbar  */}
-                <div className="flex flex-wrap items-center gap-3 mb-10">
-                    <div className="relative flex-1 min-w-[220px]">
-                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#444]" />
-                        <input type="text" placeholder="Search Channels"
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6 sm:mb-8 lg:mb-10">
+                    {/* Search Bar */}
+                    <div className="relative flex-1 min-w-0 sm:min-w-[200px] lg:min-w-[260px]">
+                        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#555]" />
+                        <input
+                            type="text"
+                            placeholder="Search Channels"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
-                            className="w-full bg-[#070012] border border-[#1f1f1f] rounded-xl py-2.5 pl-10 pr-4 text-[14px] text-white placeholder:text-[#888] outline-none focus:border-[#333] transition-colors" />
+                            className="w-full bg-[#070012] border border-[#1f1f1f] rounded-xl py-2 sm:py-2.5 pl-9 sm:pl-10 pr-3 sm:pr-4 text-xs sm:text-sm text-white placeholder:text-[#666] outline-none focus:border-[#444] transition-colors"
+                        />
                     </div>
 
-                    {/* Sort by dropdown */}
-                    <div className="relative" ref={sortRef}>
-                        <button
-                            onClick={() => setOpenDropdown(prev => prev === 'sort' ? null : 'sort')}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-[#070012] border border-[#1f1f1f] rounded-xl text-[13px] text-[#aaa] hover:border-[#333] hover:text-white transition-colors">
-                            {sortBy === 'default' ? 'Sort by' : SORT_OPTIONS.find(o => o.value === sortBy)?.label}
-                            <ChevronDown size={13} className="text-[#555]" />
-                        </button>
-                        {openDropdown === 'sort' && (
-                            <div className="absolute top-full mt-1 right-0 min-w-[160px] rounded-xl py-1 z-50" style={{ background: 'rgba(20, 20, 30, 0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)' }}>
-                                {SORT_OPTIONS.map(opt => (
-                                    <button key={opt.value}
-                                        onClick={() => { setSortBy(opt.value); setOpenDropdown(null); }}
-                                        className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${
-                                            sortBy === opt.value ? 'text-white bg-white/5' : 'text-[#aaa] hover:text-white hover:bg-white/5'
-                                        }`}>
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    {/* Filter Dropdowns Container */}
+                    <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap shrink-0 relative z-30">
+                        {/* Sort by dropdown */}
+                        <div className="relative" ref={sortRef}>
+                            <button
+                                onClick={() => setOpenDropdown(prev => prev === 'sort' ? null : 'sort')}
+                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border ${
+                                    sortBy !== 'default'
+                                        ? 'bg-[#7C4DFF]/15 border-[#7C4DFF]/40 text-[#7C4DFF] font-semibold'
+                                        : 'bg-[#070012] border-[#1f1f1f] text-[#aaa] hover:border-[#333] hover:text-white'
+                                }`}
+                            >
+                                <span>{sortBy === 'default' ? 'Sort by' : SORT_OPTIONS.find(o => o.value === sortBy)?.label}</span>
+                                <ChevronDown size={13} className={`shrink-0 transition-transform ${openDropdown === 'sort' ? 'rotate-180 text-white' : 'text-[#555]'}`} />
+                            </button>
+                            {openDropdown === 'sort' && (
+                                <div className="absolute top-full mt-1.5 right-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
+                                    {SORT_OPTIONS.map(opt => (
+                                        <button key={opt.value}
+                                            onClick={() => { setSortBy(opt.value); setOpenDropdown(null); }}
+                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between ${
+                                                sortBy === opt.value ? 'text-[#7C4DFF] bg-[#7C4DFF]/10 font-bold' : 'text-[#aaa] hover:text-white hover:bg-white/5'
+                                            }`}>
+                                            <span>{opt.label}</span>
+                                            {sortBy === opt.value && <Check size={12} className="text-[#7C4DFF]" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
-                    {/* Type dropdown */}
-                    <div className="relative" ref={typeRef}>
-                        <button
-                            onClick={() => setOpenDropdown(prev => prev === 'type' ? null : 'type')}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-[#070012] border border-[#1f1f1f] rounded-xl text-[13px] text-[#aaa] hover:border-[#333] hover:text-white transition-colors">
-                            {typeFilter === 'all' ? 'Type' : TYPE_OPTIONS.find(o => o.value === typeFilter)?.label}
-                            <ChevronDown size={13} className="text-[#555]" />
-                        </button>
-                        {openDropdown === 'type' && (
-                            <div className="absolute top-full mt-1 right-0 min-w-[160px] rounded-xl py-1 z-50" style={{ background: 'rgba(20, 20, 30, 0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)' }}>
-                                {TYPE_OPTIONS.map(opt => (
-                                    <button key={opt.value}
-                                        onClick={() => { setTypeFilter(opt.value); setOpenDropdown(null); }}
-                                        className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${
-                                            typeFilter === opt.value ? 'text-white bg-white/5' : 'text-[#aaa] hover:text-white hover:bg-white/5'
-                                        }`}>
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                        {/* Type dropdown */}
+                        <div className="relative" ref={typeRef}>
+                            <button
+                                onClick={() => setOpenDropdown(prev => prev === 'type' ? null : 'type')}
+                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border ${
+                                    typeFilter !== 'all'
+                                        ? 'bg-[#7C4DFF]/15 border-[#7C4DFF]/40 text-[#7C4DFF] font-semibold'
+                                        : 'bg-[#070012] border-[#1f1f1f] text-[#aaa] hover:border-[#333] hover:text-white'
+                                }`}
+                            >
+                                <span>{typeFilter === 'all' ? 'Type' : TYPE_OPTIONS.find(o => o.value === typeFilter)?.label}</span>
+                                <ChevronDown size={13} className={`shrink-0 transition-transform ${openDropdown === 'type' ? 'rotate-180 text-white' : 'text-[#555]'}`} />
+                            </button>
+                            {openDropdown === 'type' && (
+                                <div className="absolute top-full mt-1.5 right-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
+                                    {TYPE_OPTIONS.map(opt => (
+                                        <button key={opt.value}
+                                            onClick={() => { setTypeFilter(opt.value); setOpenDropdown(null); }}
+                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between ${
+                                                typeFilter === opt.value ? 'text-[#7C4DFF] bg-[#7C4DFF]/10 font-bold' : 'text-[#aaa] hover:text-white hover:bg-white/5'
+                                            }`}>
+                                            <span>{opt.label}</span>
+                                            {typeFilter === opt.value && <Check size={12} className="text-[#7C4DFF]" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
-                    {/* Categories dropdown */}
-                    <div className="relative" ref={categoryRef}>
-                        <button
-                            onClick={() => setOpenDropdown(prev => prev === 'category' ? null : 'category')}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-[#070012] border border-[#1f1f1f] rounded-xl text-[13px] text-[#aaa] hover:border-[#333] hover:text-white transition-colors">
-                            {categoryFilter === 'all' ? 'Categories' : CATEGORY_OPTIONS.find(o => o.value === categoryFilter)?.label}
-                            <ChevronDown size={13} className="text-[#555]" />
-                        </button>
-                        {openDropdown === 'category' && (
-                            <div className="absolute top-full mt-1 right-0 min-w-[160px] rounded-xl py-1 z-50" style={{ background: 'rgba(20, 20, 30, 0.6)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)' }}>
-                                {CATEGORY_OPTIONS.map(opt => (
-                                    <button key={opt.value}
-                                        onClick={() => { setCategoryFilter(opt.value); setOpenDropdown(null); }}
-                                        className={`w-full text-left px-4 py-2 text-[13px] transition-colors ${
-                                            categoryFilter === opt.value ? 'text-white bg-white/5' : 'text-[#aaa] hover:text-white hover:bg-white/5'
-                                        }`}>
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Categories dropdown */}
+                        <div className="relative" ref={categoryRef}>
+                            <button
+                                onClick={() => setOpenDropdown(prev => prev === 'category' ? null : 'category')}
+                                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-[13px] transition-all whitespace-nowrap border ${
+                                    categoryFilter !== 'all'
+                                        ? 'bg-[#7C4DFF]/15 border-[#7C4DFF]/40 text-[#7C4DFF] font-semibold'
+                                        : 'bg-[#070012] border-[#1f1f1f] text-[#aaa] hover:border-[#333] hover:text-white'
+                                }`}
+                            >
+                                <span>{categoryFilter === 'all' ? 'Categories' : CATEGORY_OPTIONS.find(o => o.value === categoryFilter)?.label}</span>
+                                <ChevronDown size={13} className={`shrink-0 transition-transform ${openDropdown === 'category' ? 'rotate-180 text-white' : 'text-[#555]'}`} />
+                            </button>
+                            {openDropdown === 'category' && (
+                                <div className="absolute top-full mt-1.5 right-0 min-w-[160px] rounded-xl py-1.5 z-[100] bg-[#120C24] border border-white/10 shadow-2xl backdrop-blur-xl">
+                                    {CATEGORY_OPTIONS.map(opt => (
+                                        <button key={opt.value}
+                                            onClick={() => { setCategoryFilter(opt.value); setOpenDropdown(null); }}
+                                            className={`w-full text-left px-4 py-2 text-xs sm:text-[13px] font-medium transition-colors flex items-center justify-between ${
+                                                categoryFilter === opt.value ? 'text-[#7C4DFF] bg-[#7C4DFF]/10 font-bold' : 'text-[#aaa] hover:text-white hover:bg-white/5'
+                                            }`}>
+                                            <span>{opt.label}</span>
+                                            {categoryFilter === opt.value && <Check size={12} className="text-[#7C4DFF]" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Reset filters button */}
+                        {(sortBy !== 'default' || typeFilter !== 'all' || categoryFilter !== 'all' || searchQuery) && (
+                            <button
+                                onClick={() => {
+                                    setSortBy('default');
+                                    setTypeFilter('all');
+                                    setCategoryFilter('all');
+                                    setSearchQuery('');
+                                }}
+                                className="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1.5 transition-colors underline underline-offset-2"
+                            >
+                                Clear filters
+                            </button>
                         )}
                     </div>
                 </div>
 
                 {/*  Empty state  */}
                 {filteredItems.length === 0 && (
-                    <div className="text-center py-20">
-                        <p className="text-white/40 text-[15px]">No channels or integrations match your filters.</p>
+                    <div className="text-center py-12 sm:py-20">
+                        <p className="text-white/40 text-xs sm:text-sm lg:text-[15px]">No channels or integrations match your filters.</p>
                     </div>
                 )}
 
                 {/*  Channel Cards  */}
                 {filteredChannels.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-5">
                     {filteredChannels.map((item) => {
                         const isConnected  = statuses[item.id];
                         const isConnecting = connecting === item.id;
@@ -1313,47 +1188,47 @@ const disconnectChannel = async (channelId) => {
                                 }}
                             >
                                 {/* Card body */}
-                                <div className="p-6 flex-1 min-h-[160px]">
-                                    <div className="flex items-start gap-4">
+                                <div className="p-4 sm:p-5 lg:p-6 flex-1 min-h-[140px] sm:min-h-[160px]">
+                                    <div className="flex items-start gap-3 sm:gap-4">
                                         {/* Icon - left side */}
-                                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${item.iconBg} flex items-center justify-center shadow-lg flex-shrink-0`}>
-                                            <Icon />
+                                        <div className={`w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br ${item.iconBg} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                                            <Icon className={item.id === 'instagram' ? "w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-white" : "w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10"} />
                                         </div>
 
                                         {/* Content - right side */}
                                         <div className="flex-1 min-w-0">
                                             {item.subHeaderBelow ? (
-                                                <div className="mb-1.5">
-                                                    <h3 className="text-[17px] font-semibold text-white leading-tight mb-1">{item.name}</h3>
-                                                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                <div className="mb-1 sm:mb-1.5">
+                                                    <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight mb-1 truncate">{item.name}</h3>
+                                                    <span className={`inline-block text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wider ${item.badgeColor}`}>
                                                         {item.subHeader}
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <div className="flex items-center flex-wrap gap-2 mb-1.5">
-                                                    <h3 className="text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
-                                                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-1 sm:mb-1.5">
+                                                    <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
+                                                    <span className={`text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
                                                         {item.subHeader}
                                                     </span>
                                                 </div>
                                             )}
 
                                             {/* Description */}
-                                            <p className="text-white/60 text-[12px] leading-relaxed">{item.description}</p>
+                                            <p className="text-white/60 text-xs sm:text-[13px] leading-relaxed">{item.description}</p>
 
                                             {/* Connected info */}
                                             {isConnected && info && (
-                                                <div className="mt-2 space-y-1">
-                                                    <p className="text-[11px] text-white/60 font-mono">{info}</p>
+                                                <div className="mt-2 space-y-0.5 sm:space-y-1">
+                                                    <p className="text-[10px] sm:text-[11px] text-white/60 font-mono break-all">{info}</p>
                                                     {item.id === 'whatsapp' && (
                                                         <>
                                                             {whatsappPhoneId && (
-                                                                <p className="text-[10px] text-white/40 font-mono">
+                                                                <p className="text-[10px] text-white/40 font-mono break-all">
                                                                     Phone ID: <span className="text-white/60 select-all">{whatsappPhoneId}</span>
                                                                 </p>
                                                             )}
                                                             {whatsappWabaId && (
-                                                                <p className="text-[10px] text-white/40 font-mono">
+                                                                <p className="text-[10px] text-white/40 font-mono break-all">
                                                                     WABA ID: <span className="text-white/60 select-all">{whatsappWabaId}</span>
                                                                 </p>
                                                             )}
@@ -1362,22 +1237,22 @@ const disconnectChannel = async (channelId) => {
                                                 </div>
                                             )}
                                             {isConnecting && (
-                                                <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>
+                                                <p className="mt-2 text-[10px] sm:text-[11px] text-yellow-500 animate-pulse">Connecting...</p>
                                             )}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Card footer */}
-                                <div className="px-6 py-4 border-t border-[#141414] flex items-center justify-between">
+                                <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#141414] flex items-center justify-between gap-2">
                                     {/* Category */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                                         {isConnected ? (
-                                            <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]" />
+                                            <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e] shrink-0" />
                                         ) : (
-                                            <span className={`w-2 h-2 rounded-full ${item.categoryDot}`} />
+                                            <span className={`w-2 h-2 rounded-full ${item.categoryDot} shrink-0`} />
                                         )}
-                                        <span className="text-[12px] text-white/60">
+                                        <span className="text-xs sm:text-[13px] text-white/60 truncate">
                                             {isConnected ? 'Connected' : item.categoryLabel}
                                         </span>
                                     </div>
@@ -1388,15 +1263,15 @@ const disconnectChannel = async (channelId) => {
                                             onMouseEnter={() => setHoveredBtn(item.id)}
                                             onMouseLeave={() => setHoveredBtn(null)}
                                             onClick={() => disconnectIntegration(item.id)}
-                                            className="group/disc flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300"
+                                            className="group/disc flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs sm:text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300 shrink-0"
                                             title="Click to disconnect">
                                             {hoveredBtn === item.id ? (
                                                 <>
-                                                    <X size={14} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
+                                                    <X size={13} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Check size={14} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
+                                                    <Check size={13} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
                                                 </>
                                             )}
                                         </button>
@@ -1404,7 +1279,7 @@ const disconnectChannel = async (channelId) => {
                                         <button
                                             onClick={() => handleConnect(item.id)}
                                             disabled={isConnecting || !workspace}
-                                            className={`group/btn relative overflow-hidden flex items-center gap-2 px-4.5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none`}
+                                            className={`group/btn relative overflow-hidden flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0`}
                                             style={item.connectBtnStyle}
                                             onMouseEnter={(e) => {
                                                 if (!isConnecting && workspace && item.hoverGlow) {
@@ -1427,7 +1302,7 @@ const disconnectChannel = async (channelId) => {
                                             ) : (
                                                 <>
                                                     <span className="relative z-10">Connect</span>
-                                                    <ChevronRight size={14} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
+                                                    <ChevronRight size={13} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
                                                 </>
                                             )}
                                         </button>
@@ -1441,12 +1316,12 @@ const disconnectChannel = async (channelId) => {
 
                 {/*  Integration Section  */}
                 {filteredIntegrations.length > 0 && (
-                <div className="mt-14">
-                    <h2 className="text-3xl lg:text-4xl font-medium text-white tracking-tight mb-3">Integration</h2>
-                    <p className="text-white/70 text-[15px] max-w-md leading-relaxed mb-8">
+                <div className="mt-10 sm:mt-14">
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold sm:font-medium text-white tracking-tight mb-2 sm:mb-3">Integration</h2>
+                    <p className="text-white/70 text-xs sm:text-sm lg:text-[15px] max-w-xl leading-relaxed mb-6 sm:mb-8">
                         Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-5">
                         {filteredIntegrations.map((item) => {
                             const isConnected  = statuses[item.id];
                             const isConnecting = connecting === item.id;
@@ -1463,54 +1338,54 @@ const disconnectChannel = async (channelId) => {
                                     onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 0 40px ${item.glowColor}, inset 0 0 20px ${item.glowColor}`; }}
                                     onMouseLeave={e => { e.currentTarget.style.boxShadow = `0 0 30px ${item.glowColor}`; }}
                                 >
-                                    <div className="p-6 flex-1 min-h-[160px]">
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-16 h-16 flex items-center justify-center flex-shrink-0">
-                                                <Icon />
+                                    <div className="p-4 sm:p-5 lg:p-6 flex-1 min-h-[140px] sm:min-h-[160px]">
+                                        <div className="flex items-start gap-3 sm:gap-4">
+                                            <div className="w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 flex items-center justify-center flex-shrink-0">
+                                                <Icon className="w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 {item.subHeaderBelow ? (
-                                                    <div className="mb-1.5">
-                                                        <h3 className="text-[17px] font-semibold text-white leading-tight mb-1">{item.name}</h3>
-                                                        <span className={`inline-block text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                    <div className="mb-1 sm:mb-1.5">
+                                                        <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight mb-1 truncate">{item.name}</h3>
+                                                        <span className={`inline-block text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
                                                             {item.subHeader}
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center flex-wrap gap-2 mb-1.5">
-                                                        <h3 className="text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
-                                                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
+                                                    <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-1 sm:mb-1.5">
+                                                        <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
+                                                        <span className={`text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wider ${item.badgeColor}`}>
                                                             {item.subHeader}
                                                         </span>
                                                     </div>
                                                 )}
-                                                <p className="text-white/60 text-[12px] leading-relaxed">{item.description}</p>
-                                                {isConnected && info && <p className="mt-2 text-[11px] text-white/60 font-mono">{info}</p>}
-                                                {isConnecting && <p className="mt-2 text-[11px] text-yellow-500 animate-pulse">Connecting...</p>}
+                                                <p className="text-white/60 text-xs sm:text-[13px] leading-relaxed">{item.description}</p>
+                                                {isConnected && info && <p className="mt-2 text-[10px] sm:text-[11px] text-white/60 font-mono break-all">{info}</p>}
+                                                {isConnecting && <p className="mt-2 text-[10px] sm:text-[11px] text-yellow-500 animate-pulse">Connecting...</p>}
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="px-6 py-4 border-t border-[#141414] flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#141414] flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                                             {isConnected
-                                                ? <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]" />
-                                                : <span className={`w-2 h-2 rounded-full ${item.categoryDot}`} />}
-                                            <span className="text-[12px] text-white/60">{isConnected ? 'Connected' : item.categoryLabel}</span>
+                                                ? <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e] shrink-0" />
+                                                : <span className={`w-2 h-2 rounded-full ${item.categoryDot} shrink-0`} />}
+                                            <span className="text-xs sm:text-[13px] text-white/60 truncate">{isConnected ? 'Connected' : item.categoryLabel}</span>
                                         </div>
                                         {isConnected ? (
                                             <button
                                                 onMouseEnter={() => setHoveredBtn(item.id)}
                                                 onMouseLeave={() => setHoveredBtn(null)}
                                                 onClick={() => disconnectIntegration(item.id)}
-                                                className="group/disc flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300"
+                                                className="group/disc flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs sm:text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300 shrink-0"
                                                 title="Click to disconnect">
                                                 {hoveredBtn === item.id ? (
                                                     <>
-                                                        <X size={14} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
+                                                        <X size={13} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <Check size={14} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
+                                                        <Check size={13} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
                                                     </>
                                                 )}
                                             </button>
@@ -1518,7 +1393,7 @@ const disconnectChannel = async (channelId) => {
                                             <button
                                                 onClick={() => handleConnect(item.id)}
                                                 disabled={isConnecting || !workspace}
-                                                className={`group/btn relative overflow-hidden flex items-center gap-2 px-4.5 py-2 rounded-xl text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none`}
+                                                className={`group/btn relative overflow-hidden flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0`}
                                                 style={item.connectBtnStyle}
                                                 onMouseEnter={(e) => {
                                                     if (!isConnecting && workspace && item.hoverGlow) {
@@ -1541,7 +1416,7 @@ const disconnectChannel = async (channelId) => {
                                                 ) : (
                                                     <>
                                                         <span className="relative z-10">Connect</span>
-                                                        <ChevronRight size={14} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
+                                                        <ChevronRight size={13} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
                                                     </>
                                                 )}
                                             </button>
@@ -1555,12 +1430,12 @@ const disconnectChannel = async (channelId) => {
                 )}
 
                 {/*  Footer  */}
-                <div className="mt-14 text-center text-white/50 text-[12px]">
+                <div className="mt-10 sm:mt-14 text-center text-white/50 text-[11px] sm:text-[12px] pb-6">
                     <p>Orbion Agents securely handles your communication data according to our privacy policy.</p>
                 </div>
             </div>
 
-            {/* ── Twilio Onboarding Modal (replaces old simple modal) ── */}
+            {/* ── Twilio Onboarding Modal ── */}
             <TwilioOnboardingModal
                 twilioStep={twilioStep}
                 setTwilioStep={setTwilioStep}

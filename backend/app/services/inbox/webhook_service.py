@@ -51,10 +51,16 @@ def upsert_lead(
         Lead.conversation_id == conversation_id,
     ).first()
 
+    # Get conversation to retrieve contact_name
+    from app.models.conversation import Conversation
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conv_name = conv.contact_name if conv else None
+
     if not lead:
         lead = Lead(
             workspace_id=str(workspace_id),
             conversation_id=conversation_id,
+            name=conv_name,
             phone=phone,
             source=source,
             status="new",
@@ -76,7 +82,7 @@ def upsert_lead(
                 message=None,
                 template_key="lead_alert",
                 variables={
-                    "lead_name": phone or "New Lead",
+                    "lead_name": conv_name or phone or "New Lead",
                     "lead_email": phone or "N/A",
                     "lead_score": "0",
                     "source": source.upper()
@@ -87,6 +93,8 @@ def upsert_lead(
             logging.getLogger(__name__).error(f"Failed to send lead alert notification: {e}")
     else:
         lead.last_activity_at = datetime.now(timezone.utc)
+        if (not lead.name or lead.name == lead.phone) and conv_name and conv_name != lead.phone:
+            lead.name = conv_name
         db.flush()
 
     return lead
@@ -156,12 +164,16 @@ class WebhookService:
 
     @staticmethod
     async def handle_meta_whatsapp_webhook(payload: dict, db: Session):
+        print("\n[DEBUG WEBHOOK] WebhookService.handle_meta_whatsapp_webhook started")
         logger.info("Starting WebhookService.handle_meta_whatsapp_webhook")
         for entry in payload.get("entry", []):
-            logger.info(f"Processing entry: {entry.get('id')}")
+            entry_id = entry.get('id')
+            print(f"[DEBUG WEBHOOK] Processing entry: {entry_id}")
+            logger.info(f"Processing entry: {entry_id}")
             for change in entry.get("changes", []):
                 field = change.get("field")
                 value = change.get("value", {})
+                print(f"[DEBUG WEBHOOK] Processing change field: {field}")
                 logger.info(f"Processing change field: {field}, value keys: {list(value.keys())}")
                 
                 if field == "message_template_status_update":
@@ -169,6 +181,7 @@ class WebhookService:
                     tpl_lang = value.get("message_template_language")
                     tpl_event = value.get("event")
                     tpl_id = value.get("message_template_id")
+                    print(f"[DEBUG WEBHOOK] Template Status Update: {tpl_name} -> {tpl_event}")
                     logger.info(f"Template status update webhook hit: {tpl_name} ({tpl_lang}) -> {tpl_event}")
                     
                     waba_id = entry.get("id")
@@ -195,6 +208,7 @@ class WebhookService:
                     if template:
                         if tpl_event:
                             new_status = tpl_event.lower()
+                            print(f"[DEBUG WEBHOOK] Updating template {template.id} status to {new_status}")
                             logger.info(f"Updating template {template.id} status to {new_status}")
                             template.status = new_status
                             db.commit()
@@ -207,11 +221,15 @@ class WebhookService:
                 # In WhatsApp Cloud API, incoming messages usually have 'metadata' with 'phone_number_id'
                 metadata = value.get("metadata") or {}
                 phone_number_id = metadata.get("phone_number_id")
+                print(f"[DEBUG WEBHOOK] Metadata: {metadata}")
+                print(f"[DEBUG WEBHOOK] Phone Number ID: {phone_number_id}")
                 
                 if not phone_number_id:
+                    print("[DEBUG WEBHOOK] No phone_number_id found. Skipping change.")
                     logger.warning("No phone_number_id found in webhook change value. Skipping.")
                     continue
 
+                print(f"[DEBUG WEBHOOK] Looking up workspace for phone_number_id: {phone_number_id}")
                 logger.info(f"Looking up workspace for phone_number_id: {phone_number_id}")
                 workspace = ConversationService.get_workspace_for_meta_whatsapp_phone_number_id(
                     db,
@@ -219,9 +237,11 @@ class WebhookService:
                 )
                 
                 if not workspace:
+                    print(f"[DEBUG WEBHOOK] ERROR: No workspace found for phone_number_id: {phone_number_id}!")
                     logger.error(f"No workspace found attached to phone_number_id: {phone_number_id}. Message dropped.")
                     continue
                 
+                print(f"[DEBUG WEBHOOK] Workspace found: {workspace.id} (Name: {workspace.name})")
                 logger.info(f"Found workspace: {workspace.id}")
 
                 statuses = value.get("statuses") or []

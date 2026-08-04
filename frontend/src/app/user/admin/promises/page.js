@@ -53,7 +53,7 @@ export default function PromisesPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-8 lg:mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 mb-8 lg:mb-10">
 
         <div className="rounded-xl p-4 sm:p-5 lg:p-6 border border-amber-500/20 bg-black/40 backdrop-blur-sm transition hover:border-white/20">
           <div className="flex items-center gap-3">

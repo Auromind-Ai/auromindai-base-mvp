@@ -29,8 +29,8 @@ def test_upload_content_length_exceeded(client):
 
 def test_ai_concurrency_limiting(client, redis_mock):
     """Verify concurrent AI requests exceeding max limit return HTTP 429."""
-    # Set fake active concurrency counter in Redis to limit (3)
-    redis_mock.setex("concurrency:brain:198.51.100.10", 60, "3")
+    # Set fake active concurrency counter in Redis to limit (15)
+    redis_mock.setex("concurrency:brain:198.51.100.10", 60, "15")
 
     res = client.get("/brain/chat", headers={"X-Forwarded-For": "198.51.100.10"})
     assert res.status_code == 429
