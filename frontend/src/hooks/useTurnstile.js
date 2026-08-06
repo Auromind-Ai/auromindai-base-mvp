@@ -13,9 +13,8 @@ export function useTurnstile() {
   const rejectCallbackRef = useRef(null);
 
   const envSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const disableTurnstile = true; // Hardcoded to bypass Turnstile temporarily
   const siteKey = envSiteKey || (process.env.NODE_ENV !== 'production' ? DUMMY_DEV_SITE_KEY : null);
-  const siteKeyMissing = !siteKey && !disableTurnstile;
+  const siteKeyMissing = !siteKey;
 
   // Function to load the Turnstile script dynamically
   const loadScript = useCallback(() => {
@@ -58,7 +57,6 @@ export function useTurnstile() {
   // Initialize/render the Turnstile widget
   const initWidget = useCallback(async () => {
     if (typeof window === 'undefined' || !containerRef.current) return;
-    if (disableTurnstile) return;
 
     try {
       if (siteKeyMissing) {
@@ -122,16 +120,12 @@ export function useTurnstile() {
       console.error('[Turnstile] Initialization failed:', err);
       setError('Failed to initialize verification');
     }
-  }, [loadScript, siteKey, siteKeyMissing, envSiteKey, disableTurnstile]);
+  }, [loadScript, siteKey, siteKeyMissing, envSiteKey]);
 
   // Execute verification on-demand. Returns a promise resolving to the token string
   const execute = useCallback(() => {
     if (typeof window === 'undefined') {
       return Promise.reject(new Error('Not running in browser'));
-    }
-
-    if (disableTurnstile) {
-      return Promise.resolve("bypassed");
     }
 
     if (siteKeyMissing) {
@@ -162,7 +156,7 @@ export function useTurnstile() {
         reject(err);
       }
     });
-  }, [siteKeyMissing, disableTurnstile]);
+  }, [siteKeyMissing]);
 
   // Clean up Turnstile instances on unmount to avoid memory leaks
   useEffect(() => {
