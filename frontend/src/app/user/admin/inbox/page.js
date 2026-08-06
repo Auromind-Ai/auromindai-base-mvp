@@ -448,12 +448,21 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
     return (
         <div className="w-full h-full overflow-y-auto p-5" style={{ backgroundColor: CARD_BG }}>
             {showBackButton && (
-                <button
-                    onClick={onBack}
-                    className="flex items-center gap-2 text-[#666] text-[13px] mb-4 hover:text-white transition"
-                >
-                    <ArrowLeft size={16} /> Back to Chat
-                </button>
+                <div className="flex items-center justify-between mb-4">
+                    <button
+                        onClick={onBack}
+                        className="flex items-center gap-2 text-[#666] text-[13px] hover:text-white transition cursor-pointer"
+                    >
+                        <ArrowLeft size={16} /> Back to Chat
+                    </button>
+                    <button
+                        onClick={onBack}
+                        className="p-1 rounded-lg text-[#666] hover:text-white transition cursor-pointer"
+                        title="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
             )}
 
             {!lead ? (
@@ -864,13 +873,10 @@ function ChatArea({
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onInfoClick}
-                        className="p-2 rounded-lg hover:bg-white/5 transition-colors xl:hidden cursor-pointer"
+                        className="p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer min-[1601px]:hidden"
                         style={{ color: infoActive ? ch.color : '#777' }}
                         title="Contact Details"
                     >
-                        <Info size={17} strokeWidth={2} />
-                    </button>
-                    <button className="p-2 rounded-lg text-[#777] hidden xl:flex" style={{ color: '#777' }}>
                         <Info size={17} strokeWidth={2} />
                     </button>
                 </div>
@@ -878,7 +884,7 @@ function ChatArea({
 
             {/* Messages */}
             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
-                <div className="max-w-2xl mx-auto space-y-2">
+                <div className="max-w-3xl mx-auto space-y-2">
                     {messagesWithSeparators.map((item) => {
                         if (item._dateSeparator) {
                             return (
@@ -1171,10 +1177,11 @@ function InboxContent() {
     const pathname = usePathname();
     const urlConversationId = searchParams.get('conversationId') || searchParams.get('conversation');
 
-    // Tablet / mobile view state
+    // Tablet / mobile / desktop drawer view state
     const [tabletRight, setTabletRight] = useState('chat');
     const [ipadRight, setIpadRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
+    const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
 
     //  Template helpers ─
     const fetchInboxTemplates = useCallback(async () => {
@@ -1355,6 +1362,7 @@ function InboxContent() {
 
     //  Channel / filter changes
     useEffect(() => {
+        setDesktopDrawerOpen(false);
         const timer = setTimeout(() => {
             setLead(null); setResolvedLeadId(null);
             leadRef.current = null; setMessages([]); setConversations([]);
@@ -1553,8 +1561,8 @@ function InboxContent() {
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
-            {/*  DESKTOP (≥1280px)  */}
-            <div className="hidden xl:flex flex-1 overflow-hidden p-3 gap-3">
+            {/*  DESKTOP (≥1260px)  */}
+            <div className="hidden xl:flex flex-1 overflow-hidden p-3 gap-3 relative">
                 <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
                     <ChannelTabs ch={ch} setCh={setCh} />
                     <PanelCard className="flex-1">
@@ -1572,16 +1580,53 @@ function InboxContent() {
                 <div className="flex flex-col gap-3 flex-1" style={{ minWidth: 0 }}>
                     <div className="shrink-0" style={{ height: 40 }} />
                     <PanelCard className="flex-1">
-                        <ChatArea {...chatAreaProps} onInfoClick={() => {}} infoActive={false} showMobileBackButton={false} />
+                        <ChatArea
+                            {...chatAreaProps}
+                            onInfoClick={() => setDesktopDrawerOpen(prev => !prev)}
+                            infoActive={desktopDrawerOpen}
+                            showMobileBackButton={false}
+                        />
                     </PanelCard>
                 </div>
 
-                <div className="flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
+                {/* Permanent Contact Details Panel (ONLY on Large Desktop >1600px) */}
+                <div className="hidden min-[1601px]:flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
                     <div className="shrink-0" style={{ height: 40 }} />
                     <PanelCard className="flex-1">
                         <InfoPanel {...infoPanelProps} showBackButton={false} />
                     </PanelCard>
                 </div>
+
+                {/* Slide-over Drawer for Contact Details (ONLY on 1260px – 1600px) */}
+                <AnimatePresence>
+                    {desktopDrawerOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => setDesktopDrawerOpen(false)}
+                                className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm min-[1601px]:hidden"
+                            />
+                            <motion.div
+                                initial={{ x: '100%' }}
+                                animate={{ x: 0 }}
+                                exit={{ x: '100%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+                                className="fixed top-0 right-0 bottom-0 z-[90] w-[420px] max-w-[90vw] p-3 flex flex-col min-[1601px]:hidden"
+                            >
+                                <PanelCard className="flex-1 overflow-hidden shadow-2xl relative">
+                                    <InfoPanel
+                                        {...infoPanelProps}
+                                        showBackButton={true}
+                                        onBack={() => setDesktopDrawerOpen(false)}
+                                    />
+                                </PanelCard>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/*  IPAD PRO (1024px–1279px)  */}
