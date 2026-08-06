@@ -24,7 +24,7 @@ import { Poppins } from "next/font/google"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import HistoryModal from "@/components/common/HistoryModal"
-import { TABLE_PREVIEW_LIMIT, TRANSACTION_TYPES } from "@/lib/constants/billingConstants"
+import { TABLE_PREVIEW_LIMIT, TRANSACTION_TYPES } from "@/lib/constants/billingConstants.js"
 import {
   getActivityMeta,
   formatBillingDate,
