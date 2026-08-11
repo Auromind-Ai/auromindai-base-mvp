@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react"
+import api from "@/lib/api"
 import { 
   getPlatformSettings, 
   updatePlatformSettings, 
@@ -37,11 +38,6 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
   const [selectedMonth, setSelectedMonth] = useState("")
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [reportLoading, setReportLoading] = useState(false)
-
-  useEffect(() => {
-    fetchSettings()
-    fetchReports()
-  }, [])
 
   const fetchSettings = async () => {
     try {
@@ -109,9 +105,38 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
     }
   }
 
-  const handleDownloadInvoice = (invoiceId) => {
-    // Open in new tab which triggers RedirectResponse to S3/Storage
-    window.open(`/api/billing/invoices/${invoiceId}/download`, "_blank")
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSettings()
+      fetchReports()
+    }, 0)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleDownloadInvoice = async (invoiceId) => {
+    try {
+      setActionLoading(true)
+      const response = await api.requestRaw(`/billing/invoices/${invoiceId}/download`)
+      if (!response.ok) throw new Error("Download failed")
+      const contentType = response.headers.get("content-type")
+      if (!contentType?.includes("application/pdf")) {
+        throw new Error("Invalid PDF response")
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `invoice-${invoiceId}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+      setSuccess("Invoice downloaded successfully!")
+    } catch (err) {
+      console.error("Failed to download invoice", err)
+      setError("Failed to download invoice. Please try again.")
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   const formatCurrency = (amount) => {

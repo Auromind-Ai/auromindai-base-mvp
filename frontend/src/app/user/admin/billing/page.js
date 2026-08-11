@@ -71,9 +71,11 @@ export default function BillingHistoryPage() {
 
   useEffect(() => {
     if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
-      setError("Workspace not found. Please sign in again.")
-      setLoading(false)
-      return
+      const timer = setTimeout(() => {
+        setError("Workspace not found. Please sign in again.")
+        setLoading(false)
+      }, 0)
+      return () => clearTimeout(timer)
     }
 
     const loadBillingHistory = async () => {
@@ -260,7 +262,7 @@ export default function BillingHistoryPage() {
     setDownloadingId(payment.id)
     triggerToast("📄 Downloading invoice...")
     try {
-      const response = await fetch(`/api/billing/invoices/${targetId}/download`)
+      const response = await api.requestRaw(`/billing/invoices/${targetId}/download`)
       if (!response.ok) throw new Error("Download failed")
       const contentType = response.headers.get("content-type")
       if (!contentType?.includes("application/pdf")) {
@@ -750,11 +752,11 @@ export default function BillingHistoryPage() {
             key: "description",
             label: "Description",
             render: (r) => {
-              const meta = getActivityMeta(r)
+              const meta = getActivityMeta(r) || {}
               return (
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: meta.badgeStyle.color }} />
-                  <span className="font-medium text-white">{r.description || meta.desc}</span>
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: meta.badgeStyle?.color || meta.color || "#818cf8" }} />
+                  <span className="font-medium text-white">{r.description || meta.desc || "Payment Transaction"}</span>
                 </div>
               )
             }

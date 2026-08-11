@@ -737,11 +737,11 @@ function LoginContent() {
             <div 
                 ref={containerRef} 
                 style={{ 
-                    display: 'none', 
-                    width: '1px', 
-                    height: '1px', 
                     position: 'absolute', 
-                    left: '-9999px' 
+                    left: '-9999px', 
+                    top: '-9999px',
+                    width: '0px', 
+                    height: '0px'
                 }} 
             />
         </div>

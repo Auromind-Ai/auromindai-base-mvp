@@ -414,7 +414,7 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
         if (!leadId) return;
         const currentLabels = leadDetail?.labels || [];
         const isActive = currentLabels.includes(label);
-        
+       
         // Optimistic UI update for single selection
         const nextLabels = isActive ? [] : [label];
         if (setLeadDetail) {
@@ -448,12 +448,21 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
     return (
         <div className="w-full h-full overflow-y-auto p-5" style={{ backgroundColor: CARD_BG }}>
             {showBackButton && (
-                <button
-                    onClick={onBack}
-                    className="flex items-center gap-2 text-[#666] text-[13px] mb-4 hover:text-white transition"
-                >
-                    <ArrowLeft size={16} /> Back to Chat
-                </button>
+                <div className="flex items-center justify-between mb-4">
+                    <button
+                        onClick={onBack}
+                        className="flex items-center gap-2 text-[#666] text-[13px] hover:text-white transition cursor-pointer"
+                    >
+                        <ArrowLeft size={16} /> Back to Chat
+                    </button>
+                    <button
+                        onClick={onBack}
+                        className="p-1 rounded-lg text-[#666] hover:text-white transition cursor-pointer"
+                        title="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
             )}
 
             {!lead ? (
@@ -522,8 +531,8 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                         key={lblKey}
                                         onClick={() => handleLabelClick(resolvedLeadId || lead?.id, lblKey)}
                                         className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-300
-                                            ${isSelected 
-                                                ? `${config.activeBg} ${config.textCls} shadow-lg` 
+                                            ${isSelected
+                                                ? `${config.activeBg} ${config.textCls} shadow-lg`
                                                 : config.bgOpacity
                                             }`}
                                     >
@@ -864,12 +873,10 @@ function ChatArea({
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onInfoClick}
-                        className="p-2 rounded-lg hover:bg-white/5 transition-colors lg:hidden"
+                        className="p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer min-[1601px]:hidden"
                         style={{ color: infoActive ? ch.color : '#777' }}
+                        title="Contact Details"
                     >
-                        <Info size={17} strokeWidth={2} />
-                    </button>
-                    <button className="p-2 rounded-lg text-[#777] hidden lg:flex" style={{ color: '#777' }}>
                         <Info size={17} strokeWidth={2} />
                     </button>
                 </div>
@@ -877,7 +884,7 @@ function ChatArea({
 
             {/* Messages */}
             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
-                <div className="max-w-2xl mx-auto space-y-2">
+                <div className="max-w-3xl mx-auto space-y-2">
                     {messagesWithSeparators.map((item) => {
                         if (item._dateSeparator) {
                             return (
@@ -1123,7 +1130,7 @@ function PanelCard({ children, className = '', style = {} }) {
     );
 }
 
-// ─ Main Page Content 
+// ─ Main Page Content
 function InboxContent() {
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
@@ -1170,9 +1177,11 @@ function InboxContent() {
     const pathname = usePathname();
     const urlConversationId = searchParams.get('conversationId') || searchParams.get('conversation');
 
-    // Tablet / mobile view state
+    // Tablet / mobile / desktop drawer view state
     const [tabletRight, setTabletRight] = useState('chat');
+    const [ipadRight, setIpadRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
+    const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
 
     //  Template helpers ─
     const fetchInboxTemplates = useCallback(async () => {
@@ -1225,7 +1234,7 @@ function InboxContent() {
         (t.content || '').toLowerCase().includes(templateSearchQuery.toLowerCase())
     );
 
-    //  URL param hydration 
+    //  URL param hydration
     useEffect(() => {
         const msgParam = searchParams.get('msg');
         const channelParam = searchParams.get('channel');
@@ -1250,7 +1259,7 @@ function InboxContent() {
 
     useEffect(() => { leadRef.current = lead; }, [lead]);
 
-    //  Lead detail fetch 
+    //  Lead detail fetch
     useEffect(() => {
         if (!resolvedLeadId) { setLeadDetail(null); return; }
         let active = true;
@@ -1260,7 +1269,7 @@ function InboxContent() {
         return () => { active = false; };
     }, [resolvedLeadId]);
 
-    //  Helpers 
+    //  Helpers
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
         if (!conversationId || !workspace?.id) return null;
         try {
@@ -1293,7 +1302,7 @@ function InboxContent() {
         try {
             const data = await api.get(`/api/conversations?workspace_id=${workspace.id}&channel=${ch.id}&status=${statusParam}`);
             if (!Array.isArray(data)) { console.warn("Conversations API non-array:", data); return; }
-            
+           
             if (channelRef.current.id !== currentChannel) {
                 return;
             }
@@ -1351,8 +1360,9 @@ function InboxContent() {
         }).catch(e => console.error('Failed to look up conversation:', e));
     }, [workspace?.id, urlConversationId, fetchConversations]);
 
-    //  Channel / filter changes 
+    //  Channel / filter changes
     useEffect(() => {
+        setDesktopDrawerOpen(false);
         const timer = setTimeout(() => {
             setLead(null); setResolvedLeadId(null);
             leadRef.current = null; setMessages([]); setConversations([]);
@@ -1361,7 +1371,7 @@ function InboxContent() {
         return () => clearTimeout(timer);
     }, [ch.id, fetchConversations]);
 
-    //  Polling 
+    //  Polling
     useEffect(() => {
         if (!lead?.id) return;
         const interval = setInterval(() => fetchMessages(lead.id), 30000);
@@ -1413,7 +1423,7 @@ function InboxContent() {
         });
     }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId]);
 
-    //  Actions 
+    //  Actions
     async function sendMessage() {
         if (!msg.trim() || !lead) return;
         try {
@@ -1551,8 +1561,8 @@ function InboxContent() {
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
-            {/*  DESKTOP (≥1024px)  */}
-            <div className="hidden lg:flex flex-1 overflow-hidden p-3 gap-3">
+            {/*  DESKTOP (≥1260px)  */}
+            <div className="hidden xl:flex flex-1 overflow-hidden p-3 gap-3 relative">
                 <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
                     <ChannelTabs ch={ch} setCh={setCh} />
                     <PanelCard className="flex-1">
@@ -1570,15 +1580,93 @@ function InboxContent() {
                 <div className="flex flex-col gap-3 flex-1" style={{ minWidth: 0 }}>
                     <div className="shrink-0" style={{ height: 40 }} />
                     <PanelCard className="flex-1">
-                        <ChatArea {...chatAreaProps} onInfoClick={() => {}} infoActive={false} showMobileBackButton={false} />
+                        <ChatArea
+                            {...chatAreaProps}
+                            onInfoClick={() => setDesktopDrawerOpen(prev => !prev)}
+                            infoActive={desktopDrawerOpen}
+                            showMobileBackButton={false}
+                        />
                     </PanelCard>
                 </div>
 
-                <div className="flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
+                {/* Permanent Contact Details Panel (ONLY on Large Desktop >1600px) */}
+                <div className="hidden min-[1601px]:flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
                     <div className="shrink-0" style={{ height: 40 }} />
                     <PanelCard className="flex-1">
                         <InfoPanel {...infoPanelProps} showBackButton={false} />
                     </PanelCard>
+                </div>
+
+                {/* Slide-over Drawer for Contact Details (ONLY on 1260px – 1600px) */}
+                <AnimatePresence>
+                    {desktopDrawerOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => setDesktopDrawerOpen(false)}
+                                className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm min-[1601px]:hidden"
+                            />
+                            <motion.div
+                                initial={{ x: '100%' }}
+                                animate={{ x: 0 }}
+                                exit={{ x: '100%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+                                className="fixed top-0 right-0 bottom-0 z-[90] w-[420px] max-w-[90vw] p-3 flex flex-col min-[1601px]:hidden"
+                            >
+                                <PanelCard className="flex-1 overflow-hidden shadow-2xl relative">
+                                    <InfoPanel
+                                        {...infoPanelProps}
+                                        showBackButton={true}
+                                        onBack={() => setDesktopDrawerOpen(false)}
+                                    />
+                                </PanelCard>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+            </div>
+
+            {/*  IPAD PRO (1024px–1279px)  */}
+            <div className="hidden lg:flex xl:hidden flex-col flex-1 overflow-hidden">
+                <div className="flex flex-1 overflow-hidden p-3 gap-3">
+                    <div className="flex flex-col gap-3" style={{ width: 360, minWidth: 320, maxWidth: 380 }}>
+                        <ChannelTabs ch={ch} setCh={setCh} />
+                        <PanelCard className="flex-1">
+                            <ConversationSidebar
+                                ch={ch} conversations={conversations} lead={lead}
+                                activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                                onLeadSelect={(l) => {
+                                    setLead(l); fetchMessages(l.id);
+                                    fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                                    setIpadRight('chat');
+                                }}
+                            />
+                        </PanelCard>
+                    </div>
+
+                    <div className="flex flex-col gap-3 flex-1 relative overflow-hidden" style={{ minWidth: 0 }}>
+                        <div className="shrink-0" style={{ height: 40 }} />
+                        <div className="flex-1 relative overflow-hidden">
+                            <AnimatePresence mode="wait">
+                                {ipadRight === 'chat' ? (
+                                    <motion.div key="ipad-chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
+                                        className="absolute inset-0 rounded-2xl overflow-hidden border"
+                                        style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}>
+                                        <ChatArea {...chatAreaProps} onInfoClick={() => setIpadRight('info')} infoActive={false} showMobileBackButton={false} />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div key="ipad-info" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}
+                                        className="absolute inset-0 rounded-2xl overflow-hidden border overflow-y-auto"
+                                        style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}>
+                                        <InfoPanel {...infoPanelProps} showBackButton={true} onBack={() => setIpadRight('chat')} />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </div>
                 </div>
             </div>
 
