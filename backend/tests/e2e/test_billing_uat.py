@@ -34,7 +34,7 @@ from app.core.enums import SubscriptionStatus, InvoiceStatus, PaymentStatus
 from app.services.billing.gst_service import GSTService
 from app.services.billing.invoice_service import InvoiceService
 from app.services.billing.webhook_service import WebhookService
-from app.services.platform_settings_service import PlatformSetting, get_setting
+from app.services.platform_settings_service import PlatformSetting, get_setting, update_settings
 from app.services.wcc_service import WCCService
 from app.services.billing.gateway.base import GatewayPayment, GatewayWebhookEvent, PaymentGateway, GatewaySubscription
 
@@ -412,6 +412,9 @@ def test_2_subscription_renewal_invoice_locking(seeded_user_and_workspace, uat_d
     client = TestClient(app)
 
     # 1. Setup active subscription record
+  
+    update_settings(uat_db, {"pro_plan_price": 1000})
+
     from app.models.subscription import Subscription
     sub_id = f"sub_ren_{uuid.uuid4().hex[:8]}"
     pro_plan = uat_db.query(Plan).filter(Plan.name == "pro").first()
@@ -439,7 +442,7 @@ def test_2_subscription_renewal_invoice_locking(seeded_user_and_workspace, uat_d
             "payment": {
                 "entity": {
                     "id": payment_id,
-                    "amount": 118000,  # Paise
+                    "amount": 100000,  # Paise (1000.00 INR)
                     "currency": "INR",
                     "status": "captured",
                     "subscription_id": sub_id,
@@ -972,6 +975,7 @@ def test_14_duplicate_invoice_prevention(seeded_user_and_workspace, uat_db):
     # 1. Send subscription.charged event the first time
     sub_id = f"sub_dup_{uuid.uuid4().hex[:6]}"
     payment_id = f"pay_dup_{uuid.uuid4().hex[:6]}"
+    update_settings(uat_db, {"pro_plan_price": 1000})
 
     from app.models.subscription import Subscription
     pro_plan = uat_db.query(Plan).filter(Plan.name == "pro").first()
@@ -993,7 +997,7 @@ def test_14_duplicate_invoice_prevention(seeded_user_and_workspace, uat_db):
             "payment": {
                 "entity": {
                     "id": payment_id,
-                    "amount": 118000,
+                    "amount": 100000,
                     "currency": "INR",
                     "status": "captured",
                     "subscription_id": sub_id,

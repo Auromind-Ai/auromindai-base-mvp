@@ -5,6 +5,8 @@ from sqlalchemy import func
 from app.models.flow_pack import FlowPack, FlowPackPurchase, PurchaseStatus
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.billing.gateway import get_gateway
+from app.utils.money import to_paise, verify_paise_amount
+from app.services.billing.entitlement_service import EntitlementService
 
 class FlowPackService:
     def list_options(self, db: Session) -> List[FlowPack]:
@@ -15,7 +17,12 @@ class FlowPackService:
             .all()
         )
 
-    def _get_workspace_for_user(self, db: Session, workspace_id: str, user_id: str) -> Workspace:
+    def _get_workspace_for_user(self, db: Session, workspace_id: str | uuid.UUID, user_id: str | uuid.UUID) -> Workspace:
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+
         membership = (
             db.query(Workspace)
             .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
@@ -47,6 +54,12 @@ class FlowPackService:
             raise ValueError(f"Flow pack not found or inactive: {pack_id}")
 
         workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+
+
+        check = EntitlementService.check_entitlement(db, workspace.id, "can_purchase_flow_addon")
+        if not check["allowed"]:
+            raise ValueError(check.get("reason") or "Flow pack add-on purchase is not available for your current plan. Please upgrade to Pro.")
+
         gateway = get_gateway(provider)
 
         # Calculate GST on backend
@@ -60,8 +73,8 @@ class FlowPackService:
             db=db
         )
 
-        # Razorpay expects amount in paise (integer)
-        amount_paise = int(gst_calcs["total_amount"] * Decimal("100.00"))
+   
+        amount_paise = to_paise(gst_calcs["total_amount"])
 
         order_payload = {
             "amount": amount_paise,
@@ -186,8 +199,8 @@ class FlowPackService:
                 raise ValueError(f"Payment not captured. Status: {fetched_payment.status}")
 
             # Verify amount matches (Razorpay amount is in paise)
-            expected_amount_paise = int(purchase.total_amount * 100)
-            if int(fetched_payment.amount) != expected_amount_paise:
+            expected_amount_paise = to_paise(purchase.total_amount)
+            if not verify_paise_amount(fetched_payment.amount, expected_amount_paise, max_tolerance_paise=2):
                 raise ValueError(
                     f"Payment amount mismatch. Expected {expected_amount_paise} paise, got {fetched_payment.amount} paise (includes GST)."
                 )

@@ -35,6 +35,14 @@ export default function CreditsPage() {
     // WCC Balance State
     const [wccBalance, setWccBalance] = useState(null);
     const [wccBalanceLoading, setWccBalanceLoading] = useState(true);
+    const [wccFuelData, setWccFuelData] = useState({
+        fillPercentage: 100,
+        referenceFullAmount: null,
+        lastRechargeAmount: null,
+        lastRechargeAt: null,
+    });
+    const [wccOverageBalance, setWccOverageBalance] = useState(0);
+    const [wccOverageEnabled, setWccOverageEnabled] = useState(false);
 
     // AI Credit Summary State
     const [creditSummary, setCreditSummary] = useState(null);
@@ -57,12 +65,7 @@ export default function CreditsPage() {
 
     // WCC Rates State
     const [wccRates, setWccRates] = useState([]);
-    const [estimatorRates, setEstimatorRates] = useState({
-        marketing: 1.25,
-        utility: 0.18,
-        auth: 0.18,
-        service: 0.05
-    });
+    const [estimatorRates, setEstimatorRates] = useState({});
 
     // Credit Packs State
     const [creditPacks, setCreditPacks] = useState([]);
@@ -93,7 +96,30 @@ export default function CreditsPage() {
         try {
             setWccBalanceLoading(true);
             const res = await api.getWccBalance(workspaceId);
-            setWccBalance(parseFloat(res.balance ?? res.data?.balance ?? 0));
+            const data = res.data ?? res ?? {};
+            const bal = parseFloat(data.current_balance ?? data.balance ?? 0);
+            const refFull = data.reference_full_amount != null ? parseFloat(data.reference_full_amount) : (bal > 0 ? bal : 0);
+            let fillPct = 0;
+            if (data.fill_percentage != null) {
+                fillPct = parseFloat(data.fill_percentage);
+            } else if (refFull > 0 && bal > 0) {
+                fillPct = Math.min(100, Math.round((bal / refFull) * 100));
+            } else if (bal > 0) {
+                fillPct = 100;
+            }
+
+            setWccBalance(bal);
+            setWccOverageBalance(parseFloat(data.overage_balance ?? 0));
+            setWccOverageEnabled(data.overage_enabled ?? false);
+            setWccFuelData({
+                fillPercentage: fillPct,
+                referenceFullAmount: refFull,
+                lastRechargeAmount: data.last_recharge_amount != null ? parseFloat(data.last_recharge_amount) : null,
+                lastRechargeAt: data.last_recharge_at ?? null,
+                wcc_locked: data.wcc_locked ?? false,
+                spending_allowed: data.spending_allowed ?? true,
+                status_message: data.status_message ?? null,
+            });
         } catch (err) {
             console.error('[WCC] Failed to fetch balance:', err);
         } finally {
@@ -183,10 +209,14 @@ export default function CreditsPage() {
             const ratesList = res.data ?? res ?? [];
             setWccRates(ratesList);
 
-            const map = { ...estimatorRates };
+            const map = {};
             ratesList.forEach(item => {
                 if (item.region === 'IN' || !item.region) {
-                    map[item.category.toLowerCase()] = parseFloat(item.rate_per_message);
+                    const cat = item.category.toLowerCase();
+                    const val = parseFloat(item.customer_price ?? item.rate_per_message ?? 0);
+                    map[cat] = val;
+                    if (cat === 'authentication') map['auth'] = val;
+                    if (cat === 'auth') map['authentication'] = val;
                 }
             });
             setEstimatorRates(map);
@@ -412,60 +442,65 @@ export default function CreditsPage() {
         return todayEntry ? formatCredits(todayEntry.credits_used, 2) : '0.00';
     };
 
-    const cycleTotal = Number(creditSummary?.monthly_grant ?? creditSummary?.credits_added ?? 0);
-    const cycleUsed = Number(creditSummary?.credits_used ?? 0);
-    const usedPct = cycleTotal > 0 ? Math.min((cycleUsed / cycleTotal) * 100, 100) : 0;
-    const remainingPct = cycleTotal > 0 ? Math.max(0, 100 - usedPct) : 0;
+    const cycleTotal = Number(creditSummary?.quota_limit ?? creditSummary?.included_credits ?? 0);
+    const cycleUsed = Number(creditSummary?.cycle_used ?? 0);
+    const usedPct = creditSummary?.usage_percent !== undefined && creditSummary?.usage_percent !== null
+        ? Number(creditSummary.usage_percent)
+        : (cycleTotal > 0 ? Math.min((cycleUsed / cycleTotal) * 100, 100) : 0);
+    const remainingPct = Math.max(0, 100 - usedPct);
 
-    const avgDailyBurn = creditSummary?.avg_daily_burn ?? (
-        creditSummary?.daily_usage?.length
-            ? creditSummary.daily_usage.reduce((sum, d) => sum + Number(d.credits_used || 0), 0) / creditSummary.daily_usage.length
-            : null
-    );
+    const formatRemainingPercent = (pct, usedAmt) => {
+        if (usedAmt === 0 || pct >= 100) return '100%';
+        if (pct > 99.9) return '99.9%';
+        return `${pct.toFixed(1)}%`;
+    };
+
+    const avgDailyBurn = creditSummary?.burn_rate ?? null;
 
     const distributionPalette = ['#a78bfa', '#34d399', '#fbbf24', '#fb7185', '#38bdf8'];
-    const distributionMap = {};
-    creditHistory.forEach(item => {
-        const key = (item.entry_type || 'other').replace('_', ' ');
-        const amt = Math.abs(Number(item.credits_delta || 0));
-        distributionMap[key] = (distributionMap[key] || 0) + amt;
-    });
-    const distributionTotal = Object.values(distributionMap).reduce((a, b) => a + b, 0);
-    const distributionEntries = Object.entries(distributionMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([label, value], i) => ({
-            label,
-            value,
-            pct: distributionTotal > 0 ? (value / distributionTotal) * 100 : 0,
-            color: distributionPalette[i % distributionPalette.length]
-        }));
+    const serverDist = creditSummary?.credit_distribution;
 
-    const walletZones = [
-        { key: 'Empty', color: '#f43f5e' },
-        { key: 'Low', color: '#f59e0b' },
-        { key: 'Healthy', color: '#25d366' },
-        { key: 'Full', color: '#d4b483' },
-    ];
-    const getWalletZoneIndex = (balance) => {
-        if (balance === null || balance === undefined) return 0;
-        if (balance <= 0) return 0;
-        if (balance < 500) return 1;
-        if (balance < 5000) return 2;
-        return 3;
-    };
-    const walletZoneIndex = getWalletZoneIndex(wccBalance);
+    let distributionEntries = [];
+    if (Array.isArray(serverDist) && serverDist.length > 0) {
+        const totalDistUsed = serverDist.reduce((sum, item) => sum + Number(item.credits_used || 0), 0);
+        distributionEntries = serverDist
+            .sort((a, b) => Number(b.credits_used || 0) - Number(a.credits_used || 0))
+            .slice(0, 5)
+            .map((item, i) => ({
+                label: item.label || item.category || 'AI Processing',
+                value: Number(item.credits_used || 0),
+                pct: totalDistUsed > 0 ? (Number(item.credits_used || 0) / totalDistUsed) * 100 : 0,
+                color: distributionPalette[i % distributionPalette.length]
+            }));
+    } else {
+        const distributionMap = {};
+        creditHistory.filter(item => Number(item.credits_delta || 0) < 0 && (item.entry_type || '').toLowerCase() === 'usage').forEach(item => {
+            const rawKey = (item.feature_key || item.entry_type || 'other').replace('_', ' ');
+            const label = rawKey.charAt(0).toUpperCase() + rawKey.slice(1);
+            const amt = Math.abs(Number(item.credits_delta || 0));
+            distributionMap[label] = (distributionMap[label] || 0) + amt;
+        });
+        const distributionTotal = Object.values(distributionMap).reduce((a, b) => a + b, 0);
+        distributionEntries = Object.entries(distributionMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([label, value], i) => ({
+                label,
+                value,
+                pct: distributionTotal > 0 ? (value / distributionTotal) * 100 : 0,
+                color: distributionPalette[i % distributionPalette.length]
+            }));
+    }
+    const distributionTotal = distributionEntries.reduce((sum, item) => sum + Number(item.value || 0), 0);
 
-    const rechargeAmountNumber = rechargeAmount === 'custom'
-        ? (parseFloat(customAmount) || 0)
-        : (parseFloat(rechargeAmount) || 0);
-    const approxConversations = Math.floor(rechargeAmountNumber / (estimatorRates.marketing || 1));
+    const rechargeAmountNumber = parseFloat(rechargeAmount) || 0;
+    const marketingRate = (estimatorRates.marketing && estimatorRates.marketing > 0) ? estimatorRates.marketing : null;
+    const approxConversations = marketingRate ? Math.floor(rechargeAmountNumber / marketingRate) : 0;
 
     const adjustRechargeAmount = (delta) => {
-        const current = rechargeAmount === 'custom' ? (parseFloat(customAmount) || 0) : (parseFloat(rechargeAmount) || 0);
-        const next = Math.max(100, Math.min(50000, current + delta));
+        const current = parseFloat(rechargeAmount) || 0;
+        const next = Math.max(100, Math.min(100000, current + delta));
         setRechargeAmount(String(next));
-        setCustomAmount('');
     };
 
     return (
@@ -535,6 +570,18 @@ export default function CreditsPage() {
                                 <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-3 sm:mb-4">Wallet Overview</p>
                                 <p className="text-zinc-400 text-[11px] sm:text-xs font-normal sm:font-medium mb-3 sm:mb-5">AI Workspace Credits available</p>
 
+                                {creditSummary?.purchased_credits_locked && (
+                                    <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-amber-300 text-xs font-medium">
+                                            <span>🔒</span>
+                                            <span>{creditSummary?.status_message || "Credits locked — Upgrade to Pro to use purchased credits"}</span>
+                                        </div>
+                                        <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                                            Upgrade
+                                        </a>
+                                    </div>
+                                )}
+
                                 <div className="text-2xl sm:text-4xl md:text-5xl font-semibold sm:font-bold tracking-tight text-white leading-none mb-5 sm:mb-7">
                                     {creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_balance, 2)}
                                 </div>
@@ -545,8 +592,8 @@ export default function CreditsPage() {
                                         <span className="font-normal sm:font-semibold text-white">{creditSummaryLoading ? '...' : getUsedToday()}</span>
                                     </div>
                                     <div>
-                                        <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used this month</span>
-                                        <span className="font-normal sm:font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_used, 2)}</span>
+                                        <span className="text-white/55 text-[11px] sm:text-xs font-normal mr-1.5">Used this cycle</span>
+                                        <span className="font-normal sm:font-semibold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used, 2)}</span>
                                     </div>
                                     <div>
                                         <span className="text-white/55 text-xs mr-1.5">Runway</span>
@@ -578,73 +625,77 @@ export default function CreditsPage() {
                             </div>
 
                             {/* Recharge Packs (sidebar) */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-6 border border-white/5 shadow-xl flex flex-col">
-                                <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Recharge packs</p>
-                                <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-3 sm:mb-4">Top up AI Credits</p>
+                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-6 border border-white/5 shadow-xl flex flex-col justify-between">
+                                <div>
+                                    <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Recharge packs</p>
+                                    <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-3 sm:mb-4">Top up AI Credits</p>
 
-                                {creditPacksLoading ? (
-                                    <div className="flex justify-center py-10">
-                                        <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-purple-500" />
-                                    </div>
-                                ) : creditPacks.length > 0 ? (
-                                    <div className="space-y-3 flex-1">
-                                        {creditPacks.map((pack, idx) => (
-                                            <button
-                                                key={pack.id}
-                                                type="button"
-                                                onClick={() => setSelectedPackIndex(idx)}
-                                                className={`w-full text-left p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer ${
-                                                    selectedPackIndex === idx
-                                                        ? 'border-purple-500 bg-purple-500/5'
-                                                        : 'border-white/5 bg-white/[0.02] hover:border-white/15'
-                                                }`}
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <div className="text-[9px] sm:text-[10px] font-normal sm:font-bold text-zinc-500 uppercase tracking-widest mb-1">{pack.name}</div>
-                                                        <div className="text-sm sm:text-lg font-semibold sm:font-extrabold text-white leading-none">
-                                                            ₹{parseFloat(pack.amount).toLocaleString('en-IN')}
-                                                            <span className="text-[10px] sm:text-[11px] font-normal sm:font-medium text-zinc-500 ml-1">per month</span>
+                                    {creditPacksLoading ? (
+                                        <div className="flex justify-center py-10">
+                                            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-purple-500" />
+                                        </div>
+                                    ) : creditPacks.length > 0 ? (
+                                        <div className="space-y-3 max-h-[148px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10">
+                                            {creditPacks.map((pack, idx) => (
+                                                <button
+                                                    key={pack.id}
+                                                    type="button"
+                                                    onClick={() => setSelectedPackIndex(idx)}
+                                                    className={`w-full text-left p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer ${
+                                                        selectedPackIndex === idx
+                                                            ? 'border-purple-500 bg-purple-500/5'
+                                                            : 'border-white/5 bg-white/[0.02] hover:border-white/15'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <div className="text-[9px] sm:text-[10px] font-normal sm:font-bold text-zinc-500 uppercase tracking-widest mb-1">{pack.name}</div>
+                                                            <div className="text-sm sm:text-lg font-semibold sm:font-extrabold text-white leading-none">
+                                                                ₹{parseFloat(pack.amount).toLocaleString('en-IN')}
+                                                                <span className="text-[10px] sm:text-[11px] font-normal sm:font-medium text-zinc-500 ml-1">per month</span>
+                                                            </div>
+                                                            <div className="text-[11px] sm:text-xs font-normal sm:font-medium text-zinc-500 mt-1">{pack.credits.toLocaleString()} AI credits</div>
                                                         </div>
-                                                        <div className="text-[11px] sm:text-xs font-normal sm:font-medium text-zinc-500 mt-1">{pack.credits.toLocaleString()} AI credits</div>
+                                                        <span className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                                                            selectedPackIndex === idx ? 'border-purple-500' : 'border-zinc-600'
+                                                        }`}>
+                                                            {selectedPackIndex === idx && <span className="w-2 h-2 rounded-full bg-purple-500" />}
+                                                        </span>
                                                     </div>
-                                                    <span className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
-                                                        selectedPackIndex === idx ? 'border-purple-500' : 'border-zinc-600'
-                                                    }`}>
-                                                        {selectedPackIndex === idx && <span className="w-2 h-2 rounded-full bg-purple-500" />}
-                                                    </span>
-                                                </div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="border border-dashed border-white/10 rounded-2xl p-8 text-center text-zinc-500 text-xs flex-1 flex items-center justify-center">
-                                        No top-up plans available.
-                                    </div>
-                                )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="border border-dashed border-white/10 rounded-2xl p-8 text-center text-zinc-500 text-xs">
+                                            No top-up plans available.
+                                        </div>
+                                    )}
+                                </div>
 
-                                {workspaceEntitlements?.allow_ai_topup === false && (
-                                    <div className="mt-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
-                                        <AlertTriangle size={15} className="shrink-0" />
-                                        <span>AI Credit top-up is disabled on your plan. Upgrade to Pro plan to purchase top-up credits.</span>
-                                    </div>
-                                )}
+                                <div>
+                                    {workspaceEntitlements?.allow_ai_topup === false && (
+                                        <div className="mt-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
+                                            <AlertTriangle size={15} className="shrink-0" />
+                                            <span>AI Credit top-up is disabled on your plan. Upgrade to Pro plan to purchase top-up credits.</span>
+                                        </div>
+                                    )}
 
-                                <button
-                                    disabled={creditPacks.length === 0 || actionLoading || workspaceEntitlements?.allow_ai_topup === false}
-                                    title={workspaceEntitlements?.allow_ai_topup === false ? "Upgrade to Pro to purchase AI Credits." : ""}
-                                    onClick={() => {
-                                        if (workspaceEntitlements?.allow_ai_topup === false) {
-                                            triggerToast("⚠️ AI Credit top-up is not available for your current plan. Please upgrade to Pro.");
-                                            return;
-                                        }
-                                        const pack = creditPacks[selectedPackIndex];
-                                        if (pack) handlePurchaseCreditPack(pack.pack_id, pack.name, parseFloat(pack.amount));
-                                    }}
-                                    className="mt-4 w-full py-2.5 sm:py-3 bg-[#814AC808] hover:bg-[#814AC8] hover:text-white text-[#814AC8] font-normal sm:font-medium text-xs sm:text-sm rounded-xl border border-purple-500/30 transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                    {workspaceEntitlements?.allow_ai_topup === false ? "Upgrade plan to top up" : "Purchase selected pack"}
-                                </button>
+                                    <button
+                                        disabled={creditPacks.length === 0 || actionLoading || workspaceEntitlements?.allow_ai_topup === false}
+                                        title={workspaceEntitlements?.allow_ai_topup === false ? "Upgrade to Pro to purchase AI Credits." : ""}
+                                        onClick={() => {
+                                            if (workspaceEntitlements?.allow_ai_topup === false) {
+                                                triggerToast("⚠️ AI Credit top-up is not available for your current plan. Please upgrade to Pro.");
+                                                return;
+                                            }
+                                            const pack = creditPacks[selectedPackIndex];
+                                            if (pack) handlePurchaseCreditPack(pack.pack_id, pack.name, parseFloat(pack.amount));
+                                        }}
+                                        className="mt-4 w-full py-2.5 sm:py-3 bg-[#814AC808] hover:bg-[#814AC8] hover:text-white text-[#814AC8] font-normal sm:font-medium text-xs sm:text-sm rounded-xl border border-purple-500/30 transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                    >
+                                        {workspaceEntitlements?.allow_ai_topup === false ? "Upgrade plan to top up" : "Purchase selected pack"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -674,26 +725,36 @@ export default function CreditsPage() {
                                             />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-lg sm:text-3xl font-semibold sm:font-extrabold text-white">{cycleTotal > 0 ? `${remainingPct.toFixed(0)}%` : '—'}</span>
-                                            <span className="text-[10px] sm:text-[11px] text-zinc-500 font-normal sm:font-semibold mt-0.5 sm:mt-1">Remaining</span>
+                                            <span className="text-base sm:text-2xl font-bold text-white">{cycleTotal > 0 ? formatRemainingPercent(remainingPct, cycleUsed) : '—'}</span>
+                                            <span className="text-[10px] text-zinc-500 font-medium mt-0.5">Remaining</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 w-full space-y-3 text-sm">
+                                    <div className="flex-1 w-full space-y-2.5 text-sm">
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Monthly grant</span>
-                                            <span className="font-normal sm:font-bold text-white">{creditSummary?.monthly_grant != null ? formatCredits(creditSummary.monthly_grant, 2) : (cycleTotal > 0 ? formatCredits(cycleTotal, 2) : '—')}</span>
+                                            <span className="text-zinc-500 font-normal">Included Remaining</span>
+                                            <span className="font-normal sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.included_remaining ?? 0, 2)}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Used this cycle</span>
-                                            <span className="font-normal sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.credits_used, 2)}</span>
+                                            <span className="text-zinc-500 font-normal">Purchased Remaining</span>
+                                            <span className={`font-normal sm:font-bold ${creditSummary?.purchased_credits_locked ? 'text-amber-400 flex items-center gap-1.5' : 'text-white'}`}>
+                                                {creditSummaryLoading ? '...' : (
+                                                    creditSummary?.purchased_credits_locked
+                                                        ? <><span className="text-xs">🔒</span> {formatCredits(creditSummary?.purchased_remaining ?? 0, 2)}</>
+                                                        : formatCredits(creditSummary?.purchased_remaining ?? 0, 2)
+                                                )}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500 font-normal">Avg. daily burn (7d)</span>
+                                            <span className="text-zinc-500 font-normal">Used This Cycle</span>
+                                            <span className="font-normal sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used ?? 0, 2)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-zinc-500 font-normal">Avg. Daily Burn</span>
                                             <span className="font-normal sm:font-bold text-white">{avgDailyBurn != null ? formatCredits(avgDailyBurn, 2) : '—'}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-zinc-500">Cycle resets</span>
+                                            <span className="text-zinc-500 font-normal">Cycle resets</span>
                                             <span className="font-bold text-emerald-400">{creditSummary?.cycle_reset_date ? formatBillingDate(creditSummary.cycle_reset_date) : '—'}</span>
                                         </div>
                                     </div>
@@ -709,7 +770,7 @@ export default function CreditsPage() {
                                     <span className="text-[11px] sm:text-xs font-normal text-zinc-500 ml-1.5">credits consumed</span>
                                 </p>
 
-                                <div className="space-y-4 sm:space-y-5 mt-5 sm:mt-7 flex-1">
+                                <div className="space-y-4 sm:space-y-5 mt-5 sm:mt-7 flex-1 max-h-[148px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10">
                                     {distributionEntries.length > 0 ? distributionEntries.map((entry) => (
                                         <div key={entry.label}>
                                             <div className="flex items-center justify-between mb-1.5 sm:mb-2">
@@ -760,7 +821,7 @@ export default function CreditsPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 divide-y divide-white/[0.04] overflow-y-auto min-h-[175px] max-h-[175px]">
+                                <div className="flex-1 divide-y divide-white/[0.04] overflow-y-auto max-h-[220px] pr-1 scrollbar-thin scrollbar-thumb-white/10">
                                     {activityView === 'transactions' ? (
                                         creditHistoryLoading ? (
                                             <div className="flex justify-center py-10">
@@ -828,29 +889,94 @@ export default function CreditsPage() {
                         <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-8 border border-white/5 shadow-xl">
                             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
                                 <div className="flex-1">
-                                    <p className="text-white/70 text-xs sm:text-[13px] font-normal sm:font-medium mb-1">WhatsApp conversation wallet (WCC)</p>
+                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+                                        <p className="text-white/70 text-xs sm:text-[13px] font-normal sm:font-medium">WhatsApp conversation wallet (WCC)</p>
+                                        {!wccBalanceLoading && (
+                                            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/10 text-[11px] font-medium">
+                                                <span className={`w-2 h-2 rounded-full ${
+                                                    (wccBalance ?? 0) <= 0
+                                                        ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
+                                                        : (wccFuelData?.fillPercentage ?? 100) > 35
+                                                            ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                                                            : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]'
+                                                }`} />
+                                                <span className="text-zinc-300">
+                                                    {(wccBalance ?? 0) <= 0
+                                                        ? '0% Empty'
+                                                        : `${Math.round(wccFuelData?.fillPercentage ?? 100)}% Fuel`}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {wccFuelData?.wcc_locked && (
+                                        <div className="my-3 p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-center justify-between max-w-2xl">
+                                            <div className="flex items-center gap-2 text-amber-300 text-xs font-medium">
+                                                <span>🔒</span>
+                                                <span>{wccFuelData?.status_message || "WCC wallet locked — Upgrade to a paid plan to use your purchased balance"}</span>
+                                            </div>
+                                            <a href="/user/admin/billing/payment" className="text-xs px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                                                Upgrade
+                                            </a>
+                                        </div>
+                                    )}
 
                                     <div className="text-2xl sm:text-4xl md:text-5xl font-semibold sm:font-bold tracking-tight text-white leading-none my-3 sm:my-4">
                                         {wccBalanceLoading ? '...' : `₹${(wccBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                                     </div>
 
-                                    {/* Wallet health gradient bar */}
+                                    {/* Multi-color Fuel Gauge Bar — matches screenshot design */}
                                     <div className="mb-2 max-w-2xl">
-                                        <div className="relative">
-                                            <div className="flex h-2.5 w-full rounded-full overflow-hidden">
-                                                {walletZones.map((zone) => (
-                                                    <div key={zone.key} className="flex-1" style={{ backgroundColor: zone.color, opacity: 0.85 }} />
-                                                ))}
-                                            </div>
+                                        <div className="relative pt-3">
+                                            {/* Triangle indicator pointing down at current balance position */}
                                             <div
-                                                className="absolute -top-2.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[7px] border-t-white transition-all duration-500"
-                                                style={{ left: `${(walletZoneIndex / walletZones.length) * 100 + (100 / walletZones.length) / 2}%`, transform: 'translateX(-50%)' }}
+                                                className="absolute top-0 transition-all duration-700 ease-out"
+                                                style={{
+                                                    left: `${Math.max(1, Math.min(99, wccFuelData?.fillPercentage ?? ((wccBalance ?? 0) > 0 ? 100 : 0)))}%`,
+                                                    transform: 'translateX(-50%)'
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        width: 0,
+                                                        height: 0,
+                                                        borderLeft: '6px solid transparent',
+                                                        borderRight: '6px solid transparent',
+                                                        borderTop: '8px solid rgba(255,255,255,0.75)',
+                                                    }}
+                                                />
+                                            </div>
+
+                                            {/* Full-width multi-color gradient bar — always full width, indicator moves */}
+                                            <div
+                                                className="h-2.5 sm:h-3 w-full rounded-full"
+                                                style={{
+                                                    background: (wccBalance ?? 0) <= 0
+                                                        ? '#3f3f46'
+                                                        : 'linear-gradient(to right, #ef4444 0%, #f97316 20%, #eab308 45%, #84cc16 65%, #22c55e 100%)'
+                                                }}
                                             />
                                         </div>
-                                        <div className="flex justify-between mt-2">
-                                            {walletZones.map((zone) => (
-                                                <span key={zone.key} className="text-[9px] sm:text-[10px] font-normal sm:font-semibold text-zinc-500">{zone.key}</span>
-                                            ))}
+
+                                        {/* Scale labels: Empty · Low · Healthy · Full */}
+                                        <div className="flex items-center justify-between mt-2 text-[10px] sm:text-[11px] font-normal">
+                                            <span className="text-zinc-500">Empty</span>
+                                            <span className="text-zinc-500">Low</span>
+                                            <span className="text-zinc-500">Healthy</span>
+                                            <span className="text-zinc-500">Full</span>
+                                        </div>
+
+                                        {/* Recharge context line */}
+                                        <div className="mt-1.5 text-[10px] sm:text-[11px] text-zinc-500 text-center">
+                                            {wccFuelData?.lastRechargeAmount != null && wccFuelData?.lastRechargeAt ? (
+                                                `Since last recharge of ₹${Number(wccFuelData.lastRechargeAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })} on ${formatBillingDate(wccFuelData.lastRechargeAt, false)}`
+                                            ) : wccFuelData?.lastRechargeAmount != null ? (
+                                                `Since last recharge of ₹${Number(wccFuelData.lastRechargeAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                            ) : (wccBalance ?? 0) > 0 ? (
+                                                'Initial promotional balance (no recharges recorded yet)'
+                                            ) : (
+                                                'Wallet depleted (0% remaining)'
+                                            )}
                                         </div>
                                     </div>
 
@@ -859,6 +985,29 @@ export default function CreditsPage() {
                                             ? 'Your wallet is active. Recharge anytime to keep Marketing, Utility, Authentication and Service-window conversations running.'
                                             : 'Your wallet is empty, so message sending is currently paused. Recharge to resume Marketing, Utility, Authentication and Service-window conversations instantly.'}
                                     </p>
+
+                                    {/* Overage Debt Banner — shown only when outstanding debt exists */}
+                                    {wccOverageBalance > 0 && (
+                                        <div className="flex items-start gap-3 bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 mb-4 max-w-xl">
+                                            <div className="w-2 h-2 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.7)] mt-1 flex-shrink-0" />
+                                            <div>
+                                                <p className="text-rose-300 text-[12px] font-semibold">
+                                                    Outstanding debt: ₹{Number(wccOverageBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </p>
+                                                <p className="text-rose-400/80 text-[11px] mt-0.5">
+                                                    Your wallet ran into overage. This amount will be automatically settled on your next recharge.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Overage enabled info pill */}
+                                    {wccOverageEnabled && wccOverageBalance <= 0 && (
+                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-400 mb-4">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                            Overage enabled — messages will send even if balance runs low
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -876,8 +1025,8 @@ export default function CreditsPage() {
                                     {[
                                         { key: 'marketing', label: 'Marketing', rate: estimatorRates.marketing, unit: 'msg' },
                                         { key: 'utility', label: 'Utility', rate: estimatorRates.utility, unit: 'msg' },
-                                        { key: 'auth', label: 'Authentication', rate: estimatorRates.auth, unit: 'msg' },
-                                        { key: 'service', label: 'Service', rate: estimatorRates.service, unit: 'custom reply' },
+                                        { key: 'auth', label: 'Authentication', rate: estimatorRates.auth ?? estimatorRates.authentication, unit: 'msg' },
+                                        { key: 'service', label: 'Service', rate: estimatorRates.service, unit: 'msg' },
                                     ].map((opt) => (
                                         <button
                                             key={opt.key}
@@ -891,7 +1040,7 @@ export default function CreditsPage() {
                                         >
                                             {opt.label}
                                             <div className="text-[9px] font-normal sm:font-semibold text-zinc-500 mt-0.5">
-                                                {opt.key === 'service' ? 'Free / custom reply' : `₹${(opt.rate || 0).toFixed(3)} / ${opt.unit}`}
+                                                {opt.rate != null ? `₹${Number(opt.rate).toFixed(3)} / ${opt.unit}` : 'Loading...'}
                                             </div>
                                         </button>
                                     ))}
@@ -925,7 +1074,7 @@ export default function CreditsPage() {
                                         <div className="text-lg sm:text-2xl font-semibold sm:font-black text-white">
                                             ₹{estimatedCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </div>
-                                        <p className="text-[9px] sm:text-[10px] text-white/60 font-normal mt-0.5 sm:mt-1">Calculated at Indian Meta rates</p>
+                                        <p className="text-[9px] sm:text-[10px] text-white/60 font-normal mt-0.5 sm:mt-1">Based on your configured WhatsApp pricing</p>
                                     </div>
 
                                     <div className="w-full sm:w-auto flex sm:justify-end">
@@ -949,24 +1098,32 @@ export default function CreditsPage() {
                             {/* Add Funds (inline recharge form) */}
                             <div ref={addFundsRef} className="bg-[#0e0e14] rounded-2xl border border-white/5 p-6 md:p-7 shadow-xl flex flex-col">
                                 <p className="text-white/70 text-[13px] font-medium mb-1">Add Funds</p>
-                                <p className="text-white text-base font-semibold mb-5">Recharge wallet</p>
-
+                                <p className="text-white text-base font-semibold mb-3">Recharge wallet</p>
                                 <form onSubmit={handleRechargeSubmit} className="space-y-4 sm:space-y-5 flex-1 flex flex-col">
-                                    <div className="flex items-center justify-center gap-3 sm:gap-4">
+                                    <div className="flex items-center justify-center gap-2 sm:gap-3">
                                         <button
                                             type="button"
                                             onClick={() => adjustRechargeAmount(-100)}
-                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer"
+                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer shrink-0"
                                         >
                                             <Minus size={13} />
                                         </button>
-                                        <div className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white tabular-nums">
-                                            ₹{rechargeAmountNumber.toLocaleString('en-IN')}
+                                        <div className="relative flex items-center justify-center max-w-[180px]">
+                                            <span className="text-lg sm:text-2xl font-semibold sm:font-extrabold text-white/70 mr-1 select-none">₹</span>
+                                            <input
+                                                type="number"
+                                                min="100"
+                                                max="100000"
+                                                value={rechargeAmount}
+                                                onChange={(e) => setRechargeAmount(e.target.value)}
+                                                placeholder="3900"
+                                                className="w-full text-lg sm:text-2xl font-semibold sm:font-extrabold text-white bg-transparent border-b border-white/20 focus:border-[#814ac8] focus:outline-none text-center tabular-nums transition-colors py-0.5"
+                                            />
                                         </div>
                                         <button
                                             type="button"
                                             onClick={() => adjustRechargeAmount(100)}
-                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer"
+                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/10 flex items-center justify-center text-zinc-300 hover:bg-white/5 transition-all cursor-pointer shrink-0"
                                         >
                                             <Plus size={13} />
                                         </button>
@@ -977,11 +1134,11 @@ export default function CreditsPage() {
                                             <button
                                                 key={val}
                                                 type="button"
-                                                onClick={() => { setRechargeAmount(val); setCustomAmount(''); }}
+                                                onClick={() => setRechargeAmount(val)}
                                                 className={`py-1.5 sm:py-2 rounded-lg text-[10px] sm:text-[11px] font-normal sm:font-bold transition-all border cursor-pointer ${
-                                                    rechargeAmount === val
+                                                    String(rechargeAmount) === val
                                                      ? 'bg-[#110229] border-[#814ac8] text-white'
-                                                    : 'bg-white/[0.02] border-white/5 text-white/80 hover:text-white hover:border-white/35'
+                                                     : 'bg-white/[0.02] border-white/5 text-white/80 hover:text-white hover:border-white/35'
                                                 }`}
                                             >
                                                 {val}
@@ -1056,10 +1213,10 @@ export default function CreditsPage() {
                                     </button>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
+                                <div className="max-h-[280px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-white/10">
                                     <table className="w-full text-left text-xs border-collapse">
-                                        <thead>
-                                            <tr className="bg-white/[0.02] border-b border-white/5 text-zinc-500 font-semibold uppercase text-[10px]">
+                                        <thead className="sticky top-0 bg-[#0e0e14] z-10 shadow-sm border-b border-white/5">
+                                            <tr className="bg-white/[0.02] text-zinc-500 font-semibold uppercase text-[10px]">
                                                 <th className="p-4 px-6">Date</th>
                                                 <th className="p-4 px-6">Amount</th>
                                                 <th className="p-4 px-6">Transaction ID</th>

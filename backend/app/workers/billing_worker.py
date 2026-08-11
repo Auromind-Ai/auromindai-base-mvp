@@ -78,6 +78,42 @@ def cleanup_expired_subscriptions():
 
 
 @celery_app.task(
+    name="app.workers.billing_worker.process_monthly_entitlement_resets",
+)
+def process_monthly_entitlement_resets():
+
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        active_subs = (
+            db.query(Subscription)
+            .filter(
+                Subscription.status == SubscriptionStatus.active,
+                Subscription.next_entitlement_reset_at <= now
+            )
+            .all()
+        )
+        processed_count = 0
+        from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+        for sub in active_subs:
+            try:
+                EntitlementOrchestrator.renew_subscription(db, sub.workspace_id)
+                processed_count += 1
+            except Exception as reset_err:
+                logger.error(f"[process_monthly_entitlement_resets] Error resetting workspace {sub.workspace_id}: {reset_err}")
+
+        db.commit()
+        logger.info(f"[process_monthly_entitlement_resets] Processed {processed_count} entitlement resets.")
+        return {"processed_count": processed_count}
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"[process_monthly_entitlement_resets] Error in monthly entitlement reset worker: {exc}")
+        raise exc
+    finally:
+        db.close()
+
+
+@celery_app.task(
     name="app.workers.billing_worker.wcc_daily_reconciliation",
 )
 def wcc_daily_reconciliation():

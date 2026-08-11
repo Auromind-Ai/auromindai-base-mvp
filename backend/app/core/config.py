@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     MAX_REPEATED_LINES: int = 6
     MAX_NON_PRINTABLE_RATIO: float = 0.03
 
+    # CRAWLER CONFIGURATION
+    CRAWLER_MAX_DEPTH: int = 2
+    CRAWLER_MAX_PAGES: int = 30
+    CRAWLER_PAGE_TIMEOUT: int = 10
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

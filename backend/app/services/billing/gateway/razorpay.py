@@ -2,7 +2,9 @@ import hashlib
 import json
 from typing import Any
 import razorpay.errors as razorpay_errors
+from decimal import Decimal, ROUND_HALF_UP
 from app.models.workspace import Workspace
+from app.utils.money import to_paise
 from app.services.billing.gateway.base import BillingPlanConfig, GatewayPayment, GatewaySubscription, GatewayWebhookEvent, PaymentGateway
 
 
@@ -97,12 +99,14 @@ class RazorpayGateway(PaymentGateway):
                 total_amount = gst_calcs["total_amount"]
 
                 # Create plan dynamically in Razorpay with GST included
+                is_yearly = (plan_config.billing_cycle == "yearly")
+                plan_period = "yearly" if is_yearly else "monthly"
                 plan_data = self.client.plan.create(data={
-                    "period": "monthly",
+                    "period": plan_period,
                     "interval": 1,
                     "item": {
-                        "name": f"Auromind {plan_config.label} Plan",
-                        "amount": int(total_amount * 100), # convert to paise
+                        "name": f"Auromind {plan_config.label} {'Annual' if is_yearly else 'Monthly'} Plan",
+                        "amount": to_paise(total_amount), # convert to paise
                         "currency": "INR",
                         "description": plan_config.description or f"Subscription for {plan_config.label}"
                     }
@@ -115,7 +119,8 @@ class RazorpayGateway(PaymentGateway):
                 from app.services.platform_settings_service import clear_settings_cache
                 
                 with SessionLocal() as db:
-                    db_key = f"razorpay_{plan_config.key}_plan_id"
+                    suffix = "_yearly" if is_yearly else ""
+                    db_key = f"razorpay_{plan_config.key}{suffix}_plan_id"
                     setting = db.query(PlatformSetting).filter(PlatformSetting.key == db_key).first()
                     if setting:
                         setting.value = plan_id
@@ -130,14 +135,16 @@ class RazorpayGateway(PaymentGateway):
         if not self.public_key:
             raise ValueError("Razorpay public key not configured")
 
+        is_yearly = (plan_config.billing_cycle == "yearly")
         payload = {
             "plan_id": plan_id,
-            "total_count": 12,
+            "total_count": 1 if is_yearly else 12,
             "quantity": 1,
             "customer_notify": 1,
             "notes": {
                 "workspace_id": str(workspace.id),
                 "plan_key": plan_config.key,
+                "billing_cycle": plan_config.billing_cycle,
                 "user_id": str(user_id),
             },
         }

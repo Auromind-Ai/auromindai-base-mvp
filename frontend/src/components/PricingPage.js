@@ -1,8 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { ChevronRight, Check } from 'lucide-react';
 
 /* ─ Logic (Doc 2 — untouched) ─ */
 
@@ -51,7 +51,7 @@ function CheckIcon() {
 
 /* ─ PricingCard — Doc 2 logic · Doc 1 UI ─ */
 
-function PricingCard({ plan, currentPlan, onUpgrade, index }) {
+function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
   /*  Logic: Doc 2 (unchanged)  */
   const isCurrent    = currentPlan === plan.key;
   const isEnterprise = plan.key === 'enterprise';
@@ -62,7 +62,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
 
   const handleClick = () => {
     if (isCurrent || isEnterprise || typeof onUpgrade !== 'function') return;
-    onUpgrade(plan.key);
+    onUpgrade(plan.key, isAnnual ? 'yearly' : 'monthly');
   };
 
   const getCTA = (planKey) => {
@@ -74,7 +74,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
   /*  end Doc 2 logic  */
 
   const isFeatured = plan.featured;
-  const showPerMonth = !['Free', 'Custom'].includes(plan.price);
+  const showPerPeriod = !['Free', 'Custom'].includes(plan.price);
 
   /*  Card background (Doc 1 style + isCurrent tint)  */
   const cardBg = isCurrent
@@ -118,55 +118,59 @@ function PricingCard({ plan, currentPlan, onUpgrade, index }) {
       {/* Card content */}
       <div className="relative z-10 flex h-full flex-col flex-1">
 
-        {/* Plan name + icon */}
-        <h3 className="font-['Poppins'] text-[23px] font-medium text-white/80 tracking-[-0.02em] leading-[1.2em] flex items-center gap-2">
-          <span className="text-[22px]">{plan.icon}</span>
-          {plan.name}
-        </h3>
+        {/* Title row */}
+        <div className="flex items-center gap-3">
+          <span className="text-[28px]">{plan.icon}</span>
+          <span className="text-[20px] font-medium text-white">
+            {plan.name}
+          </span>
+        </div>
 
-        {/* Price */}
+        {/* Price row */}
         <div className="mt-4 flex items-end">
           <span className="text-[40px] leading-none font-semibold tracking-[-0.04em] text-white">
-            {plan.price ?? 'Custom'}
+            {plan.price}
           </span>
-          {showPerMonth && (
-            <span className="ml-1 mb-[4px] text-[14px] text-white/60">/month</span>
+          {showPerPeriod && (
+            <span className="ml-1 mb-[4px] text-[14px] text-white/60">
+              {isAnnual ? '/year' : '/month'}
+            </span>
           )}
         </div>
 
         {/* Description */}
-        <p className="mt-4 text-sm lg:text-base leading-6 text-white/85">
+        <p className="mt-4 text-sm leading-6 text-white/80">
           {plan.description}
         </p>
 
-        {/* CTA button — logic: Doc 2 · style: Doc 1 */}
+        {/* Action button */}
         {shouldShowActionButton && (
-          <div className="mt-7">
+          <div className="mt-[28px]">
             <button
-              type="button"
               onClick={handleClick}
               disabled={isCurrent || isEnterprise}
-              className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${buttonClass}`}
+              className={`w-full h-[44px] rounded-[8px] text-[14px] font-medium transition-all duration-300 ${buttonClass}`}
             >
-              <span>{getCTA(plan.key)}</span>
-              {isEnterprise && !isCurrent && <ChevronRight size={16} />}
+              {getCTA(plan.key)}
             </button>
           </div>
         )}
 
         {/* Feature list */}
-        <div className="mt-8 flex-1">
-          <p className="text-white/90 text-sm lg:text-base font-medium mb-4">
-            What's Included:
+        <div className="mt-[28px] flex flex-col gap-3">
+          <p className="text-[13px] font-medium text-white/50">
+            What&#39;s included
           </p>
-          <div className="space-y-2">
-            {plan.features.map((feature) => (
-              <div
-                key={feature}
-                className="flex items-start gap-3 text-sm lg:text-base text-white/80"
-              >
-                <CheckIcon />
-                <span>{feature}</span>
+          <div className="flex flex-col gap-2.5">
+            {plan.features.map((feature, i) => (
+              <div key={i} className="flex items-center gap-2.5">
+                <Check
+                  className="h-4 w-4 text-[#A855F7] flex-shrink-0"
+                  strokeWidth={2.5}
+                />
+                <span className="text-[14px] text-white/90">
+                  {feature}
+                </span>
               </div>
             ))}
           </div>
@@ -205,18 +209,25 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
 
   /* Plans array — fetched from DB or fallback to settings */
   const plans = dbPlans && dbPlans.length > 0
-    ? dbPlans.map(plan => ({
-        key:         plan.key,
-        icon:        iconMap[plan.key] || '🚀',
-        name:        plan.label,
-        price:       plan.key === 'free' ? 'Free' : plan.key === 'enterprise' ? 'Custom' : (isAnnual
-          ? `₹${Math.round(plan.amount * ANNUAL_DISCOUNT)}`
-          : `₹${plan.amount}`),
-        usage:       `${Math.round(plan.tokens / TOKENS_PER_CREDIT)} credits / month`,
-        description: plan.description,
-        featured:    plan.key === 'pro',
-        features:    plan.features || [],
-      }))
+    ? dbPlans.map(plan => {
+        const rawPrice = isAnnual ? (plan.yearly_price ?? plan.amount * 10) : (plan.monthly_price ?? plan.amount);
+        const displayPrice = (plan.key === 'free' || rawPrice === 0)
+          ? 'Free'
+          : (plan.key === 'enterprise' && rawPrice === 0)
+          ? 'Custom'
+          : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
+
+        return {
+          key:         plan.key,
+          icon:        iconMap[plan.key] || '🚀',
+          name:        plan.name || plan.label,
+          price:       displayPrice,
+          usage:       `${Math.round((plan.tokens || 1000000) / TOKENS_PER_CREDIT)} credits / month`,
+          description: plan.description,
+          featured:    plan.featured || plan.is_featured || plan.key === 'pro',
+          features:    plan.features || [],
+        };
+      })
     : [
     {
       key:         'free',
@@ -237,8 +248,8 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       icon:        '⚡',
       name:        settings.solo_plan_name  || 'Solo Smart',
       price: isAnnual
-        ? `₹${Math.round((settings.solo_plan_price || 999) * ANNUAL_DISCOUNT)}`
-        : `₹${settings.solo_plan_price || 999}`,
+        ? `₹${Number(settings.solo_yearly_plan_price || 9990).toLocaleString('en-IN')}`
+        : `₹${Number(settings.solo_plan_price || 999).toLocaleString('en-IN')}`,
       usage:       `${Math.round((settings.token_limit_per_plan?.solo || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description: settings.solo_plan_desc  || 'RAG & custom knowledge base on a budget for solopreneurs.',
       features:    settings.solo_plan_features || [
@@ -253,8 +264,8 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
       icon:        '🔥',
       name:        settings.pro_plan_name  || 'Pro',
       price: isAnnual
-        ? `₹${Math.round((settings.pro_plan_price || 5999) * ANNUAL_DISCOUNT)}`
-        : `₹${settings.pro_plan_price || 5999}`,
+        ? `₹${Number(settings.pro_yearly_plan_price || 59990).toLocaleString('en-IN')}`
+        : `₹${Number(settings.pro_plan_price || 5999).toLocaleString('en-IN')}`,
       usage:       `${Math.round((settings.token_limit_per_plan?.pro || 0) / TOKENS_PER_CREDIT)} credits / month`,
       description: settings.pro_plan_desc  || 'Advanced features for growing teams and scalable workflows.',
       featured:    true,
@@ -352,6 +363,7 @@ export default function PricingPage({ currentPlan = 'free', onUpgrade, settings,
               index={index}
               currentPlan={currentPlan}
               onUpgrade={onUpgrade}
+              isAnnual={isAnnual}
             />
           ))}
         </motion.div>

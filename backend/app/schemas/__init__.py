@@ -79,12 +79,14 @@ class Followup(FollowupBase):
 class CreateSubscriptionRequest(BaseModel):
     workspace_id: str
     plan: str
+    billing_cycle: str = "monthly"
     provider: str = "razorpay"
 
 
 class VerifyPaymentRequest(BaseModel):
     workspace_id: str
     plan: str
+    billing_cycle: str = "monthly"
     provider: str = "razorpay"
     payment_id: str | None = None
     subscription_id: str | None = None
@@ -103,6 +105,7 @@ class LegacyUpgradePlanRequest(BaseModel):
 
 from .plan_entitlement import PlanEntitlementBase, PlanEntitlementCreate, PlanEntitlementUpdate, PlanEntitlementResponse, EntitlementCheckRequest, EntitlementCheckResponse
 from .feature_billing_rule import FeatureBillingRuleBase, FeatureBillingRuleCreate, FeatureBillingRuleUpdate, FeatureBillingRuleResponse
+from .plan import PlanBase, PlanCreate, PlanUpdate, PlanResponse, PlanPublicItem
 from . import lead_scoring
 
 

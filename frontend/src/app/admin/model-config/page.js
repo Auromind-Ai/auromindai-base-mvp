@@ -21,7 +21,7 @@ const FEATURES = [
   { key: 'chat', label: 'Chat & Conversations', icon: MessageSquare, modes: ['auto', 'fast', 'smart', 'deep', 'flash'] },
   { key: 'inbox', label: 'Inbox Agent Message', icon: Mail, modes: ['auto'] },
   { key: 'flow', label: 'Flow Generation', icon: Zap, modes: ['auto'] },
-  { key: 'template', label: 'Template Draft Email', icon: BookOpen, modes: ['auto'] },
+  { key: 'template', label: 'WhatsApp Template', icon: BookOpen, modes: ['auto'] },
   { key: 'rag', label: 'Agentic RAG Query', icon: Search, modes: ['auto'] },
   { key: 'knowledge', label: 'Knowledge Base Upload', icon: Cpu, modes: ['auto'] }
 ];

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
 from decimal import Decimal
-from sqlalchemy import case, func, cast, Date
+from sqlalchemy import case, func, cast, Date, and_
 from sqlalchemy.orm import Session
 from app.models.plan import Plan
 from app.models.subscription import Subscription
@@ -13,7 +13,7 @@ from app.services.billing.gateway.base import TokenBalance
 from app.models.billing import Payment
 from app.services.billing.feature_billing_service import FeatureBillingService
 from .gateway.base import RESERVATION_MAX_PER_WORKSPACE, RESERVATION_TTL_MINUTES, TOKENS_PER_CREDIT
-
+from app.services.billing.entitlement_service import EntitlementService
 
 class TokenService:
     def __init__(self, usage_service):
@@ -22,7 +22,7 @@ class TokenService:
     def reserve_credits(
         self,
         db: Session,
-        workspace_id: str,
+        workspace_id: str | uuid.UUID,
         credits: float,
         reference_key: str,
         description: str,
@@ -30,14 +30,15 @@ class TokenService:
         if credits <= 0:
             raise ValueError("Credit reservation amount must be positive")
 
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         with db.begin_nested():
-            self._lock_workspace(db, workspace_id)
+            self._lock_workspace(db, ws_id)
 
             # Limit concurrent pending reservations per workspace to prevent abuse/DoS
             active_count = (
                 db.query(func.count(TokenLedger.id))
                 .filter(
-                    TokenLedger.workspace_id == workspace_id,
+                    TokenLedger.workspace_id == ws_id,
                     TokenLedger.status == "reserved",
                 )
                 .scalar() or 0
@@ -57,13 +58,13 @@ class TokenService:
                 raise ValueError("Reference key has already been finalized")
 
             from app.services.billing.billing_service import enforce_execution_policy
-            if not enforce_execution_policy(db, workspace_id, amount=credits):
+            if not enforce_execution_policy(db, ws_id, amount=credits):
                 raise ValueError("Insufficient quota. Please upgrade your plan or enable overages.")
 
-            active_subscription = self._get_active_subscription(db, workspace_id)
+            active_subscription = self._get_active_subscription(db, ws_id)
             reservation = TokenLedger(
                 id=uuid.uuid4(),
-                workspace_id=workspace_id,
+                workspace_id=ws_id,
                 subscription_id=active_subscription.id if active_subscription else None,
                 entry_type="usage_reservation",
                 status="reserved",
@@ -164,38 +165,60 @@ class TokenService:
                 raise ValueError("Billing reservation not found")
             
             workspace_id = reservation.workspace_id
-            self._lock_workspace(db, workspace_id)
+            ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+            self._lock_workspace(db, ws_id)
 
             if reservation.status == "posted":
                 return reservation
             if reservation.status != "reserved":
                 raise ValueError("Billing reservation is not active")
 
+            # Check if active paid subscription is valid (not expired or free)
+            active_subscription = self._get_active_subscription(db, ws_id)
+            is_active_paid = False
+            if active_subscription and active_subscription.plan_id:
+                from app.models.plan import Plan
+                plan = db.query(Plan).filter(Plan.id == active_subscription.plan_id).first()
+                if plan and plan.name.lower() != "free":
+                    if active_subscription.current_period_end:
+                        now_utc = datetime.now(timezone.utc)
+                        end_utc = active_subscription.current_period_end
+                        if end_utc.tzinfo is None:
+                            end_utc = end_utc.replace(tzinfo=timezone.utc)
+                        if end_utc >= now_utc:
+                            is_active_paid = True
+                    else:
+                        is_active_paid = True
+
             # 1. Calculate pool balances excluding this reservation
-            included_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
-                TokenLedger.workspace_id == workspace_id,
-                TokenLedger.status == "posted",
-                TokenLedger.balance_source == "INCLUDED"
-            ).scalar() or Decimal("0.0000")
+            if is_active_paid:
+               
+                ws_ent = EntitlementService.get_workspace_entitlement(db, ws_id)
+                current_plan_included = Decimal(str(getattr(ws_ent, "included_ai_credits", 0) or 0))
+                current_inc_used = Decimal(str(self.get_cycle_included_usage(
+                    db, ws_id, active_subscription.current_period_start if active_subscription else None
+                )))
+                included_pool = max(Decimal("0.0000"), current_plan_included - current_inc_used)
+            else:
+                included_pool = Decimal("0.0000")
             
-            purchased_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
-                TokenLedger.workspace_id == workspace_id,
-                TokenLedger.status == "posted",
-                TokenLedger.balance_source == "PURCHASED"
-            ).scalar() or Decimal("0.0000")
+            purchased_grants = Decimal(str(self.get_purchased_grants(db, ws_id)))
+            purchased_usage = Decimal(str(self.get_purchased_usage(db, ws_id)))
+            purchased_pool = max(Decimal("0.0000"), purchased_grants - purchased_usage)
             
-            other_reservations_sum = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
-                TokenLedger.workspace_id == workspace_id,
+            other_reservations_sum = db.query(func.coalesce(func.sum(-TokenLedger.credits_delta), 0)).filter(
+                TokenLedger.workspace_id == ws_id,
                 TokenLedger.status == "reserved",
-                TokenLedger.id != reservation.id
+                TokenLedger.id != reservation.id,
+                TokenLedger.credits_delta < 0,
             ).scalar() or Decimal("0.0000")
             
-            other_reserved_abs = abs(Decimal(str(other_reservations_sum)))
+            other_reserved_abs = Decimal(str(other_reservations_sum))
             
             # Allocate other reservations against the pools in sequential priority
-            included_available = max(Decimal(str(included_pool)) - other_reserved_abs, Decimal("0.0000"))
-            rem_other = max(other_reserved_abs - Decimal(str(included_pool)), Decimal("0.0000"))
-            purchased_available = max(Decimal(str(purchased_pool)) - rem_other, Decimal("0.0000"))
+            included_available = max(included_pool - other_reserved_abs, Decimal("0.0000"))
+            rem_other = max(other_reserved_abs - included_pool, Decimal("0.0000"))
+            purchased_available = max(purchased_pool - rem_other, Decimal("0.0000"))
             
             credits_used_dec = Decimal(str(credits_used))
             
@@ -403,7 +426,9 @@ class TokenService:
     def get_token_balance(self, db: Session, workspace_id: str) -> TokenBalance:
         return self._get_token_balance_locked(db, workspace_id)
 
-    def _get_token_balance_locked(self, db: Session, workspace_id: str) -> TokenBalance:
+    def _get_token_balance_locked(self, db: Session, workspace_id: str | uuid.UUID) -> TokenBalance:
+        import uuid
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         added_expr = func.coalesce(
             func.sum(
                 case(
@@ -421,7 +446,13 @@ class TokenService:
                 case(
                     (
                         TokenLedger.status == "posted",
-                        case((TokenLedger.credits_delta < 0, -TokenLedger.credits_delta), else_=0),
+                        case(
+                            (
+                                and_(TokenLedger.credits_delta < 0, TokenLedger.entry_type == "usage"),
+                                -TokenLedger.credits_delta,
+                            ),
+                            else_=0,
+                        ),
                     ),
                     else_=0,
                 )
@@ -452,7 +483,7 @@ class TokenService:
         added, used, reserved, net = (
             db.query(added_expr, used_expr, reserved_expr, net_expr)
             .filter(
-                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.workspace_id == ws_id,
             )
             .one()
         )
@@ -462,6 +493,207 @@ class TokenService:
             tokens_reserved=float(reserved or 0),
             balance=float(net or 0),
         )
+
+    def get_cycle_usage(self, db: Session, workspace_id: str | uuid.UUID, cycle_start: datetime | None = None) -> float:
+        """Sum of actual AI usage credits consumed since cycle_start (excludes expiration debits)."""
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        used_expr = func.coalesce(
+            func.sum(
+                case(
+                    (
+                        TokenLedger.status == "posted",
+                        case(
+                            (
+                                and_(TokenLedger.credits_delta < 0, TokenLedger.entry_type == "usage"),
+                                -TokenLedger.credits_delta,
+                            ),
+                            else_=0,
+                        ),
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        )
+        query = db.query(used_expr).filter(TokenLedger.workspace_id == ws_id)
+        if cycle_start:
+            query = query.filter(TokenLedger.created_at >= cycle_start)
+        result = query.scalar()
+        return float(result or 0)
+
+    def get_cycle_included_usage(self, db: Session, workspace_id: str | uuid.UUID, cycle_start: datetime | None = None) -> float:
+        """Sum of actual INCLUDED credits consumed since cycle_start."""
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        used_expr = func.coalesce(
+            func.sum(
+                case(
+                    (
+                        and_(
+                            TokenLedger.status == "posted",
+                            TokenLedger.balance_source == "INCLUDED",
+                            TokenLedger.entry_type == "usage",
+                            TokenLedger.credits_delta < 0,
+                        ),
+                        -TokenLedger.credits_delta,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        )
+        query = db.query(used_expr).filter(TokenLedger.workspace_id == ws_id)
+        if cycle_start:
+            query = query.filter(TokenLedger.created_at >= cycle_start)
+        result = query.scalar()
+        return float(result or 0)
+
+    def get_cycle_purchased_usage(self, db: Session, workspace_id: str | uuid.UUID, cycle_start: datetime | None = None) -> float:
+        """Sum of actual PURCHASED credits consumed since cycle_start."""
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        used_expr = func.coalesce(
+            func.sum(
+                case(
+                    (
+                        and_(
+                            TokenLedger.status == "posted",
+                            TokenLedger.balance_source == "PURCHASED",
+                            TokenLedger.entry_type == "usage",
+                            TokenLedger.credits_delta < 0,
+                        ),
+                        -TokenLedger.credits_delta,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        )
+        query = db.query(used_expr).filter(TokenLedger.workspace_id == ws_id)
+        if cycle_start:
+            query = query.filter(TokenLedger.created_at >= cycle_start)
+        result = query.scalar()
+        return float(result or 0)
+
+    def get_purchased_grants(self, db: Session, workspace_id: str | uuid.UUID) -> float:
+        """Original sum of credits added via purchased top-up packs (credits_delta > 0, balance_source == 'PURCHASED')."""
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        grants = (
+            db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0))
+            .filter(
+                TokenLedger.workspace_id == ws_id,
+                TokenLedger.status == "posted",
+                TokenLedger.balance_source == "PURCHASED",
+                TokenLedger.credits_delta > 0,
+            )
+            .scalar()
+        )
+        return float(grants or 0)
+
+    def get_purchased_usage(self, db: Session, workspace_id: str | uuid.UUID) -> float:
+        """Total lifetime posted usage consumed from PURCHASED balance."""
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        used = (
+            db.query(func.coalesce(func.sum(-TokenLedger.credits_delta), 0))
+            .filter(
+                TokenLedger.workspace_id == ws_id,
+                TokenLedger.status == "posted",
+                TokenLedger.balance_source == "PURCHASED",
+                TokenLedger.entry_type == "usage",
+                TokenLedger.credits_delta < 0,
+            )
+            .scalar()
+        )
+        return float(used or 0)
+
+    def get_active_reservations(self, db: Session, workspace_id: str | uuid.UUID) -> float:
+        """Total active reserved holds currently locked for workspace."""
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        reserved = (
+            db.query(func.coalesce(func.sum(-TokenLedger.credits_delta), 0))
+            .filter(
+                TokenLedger.workspace_id == ws_id,
+                TokenLedger.status == "reserved",
+                TokenLedger.credits_delta < 0,
+            )
+            .scalar()
+        )
+        return float(reserved or 0)
+
+    def get_purchased_credits(self, db: Session, workspace_id: str | uuid.UUID) -> float:
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        grants = self.get_purchased_grants(db, ws_id)
+        usage = self.get_purchased_usage(db, ws_id)
+        reservations = self.get_active_reservations(db, ws_id)
+
+        net_remaining = max(0.0, float(Decimal(str(grants)) - Decimal(str(usage)) - Decimal(str(reservations))))
+        return net_remaining
+
+    def get_included_credits(self, db: Session, workspace_id: str | uuid.UUID) -> float:
+        """Lifetime sum of credits added via plan grants (balance_source == 'INCLUDED'). For historical view only."""
+        return self.get_lifetime_included_grants(db, workspace_id)
+
+    def get_lifetime_included_grants(self, db: Session, workspace_id: str | uuid.UUID) -> float:
+        """Lifetime sum of all positive INCLUDED grants (historical audit only)."""
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        included = (
+            db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0))
+            .filter(
+                TokenLedger.workspace_id == ws_id,
+                TokenLedger.status == "posted",
+                TokenLedger.balance_source == "INCLUDED",
+                TokenLedger.credits_delta > 0,
+            )
+            .scalar()
+        )
+        return float(included or 0)
+
+    def get_credit_distribution(self, db: Session, workspace_id: str | uuid.UUID, cycle_start: datetime | None = None) -> list[dict[str, Any]]:
+       
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        query = (
+            db.query(
+                func.coalesce(TokenLedger.feature_key, TokenLedger.entry_type).label("category_key"),
+                func.sum(-TokenLedger.credits_delta).label("total_credits_used"),
+                func.sum(func.coalesce(TokenLedger.total_tokens, 0)).label("total_tokens_used"),
+                func.count(TokenLedger.id).label("request_count"),
+            )
+            .filter(
+                TokenLedger.workspace_id == ws_id,
+                TokenLedger.status == "posted",
+                TokenLedger.entry_type == "usage",
+                TokenLedger.credits_delta < 0,
+            )
+        )
+        if cycle_start:
+            query = query.filter(TokenLedger.created_at >= cycle_start)
+        
+        rows = query.group_by("category_key").all()
+
+        CATEGORY_LABELS = {
+            "chat": "AI Chat",
+            "ai_chat": "AI Chat",
+            "flow": "Flow Generation",
+            "flow_generation": "Flow Generation",
+            "template": "Template Generation",
+            "template_generation": "Template Generation",
+            "inbox": "Inbox AI Assistant",
+            "inbox_reply": "Inbox AI Assistant",
+            "rag": "Knowledge Base (RAG)",
+            "rag_query": "Knowledge Base (RAG)",
+            "usage": "AI Processing",
+        }
+
+        result = []
+        for r in rows:
+            raw_key = str(r.category_key or "other").lower()
+            label = CATEGORY_LABELS.get(raw_key, raw_key.replace("_", " ").title())
+            result.append({
+                "category": raw_key,
+                "label": label,
+                "credits_used": float(r.total_credits_used or 0),
+                "tokens_used": int(r.total_tokens_used or 0),
+                "count": int(r.request_count or 0),
+            })
+        return result
 
     def _lock_workspace(self, db: Session, workspace_id: str, nowait: bool = False):
         if isinstance(workspace_id, str):
@@ -477,13 +709,14 @@ class TokenService:
             raise ValueError("Workspace not found")
         return workspace
 
-    def _get_active_subscription(self, db: Session, workspace_id: str):
+    def _get_active_subscription(self, db: Session, workspace_id: str | uuid.UUID):
         from app.models.subscription import Subscription
         from app.core.enums import SubscriptionStatus
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         return (
             db.query(Subscription)
             .filter(
-                Subscription.workspace_id == workspace_id,
+                Subscription.workspace_id == ws_id,
                 Subscription.status == SubscriptionStatus.active,
             )
             .order_by(Subscription.created_at.desc())
@@ -558,12 +791,13 @@ class TokenService:
                 )
             return existing
 
-    def get_transaction_history(self, db: Session, workspace_id: str, page: int = 1, limit: int = 20):
+    def get_transaction_history(self, db: Session, workspace_id: str | uuid.UUID, page: int = 1, limit: int = 20):
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         offset = (page - 1) * limit
         total = (
             db.query(func.count(TokenLedger.id))
             .filter(
-                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.workspace_id == ws_id,
                 TokenLedger.status.in_(["posted", "released"]),
             )
             .scalar() or 0
@@ -571,7 +805,7 @@ class TokenService:
         entries = (
             db.query(TokenLedger)
             .filter(
-                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.workspace_id == ws_id,
                 TokenLedger.status.in_(["posted", "released"]),
             )
             .order_by(TokenLedger.created_at.desc())
@@ -597,11 +831,13 @@ class TokenService:
             ],
         }
 
-    def get_daily_usage(self, db: Session, workspace_id: str, days: int = 30):
+    def get_daily_usage(self, db: Session, workspace_id: str | uuid.UUID, days: int = 30):
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        date_expr = func.date(TokenLedger.created_at)
         rows = (
             db.query(
-                cast(TokenLedger.created_at, Date).label("day"),
+                date_expr.label("day"),
                 func.sum(
                     case(
                         (TokenLedger.credits_delta < 0, -TokenLedger.credits_delta),
@@ -610,25 +846,26 @@ class TokenService:
                 ).label("credits_used"),
             )
             .filter(
-                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.workspace_id == ws_id,
                 TokenLedger.status == "posted",
                 TokenLedger.entry_type == "usage",
                 TokenLedger.created_at >= cutoff,
             )
-            .group_by("day")
-            .order_by("day")
+            .group_by(date_expr)
+            .order_by(date_expr)
             .all()
         )
         return [
             {
-                "date": row.day.isoformat() if row.day else None,
+                "date": row.day.isoformat() if hasattr(row.day, "isoformat") else str(row.day) if row.day else None,
                 "tokens_used": int(float(row.credits_used or 0) * 1000),
                 "credits_used": float(row.credits_used or 0),
             }
             for row in rows
         ]
 
-    def get_burn_rate(self, db: Session, workspace_id: str) -> float:
+    def get_burn_rate(self, db: Session, workspace_id: str | uuid.UUID) -> float:
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         total_used = (
             db.query(
@@ -640,7 +877,7 @@ class TokenService:
                 )
             )
             .filter(
-                TokenLedger.workspace_id == workspace_id,
+                TokenLedger.workspace_id == ws_id,
                 TokenLedger.status == "posted",
                 TokenLedger.entry_type == "usage",
                 TokenLedger.created_at >= cutoff,
@@ -652,7 +889,7 @@ class TokenService:
     def reserve_feature_credits(
         self,
         db: Session,
-        workspace_id: str,
+        workspace_id: str | uuid.UUID,
         feature_key: str,
         unit_amount: float,
         reference_key: str,
@@ -661,13 +898,14 @@ class TokenService:
         if unit_amount <= 0:
             raise ValueError("Feature usage unit amount must be positive")
 
+        ws_id = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         with db.begin_nested():
-            self._lock_workspace(db, workspace_id)
+            self._lock_workspace(db, ws_id)
 
             active_count = (
                 db.query(func.count(TokenLedger.id))
                 .filter(
-                    TokenLedger.workspace_id == workspace_id,
+                    TokenLedger.workspace_id == ws_id,
                     TokenLedger.status == "reserved",
                 )
                 .scalar() or 0
@@ -690,13 +928,13 @@ class TokenService:
             credits_cost = FeatureBillingService.calculate_cost(db, feature_key, unit_amount)
 
             from app.services.billing.billing_service import enforce_execution_policy
-            if not enforce_execution_policy(db, workspace_id, amount=float(credits_cost)):
+            if not enforce_execution_policy(db, ws_id, amount=float(credits_cost)):
                 raise ValueError("Insufficient quota. Please upgrade your plan or enable overages.")
 
-            active_subscription = self._get_active_subscription(db, workspace_id)
+            active_subscription = self._get_active_subscription(db, ws_id)
             reservation = TokenLedger(
                 id=uuid.uuid4(),
-                workspace_id=workspace_id,
+                workspace_id=ws_id,
                 subscription_id=active_subscription.id if active_subscription else None,
                 entry_type="usage_reservation",
                 status="reserved",

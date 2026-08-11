@@ -33,9 +33,9 @@ export default function DashboardView({
   const handleCreateFlowClick = () => {
     const isUnlimited = flowQuota?.total === -1;
     const limit = isUnlimited ? Infinity : (flowQuota?.total ?? 5);
-    const activeFlowsCount = automations.filter(a => a.status === 'Active').length;
+    const totalFlowsCount = automations.length;
 
-    if (activeFlowsCount >= limit) {
+    if (totalFlowsCount >= limit) {
       setReachedLimitWarning(true);
       setIsPurchaseFlowModalOpen(true);
     } else {
@@ -220,10 +220,22 @@ export default function DashboardView({
               </div>
 
               <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/50 font-medium">
-                <span>Plan: {planBase} | Purchased: +{purchasedFlows} | Total Quota: {totalLimit}</span>
+                <span>Plan: {planBase} | Purchased: +{purchasedFlows} {flowQuota?.purchased_locked && <span className="text-amber-400 font-bold" title="Purchased flows locked until plan upgrade">🔒 (Locked)</span>} | Total Quota: {totalLimit}</span>
                 <span>•</span>
                 <span>AI Enabled: {automations.filter(a => a.nodes?.some(n => n.type === 'action' && n.config?.type === 'brain_query')).length}</span>
               </div>
+
+              {flowQuota?.purchased_locked && (
+                <div className="mt-3 p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-center justify-between text-xs text-amber-300 font-medium">
+                  <div className="flex items-center gap-2">
+                    <span>🔒</span>
+                    <span>{flowQuota?.status_message || "Purchased flows on hold — Upgrade to Pro to unlock"}</span>
+                  </div>
+                  <a href="/user/admin/billing/payment" className="text-[11px] px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition whitespace-nowrap">
+                    Upgrade
+                  </a>
+                </div>
+              )}
             </div>
             
             <button 

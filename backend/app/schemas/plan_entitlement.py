@@ -18,7 +18,14 @@ class PlanEntitlementBase(BaseModel):
     flow: int = Field(5, description="Max active flows allowed")
 
     allow_ai_topup: bool = Field(True, description="Whether workspace is allowed to purchase AI top-up credits")
+    allow_purchased_ai_usage: bool = Field(True, description="Whether workspace is allowed to consume purchased AI credits")
+
     allow_wcc_recharge: bool = Field(True, description="Whether workspace is allowed to recharge WCC wallet balance")
+    allow_purchased_wcc_usage: bool = Field(True, description="Whether workspace is allowed to consume purchased WCC wallet balance")
+
+    allow_flow_addon: bool = Field(True, description="Whether workspace is allowed to purchase Flow add-on packs")
+    allow_purchased_flow_usage: bool = Field(True, description="Whether workspace is allowed to consume purchased Flow packs/quota")
+
     included_credit_reset_policy: str = Field("EXPIRE", description="AI credits renewal reset policy: EXPIRE or ROLLOVER")
     included_wallet_reset_policy: str = Field("EXPIRE", description="WCC wallet renewal reset policy: EXPIRE or ROLLOVER")
 
@@ -26,8 +33,8 @@ class PlanEntitlementBase(BaseModel):
 
     @validator("flow")
     def validate_flow_quota(cls, v):
-        if v < 0:
-            raise ValueError("Flow quota must be a non-negative integer")
+        if v < 0 and v != -1:
+            raise ValueError("Flow quota must be a non-negative integer or -1 for unlimited")
         return v
 
 
@@ -49,7 +56,14 @@ class PlanEntitlementUpdate(BaseModel):
     flow: Optional[int] = None
 
     allow_ai_topup: Optional[bool] = None
+    allow_purchased_ai_usage: Optional[bool] = None
+
     allow_wcc_recharge: Optional[bool] = None
+    allow_purchased_wcc_usage: Optional[bool] = None
+
+    allow_flow_addon: Optional[bool] = None
+    allow_purchased_flow_usage: Optional[bool] = None
+
     included_credit_reset_policy: Optional[str] = None
     included_wallet_reset_policy: Optional[str] = None
 
@@ -57,8 +71,8 @@ class PlanEntitlementUpdate(BaseModel):
 
     @validator("flow")
     def validate_flow_quota(cls, v):
-        if v is not None and v < 0:
-            raise ValueError("Flow quota must be a non-negative integer")
+        if v is not None and v < 0 and v != -1:
+            raise ValueError("Flow quota must be a non-negative integer or -1 for unlimited")
         return v
 
 
@@ -67,8 +81,8 @@ class PlanEntitlementResponse(PlanEntitlementBase):
     id: UUID
     plan_id: UUID
     plan_name: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

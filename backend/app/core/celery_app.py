@@ -24,10 +24,11 @@ celery_app.conf.update(
 
     # Task discovery
     imports=[
-    "app.workers.flow_execution",
-    "app.workers.scoring_worker",
-    "app.workers.billing_worker",
-],
+        "app.workers.flow_execution",
+        "app.workers.scoring_worker",
+        "app.workers.billing_worker",
+        "app.workers.ingestion_worker",
+    ],
 
     # Reliability
     task_acks_late=True,

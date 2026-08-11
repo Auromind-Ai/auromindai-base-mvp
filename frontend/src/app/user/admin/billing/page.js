@@ -24,10 +24,12 @@ import { Poppins } from "next/font/google"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import HistoryModal from "@/components/common/HistoryModal"
+import UsageSummaryCard from "@/components/common/UsageSummaryCard"
 import { TABLE_PREVIEW_LIMIT, TRANSACTION_TYPES } from "@/lib/constants/billingConstants"
 import {
   getActivityMeta,
   formatBillingDate,
+  formatRelativeTime,
   formatBillingAmount,
   formatPaymentMethod,
 } from "@/lib/utils/activityMapper"
@@ -79,7 +81,7 @@ export default function BillingHistoryPage() {
         setLoading(true)
         setError("")
 
-        const [billingData, pricingData, profileData] = await Promise.all([
+        const [billingData, pricingData, profileData, wccRes, flowQuotaRes] = await Promise.all([
           api.getBillingStatus(workspaceId),
           api.getPricing(),
           api.getWorkspaceBillingProfile(workspaceId).catch(() => ({
@@ -96,8 +98,21 @@ export default function BillingHistoryPage() {
             billing_gstin: "",
             legal_business_name: "",
             business_type: ""
-          }))
+          })),
+          api.getWccBalance(workspaceId).catch(() => null),
+          api.getFlowQuota(workspaceId).catch(() => null)
         ])
+
+        if (billingData) {
+          if (wccRes) {
+            billingData.wcc_wallet_balance = parseFloat(wccRes.balance ?? wccRes.data?.balance ?? 0)
+            billingData.wcc_fill_percentage = parseFloat(wccRes.fill_percentage ?? wccRes.data?.fill_percentage ?? 0)
+            billingData.wcc_status = wccRes.status ?? wccRes.data?.status ?? null
+          }
+          if (flowQuotaRes) {
+            billingData.flow_quota = flowQuotaRes
+          }
+        }
 
         setBilling(billingData)
         setPricing(pricingData)
@@ -114,19 +129,33 @@ export default function BillingHistoryPage() {
     loadBillingHistory()
   }, [workspaceId])
 
-  const usage = useMemo(() => {
-    const used = Number(billing?.credits_used ?? 0)
-    const total = Number(billing?.total_limit ?? 0)
-    const remaining = Number(
-      billing?.credits_remaining ?? Math.max(total - used, 0)
-    )
-    const percent = total > 0 ? Math.min((used / total) * 100, 100) : 0
+  const summaryData = useMemo(() => {
+    const aiUsed = Number(billing?.cycle_used ?? billing?.credits_used ?? billing?.aiCredits?.used ?? 0)
+    const aiTotal = Number(billing?.quota_limit ?? billing?.total_limit ?? billing?.aiCredits?.total ?? 0)
+    const wccBalance = Number(billing?.wcc_wallet_balance ?? billing?.wccWallet?.balance ?? billing?.wcc_balance ?? 0)
+    const wccCurrency = billing?.wccWallet?.currency || "₹"
+    const wccFillPercentage = billing?.wcc_fill_percentage ?? billing?.wccWallet?.fillPercentage ?? null
+    const wccStatus = billing?.wcc_status ?? billing?.wccWallet?.status ?? null
+
+    const fq = billing?.flow_quota || billing?.flowQuota || {}
+    const flowUsed = Number(fq?.used_quota ?? fq?.used ?? billing?.flows_used ?? 0)
+    const flowTotal = Number(fq?.total_quota ?? fq?.total ?? billing?.flows_total ?? 0)
+    const flowPlanQuota = Number(fq?.plan_quota ?? fq?.plan_base ?? 0)
+    const flowPurchasedQuota = Number(fq?.purchased_quota ?? fq?.purchased ?? 0)
+    const flowRemainingQuota = Number(fq?.remaining_quota ?? fq?.remaining ?? Math.max(0, flowTotal - flowUsed))
 
     return {
-      used: Number(used.toFixed(2)),
-      total: Number(total.toFixed(2)),
-      remaining: Number(remaining.toFixed(2)),
-      percent,
+      aiCredits: { used: aiUsed, total: aiTotal },
+      wccWallet: { balance: wccBalance, currency: wccCurrency, fillPercentage: wccFillPercentage, status: wccStatus },
+      flowQuota: {
+        used: flowUsed,
+        total: flowTotal,
+        plan_quota: flowPlanQuota,
+        purchased_quota: flowPurchasedQuota,
+        total_quota: flowTotal,
+        used_quota: flowUsed,
+        remaining_quota: flowRemainingQuota
+      }
     }
   }, [billing])
 
@@ -154,15 +183,42 @@ export default function BillingHistoryPage() {
   }, [billing])
 
   const currentPlanLabel = billing?.plan_label || titleCase(billing?.current_plan || "free")
+  const rawCycle = (billing?.subscription?.billing_cycle || billing?.billing_cycle || "").toLowerCase()
+  const isFreePlan = (billing?.current_plan || "free").toLowerCase() === "free"
+  const resolvedCycle = isFreePlan ? "—" : (rawCycle === "yearly" ? "Yearly" : "Monthly")
 
   const currentPlanPrice = useMemo(() => {
-    if (!pricing || !billing) return 0
-    const plan = billing?.current_plan || "free"
-    if (plan === "free") return pricing.free_plan_price
-    if (plan === "pro") return pricing.pro_plan_price
-    if (plan === "enterprise") return pricing.enterprise_plan_price
-    return 0
-  }, [pricing, billing])
+    if (!billing) return "—"
+    const planKey = String(billing?.current_plan || "free").toLowerCase()
+    if (planKey === "free") return "—"
+
+    const cycle = rawCycle || "monthly"
+
+    // 1. Dynamic plan lookup from backend billing status payload
+    const dynamicPlans = billing?.plans || pricing?.plans || []
+    if (Array.isArray(dynamicPlans) && dynamicPlans.length > 0) {
+      const match = dynamicPlans.find(
+        p => (p.name || p.key || p.id || "").toLowerCase() === planKey
+      )
+      if (match) {
+        const rawPrice = cycle === "yearly" ? (match.yearly_price ?? match.yearlyPrice) : (match.monthly_price ?? match.monthlyPrice)
+        if (rawPrice !== undefined && rawPrice !== null) {
+          const num = Number(rawPrice)
+          return isNaN(num) || num === 0 ? "—" : `₹${num.toLocaleString('en-IN')}`
+        }
+      }
+    }
+
+    // 2. Fallback to legacy pricing object structure
+    if (pricing) {
+      const legacyPrice = cycle === "yearly"
+        ? pricing[`${planKey}_plan_yearly_price`] || pricing[`${planKey}_yearly_price`] || pricing.pro_plan_yearly_price
+        : pricing[`${planKey}_plan_price`] || pricing[`${planKey}_price`] || pricing.pro_plan_price
+      if (legacyPrice) return `₹${Number(legacyPrice).toLocaleString('en-IN')}`
+    }
+
+    return "—"
+  }, [pricing, billing, rawCycle])
 
   const activePlanFeatures = useMemo(() => {
     if (!pricing || !billing) return []
@@ -283,6 +339,7 @@ export default function BillingHistoryPage() {
         title: "Plan Activated",
         desc: `${titleCase(billing?.current_plan || "Pro")} plan subscription started`,
         date: formatBillingDate(billing?.subscription?.current_period_start, true),
+        relativeDate: formatRelativeTime(billing?.subscription?.current_period_start),
         rawTime: !isNaN(subDate.getTime()) ? subDate.getTime() : 0,
       })
     }
@@ -299,6 +356,7 @@ export default function BillingHistoryPage() {
           title: meta.title,
           desc: p.description || meta.desc,
           date: formatBillingDate(dVal, true),
+          relativeDate: formatRelativeTime(dVal),
           rawTime,
         })
       })
@@ -348,7 +406,7 @@ export default function BillingHistoryPage() {
                     {currentPlanLabel}
                   </h2>
                   <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>
-                    {currentPlanPrice} / month
+                    {isFreePlan ? "Free" : `${currentPlanPrice} / ${rawCycle === "yearly" ? "year" : "month"}`}
                   </p>
                 </>
               )}
@@ -411,7 +469,7 @@ export default function BillingHistoryPage() {
                 {
                   icon: <RefreshCw size={14} color="#9ca3af" />,
                   label: "Billing Cycle",
-                  value: billing?.subscription?.billing_cycle || billing?.billing_cycle || "Monthly",
+                  value: resolvedCycle,
                 },
                 {
                   icon: <Calendar size={14} color="#9ca3af" />,
@@ -512,60 +570,40 @@ export default function BillingHistoryPage() {
       {/* Middle Row: Usage Summary + Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Usage Summary */}
-        <div style={cardStyle}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-            <div>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Usage Summary</p>
-              <p style={{ fontSize: 12, color: "#cfd5df", marginTop: 4 }}>Current billing cycle usage</p>
+        {loading ? (
+          <div style={cardStyle}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Usage Summary</p>
+                <p style={{ fontSize: 12, color: "#cfd5df", marginTop: 4 }}>Current billing cycle usage</p>
+              </div>
+              <span style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.2)", color: "#f0edf8", borderRadius: 16, padding: "4px 12px", fontSize: 11, fontWeight: 500 }}>
+                This month
+              </span>
             </div>
-            <span style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.2)", color: "#f0edf8", borderRadius: 16, padding: "4px 12px", fontSize: 11, fontWeight: 500 }}>
-              This month
-            </span>
-          </div>
-
-          {loading ? (
             <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
               {[1, 2, 3].map(i => <div key={i} style={skeletonStyle("100%", 44)} />)}
             </div>
-          ) : (
-            <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 20 }}>
-              <UsageBar
-                label="Credits Used"
-                value={`${usage.used} / ${usage.total}`}
-                percent={usage.percent}
-                barColor="linear-gradient(90deg, #22d3ee, #06b6d4)"
-              />
-              <UsageBar
-                label="Remaining Credits"
-                value={usage.remaining}
-                percent={usage.total > 0 ? (usage.remaining / usage.total) * 100 : 0}
-                barColor="linear-gradient(90deg, #818cf8, #6366f1)"
-              />
-              <UsageBar
-                label="Percentage Used"
-                value={`${usage.percent.toFixed(1)}%`}
-                percent={usage.percent}
-                barColor="linear-gradient(90deg, #f59e0b, #f97316)"
-              />
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <UsageSummaryCard data={summaryData} />
+        )}
 
         {/* Recent Account Activity */}
-        <div style={cardStyle}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Recent Account Activity</p>
+        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Recent Account Activity</p>
           {loading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[1, 2, 3].map(i => <div key={i} style={skeletonStyle("100%", 56)} />)}
+              {[1, 2, 3, 4].map(i => <div key={i} style={skeletonStyle("100%", 56)} />)}
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div className="flex-1 max-h-[285px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10 custom-scrollbar">
               {activityItems.length === 0 ? (
                 <div style={{ border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 12, padding: "24px", textAlign: "center", fontSize: 13, color: "#6b7280" }}>
                   No recent activity recorded yet.
                 </div>
               ) : (
-                activityItems.slice(0, TABLE_PREVIEW_LIMIT).map((item, idx, arr) => (
+                activityItems.map((item, idx, arr) => (
                   <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <span style={{ width: 36, height: 36, borderRadius: 10, background: item.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -576,7 +614,12 @@ export default function BillingHistoryPage() {
                         <p style={{ fontSize: 11, color: "#b9c1cf", margin: 0, marginTop: 2 }}>{item.desc}</p>
                       </div>
                     </div>
-                    <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 12 }}>{item.date}</span>
+                    <span
+                      title={item.date}
+                      style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 12, cursor: "help" }}
+                    >
+                      {item.relativeDate || item.date}
+                    </span>
                   </div>
                 ))
               )}

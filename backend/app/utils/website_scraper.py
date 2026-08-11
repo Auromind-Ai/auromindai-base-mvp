@@ -27,9 +27,11 @@ def _run_scrapy_process(url):
     process.start()
 
 class Webscrapper:
-    def __init__(self, url):
-        self.url =url
-        self.static = Staticscraper(self.url)
+    def __init__(self, url, max_depth=None, max_pages=None):
+        self.url = url
+        self.static = Staticscraper(self.url, max_depth=max_depth, max_pages=max_pages)
+        self.max_depth = self.static.max_depth
+        self.max_pages = self.static.max_pages
         
 
     def safety_check(self):

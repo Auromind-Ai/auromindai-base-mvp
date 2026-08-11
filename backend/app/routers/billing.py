@@ -134,6 +134,7 @@ def create_subscription(
             user_email=current_user.email,
             user_name=current_user.full_name,
             plan_key=payload.plan,
+            billing_cycle=getattr(payload, "billing_cycle", "monthly") or "monthly",
             provider=payload.provider,
         )
 
@@ -162,6 +163,7 @@ def verify_payment(
             workspace_id=resolved_ws_id,
             user_id=str(current_user.id),
             plan_key=payload.plan,
+            billing_cycle=getattr(payload, "billing_cycle", "monthly") or "monthly",
             provider=payload.provider,
             subscription_id=payload.subscription_id,
             payment_id=payload.payment_id,
@@ -307,6 +309,7 @@ def get_plan(
 
 
 @router.get("/credits/summary")
+@router.get("/credit-summary")
 def get_credit_summary(
     workspace_id: str | None = None,
     x_workspace_id: str | None = Header(None),

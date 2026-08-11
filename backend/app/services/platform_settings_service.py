@@ -493,8 +493,11 @@ def seed_settings_from_env(db: Session):
     default_pricing = {
         "free_plan_price": (0.0, "float"),
         "solo_plan_price": (999.0, "float"),
+        "solo_yearly_plan_price": (9990.0, "float"),
         "pro_plan_price": (5999.0, "float"),
+        "pro_yearly_plan_price": (59990.0, "float"),
         "enterprise_plan_price": (24999.0, "float"),
+        "enterprise_yearly_plan_price": (249990.0, "float"),
         "free_plan_name": ("Free", "string"),
         "solo_plan_name": ("Solo Smart", "string"),
         "pro_plan_name": ("Professional", "string"),

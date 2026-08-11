@@ -480,6 +480,7 @@ async def list_leads_with_scores(
     ),
     min_score: int | None = Query(default=None, ge=0, le=100),
     max_score: int | None = Query(default=None, ge=0, le=100),
+    search: str | None = Query(default=None, description="Search term for name or phone"),
     sort_by: str = Query(
         default="score_desc",
         description="Sort: score_desc, score_asc, recent",
@@ -497,6 +498,7 @@ async def list_leads_with_scores(
         status_filter=status_filter,
         min_score=min_score,
         max_score=max_score,
+        search=search,
         sort_by=sort_by,
         limit=limit,
         offset=offset,

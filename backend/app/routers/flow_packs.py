@@ -181,28 +181,7 @@ def get_quota(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id
         )
-        entitlement = EntitlementService.get_workspace_entitlement(db, resolved_ws_id)
-        plan_base = getattr(entitlement, "flow", None)
-        if plan_base is None or plan_base == 0:
-            plan_base = getattr(entitlement, "automation_limit", None) or 5
-
-        purchased = db.query(func.sum(FlowPackPurchase.flows_count)).filter(
-            FlowPackPurchase.workspace_id == uuid.UUID(resolved_ws_id),
-            FlowPackPurchase.status == PurchaseStatus.SUCCESS.value
-        ).scalar() or 0
-
-        total = -1 if plan_base == -1 else (plan_base + purchased)
-
-        used = db.query(AutomationFlow).filter(
-            AutomationFlow.workspace_id == uuid.UUID(resolved_ws_id)
-        ).count()
-
-        return {
-            "plan_base": plan_base,
-            "purchased": purchased,
-            "total": total,
-            "used": used,
-        }
+        return EntitlementService.get_flow_quota(db, resolved_ws_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
