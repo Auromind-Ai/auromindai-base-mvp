@@ -703,41 +703,41 @@ export default function CreditsPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" style={{ gridAutoRows: '1fr' }}>
 
                             {/* Credit Health */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-7 border border-white/5 shadow-xl flex flex-col overflow-hidden">
-                                <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Credit Health</p>
-                                <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-6 sm:mb-10">Monthly Cycle</p>
+                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-6 border border-white/5 shadow-xl flex flex-col overflow-hidden">
+                                <p className="text-white/60 text-xs sm:text-[13px] font-normal sm:font-medium mb-0.5">Credit Health</p>
+                                <p className="text-white text-xs sm:text-sm font-normal sm:font-medium mb-3 sm:mb-4">Monthly Cycle</p>
 
-                                <div className="flex flex-col sm:flex-row items-start gap-6 sm:gap-5">
-                                    <div className="relative w-32 h-32 sm:w-36 sm:h-36 shrink-0">
-                                        <svg viewBox="0 0 100 100" className="w-32 h-32 sm:w-36 sm:h-36 -rotate-90">
+                                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5">
+                                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
+                                        <svg viewBox="0 0 100 100" className="w-24 h-24 sm:w-28 sm:h-28 -rotate-90">
                                             <defs>
                                                 <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                                                     <stop offset="0%" stopColor="#22d3ee" />
                                                     <stop offset="100%" stopColor="#818cf8" />
                                                 </linearGradient>
                                             </defs>
-                                            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="9" />
+                                            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="7" />
                                             <circle
                                                 cx="50" cy="50" r="42" fill="none"
-                                                stroke="url(#healthGradient)" strokeWidth="9" strokeLinecap="round"
+                                                stroke="url(#healthGradient)" strokeWidth="7" strokeLinecap="round"
                                                 strokeDasharray={`${2 * Math.PI * 42}`}
                                                 strokeDashoffset={`${2 * Math.PI * 42 * (1 - (cycleTotal > 0 ? remainingPct / 100 : 0.99))}`}
                                             />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className="text-base sm:text-2xl font-bold text-white">{cycleTotal > 0 ? formatRemainingPercent(remainingPct, cycleUsed) : '—'}</span>
-                                            <span className="text-[10px] text-zinc-500 font-medium mt-0.5">Remaining</span>
+                                            <span className="text-sm sm:text-lg font-bold text-white">{cycleTotal > 0 ? formatRemainingPercent(remainingPct, cycleUsed) : '—'}</span>
+                                            <span className="text-[9px] sm:text-[10px] text-zinc-500 font-medium mt-0.5">Remaining</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex-1 w-full space-y-2.5 text-sm">
+                                    <div className="flex-1 w-full space-y-2 text-xs sm:text-sm">
                                         <div className="flex justify-between">
                                             <span className="text-zinc-500 font-normal">Included Remaining</span>
-                                            <span className="font-normal sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.included_remaining ?? 0, 2)}</span>
+                                            <span className="font-medium sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.included_remaining ?? 0, 2)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-zinc-500 font-normal">Purchased Remaining</span>
-                                            <span className={`font-normal sm:font-bold ${creditSummary?.purchased_credits_locked ? 'text-amber-400 flex items-center gap-1.5' : 'text-white'}`}>
+                                            <span className={`font-medium sm:font-bold ${creditSummary?.purchased_credits_locked ? 'text-amber-400 flex items-center gap-1.5' : 'text-white'}`}>
                                                 {creditSummaryLoading ? '...' : (
                                                     creditSummary?.purchased_credits_locked
                                                         ? <><span className="text-xs">🔒</span> {formatCredits(creditSummary?.purchased_remaining ?? 0, 2)}</>
@@ -747,15 +747,15 @@ export default function CreditsPage() {
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-zinc-500 font-normal">Used This Cycle</span>
-                                            <span className="font-normal sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used ?? 0, 2)}</span>
+                                            <span className="font-medium sm:font-bold text-white">{creditSummaryLoading ? '...' : formatCredits(creditSummary?.cycle_used ?? 0, 2)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-zinc-500 font-normal">Avg. Daily Burn</span>
-                                            <span className="font-normal sm:font-bold text-white">{avgDailyBurn != null ? formatCredits(avgDailyBurn, 2) : '—'}</span>
+                                            <span className="font-medium sm:font-bold text-white">{avgDailyBurn != null ? formatCredits(avgDailyBurn, 2) : '—'}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-zinc-500 font-normal">Cycle resets</span>
-                                            <span className="font-bold text-emerald-400">{creditSummary?.cycle_reset_date ? formatBillingDate(creditSummary.cycle_reset_date) : '—'}</span>
+                                            <span className="font-semibold text-emerald-400">{creditSummary?.cycle_reset_date ? formatBillingDate(creditSummary.cycle_reset_date) : '—'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -889,25 +889,7 @@ export default function CreditsPage() {
                         <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-8 border border-white/5 shadow-xl">
                             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
                                 <div className="flex-1">
-                                    <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-                                        <p className="text-white/70 text-xs sm:text-[13px] font-normal sm:font-medium">WhatsApp conversation wallet (WCC)</p>
-                                        {!wccBalanceLoading && (
-                                            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/10 text-[11px] font-medium">
-                                                <span className={`w-2 h-2 rounded-full ${
-                                                    (wccBalance ?? 0) <= 0
-                                                        ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'
-                                                        : (wccFuelData?.fillPercentage ?? 100) > 35
-                                                            ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
-                                                            : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]'
-                                                }`} />
-                                                <span className="text-zinc-300">
-                                                    {(wccBalance ?? 0) <= 0
-                                                        ? '0% Empty'
-                                                        : `${Math.round(wccFuelData?.fillPercentage ?? 100)}% Fuel`}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <p className="text-white/70 text-xs sm:text-[13px] font-normal sm:font-medium mb-1">WhatsApp conversation wallet (WCC)</p>
 
                                     {wccFuelData?.wcc_locked && (
                                         <div className="my-3 p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl flex items-center justify-between max-w-2xl">
@@ -925,12 +907,12 @@ export default function CreditsPage() {
                                         {wccBalanceLoading ? '...' : `₹${(wccBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                                     </div>
 
-                                    {/* Multi-color Fuel Gauge Bar — matches screenshot design */}
-                                    <div className="mb-2 max-w-2xl">
-                                        <div className="relative pt-3">
+                                    {/* 4-Segment Fuel Gauge Bar — balanced length & sleek height */}
+                                    <div className="mb-2 max-w-lg sm:max-w-xl">
+                                        <div className="relative pt-2 mb-0.5">
                                             {/* Triangle indicator pointing down at current balance position */}
                                             <div
-                                                className="absolute top-0 transition-all duration-700 ease-out"
+                                                className="absolute top-0 transition-all duration-700 ease-out z-10"
                                                 style={{
                                                     left: `${Math.max(1, Math.min(99, wccFuelData?.fillPercentage ?? ((wccBalance ?? 0) > 0 ? 100 : 0)))}%`,
                                                     transform: 'translateX(-50%)'
@@ -940,51 +922,43 @@ export default function CreditsPage() {
                                                     style={{
                                                         width: 0,
                                                         height: 0,
-                                                        borderLeft: '6px solid transparent',
-                                                        borderRight: '6px solid transparent',
-                                                        borderTop: '8px solid rgba(255,255,255,0.75)',
+                                                        borderLeft: '4px solid transparent',
+                                                        borderRight: '4px solid transparent',
+                                                        borderTop: '5px solid #ffffff',
                                                     }}
                                                 />
                                             </div>
 
-                                            {/* Full-width multi-color gradient bar — always full width, indicator moves */}
-                                            <div
-                                                className="h-2.5 sm:h-3 w-full rounded-full"
-                                                style={{
-                                                    background: (wccBalance ?? 0) <= 0
-                                                        ? '#3f3f46'
-                                                        : 'linear-gradient(to right, #ef4444 0%, #f97316 20%, #eab308 45%, #84cc16 65%, #22c55e 100%)'
-                                                }}
-                                            />
+                                            {/* 4 distinct equal color segments */}
+                                            <div className="h-2 w-full rounded-full overflow-hidden flex bg-zinc-800">
+                                                {(wccBalance ?? 0) <= 0 ? (
+                                                    <div className="w-full h-full bg-zinc-700" />
+                                                ) : (
+                                                    <>
+                                                        <div className="w-1/4 h-full bg-[#dc2626]" />
+                                                        <div className="w-1/4 h-full bg-[#d97706]" />
+                                                        <div className="w-1/4 h-full bg-[#16a34a]" />
+                                                        <div className="w-1/4 h-full bg-[#e5e5d8]" />
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        {/* Scale labels: Empty · Low · Healthy · Full */}
-                                        <div className="flex items-center justify-between mt-2 text-[10px] sm:text-[11px] font-normal">
-                                            <span className="text-zinc-500">Empty</span>
-                                            <span className="text-zinc-500">Low</span>
-                                            <span className="text-zinc-500">Healthy</span>
-                                            <span className="text-zinc-500">Full</span>
+                                        {/* Scale labels: Empty · Low · Healthy · Full aligned under the 4 segments */}
+                                        <div className="grid grid-cols-4 text-[10px] font-normal text-zinc-500 mt-1.5">
+                                            <span className="text-left">Empty</span>
+                                            <span className="text-center">Low</span>
+                                            <span className="text-center">Healthy</span>
+                                            <span className="text-right">Full</span>
                                         </div>
 
-                                        {/* Recharge context line */}
-                                        <div className="mt-1.5 text-[10px] sm:text-[11px] text-zinc-500 text-center">
-                                            {wccFuelData?.lastRechargeAmount != null && wccFuelData?.lastRechargeAt ? (
-                                                `Since last recharge of ₹${Number(wccFuelData.lastRechargeAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })} on ${formatBillingDate(wccFuelData.lastRechargeAt, false)}`
-                                            ) : wccFuelData?.lastRechargeAmount != null ? (
-                                                `Since last recharge of ₹${Number(wccFuelData.lastRechargeAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                            ) : (wccBalance ?? 0) > 0 ? (
-                                                'Initial promotional balance (no recharges recorded yet)'
-                                            ) : (
-                                                'Wallet depleted (0% remaining)'
-                                            )}
-                                        </div>
+                                        {/* Context line matching screenshot */}
+                                        <p className="text-zinc-400 text-[11px] sm:text-xs font-normal leading-relaxed mt-2.5">
+                                            {(wccBalance ?? 0) > 0
+                                                ? 'Your wallet is active. Recharge anytime to keep Marketing, Utility, Authentication and Service window conversations running.'
+                                                : 'Your wallet is empty. Recharge anytime to keep Marketing, Utility, Authentication and Service window conversations running.'}
+                                        </p>
                                     </div>
-
-                                    <p className="text-zinc-400 text-[11px] sm:text-xs font-normal leading-relaxed mt-3 sm:mt-4 mb-4 sm:mb-5 max-w-xl">
-                                        {wccBalance > 0
-                                            ? 'Your wallet is active. Recharge anytime to keep Marketing, Utility, Authentication and Service-window conversations running.'
-                                            : 'Your wallet is empty, so message sending is currently paused. Recharge to resume Marketing, Utility, Authentication and Service-window conversations instantly.'}
-                                    </p>
 
                                     {/* Overage Debt Banner — shown only when outstanding debt exists */}
                                     {wccOverageBalance > 0 && (

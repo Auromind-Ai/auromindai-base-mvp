@@ -77,6 +77,16 @@ export default function UsageSummaryCard({ data = DEFAULT_DATA, isStandalone = f
   const flowLeft = isUnlimitedFlow ? "∞" : (flowQuota?.remaining_quota ?? flowQuota?.remaining ?? Math.max(0, flowTotalVal - flowUsedVal));
   const wcc = getWccStatus(wccWallet?.balance ?? 0, wccWallet?.fillPercentage, wccWallet?.status);
 
+  const aiRemainingVal = aiCredits?.remaining !== undefined && aiCredits?.remaining !== null
+    ? Number(aiCredits.remaining)
+    : (aiCredits?.credits_balance !== undefined && aiCredits?.credits_balance !== null
+      ? Number(aiCredits.credits_balance)
+      : Math.max(0, (aiCredits?.total ?? 0) - (aiCredits?.used ?? 0)));
+
+  const aiSubText = aiCredits?.locked
+    ? (aiCredits?.status_message || `${aiRemainingVal.toFixed(2)} remaining (🔒 locked)`)
+    : `${aiRemainingVal.toFixed(2)} remaining`;
+
   const cardContent = (
     <div className="w-full bg-[#070012] border border-white/10 rounded-2xl p-6 flex flex-col justify-between h-full">
       <div>
@@ -91,7 +101,7 @@ export default function UsageSummaryCard({ data = DEFAULT_DATA, isStandalone = f
         <UsageRow
           label="AI Credits Used"
           value={`${aiCredits?.used ?? 0} / ${aiCredits?.total ?? 0}`}
-          sub={`${((aiCredits?.total ?? 0) - (aiCredits?.used ?? 0)).toFixed(2)} remaining`}
+          sub={aiSubText}
           barClass="bg-gradient-to-r from-violet-500 to-fuchsia-500"
           widthPct={`${aiPct}%`}
         />

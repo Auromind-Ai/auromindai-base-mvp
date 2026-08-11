@@ -1,4 +1,4 @@
-import json
+
 import uuid
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -7,6 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, validator
 from sqlalchemy import func, or_, desc, String
 from sqlalchemy.orm import Session
+from app.routers.auth import get_current_user, CurrentUser
+from app.core.enums import PlatformRole
+from app.core.security import oauth2_scheme
+from fastapi.security import OAuth2PasswordBearer
+
 
 from app.database import get_db
 from app.core.enums import SubscriptionStatus, PaymentStatus, InvoiceStatus
@@ -2619,3 +2624,171 @@ async def update_plan_entitlement_admin(
     )
 
     return {"message": "Plan entitlement updated successfully"}
+
+
+
+def _require_platform_admin(request: Request, db: Session) -> str:
+
+    # Try JWT bearer token first (standard API auth)
+    try:
+        token = request.cookies.get("access_token") or (
+            request.headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
+        )
+        if token:
+            from app.core.config import settings
+            from jose import jwt as _jwt
+            payload = _jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            sub = payload.get("sub")
+            if sub:
+                from app.models.user import User
+                user = db.query(User).filter(User.id == sub).first()
+                if user and user.platform_role == PlatformRole.PLATFORM_ADMIN:
+                    return str(user.email or sub)
+                raise HTTPException(status_code=403, detail="Platform admin permissions required")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+    # Fallback: admin_session cookie (admin console flow)
+    admin_id = get_admin_identity(request)
+    if admin_id == "platform_admin":
+        # No token resolved — check admin_session cookie
+        token_cookie = request.cookies.get("admin_session")
+        if not token_cookie:
+            raise HTTPException(status_code=403, detail="Platform admin authentication required")
+    return admin_id
+
+
+@router.post("/invoices/{invoice_id}/regenerate-pdf")
+async def admin_regenerate_invoice_pdf(
+    invoice_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    
+    admin_id = _require_platform_admin(request, db)
+
+    from app.services.billing.invoice_service import InvoiceService
+    from app.services.storage.service import get_storage
+
+    try:
+        inv_uuid = uuid.UUID(invoice_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid invoice_id UUID")
+
+    invoice = db.query(Invoice).filter(Invoice.id == inv_uuid).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    old_url = invoice.pdf_url
+    try:
+        pdf_bytes = InvoiceService.generate_pdf_invoice(invoice)
+        file_name = f"invoices/{invoice.id}.pdf"
+        pdf_url = get_storage().provider._save_file_sync(file_name, pdf_bytes, "application/pdf")
+        invoice.pdf_url = pdf_url
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[ADMIN REGEN] Failed to regenerate PDF for invoice {invoice_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"PDF regeneration failed: {str(e)}")
+
+    # Audit log
+    log_audit(
+        db=db,
+        admin_user=admin_id,
+        action="INVOICE_PDF_REGENERATED",
+        workspace_id=invoice.workspace_id,
+        old_value={"pdf_url": old_url},
+        new_value={"pdf_url": pdf_url, "invoice_number": invoice.invoice_number},
+        reason=f"Admin manually regenerated PDF for invoice {invoice.invoice_number}",
+        request=request,
+    )
+
+    return {
+        "status": "success",
+        "invoice_id": str(invoice.id),
+        "invoice_number": invoice.invoice_number,
+        "pdf_url": pdf_url,
+    }
+
+
+@router.post("/invoices/regenerate-missing-pdfs")
+async def admin_regenerate_missing_pdfs(
+    request: Request,
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=200, description="Max invoices to process per call"),
+    dry_run: bool = Query(default=False, description="Preview count without actually regenerating"),
+):
+   
+    admin_id = _require_platform_admin(request, db)
+
+    from app.services.billing.invoice_service import InvoiceService
+    from app.services.storage.service import get_storage
+
+    missing = (
+        db.query(Invoice)
+        .filter(Invoice.pdf_url == None)  # noqa: E711
+        .order_by(Invoice.issued_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+    total_missing = db.query(Invoice).filter(Invoice.pdf_url == None).count()  # noqa: E711
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "total_missing": total_missing,
+            "would_process": len(missing),
+            "limit": limit,
+        }
+
+    results: Dict[str, Any] = {
+        "total_missing_before": total_missing,
+        "processed": len(missing),
+        "success": 0,
+        "failed": 0,
+        "errors": [],
+    }
+
+    for invoice in missing:
+        try:
+            pdf_bytes = InvoiceService.generate_pdf_invoice(invoice)
+            file_name = f"invoices/{invoice.id}.pdf"
+            pdf_url = get_storage().provider._save_file_sync(file_name, pdf_bytes, "application/pdf")
+            invoice.pdf_url = pdf_url
+            # Commit each invoice individually so partial success is preserved
+            db.commit()
+            results["success"] += 1
+        except Exception as e:
+            db.rollback()
+            results["failed"] += 1
+            results["errors"].append({
+                "invoice_id": str(invoice.id),
+                "invoice_number": invoice.invoice_number,
+                "error": str(e),
+            })
+            logger.error(f"[ADMIN BATCH REGEN] Failed invoice {invoice.id}: {e}")
+
+    remaining_missing = db.query(Invoice).filter(Invoice.pdf_url == None).count()  # noqa: E711
+    results["remaining_missing"] = remaining_missing
+
+    # Single audit log for the entire batch
+    log_audit(
+        db=db,
+        admin_user=admin_id,
+        action="INVOICE_PDF_BATCH_REGENERATED",
+        workspace_id=None,
+        old_value={"total_missing": total_missing},
+        new_value={
+            "success": results["success"],
+            "failed": results["failed"],
+            "remaining_missing": remaining_missing,
+        },
+        reason=f"Admin batch regenerated missing invoice PDFs (limit={limit})",
+        request=request,
+    )
+
+    return results
+

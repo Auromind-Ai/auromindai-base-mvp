@@ -159,7 +159,7 @@ class InvoiceService:
         try:
             pdf_bytes = cls.generate_pdf_invoice(invoice)
             file_name = f"invoices/{invoice.id}.pdf"
-            pdf_url = get_storage()._build_provider()._save_file_sync(file_name, pdf_bytes, "application/pdf")
+            pdf_url = get_storage().provider._save_file_sync(file_name, pdf_bytes, "application/pdf")
             invoice.pdf_url = pdf_url
             db.flush()
         except Exception as pdf_error:
@@ -235,7 +235,7 @@ class InvoiceService:
         try:
             pdf_bytes = cls.generate_pdf_invoice(credit_note, original_invoice_num=original_invoice.invoice_number)
             file_name = f"invoices/{credit_note.id}.pdf"
-            pdf_url = get_storage()._build_provider()._save_file_sync(file_name, pdf_bytes, "application/pdf")
+            pdf_url = get_storage().provider._save_file_sync(file_name, pdf_bytes, "application/pdf")
             credit_note.pdf_url = pdf_url
             db.flush()
         except Exception as pdf_error:

@@ -134,6 +134,12 @@ export default function BillingHistoryPage() {
   const summaryData = useMemo(() => {
     const aiUsed = Number(billing?.cycle_used ?? billing?.credits_used ?? billing?.aiCredits?.used ?? 0)
     const aiTotal = Number(billing?.quota_limit ?? billing?.total_limit ?? billing?.aiCredits?.total ?? 0)
+    const aiRemaining = Number(billing?.credits_balance ?? billing?.credits_remaining ?? billing?.aiCredits?.remaining ?? Math.max(0, aiTotal - aiUsed))
+    const aiIncludedRemaining = Number(billing?.included_remaining ?? 0)
+    const aiPurchasedRemaining = Number(billing?.purchased_remaining ?? 0)
+    const aiLocked = Boolean(billing?.purchased_credits_locked)
+    const aiStatusMessage = billing?.status_message || null
+
     const wccBalance = Number(billing?.wcc_wallet_balance ?? billing?.wccWallet?.balance ?? billing?.wcc_balance ?? 0)
     const wccCurrency = billing?.wccWallet?.currency || "₹"
     const wccFillPercentage = billing?.wcc_fill_percentage ?? billing?.wccWallet?.fillPercentage ?? null
@@ -147,7 +153,16 @@ export default function BillingHistoryPage() {
     const flowRemainingQuota = Number(fq?.remaining_quota ?? fq?.remaining ?? Math.max(0, flowTotal - flowUsed))
 
     return {
-      aiCredits: { used: aiUsed, total: aiTotal },
+      aiCredits: {
+        used: aiUsed,
+        total: aiTotal,
+        remaining: aiRemaining,
+        credits_balance: aiRemaining,
+        included_remaining: aiIncludedRemaining,
+        purchased_remaining: aiPurchasedRemaining,
+        locked: aiLocked,
+        status_message: aiStatusMessage,
+      },
       wccWallet: { balance: wccBalance, currency: wccCurrency, fillPercentage: wccFillPercentage, status: wccStatus },
       flowQuota: {
         used: flowUsed,
@@ -265,7 +280,7 @@ export default function BillingHistoryPage() {
       const response = await api.requestRaw(`/billing/invoices/${targetId}/download`)
       if (!response.ok) throw new Error("Download failed")
       const contentType = response.headers.get("content-type")
-      if (!contentType?.includes("application/pdf")) {
+      if (contentType && !contentType.includes("application/pdf") && !contentType.includes("octet-stream")) {
         throw new Error("Invalid PDF response")
       }
       const blob = await response.blob()

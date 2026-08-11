@@ -380,20 +380,11 @@ def test_wcc_free_plan_permission_locking_and_unlocking(db):
     ws, _ = _create_workspace(db, "Free Lock WS")
     free_plan = db.query(Plan).filter(Plan.name == "free").first()
     
-    # Cancel active subscription and put on Free
+    # Switch subscription to Free
     sub = db.query(Subscription).filter(Subscription.workspace_id == ws.id).first()
-    sub.status = SubscriptionStatus.cancelled
+    sub.plan_id = free_plan.id
+    sub.status = SubscriptionStatus.active
     db.flush()
-
-    free_sub = Subscription(
-        id=uuid.uuid4(),
-        workspace_id=ws.id,
-        plan_id=free_plan.id,
-        status=SubscriptionStatus.active,
-        billing_cycle="monthly",
-        provider="system"
-    )
-    db.add(free_sub)
 
     # Set purchased wallet balance to ₹50
     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()

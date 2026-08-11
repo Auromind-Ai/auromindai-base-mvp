@@ -321,22 +321,33 @@ class EntitlementOrchestrator:
         if not new_plan:
             raise ValueError(f"Plan {new_plan_id} not found in database.")
 
-        # 3. Create new active subscription
-        new_sub = Subscription(
-            id=uuid.uuid4(),
-            workspace_id=workspace_id,
-            plan_id=new_plan.id,
-            status=SubscriptionStatus.active,
-            billing_cycle=getattr(new_plan, "billing_cycle", "monthly") or "monthly",
-            start_date=datetime.now(timezone.utc),
-            end_date=datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30),
-            current_period_start=datetime.now(timezone.utc),
-            current_period_end=datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30),
-            provider="system",
-            provider_subscription_id=f"sub_{new_plan.name}_{workspace_id}_{datetime.now(timezone.utc).timestamp()}"
-        )
-        db.add(new_sub)
-        db.flush()
+        # 3. Update active subscription in-place or create new
+        if active_sub:
+            active_sub.plan_id = new_plan.id
+            active_sub.status = SubscriptionStatus.active
+            active_sub.billing_cycle = getattr(new_plan, "billing_cycle", "monthly") or "monthly"
+            active_sub.current_period_start = datetime.now(timezone.utc)
+            active_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30)
+            active_sub.canceled_at = None
+            active_sub.cancel_at_period_end = False
+            active_sub.provider_subscription_id = f"sub_{new_plan.name}_{workspace_id}_{datetime.now(timezone.utc).timestamp()}"
+            db.flush()
+        else:
+            new_sub = Subscription(
+                id=uuid.uuid4(),
+                workspace_id=workspace_id,
+                plan_id=new_plan.id,
+                status=SubscriptionStatus.active,
+                billing_cycle=getattr(new_plan, "billing_cycle", "monthly") or "monthly",
+                start_date=datetime.now(timezone.utc),
+                end_date=datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30),
+                current_period_start=datetime.now(timezone.utc),
+                current_period_end=datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30),
+                provider="system",
+                provider_subscription_id=f"sub_{new_plan.name}_{workspace_id}_{datetime.now(timezone.utc).timestamp()}"
+            )
+            db.add(new_sub)
+            db.flush()
 
         entitlement = EntitlementService.ensure_plan_entitlement(db, new_plan)
 

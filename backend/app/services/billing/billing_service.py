@@ -577,10 +577,17 @@ class BillingService:
     def get_status(
         self,
         db: Session,
-        workspace_id: str,
-        user_id: str,
+        workspace_id: str | uuid.UUID,
+        user_id: str | uuid.UUID | None = None,
     ) -> dict[str, Any]:
-        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        if user_id:
+            workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        else:
+            ws_uuid = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+            workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+            if not workspace:
+                raise ValueError("Workspace not found")
+
         subscription = (
             db.query(Subscription)
             .options(joinedload(Subscription.workspace))
@@ -747,15 +754,22 @@ class BillingService:
             "tokens_used": used_tokens,
             "tokens_remaining": max(total_tokens - used_tokens, 0),
             
-            # Credit values (canonical)
+            # Credit values (canonical single source of truth)
             "credits_remaining": credits_remaining,
+            "credits_balance": credits_remaining,
             "credits_used": credits_used,
+            "cycle_used": credits_used,
             "total_limit": credits_total_limit, 
+            "quota_limit": credits_total_limit,
             "percent_used": usage_percent,
+            "usage_percent": usage_percent,
             "included_credits": credit_summary["included_credits"],
             "included_remaining": credit_summary["included_remaining"],
             "purchased_credits": credit_summary["purchased_credits"],
             "purchased_remaining": credit_summary["purchased_remaining"],
+            "purchased_credits_locked": credit_summary["purchased_credits_locked"],
+            "spending_allowed": credit_summary["spending_allowed"],
+            "status_message": credit_summary["status_message"],
             "allow_purchased_ai_usage": credit_summary["allow_purchased_ai_usage"],
             "allow_purchased_wcc_usage": credit_summary["allow_purchased_wcc_usage"],
             "allow_purchased_flow_usage": credit_summary["allow_purchased_flow_usage"],
