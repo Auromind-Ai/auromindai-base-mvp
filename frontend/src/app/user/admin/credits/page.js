@@ -907,8 +907,8 @@ export default function CreditsPage() {
                                         {wccBalanceLoading ? '...' : `₹${(wccBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
                                     </div>
 
-                                    {/* 4-Segment Fuel Gauge Bar — balanced length & sleek height */}
-                                    <div className="mb-2 max-w-lg sm:max-w-xl">
+                                    {/* 4-Segment Fuel Gauge Bar — expanded length & sleek height */}
+                                    <div className="mb-2 max-w-xl sm:max-w-2xl">
                                         <div className="relative pt-2 mb-0.5">
                                             {/* Triangle indicator pointing down at current balance position */}
                                             <div

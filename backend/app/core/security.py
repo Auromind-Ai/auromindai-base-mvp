@@ -1,7 +1,10 @@
 import uuid
 from fastapi import HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.models.workspace import WorkspaceMember
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp", auto_error=False)
 
 def to_uuid(val):
     if val is None:

@@ -8,6 +8,14 @@ import ChatHistory from './ChatHistory';
 export default function GlobalAIChat() {
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [activeSessionId, setActiveSessionId] = useState(null);
+
+    const handleSelectSession = (sessionId) => {
+        setActiveSessionId(sessionId);
+        localStorage.setItem('floating_chat_session_id', sessionId);
+        setIsHistoryOpen(false);
+        setIsChatOpen(true);
+    };
 
     return (
         <>
@@ -24,11 +32,13 @@ export default function GlobalAIChat() {
             <ChatHistory
                 isOpen={isHistoryOpen}
                 onClose={() => setIsHistoryOpen(false)}
+                onSelectSession={handleSelectSession}
             />
 
             {/* AI Chat Modal */}
             <AIChat
                 isOpen={isChatOpen}
+                activeSessionId={activeSessionId}
                 onClose={() => {
                     setIsChatOpen(false);
                     setIsHistoryOpen(false);
