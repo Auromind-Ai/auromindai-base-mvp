@@ -1,5 +1,6 @@
 import json
 import pytest
+from unittest.mock import patch, MagicMock
 
 def test_oauth_login_generates_redis_state(client, redis_mock):
     """Verify /auth/google/login creates a state nonce and stores state metadata in Redis."""
@@ -36,3 +37,44 @@ def test_oauth_callback_single_use_and_replay_rejection(client, redis_mock):
         follow_redirects=False
     )
     assert "error=Invalid+or+replayed+OAuth+state" in replay_res.headers.get("location", "")
+
+
+def test_send_otp_generates_and_stores_otp(redis_mock):
+    """Verify AuthService generates a 6-digit OTP and stores it in Redis."""
+
+    from app.services.auth_service import AuthService
+    from unittest.mock import patch, MagicMock
+
+    db = MagicMock()
+
+    user = MagicMock()
+    user.full_name = "Test User"
+
+    db.query.return_value.filter.return_value.first.return_value = user
+
+    # AuthService.send_otp() imports redis and EmailService INSIDE the method.
+    # Therefore patch the actual modules/classes used by the method.
+    with patch(
+        "redis.from_url",
+        return_value=redis_mock
+    ), patch(
+        "app.services.email_service.EmailService.send_email"
+    ):
+
+        result = AuthService.send_otp(
+            db=db,
+            email="test@example.com",
+            auth_type="login"
+        )
+
+    assert result is True
+
+    # send_otp stores OTP using: otp:{email}
+    saved_otp = redis_mock.get("otp:test@example.com")
+
+    assert saved_otp is not None
+    assert len(saved_otp) == 6
+    assert saved_otp.isdigit()
+
+    # OTP expiry = 300 seconds (5 minutes)
+    assert redis_mock.ttls["otp:test@example.com"] == 300

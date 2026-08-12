@@ -42,6 +42,10 @@ async def csrf_protection_middleware(request: Request, call_next):
             # If the auth_token cookie is not present in the request, skip CSRF validation.
             # (No cookie to protect against CSRF hijack, request will be verified by auth headers or fail at endpoint dependencies)
             if not token:
+                return Response(
+                content="CSRF validation failed",
+                status_code=status.HTTP_403_FORBIDDEN
+        )
                 return await call_next(request)
 
             header_token = request.headers.get("x-csrf-token")

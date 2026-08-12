@@ -328,7 +328,10 @@ class InvoiceService:
         story.append(Spacer(1, 15))
 
         # Customer Billing Details
-        cust_info_lines = [f"<b>Bill To:</b>", invoice.customer_name]
+        cust_info_lines = [
+        "<b>Bill To:</b>",
+        invoice.customer_name or "N/A",
+    ]
         if invoice.customer_address and invoice.customer_address != "N/A":
             cust_info_lines.append(invoice.customer_address)
         

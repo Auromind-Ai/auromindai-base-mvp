@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 from app.models.plan import Plan
 from app.models.subscription import Subscription
+from app.core.enums import SubscriptionStatus
 from app.models.workspace import Workspace
 from app.core.enums import SubscriptionStatus
 from app.models.plan_entitlement import PlanEntitlement
@@ -246,91 +247,95 @@ class EntitlementOrchestrator:
             db.flush()
 
     @classmethod
-    def upgrade_subscription(cls, db: Session, workspace_id: uuid.UUID, new_plan_id: uuid.UUID) -> None:
-        cls._change_subscription_plan(db, workspace_id, new_plan_id)
+    def upgrade_subscription(
+        cls,
+        db: Session,
+        workspace_id: uuid.UUID,
+        new_plan_id: uuid.UUID,
+    ) -> None:
+        cls._change_subscription_plan(
+            db,
+            workspace_id,
+            new_plan_id,
+        )
 
     @classmethod
-    def downgrade_subscription(cls, db: Session, workspace_id: uuid.UUID, new_plan_id: uuid.UUID) -> None:
-        cls._change_subscription_plan(db, workspace_id, new_plan_id)
+    def _change_subscription_plan(
+        cls,
+        db: Session,
+        workspace_id: uuid.UUID,
+        new_plan_id: uuid.UUID,
+    ) -> None:
 
-    @classmethod
-    def _change_subscription_plan(cls, db: Session, workspace_id: uuid.UUID, new_plan_id: uuid.UUID) -> None:
-        # 1. Cancel previous active subscription
+        if isinstance(workspace_id, str):
+            workspace_id = uuid.UUID(workspace_id)
+
+        # 1. Find current active subscription
         active_sub = (
             db.query(Subscription)
             .filter(
                 Subscription.workspace_id == workspace_id,
-                Subscription.status == SubscriptionStatus.active
+                Subscription.status == SubscriptionStatus.active,
             )
             .first()
         )
+
         if active_sub:
-            current_entitlement = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == active_sub.plan_id).first()
-            if current_entitlement:
-                included_pool = db.query(func.coalesce(func.sum(TokenLedger.credits_delta), 0)).filter(
-                    TokenLedger.workspace_id == workspace_id,
-                    TokenLedger.status == "posted",
-                    TokenLedger.balance_source == "INCLUDED"
-                ).scalar() or Decimal("0.0000")
-
-                if current_entitlement.included_credit_reset_policy == "EXPIRE" and included_pool > 0:
-                    expire_entry = TokenLedger(
-                        id=uuid.uuid4(),
-                        workspace_id=workspace_id,
-                        subscription_id=active_sub.id,
-                        entry_type="token_expiration",
-                        status="posted",
-                        tokens_delta=0,
-                        credits_delta=-Decimal(str(included_pool)),
-                        balance_source="INCLUDED",
-                        reference_key=f"token_expire:{workspace_id}:{active_sub.id}:{datetime.now(timezone.utc).timestamp()}",
-                        description="Expired unused plan credits on plan change"
-                    )
-                    db.add(expire_entry)
-                    db.flush()
-
-                if current_entitlement.included_wallet_reset_policy == "EXPIRE":
-                    WCCService.get_balance(db, workspace_id)
-                    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).with_for_update().first()
-                    wallet.balance = Decimal("0.00")
-                    db.flush()
-
             active_sub.status = SubscriptionStatus.cancelled
             active_sub.canceled_at = datetime.now(timezone.utc)
             db.flush()
 
         # 2. Fetch new plan
-        new_plan = db.query(Plan).filter(Plan.id == new_plan_id).first()
-        if not new_plan:
-            raise ValueError(f"Plan {new_plan_id} not found in database.")
+        new_plan = (
+            db.query(Plan)
+            .filter(Plan.id == new_plan_id)
+            .first()
+        )
 
-        # 3. Create new active subscription
-        new_sub = Subscription(
+        if not new_plan:
+            raise ValueError(
+                f"Plan {new_plan_id} not found in database."
+            )
+
+        # 3. Fetch entitlement for the new plan
+        entitlement = (
+            db.query(PlanEntitlement)
+            .filter(
+                PlanEntitlement.plan_id == new_plan_id
+            )
+            .first()
+        )
+
+        # 4. Validate entitlement
+        if not entitlement:
+            raise ValueError(
+                f"No entitlement found for plan {new_plan_id}"
+            )
+
+        # 5. Create new active subscription
+        new_subscription = Subscription(
             id=uuid.uuid4(),
             workspace_id=workspace_id,
-            plan_id=new_plan.id,
+            plan_id=new_plan_id,
             status=SubscriptionStatus.active,
             billing_cycle="monthly",
-            start_date=datetime.now(timezone.utc),
-            end_date=datetime.now(timezone.utc) + timedelta(days=30),
             current_period_start=datetime.now(timezone.utc),
-            current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
-            provider="system",
-            provider_subscription_id=f"sub_{new_plan.name}_{workspace_id}_{datetime.now(timezone.utc).timestamp()}"
+            current_period_end=datetime.now(timezone.utc),
+            provider="razorpay",
+            provider_subscription_id=(
+                f"sub_{new_plan_id}_{workspace_id}_"
+                f"{datetime.now(timezone.utc).timestamp()}"
+            ),
         )
-        db.add(new_sub)
+
+        db.add(new_subscription)
         db.flush()
 
-        # 4. Load plan entitlement configuration
-        entitlement = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == new_plan.id).first()
-        if not entitlement:
-            raise ValueError(f"No entitlements config found for plan: {new_plan.name}")
+        # 6. Provision resources
+        cls.provision_resources(
+            db,
+            workspace_id,
+            entitlement,
+        )
 
-        # 5. Provision resources
-        cls.provision_resources(db, workspace_id, entitlement)
-
-        # 6. Sync plan type on workspace
-        workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
-        if workspace:
-            workspace.plan_type = new_plan.name
-            db.flush()
+        db.flush()

@@ -37,7 +37,8 @@ Index(
     "uq_active_subscription",
     Subscription.workspace_id,
     unique=True,
-    postgresql_where=(Subscription.status == SubscriptionStatus.active)
+    postgresql_where=(Subscription.status == SubscriptionStatus.active),
+    sqlite_where=(Subscription.status == SubscriptionStatus.active)
 )
 
 Index(

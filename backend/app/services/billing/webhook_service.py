@@ -273,6 +273,13 @@ class WebhookService:
 
         plan_key = self._plan_key_from_subscription(db, subscription)
         plan_config = self.plan_service._get_plan_config(db, plan_key)
+        print(
+            "DEBUG WEBHOOK:",
+            "plan_key=", plan_key,
+            "amount=", plan_config.amount,
+            "label=", plan_config.label,
+            "provider_plan_ids=", plan_config.provider_plan_ids,
+        )
         from app.services.billing.gateway import get_gateway
         gateway = get_gateway(provider)
         fetched_payment = gateway.fetch_payment(payment_payload.get("id"))

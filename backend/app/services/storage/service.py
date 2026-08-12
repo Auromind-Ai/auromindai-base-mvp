@@ -126,10 +126,13 @@ import os
 
 
 class LocalStorageProvider(StorageProvider):
-    def __init__(self, upload_dir: str = "temp_uploads"):
+    def __init__(self, upload_dir: str = None):
+        if upload_dir is None:
+            upload_dir = Path(__file__).resolve().parents[3] / "temp_uploads"
+
         self.upload_dir = Path(upload_dir)
         self.upload_dir.mkdir(parents=True, exist_ok=True)
-
+    
     async def save_file(self, file_path: str, content: bytes, content_type: str = None) -> str:
         dest_path = self.upload_dir / file_path
         dest_path.parent.mkdir(parents=True, exist_ok=True)

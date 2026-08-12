@@ -559,7 +559,7 @@ async def adjust_credits(
     credit_service = BillingService().token_service
     old_bal = float(credit_service.get_token_balance(db, ws_id).balance)
     
-    tokens_delta = int(payload.credits * 1000)
+    tokens_delta = 0
     entry_type = "token_grant" if payload.credits >= 0 else "deduction"
     
     ledger_entry = TokenLedger(
@@ -764,7 +764,7 @@ async def reset_credits(
         workspace_id=ws_uuid,
         entry_type="deduction",
         status="posted",
-        tokens_delta=int(-old_bal * 1000),
+        tokens_delta=0,
         credits_delta=-old_bal,
         reference_key=f"admin_reset:{uuid.uuid4()}",
         description=f"Admin Credit Reset ({admin_user})"
