@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from typing import Any, Dict, Optional
 from app.models.conversation import ChannelType, Conversation
 from app.models.workspace import Workspace
@@ -8,7 +9,8 @@ from app.services.inbox.twilio_service import TwilioService
 from sqlalchemy.orm import object_session
 from app.services.wcc_service import WCCService
 from app.models.templates import Template
-from app.core.logger import logger
+
+logger = logging.getLogger(__name__)
 
 
 class ChannelService:
@@ -341,19 +343,9 @@ class ChannelService:
         body: str,
         metadata: Dict[str, Any],
     ) -> Optional[str]:
-        page_id = workspace.meta_ig_id or workspace.meta_business_id or "me"
-
-        logger.info(
-            "[Instagram] Dispatching message | workspace_id=%s | page_id=%s | ig_id=%s | recipient=%s",
-            workspace.id,
-            page_id,
-            workspace.meta_ig_id,
-            recipient_id,
-        )
-
         service = InstagramService(
             access_token=workspace.meta_access_token,
-            page_id=page_id,
+            page_id=workspace.meta_business_id,
         )
 
         buttons = metadata.get("buttons")
@@ -361,58 +353,24 @@ class ChannelService:
         response = None
 
         if buttons:
-            import json as _json
-            logger.info(
-                "[Instagram] Attempting interactive buttons | recipient=%s | button_count=%d | buttons=%s",
-                recipient_id,
-                len(buttons),
-                _json.dumps(buttons, ensure_ascii=False),
-            )
             try:
                 response = service.send_interactive_buttons(recipient_id, body, buttons)
                 if isinstance(response, dict) and response.get("error"):
-                    meta_error = response["error"]
-                    logger.error(
-                        "[Instagram] Meta REJECTED interactive buttons — falling back to plain text | "
-                        "recipient=%s | error_code=%s | error_subcode=%s | error_type=%s | "
-                        "error_message=%s | fbtrace_id=%s",
-                        recipient_id,
-                        meta_error.get("code"),
-                        meta_error.get("error_subcode"),
-                        meta_error.get("type"),
-                        meta_error.get("message"),
-                        meta_error.get("fbtrace_id"),
+                    logger.warning(
+                        "Instagram interactive button send returned error (%s); falling back to text",
+                        response.get("error"),
                     )
                     rendered_body = ChannelService._render_button_text(body, buttons)
-                    logger.info(
-                        "[Instagram] Sending fallback plain text | recipient=%s | text=%s",
-                        recipient_id,
-                        rendered_body,
-                    )
                     response = service.send_message(recipient_id, rendered_body)
             except Exception as e:
-                logger.error(
-                    "[Instagram] Exception during interactive button send — falling back to plain text | "
-                    "recipient=%s | error=%s",
-                    recipient_id,
-                    e,
-                    exc_info=True,
-                )
+                logger.warning("Instagram interactive button send failed (%s); falling back to text", e)
                 rendered_body = ChannelService._render_button_text(body, buttons)
-                logger.info(
-                    "[Instagram] Sending fallback plain text after exception | recipient=%s | text=%s",
-                    recipient_id,
-                    rendered_body,
-                )
                 response = service.send_message(recipient_id, rendered_body)
         else:
             rendered_body = body
             if metadata.get("media_url"):
                 logger.warning(
-                    "[Instagram] Media dispatch is not implemented yet — sending text fallback | "
-                    "recipient=%s | media_url=%s",
-                    recipient_id,
-                    metadata.get("media_url"),
+                    "Instagram media dispatch is not implemented in ChannelService yet; sending text fallback"
                 )
                 rendered_body = rendered_body or "Media received"
 
