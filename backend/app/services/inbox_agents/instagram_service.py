@@ -7,13 +7,14 @@ logger = logging.getLogger(__name__)
 class InstagramService:
     def __init__(self, access_token: str, page_id: str):
         self.access_token = access_token
-        self.page_id = page_id
+        self.page_id = page_id or "me"
 
     def send_message(self, recipient_id: str, text: str) -> dict:
         url = f"https://graph.facebook.com/v19.0/{self.page_id}/messages"
 
         payload = {
             "recipient": {"id": recipient_id},
+            "messaging_type": "RESPONSE",
             "message": {"text": text}
         }
 
@@ -22,7 +23,6 @@ class InstagramService:
         }
 
         res = requests.post(url, json=payload, params=params, timeout=10)
-
         return res.json()
 
     def send_interactive_buttons(self, recipient_id: str, text: str, buttons: list) -> dict:
@@ -68,6 +68,7 @@ class InstagramService:
 
             payload = {
                 "recipient": {"id": recipient_id},
+                "messaging_type": "RESPONSE",
                 "message": {
                     "attachment": {
                         "type": "template",
@@ -106,6 +107,7 @@ class InstagramService:
 
             payload = {
                 "recipient": {"id": recipient_id},
+                "messaging_type": "RESPONSE",
                 "message": {
                     "text": text or "Choose an option:",
                     "quick_replies": quick_replies
