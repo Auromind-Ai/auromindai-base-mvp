@@ -1,8 +1,7 @@
 import json
-import logging
 import requests
+from app.core.logger import logger
 
-logger = logging.getLogger(__name__)
 
 
 class InstagramService:

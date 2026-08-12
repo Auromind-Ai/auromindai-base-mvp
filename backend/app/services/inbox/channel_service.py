@@ -1,5 +1,4 @@
 from __future__ import annotations
-import logging
 from typing import Any, Dict, Optional
 from app.models.conversation import ChannelType, Conversation
 from app.models.workspace import Workspace
@@ -9,8 +8,7 @@ from app.services.inbox.twilio_service import TwilioService
 from sqlalchemy.orm import object_session
 from app.services.wcc_service import WCCService
 from app.models.templates import Template
-
-logger = logging.getLogger(__name__)
+from app.core.logger import logger
 
 
 class ChannelService:
