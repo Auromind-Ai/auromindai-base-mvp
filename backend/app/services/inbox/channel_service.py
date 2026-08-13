@@ -347,31 +347,46 @@ class ChannelService:
         body: str,
         metadata: Dict[str, Any],
     ) -> Optional[str]:
-        rendered_body = body
-        if metadata.get("buttons"):
-            rendered_body = ChannelService._render_button_text(body, metadata.get("buttons") or [])
-        if metadata.get("media_url"):
-            logger.warning(
-                "Instagram media dispatch is not implemented in ChannelService yet; sending text fallback"
-            )
-            rendered_body = rendered_body or "Media received"
-
         service = InstagramService(
             access_token=workspace.meta_access_token,
             page_id=workspace.meta_business_id,
         )
-        
-        # Instagram character limit is 1000. Split the body into smaller chunks if necessary.
-        chunks = ChannelService._split_instagram_message(rendered_body, 1000)
+
+        buttons = metadata.get("buttons")
         last_message_id = None
-        
-        for chunk in chunks:
-            response = service.send_message(recipient_id, chunk)
-            if isinstance(response, dict) and response.get("error"):
-                raise RuntimeError(f"Instagram send failed: {response['error']}")
-            if isinstance(response, dict):
-                last_message_id = response.get("message_id") or response.get("recipient_id")
-                if not last_message_id:
-                    raise RuntimeError("Instagram send failed without message id")
-        
+        response = None
+
+        if buttons:
+            try:
+                response = service.send_interactive_buttons(recipient_id, body, buttons)
+                if isinstance(response, dict) and response.get("error"):
+                    logger.warning(
+                        "Instagram interactive button send returned error (%s); falling back to text",
+                        response.get("error"),
+                    )
+                    rendered_body = ChannelService._render_button_text(body, buttons)
+                    response = service.send_message(recipient_id, rendered_body)
+            except Exception as e:
+                logger.warning("Instagram interactive button send failed (%s); falling back to text", e)
+                rendered_body = ChannelService._render_button_text(body, buttons)
+                response = service.send_message(recipient_id, rendered_body)
+        else:
+            rendered_body = body
+            if metadata.get("media_url"):
+                logger.warning(
+                    "Instagram media dispatch is not implemented in ChannelService yet; sending text fallback"
+                )
+                rendered_body = rendered_body or "Media received"
+
+            chunks = ChannelService._split_instagram_message(rendered_body, 1000)
+            for chunk in chunks:
+                response = service.send_message(recipient_id, chunk)
+
+        if isinstance(response, dict) and response.get("error"):
+            raise RuntimeError(f"Instagram send failed: {response['error']}")
+        if isinstance(response, dict):
+            last_message_id = response.get("message_id") or response.get("recipient_id")
+            if not last_message_id:
+                raise RuntimeError("Instagram send failed without message id")
+
         return last_message_id
