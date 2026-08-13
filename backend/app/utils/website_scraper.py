@@ -1,4 +1,3 @@
-import logging
 from urllib.parse import urlparse
 import socket
 import ipaddress
@@ -12,8 +11,6 @@ from scrapy.settings import Settings
 import os
 import multiprocessing
 import json
-
-logger = logging.getLogger(__name__)
 
 def _run_scrapy_process(url):
     output_file = "dynamic_output.json"
@@ -43,7 +40,6 @@ class Webscrapper:
 
     def detect_website(self):
         if not self.safety_check():
-            logger.warning("SCRAPER FAILED: SSRF safety check failed for URL: %s", self.url)
             return None
         
         from app.utils.ssrf_protection import safe_requests_get
@@ -54,33 +50,20 @@ class Webscrapper:
                 headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
             )
         except Exception as e:
-            logger.error("SCRAPER ERROR: safe_requests_get failed for url=%s err=%s", self.url, e)
             return None
-
-        logger.info(
-            "SCRAPER RESPONSE: status=%s final_url=%s content_type=%s bytes=%s",
-            response.status_code,
-            response.url,
-            response.headers.get("content-type"),
-            len(response.content),
-        )
-
         self.html = response.text
         self.soup = BeautifulSoup(self.html, "lxml")
         
         try:
 
             if response.status_code >= 400:
-                logger.warning("SCRAPER IGNORED: status_code %s >= 400 for url=%s", response.status_code, response.url)
                 return None
             content_type = response.headers.get("Content-Type", "")
             if "text/html" not in content_type:
-                logger.warning("SCRAPER IGNORED: content-type '%s' does not contain 'text/html' for url=%s", content_type, response.url)
                 return None
             return response.text       
         
         except requests.exceptions.Timeout:
-            logger.error("SCRAPER TIMEOUT for url=%s", response.url)
             return None
         
     def website_extract(self, html):
