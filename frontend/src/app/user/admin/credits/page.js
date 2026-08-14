@@ -8,7 +8,8 @@ import {
   Zap, TrendingUp, Clock, Wallet, Info,
   Calculator, History, Plus, Sparkles, CheckCircle2,
   AlertTriangle, ArrowRight, Coins, X, HelpCircle,
-  Minus, PieChart, Receipt, Gauge, Download, FileText
+  Minus, PieChart, Receipt, Gauge, Download, FileText,
+  ArrowLeftRight, ChevronRight
 } from 'lucide-react';
 import api from '@/lib/api';
 import HistoryModal from '@/components/common/HistoryModal';
@@ -793,30 +794,43 @@ export default function CreditsPage() {
                             </div>
 
                             {/* Activity: Transactions & Billing */}
-                            <div className="bg-[#0e0e14] rounded-2xl border border-white/5 shadow-xl overflow-hidden flex flex-col">
-                                <div className="p-6 md:p-7 pb-0">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <p className="text-white/60 text-[14px] font-medium">Activity</p>
+                            <div className="lg:col-span-2 xl:col-span-1 bg-[#0e0e14] rounded-2xl border border-white/5 shadow-xl overflow-hidden flex flex-col">
+                                <div className="p-5 md:p-6 pb-0">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-white text-base sm:text-lg font-regular">Activity</p>
                                         <button
                                             type="button"
                                             onClick={() => setIsAiCreditHistoryModalOpen(true)}
-                                            className="text-xs text-purple-400 hover:text-purple-300 font-semibold cursor-pointer"
+                                            className="text-xs text-purple-400 hover:text-purple-300 font-semibold cursor-pointer flex items-center gap-1"
                                         >
-                                            View all
+                                            <span>View all</span>
+                                            <ChevronRight size={14} />
                                         </button>
                                     </div>
-                                    <div className="flex justify-center w-full bg-white/[0.03] p-1 rounded-lg border border-white/5">
+                                    <div className="grid grid-cols-2 gap-1.5 w-full bg-[#0a0812] p-1.5 rounded-2xl border border-white/10 mb-1.5">
                                         <button
+                                            type="button"
                                             onClick={() => setActivityView('transactions')}
-                                            className={`px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-normal sm:font-bold transition-all cursor-pointer ${activityView === 'transactions' ? 'bg-[#814AC8]/25 text-white' : 'text-zinc-400 hover:text-white'}`}
+                                            className={`py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                                activityView === 'transactions'
+                                                    ? 'bg-[#1c122c] border border-[#814ac8] text-white shadow-sm'
+                                                    : 'bg-transparent border border-transparent text-zinc-400 hover:text-white'
+                                            }`}
                                         >
-                                            Transactions
+                                            <ArrowLeftRight size={15} className={activityView === 'transactions' ? 'text-white' : 'text-zinc-400'} />
+                                            <span>Transactions</span>
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={() => setActivityView('billing')}
-                                            className={`px-3 py-1.5 rounded-md text-[11px] sm:text-xs font-normal sm:font-bold transition-all cursor-pointer ${activityView === 'billing' ? 'bg-[#814AC8]/25 text-white' : 'text-zinc-400 hover:text-white'}`}
+                                            className={`py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                                activityView === 'billing'
+                                                    ? 'bg-[#1c122c] border border-[#814ac8] text-white shadow-sm'
+                                                    : 'bg-transparent border border-transparent text-zinc-400 hover:text-white'
+                                            }`}
                                         >
-                                            Billing
+                                            <Receipt size={15} className={activityView === 'billing' ? 'text-white' : 'text-zinc-400'} />
+                                            <span>Billing</span>
                                         </button>
                                     </div>
                                 </div>
@@ -832,12 +846,17 @@ export default function CreditsPage() {
                                                 const value = Number(item.credits_delta ?? 0);
                                                 const isDeduction = value < 0;
                                                 return (
-                                                    <div key={item.id} className="px-4 sm:px-7 py-3 flex items-center justify-between">
-                                                        <div>
-                                                            <p className="text-xs font-medium text-zinc-200">{item.description || 'System Process'}</p>
-                                                            <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
+                                                    <div key={item.id} className="px-5 sm:px-6 py-3 flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="w-9 h-9 rounded-full bg-[#181326] border border-purple-500/20 flex items-center justify-center shrink-0">
+                                                                <Zap size={14} className="text-purple-400" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-semibold text-zinc-100 truncate">{item.description || 'System Process'}</p>
+                                                                <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
+                                                            </div>
                                                         </div>
-                                                        <span className={`text-[11px] sm:text-xs font-normal sm:font-bold ${isDeduction ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                        <span className={`text-xs font-semibold shrink-0 ${isDeduction ? 'text-rose-400' : 'text-emerald-400'}`}>
                                                             {isDeduction ? '' : '+'}{formatCredits(item.credits_delta, 2)}
                                                         </span>
                                                     </div>
@@ -859,12 +878,17 @@ export default function CreditsPage() {
                                             });
                                             return billingEntries.length > 0 ? (
                                                 billingEntries.slice(0, TABLE_PREVIEW_LIMIT).map((item) => (
-                                                    <div key={item.id} className="px-6 md:px-7 py-3.5 flex items-center justify-between">
-                                                        <div>
-                                                            <p className="text-xs font-medium text-zinc-200">{item.description || 'Credit Addition'}</p>
-                                                            <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
+                                                    <div key={item.id} className="px-5 sm:px-6 py-3.5 flex items-center justify-between gap-3">
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="w-9 h-9 rounded-full bg-[#181326] border border-purple-500/20 flex items-center justify-center shrink-0">
+                                                                <Receipt size={14} className="text-purple-400" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-xs font-semibold text-zinc-100 truncate">{item.description || 'Credit Addition'}</p>
+                                                                <p className="text-[10px] text-zinc-400 mt-0.5">{formatBillingDate(item.created_at, true)}</p>
+                                                            </div>
                                                         </div>
-                                                        <span className="text-[11px] sm:text-xs font-normal sm:font-bold text-emerald-400">
+                                                        <span className="text-xs font-semibold text-emerald-400 shrink-0">
                                                             +{formatCredits(Math.abs(Number(item.credits_delta ?? 0)), 2)}
                                                         </span>
                                                     </div>
@@ -1070,7 +1094,7 @@ export default function CreditsPage() {
                             </div>
 
                             {/* Add Funds (inline recharge form) */}
-                            <div ref={addFundsRef} className="bg-[#0e0e14] rounded-2xl border border-white/5 p-6 md:p-7 shadow-xl flex flex-col">
+                            <div ref={addFundsRef} className="lg:col-span-2 xl:col-span-1 bg-[#0e0e14] rounded-2xl border border-white/5 p-6 md:p-7 shadow-xl flex flex-col">
                                 <p className="text-white/70 text-[13px] font-medium mb-1">Add Funds</p>
                                 <p className="text-white text-base font-semibold mb-3">Recharge wallet</p>
                                 <form onSubmit={handleRechargeSubmit} className="space-y-4 sm:space-y-5 flex-1 flex flex-col">

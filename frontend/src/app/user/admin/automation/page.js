@@ -24,6 +24,7 @@ import NodeInspector from './panels/NodeInspector';
 import RepositorySidebar from './panels/RepositorySidebar';
 import StepsSidebar from './panels/StepsSidebar';
 import WhatsAppPreviewModal from './modals/WhatsAppPreviewModal';
+import FlowConversationPreviewModal from './modals/FlowConversationPreviewModal';
 import FlowModals from './modals/FlowModals';
 
 // Helper Imports
@@ -96,12 +97,26 @@ export default function AutomationCanvas() {
   const [deleteStepModal, setDeleteStepModal] = useState({ open: false, nodeId: null });
   const [createWireModal, setCreateWireModal] = useState(false);
   const [createWireName, setCreateWireName] = useState('');
+  const [previewFlowModal, setPreviewFlowModal] = useState({ open: false, flow: null, loading: false });
 
   const showToast = useCallback((message, type = 'success') => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
   }, []);
+
+  const handlePreviewFlow = async (flow) => {
+    if (!flow || !flow.id) return;
+    setPreviewFlowModal({ open: true, flow: null, loading: true });
+    try {
+      const fresh = await api.getFlowById(flow.id);
+      setPreviewFlowModal({ open: true, flow: sanitizeFlowData(fresh), loading: false });
+    } catch (err) {
+      console.error('Failed to fetch fresh flow for preview:', err);
+      setPreviewFlowModal({ open: true, flow: sanitizeFlowData(flow), loading: false });
+      showToast("Couldn't refresh — showing last known version of this flow.", 'error');
+    }
+  };
 
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -898,6 +913,13 @@ export default function AutomationCanvas() {
       return;
     }
 
+    if (sourceNode.type === 'action' && sourceNode.config?.type === 'brain_query') {
+      const msg = 'AI Reply must be the final step. No steps can be added after AI Reply.';
+      setError(msg);
+      showToast(msg, 'error');
+      return;
+    }
+
     const id = Math.random().toString(36).substr(2, 9);
     const newNode = {
       id,
@@ -931,11 +953,19 @@ export default function AutomationCanvas() {
     }
 
     setActiveNodeId(id);
-  }, [activeNodeId]);
+  }, [activeNodeId, showToast]);
 
   const connectPortToNode = useCallback((sourceId, sourceHandle = null, targetId) => {
     if (sourceId === targetId) {
       setError('A node cannot connect to itself.');
+      return false;
+    }
+
+    const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
+    if (sourceNode?.type === 'action' && sourceNode.config?.type === 'brain_query') {
+      const msg = 'AI Reply must be the final step. No steps can be added after AI Reply.';
+      setError(msg);
+      showToast(msg, 'error');
       return false;
     }
 
@@ -962,7 +992,6 @@ export default function AutomationCanvas() {
       }];
     });
 
-    const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
     if (sourceHandle) {
       const isCond = sourceNode?.type === 'action' && sourceNode?.config?.type === 'condition';
       if (isCond) {
@@ -979,11 +1008,19 @@ export default function AutomationCanvas() {
 
     setActiveNodeId(targetId);
     return true;
-  }, []);
+  }, [showToast]);
 
   const handlePortPointerDown = useCallback((e, sourceId, sourceHandle = null, targetOffsetY = 0) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const sourceNode = nodesRef.current.find((node) => node.id === sourceId);
+    if (sourceNode?.type === 'action' && sourceNode.config?.type === 'brain_query') {
+      const msg = 'AI Reply must be the final step. No steps can be added after AI Reply.';
+      setError(msg);
+      showToast(msg, 'error');
+      return;
+    }
 
     const existingEdge = edgesRef.current.find(
       (edge) => edge.source === sourceId && (edge.sourceHandle || null) === (sourceHandle || null)
@@ -1060,7 +1097,7 @@ export default function AutomationCanvas() {
     wireUpListenerRef.current = handleWireUp;
     window.addEventListener('pointermove', handleWireMove);
     window.addEventListener('pointerup', handleWireUp);
-  }, [connectPortToNode, createNodeFromPort, getCanvasPointFromClient, getPortAnchorPoint]);
+  }, [connectPortToNode, createNodeFromPort, getCanvasPointFromClient, getPortAnchorPoint, showToast]);
 
   const addKeywordToTrigger = (nodeId) => {
     if (!keywordInput.trim()) return;
@@ -1081,26 +1118,35 @@ export default function AutomationCanvas() {
 
   if (currentView === 'dashboard') {
     return (
-      <DashboardView
-        automations={automations}
-        search={search}
-        setSearch={setSearch}
-        handleSelectAutomation={handleSelectAutomation}
-        handleToggleStatus={handleToggleStatus}
-        handleDuplicateFlow={handleDuplicateFlow}
-        handleDeleteFlow={handleDeleteFlow}
-        infoModal={infoModal}
-        setInfoModal={setInfoModal}
-        isCreateModalOpen={isCreateModalOpen}
-        setIsCreateModalOpen={setIsCreateModalOpen}
-        newFlowName={newFlowName}
-        setNewFlowName={setNewFlowName}
-        handleCreateFlowSubmit={handleCreateFlowSubmit}
-        customModal={customModal}
-        setCustomModal={setCustomModal}
-        flowQuota={flowQuota}
-        fetchFlowQuota={fetchFlowQuota}
-      />
+      <>
+        <DashboardView
+          automations={automations}
+          search={search}
+          setSearch={setSearch}
+          handleSelectAutomation={handleSelectAutomation}
+          handleToggleStatus={handleToggleStatus}
+          handleDuplicateFlow={handleDuplicateFlow}
+          handleDeleteFlow={handleDeleteFlow}
+          handlePreviewFlow={handlePreviewFlow}
+          infoModal={infoModal}
+          setInfoModal={setInfoModal}
+          isCreateModalOpen={isCreateModalOpen}
+          setIsCreateModalOpen={setIsCreateModalOpen}
+          newFlowName={newFlowName}
+          setNewFlowName={setNewFlowName}
+          handleCreateFlowSubmit={handleCreateFlowSubmit}
+          customModal={customModal}
+          setCustomModal={setCustomModal}
+          flowQuota={flowQuota}
+          fetchFlowQuota={fetchFlowQuota}
+        />
+        <FlowConversationPreviewModal
+          isOpen={previewFlowModal.open}
+          flow={previewFlowModal.flow}
+          loading={previewFlowModal.loading}
+          onClose={() => setPreviewFlowModal({ open: false, flow: null, loading: false })}
+        />
+      </>
     );
   }
 
@@ -1474,6 +1520,14 @@ export default function AutomationCanvas() {
       <WhatsAppPreviewModal
         previewNode={previewNode}
         setPreviewNode={setPreviewNode}
+      />
+
+      {/* FLOW CONVERSATION PREVIEW MODAL */}
+      <FlowConversationPreviewModal
+        isOpen={previewFlowModal.open}
+        flow={previewFlowModal.flow}
+        loading={previewFlowModal.loading}
+        onClose={() => setPreviewFlowModal({ open: false, flow: null, loading: false })}
       />
 
       {/* AI MAGIC BAR */}

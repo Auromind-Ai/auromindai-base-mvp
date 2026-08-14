@@ -70,6 +70,13 @@ class ConversationExecutionBusy(Exception):
 
 
 class FlowServiceV2:
+    _MEDIA_EXTENSIONS = {
+        "image": {".jpg", ".jpeg", ".png", ".webp", ".gif"},
+        "video": {".mp4", ".3gp", ".mov"},
+        "audio": {".aac", ".m4a", ".mp3", ".amr", ".ogg", ".opus"},
+        "document": {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".csv"},
+    }
+
     def __init__(self):
         self.rag = get_rag_service()
 
@@ -1529,6 +1536,19 @@ class FlowServiceV2:
             logger.info(f" Move stage triggered: stage={stage}")
             return False
 
+        # Condition / Decision Node
+        if action_type == "condition":
+            return await self._handle_condition_node(
+                db=db,
+                conversation=conversation,
+                flow=flow,
+                state=state,
+                node=node,
+                inbound_text=inbound_text,
+                msg_sequence=msg_sequence,
+                execution_token=execution_token,
+            )
+
         # Notification (FIXED: was checking 'send_notification')
         if action_type in ("notification", "send_notification"):
             text = config.get("text") or config.get("message") or ""
@@ -1540,6 +1560,93 @@ class FlowServiceV2:
 
         logger.warning(f" Unknown action type: '{action_type}' on node {node.get('id')}")
         return False
+
+    async def _handle_condition_node(
+        self,
+        db: Session,
+        *,
+        conversation: Conversation,
+        flow: AutomationFlow,
+        state: FlowExecutionState,
+        node: Dict[str, Any],
+        inbound_text: str,
+        msg_sequence: List[int],
+        execution_token: Optional[str] = None,
+    ) -> bool:
+        config = node.get("config") or {}
+        field = config.get("field") or config.get("variable_name") or "user_reply"
+        operator = config.get("operator") or "equals"
+        compare_value = config.get("compare_value") or config.get("value") or ""
+
+        runtime_ctx = state.runtime_context or {}
+        left_val = runtime_ctx.get(field)
+        if left_val is None:
+            left_val = runtime_ctx.get("user_reply") if runtime_ctx.get("user_reply") is not None else inbound_text
+
+        is_true = self._evaluate_condition(operator, left_val, compare_value)
+        target_handle = "true" if is_true else "false"
+
+        logger.info(
+            f"🔀 Condition node '{node.get('id')}': field='{field}' ({left_val}) {operator} '{compare_value}' → result={is_true} ({target_handle})"
+        )
+
+        edges = flow.edges or []
+        target_node_id = None
+
+        for edge in edges:
+            if edge.get("source") == node.get("id"):
+                sh = str(edge.get("sourceHandle") or "")
+                if sh == target_handle or sh == f"branch-{target_handle}" or sh.endswith(f"-{target_handle}"):
+                    target_node_id = edge.get("target")
+                    break
+
+        if not target_node_id:
+            target_node_id = self._get_default_target(edges, node.get("id"))
+
+        state.current_node_id = target_node_id
+        return False
+
+    def _evaluate_condition(self, operator: str, left_val: Any, right_val: Any) -> bool:
+        left_str = str(left_val).strip() if left_val is not None else ""
+        right_str = str(right_val).strip() if right_val is not None else ""
+
+        is_num = False
+        num_left = 0.0
+        num_right = 0.0
+        try:
+            if left_str != "" and right_str != "":
+                num_left = float(left_str)
+                num_right = float(right_str)
+                is_num = True
+        except ValueError:
+            is_num = False
+
+        op = (operator or "equals").lower()
+        if op == "equals":
+            return left_str.lower() == right_str.lower()
+        elif op == "not_equals":
+            return left_str.lower() != right_str.lower()
+        elif op == "contains":
+            return right_str.lower() in left_str.lower()
+        elif op == "does_not_contain":
+            return right_str.lower() not in left_str.lower()
+        elif op == "starts_with":
+            return left_str.lower().startswith(right_str.lower())
+        elif op == "ends_with":
+            return left_str.lower().endswith(right_str.lower())
+        elif op in ("is_empty", "empty"):
+            return left_str == ""
+        elif op == "not_empty":
+            return left_str != ""
+        elif op in ("greater_than", ">"):
+            return num_left > num_right if is_num else left_str > right_str
+        elif op in ("greater_than_or_equal", ">="):
+            return num_left >= num_right if is_num else left_str >= right_str
+        elif op in ("less_than", "<"):
+            return num_left < num_right if is_num else left_str < right_str
+        elif op in ("less_than_or_equal", "<="):
+            return num_left <= num_right if is_num else left_str <= right_str
+        return left_str.lower() == right_str.lower()
 
     # ASK QUESTION NODE HANDLER  ← NEW
     async def _handle_ask_question_node(

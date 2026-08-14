@@ -38,6 +38,8 @@ async def verify_instagram(request: Request):
     raise HTTPException(status_code=403, detail="Verification failed")
 
 
+from starlette.concurrency import run_in_threadpool
+
 @router.post("/webhook")
 async def receive_instagram(request: Request, db: Session = Depends(get_db)):
     try:

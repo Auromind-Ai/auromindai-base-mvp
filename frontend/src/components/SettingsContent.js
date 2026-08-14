@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -25,7 +26,9 @@ import {
   MapPin,
   Ban,
   Loader2,
-  ShieldAlert
+  ShieldAlert,
+  Menu,
+  X
 } from 'lucide-react';
 
 // ─ Nav Config 
@@ -831,6 +834,7 @@ function SecuritySection() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, []);
 
@@ -1381,7 +1385,7 @@ function MyAccountSection({
       <section
         className="
           mb-6 rounded-2xl border border-[rgba(157,157,157,0.43)]
-          bg-[#070012] p-6
+          bg-[#070012] p-4 sm:p-6
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
@@ -1389,7 +1393,7 @@ function MyAccountSection({
           Account
         </h2>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
           {/* Avatar */}
           <div
             className="
@@ -1414,7 +1418,7 @@ function MyAccountSection({
             >
               Preferred name
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full">
               <input
                 id="preferred-name"
                 type="text"
@@ -1422,7 +1426,7 @@ function MyAccountSection({
                 onChange={handleNameChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
                 className="
-                  flex-1 h-[42px] rounded-xl px-3.5
+                  flex-1 min-w-0 h-[42px] rounded-xl px-3.5
                   bg-[#0B021A] text-white text-sm
                   border border-[rgba(157,157,157,0.43)]
                   placeholder:text-zinc-600
@@ -1459,37 +1463,37 @@ function MyAccountSection({
           shadow-[0_4px_24px_rgba(0,0,0,0.3)]
         "
       >
-        <div className="px-6 pt-6 pb-4">
+        <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-4">
           <h2 className="text-base font-semibold text-white tracking-tight">
             Account Security
           </h2>
         </div>
 
-        <div className="mx-6 mb-6 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
+        <div className="mx-4 sm:mx-6 mb-5 sm:mb-6 rounded-xl border border-[rgba(157,157,157,0.43)] bg-[#070012] overflow-hidden">
 
           {/* Email row */}
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
-              gap-4 px-5 py-4
+              gap-2 sm:gap-4 px-4 sm:px-5 py-4
               border-b border-[rgba(157,157,157,0.43)]
             "
           >
             <div>
               <p className="text-sm font-medium text-white">Email</p>
-              <p className="mt-0.5 text-xs text-white/65">{userEmail}</p>
+              <p className="mt-0.5 text-xs text-white/65 break-all sm:break-normal">{userEmail}</p>
             </div>
           </div>
 
           {/* Two-step verification row */}
           <div
             className="
-              flex flex-col sm:flex-row sm:items-center justify-between
-              gap-4 px-5 py-4
+              flex items-center justify-between
+              gap-3 px-4 sm:px-5 py-4
               border-b border-[rgba(157,157,157,0.43)]
             "
           >
-            <div>
+            <div className="pr-2">
               <p className="text-sm font-medium text-white">
                 Two-step verification
               </p>
@@ -1506,11 +1510,11 @@ function MyAccountSection({
             </div>
           </div>
 
-          {/* Delete Account row — removed border-t overlap, uses rounded bottom naturally */}
+          {/* Delete Account row */}
           <div
             className="
               flex flex-col sm:flex-row sm:items-center justify-between
-              gap-4 px-5 py-5
+              gap-4 px-4 sm:px-5 py-4 sm:py-5
               bg-red-950/10
             "
           >
@@ -1545,7 +1549,8 @@ function MyAccountSection({
 
 // ─ Main Component 
 
-export default function SettingsContent({ email }) {
+export default function SettingsContent({ email, onClose }) {
+  const router = useRouter();
   const { user, logout, refreshUser } = useAuth();
   
   const [activeSection, setActiveSection] = useState('my-account');
@@ -1563,6 +1568,14 @@ export default function SettingsContent({ email }) {
 
   const mainContentRef = useRef(null);
 
+  const handleCloseAction = () => {
+    if (onClose) {
+      onClose();
+    } else if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    }
+  };
+
   useEffect(() => {
     if (mainContentRef.current) {
       mainContentRef.current.scrollTop = 0;
@@ -1570,11 +1583,13 @@ export default function SettingsContent({ email }) {
   }, [activeSection]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (user?.full_name) setPreferredName(user.full_name);
   }, [user]);
 
   useEffect(() => {
     if (user?.two_factor_enabled !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTwoFactorEnabled(user.two_factor_enabled);
     }
   }, [user]);
@@ -1702,27 +1717,28 @@ export default function SettingsContent({ email }) {
         >
 
           {/* ════════════════════════════════════════
-              MOBILE: top bar with section name + hamburger
+              MOBILE/TABLET HEADER (<=1024px)
+              Contains ONLY sidebar toggle (Hamburger) on left and Close (X) action on right.
+              No page title is rendered inside the header.
           ════════════════════════════════════════ */}
-          <div className="lg:hidden flex items-center justify-between pl-4 pr-14 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012]">
-            <span className="text-sm font-semibold text-white">{activeLabel}</span>
+          <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-[rgba(157,157,157,0.43)] bg-[#070012] shrink-0">
             <button
               type="button"
               onClick={() => setSidebarOpen((v) => !v)}
-              className="flex flex-col gap-1 p-2 rounded-lg hover:bg-white/5 transition-colors focus:outline-none"
+              className="p-2 rounded-lg border border-white/10 bg-white/5 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none flex items-center justify-center active:scale-95"
               aria-label="Toggle navigation"
             >
-              <span
-                className={`block w-5 h-0.5 bg-zinc-300 transition-transform duration-200 ${sidebarOpen ? 'translate-y-1.5 rotate-45' : ''}`}
-              />
-              <span
-                className={`block w-5 h-0.5 bg-zinc-300 transition-opacity duration-200 ${sidebarOpen ? 'opacity-0' : ''}`}
-              />
-              <span
-                className={`block w-5 h-0.5 bg-zinc-300 transition-transform duration-200 ${sidebarOpen ? '-translate-y-1.5 -rotate-45' : ''}`}
-              />
+              <Menu size={18} />
             </button>
-            <span className="text-sm font-semibold text-white ml-1">{activeLabel}</span>
+
+            <button
+              type="button"
+              onClick={handleCloseAction}
+              className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none flex items-center justify-center active:scale-95"
+              aria-label="Close settings"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           {/* ════════════════════════════════════════

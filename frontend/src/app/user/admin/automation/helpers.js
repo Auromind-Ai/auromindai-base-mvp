@@ -201,6 +201,13 @@ export const validateFlowGraph = (nodes = [], edges = []) => {
       }
     }
 
+    if (node.type === 'action' && node.config?.type === 'brain_query') {
+      const outgoing = outgoingMap[node.id] || [];
+      if (outgoing.length > 0) {
+        errors.push('AI Reply must be the final step. No steps can be added after AI Reply.');
+      }
+    }
+
     const outgoingEdges = outgoingMap[node.id] || [];
     if (!outgoingEdges.length) return;
 
@@ -259,4 +266,43 @@ export const wouldCreateCycle = (sourceId, targetId, currentEdges) => {
     }
   }
   return false;
+};
+
+export const evaluateConditionBranch = (operator, leftValue, rightValue) => {
+  const leftStr = leftValue !== undefined && leftValue !== null ? String(leftValue).trim() : '';
+  const rightStr = rightValue !== undefined && rightValue !== null ? String(rightValue).trim() : '';
+
+  const isNumericComparison = !isNaN(Number(leftStr)) && !isNaN(Number(rightStr)) && leftStr !== '' && rightStr !== '';
+  const numLeft = isNumericComparison ? Number(leftStr) : 0;
+  const numRight = isNumericComparison ? Number(rightStr) : 0;
+
+  switch (operator) {
+    case 'equals':
+      return leftStr.toLowerCase() === rightStr.toLowerCase();
+    case 'not_equals':
+      return leftStr.toLowerCase() !== rightStr.toLowerCase();
+    case 'contains':
+      return leftStr.toLowerCase().includes(rightStr.toLowerCase());
+    case 'does_not_contain':
+      return !leftStr.toLowerCase().includes(rightStr.toLowerCase());
+    case 'starts_with':
+      return leftStr.toLowerCase().startsWith(rightStr.toLowerCase());
+    case 'ends_with':
+      return leftStr.toLowerCase().endsWith(rightStr.toLowerCase());
+    case 'is_empty':
+    case 'empty':
+      return leftStr === '';
+    case 'not_empty':
+      return leftStr !== '';
+    case 'greater_than':
+      return isNumericComparison ? numLeft > numRight : leftStr > rightStr;
+    case 'greater_than_or_equal':
+      return isNumericComparison ? numLeft >= numRight : leftStr >= rightStr;
+    case 'less_than':
+      return isNumericComparison ? numLeft < numRight : leftStr < rightStr;
+    case 'less_than_or_equal':
+      return isNumericComparison ? numLeft <= numRight : leftStr <= rightStr;
+    default:
+      return leftStr.toLowerCase() === rightStr.toLowerCase();
+  }
 };

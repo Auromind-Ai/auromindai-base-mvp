@@ -310,7 +310,7 @@ export default function CanvasGrid({
                   )}
 
 
-                  {nodeButtons.length === 0 && nodeBranches.length === 0 && (
+                  {nodeButtons.length === 0 && nodeBranches.length === 0 && node.config?.type !== 'brain_query' && (
                     <motion.div
                       whileHover={{ scale: 1.6, rotate: 90 }}
                       data-no-drag

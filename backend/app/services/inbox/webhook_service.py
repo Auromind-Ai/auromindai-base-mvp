@@ -115,8 +115,9 @@ class WebhookService:
         from_number   = form_data.get("From")
         body          = form_data.get("Body") or form_data.get("ButtonText")
         to_number     = form_data.get("To")
+        account_sid   = form_data.get("AccountSid")
         message_sid   = form_data.get("MessageSid") or form_data.get("SmsSid")
- 
+
         interactive_value = (
             form_data.get("ButtonPayload")
             or form_data.get("ButtonId")
@@ -126,13 +127,13 @@ class WebhookService:
             form_data.get("ButtonText")
             or form_data.get("InteractiveButtonReplyTitle")
         )
- 
+
         #  Guard: required fields 
         if not from_number or not body or not to_number:
             return str(MessagingResponse())
- 
-        #  Workspace lookup (To number → Workspace row) 
-        workspace = ConversationService.get_workspace_for_twilio_number(db, to_number)
+
+        #  Workspace lookup (To number / AccountSid → Workspace row) 
+        workspace = ConversationService.get_workspace_for_twilio_number(db, to_number, account_sid=account_sid)
         if not workspace:
             # Log and return empty TwiML — don't crash
             import logging

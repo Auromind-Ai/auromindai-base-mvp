@@ -1,4 +1,5 @@
 
+import urllib.parse
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from typing import Optional
@@ -20,9 +21,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def assemble_db_url(self) -> Self:
-        if not self.DATABASE_URL:
-            password = self.POSTGRES_PASSWORD or ""
-            self.DATABASE_URL = f"postgresql://{self.POSTGRES_USER}:{password}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        if not self.DATABASE_URL or not self.DATABASE_URL.strip():
+            password = urllib.parse.quote_plus(self.POSTGRES_PASSWORD) if self.POSTGRES_PASSWORD else ""
+            pass_str = f":{password}" if password else ""
+            self.DATABASE_URL = f"postgresql://{self.POSTGRES_USER}{pass_str}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         return self
 
     # SECURITY & AUTHENTICATION
@@ -68,6 +70,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     WCC_PENDING_EXPIRY_HOURS: int = 24
+    TWILIO_STATUS_CALLBACK_URL: Optional[str] = None
 
     # LOGGING
     LOG_LEVEL: str = "INFO"

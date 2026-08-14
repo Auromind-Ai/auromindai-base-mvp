@@ -90,9 +90,11 @@ class TwilioService:
         return True
 
     def _status_callback_params(self, metadata: dict = None) -> dict:
+        import os
         from app.services.config_service import config_service
-        url = config_service.get("twilio_status_callback_url")
+        url = config_service.get("twilio_status_callback_url") or os.getenv("TWILIO_STATUS_CALLBACK_URL")
         if not url:
+            logger.warning("[_status_callback_params] TWILIO_STATUS_CALLBACK_URL is NOT set in DB or .env! Twilio will not send status callback webhooks.")
             return {}
         
         metadata = metadata or {}
