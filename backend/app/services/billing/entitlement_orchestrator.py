@@ -93,7 +93,8 @@ class WCCBillingProvisioner(IWCCBillingProvisioner):
                     status="success"
                 )
                 db.add(recharge)
-                wallet.balance += promo_amount
+                wallet.included_balance = (wallet.included_balance or Decimal("0.00")) + promo_amount
+                wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
                 db.flush()
 
 
@@ -133,10 +134,8 @@ class EntitlementOrchestrator:
             db.add(subscription)
             db.flush()
 
-        # 3. Load plan entitlement
-        entitlement = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == plan.id).first()
-        if not entitlement:
-            raise ValueError(f"No entitlements config found for plan: {plan.name}")
+
+        entitlement = EntitlementService.ensure_plan_entitlement(db, plan)
 
         # 4. Provision resources (AI & WCC)
         cls.provision_resources(db, workspace_id, entitlement)
@@ -223,27 +222,43 @@ class EntitlementOrchestrator:
             db.flush()
 
 
-        # 2. WCC Wallet Reset Policy
+        # 2. WCC Wallet Reset Policy (Only reset INCLUDED promo balance, NEVER touch purchased_balance!)
         WCCService.get_balance(db, workspace_id)
         wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).with_for_update().first()
-        if entitlement.included_wallet_reset_policy == "EXPIRE":
-            wallet.balance = Decimal("0.00")
+        if wallet:
+            if entitlement.included_wallet_reset_policy == "EXPIRE":
+                wallet.included_balance = Decimal("0.00")
+                db.flush()
+
+            promo_amount = entitlement.included_wcc_wallet
+            if promo_amount > 0:
+                recharge = WCCRechargeLog(
+                    id=uuid.uuid4(),
+                    workspace_id=workspace_id,
+                    amount=promo_amount,
+                    currency="INR",
+                    gateway_order_id=f"promo_grant:{subscription.id}:{datetime.now(timezone.utc).timestamp()}",
+                    gateway_payment_id=f"promo_grant:{workspace_id}:{subscription.id}:{datetime.now(timezone.utc).timestamp()}",
+                    status="success"
+                )
+                db.add(recharge)
+                wallet.included_balance += promo_amount
+                db.flush()
+
+            wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
             db.flush()
 
-        promo_amount = entitlement.included_wcc_wallet
-        if promo_amount > 0:
-            recharge = WCCRechargeLog(
-                id=uuid.uuid4(),
-                workspace_id=workspace_id,
-                amount=promo_amount,
-                currency="INR",
-                gateway_order_id=f"promo_grant:{subscription.id}:{datetime.now(timezone.utc).timestamp()}",
-                gateway_payment_id=f"promo_grant:{workspace_id}:{subscription.id}:{datetime.now(timezone.utc).timestamp()}",
-                status="success"
-            )
-            db.add(recharge)
-            wallet.balance += promo_amount
-            db.flush()
+        # Update reset timestamps with calendar month math
+        import calendar
+        dt = datetime.now(timezone.utc)
+        month = dt.month % 12 + 1
+        year = dt.year + (dt.month // 12)
+        max_day = calendar.monthrange(year, month)[1]
+        next_dt = dt.replace(year=year, month=month, day=min(dt.day, max_day))
+
+        subscription.last_entitlement_reset_at = dt
+        subscription.next_entitlement_reset_at = next_dt
+        db.flush()
 
     @classmethod
     def upgrade_subscription(cls, db: Session, workspace_id: uuid.UUID, new_plan_id: uuid.UUID) -> None:
@@ -292,8 +307,10 @@ class EntitlementOrchestrator:
                 if current_entitlement.included_wallet_reset_policy == "EXPIRE":
                     WCCService.get_balance(db, workspace_id)
                     wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).with_for_update().first()
-                    wallet.balance = Decimal("0.00")
-                    db.flush()
+                    if wallet:
+                        wallet.included_balance = Decimal("0.00")
+                        wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
+                        db.flush()
 
             active_sub.status = SubscriptionStatus.cancelled
             active_sub.canceled_at = datetime.now(timezone.utc)
@@ -304,27 +321,35 @@ class EntitlementOrchestrator:
         if not new_plan:
             raise ValueError(f"Plan {new_plan_id} not found in database.")
 
-        # 3. Create new active subscription
-        new_sub = Subscription(
-            id=uuid.uuid4(),
-            workspace_id=workspace_id,
-            plan_id=new_plan.id,
-            status=SubscriptionStatus.active,
-            billing_cycle="monthly",
-            start_date=datetime.now(timezone.utc),
-            end_date=datetime.now(timezone.utc) + timedelta(days=30),
-            current_period_start=datetime.now(timezone.utc),
-            current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
-            provider="system",
-            provider_subscription_id=f"sub_{new_plan.name}_{workspace_id}_{datetime.now(timezone.utc).timestamp()}"
-        )
-        db.add(new_sub)
-        db.flush()
+        # 3. Update active subscription in-place or create new
+        if active_sub:
+            active_sub.plan_id = new_plan.id
+            active_sub.status = SubscriptionStatus.active
+            active_sub.billing_cycle = getattr(new_plan, "billing_cycle", "monthly") or "monthly"
+            active_sub.current_period_start = datetime.now(timezone.utc)
+            active_sub.current_period_end = datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30)
+            active_sub.canceled_at = None
+            active_sub.cancel_at_period_end = False
+            active_sub.provider_subscription_id = f"sub_{new_plan.name}_{workspace_id}_{datetime.now(timezone.utc).timestamp()}"
+            db.flush()
+        else:
+            new_sub = Subscription(
+                id=uuid.uuid4(),
+                workspace_id=workspace_id,
+                plan_id=new_plan.id,
+                status=SubscriptionStatus.active,
+                billing_cycle=getattr(new_plan, "billing_cycle", "monthly") or "monthly",
+                start_date=datetime.now(timezone.utc),
+                end_date=datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30),
+                current_period_start=datetime.now(timezone.utc),
+                current_period_end=datetime.now(timezone.utc) + timedelta(days=365 if getattr(new_plan, "billing_cycle", "monthly") == "yearly" else 30),
+                provider="system",
+                provider_subscription_id=f"sub_{new_plan.name}_{workspace_id}_{datetime.now(timezone.utc).timestamp()}"
+            )
+            db.add(new_sub)
+            db.flush()
 
-        # 4. Load plan entitlement configuration
-        entitlement = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == new_plan.id).first()
-        if not entitlement:
-            raise ValueError(f"No entitlements config found for plan: {new_plan.name}")
+        entitlement = EntitlementService.ensure_plan_entitlement(db, new_plan)
 
         # 5. Provision resources
         cls.provision_resources(db, workspace_id, entitlement)

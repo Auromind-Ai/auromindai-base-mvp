@@ -1222,13 +1222,14 @@ export default function LeadsPage() {
     }, [searchTerm]);
 
     // Fetch Leads List with pagination capability
-    const fetchLeadsList = async (currentOffset = 0, isAppend = false) => {
+    const fetchLeadsList = async (currentOffset = 0, isAppend = false, searchVal = debouncedSearch) => {
         const workspaceId = getWorkspaceIdFromToken();
         if (!workspaceId) return;
 
         setLoading(true);
         try {
-            const res = await api.get(`/lead-scoring/leads?workspace_id=${workspaceId}&limit=${LIMIT}&offset=${currentOffset}`);
+            const searchParam = searchVal && searchVal.trim() ? `&search=${encodeURIComponent(searchVal.trim())}` : '';
+            const res = await api.get(`/lead-scoring/leads?workspace_id=${workspaceId}&limit=${LIMIT}&offset=${currentOffset}${searchParam}`);
             const normalizedItems = (res.items || []).map(normalizeLead);
 
             setLeads(prev => {
@@ -1253,6 +1254,16 @@ export default function LeadsPage() {
             setLoading(false);
         }
     };
+
+    // Refetch when search term changes
+    const isFirstSearchRender = useRef(true);
+    useEffect(() => {
+        if (isFirstSearchRender.current) {
+            isFirstSearchRender.current = false;
+            return;
+        }
+        fetchLeadsList(0, false, debouncedSearch);
+    }, [debouncedSearch]);
 
     // Load High-Priority Selected Lead Details & History
     const fetchSelectedLeadData = async (leadId) => {
@@ -1540,22 +1551,8 @@ export default function LeadsPage() {
         }
     };
 
-    // Filter leads list based on debounced search text
-    const filteredLeads = leads.filter(lead => {
-        const query = debouncedSearch.toLowerCase().trim();
-        if (!query) return true;
-
-        const matchName = lead.name?.toLowerCase().includes(query);
-        const matchPhone = lead.phone?.toLowerCase().includes(query);
-
-        // Search messages in cached details
-        const detail = leadsDetails[lead.id];
-        const matchMessages = detail?.conversation_log?.some(m =>
-            (m.content || m.text || '').toLowerCase().includes(query)
-        );
-
-        return matchName || matchPhone || matchMessages;
-    });
+    // Server-side search results
+    const filteredLeads = leads;
 
     const selectedLead = leads.find(l => l.id === selectedLeadId);
 

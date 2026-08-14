@@ -1,0 +1,36 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Virtual env
+venv
+.venv
+.env
+
+# Logs
+logs
+*.log
+
+# Uploads / temp files
+temp_uploads
+tmp
+
+# Vector DB / Caches
+chroma_db
+.cache
+.pytest_cache
+.ruff_cache
+.coverage
+bandit_report.json
+celerybeat-schedule
+
+# Git
+.git
+.gitignore
+
+# OS
+.DS_Store

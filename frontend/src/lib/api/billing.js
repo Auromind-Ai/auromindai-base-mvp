@@ -59,11 +59,12 @@ export async function getWorkspaceEntitlements(workspace_id, options = {}) {
   return client.get(`/billing/entitlements?workspace_id=${workspace_id}`, { ...options, headers });
 }
 
-export async function createBillingSubscription(workspace_id, plan, provider = 'razorpay', options = {}) {
+export async function createBillingSubscription(workspace_id, plan, billing_cycle = 'monthly', provider = 'razorpay', options = {}) {
   const headers = { ...options.headers, 'X-Workspace-Id': workspace_id };
   return client.post('/billing/create-subscription', {
     workspace_id,
     plan,
+    billing_cycle,
     provider,
   }, { ...options, headers });
 }
@@ -301,6 +302,10 @@ export async function getPlanEntitlementsAdmin() {
 
 export async function updatePlanEntitlementAdmin(planId, payload) {
   return client.put(`/admin/plan-entitlements/${planId}`, payload);
+}
+
+export async function updateWorkspaceResourceOverrides(workspaceId, payload) {
+  return client.post(`/admin/billing/workspaces/${workspaceId}/resource-overrides`, payload);
 }
 
 export async function getFlowPackOptions() {

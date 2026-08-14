@@ -31,9 +31,14 @@ class Scrappyweb(scrapy.Spider):
             )
 
     blocked_keywords = [
-    "login", "signin", "signup",
-    "register", "search",
-    "account", "cart", "checkout"
+        "login", "signin", "signup",
+        "register", "search",
+        "account", "cart", "checkout",
+        "disambiguation", "privacy", "terms",
+        "copyright", "cookie", "action=",
+        "wikipedia:", "special:", "help:",
+        "talk:", "user:", "category:",
+        "portal:", "template:", "file:"
     ]
 
     async def parse_site (self, response):

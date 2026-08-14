@@ -51,18 +51,18 @@ async def verify_webhook(request: Request):
 
 @router.post("/whatsapp/webhook")
 async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
-    print("\n[DEBUG WEBHOOK] === INCOMING META WHATSAPP WEBHOOK POST REQUEST ===")
+    logger.debug("=== INCOMING META WHATSAPP WEBHOOK POST REQUEST ===")
     logger.info("=== INCOMING META WHATSAPP WEBHOOK ===")
     try:
         data = await request.json()
-        print(f"[DEBUG WEBHOOK] Raw Payload: {json.dumps(data)}")
+        logger.debug(f"Raw Payload: {json.dumps(data)}")
         logger.info(f"Raw Webhook Payload: {data}")
         res = await WebhookService.handle_meta_whatsapp_webhook(data, db)
-        print(f"[DEBUG WEBHOOK] Result from WebhookService: {res}")
+        logger.debug(f"Result from WebhookService: {res}")
         return res
     except Exception as exc:
-        print(f"[DEBUG WEBHOOK] CRITICAL ERROR: {exc}")
-        logger.exception(f"Webhook processing error: {exc}")
+        logger.error(f"Webhook processing error: {exc}")
+        logger.exception(f"Webhook processing error traceback: {exc}")
         return {"status": "error"}
 
 

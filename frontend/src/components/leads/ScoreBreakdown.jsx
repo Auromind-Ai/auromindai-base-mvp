@@ -14,6 +14,9 @@ const INTENT_MAPPINGS = {
   delivery_interest: { label: 'Delivery interest', points: '+15', positive: true, icon: Clock },
   is_vague: { label: 'Vague communication', points: '-10', positive: false, icon: ShieldAlert },
   negative_intent: { label: 'Negative intent', points: '-20', positive: false, icon: XCircle },
+  pricing_intent: { label: 'Pricing conversation', points: '+15', positive: true, icon: Sparkles },
+  payment_intent: { label: 'Payment intent', points: '+20', positive: true, icon: CheckCircle2 },
+  budget_acceptance: { label: 'Budget accepted', points: '+25', positive: true, icon: CheckCircle2 },
 };
 
 function getScoreColorClass(score) {

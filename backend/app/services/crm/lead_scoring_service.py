@@ -464,14 +464,12 @@ def get_workspace_lead_scores(
     status_filter: str | None = None,
     min_score: int | None = None,
     max_score: int | None = None,
+    search: str | None = None,
     sort_by: str = "score_desc",
     limit: int = 100,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """
-    List leads with their current scores.
-    Supports filtering by status, score range, and sorting.
-    """
+    
     query = db.query(Lead).filter(Lead.workspace_id == workspace_id)
 
     if status_filter:
@@ -480,6 +478,15 @@ def get_workspace_lead_scores(
         query = query.filter(Lead.score >= min_score)
     if max_score is not None:
         query = query.filter(Lead.score <= max_score)
+    if search and search.strip():
+        search_term = f"%{search.strip()}%"
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(
+                Lead.name.ilike(search_term),
+                Lead.phone.ilike(search_term),
+            )
+        )
 
     # Total count (before pagination)
     total = query.count()

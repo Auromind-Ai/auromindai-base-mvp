@@ -15,7 +15,10 @@ class WCCWallet(Base):
         unique=True,
         index=True,
     )
+    included_balance = Column(Numeric(12, 2), nullable=False, default=0.0)
+    purchased_balance = Column(Numeric(12, 2), nullable=False, default=0.0)
     balance = Column(Numeric(12, 2), nullable=False, default=0.0)
+    overage_balance = Column(Numeric(12, 2), nullable=False, default=0.0)  # Outstanding debt when overage_enabled=True
     currency = Column(String(3), default="INR", nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -64,6 +67,7 @@ class WCCTransaction(Base):
     meta_cost_applied = Column(Numeric(8, 4), nullable=True) 
     customer_price_applied = Column(Numeric(8, 4), nullable=True) 
     pricing_version = Column(Integer, default=1, nullable=False)
+    transaction_type = Column(String(50), default="debit", nullable=True)
     raw_payload = Column(JSONB, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
@@ -94,6 +98,7 @@ class WCCRechargeLog(Base):
     gateway_payment_id = Column(String(255), index=True, unique=True, nullable=True)
     payment_method = Column(String(50), nullable=True)
     status = Column(String(50), default="pending", nullable=False)  # pending, success, failed
+    balance_after = Column(Numeric(12, 2), nullable=True)
 
     # GST columns
     subtotal = Column(Numeric(12, 2), nullable=True)

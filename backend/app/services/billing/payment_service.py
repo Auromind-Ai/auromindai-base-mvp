@@ -1,6 +1,6 @@
 import uuid
 from typing import Any
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy.orm import Session
 from app.core.enums import PaymentStatus, SubscriptionStatus
 from app.models.billing import Payment
@@ -76,7 +76,7 @@ class PaymentService:
                 tax_inclusive=True
             )
 
-        amount_major = int(gst_calcs["taxable_amount"])
+        amount_major = int((gst_calcs["total_amount"]).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
         if payment is None:
             payment = Payment(

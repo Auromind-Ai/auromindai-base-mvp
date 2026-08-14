@@ -1,4 +1,4 @@
-import json
+
 import uuid
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
@@ -7,6 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, validator
 from sqlalchemy import func, or_, desc, String
 from sqlalchemy.orm import Session
+from app.routers.auth import get_current_user, CurrentUser
+from app.core.enums import PlatformRole
+from app.core.security import oauth2_scheme
+from fastapi.security import OAuth2PasswordBearer
+
 
 from app.database import get_db
 from app.core.enums import SubscriptionStatus, PaymentStatus, InvoiceStatus
@@ -25,10 +30,13 @@ from app.models.webhook_event import WebhookEvent
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.flow_pack import FlowPack, FlowPackPurchase
 from app.services.billing import BillingService
+from app.services.billing.entitlement_service import EntitlementService
 from jose import jwt
 from app.core.config import settings
 from app.core.admin_security import verify_admin_workspace
-from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -93,25 +101,83 @@ def log_audit(
 @router.get("/billing")
 async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
     try:
-        # 1. Multi-product Isolated Revenue Calculation
         credit_pack_ref_keys = db.query(TokenLedger.reference_key).filter(TokenLedger.entry_type == "purchase", TokenLedger.status == "posted").all()
-        credit_pack_payment_db_ids = [ref[0].split(":")[-1] for ref in credit_pack_ref_keys if ref[0] and ":" in ref[0]]
+        credit_pack_payment_db_ids = set(ref[0].split(":")[-1] for ref in credit_pack_ref_keys if ref[0] and ":" in ref[0])
         
         paid_payments = db.query(Payment).filter(Payment.status == PaymentStatus.paid).all()
-        sub_revenue = 0.0
-        ai_pack_revenue = 0.0
+        sub_gross = 0.0
+        sub_net = 0.0
+        sub_gst = 0.0
+        
+        ai_pack_gross = 0.0
+        ai_pack_net = 0.0
+        ai_pack_gst = 0.0
+        
+        manual_collections = 0.0
+        razorpay_collections = 0.0
+
         for p in paid_payments:
             p_id_str = str(p.id)
             p_prov_id_str = str(p.provider_payment_id or "")
-            if p_id_str in credit_pack_payment_db_ids or p_prov_id_str in credit_pack_payment_db_ids:
-                ai_pack_revenue += float(p.amount)
-            else:
-                sub_revenue += float(p.amount)
+            is_ai_pack = (p_id_str in credit_pack_payment_db_ids or p_prov_id_str in credit_pack_payment_db_ids)
+            
+            p_gross = float(p.total_amount if p.total_amount is not None else (p.amount or 0.0))
+            p_refund = float(p.refund_amount or 0.0)
+            p_gst = float(p.gst_amount if p.gst_amount is not None else 0.0)
+            p_sub = float(p.subtotal if p.subtotal is not None else (p.taxable_amount if p.taxable_amount is not None else (p_gross - p_gst)))
+            p_net = max(0.0, p_sub - p_refund)
 
-        wcc_revenue = float(db.query(func.coalesce(func.sum(WCCRechargeLog.amount), 0)).filter(WCCRechargeLog.status == "success").scalar() or 0)
-        flow_revenue = float(db.query(func.coalesce(func.sum(FlowPackPurchase.amount_paid), 0)).filter(FlowPackPurchase.status == "success").scalar() or 0)
-        
-        total_revenue = sub_revenue + ai_pack_revenue + wcc_revenue + flow_revenue
+            prov = (p.provider or "razorpay").lower()
+            if prov in ["manual", "admin", "offline", "bank_transfer"]:
+                manual_collections += p_gross
+            else:
+                razorpay_collections += p_gross
+
+            if is_ai_pack:
+                ai_pack_gross += p_gross
+                ai_pack_net += p_net
+                ai_pack_gst += p_gst
+            else:
+                sub_gross += p_gross
+                sub_net += p_net
+                sub_gst += p_gst
+
+        # WCC Recharges
+        wcc_logs = db.query(WCCRechargeLog).filter(WCCRechargeLog.status == "success").all()
+        wcc_gross = 0.0
+        wcc_net = 0.0
+        wcc_gst = 0.0
+        for w in wcc_logs:
+            w_net = float(w.subtotal if w.subtotal is not None else w.amount)
+            w_gst = float(w.gst_amount if w.gst_amount is not None else 0.0)
+            w_total = float(w.total_amount if w.total_amount is not None else (w_net + w_gst))
+            wcc_gross += w_total
+            wcc_net += w_net
+            wcc_gst += w_gst
+
+        # Flow Packs
+        flow_purchases = db.query(FlowPackPurchase).filter(FlowPackPurchase.status == "success").all()
+        flow_gross = 0.0
+        flow_net = 0.0
+        flow_gst = 0.0
+        for f in flow_purchases:
+            f_net = float(f.subtotal if f.subtotal is not None else (f.taxable_amount if f.taxable_amount is not None else f.amount_paid))
+            f_gst = float(f.gst_amount if f.gst_amount is not None else 0.0)
+            f_total = float(f.total_amount if f.total_amount is not None else (f_net + f_gst))
+            flow_gross += f_total
+            flow_net += f_net
+            flow_gst += f_gst
+
+        razorpay_collections += wcc_gross + flow_gross
+        gross_collections = sub_gross + ai_pack_gross + wcc_gross + flow_gross
+        net_platform_revenue = sub_net + ai_pack_net + wcc_net + flow_net
+        gst_liability = sub_gst + ai_pack_gst + wcc_gst + flow_gst
+        total_revenue = net_platform_revenue
+
+        sub_revenue = sub_net
+        ai_pack_revenue = ai_pack_net
+        wcc_revenue = wcc_net
+        flow_revenue = flow_net
         
         # Calculate MRR & ARR (Normalized for Annual Billing Cycles)
         from sqlalchemy import case
@@ -133,14 +199,18 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
         )
         mrr = float(mrr_query)
         arr = mrr * 12.0
-        
-        # Today's Revenue
-        now = datetime.now(timezone.utc)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        today_sub = float(db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.status == PaymentStatus.paid, Payment.created_at >= today_start).scalar() or 0)
-        today_wcc = float(db.query(func.coalesce(func.sum(WCCRechargeLog.amount), 0)).filter(WCCRechargeLog.status == "success", WCCRechargeLog.created_at >= today_start).scalar() or 0)
-        today_flow = float(db.query(func.coalesce(func.sum(FlowPackPurchase.amount_paid), 0)).filter(FlowPackPurchase.status == "success", FlowPackPurchase.created_at >= today_start).scalar() or 0)
-        todays_revenue = today_sub + today_wcc + today_flow
+       
+        from datetime import timezone, timedelta
+        ist_offset = timedelta(hours=5, minutes=30)
+        now_utc = datetime.now(timezone.utc)
+        now = now_utc
+        now_ist = now_utc + ist_offset
+        today_start_ist_utc = (now_ist.replace(hour=0, minute=0, second=0, microsecond=0)) - ist_offset
+
+        today_sub_gross = float(db.query(func.coalesce(func.sum(func.coalesce(Payment.total_amount, Payment.amount)), 0)).filter(Payment.status == PaymentStatus.paid, Payment.created_at >= today_start_ist_utc).scalar() or 0)
+        today_wcc_gross = float(db.query(func.coalesce(func.sum(func.coalesce(WCCRechargeLog.total_amount, WCCRechargeLog.amount)), 0)).filter(WCCRechargeLog.status == "success", WCCRechargeLog.created_at >= today_start_ist_utc).scalar() or 0)
+        today_flow_gross = float(db.query(func.coalesce(func.sum(func.coalesce(FlowPackPurchase.total_amount, FlowPackPurchase.amount_paid)), 0)).filter(FlowPackPurchase.status == "success", FlowPackPurchase.created_at >= today_start_ist_utc).scalar() or 0)
+        todays_revenue = today_sub_gross + today_wcc_gross + today_flow_gross
 
         # 2. Subscription Breakdown & Workspace Lifecycle Audit
         active_subscriptions = db.query(func.count(Subscription.id)).filter(Subscription.status == SubscriptionStatus.active).scalar() or 0
@@ -183,14 +253,14 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
                 Payment.provider,
                 Payment.status,
                 func.count(Payment.id).label("count"),
-                func.coalesce(func.sum(Payment.amount), 0).label("total")
+                func.coalesce(func.sum(func.coalesce(Payment.total_amount, Payment.amount)), 0).label("total")
             )
             .group_by(Payment.provider, Payment.status)
             .all()
         )
         gateway_breakdown = {}
         for r in gateway_stats_query:
-            prov = r.provider or "razorpay"
+            prov = (r.provider or "razorpay").lower()
             if prov not in gateway_breakdown:
                 gateway_breakdown[prov] = {"success_count": 0, "failed_count": 0, "pending_count": 0, "success_amount": 0.0}
             if r.status == PaymentStatus.paid:
@@ -199,6 +269,51 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             elif r.status == PaymentStatus.failed:
                 gateway_breakdown[prov]["failed_count"] += r.count
             elif r.status == PaymentStatus.pending:
+                gateway_breakdown[prov]["pending_count"] += r.count
+
+        # Include WCC Recharge Logs in Gateway Telemetry
+        wcc_recharge_stats = (
+            db.query(
+                WCCRechargeLog.status,
+                func.count(WCCRechargeLog.id).label("count"),
+                func.coalesce(func.sum(func.coalesce(WCCRechargeLog.total_amount, WCCRechargeLog.amount)), 0).label("total")
+            )
+            .group_by(WCCRechargeLog.status)
+            .all()
+        )
+        if "razorpay" not in gateway_breakdown:
+            gateway_breakdown["razorpay"] = {"success_count": 0, "failed_count": 0, "pending_count": 0, "success_amount": 0.0}
+
+        for r in wcc_recharge_stats:
+            if r.status == "success":
+                gateway_breakdown["razorpay"]["success_count"] += r.count
+                gateway_breakdown["razorpay"]["success_amount"] += float(r.total)
+            elif r.status == "failed":
+                gateway_breakdown["razorpay"]["failed_count"] += r.count
+            elif r.status == "pending":
+                gateway_breakdown["razorpay"]["pending_count"] += r.count
+
+        # Include Flow Pack Purchases in Gateway Telemetry
+        flow_purchase_stats = (
+            db.query(
+                FlowPackPurchase.provider,
+                FlowPackPurchase.status,
+                func.count(FlowPackPurchase.id).label("count"),
+                func.coalesce(func.sum(func.coalesce(FlowPackPurchase.total_amount, FlowPackPurchase.amount_paid)), 0).label("total")
+            )
+            .group_by(FlowPackPurchase.provider, FlowPackPurchase.status)
+            .all()
+        )
+        for r in flow_purchase_stats:
+            prov = (r.provider or "razorpay").lower()
+            if prov not in gateway_breakdown:
+                gateway_breakdown[prov] = {"success_count": 0, "failed_count": 0, "pending_count": 0, "success_amount": 0.0}
+            if r.status == "success":
+                gateway_breakdown[prov]["success_count"] += r.count
+                gateway_breakdown[prov]["success_amount"] += float(r.total)
+            elif r.status == "failed":
+                gateway_breakdown[prov]["failed_count"] += r.count
+            elif r.status == "pending":
                 gateway_breakdown[prov]["pending_count"] += r.count
 
         # 6. Flow Pack Sales
@@ -314,6 +429,12 @@ async def get_billing(db: Session = Depends(get_db)) -> Dict[str, Any]:
             # Structured modern fields
             "revenue_overview": {
                 "total_revenue": total_revenue,
+                "gross_collections": gross_collections,
+                "razorpay_collections": razorpay_collections,
+                "manual_collections": manual_collections,
+                "net_platform_revenue": net_platform_revenue,
+                "gst_liability": gst_liability,
+                "outstanding_gst_liability": gst_liability,
                 "subscription_revenue": sub_revenue,
                 "ai_credit_pack_revenue": ai_pack_revenue,
                 "wcc_recharge_revenue": wcc_revenue,
@@ -496,13 +617,26 @@ async def get_workspace_billing_detail(
         .limit(20)
         .all()
     )
-    
+   
+    eff_ent = EntitlementService.get_workspace_entitlement(db, ws.id)
+
     return {
         "workspace": {
             "id": str(ws.id),
             "name": ws.name,
             "owner_email": owner.email if owner else None,
-            "owner_name": owner.full_name if owner else None
+            "owner_name": owner.full_name if owner else None,
+            "override_allow_purchased_ai_usage": ws.override_allow_purchased_ai_usage,
+            "override_allow_purchased_wcc_usage": ws.override_allow_purchased_wcc_usage,
+            "override_allow_purchased_flow_usage": ws.override_allow_purchased_flow_usage,
+        },
+        "effective_permissions": {
+            "allow_purchased_ai_usage": eff_ent.allow_purchased_ai_usage,
+            "allow_purchased_wcc_usage": eff_ent.allow_purchased_wcc_usage,
+            "allow_purchased_flow_usage": eff_ent.allow_purchased_flow_usage,
+            "allow_ai_topup": eff_ent.allow_ai_topup,
+            "allow_wcc_recharge": eff_ent.allow_wcc_recharge,
+            "allow_flow_addon": eff_ent.allow_flow_addon,
         },
         "plan": plan_name.lower(),
         "subscription_status": sub.status.value.upper() if sub else "FREE",
@@ -542,6 +676,75 @@ async def get_workspace_billing_detail(
                 "payment_id": p.provider_payment_id
             } for p in payments
         ]
+    }
+
+
+class WorkspaceResourceOverridesRequest(BaseModel):
+    override_allow_purchased_ai_usage: Optional[bool] = None
+    override_allow_purchased_wcc_usage: Optional[bool] = None
+    override_allow_purchased_flow_usage: Optional[bool] = None
+
+
+@router.post("/billing/workspaces/{workspace_id}/resource-overrides")
+async def update_workspace_resource_overrides(
+    workspace_id: uuid.UUID,
+    payload: WorkspaceResourceOverridesRequest,
+    db: Session = Depends(get_db),
+    admin_user: str = Depends(get_admin_identity),
+    request: Request = None
+):
+    ws_uuid = verify_admin_workspace(db, workspace_id)
+    ws = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    old_val = {
+        "override_allow_purchased_ai_usage": ws.override_allow_purchased_ai_usage,
+        "override_allow_purchased_wcc_usage": ws.override_allow_purchased_wcc_usage,
+        "override_allow_purchased_flow_usage": ws.override_allow_purchased_flow_usage,
+    }
+
+    ws.override_allow_purchased_ai_usage = payload.override_allow_purchased_ai_usage
+    ws.override_allow_purchased_wcc_usage = payload.override_allow_purchased_wcc_usage
+    ws.override_allow_purchased_flow_usage = payload.override_allow_purchased_flow_usage
+
+    db.commit()
+    db.refresh(ws)
+
+    new_val = {
+        "override_allow_purchased_ai_usage": ws.override_allow_purchased_ai_usage,
+        "override_allow_purchased_wcc_usage": ws.override_allow_purchased_wcc_usage,
+        "override_allow_purchased_flow_usage": ws.override_allow_purchased_flow_usage,
+    }
+
+    try:
+        log_audit(
+            db=db,
+            admin_user=admin_user,
+            action="WORKSPACE_RESOURCE_OVERRIDES_UPDATE",
+            workspace_id=ws.id,
+            old_value=old_val,
+            new_value=new_val,
+            reason="Resource overrides update",
+            request=request,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to record audit log for resource overrides: {str(e)}")
+
+    from app.services.billing.entitlement_service import EntitlementService
+    eff_ent = EntitlementService.get_workspace_entitlement(db, ws.id)
+
+    return {
+        "workspace_id": str(ws.id),
+        "resource_overrides": new_val,
+        "effective_permissions": {
+            "allow_purchased_ai_usage": eff_ent.allow_purchased_ai_usage,
+            "allow_purchased_wcc_usage": eff_ent.allow_purchased_wcc_usage,
+            "allow_purchased_flow_usage": eff_ent.allow_purchased_flow_usage,
+            "allow_ai_topup": eff_ent.allow_ai_topup,
+            "allow_wcc_recharge": eff_ent.allow_wcc_recharge,
+            "allow_flow_addon": eff_ent.allow_flow_addon,
+        }
     }
 
 
@@ -609,7 +812,8 @@ async def adjust_wallet(
         
     old_bal = float(wallet.balance)
     adjustment_decimal = Decimal(str(payload.amount))
-    wallet.balance += adjustment_decimal
+    wallet.purchased_balance = (wallet.purchased_balance or Decimal("0.00")) + adjustment_decimal
+    wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
     db.commit()
     
     new_bal = float(wallet.balance)
@@ -2264,7 +2468,11 @@ class PlanEntitlementUpdateRequest(BaseModel):
     automation_limit: int
     flow: int
     allow_ai_topup: bool
+    allow_purchased_ai_usage: bool
     allow_wcc_recharge: bool
+    allow_purchased_wcc_usage: bool
+    allow_flow_addon: bool
+    allow_purchased_flow_usage: bool
     included_credit_reset_policy: str
     included_wallet_reset_policy: str
     feature_flags: Dict[str, Any]
@@ -2282,30 +2490,9 @@ async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
     entitlements_list = []
     
     for plan in plans:
-        ent = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == plan.id).first()
-        if not ent:
-            # Seed default entitlement for this plan
-            ent = PlanEntitlement(
-                plan_id=plan.id,
-                included_ai_credits=0,
-                included_wcc_wallet=Decimal("0.00"),
-                storage_limit_mb=500,
-                team_limit=2,
-                knowledge_base_limit=5,
-                gmail_limit=1,
-                lead_limit=100,
-                meeting_limit=10,
-                automation_limit=2,
-                flow=5,
-                allow_ai_topup=True,
-                allow_wcc_recharge=True,
-                included_credit_reset_policy="EXPIRE",
-                included_wallet_reset_policy="EXPIRE",
-                feature_flags={}
-            )
-            db.add(ent)
-            db.commit()
-            db.refresh(ent)
+        from app.services.billing.entitlement_service import EntitlementService
+        ent = EntitlementService.ensure_plan_entitlement(db, plan)
+        db.commit()
             
         entitlements_list.append({
             "id": str(ent.id),
@@ -2322,7 +2509,11 @@ async def get_plan_entitlements_admin(db: Session = Depends(get_db)):
             "automation_limit": ent.automation_limit,
             "flow": ent.flow,
             "allow_ai_topup": ent.allow_ai_topup,
+            "allow_purchased_ai_usage": ent.allow_purchased_ai_usage,
             "allow_wcc_recharge": ent.allow_wcc_recharge,
+            "allow_purchased_wcc_usage": ent.allow_purchased_wcc_usage,
+            "allow_flow_addon": ent.allow_flow_addon,
+            "allow_purchased_flow_usage": ent.allow_purchased_flow_usage,
             "included_credit_reset_policy": ent.included_credit_reset_policy,
             "included_wallet_reset_policy": ent.included_wallet_reset_policy,
             "feature_flags": ent.feature_flags,
@@ -2362,7 +2553,11 @@ async def update_plan_entitlement_admin(
         "automation_limit": ent.automation_limit,
         "flow": ent.flow,
         "allow_ai_topup": ent.allow_ai_topup,
+        "allow_purchased_ai_usage": ent.allow_purchased_ai_usage,
         "allow_wcc_recharge": ent.allow_wcc_recharge,
+        "allow_purchased_wcc_usage": ent.allow_purchased_wcc_usage,
+        "allow_flow_addon": ent.allow_flow_addon,
+        "allow_purchased_flow_usage": ent.allow_purchased_flow_usage,
         "included_credit_reset_policy": ent.included_credit_reset_policy,
         "included_wallet_reset_policy": ent.included_wallet_reset_policy,
         "feature_flags": ent.feature_flags
@@ -2380,7 +2575,11 @@ async def update_plan_entitlement_admin(
     ent.automation_limit = payload.automation_limit
     ent.flow = payload.flow
     ent.allow_ai_topup = payload.allow_ai_topup
+    ent.allow_purchased_ai_usage = payload.allow_purchased_ai_usage
     ent.allow_wcc_recharge = payload.allow_wcc_recharge
+    ent.allow_purchased_wcc_usage = payload.allow_purchased_wcc_usage
+    ent.allow_flow_addon = payload.allow_flow_addon
+    ent.allow_purchased_flow_usage = payload.allow_purchased_flow_usage
     ent.included_credit_reset_policy = payload.included_credit_reset_policy
     ent.included_wallet_reset_policy = payload.included_wallet_reset_policy
     ent.feature_flags = payload.feature_flags
@@ -2402,7 +2601,11 @@ async def update_plan_entitlement_admin(
         "automation_limit": ent.automation_limit,
         "flow": ent.flow,
         "allow_ai_topup": ent.allow_ai_topup,
+        "allow_purchased_ai_usage": ent.allow_purchased_ai_usage,
         "allow_wcc_recharge": ent.allow_wcc_recharge,
+        "allow_purchased_wcc_usage": ent.allow_purchased_wcc_usage,
+        "allow_flow_addon": ent.allow_flow_addon,
+        "allow_purchased_flow_usage": ent.allow_purchased_flow_usage,
         "included_credit_reset_policy": ent.included_credit_reset_policy,
         "included_wallet_reset_policy": ent.included_wallet_reset_policy,
         "feature_flags": ent.feature_flags
@@ -2421,3 +2624,171 @@ async def update_plan_entitlement_admin(
     )
 
     return {"message": "Plan entitlement updated successfully"}
+
+
+
+def _require_platform_admin(request: Request, db: Session) -> str:
+
+    # Try JWT bearer token first (standard API auth)
+    try:
+        token = request.cookies.get("access_token") or (
+            request.headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
+        )
+        if token:
+            from app.core.config import settings
+            from jose import jwt as _jwt
+            payload = _jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            sub = payload.get("sub")
+            if sub:
+                from app.models.user import User
+                user = db.query(User).filter(User.id == sub).first()
+                if user and user.platform_role == PlatformRole.PLATFORM_ADMIN:
+                    return str(user.email or sub)
+                raise HTTPException(status_code=403, detail="Platform admin permissions required")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+    # Fallback: admin_session cookie (admin console flow)
+    admin_id = get_admin_identity(request)
+    if admin_id == "platform_admin":
+        # No token resolved — check admin_session cookie
+        token_cookie = request.cookies.get("admin_session")
+        if not token_cookie:
+            raise HTTPException(status_code=403, detail="Platform admin authentication required")
+    return admin_id
+
+
+@router.post("/invoices/{invoice_id}/regenerate-pdf")
+async def admin_regenerate_invoice_pdf(
+    invoice_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    
+    admin_id = _require_platform_admin(request, db)
+
+    from app.services.billing.invoice_service import InvoiceService
+    from app.services.storage.service import get_storage
+
+    try:
+        inv_uuid = uuid.UUID(invoice_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid invoice_id UUID")
+
+    invoice = db.query(Invoice).filter(Invoice.id == inv_uuid).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    old_url = invoice.pdf_url
+    try:
+        pdf_bytes = InvoiceService.generate_pdf_invoice(invoice)
+        file_name = f"invoices/{invoice.id}.pdf"
+        pdf_url = get_storage().provider._save_file_sync(file_name, pdf_bytes, "application/pdf")
+        invoice.pdf_url = pdf_url
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[ADMIN REGEN] Failed to regenerate PDF for invoice {invoice_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"PDF regeneration failed: {str(e)}")
+
+    # Audit log
+    log_audit(
+        db=db,
+        admin_user=admin_id,
+        action="INVOICE_PDF_REGENERATED",
+        workspace_id=invoice.workspace_id,
+        old_value={"pdf_url": old_url},
+        new_value={"pdf_url": pdf_url, "invoice_number": invoice.invoice_number},
+        reason=f"Admin manually regenerated PDF for invoice {invoice.invoice_number}",
+        request=request,
+    )
+
+    return {
+        "status": "success",
+        "invoice_id": str(invoice.id),
+        "invoice_number": invoice.invoice_number,
+        "pdf_url": pdf_url,
+    }
+
+
+@router.post("/invoices/regenerate-missing-pdfs")
+async def admin_regenerate_missing_pdfs(
+    request: Request,
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=200, description="Max invoices to process per call"),
+    dry_run: bool = Query(default=False, description="Preview count without actually regenerating"),
+):
+   
+    admin_id = _require_platform_admin(request, db)
+
+    from app.services.billing.invoice_service import InvoiceService
+    from app.services.storage.service import get_storage
+
+    missing = (
+        db.query(Invoice)
+        .filter(Invoice.pdf_url == None)  # noqa: E711
+        .order_by(Invoice.issued_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+    total_missing = db.query(Invoice).filter(Invoice.pdf_url == None).count()  # noqa: E711
+
+    if dry_run:
+        return {
+            "dry_run": True,
+            "total_missing": total_missing,
+            "would_process": len(missing),
+            "limit": limit,
+        }
+
+    results: Dict[str, Any] = {
+        "total_missing_before": total_missing,
+        "processed": len(missing),
+        "success": 0,
+        "failed": 0,
+        "errors": [],
+    }
+
+    for invoice in missing:
+        try:
+            pdf_bytes = InvoiceService.generate_pdf_invoice(invoice)
+            file_name = f"invoices/{invoice.id}.pdf"
+            pdf_url = get_storage().provider._save_file_sync(file_name, pdf_bytes, "application/pdf")
+            invoice.pdf_url = pdf_url
+            # Commit each invoice individually so partial success is preserved
+            db.commit()
+            results["success"] += 1
+        except Exception as e:
+            db.rollback()
+            results["failed"] += 1
+            results["errors"].append({
+                "invoice_id": str(invoice.id),
+                "invoice_number": invoice.invoice_number,
+                "error": str(e),
+            })
+            logger.error(f"[ADMIN BATCH REGEN] Failed invoice {invoice.id}: {e}")
+
+    remaining_missing = db.query(Invoice).filter(Invoice.pdf_url == None).count()  # noqa: E711
+    results["remaining_missing"] = remaining_missing
+
+    # Single audit log for the entire batch
+    log_audit(
+        db=db,
+        admin_user=admin_id,
+        action="INVOICE_PDF_BATCH_REGENERATED",
+        workspace_id=None,
+        old_value={"total_missing": total_missing},
+        new_value={
+            "success": results["success"],
+            "failed": results["failed"],
+            "remaining_missing": remaining_missing,
+        },
+        reason=f"Admin batch regenerated missing invoice PDFs (limit={limit})",
+        request=request,
+    )
+
+    return results
+

@@ -7,6 +7,7 @@ import json
 from app.models.integration import Integration
 from app.services.ai.llm_utils import safe_llm_call
 from app.services.ai.execution_service import AIExecutionService, AIFeatureRegistry
+from app.core.logger import logger
 
 class EmailMCPService:
 
@@ -30,7 +31,7 @@ class EmailMCPService:
             return json.loads(text)
 
         except Exception as e:
-            print("JSON parse error:", e)
+            logger.error("JSON parse error: %s", e)
             return {}
         
     def sanitize_text(self, text):
@@ -40,28 +41,28 @@ class EmailMCPService:
 
     async def process_email(self, db, workspace_id, email_data):
 
-        print("MCP: Processing email started")
+        logger.info("MCP: Processing email started")
 
         try:
             context = self.retrieve_memory_context(db, workspace_id, email_data)
-            print("Memory context fetched")
+            logger.debug("Memory context fetched")
 
             async def run_pipeline():
                 category_result = await self.classify_category(email_data, context, db, workspace_id)
                 category = category_result.get("category")
                 confidence = category_result.get("confidence", 0)
 
-                print("Category:", category)
-                print("Confidence:", confidence)
+                logger.debug("Category: %s", category)
+                logger.debug("Confidence: %s", confidence)
 
                 entities = await self.extract_entities(email_data, category, db, workspace_id)
-                print("Entities extracted:", entities)
+                logger.debug("Entities extracted: %s", entities)
 
                 priority = self.calculate_priority(email_data, category, entities)
-                print("Priority:", priority)
+                logger.debug("Priority: %s", priority)
 
                 summary = await self.generate_summary(email_data, db, workspace_id)
-                print("Summary generated")
+                logger.debug("Summary generated")
 
                 suggested_reply = await self.generate_suggested_reply(
                     email_data,
@@ -70,7 +71,7 @@ class EmailMCPService:
                     db,
                     workspace_id
                 )
-                print("Suggested reply generated")
+                logger.debug("Suggested reply generated")
 
                 decision = self.build_decision_object(
                     category=category,
@@ -95,18 +96,18 @@ class EmailMCPService:
             if decision:
                 self.save_conversation_thread(db, workspace_id, email_data, decision)
                 self.save_mcp_decision(db, workspace_id, email_data, decision)
-                print("Final MCP decision built")
+                logger.info("Final MCP decision built")
 
             return decision
 
         except Exception as e:
-            print("MCP processing error:", e)
+            logger.error("MCP processing error: %s", e)
             return None
 
     # Retrieve memory context
     def retrieve_memory_context(self, db, workspace_id, email_data):
 
-        print("Retrieving memory context...")
+        logger.debug("Retrieving memory context...")
 
         context = {
             "similar_emails": [],
@@ -127,9 +128,9 @@ class EmailMCPService:
 
             if thread:
                 context["conversation_summary"] = thread.conversation_summary
-                print("Conversation summary found")
+                logger.debug("Conversation summary found")
             else:
-                print("No previous conversation found")
+                logger.debug("No previous conversation found")
 
             #Vector Similarity Search
             if body:
@@ -143,7 +144,7 @@ class EmailMCPService:
                 )
 
                 context["similar_emails"] = similar_chunks
-                print(f"Found {len(similar_chunks)} similar emails")
+                logger.debug("Found %d similar emails", len(similar_chunks))
 
             #Recent MCP Decisions from Same Sender
             decisions = db.query(MCPDecision).filter_by(
@@ -161,12 +162,12 @@ class EmailMCPService:
                 for d in decisions
             ]
 
-            print("Recent decisions fetched")
+            logger.debug("Recent decisions fetched")
 
             return context
 
         except Exception as e:
-            print("Memory retrieval error:", e)
+            logger.error("Memory retrieval error: %s", e)
             return context
         
     # Classify category
@@ -242,7 +243,8 @@ class EmailMCPService:
             else:
                 response = await safe_llm_call(prompt)
 
-            print("Raw LLM response:", response)
+            print_resp = str(response)[:200]
+            logger.debug("Raw LLM response: %s", print_resp)
 
             result = self.safe_json_parse(response["content"])
 
@@ -250,11 +252,11 @@ class EmailMCPService:
             confidence = float(result.get("confidence", 0))
 
             if category not in allowed_categories:
-                print("Invalid category returned. Defaulting to 'other'")
+                logger.warning("Invalid category returned. Defaulting to 'other'")
                 return {"category": "other", "confidence": 0.0}
 
-            print("Category classified:", category)
-            print("Confidence:", confidence)
+            logger.debug("Category classified: %s", category)
+            logger.debug("Confidence: %s", confidence)
 
             return {
                 "category": category,
@@ -262,7 +264,7 @@ class EmailMCPService:
             }
 
         except Exception as e:
-            print("Category classification error:", e)
+            logger.error("Category classification error: %s", e)
             return {"category": "other", "confidence": 0.0}
     
     #Extract structured entities
@@ -319,7 +321,7 @@ class EmailMCPService:
                 """
 
             else:
-                print("No entity extraction required for this category")
+                logger.debug("No entity extraction required for this category")
                 return {}
 
             system_prompt = f"""
@@ -356,16 +358,16 @@ class EmailMCPService:
             else:
                 response = await safe_llm_call(prompt)
 
-            print("Raw entity response:", response)
+            logger.debug("Raw entity response: %s", response)
 
             entities = self.safe_json_parse(response["content"])
 
-            print("Entities extracted:", entities)
+            logger.debug("Entities extracted: %s", entities)
 
             return entities
 
         except Exception as e:
-            print("Entity extraction error:", e)
+            logger.error("Entity extraction error: %s", e)
             return {}
 
     
@@ -400,7 +402,7 @@ class EmailMCPService:
             for word in urgent_keywords:
                 if word in subject or word in body:
                     score += 2
-                    print("Urgent keyword detected:", word)
+                    logger.debug("Urgent keyword detected: %s", word)
                     break
 
             #Invoice Due Date Rule
@@ -414,7 +416,7 @@ class EmailMCPService:
             for domain in high_priority_domains:
                 if domain in sender:
                     score += 1
-                    print("High priority sender domain detected")
+                    logger.debug("High priority sender domain detected")
                     break
 
             #Final Priority Mapping
@@ -425,13 +427,13 @@ class EmailMCPService:
             else:
                 priority = "low"
 
-            print("Priority score:", score)
-            print("Final priority:", priority)
+            logger.debug("Priority score: %s", score)
+            logger.debug("Final priority: %s", priority)
 
             return priority
 
         except Exception as e:
-            print("Priority calculation error:", e)
+            logger.error("Priority calculation error: %s", e)
             return "low"
 
     # Generate summary
@@ -485,12 +487,12 @@ class EmailMCPService:
             if len(summary) > 600:
                 summary = summary[:600]
 
-            print("Summary generated successfully")
+            logger.debug("Summary generated successfully")
 
             return summary
 
         except Exception as e:
-            print("Summary generation error:", e)
+            logger.error("Summary generation error: %s", e)
             return "Summary not available."
         
     def get_workspace_user_name(self, db, workspace_id):
@@ -591,12 +593,12 @@ class EmailMCPService:
             if len(reply) > 1200:
                 reply = reply[:1200]
 
-            print("Suggested reply generated")
+            logger.debug("Suggested reply generated")
 
             return reply
 
         except Exception as e:
-            print("Reply generation error:", e)
+            logger.error("Reply generation error: %s", e)
             return None
 
     #Build decision object
@@ -618,7 +620,7 @@ class EmailMCPService:
 
             #Confidence Gating
             if confidence < 0.6:
-                print("Low confidence detected. Limiting actions.")
+                logger.debug("Low confidence detected. Limiting actions.")
                 return {
                     "category": "other",
                     "priority": "low",
@@ -688,17 +690,17 @@ class EmailMCPService:
                 "actions": actions
             }
 
-            print("Decision object created:", decision)
+            logger.debug("Decision object created: %s", decision)
 
             return decision
 
         except Exception as e:
-            print("Decision build error:", e)
+            logger.error("Decision build error: %s", e)
             return None
 
     def save_conversation_thread(self, db, workspace_id, email_data, decision):
 
-        print("Saving conversation thread...")
+        logger.debug("Saving conversation thread...")
 
         try:
             thread_id = email_data.get("thread_id")
@@ -711,7 +713,7 @@ class EmailMCPService:
             priority = decision.get("priority")
 
             if not thread_id:
-                print("No thread_id found. Skipping conversation save.")
+                logger.debug("No thread_id found. Skipping conversation save.")
                 return
 
             # Check if thread already exists
@@ -721,7 +723,7 @@ class EmailMCPService:
             ).first()
 
             if thread:
-                print("Existing thread found. Updating...")
+                logger.debug("Existing thread found. Updating...")
 
                 # Simple evolving summary (append short summary)
                 previous_summary = thread.conversation_summary or ""
@@ -737,7 +739,7 @@ class EmailMCPService:
                 thread.last_message_id = message_id
 
             else:
-                print("Creating new conversation thread...")
+                logger.debug("Creating new conversation thread...")
 
                 new_thread = ConversationThread(
                     workspace_id=workspace_id,
@@ -754,16 +756,16 @@ class EmailMCPService:
                 db.add(new_thread)
 
             db.commit()
-            print("Conversation thread saved successfully")
+            logger.debug("Conversation thread saved successfully")
 
         except Exception as e:
             db.rollback()
-            print("Conversation save error:", e)
+            logger.error("Conversation save error: %s", e)
 
 
     def save_mcp_decision(self, db, workspace_id, email_data, decision):
 
-        print("Saving MCP decision...")
+        logger.debug("Saving MCP decision...")
 
         try:
             message_id = email_data.get("message_id")
@@ -802,8 +804,8 @@ class EmailMCPService:
             db.add(new_decision)
             db.commit()
 
-            print("MCP decision saved successfully")
+            logger.debug("MCP decision saved successfully")
 
         except Exception as e:
             db.rollback()
-            print("MCP decision save error:", e)
+            logger.error("MCP decision save error: %s", e)

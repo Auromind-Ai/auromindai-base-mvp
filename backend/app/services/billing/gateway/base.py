@@ -1,40 +1,52 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from app.models.workspace import Workspace
+from app.services.config_service import config_service
+
+if TYPE_CHECKING:
+    RESERVATION_TTL_MINUTES: int
+    RESERVATION_MAX_PER_WORKSPACE: int
+    TOKENS_PER_CREDIT: int
+
+
+def get_tokens_per_credit() -> int:
+    try:
+        val = config_service.get("tokens_per_credit")
+        if val is not None:
+            return val
+    except Exception:
+        pass
+    return 1000
+
+
+def get_reservation_ttl_minutes() -> int:
+    try:
+        ttl = config_service.get("billing_reservation_ttl_seconds")
+        if ttl is not None:
+            return int(ttl / 60)
+    except Exception:
+        pass
+    return 30
+
+
+def get_reservation_max_per_workspace() -> int:
+    try:
+        val = config_service.get("billing_max_concurrent_reservations")
+        if val is not None:
+            return val
+    except Exception:
+        pass
+    return 10
 
 
 def __getattr__(name: str) -> Any:
     if name == "RESERVATION_TTL_MINUTES":
-        try:
-            from app.services.config_service import config_service
-            ttl = config_service.get("billing_reservation_ttl_seconds")
-            if ttl is not None:
-                return int(ttl / 60)
-        except Exception:
-            pass
-        return 30
-
+        return get_reservation_ttl_minutes()
     if name == "RESERVATION_MAX_PER_WORKSPACE":
-        try:
-            from app.services.config_service import config_service
-            val = config_service.get("billing_max_concurrent_reservations")
-            if val is not None:
-                return val
-        except Exception:
-            pass
-        return 10
-
+        return get_reservation_max_per_workspace()
     if name == "TOKENS_PER_CREDIT":
-        try:
-            from app.services.config_service import config_service
-            val = config_service.get("tokens_per_credit")
-            if val is not None:
-                return val
-        except Exception:
-            pass
-        return 1000
-
+        return get_tokens_per_credit()
     raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
@@ -42,16 +54,17 @@ def __getattr__(name: str) -> Any:
 class BillingPlanConfig:
     key: str
     label: str
-    amount: int
+    amount: float | int
     currency: str
     tokens: int
     provider_plan_ids: dict[str, str | None]
     description: str
     features: list[str]
+    billing_cycle: str = "monthly"
 
     @property
     def get_display_credits(self) -> float:
-        return self.tokens / TOKENS_PER_CREDIT
+        return self.tokens / get_tokens_per_credit()
 
 
 
@@ -78,6 +91,7 @@ class GatewayPayment:
     status: str
     subscription_id: str | None = None
     customer_id: str | None = None
+    method: str | None = None
     raw: dict[str, Any] | None = None
 
 

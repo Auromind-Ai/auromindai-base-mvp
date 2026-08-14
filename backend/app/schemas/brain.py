@@ -115,3 +115,4 @@ class CrawlResponse(BaseModel):
     pages_crawled: int
     chunks_created: int
     message: str
+    entry_id: Optional[str] = None

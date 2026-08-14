@@ -209,8 +209,12 @@ class ChannelService:
                 audience_size=1,
                 category=category
             )
-            # Perform pre-flight check
-            WCCService.check_preflight_balance(db, workspace.id, estimate["estimated_cost"])
+            # Perform pre-flight check — respects workspace.overage_enabled policy
+            overage_enabled = getattr(workspace, "overage_enabled", False)
+            WCCService.check_preflight_balance(
+                db, workspace.id, estimate["estimated_cost"],
+                overage_enabled=overage_enabled
+            )
         finally:
             if is_temp_db:
                 db.close()

@@ -81,11 +81,19 @@ export default function CreditRingDropdown({ user, size = 36 }) {
     });
   };
 
-  const balance = credits?.credits_balance ?? 2450;
-  const added = credits?.credits_added ?? 3000;
-  const used = Math.max(0, added - balance);
+  const balance = credits?.credits_balance ?? 0;
+  const added = (credits?.monthly_grant && credits.monthly_grant > 0)
+    ? credits.monthly_grant
+    : (credits?.credits_added ?? 0);
+  const used = credits?.cycle_used ?? Math.max(0, added - balance);
   const percentUsed = added > 0 ? Math.min(100, (used / added) * 100) : 0;
   const percentRemaining = Math.max(0, 100 - percentUsed);
+
+  const formatPercentLeft = (pct, usedAmt) => {
+    if (usedAmt === 0 || pct >= 100) return '100%';
+    if (pct > 99.9) return '99.9%';
+    return `${pct.toFixed(1)}%`;
+  };
   
   const radius = (size / 2) - 2; // slightly smaller than half to fit stroke
   const circumference = 2 * Math.PI * radius;
@@ -146,7 +154,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
                 <span className="font-bold text-xs uppercase tracking-wider">AI Models Usage</span>
               </div>
               <span className="text-[10px] text-zinc-500 font-bold bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                {percentRemaining.toFixed(0)}% Left
+                {formatPercentLeft(percentRemaining, used)} Left
               </span>
             </div>
             

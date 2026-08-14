@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any
 from app.database import get_db
 from app.services.platform_settings_service import get_all_settings, get_setting
-
+from app.models.plan import Plan
+    
 router = APIRouter(prefix="/public", tags=["public"])
 
 @router.get("/announcement")
@@ -34,30 +35,65 @@ async def get_branding(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 @router.get("/pricing")
 async def get_pricing(db: Session = Depends(get_db)) -> Dict[str, Any]:
-    return {
-        "free_plan_price":        get_setting(db, "free_plan_price", 0.0),
-        "solo_plan_price":        get_setting(db, "solo_plan_price", 999.0),
-        "pro_plan_price":         get_setting(db, "pro_plan_price", 5999.0),
-        "enterprise_plan_price":  get_setting(db, "enterprise_plan_price", 24999.0),
+   
+    db_plans = db.query(Plan).filter(Plan.is_active == True).order_by(Plan.display_order.asc(), Plan.created_at.asc()).all()
+    
+    plans_list = []
+    token_limits = {}
+    
+    for plan in db_plans:
+        key = plan.name.lower()
+        disp_name = plan.display_name or (key.title() if key != "solo" else "Solo Smart")
+        tokens = plan.token_limit if plan.token_limit is not None else 1000000
+        token_limits[key] = tokens
         
-        "token_limit_per_plan":   get_setting(db, "token_limit_per_plan", {
-            "free": 1000000,
-            "solo": 15000000,
-            "pro": 100000000,
-            "enterprise": 500000000
-        }),
+        plans_list.append({
+            "key": key,
+            "name": disp_name,
+            "display_name": disp_name,
+            "monthly_price": plan.monthly_price if plan.monthly_price is not None else 0.0,
+            "yearly_price": plan.yearly_price if plan.yearly_price is not None else 0.0,
+            "amount": plan.monthly_price if plan.monthly_price is not None else 0.0,
+            "description": plan.description or "",
+            "features": plan.features or [],
+            "token_limit": tokens,
+            "credits": float(tokens) / 1000,
+            "featured": plan.is_featured,
+            "is_featured": plan.is_featured,
+            "display_order": plan.display_order,
+            "currency": plan.currency or "INR",
+        })
 
-        "free_plan_name":         get_setting(db, "free_plan_name", "Free"),
-        "free_plan_desc":         get_setting(db, "free_plan_desc", "Try Auromind for free and see the ROI yourself."),
-        "free_plan_features":     get_setting(db, "free_plan_features", ["1,000 AI Replies", "Basic Workflows", "Meta API Included"]),
-        "solo_plan_name":         get_setting(db, "solo_plan_name", "Solo Smart"),
-        "solo_plan_desc":         get_setting(db, "solo_plan_desc", "RAG & custom knowledge base on a budget for solopreneurs."),
-        "solo_plan_features":     get_setting(db, "solo_plan_features", ["15,000 AI Replies", "RAG Knowledge Base Enabled", "1 Gmail Integration", "Basic Automations"]),
-        "pro_plan_name":          get_setting(db, "pro_plan_name", "Professional"),
-        "pro_plan_desc":          get_setting(db, "pro_plan_desc", "Advanced features for growing teams and scalable workflows."),
-        "pro_plan_features":      get_setting(db, "pro_plan_features", ["100,000 AI Replies", "Advanced Workflows + RAG", "Priority Support", "Full Analytics"]),
-        "enterprise_plan_name":   get_setting(db, "enterprise_plan_name", "Business"),
-        "enterprise_plan_desc":   get_setting(db, "enterprise_plan_desc", "Perfect for businesses starting with AI automation at scale."),
-        "enterprise_plan_features": get_setting(db, "enterprise_plan_features", ["500,000 AI Replies", "Dedicated Manager", "Custom API Access", "On-premise Options", "Global SLA"]),
+    # Find specific prices for backward compatibility
+    plan_map = {p["key"]: p for p in plans_list}
+    
+    return {
+        "plans": plans_list,
+        "token_limit_per_plan": token_limits,
+        
+        # Backward compatibility for legacy flat keys
+        "free_plan_price":              plan_map.get("free", {}).get("monthly_price", 0.0),
+        "solo_plan_price":              plan_map.get("solo", {}).get("monthly_price", 999.0),
+        "solo_yearly_plan_price":       plan_map.get("solo", {}).get("yearly_price", 9990.0),
+        "pro_plan_price":               plan_map.get("pro", {}).get("monthly_price", 5999.0),
+        "pro_yearly_plan_price":        plan_map.get("pro", {}).get("yearly_price", 59990.0),
+        "enterprise_plan_price":        plan_map.get("enterprise", {}).get("monthly_price", 24999.0),
+        "enterprise_yearly_plan_price": plan_map.get("enterprise", {}).get("yearly_price", 249990.0),
+        
+        "free_plan_name":         plan_map.get("free", {}).get("name", "Free"),
+        "free_plan_desc":         plan_map.get("free", {}).get("description", "Try Orbion Agents for free and see the ROI yourself."),
+        "free_plan_features":     plan_map.get("free", {}).get("features", ["1,000 AI Replies", "Basic Workflows", "Meta API Included"]),
+        
+        "solo_plan_name":         plan_map.get("solo", {}).get("name", "Solo Smart"),
+        "solo_plan_desc":         plan_map.get("solo", {}).get("description", "RAG & custom knowledge base on a budget for solopreneurs."),
+        "solo_plan_features":     plan_map.get("solo", {}).get("features", ["15,000 AI Replies", "RAG Knowledge Base Enabled", "1 Gmail Integration", "Basic Automations"]),
+        
+        "pro_plan_name":          plan_map.get("pro", {}).get("name", "Professional"),
+        "pro_plan_desc":          plan_map.get("pro", {}).get("description", "Advanced features for growing teams and scalable workflows."),
+        "pro_plan_features":      plan_map.get("pro", {}).get("features", ["100,000 AI Replies", "Advanced Workflows + RAG", "Priority Support", "Full Analytics"]),
+        
+        "enterprise_plan_name":   plan_map.get("enterprise", {}).get("name", "Business"),
+        "enterprise_plan_desc":   plan_map.get("enterprise", {}).get("description", "Perfect for businesses starting with AI automation at scale."),
+        "enterprise_plan_features": plan_map.get("enterprise", {}).get("features", ["500,000 AI Replies", "Dedicated Manager", "Custom API Access", "On-premise Options", "Global SLA"]),
     }
  

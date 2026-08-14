@@ -194,6 +194,10 @@ export default function AuromindAIPage() {
     const [isInitializing, setIsInitializing] = useState(false);
     const [sessions, setSessions] = useState([]);
     const [currentSessionId, setCurrentSessionId] = useState(null);
+    const currentSessionIdRef = useRef(currentSessionId);
+    useEffect(() => {
+        currentSessionIdRef.current = currentSessionId;
+    }, [currentSessionId]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [sessionsLoaded, setSessionsLoaded] = useState(false);
     const abortControllerRef = useRef(null);
@@ -554,6 +558,62 @@ export default function AuromindAIPage() {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
     }, []);
+
+    // Handle tab visibility changes:
+    // When tab is hidden: disconnect frontend stream transport without stopping backend generation
+    // When tab is visible: fetch DB history (or poll if generation is still in progress)
+    useEffect(() => {
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'hidden') {
+                // Silently disconnect frontend transport (abort fetch + cancel stream reader + stop animation)
+                if (isStreamActiveRef.current || abortControllerRef.current || readerRef.current) {
+                    isStreamActiveRef.current = false;
+                    isAnimatingRef.current = false;
+                    if (animationFrameRef.current) {
+                        cancelAnimationFrame(animationFrameRef.current);
+                        animationFrameRef.current = null;
+                    }
+                    if (abortControllerRef.current) {
+                        abortControllerRef.current.abort();
+                        abortControllerRef.current = null;
+                    }
+                    if (readerRef.current) {
+                        readerRef.current.cancel().catch(() => {});
+                        readerRef.current = null;
+                    }
+                    setIsStreaming(false);
+                    setIsLoading(false);
+                }
+            } else if (document.visibilityState === 'visible') {
+                const activeSid = currentSessionIdRef.current;
+                if (activeSid) {
+                    try {
+                        const history = await api.getSessionMessages(activeSid);
+                        const mapped = history.map(m => ({
+                            role: m.role,
+                            content: m.content,
+                            isStreaming: false,
+                            generationStatus: m.status || 'COMPLETED',
+                        }));
+                        setMessages(mapped);
+                        const hasActive = mapped.some(
+                            m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING'
+                        );
+                        if (hasActive) {
+                            startPollingSession(activeSid);
+                        }
+                    } catch (err) {
+                        console.error("Failed to sync session messages on tab focus:", err);
+                    }
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [startPollingSession]);
 
     const handleStop = useCallback(async () => {
         // Debounce: ignore rapid re-clicks within 1 second

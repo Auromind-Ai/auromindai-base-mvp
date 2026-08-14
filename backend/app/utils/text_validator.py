@@ -63,6 +63,14 @@ def detect_binary_data(text: str) -> Tuple[bool, str]:
     return False, ""
 
 
+def _is_url_or_data_uri(word: str) -> bool:
+    w_lower = word.lower()
+    return (
+        w_lower.startswith(("http://", "https://", "ftp://", "file://", "data:", "www."))
+        or bool(URL_REGEX.search(word))
+    )
+
+
 def detect_low_quality(text: str) -> Tuple[bool, str]:
     
     clean_text = text.strip()
@@ -82,11 +90,13 @@ def detect_low_quality(text: str) -> Tuple[bool, str]:
     if not words:
         return True, "Low quality text: No valid words found."
 
-    # Check for unbroken tokens (e.g. binary/hash strings)
+    # Check for unbroken tokens (e.g. binary/hash strings), excluding URLs & Data URIs
     max_word_len_config = getattr(settings, "MAX_UNBROKEN_WORD_LENGTH", 150)
-    max_word_len = max(len(w) for w in words)
-    if max_word_len > max_word_len_config:
-        return True, f"Low quality text: Unbroken character sequence of length {max_word_len} detected."
+    non_url_words = [w for w in words if not _is_url_or_data_uri(w)]
+    if non_url_words:
+        max_word_len = max(len(w) for w in non_url_words)
+        if max_word_len > max_word_len_config:
+            return True, f"Low quality text: Unbroken character sequence of length {max_word_len} detected."
 
     # Check Unique Word Ratio (detect repetitive spam/junk)
     min_unique_ratio = getattr(settings, "MIN_UNIQUE_WORD_RATIO", 0.12)

@@ -1,9 +1,12 @@
 import logging
+import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from app.database import get_db
-
+from fastapi.responses import Response
+from app.models.invoice import Invoice
+from app.services.storage.service import get_storage
 
 class CreditsPurchaseRequest(BaseModel):
     pack_id: str
@@ -134,6 +137,7 @@ def create_subscription(
             user_email=current_user.email,
             user_name=current_user.full_name,
             plan_key=payload.plan,
+            billing_cycle=getattr(payload, "billing_cycle", "monthly") or "monthly",
             provider=payload.provider,
         )
 
@@ -162,6 +166,7 @@ def verify_payment(
             workspace_id=resolved_ws_id,
             user_id=str(current_user.id),
             plan_key=payload.plan,
+            billing_cycle=getattr(payload, "billing_cycle", "monthly") or "monthly",
             provider=payload.provider,
             subscription_id=payload.subscription_id,
             payment_id=payload.payment_id,
@@ -307,6 +312,7 @@ def get_plan(
 
 
 @router.get("/credits/summary")
+@router.get("/credit-summary")
 def get_credit_summary(
     workspace_id: str | None = None,
     x_workspace_id: str | None = Header(None),
@@ -671,24 +677,38 @@ def download_invoice(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
+    
     try:
-        import uuid
-        from fastapi.responses import RedirectResponse
-        from app.models.invoice import Invoice
-        
         inv_uuid = uuid.UUID(invoice_id)
         invoice = db.query(Invoice).filter(Invoice.id == inv_uuid).first()
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
-            
+
         # Verify workspace access
         verify_workspace_access(current_user, db, str(invoice.workspace_id))
-        
+
         if not invoice.pdf_url:
             raise HTTPException(status_code=404, detail="Invoice PDF not generated yet")
-            
-        return RedirectResponse(invoice.pdf_url)
-    except ValueError as exc:
+
+        # Reconstruct canonical file path from invoice ID — never trust pdf_url directly
+        file_path = f"invoices/{invoice.id}.pdf"
+        safe_name = (invoice.invoice_number or str(invoice.id)).replace("/", "-")
+
+        try:
+            pdf_bytes = get_storage().get_file_bytes(file_path)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="Invoice PDF file not found in storage")
+        except Exception as fetch_err:
+            logger.error(f"[INVOICE DOWNLOAD] Storage fetch failed for {invoice.id}: {fetch_err}")
+            raise HTTPException(status_code=502, detail="Failed to retrieve invoice PDF from storage")
+
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}.pdf"'},
+        )
+
+    except (ValueError, AttributeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
 
