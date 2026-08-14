@@ -18,7 +18,6 @@ class FeatureBillingRuleBase(BaseModel):
 class FeatureBillingRuleCreate(FeatureBillingRuleBase):
     pass
 
-
 class FeatureBillingRuleUpdate(BaseModel):
     feature_name: Optional[str] = None
     billing_type: Optional[str] = None
