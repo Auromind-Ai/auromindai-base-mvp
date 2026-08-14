@@ -8,6 +8,14 @@ export async function getPlatformUsers() {
   return client.get('/admin/users');
 }
 
+export async function getUserFeedback() {
+  return client.get('/admin/user-feedback');
+}
+
+export async function submitUserFeedback(payload) {
+  return client.post('/user-feedback', payload);
+}
+
 export async function getAdminTokens() {
   return client.get('/admin/tokens');
 }
@@ -144,3 +152,18 @@ export async function getSupportedNotificationTemplateKeys() {
   return client.get('/admin/notification-templates/template-keys');
 }
 
+export async function getPlansAdmin() {
+  return client.get('/admin/plans');
+}
+
+export async function createPlanAdmin(data) {
+  return client.post('/admin/plans', data);
+}
+
+export async function updatePlanAdmin(id, data) {
+  return client.put(`/admin/plans/${id}`, data);
+}
+
+export async function deletePlanAdmin(id) {
+  return client.delete(`/admin/plans/${id}`);
+}

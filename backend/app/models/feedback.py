@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
@@ -41,3 +41,5 @@ class LearningData(Base):
     data = Column(JSON)
     profile_version = Column(String, nullable=False, default="v1")
     created_at = Column(DateTime, default=func.now())
+
+

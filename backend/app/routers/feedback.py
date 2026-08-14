@@ -87,4 +87,4 @@ def submit_feedback(
         "message": "Feedback recorded successfully",
         "total_feedback": total_feedback,
         "learning_triggered": learning_triggered,
-    }
+    }
