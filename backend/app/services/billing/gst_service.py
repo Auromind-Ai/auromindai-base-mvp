@@ -53,7 +53,7 @@ class GSTService:
         rate_fraction = gst_rate / Decimal("100.00")
 
         if tax_inclusive:
-            total_amount = amount
+            total_amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             taxable_amount = (total_amount / (Decimal("1.00") + rate_fraction)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             gst_amount = (total_amount - taxable_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             subtotal = taxable_amount

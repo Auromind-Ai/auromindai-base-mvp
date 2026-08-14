@@ -120,7 +120,7 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
       const response = await api.requestRaw(`/billing/invoices/${invoiceId}/download`)
       if (!response.ok) throw new Error("Download failed")
       const contentType = response.headers.get("content-type")
-      if (!contentType?.includes("application/pdf")) {
+      if (contentType && !contentType.includes("application/pdf") && !contentType.includes("octet-stream")) {
         throw new Error("Invalid PDF response")
       }
       const blob = await response.blob()

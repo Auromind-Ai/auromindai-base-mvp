@@ -59,87 +59,115 @@ export default function PricingPage() {
     compareRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // Compute pricing values dynamically
-  const freePriceVal = settings?.free_plan_price ?? 0;
-  const soloPriceVal = settings?.solo_plan_price ?? 999;
-  const proPriceVal = settings?.pro_plan_price ?? 5999;
-  const enterprisePriceVal = settings?.enterprise_plan_price ?? 24999;
-
-  const getPriceString = (basePrice, isYearly, key) => {
-    if (basePrice === 0) return 'Free';
-    if (isYearly) {
-      // Pro uses 4999 (custom discount), others use standard 20%
-      if (key === 'pro') return '₹4,999';
-      return `₹${Math.round(basePrice * 0.8).toLocaleString('en-IN')}`;
-    }
-    return `₹${basePrice.toLocaleString('en-IN')}`;
+  const iconMap = {
+    free: '🚀',
+    solo: '⚡',
+    pro: '🔥',
+    enterprise: '👑',
   };
 
-  const plans = [
-    {
-      key: 'free',
-      name: settings?.free_plan_name || 'Free',
-      icon: '🚀',
-      price: getPriceString(freePriceVal, billing === 'annual', 'free'),
-      description: settings?.free_plan_desc || 'Try Orbion Agents for free and see the ROI yourself.',
-      features: settings?.free_plan_features || [
-        '1,000 monthly AI replies',
-        'Basic workspace access',
-        '1 Gmail account integration',
-        'Up to 100 leads database'
-      ],
-      buttonText: 'Choose Free',
-      featured: false,
-    },
-    {
-      key: 'solo',
-      name: settings?.solo_plan_name || 'Solo Smart',
-      icon: '⚡',
-      price: getPriceString(soloPriceVal, billing === 'annual', 'solo'),
-      description: settings?.solo_plan_desc || 'RAG & custom knowledge base on a budget for solopreneurs.',
-      features: settings?.solo_plan_features || [
-        '15,000 monthly AI replies',
-        'RAG Knowledge Base (10 files)',
-        '1 Gmail account integration',
-        'Up to 500 leads database',
-        'Web chat campaigns'
-      ],
-      buttonText: 'Get Solo Smart',
-      featured: false,
-    },
-    {
-      key: 'pro',
-      name: settings?.pro_plan_name || 'Professional',
-      icon: '🔥',
-      price: getPriceString(proPriceVal, billing === 'annual', 'pro'),
-      description: settings?.pro_plan_desc || 'Advanced features for growing teams and scalable workflows.',
-      features: settings?.pro_plan_features || [
-        '100,000 monthly AI replies',
-        'RAG Knowledge Base (100 files)',
-        '5 Gmail account integrations',
-        'Up to 10,000 leads database',
-        'Priority live chat support'
-      ],
-      buttonText: 'Get Professional',
-      featured: true,
-    },
-    {
-      key: 'enterprise',
-      name: settings?.enterprise_plan_name || 'Business',
-      icon: '👑',
-      price: getPriceString(enterprisePriceVal, billing === 'annual', 'enterprise'),
-      description: settings?.enterprise_plan_desc || 'Perfect for businesses starting with AI automation at scale.',
-      features: settings?.enterprise_plan_features || [
-        '500,000 monthly AI replies',
-        'Rollover unused credits',
-        '₹1,000 Promo WhatsApp credit',
-        'Unlimited leads & integrations',
-        'Dedicated success manager'
-      ],
-      buttonText: 'Contact Sales',
-      featured: false,
-    },
-  ];
+  const dynamicPlans = (settings?.plans && Array.isArray(settings.plans) && settings.plans.length > 0)
+    ? settings.plans.map(p => {
+        const isYearly = billing === 'annual';
+        const rawPrice = isYearly ? p.yearly_price : p.monthly_price;
+        const displayPrice = (p.key === 'free' || rawPrice === 0)
+          ? 'Free'
+          : (p.key === 'enterprise' && rawPrice === 0)
+          ? 'Custom'
+          : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
+
+        const repliesCount = p.credits
+          ? `${Math.round(p.credits).toLocaleString('en-IN')} monthly AI replies`
+          : `${Math.round((p.token_limit || 1000000) / TOKENS_PER_CREDIT).toLocaleString('en-IN')} monthly AI replies`;
+
+        return {
+          key: p.key,
+          name: p.name || p.display_name,
+          icon: iconMap[p.key] || '⚡',
+          price: displayPrice,
+          description: p.description,
+          features: (p.features && p.features.length > 0)
+            ? p.features
+            : [repliesCount, 'Basic workspace access', 'Meta API Included'],
+          buttonText: p.key === 'free' ? 'Choose Free' : (p.key === 'enterprise' ? 'Contact Sales' : `Get ${p.name || p.display_name}`),
+          featured: p.featured || p.is_featured || p.key === 'pro',
+        };
+      })
+    : [
+        {
+          key: 'free',
+          name: settings?.free_plan_name || 'Free',
+          icon: '🚀',
+          price: (settings?.free_plan_price ?? 0) === 0 ? 'Free' : `₹${settings?.free_plan_price}`,
+          description: settings?.free_plan_desc || 'Try Orbion Agents for free and see the ROI yourself.',
+          features: settings?.free_plan_features || [
+            '1,000 monthly AI replies',
+            'Basic workspace access',
+            '1 Gmail account integration',
+            'Up to 100 leads database'
+          ],
+          buttonText: 'Choose Free',
+          featured: false,
+        },
+        {
+          key: 'solo',
+          name: settings?.solo_plan_name || 'Solo Smart',
+          icon: '⚡',
+          price: billing === 'annual'
+            ? `₹${Number(settings?.solo_yearly_plan_price || 9990).toLocaleString('en-IN')}`
+            : `₹${Number(settings?.solo_plan_price || 999).toLocaleString('en-IN')}`,
+          description: settings?.solo_plan_desc || 'RAG & custom knowledge base on a budget for solopreneurs.',
+          features: settings?.solo_plan_features || [
+            '15,000 monthly AI replies',
+            'RAG Knowledge Base (10 files)',
+            '1 Gmail account integration',
+            'Up to 500 leads database',
+            'Web chat campaigns'
+          ],
+          buttonText: 'Get Solo Smart',
+          featured: false,
+        },
+        {
+          key: 'pro',
+          name: settings?.pro_plan_name || 'Professional',
+          icon: '🔥',
+          price: billing === 'annual'
+            ? `₹${Number(settings?.pro_yearly_plan_price || 59990).toLocaleString('en-IN')}`
+            : `₹${Number(settings?.pro_plan_price || 5999).toLocaleString('en-IN')}`,
+          description: settings?.pro_plan_desc || 'Advanced features for growing teams and scalable workflows.',
+          features: settings?.pro_plan_features || [
+            '100,000 monthly AI replies',
+            'RAG Knowledge Base (100 files)',
+            '5 Gmail account integrations',
+            'Up to 10,000 leads database',
+            'Priority live chat support'
+          ],
+          buttonText: 'Get Professional',
+          featured: true,
+        },
+        {
+          key: 'enterprise',
+          name: settings?.enterprise_plan_name || 'Business',
+          icon: '👑',
+          price: (settings?.enterprise_plan_price ?? 24999) === 0
+            ? 'Custom'
+            : (billing === 'annual'
+              ? `₹${Number(settings?.enterprise_yearly_plan_price || 249990).toLocaleString('en-IN')}`
+              : `₹${Number(settings?.enterprise_plan_price || 24999).toLocaleString('en-IN')}`),
+          description: settings?.enterprise_plan_desc || 'Perfect for businesses starting with AI automation at scale.',
+          features: settings?.enterprise_plan_features || [
+            '500,000 monthly AI replies',
+            'Rollover unused credits',
+            '₹1,000 Promo WhatsApp credit',
+            'Unlimited leads & integrations',
+            'Dedicated success manager'
+          ],
+          buttonText: 'Contact Sales',
+          featured: false,
+        },
+      ];
+
+  const plans = dynamicPlans;
 
   return (
     <main className={`${poppins.className} min-h-screen bg-black text-white relative overflow-x-hidden`}>

@@ -136,47 +136,91 @@ export default function BillingDashboardPage() {
           </div>
         )}
 
-        {/* 1. Revenue Overview (4 Primary KPI Cards) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <KpiCard
-            title="Total Platform Revenue"
-            value={formatCurrency(rev.total_revenue)}
-            subtext={`Subs: ${formatCurrency(rev.subscription_revenue)} | AI Packs: ${formatCurrency(rev.ai_credit_pack_revenue)} | WCC: ${formatCurrency(rev.wcc_recharge_revenue)} | Flow: ${formatCurrency(rev.flow_pack_revenue)}`}
-            icon={DollarSign}
-            accentColor="from-emerald-500/20 to-teal-500/5"
-            borderColor="border-emerald-500/30"
-            iconColor="text-emerald-400"
-          />
+        {/* 1. CFO Financial Overview (Cash Received, Net P&L Revenue, Tax Liability) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">CFO Financial Overview & Tax Control</h2>
+            <span className="text-[11px] text-zinc-500 font-medium">Net Revenue (Excl. GST) | Cash Received (Incl. GST)</span>
+          </div>
 
-          <KpiCard
-            title="Monthly Recurring Revenue (MRR)"
-            value={formatCurrency(rev.monthly_recurring_revenue)}
-            subtext="Normalized monthly subscription run rate"
-            icon={TrendingUp}
-            accentColor="from-indigo-500/20 to-purple-500/5"
-            borderColor="border-indigo-500/30"
-            iconColor="text-indigo-400"
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-5">
+            <KpiCard
+              title="Gross Collections (Cash Received)"
+              value={formatCurrency(rev.gross_collections ?? rev.total_revenue)}
+              subtext={`Razorpay: ${formatCurrency(rev.razorpay_collections ?? 0)} | Manual: ${formatCurrency(rev.manual_collections ?? 0)}`}
+              icon={DollarSign}
+              accentColor="from-emerald-500/20 to-teal-500/5"
+              borderColor="border-emerald-500/30"
+              iconColor="text-emerald-400"
+            />
 
-          <KpiCard
-            title="Annual Recurring Revenue (ARR)"
-            value={formatCurrency(rev.annual_recurring_revenue)}
-            subtext="Annualized recurring subscription velocity"
-            icon={Activity}
-            accentColor="from-purple-500/20 to-pink-500/5"
-            borderColor="border-purple-500/30"
-            iconColor="text-purple-400"
-          />
+            <KpiCard
+              title="Net Platform Revenue (P&L)"
+              value={formatCurrency(rev.net_platform_revenue ?? rev.total_revenue)}
+              subtext={`Subs: ${formatCurrency(rev.subscription_revenue)} | AI: ${formatCurrency(rev.ai_credit_pack_revenue)} | WCC: ${formatCurrency(rev.wcc_recharge_revenue)} | Flow: ${formatCurrency(rev.flow_pack_revenue)}`}
+              icon={TrendingUp}
+              accentColor="from-indigo-500/20 to-purple-500/5"
+              borderColor="border-indigo-500/30"
+              iconColor="text-indigo-400"
+            />
 
-          <KpiCard
-            title="Today's Total Collection"
-            value={formatCurrency(rev.todays_revenue)}
-            subtext="Gross billing captured in last 24 hours"
-            icon={Zap}
-            accentColor="from-amber-500/20 to-orange-500/5"
-            borderColor="border-amber-500/30"
-            iconColor="text-amber-400"
-          />
+            <KpiCard
+              title="GST Tax Liability Owed"
+              value={formatCurrency(rev.gst_liability ?? 0)}
+              subtext="Pass-through tax liability payable to GSTN"
+              icon={ShieldCheck}
+              accentColor="from-purple-500/20 to-pink-500/5"
+              borderColor="border-purple-500/30"
+              iconColor="text-purple-400"
+            />
+          </div>
+        </div>
+
+        {/* 2. SaaS Operational Metrics */}
+        <div className="space-y-3 pt-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">SaaS Operational Metrics</h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <KpiCard
+              title="Monthly Recurring Revenue (MRR)"
+              value={formatCurrency(rev.monthly_recurring_revenue)}
+              subtext="Normalized monthly subscription run rate"
+              icon={TrendingUp}
+              accentColor="from-indigo-500/20 to-purple-500/5"
+              borderColor="border-indigo-500/30"
+              iconColor="text-indigo-400"
+            />
+
+            <KpiCard
+              title="Annual Recurring Revenue (ARR)"
+              value={formatCurrency(rev.annual_recurring_revenue)}
+              subtext="Annualized recurring subscription velocity"
+              icon={Activity}
+              accentColor="from-purple-500/20 to-pink-500/5"
+              borderColor="border-purple-500/30"
+              iconColor="text-purple-400"
+            />
+
+            <KpiCard
+              title="Active Subscriptions"
+              value={subs.active ?? 0}
+              subtext="Active recurring customer plan accounts"
+              icon={CheckCircle2}
+              accentColor="from-teal-500/20 to-emerald-500/5"
+              borderColor="border-teal-500/30"
+              iconColor="text-teal-400"
+            />
+
+            <KpiCard
+              title="Today's Collection (IST)"
+              value={formatCurrency(rev.todays_revenue)}
+              subtext="Gross billing captured today (IST Midnight Start)"
+              icon={Zap}
+              accentColor="from-amber-500/20 to-orange-500/5"
+              borderColor="border-amber-500/30"
+              iconColor="text-amber-400"
+            />
+          </div>
         </div>
 
         {/* 2. Multi-Product Revenue & Usage Grid */}
@@ -192,11 +236,12 @@ export default function BillingDashboardPage() {
 
               <div className="pt-3 border-t border-white/5">
                 <p className="text-[11px] font-semibold text-gray-400 mb-2">Plan Distribution</p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="max-h-[96px] overflow-y-auto pr-1 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
                   {Object.entries(subs.plan_breakdown || {}).map(([planName, cnt]) => (
-                    <span key={planName} className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-300 font-mono">
-                      {planName.toUpperCase()}: {cnt}
-                    </span>
+                    <div key={planName} className="flex justify-between items-center text-[11px] bg-white/5 border border-white/10 px-2 py-1 rounded-md">
+                      <span className="text-gray-300 font-mono">{planName.toUpperCase()}</span>
+                      <span className="text-gray-400 font-mono font-semibold">{cnt}</span>
+                    </div>
                   ))}
                   {Object.keys(subs.plan_breakdown || {}).length === 0 && (
                     <span className="text-[11px] text-gray-500">No active plan records</span>
@@ -240,9 +285,9 @@ export default function BillingDashboardPage() {
               <div className="pt-3 border-t border-white/5">
                 <p className="text-[11px] font-semibold text-gray-400 mb-2">Top Packs Sold</p>
                 {flows.top_packs && flows.top_packs.length > 0 ? (
-                  <div className="space-y-1.5">
+                  <div className="max-h-[64px] overflow-y-auto pr-1 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10">
                     {flows.top_packs.map((p) => (
-                      <div key={p.name} className="flex justify-between items-center text-[11px]">
+                      <div key={p.name} className="flex justify-between items-center text-[11px] bg-white/5 border border-white/10 px-2 py-1 rounded-md">
                         <span className="text-gray-300 truncate max-w-[120px]">{p.name}</span>
                         <span className="text-gray-400 font-mono">{p.sales} sales ({formatCurrency(p.revenue)})</span>
                       </div>
@@ -326,10 +371,10 @@ export default function BillingDashboardPage() {
           </div>
 
           {recentTx.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead>
-                  <tr className="border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
+            <div className="max-h-[340px] overflow-y-auto overflow-x-auto pr-1 scrollbar-thin scrollbar-thumb-white/10 border border-white/5 rounded-xl">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead className="sticky top-0 bg-[#0c0c0e] z-10 border-b border-white/10 shadow-sm">
+                  <tr className="text-gray-400 uppercase tracking-wider text-[10px]">
                     <th className="py-3 px-4 font-semibold">Workspace</th>
                     <th className="py-3 px-4 font-semibold">Payment ID</th>
                     <th className="py-3 px-4 font-semibold text-right">Amount</th>
@@ -341,18 +386,18 @@ export default function BillingDashboardPage() {
                 <tbody className="divide-y divide-white/5">
                   {recentTx.map((tx) => (
                     <tr key={tx.id} className="hover:bg-white/[0.02] transition">
-                      <td className="py-3.5 px-4 font-semibold text-white">{tx.workspace_name}</td>
-                      <td className="py-3.5 px-4 text-gray-400 font-mono text-[11px]">{tx.payment_id}</td>
-                      <td className="py-3.5 px-4 text-right font-bold text-white">{formatCurrency(tx.amount)}</td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-4 font-semibold text-white">{tx.workspace_name}</td>
+                      <td className="py-3 px-4 text-gray-400 font-mono text-[11px]">{tx.payment_id}</td>
+                      <td className="py-3 px-4 text-right font-bold text-white">{formatCurrency(tx.amount)}</td>
+                      <td className="py-3 px-4">
                         <span className="uppercase text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
                           {tx.provider || "razorpay"}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-4">
                         <StatusBadge status={tx.status} />
                       </td>
-                      <td className="py-3.5 px-4 text-gray-400">
+                      <td className="py-3 px-4 text-gray-400">
                         {tx.date ? new Date(tx.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A"}
                       </td>
                     </tr>

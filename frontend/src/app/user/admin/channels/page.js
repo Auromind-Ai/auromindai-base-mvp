@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { Poppins } from 'next/font/google';
 import { Instagram, Mail, Search,
-         ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap, ExternalLink,
+         ChevronDown, Check, X, ChevronRight, Eye, EyeOff, Zap, ExternalLink,Settings,   
          MessageSquare, Phone, RefreshCw, Cpu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -50,7 +50,7 @@ const showToast = (message) => {
 
 const API = '/api';
 
-const WhatsAppIcon = ({ className = "w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" }) => (
+const WhatsAppIcon = ({ className = "w-14 h-14 sm:w-14 sm:h-14 lg:w-14 lg:h-14" }) => (
     <svg viewBox="0 0 48 48" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="24" cy="24" r="24" fill="#14c956"/>
         <path d="M34.5 13.4C32.1 11 28.9 9.6 25.5 9.6c-7 0-12.7 5.7-12.7 12.7 0 2.2.6 4.4 1.7 6.3L12.6 35l6.6-1.7c1.8 1 3.8 1.5 5.9 1.5 7 0 12.7-5.7 12.7-12.7-.1-3.4-1.5-6.5-3.3-8.7zm-9 19.5c-1.9 0-3.7-.5-5.3-1.4l-.4-.2-3.9 1 1-3.8-.2-.4c-1-1.6-1.6-3.5-1.6-5.4 0-5.6 4.6-10.2 10.2-10.2 2.7 0 5.3 1.1 7.2 2.9 1.9 1.9 3 4.4 3 7.1.2 5.8-4.4 10.4-10 10.4zm5.6-7.6c-.3-.2-1.8-.9-2.1-1s-.5-.2-.7.2-.8 1-1 1.2-.4.2-.7.1c-.3-.2-1.2-.4-2.3-1.4-.8-.7-1.4-1.6-1.6-1.9s0-.5.2-.6l.5-.6c.1-.2.2-.4.3-.6 0-.2 0-.4-.1-.6s-.7-1.7-1-2.3c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4s-1 1-1 2.5 1 2.9 1.2 3.1c.2.2 2 3 4.9 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.2-.2-.5-.4z" fill="white"/>
@@ -1163,271 +1163,597 @@ const disconnectChannel = async (channelId) => {
                 )}
 
                 {/*  Channel Cards  */}
+                {/* ─────────────────────────────────────────────────────────────
+                    Channel Cards
+                ───────────────────────────────────────────────────────────── */}
                 {filteredChannels.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-5">
-                    {filteredChannels.map((item) => {
-                        const isConnected  = statuses[item.id];
-                        const isConnecting = connecting === item.id;
-                        const Icon         = item.icon;
-                        const info         = connectedInfo[item.id];
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                {filteredChannels.map((item) => {
+                 const isConnected = statuses[item.id];
+                const isConnecting = connecting === item.id;
+                const Icon = item.icon;
+                const info = connectedInfo[item.id];
 
-                        return (
-                            <div key={item.id}
-                                className="relative group rounded-2xl transition-all duration-300 flex flex-col overflow-hidden"
-                                style={{
-                                    background: '#070012',
-                                    border: item.cardBorder,
-                                    boxShadow: `0 0 30px ${item.glowColor}`,
-                                    transition: 'box-shadow 0.3s ease'
-                                }}
-                                onMouseEnter={e => {
-                                    e.currentTarget.style.boxShadow = `0 0 40px ${item.glowColor}, inset 0 0 20px ${item.glowColor}`;
-                                }}
-                                onMouseLeave={e => {
-                                    e.currentTarget.style.boxShadow = `0 0 30px ${item.glowColor}`;
-                                }}
+            return (
+                <div
+                    key={item.id}
+                    className="relative group rounded-2xl overflow-hidden flex flex-col min-h-[190px] sm:min-h-[200px] transition-all duration-300"
+                    style={{
+                        background: 'linear-gradient(135deg, #070912 0%, #05050d 100%)',
+                        border: item.cardBorder,
+                        boxShadow: `0 0 24px ${item.glowColor}`,
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.boxShadow =
+                            `0 0 38px ${item.glowColor}, inset 0 0 22px ${item.glowColor}`;
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.boxShadow =
+                            `0 0 24px ${item.glowColor}`;
+                    }}
+                >
+                    {/* ───────────── Card Main Content ───────────── */}
+                    <div className="flex-1 px-5 sm:px-6 pt-5 sm:pt-6 pb-4">
+                        <div className="flex items-start gap-4 sm:gap-5">
+
+                            {/* Icon */}
+                            <div
+                                className={`
+                                    w-14 h-14 sm:w-16 sm:h-16
+                                    rounded-xl sm:rounded-2xl
+                                    bg-gradient-to-br ${item.iconBg}
+                                    flex items-center justify-center
+                                    flex-shrink-0 shadow-lg
+                                `}
                             >
-                                {/* Card body */}
-                                <div className="p-4 sm:p-5 lg:p-6 flex-1 min-h-[140px] sm:min-h-[160px]">
-                                    <div className="flex items-start gap-3 sm:gap-4">
-                                        {/* Icon - left side */}
-                                        <div className={`w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl bg-gradient-to-br ${item.iconBg} flex items-center justify-center shadow-lg flex-shrink-0`}>
-                                            <Icon className={item.id === 'instagram' ? "w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-white" : "w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10"} />
-                                        </div>
+                                <Icon
+                                    className={
+                                        item.id === 'instagram'
+                                            ? "w-8 h-8 sm:w-9 sm:h-9 text-white"
+                                            : "w-9 h-9 sm:w-10 sm:h-10"
+                                    }
+                                />
+                            </div>
 
-                                        {/* Content - right side */}
-                                        <div className="flex-1 min-w-0">
-                                            {item.subHeaderBelow ? (
-                                                <div className="mb-1 sm:mb-1.5">
-                                                    <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight mb-1 truncate">{item.name}</h3>
-                                                    <span className={`inline-block text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wider ${item.badgeColor}`}>
-                                                        {item.subHeader}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-1 sm:mb-1.5">
-                                                    <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
-                                                    <span className={`text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
-                                                        {item.subHeader}
-                                                    </span>
-                                                </div>
-                                            )}
+                            {/* Content */}
+                            <div className="flex-1 min-w-0 pt-0.5">
 
-                                            {/* Description */}
-                                            <p className="text-white/60 text-xs sm:text-[13px] leading-relaxed">{item.description}</p>
+                                {/* Title + Badge */}
+                                <div className="flex items-center flex-wrap gap-2 mb-2">
+                                    <h3 className="text-[17px] sm:text-[18px] font-semibold text-white leading-tight">
+                                        {item.name}
+                                    </h3>
 
-                                            {/* Connected info */}
-                                            {isConnected && info && (
-                                                <div className="mt-2 space-y-0.5 sm:space-y-1">
-                                                    <p className="text-[10px] sm:text-[11px] text-white/60 font-mono break-all">{info}</p>
-                                                    {item.id === 'whatsapp' && (
-                                                        <>
-                                                            {whatsappPhoneId && (
-                                                                <p className="text-[10px] text-white/40 font-mono break-all">
-                                                                    Phone ID: <span className="text-white/60 select-all">{whatsappPhoneId}</span>
-                                                                </p>
-                                                            )}
-                                                            {whatsappWabaId && (
-                                                                <p className="text-[10px] text-white/40 font-mono break-all">
-                                                                    WABA ID: <span className="text-white/60 select-all">{whatsappWabaId}</span>
-                                                                </p>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {isConnecting && (
-                                                <p className="mt-2 text-[10px] sm:text-[11px] text-yellow-500 animate-pulse">Connecting...</p>
-                                            )}
-                                        </div>
-                                    </div>
+                                    {item.subHeader && (
+                                        <span
+                                            className={`
+                                                inline-flex items-center
+                                                px-2.5 py-1
+                                                rounded-full
+                                                text-[9px] sm:text-[10px]
+                                                font-semibold
+                                                tracking-wide
+                                                ${item.badgeColor}
+                                            `}
+                                        >
+                                            {item.subHeader}
+                                        </span>
+                                    )}
                                 </div>
 
-                                {/* Card footer */}
-                                <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#141414] flex items-center justify-between gap-2">
-                                    {/* Category */}
-                                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                                        {isConnected ? (
-                                            <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e] shrink-0" />
-                                        ) : (
-                                            <span className={`w-2 h-2 rounded-full ${item.categoryDot} shrink-0`} />
-                                        )}
-                                        <span className="text-xs sm:text-[13px] text-white/60 truncate">
-                                            {isConnected ? 'Connected' : item.categoryLabel}
+                                {/* Description */}
+                                <p className="text-white/65 text-xs sm:text-[13px] leading-relaxed max-w-[430px]">
+                                    {item.description}
+                                </p>
+
+                                {/* Connecting */}
+                                {isConnecting && (
+                                    <div className="flex items-center gap-2 mt-3">
+                                        <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                        <span className="text-[11px] text-yellow-400">
+                                            Connecting...
                                         </span>
                                     </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
-                                    {/* Connect / Connected / Reconnect buttons */}
+                    {/* ───────────── Bottom Section ───────────── */}
+                    <div
+                        className="
+                            px-5 sm:px-6
+                            py-3.5 sm:py-4
+                            border-t border-white/[0.07]
+                            flex items-center justify-between
+                            gap-3
+                        "
+                    >
+                        {/* Connected information */}
+                        <div className="flex items-center min-w-0 flex-1">
+
+                            {/* Status */}
+                            <div className="flex items-center gap-2 shrink-0">
+                                {isConnected ? (
+                                    <span
+                                        className="w-2.5 h-2.5 rounded-full bg-green-400 shrink-0"
+                                        style={{
+                                            boxShadow:
+                                                '0 0 8px rgba(74,222,128,0.8)',
+                                        }}
+                                    />
+                                ) : (
+                                    <span
+                                        className={`
+                                            w-2.5 h-2.5 rounded-full
+                                            ${item.categoryDot}
+                                            shrink-0
+                                        `}
+                                    />
+                                )}
+
+                                <span className="text-xs sm:text-[13px] text-white/70">
+                                    {isConnected
+                                        ? 'Connected'
+                                        : item.categoryLabel}
+                                </span>
+                            </div>
+
+                            {/* Divider */}
+                            {isConnected && info && (
+                                <>
+                                    <span className="mx-3 sm:mx-4 h-4 w-px bg-white/10" />
+
+                                    {/* Connected info */}
+                                    <div className="min-w-0">
+                                        <span className="text-xs sm:text-[13px] text-white/60 truncate block max-w-[170px] sm:max-w-[220px]">
+                                            {info}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* ───────────── Actions ───────────── */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+
+                            {isConnected ? (
+                                <>
+                                    {/* Manage */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (item.id === 'twilio') {
+                                                const savedPhone =
+                                                    localStorage.getItem(
+                                                        'twilio_phone'
+                                                    ) || '';
+
+                                                setTwilioForm({
+                                                    sid: '',
+                                                    token: '',
+                                                    phone: savedPhone,
+                                                });
+
+                                                setShowAuthToken(false);
+                                                setTwilioStep(1);
+                                            } else {
+                                                handleReconnect(item.id);
+                                            }
+                                        }}
+                                        className="
+                                            px-4 sm:px-5
+                                            py-2 sm:py-2.5
+                                            rounded-xl
+                                            border border-white/[0.12]
+                                            bg-white/[0.02]
+                                            text-white/85
+                                            text-xs sm:text-[13px]
+                                            font-medium
+                                            hover:bg-white/[0.07]
+                                            hover:border-white/[0.2]
+                                            hover:text-white
+                                            transition-all duration-200
+                                        "
+                                    >
+                                        Manage
+                                    </button>
+
+                                    {/* Settings */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (item.id === 'whatsapp' || item.id === 'instagram' || item.id === 'twilio') {
+                                                disconnectChannel(item.id);
+                                            } else {
+                                                disconnectIntegration(item.id);
+                                            }
+                                        }}
+                                        className="
+                                            w-9 h-9 sm:w-10 sm:h-10
+                                            rounded-xl
+                                            border border-white/[0.12]
+                                            bg-white/[0.02]
+                                            flex items-center justify-center
+                                            text-white/50
+                                            hover:text-white
+                                            hover:bg-white/[0.07]
+                                            hover:border-white/[0.2]
+                                            transition-all duration-200
+                                        "
+                                        title="Channel settings"
+                                    >
+                                        <Settings
+                                            size={15}
+                                            className="transition-transform duration-300 group-hover:rotate-45"
+                                        />
+                                    </button>
+                                </>
+                            ) : (
+                                /* Connect button */
+                                <button
+                                    onClick={() => handleConnect(item.id)}
+                                    disabled={isConnecting || !workspace}
+                                    className={`
+                                        group/btn
+                                        relative overflow-hidden
+                                        flex items-center gap-1.5 sm:gap-2
+                                        px-4 sm:px-5
+                                        py-2 sm:py-2.5
+                                        rounded-xl
+                                        text-xs sm:text-[13px]
+                                        font-semibold
+                                        transition-all duration-300
+                                        hover:-translate-y-0.5
+                                        hover:scale-[1.03]
+                                        active:scale-95
+                                        ${item.connectBtnClass}
+                                        disabled:opacity-40
+                                        disabled:cursor-not-allowed
+                                        disabled:transform-none
+                                        disabled:shadow-none
+                                    `}
+                                    style={item.connectBtnStyle}
+                                    onMouseEnter={(e) => {
+                                        if (
+                                            !isConnecting &&
+                                            workspace &&
+                                            item.hoverGlow
+                                        ) {
+                                            e.currentTarget.style.boxShadow =
+                                                item.hoverGlow;
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (
+                                            !isConnecting &&
+                                            workspace &&
+                                            item.connectBtnStyle?.boxShadow
+                                        ) {
+                                            e.currentTarget.style.boxShadow =
+                                                item.connectBtnStyle.boxShadow;
+                                        }
+                                    }}
+                                >
+                                    {/* Shimmer */}
+                                    <span
+                                        className="
+                                            absolute inset-0
+                                            w-full h-full
+                                            bg-gradient-to-r
+                                            from-transparent
+                                            via-white/20
+                                            to-transparent
+                                            -translate-x-full
+                                            group-hover/btn:translate-x-full
+                                            transition-transform
+                                            duration-700
+                                            ease-in-out
+                                            pointer-events-none
+                                        "
+                                    />
+
+                                    {isConnecting ? (
+                                        <>
+                                            <span className="
+                                                w-3.5 h-3.5
+                                                border-2
+                                                border-white/20
+                                                border-t-white
+                                                rounded-full
+                                                animate-spin
+                                            " />
+                                            Connecting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="relative z-10">
+                                                Connect
+                                            </span>
+
+                                            <ChevronRight
+                                                size={13}
+                                                className="
+                                                    relative z-10
+                                                    transition-transform
+                                                    duration-300
+                                                    group-hover/btn:translate-x-1
+                                                "
+                                            />
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+)}
+
+                {/*  Integration Section  */}
+                        {filteredIntegrations.length > 0 && (
+                <div className="mt-10 sm:mt-14">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold sm:font-medium text-white tracking-tight mb-2 sm:mb-3">
+                    Integration
+                </h2>
+
+                <p className="text-white/70 text-xs sm:text-sm lg:text-[15px] max-w-xl leading-relaxed mb-6 sm:mb-8">
+                    Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
+                </p>
+
+                {/* 2 COLUMN GRID */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-5">
+                    {filteredIntegrations.map((item) => {
+                        const isConnected = statuses[item.id];
+                const isConnecting = connecting === item.id;
+                const Icon = item.icon;
+                const info = connectedInfo[item.id];
+
+                return (
+                    <div
+                        key={item.id}
+                        className="relative group rounded-2xl transition-all duration-300 flex flex-col overflow-hidden"
+                        style={{
+                            background: '#070012',
+                            border: item.cardBorder,
+                            boxShadow: `0 0 30px ${item.glowColor}`,
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow =
+                                `0 0 40px ${item.glowColor}, inset 0 0 20px ${item.glowColor}`;
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow =
+                                `0 0 30px ${item.glowColor}`;
+                        }}
+                    >
+                        {/* ================= CARD BODY ================= */}
+                        <div className="p-4 sm:p-5 lg:p-6 flex-1 min-h-[140px] sm:min-h-[160px]">
+                            <div className="flex items-start gap-3 sm:gap-4">
+
+                                {/* EXISTING ICON - DON'T CHANGE */}
+                                <div className="w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 flex items-center justify-center flex-shrink-0">
+                                    <Icon className="w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" />
+                                </div>
+
+                                {/* CONTENT */}
+                                <div className="flex-1 min-w-0">
+
+                                    {/* NAME + BADGE */}
+                                    {item.subHeaderBelow ? (
+                                        <div className="mb-1 sm:mb-1.5">
+                                            <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight mb-1 truncate">
+                                                {item.name}
+                                            </h3>
+
+                                            <span
+                                                className={`inline-block text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}
+                                            >
+                                                {item.subHeader}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-1 sm:mb-1.5">
+                                            <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight">
+                                                {item.name}
+                                            </h3>
+
+                                            <span
+                                                className={`text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wider ${item.badgeColor}`}
+                                            >
+                                                {item.subHeader}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* DESCRIPTION */}
+                                    <p className="text-white/60 text-xs sm:text-[13px] leading-relaxed">
+                                        {item.description}
+                                    </p>
+
+                                    {/* CONNECTING */}
+                                    {isConnecting && (
+                                        <p className="mt-2 text-[10px] sm:text-[11px] text-yellow-500 animate-pulse">
+                                            Connecting...
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* ================= CONNECTED TOP ACTIONS ================= */}
+                                {isConnected && (
+                                    <div className="hidden sm:flex items-center gap-0 shrink-0">
+
+                                        {/* Manage */}
+                                        <button
+                                            onClick={() => {
+                                                // Add your manage action here
+                                                // Example:
+                                                // handleManage(item.id)
+                                            }}
+                                            className="h-11 px-4 rounded-xl border border-white/10 bg-[#070012] text-white/90 text-xs sm:text-[13px] font-medium hover:bg-white/5 hover:border-white/20 transition-all duration-200"
+                                        >
+                                            Manage
+                                        </button>
+
+                                        {/* Settings */}
+                                        <button
+                                            onClick={() => {
+                                                // Add your settings action here
+                                                // Example:
+                                                // handleSettings(item.id)
+                                            }}
+                                            className="w-11 h-11 rounded-xl border border-white/10 bg-[#070012] text-white/70 hover:text-white hover:bg-white/5 hover:border-white/20 transition-all duration-200 flex items-center justify-center"
+                                            title="Settings"
+                                        >
+                                            <Settings
+                                                size={16}
+                                                className="transition-transform duration-300 group-hover:rotate-45"
+                                            />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ================= CARD FOOTER ================= */}
+                        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#141414] flex items-center justify-between gap-3">
+
+                            {/* LEFT SIDE */}
+                            <div className="flex items-center gap-3 min-w-0">
+
+                                {/* Status */}
+                                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                                     {isConnected ? (
+                                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]" />
+                                    ) : (
+                                        <span
+                                            className={`w-2 h-2 rounded-full ${item.categoryDot}`}
+                                        />
+                                    )}
+
+                                    <span className="text-xs sm:text-[13px] text-white/70">
+                                        {isConnected
+                                            ? 'Connected'
+                                            : item.categoryLabel}
+                                    </span>
+                                </div>
+
+                                {/* Divider + Connected Info */}
+                                {isConnected && info && (
+                                    <>
+                                        <span className="h-4 w-px bg-white/10 shrink-0" />
+
+                                        <span className="text-xs sm:text-[13px] text-white/60 truncate max-w-[150px] sm:max-w-[220px]">
+                                            {info}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* ================= RIGHT SIDE ================= */}
+                            <div className="flex items-center gap-2 shrink-0">
+
+                                {isConnected ? (
+                                    <>
+                                        {/* Mobile Manage */}
+                                        <button
+                                            onClick={() => {
+                                                // Add your manage action here
+                                                // Example:
+                                                // handleManage(item.id)
+                                            }}
+                                            className="sm:hidden flex items-center justify-center px-3 py-1.5 rounded-xl border border-white/10 bg-[#070012] text-white/90 text-xs font-medium hover:bg-white/5 hover:border-white/20 transition-all duration-200"
+                                        >
+                                            Manage
+                                        </button>
+
+                                        {/* Connected Button */}
                                         <button
                                             onMouseEnter={() => setHoveredBtn(item.id)}
                                             onMouseLeave={() => setHoveredBtn(null)}
                                             onClick={() => disconnectIntegration(item.id)}
                                             className="group/disc flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs sm:text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300 shrink-0"
-                                            title="Click to disconnect">
+                                            title="Click to disconnect"
+                                        >
                                             {hoveredBtn === item.id ? (
                                                 <>
-                                                    <X size={13} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
+                                                    <X
+                                                        size={13}
+                                                        className="transition-transform duration-200 transform group-hover/disc:rotate-90"
+                                                    />
+                                                    Disconnect
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Check size={13} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
+                                                    <Check
+                                                        size={13}
+                                                        className="transition-transform duration-200 transform group-hover/disc:scale-110"
+                                                    />
+                                                    Connected
                                                 </>
                                             )}
                                         </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => handleConnect(item.id)}
-                                            disabled={isConnecting || !workspace}
-                                            className={`group/btn relative overflow-hidden flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0`}
-                                            style={item.connectBtnStyle}
-                                            onMouseEnter={(e) => {
-                                                if (!isConnecting && workspace && item.hoverGlow) {
-                                                    e.currentTarget.style.boxShadow = item.hoverGlow;
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (!isConnecting && workspace && item.connectBtnStyle?.boxShadow) {
-                                                    e.currentTarget.style.boxShadow = item.connectBtnStyle.boxShadow;
-                                                }
-                                            }}>
-                                            {/* Shimmer sweep */}
-                                            <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                                    </>
+                                ) : (
+                                    /* ================= CONNECT BUTTON ================= */
+                                    <button
+                                        onClick={() => handleConnect(item.id)}
+                                        disabled={isConnecting || !workspace}
+                                        className={`group/btn relative overflow-hidden flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0`}
+                                        style={item.connectBtnStyle}
+                                        onMouseEnter={(e) => {
+                                            if (
+                                                !isConnecting &&
+                                                workspace &&
+                                                item.hoverGlow
+                                            ) {
+                                                e.currentTarget.style.boxShadow =
+                                                    item.hoverGlow;
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (
+                                                !isConnecting &&
+                                                workspace &&
+                                                item.connectBtnStyle?.boxShadow
+                                            ) {
+                                                e.currentTarget.style.boxShadow =
+                                                    item.connectBtnStyle.boxShadow;
+                                            }
+                                        }}
+                                    >
+                                        {/* Shimmer */}
+                                        <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
 
-                                            {isConnecting ? (
-                                                <>
-                                                    <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                                    Connecting...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="relative z-10">Connect</span>
-                                                    <ChevronRight size={13} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
-                                                </>
-                                            )}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-                )}
-
-                {/*  Integration Section  */}
-                {filteredIntegrations.length > 0 && (
-                <div className="mt-10 sm:mt-14">
-                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold sm:font-medium text-white tracking-tight mb-2 sm:mb-3">Integration</h2>
-                    <p className="text-white/70 text-xs sm:text-sm lg:text-[15px] max-w-xl leading-relaxed mb-6 sm:mb-8">
-                        Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-5">
-                        {filteredIntegrations.map((item) => {
-                            const isConnected  = statuses[item.id];
-                            const isConnecting = connecting === item.id;
-                            const Icon         = item.icon;
-                            const info         = connectedInfo[item.id];
-                            return (
-                                <div key={item.id}
-                                    className="relative group rounded-2xl transition-all duration-300 flex flex-col overflow-hidden"
-                                    style={{
-                                        background: '#070012',
-                                        border: item.cardBorder,
-                                        boxShadow: `0 0 30px ${item.glowColor}`,
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 0 40px ${item.glowColor}, inset 0 0 20px ${item.glowColor}`; }}
-                                    onMouseLeave={e => { e.currentTarget.style.boxShadow = `0 0 30px ${item.glowColor}`; }}
-                                >
-                                    <div className="p-4 sm:p-5 lg:p-6 flex-1 min-h-[140px] sm:min-h-[160px]">
-                                        <div className="flex items-start gap-3 sm:gap-4">
-                                            <div className="w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 flex items-center justify-center flex-shrink-0">
-                                                <Icon className="w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                {item.subHeaderBelow ? (
-                                                    <div className="mb-1 sm:mb-1.5">
-                                                        <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight mb-1 truncate">{item.name}</h3>
-                                                        <span className={`inline-block text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${item.badgeColor}`}>
-                                                            {item.subHeader}
-                                                        </span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-1 sm:mb-1.5">
-                                                        <h3 className="text-base sm:text-[17px] font-semibold text-white leading-tight">{item.name}</h3>
-                                                        <span className={`text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full tracking-wider ${item.badgeColor}`}>
-                                                            {item.subHeader}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <p className="text-white/60 text-xs sm:text-[13px] leading-relaxed">{item.description}</p>
-                                                {isConnected && info && <p className="mt-2 text-[10px] sm:text-[11px] text-white/60 font-mono break-all">{info}</p>}
-                                                {isConnecting && <p className="mt-2 text-[10px] sm:text-[11px] text-yellow-500 animate-pulse">Connecting...</p>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#141414] flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                                            {isConnected
-                                                ? <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e] shrink-0" />
-                                                : <span className={`w-2 h-2 rounded-full ${item.categoryDot} shrink-0`} />}
-                                            <span className="text-xs sm:text-[13px] text-white/60 truncate">{isConnected ? 'Connected' : item.categoryLabel}</span>
-                                        </div>
-                                        {isConnected ? (
-                                            <button
-                                                onMouseEnter={() => setHoveredBtn(item.id)}
-                                                onMouseLeave={() => setHoveredBtn(null)}
-                                                onClick={() => disconnectIntegration(item.id)}
-                                                className="group/disc flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs sm:text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300 shrink-0"
-                                                title="Click to disconnect">
-                                                {hoveredBtn === item.id ? (
-                                                    <>
-                                                        <X size={13} className="transition-transform duration-200 transform group-hover/disc:rotate-90" /> Disconnect
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Check size={13} className="transition-transform duration-200 transform group-hover/disc:scale-110" /> Connected
-                                                    </>
-                                                )}
-                                            </button>
+                                        {isConnecting ? (
+                                            <>
+                                                <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                                Connecting...
+                                            </>
                                         ) : (
-                                            <button
-                                                onClick={() => handleConnect(item.id)}
-                                                disabled={isConnecting || !workspace}
-                                                className={`group/btn relative overflow-hidden flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-[13px] font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.04] active:scale-95 active:translate-y-0 ${item.connectBtnClass} disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none shrink-0`}
-                                                style={item.connectBtnStyle}
-                                                onMouseEnter={(e) => {
-                                                    if (!isConnecting && workspace && item.hoverGlow) {
-                                                        e.currentTarget.style.boxShadow = item.hoverGlow;
-                                                    }
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    if (!isConnecting && workspace && item.connectBtnStyle?.boxShadow) {
-                                                        e.currentTarget.style.boxShadow = item.connectBtnStyle.boxShadow;
-                                                    }
-                                                }}>
-                                                {/* Shimmer sweep */}
-                                                <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-in-out pointer-events-none" />
+                                            <>
+                                                <span className="relative z-10">
+                                                    Connect
+                                                </span>
 
-                                                {isConnecting ? (
-                                                    <>
-                                                        <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                                        Connecting...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <span className="relative z-10">Connect</span>
-                                                        <ChevronRight size={13} className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1" />
-                                                    </>
-                                                )}
-                                            </button>
+                                                <ChevronRight
+                                                    size={13}
+                                                    className="relative z-10 transition-transform duration-300 transform group-hover/btn:translate-x-1"
+                                                />
+                                            </>
                                         )}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
-                )}
+                );
+            })}
+        </div>
+    </div>
+)}
 
                 {/*  Footer  */}
                 <div className="mt-10 sm:mt-14 text-center text-white/50 text-[11px] sm:text-[12px] pb-6">

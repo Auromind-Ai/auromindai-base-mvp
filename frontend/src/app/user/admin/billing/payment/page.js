@@ -56,12 +56,13 @@ function BillingContent() {
   const logBillingFlow = (step, data) => {
   }
 
-  const handleUpgrade = async (planKey) => {
+  const handleUpgrade = async (planKey, billingCycle = "monthly") => {
     if (!workspaceId || !["solo", "pro"].includes(planKey)) return
 
     logBillingFlow("upgrade_initiated", {
       workspaceId,
       planKey,
+      billingCycle,
       provider: DEFAULT_PROVIDER,
     })
 
@@ -69,6 +70,7 @@ function BillingContent() {
       const checkout = await api.createBillingSubscription(
         workspaceId,
         planKey,
+        billingCycle,
         DEFAULT_PROVIDER
       )
 
@@ -81,6 +83,7 @@ function BillingContent() {
           const payload = {
             workspace_id: workspaceId,
             plan: planKey,
+            billing_cycle: billingCycle,
             provider: checkout.provider,
             payment_id: response.razorpay_payment_id,
             subscription_id: response.razorpay_subscription_id || checkout.subscription_id,

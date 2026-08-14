@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import tiktoken
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -14,7 +14,8 @@ from app.models.subscription import Subscription
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.credit_pack import CreditPack
 from .gateway.base import TOKENS_PER_CREDIT, PaymentGateway, TokenBalance, TokenLimitStatus
-
+      
+from app.services.billing.entitlement_service import EntitlementService
 from .gateway import get_gateway
 from .token_service import TokenService
 from .usage_service import UsageService
@@ -22,6 +23,7 @@ from .subscription_service import SubscriptionService
 from .payment_service import PaymentService
 from .webhook_service import WebhookService
 from .plan_service import PlanService
+from app.utils.money import to_paise, verify_paise_amount
 
 
 def check_tokens(db: Session, workspace_id: str) -> bool:
@@ -41,25 +43,32 @@ def check_token_limit(db: Session, workspace_id: str) -> dict[str, Any]:
         "estimated_overage_cost": status.estimated_overage_cost,
     }
 
-def enforce_execution_policy(db: Session, workspace_id: str, amount: int = 0) -> bool:
-    # 1. Check if overage billing is allowed
-    subscription = SubscriptionService()._get_active_subscription(db, workspace_id)
-        
+def enforce_execution_policy(db: Session, workspace_id: str | uuid.UUID, amount: float = 0.0) -> bool:
+    if isinstance(workspace_id, str):
+        try:
+            workspace_id = uuid.UUID(workspace_id)
+        except ValueError:
+            pass
+
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         return False
-        
+
     overage_enabled = getattr(workspace, "overage_enabled", False)
     has_payment_method = bool(workspace.provider_customer_id)
-    
-    if subscription and overage_enabled and has_payment_method:
+
+    if overage_enabled and has_payment_method:
         return True
-        
-    # 2. If overages are not enabled/valid, enforce ledger limits
-    balance_info = BillingService().token_service.get_token_balance(db, workspace_id)
+
+    # Single canonical source of truth for AI credit spending permission & usable balance
+    credit_summary = BillingService().get_credit_summary(db, workspace_id)
+    if not credit_summary.get("spending_allowed", False):
+        return False
+
+    credits_balance = float(credit_summary.get("credits_balance", 0.0))
     if amount > 0:
-        return balance_info.balance >= amount
-    return balance_info.balance > 0
+        return credits_balance >= float(amount)
+    return credits_balance > 0
 
 
 class BillingService:
@@ -128,11 +137,12 @@ class BillingService:
         user_email: str,
         user_name: str | None,
         plan_key: str,
+        billing_cycle: str = "monthly",
         provider: str = "razorpay",
     ) -> dict[str, Any]:
         try:
             workspace = self._get_workspace_for_user(db, workspace_id, user_id)
-            plan_config = self.plan_service._get_plan_config(db, plan_key)
+            plan_config = self.plan_service._get_plan_config(db, plan_key, billing_cycle=billing_cycle)
             gateway = self._resolve_gateway(provider)
 
             if plan_config.key == "free":
@@ -161,11 +171,12 @@ class BillingService:
                 "notes": {
                     "workspace_id": str(workspace.id),
                     "plan_key": plan_config.key,
+                    "billing_cycle": billing_cycle,
                     "user_id": str(user_id),
                 },
             }
 
-            local_plan = self.plan_service._get_or_create_plan(db, plan_config)
+            local_plan = self.plan_service._get_or_create_plan(db, plan_config, billing_cycle=billing_cycle)
             self.subscription_service._upsert_subscription(
                 db=db,
                 workspace_id=str(workspace.id),
@@ -180,6 +191,7 @@ class BillingService:
                 "provider": gateway.provider,
                 "subscription_id": gateway_response["subscription_id"],
                 "plan": plan_config.key,
+                "billing_cycle": billing_cycle,
                 "plan_label": plan_config.label,
                 "amount": plan_config.amount,
                 "currency": plan_config.currency,
@@ -202,6 +214,7 @@ class BillingService:
         workspace_id: str,
         user_id: str,
         plan_key: str,
+        billing_cycle: str = "monthly",
         provider: str = "razorpay",
         subscription_id: str | None = None,
         payment_id: str | None = None,
@@ -209,6 +222,8 @@ class BillingService:
     ) -> dict[str, Any]:
         try:
             workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+            plan_config = self.plan_service._get_plan_config(db, plan_key, billing_cycle=billing_cycle)
+            local_plan = self.plan_service._get_or_create_plan(db, plan_config, billing_cycle=billing_cycle)
             if str(workspace.id) != str(workspace_id):
                 raise ValueError("Authenticated workspace mismatch")
             gateway = self._resolve_gateway(provider)
@@ -262,7 +277,6 @@ class BillingService:
                 raise ValueError("Requested plan does not match provider subscription")
 
             plan_config = self.plan_service._get_plan_config(db, provider_plan_key)
-            # Calculate expected GST amount
             from app.services.billing.gst_service import GSTService
             from decimal import Decimal
             gst_calcs = GSTService.calculate_gst(
@@ -272,9 +286,9 @@ class BillingService:
                 product_type="subscription",
                 db=db
             )
-            expected_amount = int(gst_calcs["total_amount"] * Decimal("100.00"))
+            expected_amount = to_paise(gst_calcs["total_amount"])
             
-            if fetched_payment.amount != expected_amount:
+            if not verify_paise_amount(fetched_payment.amount, expected_amount, max_tolerance_paise=2):
                 raise ValueError(
                     f"Payment amount mismatch: got {fetched_payment.amount} paise, "
                     f"expected {expected_amount} paise (includes GST)"
@@ -374,7 +388,7 @@ class BillingService:
             db=db
         )
         # Razorpay expects amount in paise (integer)
-        amount_paise = int(gst_calcs["total_amount"] * Decimal("100.00"))
+        amount_paise = to_paise(gst_calcs["total_amount"])
 
         order_payload = {
             "amount": amount_paise,
@@ -451,8 +465,8 @@ class BillingService:
             product_type="ai_credits",
             db=db
         )
-        expected_amount = int(gst_calcs["total_amount"] * Decimal("100.00"))
-        if fetched_payment.amount != expected_amount:
+        expected_amount = to_paise(gst_calcs["total_amount"])
+        if not verify_paise_amount(fetched_payment.amount, expected_amount, max_tolerance_paise=2):
             raise ValueError(f"Payment amount mismatch: got {fetched_payment.amount} paise, expected {expected_amount} paise")
 
         # Check if already processed (idempotency check)
@@ -563,10 +577,17 @@ class BillingService:
     def get_status(
         self,
         db: Session,
-        workspace_id: str,
-        user_id: str,
+        workspace_id: str | uuid.UUID,
+        user_id: str | uuid.UUID | None = None,
     ) -> dict[str, Any]:
-        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        if user_id:
+            workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        else:
+            ws_uuid = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+            workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+            if not workspace:
+                raise ValueError("Workspace not found")
+
         subscription = (
             db.query(Subscription)
             .options(joinedload(Subscription.workspace))
@@ -576,6 +597,30 @@ class BillingService:
             )
             .first()
         )
+
+        sub_payment = None
+        if subscription:
+            sub_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.workspace_id == workspace.id,
+                    Payment.subscription_id == subscription.id,
+                    Payment.status == PaymentStatus.paid,
+                )
+                .order_by(Payment.created_at.desc())
+                .first()
+            )
+        if not sub_payment:
+            sub_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.workspace_id == workspace.id,
+                    Payment.payment_type == "subscription",
+                    Payment.status == PaymentStatus.paid,
+                )
+                .order_by(Payment.created_at.desc())
+                .first()
+            )
                 # Query Payments
         db_payments = (
             db.query(Payment)
@@ -642,7 +687,7 @@ class BillingService:
                 "status": r.status.upper(),
                 "payment_id": r.gateway_payment_id or r.gateway_order_id or "N/A",
                 "payment_type": "wallet_recharge",
-                "payment_method": getattr(r, 'payment_method', None) or "upi",
+                "payment_method": getattr(r, 'payment_method', None) or "online",
                 "provider": "razorpay",
                 "description": f"WhatsApp Wallet Recharge (₹{r.amount})",
                 "invoice_available": True if (linked_inv and linked_inv.pdf_url) else False,
@@ -673,52 +718,103 @@ class BillingService:
         total_tokens = plan_config.tokens 
         token_status = self.check_token_limit(db, str(workspace.id))
         used_tokens = token_status.tokens_used
+        # 3. Credits Calculation from canonical credit summary
+        credit_summary = self.get_credit_summary(db, workspace.id)
+        credits_total_limit = credit_summary["quota_limit"]
+        credits_used = credit_summary["cycle_used"]
+        credits_remaining = credit_summary["credits_balance"]
+        usage_percent = credit_summary["usage_percent"]
 
-        # 3. Credits Calculation from ledger balance
-        balance_info = self.token_service.get_token_balance(db, str(workspace.id))
-        credits_total_limit = balance_info.tokens_added
-        credits_used = balance_info.tokens_used
-        credits_remaining = balance_info.balance
+        # Check period end expiration
+        is_expired = False
+        if subscription and subscription.current_period_end:
+            now_utc = datetime.now(timezone.utc)
+            end_utc = subscription.current_period_end
+            if end_utc.tzinfo is None:
+                end_utc = end_utc.replace(tzinfo=timezone.utc)
+            if end_utc < now_utc:
+                is_expired = True
 
-        
-        usage_percent = round((used_tokens / total_tokens) * 100, 1) if total_tokens > 0 else 0
+        if is_expired:
+            current_plan_key = "free"
+            plan_config = self.plan_service._get_plan_config(db, "free")
 
-        # billing_status logic remains the same
+        # billing_status logic
         if latest_payment and latest_payment["status"] in ("FAILED", "PAYMENT_FAILED"):
             billing_status = "FAILED"
         elif subscription and subscription.status == SubscriptionStatus.cancelled:
             billing_status = "CANCELLED"
+        elif is_expired:
+            billing_status = "EXPIRED"
         elif subscription and subscription.status == SubscriptionStatus.active:
             billing_status = "ACTIVE"
         else:
             billing_status = "FREE"
+
+        from app.services.billing.entitlement_service import EntitlementService
+        flow_quota = EntitlementService.get_flow_quota(db, str(workspace.id))
+
+        # Handle Free / Expired plan: no recurring paid billing date
+        is_free_plan = (current_plan_key == "free") or is_expired
+        period_end = None if is_free_plan else (subscription.current_period_end if subscription else None)
+
+        from app.services.wcc_service import WCCService
+        wcc_ent = WCCService.check_wcc_entitlement(db, str(workspace.id))
 
         return {
             "workspace_id": str(workspace.id),
             "current_plan": current_plan_key,
             "plan_label": plan_config.label,
             "billing_status": billing_status,
+            "billing_cycle": (subscription.billing_cycle or "monthly").lower() if subscription else None,
             
+            # WCC Entitlement canonical fields
+            "wcc_locked": wcc_ent["wcc_locked"],
+            "wcc_spending_allowed": wcc_ent["spending_allowed"],
+            "wcc_status_message": wcc_ent["status_message"],
+
             # Token values
             "token_limit": total_tokens,
             "tokens_used": used_tokens,
             "tokens_remaining": max(total_tokens - used_tokens, 0),
             
-            # Credit values 
+            # Credit values (canonical single source of truth)
             "credits_remaining": credits_remaining,
+            "credits_balance": credits_remaining,
             "credits_used": credits_used,
+            "cycle_used": credits_used,
             "total_limit": credits_total_limit, 
+            "quota_limit": credits_total_limit,
             "percent_used": usage_percent,
+            "usage_percent": usage_percent,
+            "included_credits": credit_summary["included_credits"],
+            "included_remaining": credit_summary["included_remaining"],
+            "purchased_credits": credit_summary["purchased_credits"],
+            "purchased_remaining": credit_summary["purchased_remaining"],
+            "purchased_credits_locked": credit_summary["purchased_credits_locked"],
+            "spending_allowed": credit_summary["spending_allowed"],
+            "status_message": credit_summary["status_message"],
+            "allow_purchased_ai_usage": credit_summary["allow_purchased_ai_usage"],
+            "allow_purchased_wcc_usage": credit_summary["allow_purchased_wcc_usage"],
+            "allow_purchased_flow_usage": credit_summary["allow_purchased_flow_usage"],
+            "allow_ai_topup": credit_summary["allow_ai_topup"],
+            
+            # Flow Quota values (single source of truth)
+            "flow_quota": flow_quota,
+            "flows_used": flow_quota["used_quota"],
+            "flows_total": flow_quota["total_quota"],
             
             "subscription": {
                 "id": str(subscription.id) if subscription else None,
                 "status": subscription.status.value.upper() if subscription else None,
+                "billing_cycle": (subscription.billing_cycle or "monthly").lower() if subscription else None,
                 "current_period_start": self._serialize_datetime(subscription.current_period_start if subscription else None),
-                "current_period_end": self._serialize_datetime(subscription.current_period_end if subscription else None),
-                "provider": subscription.provider if subscription else None,
+                "current_period_end": self._serialize_datetime(period_end),
+                "provider": subscription.provider if subscription else (sub_payment.provider if sub_payment else None),
+                "payment_method": sub_payment.payment_method if sub_payment else None,
             },
             "payments": recent_items,
-            "plans": [self.plan_service._serialize_plan(db, key) for key in ("free", "pro", "enterprise")],
+            "plans": [self.plan_service._serialize_plan(db, p.name) for p in db.query(Plan).filter(Plan.is_active == True).order_by(Plan.display_order.asc(), Plan.created_at.asc()).all()] or [self.plan_service._serialize_plan(db, key) for key in ("free", "solo", "pro", "enterprise")],
         }
     def check_token_limit(self, db: Session, workspace_id: str) -> TokenLimitStatus:
         subscription = self.subscription_service._get_active_subscription(db, workspace_id)
@@ -788,23 +884,131 @@ class BillingService:
             estimated_overage_cost=overage_tokens * price_per_extra_token,
         )
 
-    def get_credit_summary(self, db: Session, workspace_id: str, user_id: str) -> dict[str, Any]:
-        """Return real-time credit balance, burn rate, and estimated days remaining."""
-        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
-        balance = self.token_service.get_token_balance(db, str(workspace.id))
-        burn_rate = self.token_service.get_burn_rate(db, str(workspace.id))
-        daily_usage = self.token_service.get_daily_usage(db, str(workspace.id), days=30)
+    def get_credit_summary(self, db: Session, workspace_id: str | uuid.UUID, user_id: str | uuid.UUID | None = None) -> dict[str, Any]:
+        """Return real-time credit balance, burn rate, and estimated days remaining based on CURRENT PLAN."""
+        if user_id:
+            workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        else:
+            ws_uuid = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+            workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+            if not workspace:
+                raise ValueError("Workspace not found")
+        
+        ws_id = workspace.id
 
-        credits_balance = float(balance.balance)
-        credits_added = float(balance.tokens_added)
-        credits_used = float(balance.tokens_used)
-        credits_reserved = float(balance.tokens_reserved)
 
+
+        # 1. Resolve active subscription & period validity
+        subscription = (
+            db.query(Subscription)
+            .filter(
+                Subscription.workspace_id == ws_id,
+                Subscription.status == SubscriptionStatus.active,
+            )
+            .order_by(Subscription.created_at.desc())
+            .first()
+        )
+
+        is_active_paid = False
+        plan_name = "free"
+
+        if subscription and subscription.plan_id:
+            plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
+            if plan:
+                raw_name = (plan.name or "free").lower().strip()
+                if raw_name != "free":
+                    if subscription.current_period_end:
+                        now_utc = datetime.now(timezone.utc)
+                        end_utc = subscription.current_period_end
+                        if end_utc.tzinfo is None:
+                            end_utc = end_utc.replace(tzinfo=timezone.utc)
+                        if end_utc > now_utc:
+                            is_active_paid = True
+                            plan_name = raw_name
+                    else:
+                        is_active_paid = True
+                        plan_name = raw_name
+                else:
+                    plan_name = "free"
+
+        # 2. Resolve Effective Entitlements (Workspace Overrides -> PlanEntitlement fallback)
+        ws_ent = EntitlementService.get_workspace_entitlement(db, ws_id)
+        allow_purchased_ai_usage = getattr(ws_ent, "allow_purchased_ai_usage", False) if ws_ent else False
+        allow_purchased_wcc_usage = getattr(ws_ent, "allow_purchased_wcc_usage", False) if ws_ent else False
+        allow_purchased_flow_usage = getattr(ws_ent, "allow_purchased_flow_usage", False) if ws_ent else False
+        allow_ai_topup = getattr(ws_ent, "allow_ai_topup", True) if ws_ent else True
+
+        # 3. Determine current cycle boundaries
+        cycle_start = None
+        cycle_reset_date = None
+        if is_active_paid and subscription:
+            cycle_start = subscription.current_period_start
+            if subscription.next_entitlement_reset_at:
+                cycle_reset_date = subscription.next_entitlement_reset_at.isoformat()
+            elif subscription.current_period_end:
+                cycle_reset_date = subscription.current_period_end.isoformat()
+
+        # 4. Usage in current cycle
+        cycle_used = self.token_service.get_cycle_usage(db, ws_id, cycle_start)
+        cycle_inc_used = self.token_service.get_cycle_included_usage(db, ws_id, cycle_start) if is_active_paid else 0.0
+        total_reserved = self.token_service.get_active_reservations(db, ws_id)
+
+        # 5. Purchased Grants & Usable Remaining Wallet (Plan-Independent)
+        purchased_grants = self.token_service.get_purchased_grants(db, ws_id)
+        purchased_used = self.token_service.get_purchased_usage(db, ws_id)
+        purchased_raw_remaining = max(0.0, purchased_grants - purchased_used)
+
+        # 6. Current Plan Included Entitlement & Remaining
+        if is_active_paid and ws_ent:
+            included_credits = float(getattr(ws_ent, "included_ai_credits", 0) or 0)
+        else:
+            included_credits = 0.0
+
+        included_pool = max(0.0, included_credits - cycle_inc_used)
+
+        # Active reservations allocate against INCLUDED first (if active paid), then PURCHASED
+        reserved_on_inc = min(total_reserved, included_pool) if is_active_paid else 0.0
+        reserved_on_pur = min(total_reserved - reserved_on_inc, purchased_raw_remaining)
+
+        included_remaining = max(0.0, included_pool - reserved_on_inc)
+        purchased_remaining = max(0.0, purchased_raw_remaining - reserved_on_pur)
+
+        # 7. Usable Balance, Quota Limit & Locking
+        if is_active_paid:
+            if allow_purchased_ai_usage or purchased_grants == 0:
+                purchased_credits_locked = False
+                credits_balance = included_remaining + purchased_remaining
+                quota_limit = included_credits + purchased_grants
+                spending_allowed = (credits_balance > 0)
+                status_message = None
+            else:
+                purchased_credits_locked = (purchased_grants > 0)
+                credits_balance = included_remaining
+                quota_limit = included_credits
+                spending_allowed = (credits_balance > 0)
+                status_message = "🔒 Purchased AI credits locked — Upgrade to Pro to use purchased credits" if (purchased_grants > 0) else None
+        else:
+            # Free or Expired workspace
+            included_credits = 0.0
+            included_remaining = 0.0
+            if allow_purchased_ai_usage:
+                purchased_credits_locked = False
+                credits_balance = purchased_remaining
+                quota_limit = purchased_grants
+                spending_allowed = (purchased_remaining > 0)
+                status_message = None
+            else:
+                purchased_credits_locked = (purchased_grants > 0)
+                credits_balance = 0.0
+                quota_limit = 0.0
+                spending_allowed = False
+                status_message = "🔒 AI credits locked — Upgrade to Pro to use purchased credits" if (purchased_grants > 0) else None
+
+        burn_rate = self.token_service.get_burn_rate(db, ws_id)
         days_remaining = round(float(credits_balance / burn_rate), 2) if burn_rate > 0 else -1.0
 
-        # Determine health status
-        if credits_added > 0:
-            usage_pct = float((credits_used / credits_added) * 100)
+        if quota_limit > 0:
+            usage_pct = float((cycle_used / quota_limit) * 100.0)
         else:
             usage_pct = 0.0
 
@@ -815,16 +1019,38 @@ class BillingService:
         else:
             health = "healthy"
 
+        daily_usage = self.token_service.get_daily_usage(db, ws_id, days=30)
+        credit_distribution = self.token_service.get_credit_distribution(db, ws_id, cycle_start)
+
         return {
+            "plan": plan_name,
+            "included_credits": included_credits,
+            "included_remaining": included_remaining,
+            "purchased_credits": purchased_grants,
+            "purchased_remaining": purchased_remaining,
             "credits_balance": credits_balance,
-            "credits_added": credits_added,
-            "credits_used": credits_used,
-            "credits_reserved": credits_reserved,
+            "cycle_used": cycle_used,
+            "quota_limit": quota_limit,
+            "spending_allowed": spending_allowed,
+            "purchased_credits_locked": purchased_credits_locked,
+            "allow_purchased_ai_usage": allow_purchased_ai_usage,
+            "allow_purchased_wcc_usage": allow_purchased_wcc_usage,
+            "allow_purchased_flow_usage": allow_purchased_flow_usage,
+            "allow_ai_topup": allow_ai_topup,
+            "status_message": status_message,
+            "cycle_reset_date": cycle_reset_date,
             "burn_rate": burn_rate,
             "days_remaining": days_remaining,
             "usage_percent": usage_pct,
             "health": health,
             "daily_usage": daily_usage,
+            "credit_distribution": credit_distribution,
+
+            # Backward compatibility aliases
+            "monthly_grant": included_credits,
+            "credits_added": quota_limit,
+            "credits_used": cycle_used,
+            "credits_reserved": total_reserved,
         }
 
     def get_credit_history(self, db: Session, workspace_id: str, user_id: str, page: int = 1, limit: int = 20) -> dict:
@@ -859,24 +1085,17 @@ class BillingService:
         ]
 
 
-    def _get_workspace_for_user(self, db: Session, workspace_id: str, user_id: str) -> Workspace:
+    def _get_workspace_for_user(self, db: Session, workspace_id: str | uuid.UUID, user_id: str | uuid.UUID) -> Workspace:
         import uuid
-        if isinstance(workspace_id, str):
-            try:
-                workspace_id = uuid.UUID(workspace_id)
-            except ValueError:
-                pass
-        if isinstance(user_id, str):
-            try:
-                user_id = uuid.UUID(user_id)
-            except ValueError:
-                pass
+        ws_uuid = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
+        u_uuid = user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id))
+
         membership = (
             db.query(Workspace)
             .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
             .filter(
-                Workspace.id == workspace_id,
-                WorkspaceMember.user_id == user_id,
+                Workspace.id == ws_uuid,
+                WorkspaceMember.user_id == u_uuid,
             )
             .first()
         )
@@ -955,6 +1174,13 @@ class BillingService:
 
     def _plan_key_from_subscription(self, db: Session, subscription: Subscription | None) -> str:
         if subscription and subscription.plan_id:
+            if subscription.current_period_end:
+                now_utc = datetime.now(timezone.utc)
+                end_utc = subscription.current_period_end
+                if end_utc.tzinfo is None:
+                    end_utc = end_utc.replace(tzinfo=timezone.utc)
+                if end_utc < now_utc:
+                    return "free"  # Expired subscription -> Free plan
             plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
             if plan and plan.name:
                 return plan.name.lower()

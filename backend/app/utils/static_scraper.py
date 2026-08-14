@@ -8,16 +8,22 @@ import re
 blocked_keywords = [
     "login", "signin", "signup",
     "register", "search",
-    "account", "cart", "checkout"
-    ]
+    "account", "cart", "checkout",
+    "disambiguation", "privacy", "terms",
+    "copyright", "cookie", "action=",
+    "wikipedia:", "special:", "help:",
+    "talk:", "user:", "category:",
+    "portal:", "template:", "file:"
+]
 
 class Staticscraper():
-    def __init__(self, url):
+    def __init__(self, url, max_depth=None, max_pages=None):
+        from app.core.config import settings
         self.url = url
-        self.max_depth = 3
+        self.max_depth = max_depth if max_depth is not None else getattr(settings, "CRAWLER_MAX_DEPTH", 2)
+        self.max_pages = max_pages if max_pages is not None else getattr(settings, "CRAWLER_MAX_PAGES", 30)
         self.base_domain = urlparse(url).netloc.lower().replace("www.", "")
-
-    
+        self.stop_reason = "COMPLETED"
 
     def clean_text(self, text):
         text = re.sub(r"http\S+", "", text)        # remove links
@@ -35,8 +41,13 @@ class Staticscraper():
         visited = set()
         to_visit = [(self.url, 0)]
         page_content = []
+        hit_depth_limit = False
 
         while to_visit:
+
+            if len(page_content) >= self.max_pages:
+                self.stop_reason = "MAX_PAGES_REACHED"
+                break
 
             current_url, depth = to_visit.pop(0)
 
@@ -134,6 +145,7 @@ class Staticscraper():
                         continue
 
                     if depth + 1 > self.max_depth:
+                        hit_depth_limit = True
                         continue
 
                     to_visit.append((full_url, depth + 1))
@@ -143,8 +155,7 @@ class Staticscraper():
             except requests.RequestException:
                 continue
 
-        # with open("static_output.json", "w", encoding="utf-8") as f:
-        #     json.dump(page_content, f, indent=4, ensure_ascii=False)
-        #     print(page_content)
+        if self.stop_reason == "COMPLETED" and hit_depth_limit:
+            self.stop_reason = "MAX_DEPTH_REACHED"
 
         return page_content

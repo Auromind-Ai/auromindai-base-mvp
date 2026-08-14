@@ -6,7 +6,22 @@ from datetime import datetime
 
 class WCCBalanceResponse(BaseModel):
     balance: Decimal
-    currency: str
+    currency: str = "INR"
+    current_balance: Optional[Decimal] = None
+    reference_full_amount: Optional[Decimal] = None
+    fill_percentage: Optional[float] = None
+    last_recharge_amount: Optional[Decimal] = None
+    last_recharge_at: Optional[datetime] = None
+    overage_balance: Optional[Decimal] = Decimal("0.00")   # Outstanding debt
+    overage_enabled: Optional[bool] = False                  # Workspace overage policy
+    status: Optional[str] = "Healthy"                        # Canonical status: Empty / Low / Healthy / Full
+    wcc_locked: bool = False                                 # Entitlement lock state based on subscription
+    spending_allowed: bool = True                            # WCC spending permission
+    subscription_state: Optional[str] = "ACTIVE"             # ACTIVE / EXPIRED / FREE
+    status_message: Optional[str] = None                     # Explanatory lock message for UI
+
+    class Config:
+        from_attributes = True
 
 
 class WCCRateItem(BaseModel):

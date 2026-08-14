@@ -1,18 +1,19 @@
 "use client"
 
-import { useEffect, use, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import api from "@/lib/api"
 
 export default function Page({ params }) {
-  const resolvedParams = use(params)
   const router = useRouter()
   const { refreshUser } = useAuth()
   const lastSessionIdRef = useRef(null)
 
   useEffect(() => {
     async function start() {
+      // Resolve params safely whether it's a Promise (Next.js 15) or dynamic route object (React 18 / fallback)
+      const resolvedParams = params && typeof params.then === 'function' ? await params : params
       const sessionId = resolvedParams?.session_id
       
       if (!sessionId) {
@@ -77,10 +78,8 @@ export default function Page({ params }) {
       }
     }
 
-    if (resolvedParams?.session_id) {
-      start()
-    }
-  }, [resolvedParams, refreshUser, router])
+    start()
+  }, [params, refreshUser, router])
 
   return (
     <div className="min-h-screen bg-[#020202] flex flex-col items-center justify-center text-white select-none relative overflow-hidden">

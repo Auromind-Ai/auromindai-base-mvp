@@ -29,6 +29,11 @@ class StorageProvider(ABC):
     def get_public_url(self, file_path: str) -> str:
         pass
 
+    @abstractmethod
+    def get_file_bytes(self, file_path: str) -> bytes:
+        """Fetch file bytes from storage using the provider SDK (SSRF-safe)."""
+        pass
+
 
 class SupabaseStorageProvider(StorageProvider):
     def __init__(self):
@@ -69,6 +74,10 @@ class SupabaseStorageProvider(StorageProvider):
 
     def get_public_url(self, file_path: str) -> str:
         return f"{self.supabase_url}/storage/v1/object/public/{self.bucket_name}/{quote(file_path, safe='/')}"
+
+    def get_file_bytes(self, file_path: str) -> bytes:
+        """Download file from Supabase bucket using the SDK (SSRF-safe)."""
+        return self.client.storage.from_(self.bucket_name).download(file_path)
 
 
 class S3StorageProvider(StorageProvider):
@@ -120,6 +129,11 @@ class S3StorageProvider(StorageProvider):
             return f"https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{quote(file_path, safe='/')}"
         return f"https://{self.bucket_name}.s3.amazonaws.com/{quote(file_path, safe='/')}"
 
+    def get_file_bytes(self, file_path: str) -> bytes:
+        """Download file from S3 using boto3 (SSRF-safe)."""
+        obj = self.client.get_object(Bucket=self.bucket_name, Key=file_path)
+        return obj["Body"].read()
+
 
 from pathlib import Path
 import os
@@ -159,6 +173,13 @@ class LocalStorageProvider(StorageProvider):
         clean_path = quote(file_path, safe='/')
         return f"/temp_uploads/{clean_path}"
 
+    def get_file_bytes(self, file_path: str) -> bytes:
+        """Read file directly from local disk (SSRF-safe)."""
+        dest_path = self.upload_dir / file_path
+        if not dest_path.exists():
+            raise FileNotFoundError(f"Local invoice file not found: {dest_path}")
+        return dest_path.read_bytes()
+
 
 class StorageService:
     def __init__(self, provider: Optional[StorageProvider] = None):
@@ -189,6 +210,10 @@ class StorageService:
 
     def get_public_url(self, file_path: str) -> str:
         return self.provider.get_public_url(file_path)
+
+    def get_file_bytes(self, file_path: str) -> bytes:
+        """Fetch file bytes via provider SDK (SSRF-safe). Never fetches arbitrary URLs."""
+        return self.provider.get_file_bytes(file_path)
 
 
 # Singleton

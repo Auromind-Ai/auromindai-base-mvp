@@ -24,6 +24,9 @@ async def admin_action():
 client = TestClient(app)
 
 def test_csrf_middleware_blocks_mutating_request_without_token():
+    token_data = {"csrf_token": "valid_secret_csrf_123"}
+    jwt_token = jwt.encode(token_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    client.cookies.set("auth_token", jwt_token)
     res = client.post("/protected/action")
     assert res.status_code == 403
     assert res.text == "CSRF validation failed"

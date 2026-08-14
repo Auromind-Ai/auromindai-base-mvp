@@ -19,15 +19,113 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
 
-export default function AIChat({ isOpen, onClose, onToggleHistory }) {
+export default function AIChat({ isOpen, onClose, onToggleHistory, activeSessionId: propSessionId = null }) {
     const [inputValue, setInputValue] = useState('');
     const [messages, setMessages] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [chatMode, setChatMode] = useState('New AI chat');
     const [isStreaming, setIsStreaming] = useState(false);
+    const [sessionId, setSessionId] = useState(propSessionId);
+    const sessionIdRef = useRef(sessionId);
+    useEffect(() => {
+        sessionIdRef.current = sessionId;
+    }, [sessionId]);
     const abortControllerRef = useRef(null);
     const lastStopTimeRef = useRef(0);
     const readerRef = useRef(null);
+    const pollingRef = useRef(null);
+
+    const stopPolling = useCallback(() => {
+        if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        }
+    }, []);
+
+    const startPolling = useCallback((sid) => {
+        stopPolling();
+        pollingRef.current = setInterval(async () => {
+            try {
+                const history = await api.getSessionMessages(sid);
+                const mapped = history.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    sources: m.sources || [],
+                    isStreaming: false,
+                    status: m.status || 'COMPLETED'
+                }));
+                setMessages(mapped);
+                const stillActive = mapped.some(m => m.status === 'GENERATING' || m.status === 'PENDING');
+                if (!stillActive) {
+                    stopPolling();
+                }
+            } catch (_) {}
+        }, 1500);
+    }, [stopPolling]);
+
+    const loadSessionMessages = useCallback(async (sid) => {
+        if (!sid) return;
+        try {
+            const history = await api.getSessionMessages(sid);
+            const mapped = history.map(m => ({
+                role: m.role,
+                content: m.content,
+                sources: m.sources || [],
+                isStreaming: false,
+                status: m.status || 'COMPLETED'
+            }));
+            setMessages(mapped);
+            const hasActive = mapped.some(m => m.status === 'GENERATING' || m.status === 'PENDING');
+            if (hasActive) {
+                startPolling(sid);
+            } else {
+                stopPolling();
+            }
+        } catch (err) {
+            console.error("Failed to load floating chat history:", err);
+        }
+    }, [startPolling, stopPolling]);
+
+    // Sync propSessionId if passed
+    useEffect(() => {
+        if (propSessionId) {
+            setSessionId(propSessionId);
+            localStorage.setItem('floating_chat_session_id', propSessionId);
+            loadSessionMessages(propSessionId);
+        }
+    }, [propSessionId, loadSessionMessages]);
+
+    // Initialize or load session whenever modal opens
+    useEffect(() => {
+        if (!isOpen) {
+            stopPolling();
+            return;
+        }
+
+        const initSession = async () => {
+            let storedSessionId = localStorage.getItem('floating_chat_session_id');
+            if (!storedSessionId) {
+                try {
+                    const sessionRes = await api.createChatSession('Quick AI Chat');
+                    if (sessionRes && sessionRes.id) {
+                        storedSessionId = sessionRes.id;
+                        localStorage.setItem('floating_chat_session_id', storedSessionId);
+                    }
+                } catch (e) {
+                    console.error("Failed to create floating chat session:", e);
+                }
+            }
+            if (storedSessionId) {
+                setSessionId(storedSessionId);
+                loadSessionMessages(storedSessionId);
+            }
+        };
+        initSession();
+
+        return () => {
+            stopPolling();
+        };
+    }, [isOpen, loadSessionMessages, stopPolling]);
 
     // Unmount cleanup: abort fetch + cancel reader — ensures no dangling HTTP stream
     useEffect(() => {
@@ -40,13 +138,61 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 readerRef.current.cancel().catch(() => {});
                 readerRef.current = null;
             }
+            setIsStreaming(false);
+            setIsLoading(false);
+            stopPolling();
         };
-    }, []);
+    }, [stopPolling]);
+
+    // Handle tab visibility changes:
+    // When tab is hidden: disconnect frontend stream transport without stopping backend generation
+    // When tab is visible: fetch DB history (or poll if generation is still in progress)
+    useEffect(() => {
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'hidden') {
+                // Silently disconnect frontend transport (abort fetch + cancel stream reader)
+                if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                    abortControllerRef.current = null;
+                }
+                if (readerRef.current) {
+                    readerRef.current.cancel().catch(() => {});
+                    readerRef.current = null;
+                }
+                setIsStreaming(false);
+                setIsLoading(false);
+            } else if (document.visibilityState === 'visible') {
+                const sid = sessionIdRef.current;
+                if (sid && isOpen) {
+                    loadSessionMessages(sid);
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isOpen, loadSessionMessages]);
+
+    const handleNewChat = async () => {
+        stopPolling();
+        try {
+            const sessionRes = await api.createChatSession('Quick AI Chat');
+            if (sessionRes && sessionRes.id) {
+                localStorage.setItem('floating_chat_session_id', sessionRes.id);
+                setSessionId(sessionRes.id);
+                setMessages([]);
+            }
+        } catch (e) {
+            console.error("Failed to create new session:", e);
+        }
+    };
 
     const handleStopChat = useCallback(async () => {
         // Debounce: ignore rapid re-clicks within 1 second
         const now = Date.now();
-        if (now - lastStopTimeRef.current < 1000) return;
+        if (now - (lastStopTimeRef.current || 0) < 1000) return;
         lastStopTimeRef.current = now;
 
         // Cancel the ReadableStream reader first (synchronous, immediate)
@@ -63,9 +209,9 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
         setIsLoading(false);
         // Publish CANCEL signal to backend
         try {
-            await api.stopChat(null);
+            await api.stopChat(sessionId);
         } catch (_) {}
-    }, []);
+    }, [sessionId]);
 
     const SUGGESTED_ACTIONS = [
         { icon: Search, label: 'Search for anything', color: 'text-slate-400' },
@@ -87,6 +233,20 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
             return;
         }
 
+        let activeSessionId = sessionId;
+        if (!activeSessionId) {
+            try {
+                const sessionRes = await api.createChatSession('Quick AI Chat');
+                if (sessionRes && sessionRes.id) {
+                    activeSessionId = sessionRes.id;
+                    setSessionId(activeSessionId);
+                    localStorage.setItem('floating_chat_session_id', activeSessionId);
+                }
+            } catch (e) {
+                console.error("Failed to create session before sending:", e);
+            }
+        }
+
         const userMessage = { role: 'user', content: inputValue };
         setMessages(prev => [...prev, userMessage]);
         setInputValue('');
@@ -99,7 +259,8 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
             const res = await api.streamChat({
                 message: userMessage.content,
                 model: 'auto',
-                use_rag: true
+                use_rag: true,
+                session_id: activeSessionId
             }, abortControllerRef.current.signal);
 
             if (!res.ok) {
@@ -221,7 +382,11 @@ export default function AIChat({ isOpen, onClose, onToggleHistory }) {
                 >
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-[#2f2f2f] shrink-0">
-                        <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[#2a2a2a] transition-colors">
+                        <button
+                            onClick={handleNewChat}
+                            title="Start new AI chat"
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[#2a2a2a] transition-colors"
+                        >
                             <span className="text-sm font-semibold text-slate-200">{chatMode}</span>
                             <ChevronDown size={16} className="text-slate-500" />
                         </button>

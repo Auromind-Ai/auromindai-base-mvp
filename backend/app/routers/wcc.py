@@ -72,9 +72,9 @@ def get_wcc_balance(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id
         )
-        wallet = WCCService.get_balance(db, resolved_ws_id)
+        fuel_data = WCCService.get_fuel_gauge_data(db, resolved_ws_id)
         db.commit()  # Request handler commits the session changes (auto-created wallet)
-        return WCCBalanceResponse(balance=wallet.balance, currency=wallet.currency)
+        return WCCBalanceResponse(**fuel_data)
     except Exception as e:
         db.rollback()
         logger.error(f"Error fetching WCC balance: {str(e)}")
@@ -345,7 +345,7 @@ def get_user_wcc_recharges(
                 "gateway_order_id": r.gateway_order_id,
                 "gateway_payment_id": r.gateway_payment_id,
                 "payment_type": "wallet_recharge",
-                "payment_method": getattr(r, 'payment_method', None) or "upi",
+                "payment_method": getattr(r, 'payment_method', None) or "online",
                 "provider": "razorpay",
                 "description": f"WhatsApp Wallet Recharge (₹{r.amount})",
                 "invoice_available": True if r.status == "success" else False,

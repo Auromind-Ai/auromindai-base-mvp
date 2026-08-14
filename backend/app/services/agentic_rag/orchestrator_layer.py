@@ -242,8 +242,7 @@ class OrchestratorLayer:
         if start_url:
             logger.info("URL detected:", start_url)
             scraper = Webscrapper(start_url)
-            single_page = bool(start_url)
-            scraped_data = scraper.scrapper_choose(single_page)
+            scraped_data = scraper.static_scrapper()
             logger.debug(f"Scraped data: {scraped_data}")
 
             if not scraped_data or isinstance(scraped_data, str):
@@ -802,8 +801,7 @@ class OrchestratorLayer:
             logger.info("URL detected:", start_url)
 
             scraper = Webscrapper(start_url)
-            single_page = bool(start_url)
-            scraped_data = scraper.scrapper_choose(single_page)
+            scraped_data = scraper.static_scrapper()
             logger.debug(f"Scraped data: {scraped_data}")
 
             if not scraped_data or isinstance(scraped_data, str):

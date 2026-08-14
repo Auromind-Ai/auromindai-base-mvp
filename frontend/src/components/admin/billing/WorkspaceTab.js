@@ -282,6 +282,42 @@ export default function WorkspaceTab({
     }
   }
 
+  // Resource Usage Overrides state
+  const [aiOverride, setAiOverride] = React.useState("null")
+  const [wccOverride, setWccOverride] = React.useState("null")
+  const [flowOverride, setFlowOverride] = React.useState("null")
+
+  React.useEffect(() => {
+    if (selectedWorkspaceDetails?.workspace) {
+      const ws = selectedWorkspaceDetails.workspace
+      setAiOverride(ws.override_allow_purchased_ai_usage === true ? "true" : (ws.override_allow_purchased_ai_usage === false ? "false" : "null"))
+      setWccOverride(ws.override_allow_purchased_wcc_usage === true ? "true" : (ws.override_allow_purchased_wcc_usage === false ? "false" : "null"))
+      setFlowOverride(ws.override_allow_purchased_flow_usage === true ? "true" : (ws.override_allow_purchased_flow_usage === false ? "false" : "null"))
+    }
+  }, [selectedWorkspaceDetails])
+
+  const handleSaveResourceOverrides = async (e) => {
+    e.preventDefault()
+    if (!selectedWorkspace) return
+    try {
+      setActionLoading(true)
+      setError(null)
+      setSuccess(null)
+      const payload = {
+        override_allow_purchased_ai_usage: aiOverride === "true" ? true : (aiOverride === "false" ? false : null),
+        override_allow_purchased_wcc_usage: wccOverride === "true" ? true : (wccOverride === "false" ? false : null),
+        override_allow_purchased_flow_usage: flowOverride === "true" ? true : (flowOverride === "false" ? false : null),
+      }
+      await api.updateWorkspaceResourceOverrides(selectedWorkspace.id, payload)
+      setSuccess("Workspace resource usage overrides updated successfully")
+      await loadWorkspaceDetails(selectedWorkspace.id)
+    } catch (err) {
+      setError(err.message || "Failed to update resource overrides")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
       {/* Lookup & Overview Panel */}
@@ -607,6 +643,65 @@ export default function WorkspaceTab({
                       className="py-2.5 px-6 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all"
                     >
                       Override Plan Config
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Resource Usage Overrides Form */}
+              <div className="p-6 bg-white/[0.02] border border-white/[0.05] rounded-3xl backdrop-blur-xl space-y-4 md:col-span-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                  <Shield size={14} /> Purchased Resource Usage Overrides (Workspace-Specific)
+                </h4>
+                <p className="text-xs text-gray-400">
+                  Selectively lock or unlock stored/purchased AI credits, WCC balance, and Flow quota for this workspace without altering plan-level entitlements.
+                </p>
+                <form onSubmit={handleSaveResourceOverrides} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1.5">Purchased AI Credits</label>
+                    <select
+                      value={aiOverride}
+                      onChange={(e) => setAiOverride(e.target.value)}
+                      className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none"
+                    >
+                      <option value="null">Inherit Plan (Default)</option>
+                      <option value="true">Allow (Unlocked)</option>
+                      <option value="false">Deny (Locked)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1.5">Purchased WCC Balance</label>
+                    <select
+                      value={wccOverride}
+                      onChange={(e) => setWccOverride(e.target.value)}
+                      className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none"
+                    >
+                      <option value="null">Inherit Plan (Default)</option>
+                      <option value="true">Allow (Unlocked)</option>
+                      <option value="false">Deny (Locked)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-400 uppercase font-bold mb-1.5">Purchased Flow Quota</label>
+                    <select
+                      value={flowOverride}
+                      onChange={(e) => setFlowOverride(e.target.value)}
+                      className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none"
+                    >
+                      <option value="null">Inherit Plan (Default)</option>
+                      <option value="true">Allow (Unlocked)</option>
+                      <option value="false">Deny (Locked)</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-3 flex justify-end">
+                    <button
+                      type="submit"
+                      className="py-2.5 px-6 bg-amber-600/30 border border-amber-500/40 hover:bg-amber-600/40 text-amber-200 rounded-xl text-xs font-bold transition-all"
+                    >
+                      Save Workspace Overrides
                     </button>
                   </div>
                 </form>

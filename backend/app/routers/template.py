@@ -289,10 +289,14 @@ def create_template(
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         raise HTTPException(404, "Workspace not found")
-    if not workspace.meta_waba_id or not workspace.meta_access_token:
+    from app.services.config_service import config_service
+
+    system_token = config_service.get("meta_system_user_token")
+
+    if not workspace.meta_waba_id or not system_token:
         raise HTTPException(
             400,
-            "Meta WhatsApp Business API credentials (WABA ID or Access Token) are not configured for this workspace. Please update them in Settings.",
+            "Meta WhatsApp Business API credentials are not configured."
         )
 
     new_template = Template(
@@ -528,6 +532,9 @@ def check_template_status(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    from app.services.config_service import config_service
+    
+    system_token = config_service.get("meta_system_user_token")
 
     if not workspace_id or workspace_id == "null":
         return {"status": "skipped", "message": "No workspace ID provided"}
@@ -535,7 +542,7 @@ def check_template_status(
     if not workspace:
         return {"status": "skipped", "message": "Workspace not found"}
 
-    if not workspace.meta_waba_id or not workspace.meta_access_token:
+    if not workspace.meta_waba_id or not system_token:
         return {"status": "skipped", "message": "Workspace missing Meta credentials"}
 
     templates = (
@@ -548,7 +555,7 @@ def check_template_status(
         .all()
     )
     url = f"https://graph.facebook.com/v19.0/{workspace.meta_waba_id}/message_templates"
-    headers = {"Authorization": f"Bearer {workspace.meta_access_token}"}
+    headers = {"Authorization": f"Bearer {system_token}"}
     res = requests.get(url, headers=headers, timeout=10)
     meta_templates = res.json().get("data", [])
 
@@ -602,11 +609,21 @@ def send_message(
         },
     }
 
-    headers = {
-        "Authorization": f"Bearer {workspace.meta_access_token}",
-        "Content-Type": "application/json",
-    }
+    from app.services.config_service import config_service
 
+    system_token = config_service.get("meta_system_user_token")
+
+    if not system_token:
+        raise HTTPException(
+            503,
+            "Meta System User Token is not configured."
+        )
+
+    headers = {
+    "Authorization": f"Bearer {system_token}",
+    "Content-Type": "application/json",
+    }
+    
     res = requests.post(url, json=payload, headers=headers, timeout=10)
     return res.json()
 
@@ -627,10 +644,14 @@ def submit_template(
     if not workspace:
         raise HTTPException(404, "Workspace not found")
 
-    if not workspace.meta_waba_id or not workspace.meta_access_token:
+    from app.services.config_service import config_service
+
+    system_token = config_service.get("meta_system_user_token")
+
+    if not workspace.meta_waba_id or not system_token:
         raise HTTPException(
             400,
-            "Meta WhatsApp Business API credentials (WABA ID or Access Token) are not configured for this workspace.",
+            "Meta WhatsApp Business API credentials are not configured."
         )
 
     # Auto-correct variables format

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getUserFeedback } from '@/lib/api/admin';
+import api from '@/lib/api';
 
 export default function FeedbackPage() {
     const [feedbacks, setFeedbacks] = useState([]);
@@ -10,19 +10,24 @@ export default function FeedbackPage() {
     useEffect(() => {
         const fetchFeedbacks = async () => {
             try {
-                const response = await getUserFeedback();
+                const response = await api.get('/admin/user-feedback');
 
-                console.log('FEEDBACK API RESPONSE:', response);
+                console.log('Feedback GET response:', response);
 
-                setFeedbacks(
-                    Array.isArray(response)
-                        ? response
-                        : []
-                );
+                // api.get() returns response data directly
+                const data = Array.isArray(response)
+                    ? response
+                    : Array.isArray(response?.data)
+                        ? response.data
+                        : [];
+
+                console.log('Feedback data:', data);
+
+                setFeedbacks(data);
             } catch (error) {
                 console.error(
                     'Failed to fetch feedback:',
-                    error?.data?.detail || error.message || error
+                    error?.response?.data || error
                 );
 
                 setFeedbacks([]);
@@ -36,64 +41,111 @@ export default function FeedbackPage() {
 
     if (loading) {
         return (
-            <div className="p-6 text-white">
+            <div className="h-screen flex items-center justify-center bg-[var(--notion-bg)] text-white">
                 Loading feedback...
             </div>
         );
     }
 
     return (
-        <div className="p-6 text-white">
-            <h1 className="text-2xl font-semibold mb-6">
-                User Feedback
-            </h1>
+        <div className="h-screen min-h-0 flex flex-col text-white overflow-hidden">
 
-            {feedbacks.length === 0 ? (
-                <p className="text-gray-400">
-                    No feedback found.
-                </p>
-            ) : (
-                <div className="space-y-4">
-                    {feedbacks.map((feedback) => (
-                        <div
-                            key={feedback.id}
-                            className="rounded-lg border border-white/10 bg-[#191919] p-5"
-                        >
-                            <div className="flex justify-between">
-                                <h2 className="font-medium">
-                                    {feedback.category}
-                                </h2>
+            {/* Fixed Header */}
+            <div className="shrink-0 px-6 pt-6 pb-5 border-b border-white/5">
+                <h1 className="text-2xl font-semibold">
+                    User Feedback
+                </h1>
+            </div>
 
-                                <span className="text-yellow-400">
-                                    {'★'.repeat(feedback.rating || 0)}
-                                </span>
+            {/* Only Feedback Content Scrolls */}
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 py-6">
+
+                {feedbacks.length === 0 ? (
+                    <p className="text-gray-400">
+                        No feedback found.
+                    </p>
+                ) : (
+                    <div className="space-y-4">
+
+                        {feedbacks.map((feedback) => (
+                            <div
+                                key={feedback.id}
+                                className="rounded-lg border border-white/10 bg-[#191919] p-5"
+                            >
+                                {/* Category + Rating */}
+                                <div className="flex justify-between items-center">
+                                    <h2 className="font-medium">
+                                        {feedback.category}
+                                    </h2>
+
+                                    <span className="text-yellow-400">
+                                        {'★'.repeat(feedback.rating || 0)}
+                                    </span>
+                                </div>
+
+                                {/* Message */}
+                                <p className="mt-3 text-gray-300">
+                                    {feedback.message}
+                                </p>
+
+                                {/* Feedback Details */}
+                                <div className="mt-4 text-xs text-gray-500 space-y-1">
+
+                                    <div>
+                                        User:{' '}
+                                        <span className="text-gray-400">
+                                            {feedback.user_name ||
+                                                feedback.user_id}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        Workspace-Id:{' '}
+                                        <span className="text-gray-400">
+                                            {feedback.workspace_id}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        {feedback.created_at
+                                            ? new Date(
+                                                feedback.created_at
+                                            ).toLocaleString()
+                                            : ''}
+                                    </div>
+
+                                </div>
                             </div>
+                        ))}
 
-                            <p className="mt-3 text-gray-300">
-                                {feedback.message}
-                            </p>
+                    </div>
+                )}
+            </div>
 
-                            <div className="mt-4 text-xs text-gray-500 space-y-1">
-                                <p>
-                                    User: {feedback.user_id}
-                                </p>
+            {/* Scrollbar Styling */}
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
 
-                                <p>
-                                    Workspace: {feedback.workspace_id}
-                                </p>
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
 
-                                <p>
-                                    {feedback.created_at
-                                        ? new Date(
-                                              feedback.created_at
-                                          ).toLocaleString()
-                                        : ''}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.12);
+                    border-radius: 10px;
+                }
+
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                }
+
+                .custom-scrollbar {
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+                }
+            `}</style>
         </div>
     );
 }

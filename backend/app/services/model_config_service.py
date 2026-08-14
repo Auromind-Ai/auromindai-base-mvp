@@ -360,6 +360,21 @@ class ModelConfigService:
                 'fallback_enabled': True,
                 'fallback_provider': 'groq',
                 'fallback_model': 'llama-3.3-70b-versatile'
+            },
+            {
+                'name': 'knowledge:auto',
+                'feature_key': 'knowledge',
+                'experience_level': 'auto',
+                'display_name': 'Knowledge Ingestion Gemini Flash',
+                'provider': 'gemini',
+                'model': 'gemini-1.5-flash',
+                'temperature': 0.2,
+                'max_tokens': 2048,
+                'description': 'Knowledge base document & website page ingestion model',
+                'api_key_env': 'GOOGLE_API_KEY',
+                'fallback_enabled': True,
+                'fallback_provider': 'groq',
+                'fallback_model': 'llama-3.3-70b-versatile'
             }
         ]
         

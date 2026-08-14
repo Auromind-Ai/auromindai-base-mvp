@@ -82,7 +82,7 @@ export function useTurnstile() {
       widgetIdRef.current = turnstile.render(containerRef.current, {
         sitekey: siteKey,
         size: 'invisible',
-        execution: 'render', // Wait for manual execution
+        execution: 'execute', // Wait for manual execution
         callback: (newToken) => {
           setToken(newToken);
           setLoading(false);
@@ -120,7 +120,7 @@ export function useTurnstile() {
       console.error('[Turnstile] Initialization failed:', err);
       setError('Failed to initialize verification');
     }
-  }, [loadScript, siteKey, siteKeyMissing]);
+  }, [loadScript, siteKey, siteKeyMissing, envSiteKey]);
 
   // Execute verification on-demand. Returns a promise resolving to the token string
   const execute = useCallback(() => {
@@ -145,6 +145,9 @@ export function useTurnstile() {
       rejectCallbackRef.current = reject;
 
       try {
+        if (window.turnstile && widgetIdRef.current) {
+          window.turnstile.reset(widgetIdRef.current);
+        }
         window.turnstile.execute(widgetIdRef.current);
       } catch (err) {
         console.error('[Turnstile] Execution failed:', err);

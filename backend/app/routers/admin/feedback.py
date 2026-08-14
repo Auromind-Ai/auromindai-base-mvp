@@ -1,15 +1,14 @@
 from typing import List, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException
-
 from sqlalchemy.orm import Session
+from sqlalchemy import cast, String
 
 from app.database import get_db
 from app.models.user_feedback import UserFeedback
+from app.models.user import User
 
 router = APIRouter()
-
-
 
 
 @router.get("/user-feedback")
@@ -18,7 +17,14 @@ async def get_feedback(
 ) -> List[Dict[str, Any]]:
     try:
         feedback_items = (
-            db.query(UserFeedback)
+            db.query(
+                UserFeedback,
+                User.full_name,
+            )
+            .outerjoin(
+                User,
+                UserFeedback.user_id == cast(User.id, String),
+            )
             .order_by(UserFeedback.created_at.desc())
             .all()
         )
@@ -28,6 +34,7 @@ async def get_feedback(
                 "id": str(item.id),
                 "workspace_id": str(item.workspace_id),
                 "user_id": item.user_id,
+                "user_name": user_name or item.user_id,
                 "category": item.category,
                 "rating": item.rating,
                 "message": item.message,
@@ -37,7 +44,7 @@ async def get_feedback(
                     else None
                 ),
             }
-            for item in feedback_items
+            for item, user_name in feedback_items
         ]
 
     except Exception as e:

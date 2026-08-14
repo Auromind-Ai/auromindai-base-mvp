@@ -132,27 +132,12 @@ async def save_flow(
         return flow
     
     # Create new flow
-    entitlement = EntitlementService.get_workspace_entitlement(db, workspace_id)
-    plan_limit = getattr(entitlement, "flow", None)
-    if plan_limit is None or plan_limit == 0:
-        plan_limit = getattr(entitlement, "automation_limit", None) or 5
-    
-    if plan_limit != -1:
-        current_flows = db.query(AutomationFlow).filter(
-            AutomationFlow.workspace_id == workspace_id
-        ).count()
-        
-        purchased_flows = db.query(func.sum(FlowPackPurchase.flows_count)).filter(
-            FlowPackPurchase.workspace_id == workspace_id,
-            FlowPackPurchase.status == "success"
-        ).scalar() or 0
-        
-        allowed_flows = plan_limit + purchased_flows
-        if current_flows >= allowed_flows:
-            raise HTTPException(
-                status_code=400,
-                detail="Flow quota exceeded. Upgrade your plan or purchase additional flow packs."
-            )
+    flow_q = EntitlementService.get_flow_quota(db, workspace_id)
+    if flow_q["total_quota"] != -1 and flow_q["used_quota"] >= flow_q["total_quota"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Flow quota exceeded. Upgrade your plan or purchase additional flow packs."
+        )
     
     new_flow = AutomationFlow(
         id=uuid.uuid4(),

@@ -30,6 +30,11 @@ class Workspace(Base):
     plan_type = Column(String(50), default="starter")
     overage_enabled = Column(Boolean, default=False, nullable=False)
 
+    
+    override_allow_purchased_ai_usage = Column(Boolean, nullable=True, default=None)
+    override_allow_purchased_wcc_usage = Column(Boolean, nullable=True, default=None)
+    override_allow_purchased_flow_usage = Column(Boolean, nullable=True, default=None)
+
     # BILLING & GST DETAILS
     billing_state = Column(String(100), nullable=True)
     billing_country = Column(String(100), nullable=True, default="IN")

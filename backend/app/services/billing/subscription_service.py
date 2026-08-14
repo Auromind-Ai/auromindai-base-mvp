@@ -58,6 +58,28 @@ class SubscriptionService:
             if existing_actives:
                 db.flush()
 
+        # Helper for calendar month addition
+        def add_calendar_month(dt: datetime) -> datetime:
+            import calendar
+            month = dt.month % 12 + 1
+            year = dt.year + (dt.month // 12)
+            max_day = calendar.monthrange(year, month)[1]
+            day = min(dt.day, max_day)
+            return dt.replace(year=year, month=month, day=day)
+
+        start_dt = self._from_unix(subscription_data.get("start_at")) or datetime.now(timezone.utc)
+        cur_start = self._from_unix(subscription_data.get("current_start")) or start_dt
+        cur_end = self._from_unix(subscription_data.get("current_end"))
+
+        if not cur_end:
+            if plan.billing_cycle == "yearly":
+                cur_end = cur_start.replace(year=cur_start.year + 1)
+            else:
+                cur_end = add_calendar_month(cur_start)
+
+        next_reset = add_calendar_month(cur_start)
+        cycle = plan.billing_cycle if hasattr(plan, "billing_cycle") and plan.billing_cycle in {"monthly", "yearly"} else "monthly"
+
         # CREATE OR UPDATE
         if subscription is None:
             subscription = Subscription(
@@ -65,11 +87,13 @@ class SubscriptionService:
                 workspace_id=workspace_id,
                 plan_id=plan.id,
                 status=status,
-                billing_cycle="monthly",
-                start_date=self._from_unix(subscription_data.get("start_at")),
-                end_date=self._from_unix(subscription_data.get("end_at")),
-                current_period_start=self._from_unix(subscription_data.get("current_start")),
-                current_period_end=self._from_unix(subscription_data.get("current_end")),
+                billing_cycle=cycle,
+                start_date=start_dt,
+                end_date=self._from_unix(subscription_data.get("end_at")) or cur_end,
+                current_period_start=cur_start,
+                current_period_end=cur_end,
+                last_entitlement_reset_at=cur_start,
+                next_entitlement_reset_at=next_reset,
                 provider=provider,
                 provider_subscription_id=provider_id,
             )
@@ -80,11 +104,20 @@ class SubscriptionService:
             subscription.plan_id = plan.id
             subscription.status = status
             subscription.provider = provider
-            subscription.billing_cycle = "monthly"
-            subscription.start_date = self._from_unix(subscription_data.get("start_at"))
-            subscription.end_date = self._from_unix(subscription_data.get("end_at"))
-            subscription.current_period_start = self._from_unix(subscription_data.get("current_start"))
-            subscription.current_period_end = self._from_unix(subscription_data.get("current_end"))
+            subscription.billing_cycle = cycle
+
+            if subscription_data.get("start_at"):
+                subscription.start_date = start_dt
+            if subscription_data.get("end_at"):
+                subscription.end_date = self._from_unix(subscription_data.get("end_at"))
+            if subscription_data.get("current_start"):
+                subscription.current_period_start = cur_start
+            if subscription_data.get("current_end"):
+                subscription.current_period_end = cur_end
+
+            if not subscription.next_entitlement_reset_at:
+                subscription.last_entitlement_reset_at = cur_start
+                subscription.next_entitlement_reset_at = next_reset
 
             if provider_id:
                 subscription.provider_subscription_id = provider_id

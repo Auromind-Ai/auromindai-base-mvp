@@ -104,14 +104,18 @@ def get_setting(db: Session | None, key: str, default: Any = None) -> Any:
     if current_time - _cache_timestamp < CACHE_TTL and _cache:
         return _cache.get(key, default)
 
-    if db is None:
-        from app.database import SessionLocal
-        with SessionLocal() as db_session:
-            settings = get_all_settings(db_session)
+    try:
+        if db is None:
+            from app.database import SessionLocal
+            with SessionLocal() as db_session:
+                settings = get_all_settings(db_session)
+                return settings.get(key, default)
+        else:
+            settings = get_all_settings(db)
             return settings.get(key, default)
-    else:
-        settings = get_all_settings(db)
-        return settings.get(key, default)
+    except Exception as e:
+        logger.warning(f"get_setting DB fetch failed for key '{key}', using default '{default}': {e}")
+        return default
 
 
 def clear_settings_cache():
@@ -493,8 +497,11 @@ def seed_settings_from_env(db: Session):
     default_pricing = {
         "free_plan_price": (0.0, "float"),
         "solo_plan_price": (999.0, "float"),
+        "solo_yearly_plan_price": (9990.0, "float"),
         "pro_plan_price": (5999.0, "float"),
+        "pro_yearly_plan_price": (59990.0, "float"),
         "enterprise_plan_price": (24999.0, "float"),
+        "enterprise_yearly_plan_price": (249990.0, "float"),
         "free_plan_name": ("Free", "string"),
         "solo_plan_name": ("Solo Smart", "string"),
         "pro_plan_name": ("Professional", "string"),
@@ -509,16 +516,25 @@ def seed_settings_from_env(db: Session):
         "enterprise_plan_features": (["500,000 AI Replies", "Dedicated Manager", "Custom API Access", "On-premise Options", "Global SLA"], "json"),
         "token_limit_per_plan": ({"free": 1000000, "solo": 15000000, "pro": 100000000, "enterprise": 500000000}, "json")
     }
-    for k, (v, t) in default_pricing.items():
+    # Seed default invoice configs if not present in DB
+    default_invoice = {
+        "invoice_support_email": ("billing@auromind.ai", "string"),
+        "invoice_support_url": ("https://auromind.ai", "string"),
+        "invoice_qr_action": ("view_invoice_online", "string"),
+        "invoice_qr_custom_url": ("https://auromind.ai/billing", "string"),
+        "invoice_qr_caption": ("Scan to view invoice online", "string"),
+        "supplier_name": ("Auromind AI Private Limited", "string"),
+        "supplier_gstin": ("33ABCDE1234F1Z5", "string"),
+        "supplier_address": ("123, FinTech Hub, Chennai, Tamil Nadu - 600001, India", "string"),
+        "supplier_state": ("Tamil Nadu", "string"),
+        "supplier_country": ("IN", "string"),
+        "invoice_prefix": ("AUR", "string"),
+    }
+    for k, (v, t) in default_invoice.items():
         if k not in existing_settings:
-            if t == "json":
-                from json import dumps
-                str_val = dumps(v)
-            else:
-                str_val = str(v)
             setting = PlatformSetting(
                 key=k,
-                value=str_val,
+                value=str(v),
                 value_type=t
             )
             db.add(setting)

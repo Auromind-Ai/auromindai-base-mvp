@@ -65,39 +65,13 @@ services:
       redis:
         condition: service_healthy
 
-#  security-tools:
-#    build:
-#      context: ./backend
-#      dockerfile: Dockerfile
-#      target: security
-#    container_name: auromind_security_tools
-#    restart: "no"
-#    env_file:
-#      - ./backend/.env
-#    environment:
-#      DATABASE_URL: ${DATABASE_URL:-}
-#      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-#      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
-#      POSTGRES_HOST: db
-#      POSTGRES_PORT: 5432
-#      REDIS_URL: redis://redis:6379/0
-#      SECRET_KEY: ${SECRET_KEY}
-#    volumes:
-#      - ./backend/logs:/app/logs
-#      - ./backend:/app
-#    depends_on:
-#      db:
-#        condition: service_healthy
-#      redis:
-#        condition: service_healthy
 
 
   celery_worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: app
+      target: worker
     container_name: auromind_celery_worker
     env_file:
       - ./backend/.env

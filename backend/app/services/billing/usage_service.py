@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.models.subscription import Subscription
@@ -73,14 +74,15 @@ class UsageService:
     def _get_period_usage_readonly(
         self,
         db: Session,
-        workspace_id: str,
+        workspace_id: str | uuid.UUID,
         subscription: Subscription,
     ) -> Usage | None:
         period_start, _ = self._get_usage_period(subscription)
+        ws_uuid = workspace_id if isinstance(workspace_id, uuid.UUID) else uuid.UUID(str(workspace_id))
         return (
             db.query(Usage)
             .filter(
-                Usage.workspace_id == workspace_id,
+                Usage.workspace_id == ws_uuid,
                 Usage.subscription_id == subscription.id,
                 Usage.period_start == period_start,
             )

@@ -1,0 +1,148 @@
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: auromind_redis_prod
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: auromind_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-auromindai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: app
+    container_name: auromind_backend_prod
+    env_file:
+      - ./backend/.env
+    restart: always
+    command: >
+      sh -c "alembic upgrade heads &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --timeout-keep-alive 75"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY}
+      HF_HOME: /models/huggingface
+      TRANSFORMERS_CACHE: /models/huggingface
+      HF_HUB_ENABLE_HF_TRANSFER: 1
+    volumes:
+      - backend_logs_prod:/app/logs
+      - backend_uploads_prod:/app/temp_uploads
+      - hf_cache_prod:/models/huggingface
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: worker
+    container_name: auromind_celery_worker_prod
+    env_file:
+      - ./backend/.env
+    restart: always
+    command: >
+      celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=4 -Q default,beat
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY}
+      HF_HOME: /models/huggingface
+      TRANSFORMERS_CACHE: /models/huggingface
+      HF_HUB_ENABLE_HF_TRANSFER: 1
+    volumes:
+      - backend_logs_prod:/app/logs
+      - backend_uploads_prod:/app/temp_uploads
+      - hf_cache_prod:/models/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: app
+    container_name: auromind_celery_beat_prod
+    env_file:
+      - ./backend/.env
+    restart: always
+    command: >
+      celery -A app.core.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY}
+      HF_HOME: /models/huggingface
+      TRANSFORMERS_CACHE: /models/huggingface
+      HF_HUB_ENABLE_HF_TRANSFER: 1
+    volumes:
+      - backend_logs_prod:/app/logs
+      - backend_uploads_prod:/app/temp_uploads
+      - hf_cache_prod:/models/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: auromind_frontend_prod
+    restart: always
+    command: npm run start
+    environment:
+      - BACKEND_URL=http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data_prod:
+  backend_logs_prod:
+  backend_uploads_prod:
+  hf_cache_prod:

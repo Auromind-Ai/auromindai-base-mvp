@@ -29,7 +29,13 @@ class PlanEntitlement(Base):
 
     # Business lifecycle fields
     allow_ai_topup = Column(Boolean, nullable=False, default=True)
+    allow_purchased_ai_usage = Column(Boolean, nullable=False, default=True)
+
     allow_wcc_recharge = Column(Boolean, nullable=False, default=True)
+    allow_purchased_wcc_usage = Column(Boolean, nullable=False, default=True)
+
+    allow_flow_addon = Column(Boolean, nullable=False, default=True)
+    allow_purchased_flow_usage = Column(Boolean, nullable=False, default=True)
 
     # Reset policy fields
     included_credit_reset_policy = Column(String(50), nullable=False, default="EXPIRE")  # EXPIRE | ROLLOVER

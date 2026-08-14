@@ -12,24 +12,51 @@ export default function PlanEntitlementsTab({
   setActionLoading
 }) {
   const [editingEntitlement, setEditingEntitlement] = useState(null)
-  const [featureFlagsStr, setFeatureFlagsStr] = useState("{}")
+  const [featureFlags, setFeatureFlags] = useState({})
+  const [newFlagKey, setNewFlagKey] = useState("")
+  const [showAddFlag, setShowAddFlag] = useState(false)
 
   const handleEditClick = (ent) => {
     setEditingEntitlement(ent)
-    setFeatureFlagsStr(JSON.stringify(ent.feature_flags ?? {}, null, 2))
+    const flags = ent.feature_flags && typeof ent.feature_flags === "object" ? { ...ent.feature_flags } : {}
+    if (flags.has_rag === undefined) flags.has_rag = false
+    if (flags.has_leads === undefined) flags.has_leads = true
+    if (flags.has_gmail === undefined) flags.has_gmail = true
+    setFeatureFlags(flags)
+    setShowAddFlag(false)
+    setNewFlagKey("")
+  }
+
+  const toggleFeatureFlag = (key) => {
+    setFeatureFlags((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
+  }
+
+  const handleAddCustomFlag = (e) => {
+    e.preventDefault()
+    const trimmed = newFlagKey.trim().toLowerCase().replace(/\s+/g, "_")
+    if (!trimmed) return
+    setFeatureFlags((prev) => ({
+      ...prev,
+      [trimmed]: true
+    }))
+    setNewFlagKey("")
+    setShowAddFlag(false)
+  }
+
+  const handleRemoveCustomFlag = (key) => {
+    setFeatureFlags((prev) => {
+      const updated = { ...prev }
+      delete updated[key]
+      return updated
+    })
   }
 
   const handleUpdateEntitlement = async (e) => {
     e.preventDefault()
     if (!editingEntitlement) return
-    
-    let flags = {}
-    try {
-      flags = JSON.parse(featureFlagsStr)
-    } catch (err) {
-      setError("Invalid JSON format for Feature Flags. Must be valid JSON object.")
-      return
-    }
 
     try {
       setActionLoading(true)
@@ -47,11 +74,15 @@ export default function PlanEntitlementsTab({
         meeting_limit: parseInt(editingEntitlement.meeting_limit),
         automation_limit: parseInt(editingEntitlement.automation_limit),
         flow: parseInt(editingEntitlement.flow),
-        allow_ai_topup: editingEntitlement.allow_ai_topup,
-        allow_wcc_recharge: editingEntitlement.allow_wcc_recharge,
+        allow_ai_topup: editingEntitlement.allow_ai_topup ?? true,
+        allow_purchased_ai_usage: editingEntitlement.allow_purchased_ai_usage ?? true,
+        allow_wcc_recharge: editingEntitlement.allow_wcc_recharge ?? true,
+        allow_purchased_wcc_usage: editingEntitlement.allow_purchased_wcc_usage ?? true,
+        allow_flow_addon: editingEntitlement.allow_flow_addon ?? true,
+        allow_purchased_flow_usage: editingEntitlement.allow_purchased_flow_usage ?? true,
         included_credit_reset_policy: editingEntitlement.included_credit_reset_policy,
         included_wallet_reset_policy: editingEntitlement.included_wallet_reset_policy,
-        feature_flags: flags
+        feature_flags: featureFlags
       }
 
       await api.updatePlanEntitlementAdmin(editingEntitlement.plan_id, payload)
@@ -306,39 +337,176 @@ export default function PlanEntitlementsTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center justify-between p-2.5 bg-white/[0.02] border border-white/5 rounded-xl">
-                  <span className="text-gray-400">Allow AI Top-ups</span>
-                  <input
-                    type="checkbox"
-                    checked={editingEntitlement.allow_ai_topup}
-                    onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_ai_topup: e.target.checked })}
-                    className="w-4 h-4 rounded text-indigo-600 bg-black border-white/10"
-                  />
-                </div>
-                <div className="flex items-center justify-between p-2.5 bg-white/[0.02] border border-white/5 rounded-xl">
-                  <span className="text-gray-400">Allow WCC Recharges</span>
-                  <input
-                    type="checkbox"
-                    checked={editingEntitlement.allow_wcc_recharge}
-                    onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_wcc_recharge: e.target.checked })}
-                    className="w-4 h-4 rounded text-indigo-600 bg-black border-white/10"
-                  />
+              <div className="space-y-2">
+                <label className="block text-[10px] text-gray-500 uppercase font-bold">Purchase Permissions (New Top-ups / Add-ons)</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">AI Top-ups</span>
+                    <input
+                      type="checkbox"
+                      checked={editingEntitlement.allow_ai_topup ?? true}
+                      onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_ai_topup: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">WCC Recharge</span>
+                    <input
+                      type="checkbox"
+                      checked={editingEntitlement.allow_wcc_recharge ?? true}
+                      onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_wcc_recharge: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">Flow Add-ons</span>
+                    <input
+                      type="checkbox"
+                      checked={editingEntitlement.allow_flow_addon ?? true}
+                      onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_flow_addon: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-gray-500 uppercase font-bold mb-1.5">
-                  Feature Flags (JSON Object)
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={featureFlagsStr}
-                  onChange={(e) => setFeatureFlagsStr(e.target.value)}
-                  className="w-full p-2.5 bg-black border border-white/[0.08] rounded-xl text-white font-mono text-[11px] focus:outline-none"
-                  placeholder='{\n  "custom_feature": true\n}'
-                />
+              <div className="space-y-2">
+                <label className="block text-[10px] text-gray-500 uppercase font-bold">Purchased Resource Usage Permissions</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">Use Purchased AI</span>
+                    <input
+                      type="checkbox"
+                      checked={editingEntitlement.allow_purchased_ai_usage ?? true}
+                      onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_purchased_ai_usage: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">Use Purchased WCC</span>
+                    <input
+                      type="checkbox"
+                      checked={editingEntitlement.allow_purchased_wcc_usage ?? true}
+                      onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_purchased_wcc_usage: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">Use Purchased Flow</span>
+                    <input
+                      type="checkbox"
+                      checked={editingEntitlement.allow_purchased_flow_usage ?? true}
+                      onChange={(e) => setEditingEntitlement({ ...editingEntitlement, allow_purchased_flow_usage: e.target.checked })}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[10px] text-gray-500 uppercase font-bold">
+                    Feature Flags / Module Access
+                  </label>
+                  {!showAddFlag ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddFlag(true)}
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
+                    >
+                      + Add Custom Flag
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">RAG Brain</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(featureFlags.has_rag)}
+                      onChange={() => toggleFeatureFlag("has_rag")}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">Leads Access</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(featureFlags.has_leads)}
+                      onChange={() => toggleFeatureFlag("has_leads")}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">Gmail Access</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(featureFlags.has_gmail)}
+                      onChange={() => toggleFeatureFlag("has_gmail")}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
+
+                  {/* Any custom dynamic feature flags */}
+                  {Object.keys(featureFlags)
+                    .filter((k) => !["has_rag", "has_leads", "has_gmail"].includes(k))
+                    .map((k) => (
+                      <div
+                        key={k}
+                        className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]"
+                      >
+                        <span className="text-gray-300 capitalize truncate pr-1" title={k}>
+                          {k.replace(/^has_/, "").replace(/_/g, " ")}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(featureFlags[k])}
+                            onChange={() => toggleFeatureFlag(k)}
+                            className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomFlag(k)}
+                            className="text-gray-500 hover:text-red-400 text-xs px-0.5 leading-none transition-colors"
+                            title="Remove flag"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+
+                {showAddFlag && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      placeholder="e.g. custom_feature or has_analytics"
+                      value={newFlagKey}
+                      onChange={(e) => setNewFlagKey(e.target.value)}
+                      className="flex-1 p-2 bg-black border border-white/[0.08] rounded-xl text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomFlag}
+                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[11px] font-semibold transition-colors"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddFlag(false)
+                        setNewFlagKey("")
+                      }}
+                      className="px-2.5 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl text-[11px] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button

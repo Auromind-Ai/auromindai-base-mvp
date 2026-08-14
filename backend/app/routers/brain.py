@@ -8,7 +8,7 @@ import logging
 from app.database import get_db
 from app.services.document_service import get_url_scraper
 from app.models.brain import BrainEntry
-from app.workers.ingestion_worker import process_document_background
+from app.workers.ingestion_worker import process_document_background, crawl_website_task
 import uuid
 import os
 import shutil
@@ -630,33 +630,19 @@ async def ingest_text(
         raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
-@router.post("/ingest/website", response_model=CrawlResponse)
+@router.post("/ingest/website", response_model=CrawlResponse, status_code=202)
 async def crawl_website(
     request: CrawlWebsiteRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    
     workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
     try:
-        logger.info(f"[CRAWL WEBSITE] user={current_user.id} workspace={workspace_id} url={request.url}")
+        logger.info(f"[CRAWL WEBSITE ENQUEUE] user={current_user.id} workspace={workspace_id} url={request.url}")
         url = request.url.strip()
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
-
-        scraper = Webscrapper(url)
-        pages = scraper.scrapper_choose()
-
-        if not pages or isinstance(pages, str):
-            raise HTTPException(
-                status_code=400,
-                detail="No pages could be crawled from this website"
-            )
-
-        rag = get_rag_service()
-        total_chunks = 0
 
         base_metadata = {}
         if request.region: base_metadata["region"] = request.region
@@ -664,69 +650,43 @@ async def crawl_website(
         if request.cultural_context: base_metadata["cultural_context"] = request.cultural_context
         base_metadata["collection"] = request.collection or "general"
 
-        for page in pages:
-            try:
-                content = " ".join(
-                    page.get("paragraphs", []) +
-                    page.get("headings", []) +
-                    page.get("sub_headings", []) +
-                    page.get("list_point", [])
-                )
+        entry_uuid = uuid.uuid4()
+        workspace_uuid = uuid.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+        new_entry = BrainEntry(
+            id=entry_uuid,
+            workspace_id=workspace_uuid,
+            title=url,
+            content=url,
+            content_type="website",
+            status="pending",
+            embedding=None,
+            metadata_json=json.dumps(base_metadata),
+            file_name=url,
+            file_size=0,
+            credits_charged=0.0,
+            embedding_status="pending"
+        )
+        db.add(new_entry)
+        db.commit()
 
-                page_metadata = {
-                    "word_count": len(content.split())
-                }
+        import time
+        logger.info(f"[TIMING] [0. CRAWL REQUEST DISPATCHED] entry_id={entry_uuid} url={url} at {time.time():.3f}")
 
-                final_metadata = {**base_metadata, **page_metadata}
-
-                # Website Crawl Content size-based billing
-                page_text_bytes = len(content.encode('utf-8'))
-                size_mb = page_text_bytes / 1_000_000.0
-                page_title = page.get('title', '') or url
-
-                async def run_page_ingestion():
-    
-                    credits_cost = float(FeatureBillingService.calculate_cost(db, AIFeatureRegistry.KNOWLEDGE, size_mb))
-                    return rag.ingest_document(
-                        db=db,
-                        workspace_id=workspace_id,
-                        text=content,
-                        title=page.get("title", ""),
-                        content_type="website_page",
-                        source=page.get("url", url),
-                        metadata=final_metadata,
-                        file_name=page.get("url", url),
-                        file_size=page_text_bytes,
-                        credits_charged=credits_cost,
-                        embedding_status="completed"
-                    )
-
-           
-                result = await AIExecutionService.execute(
-                    db=db,
-                    workspace_id=workspace_id,
-                    user_id=current_user.id,
-                    feature_key=AIFeatureRegistry.KNOWLEDGE,
-                    prompt="",
-                    custom_unit_amount=size_mb,
-                    description=f"Website Page Crawl: {page_title}",
-                    execute_fn=run_page_ingestion
-                )
-
-                total_chunks += result.get("chunks_created", 0)
-
-            except (BillingError, WorkspaceAccessError) as e:
-                raise e
-            except Exception as e:
-                logger.warning(f"Failed to ingest page: {e}")
-                continue
+        crawl_website_task.delay(
+            entry_id=str(entry_uuid),
+            url=url,
+            workspace_id=str(workspace_id),
+            user_id=str(current_user.id),
+            base_metadata=base_metadata
+        )
 
         return {
-            "status": "success",
+            "status": "processing",
+            "entry_id": str(entry_uuid),
             "website": url,
-            "pages_crawled": len(pages),
-            "chunks_created": total_chunks,
-            "message": f"Successfully indexed {len(pages)} pages"
+            "pages_crawled": 0,
+            "chunks_created": 0,
+            "message": "Website crawl job enqueued successfully for background processing in Celery Worker"
         }
 
     except HTTPException as e:
@@ -734,10 +694,10 @@ async def crawl_website(
     except (BillingError, WorkspaceAccessError) as e:
         raise e
     except Exception as e:
-        logger.error(f"Website crawl failed: {e}")
+        logger.error(f"Failed to enqueue website crawl: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Website crawl failed: {str(e)}"
+            detail=f"Failed to enqueue website crawl: {str(e)}"
         )
 
 

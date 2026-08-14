@@ -9,11 +9,15 @@ from app.utils.static_scraper import Staticscraper
 import app.utils.settings as my_settings
 from scrapy.settings import Settings
 import os
-import multiprocessing
+import billiard
 import json
+import tempfile
+import uuid
+import logging
 
-def _run_scrapy_process(url):
-    output_file = "dynamic_output.json"
+logger = logging.getLogger(__name__)
+
+def _run_scrapy_process(url, output_file):
     if os.path.exists(output_file):
         try:
             os.remove(output_file)
@@ -22,14 +26,24 @@ def _run_scrapy_process(url):
 
     scrapy_settings = Settings()
     scrapy_settings.setmodule(my_settings)
+    scrapy_settings.set("FEEDS", {
+        output_file: {
+            "format": "json",
+            "encoding": "utf8",
+            "indent": 4,
+            "overwrite": True,
+        }
+    })
     process = CrawlerProcess(scrapy_settings)
     process.crawl(Scrappyweb, url=url)
     process.start()
 
 class Webscrapper:
-    def __init__(self, url):
-        self.url =url
-        self.static = Staticscraper(self.url)
+    def __init__(self, url, max_depth=None, max_pages=None):
+        self.url = url
+        self.static = Staticscraper(self.url, max_depth=max_depth, max_pages=max_pages)
+        self.max_depth = self.static.max_depth
+        self.max_pages = self.static.max_pages
         
 
     def safety_check(self):
@@ -106,21 +120,28 @@ class Webscrapper:
         return self.static.static_scrap()
 
     def dynamic_scrapper(self):
-         print("dynamic called")
+        print("dynamic called")
 
-         output_file = "dynamic_output.json"
+        temp_dir = tempfile.gettempdir()
+        output_file = os.path.join(temp_dir, f"dynamic_output_{uuid.uuid4().hex}.json")
         
-         process = multiprocessing.Process(target=_run_scrapy_process, args=(self.url,))
-         process.start()
-         process.join()
-        
-         if os.path.exists(output_file):
-            with open(output_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-
-         
-         return []
-       
+        try:
+            process = billiard.Process(target=_run_scrapy_process, args=(self.url, output_file))
+            process.start()
+            process.join()
+            
+            if os.path.exists(output_file):
+                with open(output_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                return data
+            
+            return []
+        finally:
+            if os.path.exists(output_file):
+                try:
+                    os.remove(output_file)
+                except OSError:
+                    pass
 
     def scrapper_choose(self, single_page=False):
 
@@ -162,6 +183,5 @@ class Webscrapper:
                 return self.dynamic_scrapper()
 
         except Exception as e:
-            print("ERROR:", e)
-            print(self.scrapper_choose)
-            return "scrapper choose function check"
+            logger.error(f"Error in scrapper_choose: {e}", exc_info=True)
+            return f"scrapper choose failed: {e}"

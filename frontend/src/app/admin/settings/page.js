@@ -7,6 +7,7 @@ import {
   CreditCard, 
   Globe, 
   Bell, 
+  Shield,
   ShieldAlert, 
   Zap, 
   Save, 
@@ -26,7 +27,8 @@ import {
   Sparkles,
   CheckCircle2,
   AlertCircle,
-  HardDrive
+  HardDrive,
+  FileText
 } from "lucide-react"
 import api from "@/lib/api"
 import { useBranding } from "@/context/BrandingContext"
@@ -244,6 +246,17 @@ export default function SettingsPage() {
     payu_webhook_secret: "",
     payu_pro_plan_id: "",
     payu_enterprise_plan_id: "",
+
+    // ---------------- Invoice Settings ----------------
+    invoice_support_email: "billing@auromind.ai",
+    invoice_support_url: "https://auromind.ai",
+    invoice_qr_action: "view_invoice_online",
+    invoice_qr_custom_url: "https://auromind.ai/billing",
+    invoice_qr_caption: "Scan to view invoice online",
+    supplier_name: "Auromind AI Private Limited",
+    supplier_gstin: "33ABCDE1234F1Z5",
+    supplier_address: "123, FinTech Hub, Chennai, Tamil Nadu - 600001, India",
+    invoice_prefix: "AUR",
   })
   
   const [loading, setLoading] = useState(true)
@@ -312,6 +325,43 @@ export default function SettingsPage() {
     }
   }
 
+  const [adminPlans, setAdminPlans] = useState([])
+  const [isAddPlanModalOpen, setIsAddPlanModalOpen] = useState(false)
+  const [planToDelete, setPlanToDelete] = useState(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deletingPlan, setDeletingPlan] = useState(false)
+
+  const [newPlanForm, setNewPlanForm] = useState({
+    name: "",
+    display_name: "",
+    monthly_price: 9999,
+    yearly_price: 99990,
+    description: "",
+    features: ["Custom AI Replies", "Advanced Automations", "Dedicated Support"],
+    display_order: 5,
+    is_featured: false,
+    is_active: true
+  })
+
+  const handleDeletePlan = async () => {
+    if (!planToDelete || !planToDelete.id) return
+    try {
+      setDeletingPlan(true)
+      const res = await api.deletePlanAdmin(planToDelete.id)
+      showToast(res.message || `Plan deleted successfully!`, "success")
+      setIsDeleteModalOpen(false)
+      setPlanToDelete(null)
+      const refreshed = await api.getPlansAdmin().catch(() => [])
+      if (Array.isArray(refreshed)) {
+        setAdminPlans(refreshed)
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to delete plan", "error")
+    } finally {
+      setDeletingPlan(false)
+    }
+  }
+
   useEffect(() => {
     fetchSettings()
   }, [])
@@ -319,13 +369,68 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true)
-      const data = await api.getPlatformSettings()
+      const [data, plansData] = await Promise.all([
+        api.getPlatformSettings(),
+        api.getPlansAdmin().catch(() => [])
+      ])
       setSettings(prev => ({ ...prev, ...data }))
+      if (Array.isArray(plansData) && plansData.length > 0) {
+        setAdminPlans(plansData)
+      }
       setError(null)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleUpdatePlan = async (planId, field, value) => {
+    setAdminPlans(prev => prev.map(p => (p.id === planId ? { ...p, [field]: value } : p)))
+    try {
+      await api.updatePlanAdmin(planId, { [field]: value })
+    } catch (err) {
+      console.error("Failed to auto-update plan:", err)
+    }
+  }
+
+  const handleCreatePlan = async (e) => {
+    e.preventDefault()
+    if (!newPlanForm.name.trim()) {
+      showToast("Plan key is required (e.g. 'growth')", "error")
+      return
+    }
+    try {
+      const created = await api.createPlanAdmin({
+        name: newPlanForm.name.toLowerCase().trim(),
+        display_name: newPlanForm.display_name || newPlanForm.name,
+        monthly_price: Number(newPlanForm.monthly_price) || 0,
+        yearly_price: Number(newPlanForm.yearly_price) || 0,
+        description: newPlanForm.description || "",
+        features: newPlanForm.features.filter(f => f && f.trim()),
+        display_order: Number(newPlanForm.display_order) || 5,
+        is_featured: Boolean(newPlanForm.is_featured),
+        is_active: Boolean(newPlanForm.is_active),
+      })
+      showToast(`Plan '${created.name}' created successfully! 🚀`, "success")
+      setIsAddPlanModalOpen(false)
+      setNewPlanForm({
+        name: "",
+        display_name: "",
+        monthly_price: 9999,
+        yearly_price: 99990,
+        description: "",
+        features: ["Custom AI Replies", "Advanced Automations", "Dedicated Support"],
+        display_order: 5,
+        is_featured: false,
+        is_active: true
+      })
+      const refreshed = await api.getPlansAdmin().catch(() => [])
+      if (Array.isArray(refreshed) && refreshed.length > 0) {
+        setAdminPlans(refreshed)
+      }
+    } catch (err) {
+      showToast(err.message || "Failed to create plan", "error")
     }
   }
 
@@ -424,6 +529,7 @@ export default function SettingsPage() {
     { id: "ai", name: "AI Providers", icon: Cpu },
     { id: "pricing", name: "Pricing & Plans", icon: CreditCard },
     { id: "payments", name: "Payments", icon: Layers },
+    { id: "invoices", name: "Invoice Settings", icon: FileText },
     { id: "infra", name: "Infrastructure", icon: Globe },
     { id: "emails", name: "Email Templates", icon: Mail },
     { id: "features", name: "Feature Toggles", icon: Zap },
@@ -701,168 +807,406 @@ export default function SettingsPage() {
             )}
 
             {/* Tab: Pricing & Plans */}
-             {activeTab === "pricing" && (
+            {activeTab === "pricing" && (
               <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
  
-                {/*  Prices  */}
+                {/* Header & Add Plan Button */}
                 <section>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-                      <CreditCard className="text-green-500 w-5 h-5" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                        <CreditCard className="text-emerald-500 w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">Monetization & Plan Catalog</h3>
+                        <p className="text-xs text-gray-400">Single Source of Truth for Plan Names, Monthly (₹) & Yearly (₹) Pricing, and Marketing Content</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold">Monetization</h3>
-                      <p className="text-xs text-gray-500">Plan structures and pricing (₹)</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddPlanModalOpen(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 transition-all cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      + Add New Plan
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[
-                      { label: "Free Plan Price",  key: "free_plan_price"       },
-                      { label: "Pro Plan Price",   key: "pro_plan_price"        },
-                      { label: "Enterprise Price", key: "enterprise_plan_price" }
-                    ].map(item => (
-                      <div key={item.key} className="space-y-2">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{item.label}</p>
-                        <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
-                          <input
-                            type="number"
-                            value={settings[item.key] ?? ""}
-                            onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
-                            className="w-full bg-[#050505] border border-white/10 rounded-xl pl-8 pr-4 py-3 text-sm focus:border-indigo-500 outline-none font-bold"
-                          />
+
+                  {/* Add Plan Modal */}
+                  {isAddPlanModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                      <div className="w-full max-w-lg bg-[#0d0d12] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                          <div>
+                            <h4 className="text-base font-bold text-white">Create New Plan</h4>
+                            <p className="text-xs text-gray-400">Automatically provisions safe default resource entitlements.</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddPlanModalOpen(false)}
+                            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-sm"
+                          >
+                            ✕
+                          </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
- 
-                {/*  Token Quotas  */}
-                <section>
-                  <div className="flex items-center gap-3 mb-6 pt-4">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                      <Zap className="text-emerald-500 w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold">Quota Management</h3>
-                      <p className="text-xs text-gray-500">Monthly token allocations</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {["free", "pro", "enterprise"].map(plan => (
-                      <div key={plan} className="space-y-2">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">{plan} limit</p>
-                        <input
-                          type="number"
-                          value={settings.token_limit_per_plan?.[plan] ?? ""}
-                          onChange={(e) => handleTokenLimitChange(plan, e.target.value)}
-                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
- 
-                {/*  Plan Content (Name · Description · Features)  */}
-                <section>
-                  <div className="flex items-center gap-3 mb-6 pt-4 border-t border-white/5">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                      <Layers className="text-indigo-500 w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold">Plan Content</h3>
-                      <p className="text-xs text-gray-500">Names, descriptions &amp; features shown on landing page</p>
-                    </div>
-                  </div>
- 
-                  <div className="space-y-6">
-                    {[
-                      { id: "free",       label: "Free Plan",      accent: "green"  },
-                      { id: "pro",        label: "Pro Plan",        accent: "indigo" },
-                      { id: "enterprise", label: "Enterprise Plan", accent: "purple" },
-                    ].map(({ id, label, accent }) => {
-                      const ring  = { green: "ring-green-500/20",  indigo: "ring-indigo-500/20",  purple: "ring-purple-500/20"  }[accent]
-                      const badge = { green: "bg-green-500/10 text-green-400", indigo: "bg-indigo-500/10 text-indigo-400", purple: "bg-purple-500/10 text-purple-400" }[accent]
-                      const addBtn= { green: "border-green-500/20 text-green-400 hover:bg-green-500/10", indigo: "border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/10", purple: "border-purple-500/20 text-purple-400 hover:bg-purple-500/10" }[accent]
-                      const features = settings[`${id}_plan_features`] || []
- 
-                      return (
-                        <div key={id} className={`p-6 rounded-3xl bg-white/[0.01] border border-white/[0.05] ring-1 ${ring} space-y-5`}>
-                          
-                          {/* Badge */}
-                          <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${badge}`}>
-                            {label}
-                          </span>
- 
-                          {/* Name + Description */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-bold text-gray-500 uppercase px-1">Plan Name</p>
+
+                        <form onSubmit={handleCreatePlan} className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[11px] font-bold text-gray-400 uppercase">Plan Key (ID) *</label>
                               <input
                                 type="text"
-                                value={settings[`${id}_plan_name`] || ""}
-                                onChange={(e) => handleInputChange(`${id}_plan_name`, e.target.value)}
-                                placeholder="e.g. Free"
-                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none font-semibold"
+                                placeholder="e.g. growth"
+                                required
+                                value={newPlanForm.name}
+                                onChange={(e) => setNewPlanForm(prev => ({ ...prev, name: e.target.value }))}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none font-mono"
                               />
                             </div>
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-bold text-gray-500 uppercase px-1">Description</p>
+                            <div className="space-y-1.5">
+                              <label className="text-[11px] font-bold text-gray-400 uppercase">Display Name *</label>
                               <input
                                 type="text"
-                                value={settings[`${id}_plan_desc`] || ""}
-                                onChange={(e) => handleInputChange(`${id}_plan_desc`, e.target.value)}
-                                placeholder="Short tagline for this plan"
-                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:border-indigo-500 outline-none"
+                                placeholder="e.g. Growth"
+                                required
+                                value={newPlanForm.display_name}
+                                onChange={(e) => setNewPlanForm(prev => ({ ...prev, display_name: e.target.value }))}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none"
                               />
                             </div>
                           </div>
- 
-                          {/* Features list */}
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[11px] font-bold text-gray-400 uppercase">Monthly Price (₹) *</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  required
+                                  value={newPlanForm.monthly_price}
+                                  onChange={(e) => setNewPlanForm(prev => ({ ...prev, monthly_price: Number(e.target.value) }))}
+                                  className="w-full bg-black/60 border border-white/10 rounded-xl pl-7 pr-3 py-2 text-xs text-white focus:border-indigo-500 outline-none font-bold"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[11px] font-bold text-gray-400 uppercase">Yearly Price (₹) *</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">₹</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  required
+                                  value={newPlanForm.yearly_price}
+                                  onChange={(e) => setNewPlanForm(prev => ({ ...prev, yearly_price: Number(e.target.value) }))}
+                                  className="w-full bg-black/60 border border-white/10 rounded-xl pl-7 pr-3 py-2 text-xs text-white focus:border-indigo-500 outline-none font-bold"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[11px] font-bold text-gray-400 uppercase">Tagline / Description</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. For rapidly scaling outbound teams"
+                              value={newPlanForm.description}
+                              onChange={(e) => setNewPlanForm(prev => ({ ...prev, description: e.target.value }))}
+                              className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 pt-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id="is_featured"
+                                checked={newPlanForm.is_featured}
+                                onChange={(e) => setNewPlanForm(prev => ({ ...prev, is_featured: e.target.checked }))}
+                                className="w-4 h-4 rounded border-white/20 bg-black/60 accent-indigo-600"
+                              />
+                              <label htmlFor="is_featured" className="text-xs text-gray-300 font-semibold cursor-pointer">Featured / Popular</label>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Display Order</label>
+                              <input
+                                type="number"
+                                value={newPlanForm.display_order}
+                                onChange={(e) => setNewPlanForm(prev => ({ ...prev, display_order: Number(e.target.value) }))}
+                                className="w-20 bg-black/60 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white text-center"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                            <button
+                              type="button"
+                              onClick={() => setIsAddPlanModalOpen(false)}
+                              className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30"
+                            >
+                              Save & Create Plan
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Delete Confirmation Modal */}
+                  {isDeleteModalOpen && planToDelete && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                      <div className="bg-[#0A0A0A] border border-red-500/30 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+                        <div className="flex items-center gap-3 text-red-400">
+                          <Trash2 className="w-6 h-6" />
+                          <h3 className="text-lg font-bold">Delete Plan</h3>
+                        </div>
+                        <p className="text-sm text-gray-300">
+                          Are you sure you want to delete plan <strong className="text-white">"{planToDelete.display_name || planToDelete.name}"</strong>? 
+                          This will permanently delete the plan and its corresponding entitlements.
+                        </p>
+                        <p className="text-xs text-amber-400/90 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
+                          ⚠️ Note: Deletion will be blocked if active or pending user subscriptions exist for this plan.
+                        </p>
+                        <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsDeleteModalOpen(false)
+                              setPlanToDelete(null)
+                            }}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white hover:bg-white/5"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDeletePlan}
+                            disabled={deletingPlan}
+                            className="px-5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 disabled:opacity-50"
+                          >
+                            {deletingPlan ? "Deleting..." : "Delete Plan"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Plan Cards Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(adminPlans.length > 0 ? adminPlans : [
+                      { id: "free", name: "free", display_name: "Free", monthly_price: 0, yearly_price: 0, display_order: 1, is_featured: false, description: "Try Orbion Agents for free and see the ROI yourself.", features: ["1,000 AI Replies", "Basic Workflows", "Meta API Included"] },
+                      { id: "solo", name: "solo", display_name: "Solo Smart", monthly_price: 999, yearly_price: 9990, display_order: 2, is_featured: false, description: "RAG & custom knowledge base on a budget for solopreneurs.", features: ["15,000 AI Replies", "RAG Knowledge Base Enabled", "1 Gmail Integration", "Basic Automations"] },
+                      { id: "pro", name: "pro", display_name: "Professional", monthly_price: 5999, yearly_price: 59990, display_order: 3, is_featured: true, description: "Advanced features for growing teams and scalable workflows.", features: ["100,000 AI Replies", "Advanced Workflows + RAG", "Priority Support", "Full Analytics"] },
+                      { id: "enterprise", name: "enterprise", display_name: "Business", monthly_price: 24999, yearly_price: 249990, display_order: 4, is_featured: false, description: "Perfect for businesses starting with AI automation at scale.", features: ["500,000 AI Replies", "Dedicated Manager", "Custom API Access", "On-premise Options", "Global SLA"] }
+                    ]).map((plan) => {
+                      const planKey = plan.name.toLowerCase();
+                      const monthlyVal = plan.monthly_price ?? settings[`${planKey}_plan_price`] ?? 0;
+                      const yearlyVal = plan.yearly_price ?? settings[`${planKey}_yearly_plan_price`] ?? 0;
+                      const dispName = plan.display_name || settings[`${planKey}_plan_name`] || plan.name.toUpperCase();
+                      const desc = plan.description || settings[`${planKey}_plan_desc`] || "";
+                      const feats = (plan.features && plan.features.length > 0) ? plan.features : (settings[`${planKey}_plan_features`] || []);
+
+                      return (
+                        <div
+                          key={plan.id || plan.name}
+                          className={`p-6 rounded-3xl bg-white/[0.015] border transition-all space-y-5 ${
+                            plan.is_featured
+                              ? "border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.1)] ring-1 ring-indigo-500/20"
+                              : "border-white/5 hover:border-white/10"
+                          }`}
+                        >
+                          {/* Top Row: Key, Featured Badge, Order */}
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                {planKey}
+                              </span>
+                              {plan.is_featured && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                  ★ Featured
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-gray-400">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold uppercase">Order:</span>
+                                <input
+                                  type="number"
+                                  value={plan.display_order ?? 0}
+                                  onChange={(e) => handleUpdatePlan(plan.id, "display_order", Number(e.target.value))}
+                                  className="w-12 bg-black/60 border border-white/10 rounded-lg px-1.5 py-0.5 text-center text-xs text-white font-bold"
+                                />
+                              </div>
+                              {plan.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPlanToDelete(plan)
+                                    setIsDeleteModalOpen(true)
+                                  }}
+                                  title="Delete Plan"
+                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Name & Tagline */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Display Name</label>
+                              <input
+                                type="text"
+                                value={dispName}
+                                onChange={(e) => {
+                                  handleUpdatePlan(plan.id, "display_name", e.target.value);
+                                  handleInputChange(`${planKey}_plan_name`, e.target.value);
+                                }}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none font-semibold"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Tagline / Description</label>
+                              <input
+                                type="text"
+                                value={desc}
+                                onChange={(e) => {
+                                  handleUpdatePlan(plan.id, "description", e.target.value);
+                                  handleInputChange(`${planKey}_plan_desc`, e.target.value);
+                                }}
+                                className="w-full bg-black/60 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Pricing Inputs */}
+                          <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-black/40 border border-white/5">
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Monthly Price</label>
+                                <span className="text-[9px] text-gray-500">/month</span>
+                              </div>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">₹</span>
+                                <input
+                                  type="number"
+                                  value={monthlyVal}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    handleUpdatePlan(plan.id, "monthly_price", val);
+                                    handleInputChange(`${planKey}_plan_price`, val);
+                                  }}
+                                  className="w-full bg-[#080808] border border-white/10 rounded-xl pl-7 pr-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-bold"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Yearly Price</label>
+                                <span className="text-[9px] text-gray-500">/year</span>
+                              </div>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">₹</span>
+                                <input
+                                  type="number"
+                                  value={yearlyVal}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    handleUpdatePlan(plan.id, "yearly_price", val);
+                                    handleInputChange(`${planKey}_yearly_plan_price`, val);
+                                  }}
+                                  className="w-full bg-[#080808] border border-white/10 rounded-xl pl-7 pr-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-bold"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Features List */}
                           <div className="space-y-2">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase px-1">Features</p>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase">Marketing Features List</label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...feats, ""];
+                                  handleUpdatePlan(plan.id, "features", updated);
+                                  handleInputChange(`${planKey}_plan_features`, updated);
+                                }}
+                                className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300"
+                              >
+                                + Add Feature
+                              </button>
+                            </div>
                             <div className="space-y-2">
-                              {features.map((feat, idx) => (
+                              {feats.map((feat, idx) => (
                                 <div key={idx} className="flex items-center gap-2">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-white/20 flex-shrink-0" />
+                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500/50 flex-shrink-0" />
                                   <input
                                     type="text"
                                     value={feat || ""}
                                     onChange={(e) => {
-                                      const updated = [...features]
-                                      updated[idx] = e.target.value
-                                      handleInputChange(`${id}_plan_features`, updated)
+                                      const updated = [...feats];
+                                      updated[idx] = e.target.value;
+                                      handleUpdatePlan(plan.id, "features", updated);
+                                      handleInputChange(`${planKey}_plan_features`, updated);
                                     }}
                                     placeholder={`Feature ${idx + 1}`}
-                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm focus:border-indigo-500 outline-none"
+                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none"
                                   />
                                   <button
+                                    type="button"
                                     onClick={() => {
-                                      const updated = features.filter((_, i) => i !== idx)
-                                      handleInputChange(`${id}_plan_features`, updated)
+                                      const updated = feats.filter((_, i) => i !== idx);
+                                      handleUpdatePlan(plan.id, "features", updated);
+                                      handleInputChange(`${planKey}_plan_features`, updated);
                                     }}
-                                    className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400/50 hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400/40 hover:text-red-400 hover:bg-red-500/10 text-xs"
                                   >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                    ✕
                                   </button>
                                 </div>
                               ))}
                             </div>
-                            <button
-                              onClick={() => handleInputChange(`${id}_plan_features`, [...features, ""])}
-                              className={`mt-1 flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${addBtn}`}
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                              Add Feature
-                            </button>
                           </div>
- 
+
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 </section>
- 
+
+                {/* Single Source of Truth Notice for Quota Management */}
+                <section className="p-5 rounded-2xl bg-indigo-500/[0.04] border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Plan Entitlements & Quota Management</h4>
+                      <p className="text-xs text-gray-400">
+                        Monthly AI Credits, WhatsApp WCC Allowances, and Reset Policies (EXPIRE / ROLLOVER) are managed under Billing Operations as the single authoritative source of truth.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="/admin/billing-operations"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-600/20 whitespace-nowrap"
+                  >
+                    Manage Plan Entitlements →
+                  </a>
+                </section>
+
               </div>
             )}
 
@@ -985,6 +1329,140 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                </section>
+              </div>
+            )}
+
+            {/* Tab: Invoice Settings */}
+            {activeTab === "invoices" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <FileText className="text-emerald-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Billing Support & Contact</h3>
+                      <p className="text-xs text-gray-500">Configure support details displayed on PDF invoices</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Support Email</p>
+                      <input 
+                        type="email"
+                        value={settings.invoice_support_email || ""}
+                        onChange={(e) => handleInputChange("invoice_support_email", e.target.value)}
+                        placeholder="billing@auromind.ai"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Website URL</p>
+                      <input 
+                        type="text"
+                        value={settings.invoice_support_url || ""}
+                        onChange={(e) => handleInputChange("invoice_support_url", e.target.value)}
+                        placeholder="https://auromind.ai"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* QR Code Action */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                      <Sparkles className="text-indigo-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Invoice QR Code Settings</h3>
+                      <p className="text-xs text-gray-500">Configure scan action and subtitle caption for generated invoices</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">QR Code Action</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                          { id: "view_invoice_online", label: "View Invoice Online", recommended: true, desc: "Scans directly to actual online invoice" },
+                          { id: "company_website", label: "Company Website", desc: "Scans to Website URL above" },
+                          { id: "custom_url", label: "Custom URL", desc: "Scans to specified Custom URL" }
+                        ].map((act) => {
+                          const isSelected = (settings.invoice_qr_action || "view_invoice_online") === act.id
+                          return (
+                            <button
+                              key={act.id}
+                              type="button"
+                              onClick={() => handleInputChange("invoice_qr_action", act.id)}
+                              className={`p-4 rounded-2xl border text-left transition-all ${
+                                isSelected 
+                                  ? "bg-indigo-500/10 border-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.1)]" 
+                                  : "bg-[#050505] border-white/10 text-gray-400 hover:text-white"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold">{act.label}</span>
+                                {act.recommended && (
+                                  <span className="text-[9px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                                    RECOMMENDED
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500">{act.desc}</p>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {settings.invoice_qr_action === "custom_url" && (
+                      <div className="space-y-2 animate-in fade-in duration-300">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Custom Destination URL</p>
+                        <input 
+                          type="text"
+                          value={settings.invoice_qr_custom_url || ""}
+                          onChange={(e) => handleInputChange("invoice_qr_custom_url", e.target.value)}
+                          placeholder="https://auromind.ai/billing"
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">QR Subtitle Caption</p>
+                      <input 
+                        type="text"
+                        value={settings.invoice_qr_caption || ""}
+                        onChange={(e) => handleInputChange("invoice_qr_caption", e.target.value)}
+                        placeholder="Scan to view invoice online"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 font-medium"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Single Source of Truth Banner for GST & Supplier Profile */}
+                <section className="p-5 rounded-2xl bg-indigo-500/[0.04] border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Corporate GST & Legal Supplier Profile</h4>
+                      <p className="text-xs text-gray-400">
+                        Supplier Name, Supplier GSTIN, Registered Address, Place of Supply, and GST Rate % are managed under Billing Operations as the single authoritative source of truth.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="/admin/billing-operations"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-600/20 whitespace-nowrap"
+                  >
+                    Manage GST Compliance →
+                  </a>
                 </section>
               </div>
             )}

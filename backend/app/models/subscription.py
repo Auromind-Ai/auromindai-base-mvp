@@ -25,6 +25,9 @@ class Subscription(Base):
     current_period_start = Column(DateTime(timezone=True))
     current_period_end = Column(DateTime(timezone=True))
 
+    last_entitlement_reset_at = Column(DateTime(timezone=True))
+    next_entitlement_reset_at = Column(DateTime(timezone=True), index=True)
+
     provider = Column(String(50), default="razorpay")
     provider_subscription_id = Column(String, index=True)
 
