@@ -597,6 +597,30 @@ class BillingService:
             )
             .first()
         )
+
+        sub_payment = None
+        if subscription:
+            sub_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.workspace_id == workspace.id,
+                    Payment.subscription_id == subscription.id,
+                    Payment.status == PaymentStatus.paid,
+                )
+                .order_by(Payment.created_at.desc())
+                .first()
+            )
+        if not sub_payment:
+            sub_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.workspace_id == workspace.id,
+                    Payment.payment_type == "subscription",
+                    Payment.status == PaymentStatus.paid,
+                )
+                .order_by(Payment.created_at.desc())
+                .first()
+            )
                 # Query Payments
         db_payments = (
             db.query(Payment)
@@ -663,7 +687,7 @@ class BillingService:
                 "status": r.status.upper(),
                 "payment_id": r.gateway_payment_id or r.gateway_order_id or "N/A",
                 "payment_type": "wallet_recharge",
-                "payment_method": getattr(r, 'payment_method', None) or "upi",
+                "payment_method": getattr(r, 'payment_method', None) or "online",
                 "provider": "razorpay",
                 "description": f"WhatsApp Wallet Recharge (₹{r.amount})",
                 "invoice_available": True if (linked_inv and linked_inv.pdf_url) else False,
@@ -786,7 +810,8 @@ class BillingService:
                 "billing_cycle": (subscription.billing_cycle or "monthly").lower() if subscription else None,
                 "current_period_start": self._serialize_datetime(subscription.current_period_start if subscription else None),
                 "current_period_end": self._serialize_datetime(period_end),
-                "provider": subscription.provider if subscription else None,
+                "provider": subscription.provider if subscription else (sub_payment.provider if sub_payment else None),
+                "payment_method": sub_payment.payment_method if sub_payment else None,
             },
             "payments": recent_items,
             "plans": [self.plan_service._serialize_plan(db, p.name) for p in db.query(Plan).filter(Plan.is_active == True).order_by(Plan.display_order.asc(), Plan.created_at.asc()).all()] or [self.plan_service._serialize_plan(db, key) for key in ("free", "solo", "pro", "enterprise")],

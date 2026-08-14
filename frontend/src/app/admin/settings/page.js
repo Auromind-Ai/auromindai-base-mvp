@@ -27,7 +27,8 @@ import {
   Sparkles,
   CheckCircle2,
   AlertCircle,
-  HardDrive
+  HardDrive,
+  FileText
 } from "lucide-react"
 import api from "@/lib/api"
 import { useBranding } from "@/context/BrandingContext"
@@ -245,6 +246,17 @@ export default function SettingsPage() {
     payu_webhook_secret: "",
     payu_pro_plan_id: "",
     payu_enterprise_plan_id: "",
+
+    // ---------------- Invoice Settings ----------------
+    invoice_support_email: "billing@auromind.ai",
+    invoice_support_url: "https://auromind.ai",
+    invoice_qr_action: "view_invoice_online",
+    invoice_qr_custom_url: "https://auromind.ai/billing",
+    invoice_qr_caption: "Scan to view invoice online",
+    supplier_name: "Auromind AI Private Limited",
+    supplier_gstin: "33ABCDE1234F1Z5",
+    supplier_address: "123, FinTech Hub, Chennai, Tamil Nadu - 600001, India",
+    invoice_prefix: "AUR",
   })
   
   const [loading, setLoading] = useState(true)
@@ -517,6 +529,7 @@ export default function SettingsPage() {
     { id: "ai", name: "AI Providers", icon: Cpu },
     { id: "pricing", name: "Pricing & Plans", icon: CreditCard },
     { id: "payments", name: "Payments", icon: Layers },
+    { id: "invoices", name: "Invoice Settings", icon: FileText },
     { id: "infra", name: "Infrastructure", icon: Globe },
     { id: "emails", name: "Email Templates", icon: Mail },
     { id: "features", name: "Feature Toggles", icon: Zap },
@@ -1316,6 +1329,140 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                </section>
+              </div>
+            )}
+
+            {/* Tab: Invoice Settings */}
+            {activeTab === "invoices" && (
+              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <section>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <FileText className="text-emerald-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Billing Support & Contact</h3>
+                      <p className="text-xs text-gray-500">Configure support details displayed on PDF invoices</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Support Email</p>
+                      <input 
+                        type="email"
+                        value={settings.invoice_support_email || ""}
+                        onChange={(e) => handleInputChange("invoice_support_email", e.target.value)}
+                        placeholder="billing@auromind.ai"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Website URL</p>
+                      <input 
+                        type="text"
+                        value={settings.invoice_support_url || ""}
+                        onChange={(e) => handleInputChange("invoice_support_url", e.target.value)}
+                        placeholder="https://auromind.ai"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* QR Code Action */}
+                <section className="pt-8 border-t border-white/5">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                      <Sparkles className="text-indigo-500 w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Invoice QR Code Settings</h3>
+                      <p className="text-xs text-gray-500">Configure scan action and subtitle caption for generated invoices</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">QR Code Action</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                          { id: "view_invoice_online", label: "View Invoice Online", recommended: true, desc: "Scans directly to actual online invoice" },
+                          { id: "company_website", label: "Company Website", desc: "Scans to Website URL above" },
+                          { id: "custom_url", label: "Custom URL", desc: "Scans to specified Custom URL" }
+                        ].map((act) => {
+                          const isSelected = (settings.invoice_qr_action || "view_invoice_online") === act.id
+                          return (
+                            <button
+                              key={act.id}
+                              type="button"
+                              onClick={() => handleInputChange("invoice_qr_action", act.id)}
+                              className={`p-4 rounded-2xl border text-left transition-all ${
+                                isSelected 
+                                  ? "bg-indigo-500/10 border-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.1)]" 
+                                  : "bg-[#050505] border-white/10 text-gray-400 hover:text-white"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-bold">{act.label}</span>
+                                {act.recommended && (
+                                  <span className="text-[9px] font-black bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                                    RECOMMENDED
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500">{act.desc}</p>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {settings.invoice_qr_action === "custom_url" && (
+                      <div className="space-y-2 animate-in fade-in duration-300">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Custom Destination URL</p>
+                        <input 
+                          type="text"
+                          value={settings.invoice_qr_custom_url || ""}
+                          onChange={(e) => handleInputChange("invoice_qr_custom_url", e.target.value)}
+                          placeholder="https://auromind.ai/billing"
+                          className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none font-mono text-white placeholder-gray-700"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase px-2">QR Subtitle Caption</p>
+                      <input 
+                        type="text"
+                        value={settings.invoice_qr_caption || ""}
+                        onChange={(e) => handleInputChange("invoice_qr_caption", e.target.value)}
+                        placeholder="Scan to view invoice online"
+                        className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 font-medium"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Single Source of Truth Banner for GST & Supplier Profile */}
+                <section className="p-5 rounded-2xl bg-indigo-500/[0.04] border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <Shield className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Corporate GST & Legal Supplier Profile</h4>
+                      <p className="text-xs text-gray-400">
+                        Supplier Name, Supplier GSTIN, Registered Address, Place of Supply, and GST Rate % are managed under Billing Operations as the single authoritative source of truth.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="/admin/billing-operations"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-600/20 whitespace-nowrap"
+                  >
+                    Manage GST Compliance →
+                  </a>
                 </section>
               </div>
             )}

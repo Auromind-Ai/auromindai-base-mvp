@@ -91,6 +91,7 @@ class GatewayPayment:
     status: str
     subscription_id: str | None = None
     customer_id: str | None = None
+    method: str | None = None
     raw: dict[str, Any] | None = None
 
 

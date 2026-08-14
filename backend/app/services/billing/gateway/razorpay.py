@@ -284,6 +284,7 @@ class RazorpayGateway(PaymentGateway):
                 status=(data.get("status") or "").lower(),
                 subscription_id=data.get("subscription_id"),
                 customer_id=data.get("customer_id"),
+                method=data.get("method"),
                 raw=data,
             )
         except razorpay_errors.BadRequestError as e:

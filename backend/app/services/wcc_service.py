@@ -548,8 +548,8 @@ class WCCService:
 
         if webhook_event.event_type == "payment.failed":
             if recharge_log.status == "pending":
-                raw_method = payment_data.get("method")
-                recharge_log.payment_method = str(raw_method) if raw_method else "upi"
+                raw_method = payment_data.get("method") if isinstance(payment_data, dict) else getattr(payment_data, 'method', None)
+                recharge_log.payment_method = str(raw_method) if raw_method else "online"
                 recharge_log.gateway_payment_id = gateway_payment_id
                 recharge_log.status = "failed"
                 recharge_log.updated_at = func.now()
@@ -576,8 +576,8 @@ class WCCService:
             )
 
         # Update recharge log
-        raw_method = payment_data.get("method")
-        recharge_log.payment_method = str(raw_method) if raw_method else "upi"
+        raw_method = payment_data.get("method") if isinstance(payment_data, dict) else getattr(payment_data, 'method', None)
+        recharge_log.payment_method = str(raw_method) if raw_method else "online"
         recharge_log.gateway_payment_id = gateway_payment_id
         recharge_log.status = "success"
         recharge_log.updated_at = func.now()
@@ -702,9 +702,13 @@ class WCCService:
             raise ValueError(f"Payment amount mismatch: got {received_amount}, expected {expected_amount}")
 
         # Update status & payment method
-        raw_method = getattr(payment_data, 'method', None) or (payment_data.get('method') if isinstance(payment_data, dict) else None)
+        raw_method = (
+            getattr(payment_data, 'method', None) 
+            or (payment_data.get('method') if isinstance(payment_data, dict) else None)
+            or (payment_data.raw.get('method') if getattr(payment_data, 'raw', None) and isinstance(payment_data.raw, dict) else None)
+        )
         recharge_log.gateway_payment_id = payment_id
-        recharge_log.payment_method = str(raw_method) if raw_method else "upi"
+        recharge_log.payment_method = str(raw_method) if raw_method else "online"
         recharge_log.status = "success"
         recharge_log.updated_at = func.now()
 

@@ -465,7 +465,7 @@ export default function CreditsPage() {
         const totalDistUsed = serverDist.reduce((sum, item) => sum + Number(item.credits_used || 0), 0);
         distributionEntries = serverDist
             .sort((a, b) => Number(b.credits_used || 0) - Number(a.credits_used || 0))
-            .slice(0, 5)
+            .slice(0, 3)
             .map((item, i) => ({
                 label: item.label || item.category || 'AI Processing',
                 value: Number(item.credits_used || 0),
@@ -483,7 +483,7 @@ export default function CreditsPage() {
         const distributionTotal = Object.values(distributionMap).reduce((a, b) => a + b, 0);
         distributionEntries = Object.entries(distributionMap)
             .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
+            .slice(0, 3)
             .map(([label, value], i) => ({
                 label,
                 value,
@@ -625,39 +625,39 @@ export default function CreditsPage() {
                             </div>
 
                             {/* Recharge Packs (sidebar) */}
-                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-6 border border-white/5 shadow-xl flex flex-col justify-between">
+                            <div className="bg-[#0e0e14] rounded-2xl p-4 sm:p-5 border border-white/5 shadow-xl flex flex-col justify-between self-start">
                                 <div>
-                                    <p className="text-white/60 text-xs sm:text-[14px] font-normal sm:font-medium mb-1">Recharge packs</p>
-                                    <p className="text-white text-xs sm:text-base font-normal sm:font-medium mb-3 sm:mb-4">Top up AI Credits</p>
+                                    <p className="text-white/60 text-xs sm:text-[13px] font-normal sm:font-medium mb-0.5">Recharge packs</p>
+                                    <p className="text-white text-xs sm:text-sm font-semibold mb-3">Top up AI Credits</p>
 
                                     {creditPacksLoading ? (
-                                        <div className="flex justify-center py-10">
-                                            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-purple-500" />
+                                        <div className="flex justify-center py-8">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-purple-500" />
                                         </div>
                                     ) : creditPacks.length > 0 ? (
-                                        <div className="space-y-3 max-h-[148px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10">
+                                        <div className="space-y-2.5 max-h-[160px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/15 scrollbar-track-transparent">
                                             {creditPacks.map((pack, idx) => (
                                                 <button
                                                     key={pack.id}
                                                     type="button"
                                                     onClick={() => setSelectedPackIndex(idx)}
-                                                    className={`w-full text-left p-3 sm:p-3.5 rounded-xl border transition-all cursor-pointer ${
+                                                    className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
                                                         selectedPackIndex === idx
-                                                            ? 'border-purple-500 bg-purple-500/5'
+                                                            ? 'border-purple-500 bg-purple-500/10 shadow-md shadow-purple-950/20'
                                                             : 'border-white/5 bg-white/[0.02] hover:border-white/15'
                                                     }`}
                                                 >
-                                                    <div className="flex items-center justify-between">
-                                                        <div>
-                                                            <div className="text-[9px] sm:text-[10px] font-normal sm:font-bold text-zinc-500 uppercase tracking-widest mb-1">{pack.name}</div>
-                                                            <div className="text-sm sm:text-lg font-semibold sm:font-extrabold text-white leading-none">
-                                                                ₹{parseFloat(pack.amount).toLocaleString('en-IN')}
-                                                                <span className="text-[10px] sm:text-[11px] font-normal sm:font-medium text-zinc-500 ml-1">per month</span>
+                                                    <div className="flex items-center justify-between gap-2.5">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-0.5 truncate">{pack.name}</div>
+                                                            <div className="text-sm sm:text-base font-bold text-white leading-tight flex items-baseline gap-1">
+                                                                <span>₹{parseFloat(pack.amount).toLocaleString('en-IN')}</span>
+                                                                <span className="text-[10px] sm:text-[11px] font-normal text-zinc-400">per month</span>
                                                             </div>
-                                                            <div className="text-[11px] sm:text-xs font-normal sm:font-medium text-zinc-500 mt-1">{pack.credits.toLocaleString()} AI credits</div>
+                                                            <div className="text-[11px] sm:text-xs font-normal text-zinc-400 mt-0.5">{pack.credits.toLocaleString()} AI credits</div>
                                                         </div>
-                                                        <span className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center ${
-                                                            selectedPackIndex === idx ? 'border-purple-500' : 'border-zinc-600'
+                                                        <span className={`w-4 h-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                                            selectedPackIndex === idx ? 'border-purple-500 bg-purple-500/20' : 'border-zinc-600'
                                                         }`}>
                                                             {selectedPackIndex === idx && <span className="w-2 h-2 rounded-full bg-purple-500" />}
                                                         </span>
@@ -666,16 +666,16 @@ export default function CreditsPage() {
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="border border-dashed border-white/10 rounded-2xl p-8 text-center text-zinc-500 text-xs">
+                                        <div className="border border-dashed border-white/10 rounded-2xl p-6 text-center text-zinc-500 text-xs">
                                             No top-up plans available.
                                         </div>
                                     )}
                                 </div>
 
-                                <div>
+                                <div className="mt-3">
                                     {workspaceEntitlements?.allow_ai_topup === false && (
-                                        <div className="mt-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
-                                            <AlertTriangle size={15} className="shrink-0" />
+                                        <div className="mb-3 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
+                                            <AlertTriangle size={14} className="shrink-0" />
                                             <span>AI Credit top-up is disabled on your plan. Upgrade to Pro plan to purchase top-up credits.</span>
                                         </div>
                                     )}
@@ -691,7 +691,7 @@ export default function CreditsPage() {
                                             const pack = creditPacks[selectedPackIndex];
                                             if (pack) handlePurchaseCreditPack(pack.pack_id, pack.name, parseFloat(pack.amount));
                                         }}
-                                        className="mt-4 w-full py-2.5 sm:py-3 bg-[#814AC808] hover:bg-[#814AC8] hover:text-white text-[#814AC8] font-normal sm:font-medium text-xs sm:text-sm rounded-xl border border-purple-500/30 transition-all active:scale-95 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="w-full py-2.5 sm:py-3 bg-[#814AC8] hover:bg-[#905ad6] text-white font-medium text-xs sm:text-sm rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-purple-900/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         {workspaceEntitlements?.allow_ai_topup === false ? "Upgrade plan to top up" : "Purchase selected pack"}
                                     </button>
@@ -770,7 +770,7 @@ export default function CreditsPage() {
                                     <span className="text-[11px] sm:text-xs font-normal text-zinc-500 ml-1.5">credits consumed</span>
                                 </p>
 
-                                <div className="space-y-4 sm:space-y-5 mt-5 sm:mt-7 flex-1 max-h-[148px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10">
+                                <div className="space-y-3.5 sm:space-y-4.5 mt-4 sm:mt-6 flex-1 overflow-hidden">
                                     {distributionEntries.length > 0 ? distributionEntries.map((entry) => (
                                         <div key={entry.label}>
                                             <div className="flex items-center justify-between mb-1.5 sm:mb-2">

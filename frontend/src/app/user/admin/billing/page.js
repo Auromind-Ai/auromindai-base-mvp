@@ -501,9 +501,17 @@ export default function BillingHistoryPage() {
                 {
                   icon: <CreditCard size={14} color="#9ca3af" />,
                   label: "Payment Method",
-                  value: billing?.payments && billing.payments.length > 0 && billing.payments[0].payment_method
-                    ? formatPaymentMethod(billing.payments[0].payment_method, billing.payments[0].provider).label
-                    : "—",
+                  value: (() => {
+                    const subMethod = billing?.subscription?.payment_method;
+                    if (subMethod) {
+                      return formatPaymentMethod(subMethod, billing?.subscription?.provider).label;
+                    }
+                    const subPayment = billing?.payments?.find(p => p.payment_type === 'subscription' && (p.status?.toUpperCase() === 'PAID' || p.status?.toUpperCase() === 'SUCCESS'));
+                    if (subPayment?.payment_method) {
+                      return formatPaymentMethod(subPayment.payment_method, subPayment.provider).label;
+                    }
+                    return "—";
+                  })(),
                 },
               ].map((row, idx, arr) => (
                 <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>

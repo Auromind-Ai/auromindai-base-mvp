@@ -40,9 +40,13 @@ CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
 # ==========================================
 FROM base AS worker
 
+# Set shared path for Playwright browsers so appuser can access root-installed Chromium
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 # Install Playwright & Chromium browser + OS dependencies ONLY for scraping worker
 RUN playwright install chromium && \
-    playwright install-deps chromium
+    playwright install-deps chromium && \
+    chmod -R 777 /ms-playwright
 
 # Copy application code
 COPY . .
@@ -50,7 +54,7 @@ COPY . .
 # Security Hardening: Run as non-root user
 RUN adduser --disabled-password --gecos "" appuser && \
     mkdir -p /app/temp_uploads /app/logs && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app /ms-playwright
 USER appuser
 
 # Default command for worker

@@ -347,7 +347,7 @@ def get_user_wcc_recharges(
                 "gateway_order_id": r.gateway_order_id,
                 "gateway_payment_id": r.gateway_payment_id,
                 "payment_type": "wallet_recharge",
-                "payment_method": getattr(r, 'payment_method', None) or "upi",
+                "payment_method": getattr(r, 'payment_method', None) or "online",
                 "provider": "razorpay",
                 "description": f"WhatsApp Wallet Recharge (₹{r.amount})",
                 "invoice_available": True if r.status == "success" else False,
