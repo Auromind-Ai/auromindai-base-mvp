@@ -34,14 +34,21 @@ from app.routers.inbox_chennal import meta_what, conversations, instagram, twili
 from app.routers.realtime import router as realtime_router
 from app.routers.two_factor import router as two_factor_router
 from app.routers.account import router as account_router
+from app.routers.user_feedback import router as user_feedback_router
 
 # Lifespan 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Orbionagents Production System Starting...")
     
-    # Seed platform settings and model configurations on startup
-    from app.database import SessionLocal
+    # Ensure all missing database tables (like user_feedback) are created
+    from app.database import SessionLocal, Base, engine
+    import app.models as _app_models
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        logger.warning(f"Metadata table auto-creation check notice: {e}")
+
     from app.services.platform_settings_service import seed_settings_from_env, migrate_sensitive_settings
     from app.services.model_config_service import ModelConfigService
     db = SessionLocal()
@@ -171,6 +178,8 @@ app.include_router(email.router)
 app.include_router(automation.router)
 app.include_router(template_router)
 app.include_router(feedback_router)
+app.include_router(user_feedback_router)
+app.include_router(user_feedback_router, prefix="/api")
 app.include_router(admin.router, tags=["admin"])
 app.include_router(public.router)
 app.include_router(billing.router, tags=["billing"])

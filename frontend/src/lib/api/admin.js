@@ -8,6 +8,14 @@ export async function getPlatformUsers() {
   return client.get('/admin/users');
 }
 
+export async function getUserFeedback() {
+  return client.get('/admin/user-feedback');
+}
+
+export async function submitUserFeedback(payload) {
+  return client.post('/user-feedback', payload);
+}
+
 export async function getAdminTokens() {
   return client.get('/admin/tokens');
 }
