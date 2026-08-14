@@ -24,6 +24,7 @@ from .billing import Payment
 from .subscription import Subscription
 from .plan import Plan
 from .feedback import Feedback, LearningData
+from .user_feedback import UserFeedback
 from .model_configs import ModelConfig
 from .flow_execution import FlowExecutionState, FlowExecutionTrace
 from .media import MediaFile

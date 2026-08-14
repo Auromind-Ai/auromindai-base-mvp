@@ -90,7 +90,8 @@ function getHeaders() {
     return {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
-    };
+    
+    };  
 }
 
 function getDisplayName(lead, channelId) {

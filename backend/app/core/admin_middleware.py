@@ -62,25 +62,44 @@ class AdminConsoleMiddleware:
         path = request.url.path
         admin_prefix = "/admin"
 
-        # Normalise path: strip trailing slash for admin routes to prevent 307 loops
+        # Normalize path
         if path.startswith("/admin/") and path != "/admin/":
-            # Only strip if there is a trailing slash and it's not the only char
             stripped = path.rstrip("/")
             if stripped != path:
                 scope["path"] = stripped
                 path = stripped
 
-        # Guard admin routes
         if path.startswith(admin_prefix):
-            logger.debug(f"[AdminConsoleMiddleware] Guarding path: {path}. Method: {request.method}")
-            logger.debug(f"[AdminConsoleMiddleware] Cookies received: {list(request.cookies.keys())}")
-            
+
+            logger.debug(
+                f"[AdminConsoleMiddleware] Guarding path: {path}. "
+                f"Method: {request.method}"
+            )
+
+            logger.debug(
+                f"[AdminConsoleMiddleware] Cookies received: "
+                f"{list(request.cookies.keys())}"
+            )
+
             # Auth endpoint is always public
-            if path in (f"{admin_prefix}/auth", f"{admin_prefix}/auth/"):
+            if path in (
+                f"{admin_prefix}/auth",
+                f"{admin_prefix}/auth/",
+                f"{admin_prefix}/feedback-test",
+            ):
                 await self.app(scope, receive, send)
                 return
 
-            token = request.cookies.get("admin_session") or request.headers.get("x-admin-session")
+            # IMPORTANT: define token BEFORE using it
+            token = (
+                request.cookies.get("admin_session")
+                or request.headers.get("x-admin-session")
+            )
+
+            logger.info(
+                f"ADMIN SESSION TOKEN PRESENT: {bool(token)}"
+            )
+
             is_authorized = False
             payload = None
             role = None
@@ -93,28 +112,47 @@ class AdminConsoleMiddleware:
                         settings.SECRET_KEY,
                         algorithms=[settings.ALGORITHM],
                     )
+
                     role = payload.get("role") or payload.get("platform_role")
                     purpose = payload.get("purpose")
-                    
+
+                    logger.info(f"ADMIN JWT ROLE: {role}")
+                    logger.info(f"ADMIN JWT PURPOSE: {purpose}")
+                    logger.info(f"ADMIN JWT PAYLOAD: {payload}")
+
                     if role == "platform_admin" and purpose == "admin_console":
                         is_authorized = True
-                        # CSRF check for mutating methods
-                        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+
+                        if request.method in (
+                            "POST",
+                            "PUT",
+                            "PATCH",
+                            "DELETE",
+                        ):
                             expected_csrf = payload.get("csrf_token")
-                            header_csrf = request.headers.get("x-admin-csrf-token")
-                            if not expected_csrf or not secrets.compare_digest(str(expected_csrf), str(header_csrf or "")):
+                            header_csrf = request.headers.get(
+                                "x-admin-csrf-token"
+                            )
+
+                            if not expected_csrf or not secrets.compare_digest(
+                                str(expected_csrf),
+                                str(header_csrf or ""),
+                            ):
                                 logger.warning(
-                                    "Admin CSRF validation failed for %s from %s",
+                                    "Admin CSRF validation failed for %s",
                                     path,
-                                    request.client.host if request.client else "unknown",
                                 )
+
                                 resp = _blocked_response(
-                                    scope, request,
+                                    scope,
+                                    request,
                                     status.HTTP_403_FORBIDDEN,
                                     "CSRF validation failed",
                                 )
+
                                 await resp(scope, receive, send)
                                 return
+
                 except JWTError:
                     pass
 
@@ -147,9 +185,9 @@ class AdminConsoleMiddleware:
                 logger.debug(f"[AdminConsoleMiddleware] Unauthorized request. Reject reason: {reject_reason}")
 
                 resp = _blocked_response(
-                    scope, request,
-                    status.HTTP_404_NOT_FOUND,
-                    "Not Found",
+                scope, request,
+                status.HTTP_401_UNAUTHORIZED,
+                "Admin authentication required",
                 )
                 await resp(scope, receive, send)
                 return
