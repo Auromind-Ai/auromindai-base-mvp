@@ -350,7 +350,7 @@ export default function BrainPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6">
 
                 {/*  Document Upload card — gradient changed to #814AC8  */}
-                <div className="relative rounded-xl p-3 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all cursor-pointer group overflow-hidden bg-[#070012] hover:border-[#814AC8]/50">
+                <div className="relative rounded-xl p-3 md:p-6 border-2 border-dashed border-[var(--notion-border)] text-center transition-all group overflow-hidden bg-[#070012] ">
 
                     
 
@@ -384,7 +384,7 @@ export default function BrainPage() {
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="px-6 py-2 text-white text-xs font-regular rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                            className="px-6 py-2 text-white text-xs font-regular rounded-xl cursor-pointer transition-all active:scale-95 disabled:opacity-50"
                             style={{
                                 backgroundColor: '#814AC8',
                                 boxShadow: '0 4px 14px rgba(129,74,200,0.30)',

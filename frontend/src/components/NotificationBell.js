@@ -127,19 +127,22 @@ const NotificationBell = () => {
     }
   };
 
-  const panelStyle = { top: dropdownPos.top, right: dropdownPos.right };
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const panelStyle = isMobile
+    ? { top: dropdownPos.top, left: 12, right: 12 }
+    : { top: dropdownPos.top, right: dropdownPos.right };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative shrink-0 flex-shrink-0" ref={dropdownRef}>
       {/* Bell Button */}
       <div
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
+        className="relative h-8 w-8 sm:h-[42px] sm:w-[42px] flex items-center justify-center bg-white/5 border border-white/10 rounded-lg sm:rounded-2xl hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0 flex-shrink-0"
       >
-        <Bell size={18} className="text-zinc-400" />
+        <Bell className="w-3.5 h-3.5 sm:w-[18px] sm:h-[18px] text-zinc-400" />
         {unreadCount > 0 && (
-          <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
+          <span className="absolute top-1.5 right-1.5 sm:top-2.5 sm:right-2.5 w-1.5 h-1.5 bg-indigo-500 rounded-full ring-2 ring-[#050508]" />
         )}
       </div>
 
@@ -151,7 +154,7 @@ const NotificationBell = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed max-w-60 sm:w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+            className="fixed w-auto sm:w-80 md:w-96 bg-[#161618] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
             style={panelStyle}
           >
             {/* Header */}

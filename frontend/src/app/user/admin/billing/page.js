@@ -533,7 +533,7 @@ export default function BillingHistoryPage() {
                 label="Credits Used"
                 value={`${usage.used} / ${usage.total}`}
                 percent={usage.percent}
-                barColor="linear-gradient(90deg, #22d3ee, #06b6d4)"
+                barColor="linear-gradient(90deg, #cfcbcb, #bdbdbd)"
               />
               <UsageBar
                 label="Remaining Credits"

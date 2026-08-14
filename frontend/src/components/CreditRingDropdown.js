@@ -56,7 +56,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
       if (buttonRef.current) {
         const rect = buttonRef.current.getBoundingClientRect();
         setDropdownPos({
-          top: rect.bottom + 14,
+          top: rect.bottom + 8,
           right: window.innerWidth - rect.right,
         });
       }
@@ -87,32 +87,32 @@ export default function CreditRingDropdown({ user, size = 36 }) {
   const percentUsed = added > 0 ? Math.min(100, (used / added) * 100) : 0;
   const percentRemaining = Math.max(0, 100 - percentUsed);
   
-  const radius = (size / 2) - 2; // slightly smaller than half to fit stroke
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const panelStyle = isMobile
+    ? { top: dropdownPos.top, left: 12, right: 12 }
+    : { top: dropdownPos.top, right: dropdownPos.right };
+
+  const effectiveSize = isMobile ? 32 : size;
+  const radius = (effectiveSize / 2) - 2; // slightly smaller than half to fit stroke
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentRemaining / 100) * circumference;
 
   // Calculate estimated WhatsApp marketing messages
   const estMarketingMsgs = Math.floor(wccBalance / 1.25);
 
-  // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  const panelStyle = isMobile
-    ? { top: dropdownPos.top, left: 16, right: 16 }
-    : { top: dropdownPos.top, right: dropdownPos.right };
-
   return (
-    <div className="relative font-sans" ref={dropdownRef}>
+    <div className="relative font-sans shrink-0 flex-shrink-0" ref={dropdownRef}>
       {/* Ring Button with Avatar */}
       <button 
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center rounded-full hover:scale-105 transition-transform relative focus:outline-none"
-        style={{ width: size, height: size }}
+        className="flex items-center justify-center rounded-full hover:scale-105 transition-transform relative focus:outline-none shrink-0 flex-shrink-0"
+        style={{ width: effectiveSize, height: effectiveSize }}
       >
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 transform -rotate-90 pointer-events-none">
-          <circle cx={size/2} cy={size/2} r={radius} stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" fill="none" />
+        <svg width={effectiveSize} height={effectiveSize} viewBox={`0 0 ${effectiveSize} ${effectiveSize}`} className="absolute inset-0 transform -rotate-90 pointer-events-none">
+          <circle cx={effectiveSize/2} cy={effectiveSize/2} r={radius} stroke="rgba(255,255,255,0.12)" strokeWidth="2.5" fill="none" />
           <circle 
-            cx={size/2} cy={size/2} r={radius} 
+            cx={effectiveSize/2} cy={effectiveSize/2} r={radius} 
             stroke={percentRemaining < 15 ? "#ef4444" : "#814AC8"} 
             strokeWidth="2.5" fill="none" 
             strokeDasharray={circumference}
@@ -121,7 +121,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
           />
         </svg>
         {currentUser ? (
-          <div className="rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold" style={{ width: size - 10, height: size - 10, fontSize: size * 0.35 }}>
+          <div className="rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold" style={{ width: effectiveSize - 10, height: effectiveSize - 10, fontSize: effectiveSize * 0.35 }}>
             {currentUser.email?.charAt(0).toUpperCase()}
           </div>
         ) : (
@@ -134,7 +134,7 @@ export default function CreditRingDropdown({ user, size = 36 }) {
       {/* ElevenLabs-style Dropdown */}
       {isOpen && (
         <div
-          className="fixed max-w-80 sm:w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans"
+          className="fixed w-auto sm:w-80 bg-[#0c0c12] border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden text-[13px] text-[#EDEDED] font-sans"
           style={panelStyle}
         >
           

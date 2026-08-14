@@ -284,17 +284,81 @@ def send_next_pending_message(self, conversation_id: str):
             )
             return
 
+        # Check if preceding message for this conversation is delivered / sent (channel dependent)
+        prev_msg = (
+            db.query(OutboundMessage)
+            .filter(
+                OutboundMessage.conversation_id == conversation_id,
+                OutboundMessage.sequence < msg.sequence,
+            )
+            .order_by(OutboundMessage.sequence.desc())
+            .first()
+        )
+
+        if prev_msg:
+            is_instagram = bool(conv and conv.channel and "INSTAGRAM" in str(conv.channel).upper())
+            if is_instagram:
+                # Instagram sequencing rule: Next message allowed ONLY AFTER previous message API request finished & committed as 'sent' (or terminal state)
+                if prev_msg.status in ("queued", "sending", "dispatched", "in_progress"):
+                    logger.info(
+                        "[Instagram Queue] Blocked: Prev msg seq=%d (id=%s status=%s) not sent yet | conversation=%s",
+                        prev_msg.sequence,
+                        str(prev_msg.id),
+                        prev_msg.status,
+                        conversation_id,
+                    )
+                    release_conversation_lock(conversation_id, lock_token)
+                    db.close()
+                    return
+            else:
+                # EXISTING WHATSAPP / TWILIO / META CLOUD API BEHAVIOR — UNCHANGED
+                from datetime import datetime, timezone, timedelta
+                now = datetime.now(timezone.utc)
+                updated_at = prev_msg.updated_at or prev_msg.created_at
+                if updated_at and updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                is_stale = (now - updated_at) > timedelta(seconds=45) if updated_at else False
+
+                if prev_msg.status != "delivered" and not is_stale:
+                    logger.info(
+                        "[send_next_pending_message] Blocked: Prev message seq=%d (id=%s status=%s) not delivered yet | conversation=%s",
+                        prev_msg.sequence,
+                        str(prev_msg.id),
+                        prev_msg.status,
+                        conversation_id,
+                    )
+                    release_conversation_lock(conversation_id, lock_token)
+                    db.close()
+                    return
+                elif is_stale and prev_msg.status != "delivered":
+                    logger.warning(
+                        "[send_next_pending_message] Prev message seq=%d (id=%s status=%s) delivery callback timed out (>45s). Proceeding with seq=%d | conversation=%s",
+                        prev_msg.sequence,
+                        str(prev_msg.id),
+                        prev_msg.status,
+                        msg.sequence,
+                        conversation_id,
+                    )
 
         msg.status = "sending"
         db.commit()
 
         outbound_id = str(msg.id)
-        logger.info(
-            "[send_next_pending_message] Dispatching seq=%d id=%s | conversation=%s",
-            msg.sequence,
-            outbound_id,
-            conversation_id,
-        )
+        is_instagram = bool(conv and conv.channel and "INSTAGRAM" in str(conv.channel).upper())
+        if is_instagram:
+            logger.info(
+                "[Instagram Queue] seq=%d claimed as SENDING | msg_id=%s conversation=%s",
+                msg.sequence,
+                outbound_id,
+                conversation_id,
+            )
+        else:
+            logger.info(
+                "[send_next_pending_message] Dispatching seq=%d id=%s | conversation=%s",
+                msg.sequence,
+                outbound_id,
+                conversation_id,
+            )
 
         send_whatsapp_message_task.delay(
             outbound_message_id=outbound_id,
@@ -369,14 +433,15 @@ def send_whatsapp_message_task(
             )
             return
 
-        if row.twilio_sid:
-            # Already sent in a previous attempt — ensure status is correct.
-            logger.info(
-                "[send_whatsapp_message_task] ⚠️ Already has SID, marking sent | id=%s sid=%s",
+        if row.twilio_sid or row.status not in ("sending", "queued"):
+            # Already processed or invalid status — idempotency guard
+            logger.warning(
+                "[Instagram Queue] Idempotency guard: Row already processed or invalid status | id=%s status=%s sid=%s",
                 outbound_message_id,
+                row.status,
                 row.twilio_sid,
             )
-            if row.status == "sending":
+            if row.status == "sending" and row.twilio_sid:
                 row.status = "sent"
                 db.commit()
             return
@@ -425,7 +490,7 @@ def send_whatsapp_message_task(
         metadata = metadata or {}
         metadata["outbound_message_id"] = outbound_message_id
 
-        # 5. Send to Twilio
+        # 5. Send to Twilio / Instagram
         sid = deliver_outbound_message(
             db=db,
             conversation_id=conversation_id,
@@ -496,16 +561,34 @@ def send_whatsapp_message_task(
 
         db.commit()
 
-        send_next_pending_message.apply_async(
-            args=[conversation_id],
-            countdown=10
-        )
+        conv = db.query(Conversation).filter(
+            Conversation.id == conversation_id
+        ).first()
+        is_instagram = bool(conv and conv.channel and "INSTAGRAM" in str(conv.channel).upper())
+
+        if is_instagram:
+            logger.info(
+                "[Instagram Queue] seq=%d committed as SENT | API call success provider_id=%s | conv=%s",
+                row.sequence,
+                sid,
+                conversation_id,
+            )
+            logger.info(
+                "[Instagram Queue] Released lock, triggering next pending msg | conv=%s",
+                conversation_id,
+            )
+            send_next_pending_message.apply_async(
+                args=[conversation_id],
+                countdown=0
+            )
+        else:
+            send_next_pending_message.apply_async(
+                args=[conversation_id],
+                countdown=10
+            )
 
         #  REALTIME: notify the workspace that an outbound message was sent
         try:
-            conv = db.query(Conversation).filter(
-                Conversation.id == conversation_id
-            ).first()
             if conv:
                 from app.services.analytics.realtime_service import publish_to_workspace_conversation, EventType
                 publish_to_workspace_conversation(
@@ -555,110 +638,165 @@ def send_whatsapp_message_task(
         return sid
 
     except Exception as exc:
-        # Mark the row as failed if we never got a SID
+        conv = None
         try:
-            db.rollback()
-            row = (
-                db.query(OutboundMessage)
-                .filter(OutboundMessage.id == outbound_message_id)
-                .with_for_update()
-                .first()
-            )
-            if row and not row.twilio_sid:
-                row.status = "failed"
-                
-                err_str = str(exc)
-                if "429" in err_str or "63038" in err_str:
-                    logger.warning("[send_whatsapp_message_task] 🚫 Twilio rate limit 429/63038 — stopping retries entirely for conversation=%s", conversation_id)
-                    
-                    row.metadata_json = row.metadata_json or {}
-                    row.metadata_json["failure_reason"] = "twilio_rate_limit"
-                    db.commit()
-                    return  # Stop completely, do not requeue, do not trigger next message
-                
-                # Notice: We explicitly DO NOT create a Message table entry if Twilio fails.
-                # This ensures fake messages do not appear in CRM history.
-                logger.warning(
-                    "[send_whatsapp_message_task] Twilio send failed | id=%s seq=%d | OutboundMessage status=failed",
-                    row.id,
-                    row.sequence,
-                )
-
-                db.commit()
-
-                # Since this message failed normally (not rate limit), trigger the next one so the
-                # flow doesn't stall.
-                send_next_pending_message.apply_async(
-                    args=[conversation_id],
-                    countdown=1,
-                )
+            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
         except Exception:
-            db.rollback()
+            pass
 
-        try:
-            conversation_exists = db.query(Conversation.id).filter(
-                Conversation.id == conversation_id
-            ).first()
-            if conversation_exists:
-                tracer.trace(
-                    db,
-                    conversation_id=conversation_id,
-                    event_type="error",
-                    status="failed",
-                    error_message=str(exc),
-                    metadata={"attempt": self.request.retries + 1},
+        is_instagram = bool(conv and conv.channel and "INSTAGRAM" in str(conv.channel).upper())
+        has_retries = self.request.retries < self.max_retries
+
+        if is_instagram:
+            if has_retries:
+                # Path A (Spec Sec 18): Transient Error or Rate Limit with retries remaining -> retry backoff, keep in-flight
+                countdown = _BACKOFF_SCHEDULE[
+                    min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)
+                ]
+                logger.warning(
+                    "[Instagram Queue] Transient API error / rate limit (attempt %d/%d), retrying in %ds | msg_id=%s error=%s",
+                    self.request.retries + 1,
+                    self.max_retries,
+                    countdown,
+                    outbound_message_id,
+                    exc,
                 )
-                db.commit()
+                raise self.retry(exc=exc, countdown=countdown)
             else:
-                db.commit()
-        except Exception as trace_exc:
-            logger.exception(
-                "[send_whatsapp_message_task] Tracer write failed: %s", trace_exc
-            )
-
-        try:
-            if "429" in str(exc) or "limit" in str(exc):
-                logger.error("🚫 Twilio rate limit — stopping retries")
-
+                # Path B (Spec Sec 18): Terminal Failure (Max Retries Exceeded) -> set failed, commit, trigger next msg
+                try:
+                    db.rollback()
+                    row = (
+                        db.query(OutboundMessage)
+                        .filter(OutboundMessage.id == outbound_message_id)
+                        .with_for_update()
+                        .first()
+                    )
+                    if row and not row.twilio_sid:
+                        row.status = "failed"
+                        if "429" in str(exc) or "limit" in str(exc):
+                            row.metadata_json = row.metadata_json or {}
+                            row.metadata_json["failure_reason"] = "instagram_rate_limit"
+                        db.commit()
+                        logger.error(
+                            "[Instagram Queue] Terminal failure for seq=%d | msg_id=%s conv=%s error=%s",
+                            row.sequence,
+                            outbound_message_id,
+                            conversation_id,
+                            exc,
+                        )
+                        # Trigger next queued message to prevent deadlocking conversation queue
+                        send_next_pending_message.apply_async(
+                            args=[conversation_id],
+                            countdown=1,
+                        )
+                except Exception as commit_exc:
+                    db.rollback()
+                    logger.exception("[Instagram Queue] Exception during failure handler DB commit: %s", commit_exc)
+                return
+        else:
+            # NON-INSTAGRAM (WHATSAPP / TWILIO / META CLOUD API) — EXISTING LOGIC UNCHANGED
+            try:
+                db.rollback()
                 row = (
                     db.query(OutboundMessage)
                     .filter(OutboundMessage.id == outbound_message_id)
+                    .with_for_update()
                     .first()
                 )
                 if row and not row.twilio_sid:
                     row.status = "failed"
+                    
+                    err_str = str(exc)
+                    if "429" in err_str or "63038" in err_str:
+                        logger.warning("[send_whatsapp_message_task] 🚫 Twilio rate limit 429/63038 — stopping retries entirely for conversation=%s", conversation_id)
+                        
+                        row.metadata_json = row.metadata_json or {}
+                        row.metadata_json["failure_reason"] = "twilio_rate_limit"
+                        db.commit()
+                        return  # Stop completely, do not requeue, do not trigger next message
+                    
+                    logger.warning(
+                        "[send_whatsapp_message_task] Twilio send failed | id=%s seq=%d | OutboundMessage status=failed",
+                        row.id,
+                        row.sequence,
+                    )
+
                     db.commit()
 
-                # Trigger next message despite rate limit failure
+                    # Since this message failed normally (not rate limit), trigger the next one so the
+                    # flow doesn't stall.
+                    send_next_pending_message.apply_async(
+                        args=[conversation_id],
+                        countdown=1,
+                    )
+            except Exception:
+                db.rollback()
+
+            try:
+                conversation_exists = db.query(Conversation.id).filter(
+                    Conversation.id == conversation_id
+                ).first()
+                if conversation_exists:
+                    tracer.trace(
+                        db,
+                        conversation_id=conversation_id,
+                        event_type="error",
+                        status="failed",
+                        error_message=str(exc),
+                        metadata={"attempt": self.request.retries + 1},
+                    )
+                    db.commit()
+                else:
+                    db.commit()
+            except Exception as trace_exc:
+                logger.exception(
+                    "[send_whatsapp_message_task] Tracer write failed: %s", trace_exc
+                )
+
+            try:
+                if "429" in str(exc) or "limit" in str(exc):
+                    logger.error("🚫 Twilio rate limit — stopping retries")
+
+                    row = (
+                        db.query(OutboundMessage)
+                        .filter(OutboundMessage.id == outbound_message_id)
+                        .first()
+                    )
+                    if row and not row.twilio_sid:
+                        row.status = "failed"
+                        db.commit()
+
+                    # Trigger next message despite rate limit failure
+                    send_next_pending_message.apply_async(
+                        args=[conversation_id],
+                        countdown=5,
+                    )
+                    return
+
+                countdown = _BACKOFF_SCHEDULE[
+                    min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)
+                ]
+                logger.warning(
+                    "[send_whatsapp_message_task] Retrying in %ds (attempt %d/3) | error=%s",
+                    countdown,
+                    self.request.retries + 1,
+                    exc,
+                )
+                raise self.retry(exc=exc, countdown=countdown)
+
+            except MaxRetriesExceededError:
+                logger.error(
+                    "[send_whatsapp_message_task] Max retries exceeded | conversation=%s | error=%s",
+                    conversation_id,
+                    exc,
+                )
+                # Trigger next message — don't let the flow stall
                 send_next_pending_message.apply_async(
                     args=[conversation_id],
-                    countdown=5,
+                    countdown=2,
                 )
-                return
-
-            countdown = _BACKOFF_SCHEDULE[
-                min(self.request.retries, len(_BACKOFF_SCHEDULE) - 1)
-            ]
-            logger.warning(
-                "[send_whatsapp_message_task] Retrying in %ds (attempt %d/3) | error=%s",
-                countdown,
-                self.request.retries + 1,
-                exc,
-            )
-            raise self.retry(exc=exc, countdown=countdown)
-
-        except MaxRetriesExceededError:
-            logger.error(
-                "[send_whatsapp_message_task] Max retries exceeded | conversation=%s | error=%s",
-                conversation_id,
-                exc,
-            )
-            # Trigger next message — don't let the flow stall
-            send_next_pending_message.apply_async(
-                args=[conversation_id],
-                countdown=2,
-            )
-            raise
+                raise
 
     finally:
         db.close()

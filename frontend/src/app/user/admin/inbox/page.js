@@ -36,8 +36,19 @@ const TwilioIcon = ({ size = 16, style = {} }) => {
     );
 };
 
+const WhatsAppIcon = ({ size = 16, style = {} }) => {
+    const isInactive = style.color === '#666';
+    const circleFill = isInactive ? '#3f3f46' : '#28C661';
+    return (
+        <svg width={size} height={size} viewBox="0 0 48 48" style={style} xmlns="http://www.w3.org/2000/svg">
+            <circle cx="24" cy="24" r="24" fill={circleFill}/>
+            <path d="M34.2 29.8c-.5-.2-2.9-1.4-3.4-1.6-.5-.2-.8-.2-1.1.2-.3.5-1.3 1.6-1.6 1.9-.3.3-.6.4-1.1.1-.5-.2-2.1-.8-4-2.5-1.5-1.3-2.5-2.9-2.8-3.4-.3-.5 0-.8.2-1 .2-.2.5-.6.8-.9.3-.3.4-.5.6-.8.2-.3.1-.6 0-.9-.1-.2-1.1-2.7-1.5-3.7-.4-1-.8-.8-1.1-.8h-1c-.3 0-.9.1-1.3.6-.4.5-1.7 1.7-1.7 4.1s1.8 4.7 2 5c.3.3 3.5 5.3 8.4 7.4 1.2.5 2.1.8 2.8 1 1.2.4 2.3.3 3.1.2.9-.1 2.9-1.2 3.3-2.3.4-1.2.4-2.2.3-2.4-.2-.2-.5-.3-1-.5z" fill="white"/>
+        </svg>
+    );
+};
+
 const CHANNELS = [
-    { id: 'whatsapp', label: 'WhatsApp', icon: Phone, color: '#28C661', gradient: null },
+    { id: 'whatsapp', label: 'WhatsApp', icon: WhatsAppIcon, color: '#28C661', gradient: null },
     {
         id: 'instagram', label: 'Instagram', icon: Instagram, color: '#ee2a7b',
         gradient: 'linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)'
@@ -125,22 +136,31 @@ function ProfilePic({ src, alt, fallbackText, color, className = '' }) {
 }
 
 function ChannelIcon({ channel, size = 16 }) {
-    const Icon = channel.icon;
-    if (channel.gradient) {
-        return (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-                <defs>
-                    <linearGradient id={`grad-${channel.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#f9ce34" />
-                        <stop offset="50%" stopColor="#ee2a7b" />
-                        <stop offset="100%" stopColor="#6228d7" />
-                    </linearGradient>
-                </defs>
-                <Icon size={size} stroke={`url(#grad-${channel.id})`} strokeWidth={2} />
-            </svg>
-        );
+    if (!channel) return <Mail size={size} style={{ color: '#888' }} strokeWidth={2} />;
+    const chObj = typeof channel === 'object' ? channel : CHANNELS.find(c => c.id === channel?.toLowerCase());
+    if (chObj) {
+        const Icon = chObj.icon;
+        if (chObj.gradient) {
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+                    <defs>
+                        <linearGradient id={`grad-${chObj.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#f9ce34" />
+                            <stop offset="50%" stopColor="#ee2a7b" />
+                            <stop offset="100%" stopColor="#6228d7" />
+                        </linearGradient>
+                    </defs>
+                    <Icon size={size} stroke={`url(#grad-${chObj.id})`} strokeWidth={2} />
+                </svg>
+            );
+        }
+        return <Icon size={size} strokeWidth={2} style={{ color: chObj.color }} />;
     }
-    return <Icon size={size} strokeWidth={2} style={{ color: channel.color }} />;
+    const channelStr = (typeof channel === 'string' ? channel : channel?.id || '').toLowerCase();
+    if (channelStr === 'whatsapp') return <WhatsAppIcon size={size} />;
+    if (channelStr === 'twilio') return <TwilioIcon size={size} />;
+    if (channelStr === 'instagram') return <Instagram size={size} strokeWidth={2} style={{ color: '#ee2a7b' }} />;
+    return <Mail size={size} style={{ color: '#888' }} strokeWidth={2} />;
 }
 
 function UnreadBadge({ count, channel }) {
@@ -199,7 +219,7 @@ function getLastUserActivity(lead, messages) {
     return null;
 }
 
-function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterChange, onLeadSelect }) {
+function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterChange, onLeadSelect, unreadCounts = {}, lastMessageMap = {} }) {
     const [searchQuery, setSearchQuery] = useState('');
     const containerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
@@ -313,6 +333,9 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                     const sel = lead?.id === l.id;
                     const displayName = getDisplayName(l, ch.id);
                     const avatarText = getAvatarText(l, ch.id);
+                    const convChannel = CHANNELS.find(c => c.id === (l.channel?.toLowerCase() || ch.id)) || ch;
+                    const lastMsgText = lastMessageMap[l.id] || l.last_message || l.preview || l.last_message_text || 'No messages yet';
+                    const unreadCount = unreadCounts[l.id] !== undefined ? unreadCounts[l.id] : (l.unread_count || l.unread || 0);
 
                     return (
                         <motion.button
@@ -327,7 +350,11 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                             }
                         >
                             <div className="flex items-center gap-3">
-                                <div className="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center text-[14px] font-semibold shrink-0"
+                                {/* Left-aligned channel icon */}
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0">
+                                    <ChannelIcon channel={convChannel} size={20} />
+                                </div>
+                                <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-[13px] font-semibold shrink-0"
                                     style={{ backgroundColor: '#222' }}>
                                     {isInstagram && l.profile_pic ? (
                                         <ProfilePic src={l.profile_pic} alt={displayName} fallbackText={avatarText} color={ch.color} />
@@ -344,12 +371,9 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <p className="text-[12px] text-[#666] truncate leading-relaxed flex-1">
-                                            {l.last_message || l.preview || l.last_message_text || 'No messages yet'}
+                                            {lastMsgText}
                                         </p>
-                                        {ch.id === 'instagram'
-                                            ? <Camera size={15} className="shrink-0 ml-2 text-[#555]" strokeWidth={1.5} />
-                                            : <UnreadBadge count={l.unread_count || l.unread || l.unseen_count || 0} channel={ch} />
-                                        }
+                                        <UnreadBadge count={unreadCount} channel={convChannel} />
                                     </div>
                                 </div>
                             </div>
@@ -448,12 +472,21 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
     return (
         <div className="w-full h-full overflow-y-auto p-5" style={{ backgroundColor: CARD_BG }}>
             {showBackButton && (
-                <button
-                    onClick={onBack}
-                    className="flex items-center gap-2 text-[#666] text-[13px] mb-4 hover:text-white transition"
-                >
-                    <ArrowLeft size={16} /> Back to Chat
-                </button>
+                <div className="flex items-center justify-between mb-4">
+                    <button
+                        onClick={onBack}
+                        className="flex items-center gap-2 text-[#666] text-[13px] hover:text-white transition cursor-pointer"
+                    >
+                        <ArrowLeft size={16} /> Back to Chat
+                    </button>
+                    <button
+                        onClick={onBack}
+                        className="p-1 rounded-lg text-[#666] hover:text-white transition cursor-pointer"
+                        title="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
             )}
 
             {!lead ? (
@@ -748,13 +781,27 @@ function ChatArea({
     const ref = useRef(null);
     const messagesContainerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
+    const [unreadScrolledCount, setUnreadScrolledCount] = useState(0);
+    const prevMessagesLenRef = useRef(messages.length);
 
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
-        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
-        if (isNearBottom) {
+
+        const isNewIncoming = messages.length > prevMessagesLenRef.current;
+        prevMessagesLenRef.current = messages.length;
+
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+        const isNearBottom = distanceFromBottom < 130;
+
+        if (isNearBottom || !isNewIncoming) {
             ref.current?.scrollIntoView({ behavior: 'smooth' });
+            setTimeout(() => setUnreadScrolledCount(0), 0);
+        } else {
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg && lastMsg.sender_type?.toLowerCase() === 'user') {
+                setTimeout(() => setUnreadScrolledCount(prev => prev + 1), 0);
+            }
         }
     }, [messages]);
 
@@ -864,12 +911,10 @@ function ChatArea({
                 <div className="flex items-center gap-2">
                     <button
                         onClick={onInfoClick}
-                        className="p-2 rounded-lg hover:bg-white/5 transition-colors lg:hidden"
+                        className="p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer min-[1601px]:hidden"
                         style={{ color: infoActive ? ch.color : '#777' }}
+                        title="Contact Details"
                     >
-                        <Info size={17} strokeWidth={2} />
-                    </button>
-                    <button className="p-2 rounded-lg text-[#777] hidden lg:flex" style={{ color: '#777' }}>
                         <Info size={17} strokeWidth={2} />
                     </button>
                 </div>
@@ -877,7 +922,7 @@ function ChatArea({
 
             {/* Messages */}
             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
-                <div className="max-w-2xl mx-auto space-y-2">
+                <div className="max-w-3xl mx-auto space-y-2">
                     {messagesWithSeparators.map((item) => {
                         if (item._dateSeparator) {
                             return (
@@ -949,6 +994,24 @@ function ChatArea({
                         )}
                     </div>
                 )}
+
+                <AnimatePresence>
+                    {unreadScrolledCount > 0 && (
+                        <motion.button
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            onClick={() => {
+                                ref.current?.scrollIntoView({ behavior: 'smooth' });
+                                setUnreadScrolledCount(0);
+                            }}
+                            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold shadow-lg border border-white/10 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                        >
+                            <span>{unreadScrolledCount === 1 ? 'New message' : `${unreadScrolledCount} new messages`}</span>
+                            <span>↓</span>
+                        </motion.button>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* AI Suggestion bar */}
@@ -1144,6 +1207,60 @@ function InboxContent() {
     const [msg, setMsg] = useState('');
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [previewMedia, setPreviewMedia] = useState(null);
+    const [unreadCounts, setUnreadCounts] = useState({});
+    const [lastMessageMap, setLastMessageMap] = useState({});
+
+    const notificationAudioRef = useRef(null);
+    const processedMessageIds = useRef(new Set());
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const audio = new Audio('/sounds/message-notification.mp3');
+            audio.volume = 0.7;
+            notificationAudioRef.current = audio;
+
+            const unlockAudio = () => {
+                if (notificationAudioRef.current) {
+                    notificationAudioRef.current.play().then(() => {
+                        notificationAudioRef.current.pause();
+                        notificationAudioRef.current.currentTime = 0;
+                    }).catch(() => {});
+                }
+            };
+
+            window.addEventListener('pointerdown', unlockAudio, { once: true });
+            window.addEventListener('keydown', unlockAudio, { once: true });
+
+            return () => {
+                window.removeEventListener('pointerdown', unlockAudio);
+                window.removeEventListener('keydown', unlockAudio);
+            };
+        }
+    }, []);
+
+    const playNotificationSound = useCallback(() => {
+        const audio = notificationAudioRef.current;
+        console.log("🔊 Audio ref:", audio);
+        if (!audio) {
+            console.error("❌ Notification sound failed: audio ref is null");
+            return;
+        }
+        try {
+            audio.currentTime = 0;
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log("✅ Notification sound played");
+                    })
+                    .catch((error) => {
+                        console.error("❌ Notification sound failed:", error);
+                    });
+            }
+        } catch (error) {
+            console.error("❌ Notification sound failed:", error);
+        }
+    }, []);
 
     // Template state (from HEAD)
     const [templateName, setTemplateName] = useState(null);
@@ -1170,9 +1287,11 @@ function InboxContent() {
     const pathname = usePathname();
     const urlConversationId = searchParams.get('conversationId') || searchParams.get('conversation');
 
-    // Tablet / mobile view state
+    // Tablet / mobile / desktop drawer view state
     const [tabletRight, setTabletRight] = useState('chat');
+    const [ipadRight, setIpadRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
+    const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
 
     //  Template helpers ─
     const fetchInboxTemplates = useCallback(async () => {
@@ -1276,6 +1395,19 @@ function InboxContent() {
         try {
             const data = await api.get(`/api/messages/${id}`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
+
+            // Populate processed message IDs to prevent sound on history load/reconnect
+            data.forEach(m => {
+                if (m.id) processedMessageIds.current.add(m.id);
+            });
+
+            if (data.length > 0) {
+                const lastMsg = data[data.length - 1];
+                if (lastMsg?.content) {
+                    setLastMessageMap(prev => ({ ...prev, [id]: lastMsg.content }));
+                }
+            }
+
             if (id === leadRef.current?.id) {
                 setMessages(data);
             }
@@ -1299,6 +1431,25 @@ function InboxContent() {
             }
 
             setConversations(data);
+
+            // Fetch messages for all conversations to populate lastMessageMap
+            data.forEach(c => {
+                if (c.id) {
+                    api.get(`/api/messages/${c.id}`).then(msgs => {
+                        if (Array.isArray(msgs)) {
+                            msgs.forEach(m => {
+                                if (m.id) processedMessageIds.current.add(m.id);
+                            });
+                            if (msgs.length > 0) {
+                                const last = msgs[msgs.length - 1];
+                                if (last?.content) {
+                                    setLastMessageMap(prev => ({ ...prev, [c.id]: last.content }));
+                                }
+                            }
+                        }
+                    }).catch(() => {});
+                }
+            });
 
             if (data.length === 0) {
                 setLead(null); setResolvedLeadId(null); setMessages([]);
@@ -1325,6 +1476,10 @@ function InboxContent() {
             }
 
             setLead(nextLead);
+            if (nextLead) {
+                // Clear unread on open
+                setUnreadCounts(prev => ({ ...prev, [nextLead.id]: 0 }));
+            }
             fetchMessages(nextLead.id);
             if (nextLead) fetchLeadIdForConversation(nextLead.id).then(id => setResolvedLeadId(id));
         } catch (e) { console.error('Conversation fetch error:', e); }
@@ -1353,6 +1508,7 @@ function InboxContent() {
 
     //  Channel / filter changes 
     useEffect(() => {
+        setDesktopDrawerOpen(false);
         const timer = setTimeout(() => {
             setLead(null); setResolvedLeadId(null);
             leadRef.current = null; setMessages([]); setConversations([]);
@@ -1377,13 +1533,56 @@ function InboxContent() {
 
     useEffect(() => {
         return subscribe((event) => {
+            console.log("📨 WebSocket message received:", event);
+
             const eventWorkspaceId = event.workspace_id || event.payload?.workspace_id;
             if (eventWorkspaceId && workspace?.id && eventWorkspaceId !== workspace.id) return;
 
             const eventConversationId = event.conversation_id || event.payload?.conversation_id;
 
             switch (event.event_type) {
-                case 'new_message':
+                case 'new_message': {
+                    const msgData = event.payload || {};
+                    const msgId = msgData.id || event.id || event.event_id;
+                    const senderRaw = typeof msgData.sender_type === 'string' ? msgData.sender_type : (msgData.sender_type?.value || msgData.sender || event.sender_type || '');
+                    const msgSender = senderRaw.toLowerCase();
+                    const msgContent = msgData.content || event.content || '';
+
+                    // Update last message map for conversation preview
+                    if (eventConversationId && msgContent) {
+                        setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
+                    }
+
+                    // Duplicate protection check
+                    if (msgId && processedMessageIds.current.has(msgId)) {
+                        console.log("⚠️ Ignored duplicate message ID:", msgId);
+                        return;
+                    }
+                    if (msgId) {
+                        processedMessageIds.current.add(msgId);
+                    }
+
+                    // Genuine NEW incoming message from customer
+                    const isIncoming = msgSender.includes('user') || msgSender.includes('customer') || msgData.direction === 'inbound';
+                    if (isIncoming) {
+                        console.log("🔔 New incoming message detected");
+                        playNotificationSound();
+
+                        const isCurrentlyActive = leadRef.current?.id === eventConversationId;
+                        if (!isCurrentlyActive && eventConversationId) {
+                            setUnreadCounts(prev => ({
+                                ...prev,
+                                [eventConversationId]: (prev[eventConversationId] || 0) + 1
+                            }));
+                        }
+                    }
+
+                    fetchConversations();
+                    if (eventConversationId && leadRef.current?.id === eventConversationId) {
+                        fetchMessages(eventConversationId);
+                    }
+                    break;
+                }
                 case 'conversation_updated':
                     fetchConversations();
                     if (eventConversationId && leadRef.current?.id === eventConversationId) {
@@ -1411,7 +1610,7 @@ function InboxContent() {
                     break;
             }
         });
-    }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId]);
+    }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId, playNotificationSound]);
 
     //  Actions 
     async function sendMessage() {
@@ -1551,16 +1750,18 @@ function InboxContent() {
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
-            {/*  DESKTOP (≥1024px)  */}
-            <div className="hidden lg:flex flex-1 overflow-hidden p-3 gap-3">
+            {/*  DESKTOP (≥1260px)  */}
+            <div className="hidden xl:flex flex-1 overflow-hidden p-3 gap-3 relative">
                 <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
                     <ChannelTabs ch={ch} setCh={setCh} />
                     <PanelCard className="flex-1">
                         <ConversationSidebar
                             ch={ch} conversations={conversations} lead={lead}
                             activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                            unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                             onLeadSelect={(l) => {
                                 setLead(l); fetchMessages(l.id);
+                                setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
                                 fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
                             }}
                         />
@@ -1570,15 +1771,95 @@ function InboxContent() {
                 <div className="flex flex-col gap-3 flex-1" style={{ minWidth: 0 }}>
                     <div className="shrink-0" style={{ height: 40 }} />
                     <PanelCard className="flex-1">
-                        <ChatArea {...chatAreaProps} onInfoClick={() => {}} infoActive={false} showMobileBackButton={false} />
+                        <ChatArea
+                            {...chatAreaProps}
+                            onInfoClick={() => setDesktopDrawerOpen(prev => !prev)}
+                            infoActive={desktopDrawerOpen}
+                            showMobileBackButton={false}
+                        />
                     </PanelCard>
                 </div>
 
-                <div className="flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
+                {/* Permanent Contact Details Panel (ONLY on Large Desktop >1600px) */}
+                <div className="hidden min-[1601px]:flex flex-col gap-3" style={{ width: 420, minWidth: 400, maxWidth: 450 }}>
                     <div className="shrink-0" style={{ height: 40 }} />
                     <PanelCard className="flex-1">
                         <InfoPanel {...infoPanelProps} showBackButton={false} />
                     </PanelCard>
+                </div>
+
+                {/* Slide-over Drawer for Contact Details (ONLY on 1260px – 1600px) */}
+                <AnimatePresence>
+                    {desktopDrawerOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                onClick={() => setDesktopDrawerOpen(false)}
+                                className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm min-[1601px]:hidden"
+                            />
+                            <motion.div
+                                initial={{ x: '100%' }}
+                                animate={{ x: 0 }}
+                                exit={{ x: '100%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+                                className="fixed top-0 right-0 bottom-0 z-[90] w-[420px] max-w-[90vw] p-3 flex flex-col min-[1601px]:hidden"
+                            >
+                                <PanelCard className="flex-1 overflow-hidden shadow-2xl relative">
+                                    <InfoPanel
+                                        {...infoPanelProps}
+                                        showBackButton={true}
+                                        onBack={() => setDesktopDrawerOpen(false)}
+                                    />
+                                </PanelCard>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+            </div>
+
+            {/*  IPAD PRO (1024px–1279px)  */}
+            <div className="hidden lg:flex xl:hidden flex-col flex-1 overflow-hidden">
+                <div className="flex flex-1 overflow-hidden p-3 gap-3">
+                    <div className="flex flex-col gap-3" style={{ width: 360, minWidth: 320, maxWidth: 380 }}>
+                        <ChannelTabs ch={ch} setCh={setCh} />
+                        <PanelCard className="flex-1">
+                            <ConversationSidebar
+                                ch={ch} conversations={conversations} lead={lead}
+                                activeFilter={activeFilter} onFilterChange={setActiveFilter}
+                                unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                                onLeadSelect={(l) => {
+                                    setLead(l); fetchMessages(l.id);
+                                    setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                    fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
+                                    setIpadRight('chat');
+                                }}
+                            />
+                        </PanelCard>
+                    </div>
+
+                    <div className="flex flex-col gap-3 flex-1 relative overflow-hidden" style={{ minWidth: 0 }}>
+                        <div className="shrink-0" style={{ height: 40 }} />
+                        <div className="flex-1 relative overflow-hidden">
+                            <AnimatePresence mode="wait">
+                                {ipadRight === 'chat' ? (
+                                    <motion.div key="ipad-chat" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}
+                                        className="absolute inset-0 rounded-2xl overflow-hidden border"
+                                        style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}>
+                                        <ChatArea {...chatAreaProps} onInfoClick={() => setIpadRight('info')} infoActive={false} showMobileBackButton={false} />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div key="ipad-info" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}
+                                        className="absolute inset-0 rounded-2xl overflow-hidden border overflow-y-auto"
+                                        style={{ backgroundColor: CARD_BG, borderColor: CARD_BORDER }}>
+                                        <InfoPanel {...infoPanelProps} showBackButton={true} onBack={() => setIpadRight('chat')} />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1592,7 +1873,11 @@ function InboxContent() {
                         <ConversationSidebar
                             ch={ch} conversations={conversations} lead={lead}
                             activeFilter={activeFilter} onFilterChange={setActiveFilter}
-                            onLeadSelect={handleLeadSelectTablet}
+                            unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                            onLeadSelect={(l) => {
+                                handleLeadSelectTablet(l);
+                                setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                            }}
                         />
                     </PanelCard>
                     <div className="flex-1 relative overflow-hidden">
@@ -1628,7 +1913,11 @@ function InboxContent() {
                                 <ConversationSidebar
                                     ch={ch} conversations={conversations} lead={lead}
                                     activeFilter={activeFilter} onFilterChange={setActiveFilter}
-                                    onLeadSelect={handleLeadSelectMobile}
+                                    unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
+                                    onLeadSelect={(l) => {
+                                        handleLeadSelectMobile(l);
+                                        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                    }}
                                 />
                             </motion.div>
                         )}

@@ -272,9 +272,9 @@ if (!user) {
                         <div className="h-14 flex items-center px-4 border-b border-white/5">
                             <div className="flex items-center gap-2.5 overflow-hidden">
                                 <div className="w-5 h-5 rounded-[4px] bg-indigo-500 flex items-center justify-center flex-shrink-0 text-[10px] text-white font-bold">
-                                    {workspace?.name?.charAt(0) || 'A'}
+                                    {workspace?.name?.charAt(0) || 'O'}
                                 </div>
-                                <span className="font-medium text-sm truncate text-[#D4D4D4]">{workspace?.name || 'Auromind'}</span>
+                                <span className="font-medium text-sm truncate text-[#D4D4D4]">{workspace?.name || 'Orbionagents'}</span>
                             </div>
                         </div>
 
@@ -339,7 +339,7 @@ if (!user) {
                         >
                             <Menu size={20} className="text-[#D4D4D4]" />
                         </button>
-                        <span className="font-semibold text-sm text-[#D4D4D4] tracking-tight">Auromind</span>
+                        <span className="font-semibold text-sm text-[#D4D4D4] tracking-tight">Orbionagents</span>
                     </div>
                     
                     {/* Compact Profile Circle for Mobile Header */}

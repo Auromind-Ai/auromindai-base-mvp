@@ -28,6 +28,7 @@ import { Poppins } from 'next/font/google';
 import { useDashboard } from '@/lib/useDashboard';
 import AddLeadModal from '@/components/leads/AddLeadModal';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
+import WhatsAppStatusIndicator from '@/components/dashboard/WhatsAppStatusIndicator';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -1147,7 +1148,7 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0, left: 0 });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -1162,6 +1163,7 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
         const rect = buttonRef.current.getBoundingClientRect();
         setDropdownPos({
           top: rect.bottom + 8,
+          left: rect.left,
           right: window.innerWidth - rect.right,
         });
       }
@@ -1187,21 +1189,26 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
 
   // On mobile, use left/right insets for full-width; on sm+ anchor to button's right edge
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  const dropdownStyle = isMobile
-    ? { top: dropdownPos.top, left: 16, right: 16 }
-    : { top: dropdownPos.top, right: dropdownPos.right };
+  let dropdownStyle = {};
+  if (isMobile) {
+    const dropdownWidth = 200;
+    const calculatedLeft = Math.max(12, Math.min(dropdownPos.left, (typeof window !== 'undefined' ? window.innerWidth : 375) - dropdownWidth - 12));
+    dropdownStyle = { top: dropdownPos.top, left: calculatedLeft };
+  } else {
+    dropdownStyle = { top: dropdownPos.top, right: dropdownPos.right };
+  }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative shrink-0 flex-shrink-0" ref={dropdownRef}>
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-xs text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none"
+        className="flex items-center gap-1 sm:gap-2 h-8 sm:h-[42px] px-2 sm:px-3 bg-white/5 border border-white/15 rounded-lg sm:rounded-2xl text-[10px] sm:text-xs text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors shadow-sm select-none shrink-0 flex-shrink-0"
       >
-        <Calendar size={14} className="text-purple-400" />
-        <span className="hidden xs:inline font-medium">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
-        <span className="xs:hidden font-medium">{labels[period]}</span>
-        <ChevronDown size={14} className={`text-white/60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <Calendar size={12} className="text-purple-400 shrink-0 flex-shrink-0" />
+        <span className="hidden xs:inline font-medium whitespace-nowrap">{formatDisplayRange(dateRange.startDate, dateRange.endDate)}</span>
+        <span className="xs:hidden font-medium whitespace-nowrap">{labels[period]}</span>
+        <ChevronDown size={12} className={`text-white/60 shrink-0 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       <AnimatePresence>
@@ -1211,7 +1218,7 @@ function PeriodPicker({ period, dateRange, onPeriodChange }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.95 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed max-w-[200px] sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[100] backdrop-blur-2xl flex flex-col gap-1"
+            className="fixed w-52 sm:w-60 rounded-xl bg-[#141424] border border-white/15 p-1.5 shadow-2xl z-[100] backdrop-blur-2xl flex flex-col gap-1"
             style={dropdownStyle}
           >
             {options.map((opt) => {
@@ -1289,7 +1296,7 @@ export default function DashboardPage() {
   const cardStateClass = isInitialLoading ? "opacity-50 animate-pulse pointer-events-none" : "transition-opacity duration-300";
 
   return (
-    <div className={`${poppins.className} min-h-screen bg-[#050508] text-white p-6 overflow-y-auto custom-scrollbar`}>
+    <div className={`${poppins.className} min-h-screen bg-[#050508] text-white px-3 py-4 sm:p-6 overflow-y-auto custom-scrollbar`}>
       
       {error && (
         <div className="max-w-[1600px] mx-auto mb-6 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
@@ -1320,11 +1327,12 @@ export default function DashboardPage() {
             <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-white/90">Dashboard</h1>
             <p className="text-xs text-white/70 mt-0.5">Good morning! Here are your key actions for today.</p>
           </div>
-          <div className="flex items-center w-full sm:w-auto gap-3">
+          <div className="flex items-center flex-nowrap w-full sm:w-auto justify-between sm:justify-end gap-1 sm:gap-3 overflow-x-auto no-scrollbar py-0.5">
+            <WhatsAppStatusIndicator />
             <PeriodPicker period={period} dateRange={dateRange} onPeriodChange={handlePeriodChange} />
-            <div className="flex items-center gap-3 ml-auto sm:ml-0">
+            <div className="flex items-center gap-1 sm:gap-3 shrink-0 flex-shrink-0 ml-auto sm:ml-0">
               <NotificationBell />
-              <div className="relative z-50">
+              <div className="relative z-50 shrink-0 flex-shrink-0">
                 <CreditRingDropdown user={user} size={36} />
               </div>
             </div>

@@ -18,7 +18,14 @@ class ConfigService:
             if val is not None:
                 return val
         if hasattr(settings, bootstrap_key):
-            return getattr(settings, bootstrap_key)
+            val = getattr(settings, bootstrap_key)
+            if val is not None and val != "":
+                return val
+
+        import os
+        val = os.getenv(bootstrap_key)
+        if val is not None and val != "":
+            return val
 
         return default
 

@@ -15,10 +15,12 @@ services:
     image: pgvector/pgvector:pg16
     container_name: auromind_postgres
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: auromindai
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Arunjack007@}
+      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
     ports:
       - "5435:5432"
     volumes:
@@ -42,13 +44,8 @@ services:
       sh -c "alembic upgrade heads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
@@ -65,32 +62,6 @@ services:
       redis:
         condition: service_healthy
 
-#  security-tools:
-#    build:
-#      context: ./backend
-#      dockerfile: Dockerfile
-#      target: security
-#    container_name: auromind_security_tools
-#    restart: "no"
-#    env_file:
-#      - ./backend/.env
-#    environment:
-#      DATABASE_URL: ${DATABASE_URL:-}
-#      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-#      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
-#      POSTGRES_HOST: db
-#      POSTGRES_PORT: 5432
-#      REDIS_URL: redis://redis:6379/0
-#      SECRET_KEY: ${SECRET_KEY}
-#    volumes:
-#      - ./backend/logs:/app/logs
-#      - ./backend:/app
-#    depends_on:
-#      db:
-#        condition: service_healthy
-#      redis:
-#        condition: service_healthy
 
 
   celery_worker:
@@ -119,13 +90,8 @@ services:
           print('Database connection timed out!')
       '''))\" && celery -A app.core.celery_app worker --loglevel=info --pool=prefork --concurrency=2 -Q default,beat"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
@@ -165,13 +131,8 @@ services:
           print('Database connection timed out!')
       '''))\" && celery -A app.core.celery_app beat --loglevel=info"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1

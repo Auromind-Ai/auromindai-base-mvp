@@ -6,13 +6,19 @@ from typing import Any, Dict, List, Set
 #     return " ".join(str(value or "").lower().replace("_", " ").split())
 
 
-def _is_button_message_node(node: Dict[str, Any]) -> bool:
+def _is_branching_node(node: Dict[str, Any]) -> bool:
     config = node.get("config") or {}
-    return (
-        node.get("type") == "action"
-        and config.get("type") == "send_msg"
-        and config.get("message_type") in {"button_message", "button"}
-    )
+    node_type = node.get("type")
+    action_type = config.get("type")
+    if node_type == "action" and action_type == "send_msg" and config.get("message_type") in {"button_message", "button"}:
+        return True
+    if node_type == "action" and action_type == "condition":
+        return True
+    return False
+
+
+def _is_button_message_node(node: Dict[str, Any]) -> bool:
+    return _is_branching_node(node)
 
 
 # def _is_fallback_node(node: Dict[str, Any]) -> bool:
@@ -128,6 +134,10 @@ class FlowValidationService:
 
             outgoing_edges = outgoing_map.get(node_id, [])
             if not outgoing_edges:
+                continue
+
+            if (node.get("config") or {}).get("type") == "brain_query":
+                errors.append("AI Reply must be the final step. No steps can be added after AI Reply.")
                 continue
 
             if _is_button_message_node(node):

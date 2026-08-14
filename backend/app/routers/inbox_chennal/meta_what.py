@@ -49,6 +49,8 @@ async def verify_webhook(request: Request):
     raise HTTPException(status_code=403, detail="Verification failed")
 
 
+from starlette.concurrency import run_in_threadpool
+
 @router.post("/whatsapp/webhook")
 async def receive_whatsapp(request: Request, db: Session = Depends(get_db)):
     print("\n[DEBUG WEBHOOK] === INCOMING META WHATSAPP WEBHOOK POST REQUEST ===")

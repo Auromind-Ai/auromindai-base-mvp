@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Plus, Sparkles, Layers, MousePointer2, Trash2, CheckCircle2, X, Pencil
+  Search, Plus, Sparkles, Layers, MousePointer2, Trash2, CheckCircle2, X, Pencil, Play
 } from 'lucide-react';
 import { getUser, getWorkspaceIdFromToken } from '@/lib/auth';
 import api from '@/lib/api';
@@ -15,6 +15,7 @@ export default function DashboardView({
   handleToggleStatus,
   handleDuplicateFlow,
   handleDeleteFlow,
+  handlePreviewFlow,
   infoModal,
   setInfoModal,
   isCreateModalOpen,
@@ -313,6 +314,14 @@ export default function DashboardView({
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handlePreviewFlow && handlePreviewFlow(flow)}
+                            title="Preview Flow"
+                            className="p-2 text-[#814AC8] opacity-70 hover:opacity-100 hover:text-purple-300 transition-all duration-300 rounded-lg hover:bg-purple-500/10"
+                            aria-label="Preview Flow"
+                          >
+                            <Play size={14} />
+                          </button>
                           <button
                             onClick={() => handleDuplicateFlow(flow)}
                             title="Duplicate Flow"
