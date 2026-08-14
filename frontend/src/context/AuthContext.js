@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
-import { setUser, setWorkspace, removeToken } from '@/lib/auth';
+import { setUser, setWorkspace, removeToken, setToken } from '@/lib/auth';
 
 const AuthContext = createContext({
   user: null,
@@ -103,6 +103,16 @@ export function AuthProvider({ children }) {
     };
 
     const checkAuth = async () => {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenFromUrl = urlParams.get('token');
+        if (tokenFromUrl) {
+          setToken(tokenFromUrl);
+          const cleanUrl = window.location.pathname + window.location.search.replace(/[\?&]token=[^&]+/, '').replace(/^&/, '?');
+          window.history.replaceState({}, document.title, cleanUrl || window.location.pathname);
+        }
+      }
+
       const isLogged = typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true';
       const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
