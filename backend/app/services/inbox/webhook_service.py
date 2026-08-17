@@ -379,7 +379,7 @@ class WebhookService:
                 
                 for message in messages:
                     logger.info(f"Processing message ID: {message.get('id')}")
-                    body, interactive_value, interactive_label = WebhookService._extract_meta_whatsapp_body(message)
+                    (body,interactive_value,interactive_label,media_url,media_type,mime_type,) = WebhookService._extract_meta_whatsapp_body(message)
                     from_number = message.get("from")
                     
                     if not from_number:
@@ -399,12 +399,15 @@ class WebhookService:
                             phone=from_number,
                             message_external_id=message.get("id"),
                             contact_name=contact_name,
-                            metadata={
-                                "interactive_value": interactive_value,
-                                "interactive_label": interactive_label,
-                                "provider": "meta_whatsapp",
-                                "phone_number_id": phone_number_id,
-                            },
+                           metadata={
+                                        "interactive_value": interactive_value,
+                                        "interactive_label": interactive_label,
+                                        "provider": "meta_whatsapp",
+                                        "phone_number_id": phone_number_id,
+                                        "media_url": media_url,
+                                        "media_type": media_type,
+                                        "mime_type": mime_type,
+                                    },
                         )
                         logger.info(f"Pipeline processing result: {result}")
                     except Exception as e:
@@ -578,10 +581,14 @@ class WebhookService:
             return {"status": "error"}
 
     @staticmethod
-    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None ,str | None, str | None, str | None]:
         text = (message.get("text") or {}).get("body")
         interactive_value = None
         interactive_label = None
+        media_url = None
+        media_type = None
+        mime_type = None
+
 
         button = message.get("button") or {}
         if button:
@@ -596,14 +603,36 @@ class WebhookService:
             interactive_label = button_reply.get("title")
             text = text or interactive_label
 
+        msg_type = (message.get("type") or "").lower()
+
+        if msg_type in {"image", "audio", "voice"}:
+            media = message.get(msg_type) or {}
+
+            # WhatsApp voice notes normally arrive as type="audio"
+            if msg_type == "voice":
+                media = message.get("audio") or media
+
+            media_id = media.get("id")
+            mime_type = media.get("mime_type")
+            caption = media.get("caption")
+
+            if media_id:
+                media_type = (
+                    "audio"
+                    if msg_type in {"audio", "voice"}
+                    else "image"
+                )
+
+                media_url = f"/api/inbox/media/meta/{media_id}"
+                text = caption or f"[{media_type.upper()}]"
+
         if not text:
-            msg_type = message.get("type")
-            if msg_type in ["image", "audio", "video", "document", "sticker", "location", "contacts"]:
+            if msg_type in ["video","document","sticker","location", "contacts"]:
                 text = f"[{msg_type.upper()}]"
             elif msg_type:
                 text = f"[{msg_type.upper()} message]"
 
-        return text, interactive_value, interactive_label
+        return (text,interactive_value,interactive_label,media_url,media_type,mime_type)
 
     @staticmethod
     def _fetch_instagram_profile(workspace, sender_id: str) -> dict[str, str | None]:

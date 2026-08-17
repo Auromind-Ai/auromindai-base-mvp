@@ -44,12 +44,15 @@ class MessageService:
         skip: int = 0,
         limit: int = 100,
     ):
-
         ws_uuid = to_uuid(workspace_id)
         conv_uuid = to_uuid(conversation_id)
-        return (
+
+        messages = (
             db.query(Message)
-            .join(models.Conversation, Message.conversation_id == models.Conversation.id)
+            .join(
+                models.Conversation,
+                Message.conversation_id == models.Conversation.id,
+            )
             .filter(
                 Message.conversation_id == conv_uuid,
                 models.Conversation.workspace_id == ws_uuid,
@@ -59,6 +62,34 @@ class MessageService:
             .limit(limit)
             .all()
         )
+
+        result = []
+
+        for message in messages:
+            metadata = message.metadata_json or {}
+
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {}
+
+            result.append({
+                "id": str(message.id),
+                "conversation_id": str(message.conversation_id),
+                "content": message.content,
+                "sender_type": message.sender_type,
+                "status": message.status,
+                "timestamp": message.timestamp,
+                "is_read": message.is_read,
+                "source": message.source,
+                "external_id": message.external_id,
+                "media_url": metadata.get("media_url"),
+                "media_type": metadata.get("media_type"),
+                "mime_type": metadata.get("mime_type"),
+            })
+
+        return result
 
     @staticmethod
     def create_message(
