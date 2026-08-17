@@ -158,6 +158,12 @@ export class APIClient {
           if (typeof window !== 'undefined') {
             window.location.href = '/admin';
           }
+        } else if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/verify-otp') && !url.includes('/auth/send-otp') && !url.includes('/auth/google')) {
+          if (typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true') {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auromind_logged_in');
+            window.location.replace('/login');
+          }
         }
 
         throw errorObj;

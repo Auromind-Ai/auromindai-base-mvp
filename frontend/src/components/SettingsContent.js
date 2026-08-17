@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '@/lib/api';
@@ -17,11 +17,15 @@ import {
   Shield,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Info,
   AlertTriangle,
   RefreshCw,
   Monitor,
   Smartphone,
+  Laptop,
+  LogOut,
   Lock,
   MapPin,
   Ban,
@@ -806,6 +810,7 @@ function PeopleSection() {
 // ─ Security Section 
 
 function SecuritySection() {
+  const { logout } = useAuth();
   const [summary, setSummary] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -814,6 +819,7 @@ function SecuritySection() {
   const [actionLoading, setActionLoading] = useState(null);
   const [viewingDetail, setViewingDetail] = useState('active_sessions'); // 'active_sessions', 'login_activity', 'blocked_devices'
   const [activeView, setActiveView] = useState(null); // null | 'sessions' | 'login-activity' | 'blocked-devices'
+  const [expandedDevices, setExpandedDevices] = useState({});
 
   const fetchData = async () => {
     try {
@@ -827,6 +833,10 @@ function SecuritySection() {
       setError(null);
     } catch (err) {
       console.error(err);
+      if (err?.status === 401) {
+        await logout();
+        return;
+      }
       setError('Failed to load security summary and active sessions.');
     } finally {
       setLoading(false);
@@ -839,12 +849,19 @@ function SecuritySection() {
   }, []);
 
   const handleRevoke = async (sessionId) => {
-    if (!confirm('Are you sure you want to revoke access for this device?')) return;
+    const isCurrent = sessions.find(s => s.id === sessionId)?.is_current;
+    if (isCurrent) {
+      if (!confirm('Are you sure you want to sign out of your current session? You will be logged out immediately.')) return;
+      await logout();
+      return;
+    }
+
+    if (!confirm('Are you sure you want to sign out of this session?')) return;
     try {
       setActionLoading(sessionId);
       setError(null);
       await api.revokeSession(sessionId);
-      setSuccessMessage('Session successfully revoked.');
+      setSuccessMessage('Session successfully signed out.');
       setTimeout(() => setSuccessMessage(null), 4000);
       
       // Refresh
@@ -853,7 +870,52 @@ function SecuritySection() {
       setSessions(sess);
       setSummary(summ);
     } catch (err) {
+      if (err?.status === 401) {
+        await logout();
+        return;
+      }
       setError('Failed to revoke session. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRevokeDevice = async (deviceInfo) => {
+    const targetGroup = deviceGroups.find(g => g.deviceName === deviceInfo);
+    const hasCurrent = targetGroup?.hasCurrent;
+
+    if (hasCurrent) {
+      if (!confirm(`Are you sure you want to sign out of all active sessions on "${deviceInfo}"? This includes your current session and you will be logged out immediately.`)) return;
+      try {
+        setActionLoading(`device_${deviceInfo}`);
+        setError(null);
+        await api.revokeDeviceSessions(deviceInfo);
+      } catch (err) {
+        console.warn("Revoke device notice:", err);
+      }
+      await logout();
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to sign out of all active sessions on "${deviceInfo}"?`)) return;
+    try {
+      setActionLoading(`device_${deviceInfo}`);
+      setError(null);
+      await api.revokeDeviceSessions(deviceInfo);
+      setSuccessMessage(`All sessions on "${deviceInfo}" have been signed out.`);
+      setTimeout(() => setSuccessMessage(null), 4000);
+
+      // Refresh
+      const sess = await api.getSessions();
+      const summ = await api.getSecuritySummary();
+      setSessions(sess);
+      setSummary(summ);
+    } catch (err) {
+      if (err?.status === 401) {
+        await logout();
+        return;
+      }
+      setError('Failed to sign out of device. Please try again.');
     } finally {
       setActionLoading(null);
     }
@@ -904,17 +966,63 @@ function SecuritySection() {
   const activeSessions = sessions.filter(s => !s.is_blocked);
   const blockedSessions = sessions.filter(s => s.is_blocked);
 
+  // Group active sessions by device_info (Google-style Device Grouping)
+  const deviceGroups = useMemo(() => {
+    const groups = {};
+    for (const session of activeSessions) {
+      const devName = session.device_info || 'Unknown Device';
+      if (!groups[devName]) {
+        groups[devName] = {
+          deviceName: devName,
+          sessions: [],
+          hasCurrent: false,
+          lastActive: session.last_activity_at,
+          primaryIp: session.ip_address,
+          location: session.location,
+        };
+      }
+      groups[devName].sessions.push(session);
+      if (session.is_current) {
+        groups[devName].hasCurrent = true;
+      }
+      if (new Date(session.last_activity_at) > new Date(groups[devName].lastActive)) {
+        groups[devName].lastActive = session.last_activity_at;
+      }
+    }
+    return Object.values(groups).sort((a, b) => {
+      if (a.hasCurrent && !b.hasCurrent) return -1;
+      if (!a.hasCurrent && b.hasCurrent) return 1;
+      return new Date(b.lastActive) - new Date(a.lastActive);
+    });
+  }, [activeSessions]);
+
+  const toggleDeviceExpanded = (devName) => {
+    setExpandedDevices(prev => ({
+      ...prev,
+      [devName]: prev[devName] !== undefined ? !prev[devName] : false
+    }));
+  };
+
+  const isDeviceExpanded = (devName) => {
+    return expandedDevices[devName] !== undefined ? expandedDevices[devName] : true;
+  };
+
+  const getDeviceIcon = (deviceInfo = '') => {
+    const d = deviceInfo.toLowerCase();
+    if (d.includes('phone') || d.includes('android') || d.includes('iphone') || d.includes('mobile')) {
+      return <Smartphone size={20} />;
+    }
+    if (d.includes('mac') || d.includes('laptop') || d.includes('ipad') || d.includes('tablet')) {
+      return <Laptop size={20} />;
+    }
+    return <Monitor size={20} />;
+  };
+
   // Security score color label helper
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-emerald-400';
     if (score >= 50) return 'text-amber-400';
     return 'text-rose-500';
-  };
-
-  const getScoreBg = (score) => {
-    if (score >= 80) return 'bg-emerald-500';
-    if (score >= 50) return 'bg-amber-500';
-    return 'bg-rose-500';
   };
 
   return (
@@ -973,11 +1081,15 @@ function SecuritySection() {
               className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 border-b border-white/[0.08] cursor-pointer hover:bg-white/[0.02] transition duration-200"
             >
               <div>
-                <p className="text-[16px] font-medium text-white">Active Sessions</p>
-                <p className="mt-0.5 text-[13px] text-white/65">View and manage devices currently logged into your account.</p>
+                <p className="text-[16px] font-medium text-white">Active Sessions & Devices</p>
+                <p className="mt-0.5 text-[13px] text-white/65">View and manage devices and active sign-in sessions for your account.</p>
               </div>
               <p className="shrink-0 text-sm font-medium whitespace-nowrap text-zinc-300">
-                {loading ? '...' : `${activeSessions.length} Devices Active`}
+                {loading ? '...' : (
+                  deviceGroups.length > 0 
+                    ? `${activeSessions.length} Active Session${activeSessions.length !== 1 ? 's' : ''} on ${deviceGroups.length} Device${deviceGroups.length !== 1 ? 's' : ''}`
+                    : '0 Sessions Active'
+                )}
               </p>
             </div>
 
@@ -1045,7 +1157,7 @@ function SecuritySection() {
               </button>
               <div className="h-4 w-px bg-white/10" />
               <span className="text-xs text-white/50 font-medium">
-                Security &gt; {activeView === 'sessions' && 'Active Sessions'}
+                Security &gt; {activeView === 'sessions' && 'Active Sessions & Devices'}
                 {activeView === 'login-activity' && 'Recent Login Activity'}
                 {activeView === 'blocked-devices' && 'Blocked Devices'}
               </span>
@@ -1063,86 +1175,162 @@ function SecuritySection() {
                   {/* Tab title/header inside table container */}
                   <div className="px-6 py-4 border-b border-white/[0.08] bg-white/[0.02] flex items-center justify-between">
                     <h2 className="text-base font-semibold text-white">
-                      {viewingDetail === 'active_sessions' && 'Active Sessions & Devices'}
+                      {viewingDetail === 'active_sessions' && 'Where You\'re Signed In'}
                       {viewingDetail === 'login_activity' && 'Recent Login History'}
                       {viewingDetail === 'blocked_devices' && 'Blocked Devices & IPs'}
                     </h2>
                     <span className="text-[12px] text-white/45 font-medium bg-white/[0.05] border border-white/10 px-2.5 py-1 rounded-full">
-                      {viewingDetail === 'active_sessions' && `${activeSessions.length} total`}
+                      {viewingDetail === 'active_sessions' && `${activeSessions.length} session${activeSessions.length !== 1 ? 's' : ''} across ${deviceGroups.length} device${deviceGroups.length !== 1 ? 's' : ''}`}
                       {viewingDetail === 'login_activity' && `${activeSessions.length} sessions logged`}
                       {viewingDetail === 'blocked_devices' && `${blockedSessions.length} restricted`}
                     </span>
                   </div>
 
-                  {/* Content list */}
+                  {/* Google-Style Grouped Device List */}
                   {viewingDetail === 'active_sessions' && (
                     <div className="divide-y divide-white/[0.08]">
-                      {activeSessions.length === 0 ? (
+                      {deviceGroups.length === 0 ? (
                         <div className="py-12 text-center text-white/45 text-sm">No active sessions found.</div>
                       ) : (
-                        activeSessions.map((session) => (
-                          <div key={session.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 hover:bg-white/[0.01] transition duration-200">
-                            <div className="flex items-start gap-4">
-                              <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 shrink-0 text-violet-400">
-                                {session.device_info.toLowerCase().includes('phone') || session.device_info.toLowerCase().includes('android') || session.device_info.toLowerCase().includes('iphone') ? (
-                                  <Smartphone size={20} />
-                                ) : (
-                                  <Monitor size={20} />
-                                )}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2.5 flex-wrap">
-                                  <h4 className="text-sm font-semibold text-white">{session.device_info}</h4>
-                                  {session.is_current && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.1)]">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                                      Current Session
-                                    </span>
-                                  )}
+                        deviceGroups.map((group) => {
+                          const expanded = isDeviceExpanded(group.deviceName);
+                          return (
+                            <div key={group.deviceName} className="transition duration-200">
+                              {/* Device Header Row */}
+                              <div
+                                onClick={() => toggleDeviceExpanded(group.deviceName)}
+                                className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 cursor-pointer hover:bg-white/[0.02] transition duration-150"
+                              >
+                                <div className="flex items-start gap-4">
+                                  <div className={`p-2.5 rounded-xl border shrink-0 ${group.hasCurrent ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/[0.04] border-white/10 text-violet-400'}`}>
+                                    {getDeviceIcon(group.deviceName)}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2.5 flex-wrap">
+                                      <h4 className="text-sm font-semibold text-white">{group.deviceName}</h4>
+                                      {group.hasCurrent && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.1)]">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                                          This Device
+                                        </span>
+                                      )}
+                                      <span className="text-[11px] font-medium text-white/60 bg-white/[0.05] border border-white/10 px-2 py-0.5 rounded-full">
+                                        {group.sessions.length} {group.sessions.length === 1 ? 'session' : 'sessions'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-white/50 mt-1.5 flex-wrap">
+                                      <span className="flex items-center gap-1">
+                                        <Lock size={12} />
+                                        {group.primaryIp}
+                                      </span>
+                                      {group.location && (
+                                        <span className="flex items-center gap-1">
+                                          <MapPin size={12} />
+                                          {group.location}
+                                        </span>
+                                      )}
+                                      <span>•</span>
+                                      <span>Most recent: {new Date(group.lastActive).toLocaleString()}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-3 text-xs text-white/50 mt-1 flex-wrap">
-                                  <span className="flex items-center gap-1">
-                                    <Lock size={12} />
-                                    {session.ip_address}
-                                  </span>
-                                  {session.location && (
-                                    <span className="flex items-center gap-1">
-                                      <MapPin size={12} />
-                                      {session.location}
-                                    </span>
-                                  )}
-                                  <span>•</span>
-                                  <span>Last active: {new Date(session.last_activity_at).toLocaleString()}</span>
-                                </div>
-                              </div>
-                            </div>
 
-                            {/* Session Actions */}
-                            <div className="flex items-center gap-2 self-start md:self-auto">
-                              {session.is_current ? (
-                                <span className="text-xs text-white/30 italic">Active on current window</span>
-                              ) : (
-                                <>
+                                {/* Device Actions */}
+                                <div className="flex items-center gap-2 self-start md:self-auto" onClick={(e) => e.stopPropagation()}>
+                                  {/* Sign out of device button (only if not current or if multiple sessions exist) */}
                                   <button
-                                    disabled={actionLoading === session.id}
-                                    onClick={() => handleRevoke(session.id)}
-                                    className="px-3.5 py-1.5 text-xs font-semibold text-zinc-300 bg-white/[0.04] border border-white/10 rounded-xl hover:bg-white/[0.08] hover:text-white transition duration-200 disabled:opacity-50"
+                                    disabled={actionLoading === `device_${group.deviceName}`}
+                                    onClick={() => handleRevokeDevice(group.deviceName)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-300 bg-white/[0.04] border border-white/10 rounded-xl hover:bg-white/[0.08] hover:text-white transition duration-200 disabled:opacity-50"
+                                    title="Sign out of all sessions on this device"
                                   >
-                                    {actionLoading === session.id ? 'Processing...' : 'Revoke'}
+                                    <LogOut size={12} />
+                                    {actionLoading === `device_${group.deviceName}` ? 'Signing out...' : 'Sign out of device'}
                                   </button>
+
+                                  {!group.hasCurrent && (
+                                    <button
+                                      disabled={actionLoading === group.sessions[0]?.id}
+                                      onClick={() => handleBlock(group.sessions[0]?.id)}
+                                      className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-rose-400 bg-rose-500/5 border border-rose-500/20 rounded-xl hover:bg-rose-500/20 hover:text-rose-200 transition duration-200 disabled:opacity-50"
+                                      title="Block this device from future logins"
+                                    >
+                                      <Ban size={12} />
+                                      Block
+                                    </button>
+                                  )}
+
                                   <button
-                                    disabled={actionLoading === session.id}
-                                    onClick={() => handleBlock(session.id)}
-                                    className="flex items-center gap-1 px-3.5 py-1.5 text-xs font-semibold text-rose-400 bg-rose-500/5 border border-rose-500/20 rounded-xl hover:bg-rose-500/20 hover:text-rose-200 transition duration-200 disabled:opacity-50"
+                                    onClick={() => toggleDeviceExpanded(group.deviceName)}
+                                    className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.05] transition duration-150"
                                   >
-                                    <Ban size={12} />
-                                    Block Device
+                                    {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                   </button>
-                                </>
+                                </div>
+                              </div>
+
+                              {/* Nested Sessions Accordion */}
+                              {expanded && (
+                                <div className="bg-black/30 border-t border-white/[0.04] px-6 py-3 space-y-2">
+                                  <div className="text-[11px] font-medium uppercase tracking-wider text-white/35 pb-1">
+                                    Active Sessions on this Device
+                                  </div>
+                                  <div className="divide-y divide-white/[0.04]">
+                                    {group.sessions.map((session, sIdx) => (
+                                      <div
+                                        key={session.id}
+                                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-2.5 text-xs text-white/70"
+                                      >
+                                        <div className="flex items-start gap-2.5">
+                                          <div className="mt-1">
+                                            {session.is_current ? (
+                                              <span className="block w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
+                                            ) : (
+                                              <span className="block w-2 h-2 rounded-full bg-white/30" />
+                                            )}
+                                          </div>
+                                          <div>
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-semibold text-white">
+                                                {session.is_current ? 'Current Active Session' : `Session #${sIdx + 1}`}
+                                              </span>
+                                              {session.is_current && (
+                                                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                                  This Window
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-2.5 text-[11px] text-white/45 mt-0.5 flex-wrap">
+                                              <span>IP: {session.ip_address}</span>
+                                              {session.location && <span>• {session.location}</span>}
+                                              <span>• Started: {new Date(session.created_at).toLocaleDateString()}</span>
+                                              <span>• Last active: {new Date(session.last_activity_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Individual Session Revoke */}
+                                        <div className="self-end sm:self-center">
+                                          {session.is_current ? (
+                                            <span className="text-[11px] text-emerald-400/80 font-medium italic">Active Now</span>
+                                          ) : (
+                                            <button
+                                              disabled={actionLoading === session.id}
+                                              onClick={() => handleRevoke(session.id)}
+                                              className="px-2.5 py-1 text-[11px] font-semibold text-zinc-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 rounded-lg transition duration-150 disabled:opacity-50"
+                                            >
+                                              {actionLoading === session.id ? 'Signing out...' : 'Sign out'}
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
                               )}
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   )}
@@ -1156,7 +1344,7 @@ function SecuritySection() {
                         <div className="py-12 text-center text-white/45 text-sm">No activity records found.</div>
                       ) : (
                         <div className="relative border-l border-white/10 pl-6 ml-3 space-y-6 py-2">
-                          {activeSessions.map((session, idx) => (
+                          {activeSessions.map((session) => (
                             <div key={session.id} className="relative">
                               {/* Dot */}
                               <span className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-violet-500 border border-violet-400 shadow-[0_0_8px_rgba(139,92,246,0.5)]" />

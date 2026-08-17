@@ -429,8 +429,8 @@ def get_meta_media(
         media_type = metadata.get("media_type")
         stored_mime_type = metadata.get("mime_type")
 
-        # Only image/audio are required for this task.
-        if media_type not in {"image", "audio"}:
+        # Allow image, audio, video, document, sticker
+        if media_type not in {"image", "audio", "video", "document", "sticker"}:
             raise HTTPException(
                 status_code=400,
                 detail="Unsupported media type",

@@ -16,6 +16,10 @@ export async function revokeSession(sessionId) {
   return client.delete(`/api/user/sessions/${sessionId}`);
 }
 
+export async function revokeDeviceSessions(deviceInfo) {
+  return client.post('/api/user/sessions/revoke-device', { device_info: deviceInfo });
+}
+
 export async function blockSession(sessionId) {
   return client.post(`/api/user/sessions/${sessionId}/block`);
 }

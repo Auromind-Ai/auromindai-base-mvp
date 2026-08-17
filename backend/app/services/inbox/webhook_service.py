@@ -348,13 +348,13 @@ class WebhookService:
                             try:
                                 db.commit()
 
-                                # Trigger next queued message on delivered/failed
-                                # (matching the Twilio handler in message_service.py)
-                                if status_str.lower() in ("delivered", "failed") and outbound:
+                                # Trigger next queued message on delivered/read/failed
+                                if status_str.lower() in ("delivered", "read", "failed") and (outbound or msg):
+                                    conv_id = str(outbound.conversation_id if outbound else msg.conversation_id)
                                     try:
                                         from app.workers.flow_execution import send_next_pending_message
                                         send_next_pending_message.apply_async(
-                                            args=[str(outbound.conversation_id)],
+                                            args=[conv_id],
                                             countdown=0,
                                         )
                                     except Exception as dispatch_exc:
