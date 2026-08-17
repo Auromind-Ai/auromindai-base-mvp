@@ -582,58 +582,85 @@ class WebhookService:
             return {"status": "error"}
 
     @staticmethod
-    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None ,str | None, str | None, str | None]:
-        text = (message.get("text") or {}).get("body")
-        interactive_value = None
-        interactive_label = None
-        media_url = None
-        media_type = None
-        mime_type = None
+    def _extract_meta_whatsapp_body(
+            message: dict[str, Any]
+        ) -> tuple[
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+        ]:
+            text = (message.get("text") or {}).get("body")
 
+            interactive_value = None
+            interactive_label = None
 
-        button = message.get("button") or {}
-        if button:
-            interactive_value = button.get("payload")
-            interactive_label = button.get("text")
-            text = text or interactive_label
+            media_url = None
+            media_type = None
+            mime_type = None
+            media_id = None
 
-        interactive = message.get("interactive") or {}
-        button_reply = interactive.get("button_reply") or {}
-        if button_reply:
-            interactive_value = button_reply.get("id")
-            interactive_label = button_reply.get("title")
-            text = text or interactive_label
+            button = message.get("button") or {}
+            if button:
+                interactive_value = button.get("payload")
+                interactive_label = button.get("text")
+                text = text or interactive_label
 
-        msg_type = (message.get("type") or "").lower()
+            interactive = message.get("interactive") or {}
+            button_reply = interactive.get("button_reply") or {}
 
-        if msg_type in {"image", "audio", "voice"}:
-            media = message.get(msg_type) or {}
+            if button_reply:
+                interactive_value = button_reply.get("id")
+                interactive_label = button_reply.get("title")
+                text = text or interactive_label
 
-            # WhatsApp voice notes normally arrive as type="audio"
-            if msg_type == "voice":
-                media = message.get("audio") or media
+            msg_type = (message.get("type") or "").lower()
 
-            media_id = media.get("id")
-            mime_type = media.get("mime_type")
-            caption = media.get("caption")
+            if msg_type in {"image", "audio", "voice"}:
+                media = message.get(msg_type) or {}
 
-            if media_id:
-                media_type = (
-                    "audio"
-                    if msg_type in {"audio", "voice"}
-                    else "image"
-                )
+                # WhatsApp voice notes normally arrive as type="audio"
+                if msg_type == "voice":
+                    media = message.get("audio") or media
 
-                media_url = f"/api/inbox/media/meta/{media_id}"
-                text = caption or f"[{media_type.upper()}]"
+                media_id = media.get("id")
+                mime_type = media.get("mime_type")
+                caption = media.get("caption")
 
-        if not text:
-            if msg_type in ["video","document","sticker","location", "contacts"]:
-                text = f"[{msg_type.upper()}]"
-            elif msg_type:
-                text = f"[{msg_type.upper()} message]"
+                if media_id:
+                    media_type = (
+                        "audio"
+                        if msg_type in {"audio", "voice"}
+                        else "image"
+                    )
 
-        return (text,interactive_value,interactive_label,media_url,media_type,mime_type)
+                    media_url = f"/api/inbox/media/meta/{media_id}"
+                    text = caption or f"[{media_type.upper()}]"
+
+            if not text:
+                if msg_type in [
+                    "video",
+                    "document",
+                    "sticker",
+                    "location",
+                    "contacts",
+                ]:
+                    text = f"[{msg_type.upper()}]"
+                elif msg_type:
+                    text = f"[{msg_type.upper()} message]"
+
+            return (
+                text,
+                interactive_value,
+                interactive_label,
+                media_url,
+                media_type,
+                mime_type,
+                media_id,
+            )
 
     @staticmethod
     def _fetch_instagram_profile(workspace, sender_id: str) -> dict[str, str | None]:
