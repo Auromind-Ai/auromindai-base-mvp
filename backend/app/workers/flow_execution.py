@@ -115,12 +115,17 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
                 Conversation.id == conversation_id
             ).first()
             if conv:
+                msg_id = metadata.get("message_id") if isinstance(metadata, dict) else None
                 publish_to_workspace(
                     workspace_id=str(conv.workspace_id),
                     event_type=EventType.NEW_MESSAGE,
                     payload={
+                        "id": msg_id,
                         "conversation_id": conversation_id,
+                        "content": message,
                         "message_preview": message[:120],
+                        "sender_type": "USER",
+                        "direction": "inbound",
                         "result": result,
                     },
                     conversation_id=conversation_id,

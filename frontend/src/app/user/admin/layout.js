@@ -44,6 +44,7 @@ const FeedbackModal = dynamic(
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
+import GlobalAudioNotification from '@/components/GlobalAudioNotification';
 
 const MAIN_NAV_ITEMS = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
@@ -236,6 +237,7 @@ function AdminLayoutContent({ children }) {
 
     return (
         <RealtimeProvider user={user} workspace={workspace}>
+            <GlobalAudioNotification />
             <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
 
                 {/* Desktop Sidebar */}
