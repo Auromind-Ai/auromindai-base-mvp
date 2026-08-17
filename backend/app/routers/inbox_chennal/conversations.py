@@ -13,6 +13,7 @@ from app.models.conversation import Conversation
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
+from app.services.config_service import config_service
 
 logger = logging.getLogger(__name__)
 
@@ -382,16 +383,14 @@ def get_meta_media(
 
      
         # Workspace Meta token
-        access_token = workspace.meta_access_token
+        system_token = config_service.get("meta_system_user_token")
+
+        access_token = system_token or workspace.meta_access_token
 
         if not access_token:
-            logger.error(
-                "Meta access token missing for workspace %s",
-                workspace.id,
-            )
             raise HTTPException(
-                status_code=503,
-                detail="WhatsApp Meta connection is not configured",
+                status_code=500,
+                detail="Meta access token is not configured"
             )
         
         # Parse metadata_json
