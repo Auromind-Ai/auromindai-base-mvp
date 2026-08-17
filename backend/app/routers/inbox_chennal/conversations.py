@@ -533,13 +533,19 @@ def get_meta_media(
             or "application/octet-stream"
         )
 
+        if media_type == "audio" and mime_type.startswith("audio/ogg"):
+            mime_type = "audio/ogg"
+
         #Stream actual media from Meta
         try:
             media_response = requests.get(
-                temporary_url,
-                stream=True,
-                timeout=30,
-            )
+            temporary_url,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+            },
+            stream=True,
+            timeout=30,
+        )
         except requests.RequestException as exc:
             logger.error(
                 "Meta media download failed for media %s: %s",
