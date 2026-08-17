@@ -24,11 +24,12 @@ if is_sqlite:
 
 engine_kwargs = {
     "pool_pre_ping": True,
-    "pool_recycle": 3600,
+    "pool_recycle": 1800,
+    "pool_timeout": 30,
 }
 if not is_sqlite:
-    engine_kwargs["pool_size"] = 10
-    engine_kwargs["max_overflow"] = 20
+    engine_kwargs["pool_size"] = 25
+    engine_kwargs["max_overflow"] = 35
 
 engine = create_engine(
     settings.DATABASE_URL,

@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.models.conversation import ChannelType, Conversation, ConversationStatus
 from app.models.workspace import Workspace
+from app.core.security import to_uuid
 
 
 class ConversationService:
@@ -143,14 +144,16 @@ class ConversationService:
     def get_conversation_or_404(
         db: Session,
         *,
-        workspace_id: str,
+        workspace_id: str | UUID,
         conversation_id: str | UUID,
     ) -> Conversation:
+        ws_uuid = to_uuid(workspace_id)
+        conv_uuid = to_uuid(conversation_id)
         conversation = (
             db.query(Conversation)
             .filter(
-                Conversation.id == conversation_id,
-                Conversation.workspace_id == workspace_id,
+                Conversation.id == conv_uuid,
+                Conversation.workspace_id == ws_uuid,
             )
             .first()
         )
@@ -159,23 +162,26 @@ class ConversationService:
         return conversation
 
     @staticmethod
-    def get_first_workspace_conversation(db: Session, workspace_id: str) -> Conversation | None:
+    def get_first_workspace_conversation(db: Session, workspace_id: str | UUID) -> Conversation | None:
+        ws_uuid = to_uuid(workspace_id)
         return (
             db.query(Conversation)
-            .filter(Conversation.workspace_id == workspace_id)
+            .filter(Conversation.workspace_id == ws_uuid)
             .order_by(Conversation.updated_at.desc())
             .first()
         )
 
     @staticmethod
     def _build_lookup_filters(
-        workspace_id: str,
+        workspace_id: str | UUID,
         normalized_channel: ChannelType,
         delivery_target: str | None,
         external_id: str | None,
     ) -> list[Any]:
+        from app.core.security import to_uuid
+        ws_uuid = to_uuid(workspace_id)
         filters: list[Any] = [
-            Conversation.workspace_id == workspace_id,
+            Conversation.workspace_id == ws_uuid,
             Conversation.channel == normalized_channel,
         ]
         if normalized_channel == ChannelType.INSTAGRAM:
@@ -223,10 +229,11 @@ class ConversationService:
 
       
         try:
+            ws_uuid = to_uuid(workspace_id)
             with db.begin_nested():
                 conversation = Conversation(
                     phone=delivery_target,
-                    workspace_id=workspace_id,
+                    workspace_id=ws_uuid,
                     channel=normalized_channel,
                     external_id=external_id,
                     contact_name=contact_name,

@@ -41,6 +41,11 @@ celery_app.conf.update(
     # Celery 6.x broker retry
     broker_connection_retry_on_startup=True,
 
+ 
+    broker_transport_options={
+        "visibility_timeout": 1800,
+    },
+
     # Queue routing — beat vs heavy tasks on separate queues
     task_default_queue="default",
     task_routes={

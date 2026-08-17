@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
-
+from app.core.security import to_uuid
 
 from app.models.ai_action import Lead
 from app.models.templates import Template
@@ -46,8 +46,10 @@ def upsert_lead(
     db: Session,
 ) -> Lead:
     """Get or create a Lead for this conversation."""
+
+    ws_uuid = to_uuid(workspace_id)
     lead = db.query(Lead).filter(
-        Lead.workspace_id == str(workspace_id),
+        Lead.workspace_id == ws_uuid,
         Lead.conversation_id == conversation_id,
     ).first()
 
@@ -58,7 +60,7 @@ def upsert_lead(
 
     if not lead:
         lead = Lead(
-            workspace_id=str(workspace_id),
+            workspace_id=ws_uuid,
             conversation_id=conversation_id,
             name=conv_name,
             phone=phone,
@@ -270,6 +272,7 @@ class WebhookService:
                         status_str = status_update.get("status")
                         if wamid and status_str:
                             from app.models.message import Message, MessageStatus
+                            from app.models.outbound_message import OutboundMessage
                             
                             status_mapping = {
                                 "sent": MessageStatus.SENT,
@@ -278,6 +281,7 @@ class WebhookService:
                                 "failed": MessageStatus.FAILED
                             }
                             mapped_status = status_mapping.get(status_str.lower())
+                            outbound = None
                             if mapped_status:
                                 try:
                                     msg = db.query(Message).filter(Message.external_id == wamid).first()
@@ -285,6 +289,11 @@ class WebhookService:
                                         msg.status = mapped_status
                                         db.flush()
                                         logger.info(f"Updated message status for {wamid} to {status_str}")
+
+                                    outbound = db.query(OutboundMessage).filter(OutboundMessage.twilio_sid == wamid).first()
+                                    if outbound:
+                                        outbound.status = status_str.lower()
+                                        db.flush()
                                 except Exception as exc:
                                     logger.error(f"Failed to update message status for {wamid}: {exc}")
 
@@ -338,6 +347,22 @@ class WebhookService:
                             # Perform a single database commit at the end of processing this status update
                             try:
                                 db.commit()
+
+                                # Trigger next queued message on delivered/failed
+                                # (matching the Twilio handler in message_service.py)
+                                if status_str.lower() in ("delivered", "failed") and outbound:
+                                    try:
+                                        from app.workers.flow_execution import send_next_pending_message
+                                        send_next_pending_message.apply_async(
+                                            args=[str(outbound.conversation_id)],
+                                            countdown=0,
+                                        )
+                                    except Exception as dispatch_exc:
+                                        logger.warning(
+                                            "Meta DLR dispatcher trigger failed (non-fatal): %s",
+                                            dispatch_exc,
+                                        )
+
                             except Exception as commit_exc:
                                 db.rollback()
                                 logger.error(f"Failed to commit database updates for status {wamid}: {commit_exc}")
@@ -491,10 +516,10 @@ class WebhookService:
             from app.models.ai_action import ConversationState
             if conversation.status != ConversationStatus.OPEN:
                 conversation.status = ConversationStatus.OPEN
-                
+
             conv_state = db.query(ConversationState).filter_by(
                 conversation_id=conversation.id,
-                workspace_id=workspace_id
+                workspace_id=to_uuid(workspace_id)
             ).first()
             if conv_state:
                 conv_state.human_takeover = False

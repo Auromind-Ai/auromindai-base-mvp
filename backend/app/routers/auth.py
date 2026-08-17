@@ -24,9 +24,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/verify-otp", auto_error=Fal
 logger = logging.getLogger(__name__)
 
 
+_auth_redis_instance = None
+
 def _get_redis_client():
     if getattr(_get_redis_client, "override", None) is not None:
         return _get_redis_client.override
+    global _auth_redis_instance
+    if _auth_redis_instance is not None:
+        return _auth_redis_instance
     try:
         import redis
         client = redis.from_url(
@@ -34,9 +39,12 @@ def _get_redis_client():
             decode_responses=True,
             socket_connect_timeout=0.5,
             socket_timeout=0.5,
+            health_check_interval=30,
+            retry_on_timeout=True,
         )
         client.ping()
-        return client
+        _auth_redis_instance = client
+        return _auth_redis_instance
     except Exception as e:
         logger.warning(f"Auth Redis connection error: {e}")
         return None

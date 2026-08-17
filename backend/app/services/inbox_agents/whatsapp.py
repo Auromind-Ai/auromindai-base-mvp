@@ -172,7 +172,8 @@ class WhatsAppService:
             response = requests.post(
                 self.base_url,
                 json=payload,
-                headers=self._headers()
+                headers=self._headers(),
+                timeout=10
             )
 
             logger.debug(f"WhatsApp send {media_type} response status: {response.status_code}")
@@ -257,7 +258,8 @@ class WhatsAppService:
             response = requests.post(
                 self.base_url,
                 json=payload,
-                headers=self._headers()
+                headers=self._headers(),
+                timeout=10
             )
 
             logger.debug(f"WhatsApp interactive buttons response status: {response.status_code}")

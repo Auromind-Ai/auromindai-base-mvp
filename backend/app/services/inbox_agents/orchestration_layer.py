@@ -47,6 +47,9 @@ class AgentOrchestration:
         message      = data.get("message", "")
         conversation_id = data.get("conversation_id")
 
+        if not workspace_id or not conversation_id:
+            raise ValueError("workspace_id and conversation_id are required for inbox orchestration")
+
         db = getattr(self.escalation_queue, "db", None)
         db_created = False
         if not db and not self.db:
@@ -63,9 +66,6 @@ class AgentOrchestration:
             f"conversation_id={conversation_id} channel={channel} "
             f"user_id={user_id}"
         )
-
-        if not workspace_id or not conversation_id:
-            raise ValueError("workspace_id and conversation_id are required for inbox orchestration")
 
         self.runtime_context["workspace_id"]    = workspace_id
         self.runtime_context["user_id"]         = user_id
@@ -149,7 +149,11 @@ class AgentOrchestration:
                 except Exception as commit_err:
                     db.rollback()
                     self.logger.error(f"Failed to commit orchestration db: {commit_err}")
-                self.db.close()
+                try:
+                    if self.db:
+                        self.db.close()
+                except Exception as close_err:
+                    self.logger.error(f"Failed to close orchestration db: {close_err}")
                 self.db = None
 
     async def _process_message_internal_core(self, payload, channel, skip_send, db):

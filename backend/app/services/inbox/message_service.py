@@ -21,7 +21,7 @@ from app.services.crm.lead_agent_local import (
 )
 from app.services.automations.flow_service_v2 import FlowServiceV2
 from app.workers.flow_execution import execute_incoming_message, send_next_pending_message
-
+from app.core.security import to_uuid
 logger = logging.getLogger(__name__)
 
 
@@ -39,17 +39,20 @@ class MessageService:
     def list_messages(
         db: Session,
         *,
-        workspace_id: str,
-        conversation_id: str,
+        workspace_id: str | uuid.UUID,
+        conversation_id: str | uuid.UUID,
         skip: int = 0,
         limit: int = 100,
     ):
+
+        ws_uuid = to_uuid(workspace_id)
+        conv_uuid = to_uuid(conversation_id)
         return (
             db.query(Message)
             .join(models.Conversation, Message.conversation_id == models.Conversation.id)
             .filter(
-                Message.conversation_id == conversation_id,
-                models.Conversation.workspace_id == workspace_id,
+                Message.conversation_id == conv_uuid,
+                models.Conversation.workspace_id == ws_uuid,
             )
             .order_by(Message.timestamp.asc())
             .offset(skip)

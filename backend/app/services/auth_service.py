@@ -10,13 +10,25 @@ from datetime import datetime, timezone, timedelta
 from app.utils.auth import parse_user_agent
 from app.services.notification_template_service import NotificationTemplateService
 
-# Redis client helper with graceful in-memory fallback
+_redis_instance = None
+
 def _get_redis_client():
+    global _redis_instance
+    if _redis_instance is not None:
+        return _redis_instance
     try:
         import redis
         from app.core.config import settings
         if settings.REDIS_URL:
-            return redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
+            _redis_instance = redis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=1.0,
+                socket_timeout=1.0,
+                health_check_interval=30,
+                retry_on_timeout=True,
+            )
+            return _redis_instance
     except Exception:
         pass
     return None
