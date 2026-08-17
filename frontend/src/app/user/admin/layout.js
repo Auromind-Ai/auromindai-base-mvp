@@ -44,7 +44,6 @@ const FeedbackModal = dynamic(
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
-import GlobalAudioNotification from '@/components/GlobalAudioNotification';
 
 const MAIN_NAV_ITEMS = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/user/admin/dashboard' },
@@ -85,6 +84,7 @@ function AdminLayoutContent({ children }) {
     const { isSettingsOpen, setIsSettingsOpen, selectedModel, setSelectedModel } = useSettings();
 
     const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const workspace = workspaces.find(w => w.id === workspaceId) || null;
 
@@ -237,7 +237,6 @@ function AdminLayoutContent({ children }) {
 
     return (
         <RealtimeProvider user={user} workspace={workspace}>
-            <GlobalAudioNotification />
             <div className="flex min-h-screen text-[var(--notion-text)] font-sans relative bg-transparent">
 
                 {/* Desktop Sidebar */}
@@ -299,7 +298,7 @@ function AdminLayoutContent({ children }) {
 
                         {/* Logout */}
                         <button
-                            onClick={handleLogout}
+                            onClick={() => setShowLogoutConfirm(true)}
                             className="flex items-center gap-2.5 px-2 py-1.5 text-[13px] text-[#9b9b9b] hover:text-white transition-colors rounded-[4px] hover:bg-[var(--notion-hover)] w-full"
                         >
                             <LogOut size={14} />
@@ -307,6 +306,38 @@ function AdminLayoutContent({ children }) {
                         </button>
                     </div>
                 </aside>
+                {showLogoutConfirm && (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50">
+        <div className="w-[360px] rounded-xl border border-[#2a2a2a] bg-[#191919] p-5 shadow-2xl">
+            <h3 className="text-[16px] font-medium text-white">
+                Log out?
+            </h3>
+
+            <p className="mt-2 text-[13px] text-[#9b9b9b]">
+                Are you sure you want to log out?
+            </p>
+
+            <div className="mt-5 flex justify-end gap-2">
+                <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="rounded-md px-4 py-2 text-[13px] text-[#b5b5b5] hover:bg-[#2a2a2a] hover:text-white"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    onClick={() => {
+                        setShowLogoutConfirm(false);
+                        handleLogout();
+                    }}
+                    className="rounded-md bg-red-500 px-4 py-2 text-[13px] text-white hover:bg-red-600"
+                >
+                    Log out
+                </button>
+            </div>
+        </div>
+    </div>
+)}
 
                 {/* Mobile Drawer */}
                 <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
