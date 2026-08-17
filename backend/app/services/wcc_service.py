@@ -478,10 +478,12 @@ class WCCService:
         db.flush()  # Flush instead of commit to avoid transaction ownership
 
         try:
-            # Get Razorpay gateway
+         # Get Razorpay gateway
             gateway = get_gateway("razorpay")
-            # Razorpay expects amount in paise (integer) - total_amount includes GST
-            amount_paise = to_paise(gst_calcs["total_amount"])
+
+            # Use the exact GST-inclusive amount stored in the recharge log
+            total_amount = Decimal(str(recharge_log.total_amount))
+            amount_paise = to_paise(total_amount)
 
             order_payload = {
                 "amount": amount_paise,
@@ -507,12 +509,12 @@ class WCCService:
                 "public_key": gateway.get_public_key(),
                 "recharge_log_id": str(recharge_log.id)
             }
+
         except Exception as e:
             logger.error(f"Error initiating WCC recharge: {str(e)}")
             recharge_log.status = "failed"
             db.flush()
             raise e
-
     @classmethod
     def process_recharge_webhook(
         cls,
@@ -695,11 +697,20 @@ class WCCService:
                 "new_balance": float(wallet.balance)
             }
 
-        # Verify amount matches (convert paise to Decimal)
-        expected_amount = recharge_log.total_amount
-        received_amount = Decimal(payment_data.amount) / Decimal("100.00")
-        if abs(expected_amount - received_amount) > Decimal("0.01"):
-            raise ValueError(f"Payment amount mismatch: got {received_amount}, expected {expected_amount}")
+        expected_amount_paise = to_paise(recharge_log.total_amount)
+        received_amount_paise = int(payment_data.amount or 0)
+
+        if not verify_paise_amount(
+            received_amount_paise,
+            expected_amount_paise,
+            max_tolerance_paise=2
+        ):
+            raise ValueError(
+            f"Payment amount mismatch: "
+            f"got {received_amount_paise} paise, "
+            f"expected {expected_amount_paise} paise "
+            f"(includes GST)"
+        )
 
         # Update status & payment method
         raw_method = (

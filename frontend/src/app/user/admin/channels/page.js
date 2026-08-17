@@ -627,6 +627,9 @@ export default function ChannelsPage() {
     });
     const [hoveredBtn, setHoveredBtn] = useState(null);
     const [connecting, setConnecting] = useState(null);
+    const [disconnectModal, setDisconnectModal] = useState(null);
+    const [disconnecting, setDisconnecting] = useState(false);
+  
 
     // ── Twilio state ────────────────────────────────────────────────────────
     const [showTwilioModal, setShowTwilioModal] = useState(false);
@@ -923,31 +926,85 @@ export default function ChannelsPage() {
     }
 };
 
-const disconnectIntegration = async (integrationId) => {
-    if (!confirm(`Disconnect ${integrationId}?`)) return;
+const disconnectIntegration = (integrationId) => {
+    setDisconnectModal(integrationId);
+};
+
+    const confirmDisconnectIntegration = async () => {
+    if (!disconnectModal) return;
+
+    setDisconnecting(true);
+
     try {
-        const backendId = integrationId === 'google_calendar' ? 'calendar' : integrationId;
-        await api.disconnectGoogleIntegration(backendId);
-        setStatuses(prev => ({ ...prev, [integrationId]: false }));
-        setConnectedInfo(prev => ({ ...prev, [integrationId]: null }));
+        const integrationId = disconnectModal;
+
+        // Twilio uses channel disconnect API
+        if (integrationId === 'twilio') {
+            await api.disconnectChannel('twilio', workspace.id);
+
+            localStorage.removeItem('twilio_connected');
+            localStorage.removeItem('twilio_phone');
+        } else {
+            // Gmail / Google Calendar use Google integration API
+            const backendId =
+                integrationId === 'google_calendar'
+                    ? 'calendar'
+                    : integrationId;
+
+            await api.disconnectGoogleIntegration(backendId);
+
+            localStorage.removeItem(`${integrationId}_connected`);
+        }
+
+        setStatuses(prev => ({
+            ...prev,
+            [integrationId]: false,
+        }));
+
+        setConnectedInfo(prev => ({
+            ...prev,
+            [integrationId]: null,
+        }));
+
+        setManageClicked(prev => ({
+            ...prev,
+            [integrationId]: false,
+        }));
+
+        setDisconnectModal(null);
+
+        showToast(
+            `Disconnected ${
+                integrationId === 'whatsapp'
+                    ? 'WhatsApp Business'
+                    : integrationId === 'google_calendar'
+                        ? 'Google Calendar'
+                        : integrationId === 'gmail'
+                            ? 'Gmail'
+                            : integrationId === 'instagram'
+                                ? 'Instagram'
+                                : 'Twilio'
+            } successfully`
+        );
+
     } catch (err) {
         console.error('Disconnect failed:', err);
+
+        showToast(
+            `Failed to disconnect ${
+                disconnectModal === 'twilio'
+                    ? 'Twilio'
+                    : disconnectModal
+            }`
+        );
+    } finally {
+        setDisconnecting(false);
     }
 };
 
-const disconnectChannel = async (channelId) => {
-    if (!confirm(`Disconnect ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'}?`)) return;
-    try {
-        await api.disconnectChannel(channelId, workspace.id);
-        setStatuses(prev => ({ ...prev, [channelId]: false }));
-        setConnectedInfo(prev => ({ ...prev, [channelId]: null }));
-        localStorage.removeItem(`${channelId}_connected`);
-        localStorage.removeItem(`${channelId}_phone`);
-        localStorage.removeItem(`${channelId}_username`);
-        showToast(`Disconnected ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'} successfully`);
-    } catch (err) {
-        console.error('Disconnect failed:', err);
-    }
+
+const disconnectChannel = (channelId) => {
+    setDisconnectModal(channelId);
 };
 
     // ── submitTwilio — EXISTING FUNCTION, NOT MODIFIED ──────────────────────
@@ -1162,17 +1219,17 @@ const disconnectChannel = async (channelId) => {
                     </div>
                 )}
 
-                {/*  Channel Cards  */}
-                {/* ─────────────────────────────────────────────────────────────
-                    Channel Cards
-                ───────────────────────────────────────────────────────────── */}
-                {filteredChannels.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                {filteredChannels.map((item) => {
-                 const isConnected = statuses[item.id];
-                const isConnecting = connecting === item.id;
-                const Icon = item.icon;
-                const info = connectedInfo[item.id];
+               {/*  Channel Cards  */}
+{/* ─────────────────────────────────────────────────────────────
+    Channel Cards
+───────────────────────────────────────────────────────────── */}
+{filteredChannels.length > 0 && (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+        {filteredChannels.map((item) => {
+            const isConnected = statuses[item.id];
+            const isConnecting = connecting === item.id;
+            const Icon = item.icon;
+            const info = connectedInfo[item.id];
 
             return (
                 <div
@@ -1274,23 +1331,26 @@ const disconnectChannel = async (channelId) => {
 
                             {/* Status */}
                             <div className="flex items-center gap-2 shrink-0">
-                                {isConnected ? (
-                                    <span
-                                        className="w-2.5 h-2.5 rounded-full bg-green-400 shrink-0"
-                                        style={{
-                                            boxShadow:
-                                                '0 0 8px rgba(74,222,128,0.8)',
-                                        }}
-                                    />
-                                ) : (
-                                    <span
-                                        className={`
-                                            w-2.5 h-2.5 rounded-full
-                                            ${item.categoryDot}
-                                            shrink-0
-                                        `}
-                                    />
-                                )}
+
+                                {/* Channel-specific connected dot */}
+                                <span
+                                    className={`
+                                        w-2.5 h-2.5 rounded-full
+                                        ${item.categoryDot}
+                                        shrink-0
+                                    `}
+                                    style={{
+                                        boxShadow: isConnected
+                                            ? item.id === 'whatsapp'
+                                                ? '0 0 8px rgba(34,197,94,0.8)'
+                                                : item.id === 'instagram'
+                                                    ? '0 0 8px rgba(236,72,153,0.8)'
+                                                    : item.id === 'twilio'
+                                                        ? '0 0 8px rgba(239,68,68,0.8)'
+                                                        : 'none'
+                                            : 'none',
+                                    }}
+                                />
 
                                 <span className="text-xs sm:text-[13px] text-white/70">
                                     {isConnected
@@ -1319,77 +1379,46 @@ const disconnectChannel = async (channelId) => {
 
                             {isConnected ? (
                                 <>
-                                    {/* Manage */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (item.id === 'twilio') {
-                                                const savedPhone =
-                                                    localStorage.getItem(
-                                                        'twilio_phone'
-                                                    ) || '';
-
-                                                setTwilioForm({
-                                                    sid: '',
-                                                    token: '',
-                                                    phone: savedPhone,
-                                                });
-
-                                                setShowAuthToken(false);
-                                                setTwilioStep(1);
-                                            } else {
-                                                handleReconnect(item.id);
-                                            }
-                                        }}
-                                        className="
-                                            px-4 sm:px-5
-                                            py-2 sm:py-2.5
-                                            rounded-xl
-                                            border border-white/[0.12]
-                                            bg-white/[0.02]
-                                            text-white/85
-                                            text-xs sm:text-[13px]
-                                            font-medium
-                                            hover:bg-white/[0.07]
-                                            hover:border-white/[0.2]
-                                            hover:text-white
-                                            transition-all duration-200
-                                        "
-                                    >
-                                        Manage
-                                    </button>
-
-                                    {/* Settings */}
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (item.id === 'whatsapp' || item.id === 'instagram' || item.id === 'twilio') {
-                                                disconnectChannel(item.id);
-                                            } else {
-                                                disconnectIntegration(item.id);
-                                            }
-                                        }}
-                                        className="
-                                            w-9 h-9 sm:w-10 sm:h-10
-                                            rounded-xl
-                                            border border-white/[0.12]
-                                            bg-white/[0.02]
-                                            flex items-center justify-center
-                                            text-white/50
-                                            hover:text-white
-                                            hover:bg-white/[0.07]
-                                            hover:border-white/[0.2]
-                                            transition-all duration-200
-                                        "
-                                        title="Channel settings"
-                                    >
-                                        <Settings
-                                            size={15}
-                                            className="transition-transform duration-300 group-hover:rotate-45"
-                                        />
-                                    </button>
+                                    {/* Manage / Disconnect */}
+                                   <button
+                                            type="button"
+                                            onClick={() => {
+                                                setDisconnectModal(item.id);
+                                            }}
+                                            className={`
+                                                px-4 sm:px-5
+                                                py-2 sm:py-2.5
+                                                rounded-xl
+                                                text-xs sm:text-[13px]
+                                                font-medium
+                                                transition-all duration-200
+                                                ${
+                                                    item.id === 'twilio'
+                                                        ? `
+                                                            border border-rose-500/30
+                                                            bg-rose-500/10
+                                                            text-rose-400
+                                                            hover:bg-rose-500/15
+                                                            hover:border-rose-500/50
+                                                            hover:text-rose-300
+                                                            hover:shadow-[0_0_18px_rgba(244,63,94,0.15)]
+                                                        `
+                                                        : `
+                                                            border border-white/[0.12]
+                                                            bg-white/[0.02]
+                                                            text-white/85
+                                                            hover:bg-white/[0.07]
+                                                            hover:border-white/[0.2]
+                                                            hover:text-white
+                                                        `
+                                                }
+                                            `}
+                                        >
+                                            {item.id === 'twilio' ? 'Disconnect' : 'Manage'}
+                                        </button>
                                 </>
                             ) : (
+
                                 /* Connect button */
                                 <button
                                     onClick={() => handleConnect(item.id)}
@@ -1492,21 +1521,21 @@ const disconnectChannel = async (channelId) => {
     </div>
 )}
 
-                {/*  Integration Section  */}
-                        {filteredIntegrations.length > 0 && (
-                <div className="mt-10 sm:mt-14">
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold sm:font-medium text-white tracking-tight mb-2 sm:mb-3">
-                    Integration
-                </h2>
+{/*  Integration Section  */}
+{filteredIntegrations.length > 0 && (
+    <div className="mt-10 sm:mt-14">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold sm:font-medium text-white tracking-tight mb-2 sm:mb-3">
+            Integration
+        </h2>
 
-                <p className="text-white/70 text-xs sm:text-sm lg:text-[15px] max-w-xl leading-relaxed mb-6 sm:mb-8">
-                    Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
-                </p>
+        <p className="text-white/70 text-xs sm:text-sm lg:text-[15px] max-w-xl leading-relaxed mb-6 sm:mb-8">
+            Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
+        </p>
 
-                {/* 2 COLUMN GRID */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-5">
-                    {filteredIntegrations.map((item) => {
-                        const isConnected = statuses[item.id];
+        {/* 2 COLUMN GRID */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-5">
+            {filteredIntegrations.map((item) => {
+                const isConnected = statuses[item.id];
                 const isConnecting = connecting === item.id;
                 const Icon = item.icon;
                 const info = connectedInfo[item.id];
@@ -1581,39 +1610,69 @@ const disconnectChannel = async (channelId) => {
                                     )}
                                 </div>
 
-                                {/* ================= CONNECTED TOP ACTIONS ================= */}
-                                {isConnected && (
-                                    <div className="hidden sm:flex items-center gap-0 shrink-0">
+                              {/* ================= CONNECTED TOP ACTIONS ================= */}
+                                    {isConnected && (
+                                        <div className="hidden sm:flex items-center gap-0 shrink-0">
 
-                                        {/* Manage */}
-                                        <button
-                                            onClick={() => {
-                                                // Add your manage action here
-                                                // Example:
-                                                // handleManage(item.id)
-                                            }}
-                                            className="h-11 px-4 rounded-xl border border-white/10 bg-[#070012] text-white/90 text-xs sm:text-[13px] font-medium hover:bg-white/5 hover:border-white/20 transition-all duration-200"
-                                        >
-                                            Manage
-                                        </button>
+                                            {/* Manage */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    // Keep existing manage action
+                                                }}
+                                                className="
+                                                    h-11 px-4
+                                                    rounded-xl
+                                                    border border-white/10
+                                                    bg-[#070012]
+                                                    text-white/90
+                                                    text-xs sm:text-[13px]
+                                                    font-medium
+                                                    hover:bg-white/5
+                                                    hover:border-white/20
+                                                    transition-all duration-200
+                                                "
+                                            >
+                                                Manage
+                                            </button>
 
-                                        {/* Settings */}
-                                        <button
-                                            onClick={() => {
-                                                // Add your settings action here
-                                                // Example:
-                                                // handleSettings(item.id)
-                                            }}
-                                            className="w-11 h-11 rounded-xl border border-white/10 bg-[#070012] text-white/70 hover:text-white hover:bg-white/5 hover:border-white/20 transition-all duration-200 flex items-center justify-center"
-                                            title="Settings"
-                                        >
-                                            <Settings
-                                                size={16}
-                                                className="transition-transform duration-300 group-hover:rotate-45"
-                                            />
-                                        </button>
-                                    </div>
-                                )}
+                                            {/* Settings */}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    // Settings action can be added later
+                                                }}
+                                                className="
+                                                    group/settings
+                                                    w-11 h-11
+                                                    rounded-xl
+                                                    border border-white/10
+                                                    bg-[#070012]
+                                                    text-white/70
+                                                    flex items-center justify-center
+                                                    transition-all duration-300
+                                                    hover:text-white
+                                                    hover:bg-white/[0.07]
+                                                    hover:border-white/20
+                                                    hover:shadow-[0_0_15px_rgba(124,77,255,0.18)]
+                                                    hover:scale-[1.03]
+                                                    active:scale-95
+                                                "
+                                                title="Settings"
+                                            >
+                                                <Settings
+                                                    size={16}
+                                                    className="
+                                                        transition-transform
+                                                        duration-300
+                                                        ease-out
+                                                        group-hover/settings:rotate-45
+                                                    "
+                                                />
+                                            </button>
+
+                                        </div>
+                                    )}
                             </div>
                         </div>
 
@@ -1625,13 +1684,22 @@ const disconnectChannel = async (channelId) => {
 
                                 {/* Status */}
                                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                                    {isConnected ? (
-                                        <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_6px_#22c55e]" />
-                                    ) : (
-                                        <span
-                                            className={`w-2 h-2 rounded-full ${item.categoryDot}`}
-                                        />
-                                    )}
+
+                                    {/* Channel-specific connected dot */}
+                                    <span
+                                        className={`w-2 h-2 rounded-full ${item.categoryDot}`}
+                                        style={{
+                                            boxShadow: isConnected
+                                                ? item.id === 'whatsapp'
+                                                    ? '0 0 6px rgba(34,197,94,0.8)'
+                                                    : item.id === 'instagram'
+                                                        ? '0 0 6px rgba(236,72,153,0.8)'
+                                                        : item.id === 'twilio'
+                                                            ? '0 0 6px rgba(239,68,68,0.8)'
+                                                            : 'none'
+                                                : 'none',
+                                        }}
+                                    />
 
                                     <span className="text-xs sm:text-[13px] text-white/70">
                                         {isConnected
@@ -1668,33 +1736,7 @@ const disconnectChannel = async (channelId) => {
                                         >
                                             Manage
                                         </button>
-
-                                        {/* Connected Button */}
-                                        <button
-                                            onMouseEnter={() => setHoveredBtn(item.id)}
-                                            onMouseLeave={() => setHoveredBtn(null)}
-                                            onClick={() => disconnectIntegration(item.id)}
-                                            className="group/disc flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs sm:text-[13px] font-medium hover:bg-red-500/15 hover:border-red-500/50 hover:text-red-400 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] active:scale-95 transition-all duration-300 shrink-0"
-                                            title="Click to disconnect"
-                                        >
-                                            {hoveredBtn === item.id ? (
-                                                <>
-                                                    <X
-                                                        size={13}
-                                                        className="transition-transform duration-200 transform group-hover/disc:rotate-90"
-                                                    />
-                                                    Disconnect
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Check
-                                                        size={13}
-                                                        className="transition-transform duration-200 transform group-hover/disc:scale-110"
-                                                    />
-                                                    Connected
-                                                </>
-                                            )}
-                                        </button>
+                                            
                                     </>
                                 ) : (
                                     /* ================= CONNECT BUTTON ================= */
@@ -1753,25 +1795,106 @@ const disconnectChannel = async (channelId) => {
             })}
         </div>
     </div>
-)}
-
-                {/*  Footer  */}
+)}                {/* Footer */}
                 <div className="mt-10 sm:mt-14 text-center text-white/50 text-[11px] sm:text-[12px] pb-6">
-                    <p>Orbion Agents securely handles your communication data according to our privacy policy.</p>
+                    <p>
+                        Orbion Agents securely handles your communication data according to our privacy policy.
+                    </p>
                 </div>
-            </div>
 
-            {/* ── Twilio Onboarding Modal ── */}
-            <TwilioOnboardingModal
-                twilioStep={twilioStep}
-                setTwilioStep={setTwilioStep}
-                twilioForm={twilioForm}
-                setTwilioForm={setTwilioForm}
-                showAuthToken={showAuthToken}
-                setShowAuthToken={setShowAuthToken}
-                twilioSubmitting={twilioSubmitting}
-                submitTwilio={submitTwilio}
-            />
+                {/* ── Twilio Onboarding Modal ── */}
+                <TwilioOnboardingModal
+                    twilioStep={twilioStep}
+                    setTwilioStep={setTwilioStep}
+                    twilioForm={twilioForm}
+                    setTwilioForm={setTwilioForm}
+                    showAuthToken={showAuthToken}
+                    setShowAuthToken={setShowAuthToken}
+                    twilioSubmitting={twilioSubmitting}
+                    submitTwilio={submitTwilio}
+                />
+
+                {/* ── Disconnect Confirmation Modal ── */}
+                {disconnectModal && (
+                    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+                        <div className="w-full max-w-[384px] rounded-2xl border border-white/[0.12] bg-[#111111] p-6 shadow-2xl">
+
+                            {/* Warning Icon */}
+                            <div className="flex justify-center mb-5">
+                                <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center">
+                                    <div className="w-9 h-9 rounded-full bg-rose-500/10 flex items-center justify-center">
+                                        <X
+                                            size={20}
+                                            className="text-rose-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Title */}
+                            <h2 className="text-center text-lg font-semibold text-white mb-2">
+                                Disconnect{" "}
+                                {disconnectModal === "google_calendar"
+                                    ? "Google Calendar"
+                                    : disconnectModal === "gmail"
+                                        ? "Gmail"
+                                        : disconnectModal}
+                                ?
+                            </h2>
+
+                            {/* Description */}
+                            <p className="text-center text-sm text-white/45 leading-relaxed mb-6">
+                                This will disconnect the integration from your workspace.
+                                You can reconnect it again anytime.
+                            </p>
+
+                            {/* Buttons */}
+                            <div className="flex items-center gap-3">
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDisconnectModal(null)}
+                                    disabled={disconnecting}
+                                    className="
+                                        flex-1 h-10 rounded-xl
+                                        bg-white/[0.08]
+                                        border border-white/[0.06]
+                                        text-white/90
+                                        text-sm font-semibold
+                                        transition-all duration-200
+                                        hover:bg-white/[0.12]
+                                        disabled:opacity-50
+                                        disabled:cursor-not-allowed
+                                    "
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={confirmDisconnectIntegration}
+                                    disabled={disconnecting}
+                                    className="
+                                        flex-1 h-10 rounded-xl
+                                        bg-rose-500
+                                        text-white
+                                        text-sm font-semibold
+                                        shadow-[0_0_18px_rgba(244,63,94,0.25)]
+                                        transition-all duration-200
+                                        hover:bg-rose-400
+                                        hover:shadow-[0_0_24px_rgba(244,63,94,0.35)]
+                                        disabled:opacity-60
+                                        disabled:cursor-not-allowed
+                                    "
+                                >
+                                    {disconnecting ? "Disconnecting..." : "Disconnect"}
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
