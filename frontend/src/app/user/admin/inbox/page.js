@@ -8,7 +8,7 @@ import {
     ArrowRight, ChevronRight, MoreHorizontal, Info,
     ArrowLeft, SlidersHorizontal, Camera, FileText,
     PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, Check,
-    Inbox, X
+    Inbox, X, Play, Pause, Mic, CheckCheck, Smile
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -58,9 +58,6 @@ const CHANNELS = [
 
 const STATUS_FILTERS = ['Open', 'Converted', 'Closed', 'All'];
 
-const PROXY_BASE = '/api';
-
-// Shared card style for all three panels
 const CARD_BG = '#15161C';
 const CARD_BORDER = 'rgba(255,255,255,0.07)';
 
@@ -82,8 +79,7 @@ const showToast = (message) => {
     toast.innerHTML = message;
 
     container.appendChild(toast);
-
-    toast.offsetHeight; // trigger reflow
+    toast.offsetHeight;
 
     toast.style.opacity = '1';
     toast.style.transform = 'translateY(0)';
@@ -97,26 +93,19 @@ const showToast = (message) => {
     }, 4000);
 };
 
-function getHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-    };
-}
-
 function getDisplayName(lead, channelId) {
     if (channelId === 'instagram') {
-        return lead.contact_name || lead.username || 'Instagram User';
+        return lead?.contact_name || lead?.username || 'Instagram User';
     }
-    return lead.phone || lead.contact_name || 'Unknown';
+    return lead?.phone || lead?.contact_name || 'Unknown';
 }
 
 function getAvatarText(lead, channelId) {
     if (channelId === 'instagram') {
-        const name = lead.contact_name || lead.username || 'U';
+        const name = lead?.contact_name || lead?.username || 'U';
         return name[0].toUpperCase();
     }
-    const phone = lead.phone || '';
+    const phone = lead?.phone || '';
     return phone.slice(-2) || 'U';
 }
 
@@ -169,7 +158,7 @@ function UnreadBadge({ count, channel }) {
         ? { background: channel.gradient }
         : { backgroundColor: channel.color };
     return (
-        <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white flex items-center justify-center" style={style}>
+        <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white flex items-center justify-center shadow-md" style={style}>
             {count}
         </span>
     );
@@ -217,6 +206,129 @@ function getLastUserActivity(lead, messages) {
         }
     }
     return null;
+}
+
+// Screenshot Match: WhatsApp Exact Audio Bubble (Avatar left -> Play button -> Waveform with dot -> Time & Blue ticks)
+function WhatsAppAudioMessage({ url, isMe, timestamp }) {
+    const [playing, setPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const audioRef = useRef(null);
+
+    const togglePlay = () => {
+        if (!audioRef.current) return;
+        if (playing) {
+            audioRef.current.pause();
+            setPlaying(false);
+        } else {
+            audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+        }
+    };
+
+    const handleTimeUpdate = () => {
+        if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+    };
+
+    const handleLoadedMetadata = () => {
+        if (audioRef.current) setDuration(audioRef.current.duration || 0);
+    };
+
+    const handleEnded = () => {
+        setPlaying(false);
+        setCurrentTime(0);
+    };
+
+    const formatSeconds = (sec) => {
+        if (!sec || isNaN(sec)) return '0:30';
+        const mins = Math.floor(sec / 60);
+        const secs = Math.floor(sec % 60);
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    const waveformBars = [4, 6, 8, 12, 16, 20, 24, 28, 22, 14, 8, 6, 10, 14, 18, 24, 30, 26, 18, 12, 8, 6, 8, 14, 18, 22, 26, 20, 14, 8, 6, 4, 6, 8, 12];
+    const progress = duration > 0 ? (currentTime / duration) : 0.08;
+    const activeDotIndex = Math.min(Math.floor(progress * waveformBars.length), waveformBars.length - 1);
+
+    return (
+        <div className="flex items-center gap-3 py-1 px-1 min-w-[270px] sm:min-w-[320px] select-none font-sans">
+            {url && (
+                <audio
+                    ref={audioRef}
+                    src={url}
+                    onTimeUpdate={handleTimeUpdate}
+                    onLoadedMetadata={handleLoadedMetadata}
+                    onEnded={handleEnded}
+                    className="hidden"
+                />
+            )}
+
+            {/* Left: Avatar with Mic Badge */}
+            <div className="relative shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-[#6d757d] flex items-center justify-center text-white">
+                    <User size={20} fill="currentColor" />
+                </div>
+                <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-white flex items-center justify-center">
+                    <Mic size={13} className="text-[#6d757d]" />
+                </span>
+            </div>
+
+            {/* Waveform and Play/Time Controls */}
+            <div className="flex-1 flex flex-col justify-center">
+                <div className="flex items-center gap-2.5">
+                    <button
+                        onClick={togglePlay}
+                        className="text-[#667085] hover:text-[#333] transition-transform active:scale-90 shrink-0"
+                    >
+                        {playing ? (
+                            <Pause size={24} fill="#667085" />
+                        ) : (
+                            <Play size={24} fill="#667085" className="ml-0.5" />
+                        )}
+                    </button>
+
+                    <div
+                        onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const clickX = e.clientX - rect.left;
+                            const newProgress = Math.max(0, Math.min(1, clickX / rect.width));
+                            if (audioRef.current && duration > 0) {
+                                audioRef.current.currentTime = newProgress * duration;
+                                setCurrentTime(newProgress * duration);
+                            }
+                        }}
+                        className="flex-1 flex items-center gap-[2.5px] h-7 cursor-pointer relative"
+                    >
+                        {waveformBars.map((height, i) => {
+                            const isPlayed = i <= activeDotIndex;
+                            return (
+                                <div key={i} className="flex items-center justify-center relative flex-1">
+                                    <span
+                                        className={`w-[2.5px] rounded-full transition-all duration-150 ${
+                                            isPlayed ? 'bg-[#5e6670]' : 'bg-[#a3b899]'
+                                        }`}
+                                        style={{ height: `${height}px` }}
+                                    />
+                                    {i === activeDotIndex && (
+                                        <span className="absolute w-3.5 h-3.5 rounded-full bg-[#5e6670] shadow-sm pointer-events-none" />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-[#556066] mt-1 pl-8 pr-1 font-sans">
+                    <span className="font-medium text-[#4a5568]">
+                        {formatSeconds(playing ? currentTime : (duration || 30))}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <span className="text-[11px] text-[#6b7280]">{timestamp}</span>
+                        <CheckCheck size={16} className="text-[#34B7F1]" strokeWidth={2.5} />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterChange, onLeadSelect, unreadCounts = {}, lastMessageMap = {} }) {
@@ -350,7 +462,6 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                             }
                         >
                             <div className="flex items-center gap-3">
-                                {/* Left-aligned channel icon */}
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0">
                                     <ChannelIcon channel={convChannel} size={20} />
                                 </div>
@@ -430,7 +541,6 @@ function getConversationStats(conversation, messages) {
 }
 
 function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages, onCloseConversation, onConvertClick, leadDetail, setLeadDetail }) {
-    const router = useRouter();
     const isInstagram = ch.id === 'instagram';
     const stats = getConversationStats(lead, messages);
 
@@ -438,8 +548,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
         if (!leadId) return;
         const currentLabels = leadDetail?.labels || [];
         const isActive = currentLabels.includes(label);
-       
-        // Optimistic UI update for single selection
         const nextLabels = isActive ? [] : [label];
         if (setLeadDetail) {
             setLeadDetail(prev => prev ? { ...prev, labels: nextLabels } : null);
@@ -525,8 +633,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         </div>
                     </div>
 
-
-
                     {/* SECTION A: System Tier */}
                     <div className="mb-6 border-b border-white/[0.06] pb-6">
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">System Tier</p>
@@ -600,7 +706,8 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                 Close Conversation
                             </button>
                         </div>
-                    </div>                </>
+                    </div>
+                </>
             )}
         </div>
     );
@@ -784,6 +891,20 @@ function ChatArea({
     const [unreadScrolledCount, setUnreadScrolledCount] = useState(0);
     const prevMessagesLenRef = useRef(messages.length);
 
+    const fileInputRef = useRef(null);
+    const [selectedImage, setSelectedImage] = useState(null);
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                setSelectedImage(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
@@ -842,12 +963,6 @@ function ChatArea({
         }
         return { whatsAppWindowState: 'window_closed', whatsAppWindowRemaining: '' };
     }, [ch.id, hasIncomingMessage, lastUserActivity, now]);
-
-    function getOutgoingStyle() {
-        if (ch.id === 'instagram') return { background: 'linear-gradient(135deg, #7c3aed, #a855f7)' };
-        if (ch.id === 'twilio') return { backgroundColor: '#F22F46' };
-        return { backgroundColor: '#1a7a45' };
-    }
 
     if (!lead) {
         return (
@@ -920,7 +1035,7 @@ function ChatArea({
                 </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages Area */}
             <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
                 <div className="max-w-3xl mx-auto space-y-2">
                     {messagesWithSeparators.map((item) => {
@@ -938,6 +1053,9 @@ function ChatArea({
                         const isUser = m.sender_type?.toLowerCase() === 'user';
                         const isAI = m.sender_type?.toLowerCase() === 'ai';
                         const isSuggested = m.status?.toLowerCase() === 'suggested';
+                        const isAudio = m.content?.includes('.mp3') || m.content?.includes('.ogg') || m.content?.includes('.wav') || m.content?.includes('/audio') || m.type === 'audio';
+                        const isImage = (m.content?.match(/\.(jpeg|jpg|gif|png|webp)/i) || m.type === 'image') && !isAudio;
+                        const timeStr = new Date(m.timestamp || m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                         return (
                             <motion.div
@@ -958,34 +1076,41 @@ function ChatArea({
                                             Use reply <ChevronRight size={14} />
                                         </button>
                                     </div>
+                                ) : isAudio ? (
+                                    <div className="rounded-[18px] bg-[#d9fdd3] text-[#111b21] p-2 border border-black/5 shadow-sm">
+                                        <WhatsAppAudioMessage url={m.content} isMe={!isUser} timestamp={timeStr} />
+                                    </div>
+                                ) : isImage ? (
+                                    <div className="rounded-2xl bg-[#d9fdd3] p-2 border border-black/5 shadow-sm max-w-[75%]">
+                                        <img
+                                            src={m.content}
+                                            alt="media"
+                                            onClick={() => setPreviewMedia({ type: 'image', url: m.content })}
+                                            className="rounded-xl max-h-72 object-cover cursor-pointer hover:opacity-95 transition"
+                                        />
+                                        <div className="flex items-center justify-end gap-1 text-[10px] text-[#667781] mt-1 pr-1">
+                                            <span>{timeStr}</span>
+                                            {!isUser && <CheckCheck size={14} className="text-[#34b7f1]" />}
+                                        </div>
+                                    </div>
                                 ) : (
                                     <div
                                         className={`max-w-[72%] px-4 py-3 ${isUser ? 'rounded-[20px_20px_20px_6px]' : 'rounded-[20px_20px_6px_20px]'}`}
                                         style={isUser
                                             ? { backgroundColor: '#252525', borderBottomLeftRadius: '6px' }
-                                            : { ...getOutgoingStyle(), borderBottomRightRadius: '6px' }
+                                            : { backgroundColor: '#1a7a45', borderBottomRightRadius: '6px' }
                                         }
                                     >
                                         <MessageRenderer
                                             content={m.content}
-                                            metadata={(() => {
-                                                try {
-                                                    return typeof m.metadata_json === 'string'
-                                                        ? JSON.parse(m.metadata_json)
-                                                        : (m.metadata_json || null);
-                                                } catch {
-                                                    return null;
-                                                }
-                                            })()}
-                                            media_url={m.media_url}
-                                            media_type={m.media_type}
-                                            mime_type={m.mime_type}
+                                            metadata={(() => { try { return typeof m.metadata_json === 'string' ? JSON.parse(m.metadata_json) : (m.metadata_json || null); } catch { return null; } })()}
                                             isMe={!isUser}
                                             theme={ch}
                                             onPreviewMedia={setPreviewMedia}
                                         />
-                                        <p className="text-[10px] text-white/40 mt-1.5">
-                                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <p className="text-[10px] text-white/40 mt-1.5 flex items-center justify-end gap-1">
+                                            <span>{timeStr}</span>
+                                            {!isUser && <CheckCheck size={14} className="text-white/70" />}
                                         </p>
                                     </div>
                                 )}
@@ -1050,7 +1175,6 @@ function ChatArea({
             <div className="px-4 pb-4 pt-2 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="max-w-2xl mx-auto">
                     {ch.id === 'whatsapp' && whatsAppWindowState === 'window_closed' ? (
-                        /* Window Closed — template-only mode */
                         <div className="p-5 rounded-2xl border border-red-500/20 bg-red-500/5 flex flex-col items-center text-center gap-3">
                             <div className="text-[#eee] text-[13px] font-medium leading-relaxed">
                                 🔒 WhatsApp 24-hour window has expired.<br />Only approved template messages can be sent.
@@ -1064,7 +1188,6 @@ function ChatArea({
                         </div>
                     ) : (
                         <>
-                            {/* Toolbar row */}
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
                                 <button
                                     onClick={generateSuggestion}
@@ -1097,10 +1220,26 @@ function ChatArea({
                                 )}
                             </div>
 
-                            {/* Input bar */}
+                            {selectedImage && (
+                                <div className="mb-2 p-2 rounded-xl bg-[#1e1e1e] border border-white/10 inline-flex items-center gap-2">
+                                    <img src={selectedImage} alt="attachment preview" className="w-12 h-12 object-cover rounded-lg" />
+                                    <button onClick={() => setSelectedImage(null)} className="p-1 text-red-400 hover:bg-white/5 rounded-full">
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-2 px-2 py-2 rounded-full border"
                                 style={{ backgroundColor: '#1e1e1e', borderColor: 'rgba(255,255,255,0.07)' }}>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    accept="image/*,audio/*"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                />
                                 <button
+                                    onClick={() => fileInputRef.current?.click()}
                                     className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0"
                                     style={{ backgroundColor: `${ch.color}20` }}
                                 >
@@ -1197,7 +1336,6 @@ function PanelCard({ children, className = '', style = {} }) {
     );
 }
 
-// ─ Main Page Content
 function InboxContent() {
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
@@ -1251,29 +1389,16 @@ function InboxContent() {
 
     const playNotificationSound = useCallback(() => {
         const audio = notificationAudioRef.current;
-        console.log("🔊 Audio ref:", audio);
-        if (!audio) {
-            console.error("❌ Notification sound failed: audio ref is null");
-            return;
-        }
+        if (!audio) return;
         try {
             audio.currentTime = 0;
             const playPromise = audio.play();
             if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        console.log("✅ Notification sound played");
-                    })
-                    .catch((error) => {
-                        console.error("❌ Notification sound failed:", error);
-                    });
+                playPromise.catch(() => {});
             }
-        } catch (error) {
-            console.error("❌ Notification sound failed:", error);
-        }
+        } catch (error) {}
     }, []);
 
-    // Template state (from HEAD)
     const [templateName, setTemplateName] = useState(null);
     const [templateVariables, setTemplateVariables] = useState([]);
     const [templateLanguage, setTemplateLanguage] = useState('en_US');
@@ -1283,13 +1408,11 @@ function InboxContent() {
     const [inboxTemplateVariables, setInboxTemplateVariables] = useState({});
     const [templateSearchQuery, setTemplateSearchQuery] = useState('');
 
-    // Modal state (from branch)
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [showCloseModal, setShowCloseModal] = useState(false);
     const [closeTargetId, setCloseTargetId] = useState(null);
     const [closingConversation, setClosingConversation] = useState(false);
 
-    const messagesContainerRef = useRef(null);
     const leadRef = useRef(null);
     const lastProcessedIdRef = useRef(null);
 
@@ -1298,13 +1421,11 @@ function InboxContent() {
     const pathname = usePathname();
     const urlConversationId = searchParams.get('conversationId') || searchParams.get('conversation');
 
-    // Tablet / mobile / desktop drawer view state
     const [tabletRight, setTabletRight] = useState('chat');
     const [ipadRight, setIpadRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
     const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
 
-    //  Template helpers ─
     const fetchInboxTemplates = useCallback(async () => {
         try {
             const workspace_id = workspace?.id;
@@ -1355,7 +1476,6 @@ function InboxContent() {
         (t.content || '').toLowerCase().includes(templateSearchQuery.toLowerCase())
     );
 
-    //  URL param hydration
     useEffect(() => {
         const msgParam = searchParams.get('msg');
         const channelParam = searchParams.get('channel');
@@ -1380,7 +1500,6 @@ function InboxContent() {
 
     useEffect(() => { leadRef.current = lead; }, [lead]);
 
-    //  Lead detail fetch
     useEffect(() => {
         if (!resolvedLeadId) { setLeadDetail(null); return; }
         let active = true;
@@ -1390,7 +1509,6 @@ function InboxContent() {
         return () => { active = false; };
     }, [resolvedLeadId]);
 
-    //  Helpers
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
         if (!conversationId || !workspace?.id) return null;
         try {
@@ -1407,7 +1525,6 @@ function InboxContent() {
             const data = await api.get(`/api/messages/${id}`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
 
-            // Populate processed message IDs to prevent sound on history load/reconnect
             data.forEach(m => {
                 if (m.id) processedMessageIds.current.add(m.id);
             });
@@ -1443,7 +1560,6 @@ function InboxContent() {
 
             setConversations(data);
 
-            // Fetch messages for all conversations to populate lastMessageMap
             data.forEach(c => {
                 if (c.id) {
                     api.get(`/api/messages/${c.id}`).then(msgs => {
@@ -1488,7 +1604,6 @@ function InboxContent() {
 
             setLead(nextLead);
             if (nextLead) {
-                // Clear unread on open
                 setUnreadCounts(prev => ({ ...prev, [nextLead.id]: 0 }));
             }
             fetchMessages(nextLead.id);
@@ -1496,7 +1611,6 @@ function InboxContent() {
         } catch (e) { console.error('Conversation fetch error:', e); }
     }, [workspace?.id, ch.id, activeFilter, fetchMessages, fetchLeadIdForConversation, getStatusParam, pathname, router, searchParams]);
 
-    //  URL-driven conversation selection ─
     useEffect(() => {
         if (!workspace?.id || !urlConversationId) {
             if (!urlConversationId) lastProcessedIdRef.current = null;
@@ -1517,7 +1631,6 @@ function InboxContent() {
         }).catch(e => console.error('Failed to look up conversation:', e));
     }, [workspace?.id, urlConversationId, fetchConversations]);
 
-    //  Channel / filter changes
     useEffect(() => {
         setDesktopDrawerOpen(false);
         const timer = setTimeout(() => {
@@ -1528,14 +1641,12 @@ function InboxContent() {
         return () => clearTimeout(timer);
     }, [ch.id, fetchConversations]);
 
-    //  Polling
     useEffect(() => {
         if (!lead?.id) return;
         const interval = setInterval(() => fetchMessages(lead.id), 30000);
         return () => clearInterval(interval);
     }, [lead?.id, fetchMessages]);
 
-    //  Realtime ─
     useEffect(() => {
         if (!lead?.id) return;
         subscribeConversation(lead.id);
@@ -1544,8 +1655,6 @@ function InboxContent() {
 
     useEffect(() => {
         return subscribe((event) => {
-            console.log("📨 WebSocket message received:", event);
-
             const eventWorkspaceId = event.workspace_id || event.payload?.workspace_id;
             if (eventWorkspaceId && workspace?.id && eventWorkspaceId !== workspace.id) return;
 
@@ -1559,24 +1668,19 @@ function InboxContent() {
                     const msgSender = senderRaw.toLowerCase();
                     const msgContent = msgData.content || event.content || '';
 
-                    // Update last message map for conversation preview
                     if (eventConversationId && msgContent) {
                         setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
                     }
 
-                    // Duplicate protection check
                     if (msgId && processedMessageIds.current.has(msgId)) {
-                        console.log("⚠️ Ignored duplicate message ID:", msgId);
                         return;
                     }
                     if (msgId) {
                         processedMessageIds.current.add(msgId);
                     }
 
-                    // Genuine NEW incoming message from customer
                     const isIncoming = msgSender.includes('user') || msgSender.includes('customer') || msgData.direction === 'inbound';
                     if (isIncoming) {
-                        console.log("🔔 New incoming message detected");
                         playNotificationSound();
 
                         const isCurrentlyActive = leadRef.current?.id === eventConversationId;
@@ -1623,7 +1727,6 @@ function InboxContent() {
         });
     }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId, playNotificationSound]);
 
-    //  Actions
     async function sendMessage() {
         if (!msg.trim() || !lead) return;
         try {
@@ -1641,7 +1744,14 @@ function InboxContent() {
             setTemplateVariables([]);
             setTemplateLanguage('en_US');
             fetchMessages(lead.id);
-        } catch (e) { console.error('Send error:', e); }
+        } catch (e) {
+            console.error('Send error:', e);
+            if (e.status === 503) {
+                showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
+            } else {
+                showToast("Failed to send message. Please try again.");
+            }
+        }
     }
 
     async function generateSuggestion() {
@@ -1679,22 +1789,6 @@ function InboxContent() {
         setCloseTargetId(conversationId);
         setShowCloseModal(true);
     }
-      async function sendMessage() {
-          if (!msg.trim() || !lead) return;
-          try {
-              await api.post(`/api/send-reply`, { conversation_id: lead.id, message: msg });
-              setMsg('');
-              fetchMessages(lead.id);
-          } catch (e) {
-              console.error('Send error:', e);
-              if (e.status === 503) {
-                  showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
-              } else {
-                  showToast("Failed to send message. Please try again.");
-              }
-              return;
-          }
-      }
 
     async function handleConfirmClose() {
         if (!closeTargetId) return;
@@ -1728,7 +1822,6 @@ function InboxContent() {
         setMobileView('chat');
     }
 
-    //  Shared ChatArea props ─
     const chatAreaProps = {
         ch, lead, messages, msg, setMsg,
         aiSuggestion, sendMessage, generateSuggestion, useSuggestion,
@@ -1757,11 +1850,10 @@ function InboxContent() {
         leadDetail, setLeadDetail,
     };
 
-    //  Render ─
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
-            {/*  DESKTOP (≥1260px)  */}
+            {/* DESKTOP (≥1260px) */}
             <div className="hidden xl:flex flex-1 overflow-hidden p-3 gap-3 relative">
                 <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1831,7 +1923,7 @@ function InboxContent() {
                 </AnimatePresence>
             </div>
 
-            {/*  IPAD PRO (1024px–1279px)  */}
+            {/* IPAD PRO (1024px–1279px) */}
             <div className="hidden lg:flex xl:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex flex-1 overflow-hidden p-3 gap-3">
                     <div className="flex flex-col gap-3" style={{ width: 360, minWidth: 320, maxWidth: 380 }}>
@@ -1874,7 +1966,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/*  TABLET (768px–1023px)  */}
+            {/* TABLET (768px–1023px) */}
             <div className="hidden md:flex lg:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1911,7 +2003,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/*  MOBILE (<768px)  */}
+            {/* MOBILE (<768px) */}
             <div className="flex md:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1948,7 +2040,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/*  Template Selector Modal  */}
+            {/* Template Selector Modal */}
             {showTemplateSelect && (
                 <>
                     <div onClick={() => setShowTemplateSelect(false)} className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]" />
@@ -1962,7 +2054,6 @@ function InboxContent() {
                             fontFamily: "'Poppins', sans-serif", overflow: 'hidden',
                         }}>
 
-                        {/* Header */}
                         <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-[#2a1f4a]/50">
                             <h2 className="m-0 text-[18px] font-bold text-[#f0f0ff] tracking-tight flex items-center gap-2">
                                 <FileText size={18} className="text-purple-400" />
@@ -1974,9 +2065,7 @@ function InboxContent() {
                             </button>
                         </div>
 
-                        {/* Split body */}
                         <div className="flex flex-1 overflow-hidden">
-                            {/* Left list */}
                             <div className="w-[320px] border-r border-[#2a1f4a]/30 flex flex-col bg-[#0b0717]/40">
                                 <div className="p-3">
                                     <div className="flex items-center gap-2 bg-[#120d22] border border-[#2a1f4a] rounded-xl px-3 py-2">
@@ -2009,7 +2098,6 @@ function InboxContent() {
                                 </div>
                             </div>
 
-                            {/* Right preview */}
                             <div className="flex-1 flex flex-col bg-[#0b081c]/10 overflow-y-auto p-6">
                                 {selectedInboxTemplate ? (
                                     <div className="flex-1 flex flex-col gap-5">
@@ -2067,7 +2155,6 @@ function InboxContent() {
                             </div>
                         </div>
 
-                        {/* Footer */}
                         <div className="px-6 py-4 border-t border-[#2a1f4a]/50 flex justify-end gap-3 bg-[#0d091e]">
                             <button onClick={() => setShowTemplateSelect(false)}
                                 className="px-5 py-2.5 rounded-xl border border-[#2a1f4a] bg-transparent text-white text-[13px] font-semibold hover:bg-white/5">
@@ -2083,7 +2170,7 @@ function InboxContent() {
                 </>
             )}
 
-            {/*  Modals  */}
+            {/* Modals */}
             {showConvertModal && (
                 <ConvertLeadModal
                     isOpen={showConvertModal}
