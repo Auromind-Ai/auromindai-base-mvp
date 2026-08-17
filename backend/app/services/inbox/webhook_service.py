@@ -379,7 +379,7 @@ class WebhookService:
                 
                 for message in messages:
                     logger.info(f"Processing message ID: {message.get('id')}")
-                    (body,interactive_value,interactive_label,media_url,media_type,mime_type,) = WebhookService._extract_meta_whatsapp_body(message)
+                    (body,interactive_value,interactive_label,media_url,media_type,mime_type, media_id) = WebhookService._extract_meta_whatsapp_body(message)
                     from_number = message.get("from")
                     
                     if not from_number:
@@ -407,6 +407,7 @@ class WebhookService:
                                         "media_url": media_url,
                                         "media_type": media_type,
                                         "mime_type": mime_type,
+                                        "media_id": media_id   
                                     },
                         )
                         logger.info(f"Pipeline processing result: {result}")

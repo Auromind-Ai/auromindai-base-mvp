@@ -209,7 +209,6 @@ class OrchestratorLayer:
                 "source": "direct_answer"
             }
             yield {"meta": meta_payload}
-            from app.services.agentic_rag.reasoning_agent import run_reasoning_stream
             async for chunk in run_reasoning_stream(query, model=model):
                 yield chunk
             return
@@ -766,7 +765,7 @@ class OrchestratorLayer:
         if detection["is_unwanted"]:
             logger.info(f"[Gibberish Detected] query: '{query}', reason: '{detection['reason']}', score: {detection['score']:.2f}")
             confidence = compute_confidence(tool="direct_answer")
-            from app.services.agentic_rag.reasoning_agent import run_reasoning
+
             reasoning_res = await run_reasoning(query, model=model)
             return self.mcp.format_response(
                 reasoning_res,
