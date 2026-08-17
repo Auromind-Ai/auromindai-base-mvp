@@ -348,13 +348,13 @@ class WebhookService:
                             try:
                                 db.commit()
 
-                                # Trigger next queued message on delivered/failed
-                                # (matching the Twilio handler in message_service.py)
-                                if status_str.lower() in ("delivered", "failed") and outbound:
+                                # Trigger next queued message on delivered/read/failed
+                                if status_str.lower() in ("delivered", "read", "failed") and (outbound or msg):
+                                    conv_id = str(outbound.conversation_id if outbound else msg.conversation_id)
                                     try:
                                         from app.workers.flow_execution import send_next_pending_message
                                         send_next_pending_message.apply_async(
-                                            args=[str(outbound.conversation_id)],
+                                            args=[conv_id],
                                             countdown=0,
                                         )
                                     except Exception as dispatch_exc:
@@ -582,13 +582,14 @@ class WebhookService:
             return {"status": "error"}
 
     @staticmethod
-    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None, str | None, str | None, str | None]:
+    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None, str | None, str | None, str | None, str | None]:
         text = (message.get("text") or {}).get("body")
         interactive_value = None
         interactive_label = None
         media_url = None
         media_type = None
         mime_type = None
+        media_id = None
 
         button = message.get("button") or {}
         if button:
@@ -638,7 +639,7 @@ class WebhookService:
             elif msg_type:
                 text = f"[{msg_type.upper()} message]"
 
-        return (text, interactive_value, interactive_label, media_url, media_type, mime_type)
+        return (text, interactive_value, interactive_label, media_url, media_type, mime_type, media_id)
 
     @staticmethod
     def _fetch_instagram_profile(workspace, sender_id: str) -> dict[str, str | None]:

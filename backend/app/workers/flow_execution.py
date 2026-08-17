@@ -287,7 +287,7 @@ def send_next_pending_message(self, conversation_id: str):
         if prev_msg:
             is_instagram = bool(conv and conv.channel and "INSTAGRAM" in str(conv.channel).upper())
             if is_instagram:
-                # Instagram sequencing rule: Next message allowed ONLY AFTER previous message API request finished & committed as 'sent' (or terminal state)
+                # Instagram sequencing: Next message allowed once previous message is sent / committed
                 if prev_msg.status in ("queued", "sending", "dispatched", "in_progress"):
                     logger.info(
                         "[Instagram Queue] Blocked: Prev msg seq=%d (id=%s status=%s) not sent yet | conversation=%s",
@@ -298,7 +298,9 @@ def send_next_pending_message(self, conversation_id: str):
                     )
                     return
             else:
-                # EXISTING WHATSAPP / TWILIO / META CLOUD API BEHAVIOR — UNCHANGED
+                # Strict WhatsApp / Twilio delivery gate:
+                # 'sent' means accepted by Meta API, but NOT yet delivered to user device → WAIT!
+                # Gate unlocks ONLY when previous message is 'delivered', 'read', 'failed', or 'cancelled' (or fallback timeout >45s)
                 from datetime import datetime, timezone, timedelta
                 now = datetime.now(timezone.utc)
                 updated_at = prev_msg.updated_at or prev_msg.created_at
@@ -306,16 +308,16 @@ def send_next_pending_message(self, conversation_id: str):
                     updated_at = updated_at.replace(tzinfo=timezone.utc)
                 is_stale = (now - updated_at) > timedelta(seconds=45) if updated_at else False
 
-                if prev_msg.status not in ("delivered", "failed", "cancelled") and not is_stale:
+                if prev_msg.status not in ("delivered", "read", "failed", "cancelled") and not is_stale:
                     logger.info(
-                        "[send_next_pending_message] Blocked: Prev message seq=%d (id=%s status=%s) not delivered yet | conversation=%s",
+                        "[send_next_pending_message] Blocked: Prev message seq=%d (id=%s status=%s) not delivered/read yet | conversation=%s",
                         prev_msg.sequence,
                         str(prev_msg.id),
                         prev_msg.status,
                         conversation_id,
                     )
                     return
-                elif is_stale and prev_msg.status != "delivered":
+                elif is_stale and prev_msg.status not in ("delivered", "read"):
                     logger.warning(
                         "[send_next_pending_message] Prev message seq=%d (id=%s status=%s) delivery callback timed out (>45s). Proceeding with seq=%d | conversation=%s",
                         prev_msg.sequence,
@@ -559,6 +561,7 @@ def send_whatsapp_message_task(
                         sender_type=SenderType.AI,
                         status=MessageStatus.SENT,
                         metadata=metadata,
+                        external_id=sid,
                         source="automation_flow"
                     )
                     db.flush()
@@ -594,7 +597,14 @@ def send_whatsapp_message_task(
                 countdown=0
             )
         else:
-            send_next_pending_message.delay(conversation_id)
+            # WhatsApp: message is now in 'sent' state awaiting Meta DLR 'delivered'/'read' callback.
+            # DLR webhook will trigger send_next_pending_message when Meta reports delivery.
+            logger.info(
+                "[send_whatsapp_message_task] seq=%d sent to Meta (sid=%s) | Awaiting DLR callback (delivered/read) to unlock next message | conv=%s",
+                row.sequence,
+                sid,
+                conversation_id,
+            )
 
         #  REALTIME: notify the workspace that an outbound message was sent
         try:
