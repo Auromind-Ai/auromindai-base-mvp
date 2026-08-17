@@ -694,6 +694,10 @@ async def stop_impersonation(request: Request, response: Response, db: Session =
 @router.post("/logout")
 async def logout(request: Request, response: Response, db: Session = Depends(get_db)):
     token = request.cookies.get("auth_token")
+    if not token:
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
     if token:
         try:
             payload = decode_access_token(token)
@@ -702,7 +706,7 @@ async def logout(request: Request, response: Response, db: Session = Depends(get
                 from app.models import UserSession
                 from datetime import datetime, timezone
                 session_entry = db.query(UserSession).filter(UserSession.id == session_id).first()
-                if session_entry:
+                if session_entry and session_entry.revoked_at is None:
                     session_entry.revoked_at = datetime.now(timezone.utc)
                     db.commit()
         except Exception:
