@@ -26,8 +26,18 @@ export default function MessageRenderer({
 }) {
   const meta = metadata || {};
   const mediaUrl = media_url || meta.media_url;
-  const messageType = media_type || meta.media_type || meta.message_type;
-  const mimeType = mime_type || meta.mime_type;
+  const messageType = (
+    media_type ||
+    meta.media_type ||
+    meta.message_type ||
+    ''
+  ).toLowerCase();
+
+  const mimeType = (
+      mime_type ||
+      meta.mime_type ||
+      ''
+  ).toLowerCase();
   const buttons = meta.buttons;
   const templateHeader = meta.template_header;
   const templateFooter = meta.template_footer;
@@ -362,6 +372,15 @@ export default function MessageRenderer({
   }
 
   //  5. Default: Plain text 
+
+  const isMediaPlaceholder =
+    /^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(
+      (content || '').trim()
+    );
+
+  if (isMediaPlaceholder) {
+    return null;
+  }
 
   return (
     <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
