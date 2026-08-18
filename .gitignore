@@ -54,10 +54,12 @@ venv.bak/
 *.sqlite3
 !prod_seed.db
 celerybeat-schedule
+celerybeat-schedule*
 celerybeat-schedule.db
 celerybeat-schedule.bak
 celerybeat-schedule.dir
 backend/celerybeat-schedule
+**/celerybeat-schedule*
 backend/dynamic_output.json
 
 
