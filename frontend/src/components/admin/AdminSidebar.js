@@ -53,7 +53,7 @@ export default function AdminSidebar() {
     { name: "System Health", href: "/admin/system", icon: Heart },
     { name: "Model Config", href: "/admin/model-config", icon: Key },
     { name: "Templates", href: "/admin/templates", icon: LayoutTemplate },
-    { name: "Notification Templates", href: "/admin/notification-templates", icon: Bell },
+    { name: "Notifications & Schedules", href: "/admin/notification-templates", icon: Bell },
     { name: "Feedback", href: "/admin/feedback", icon: MessageSquare },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ]

@@ -119,6 +119,36 @@ def analyze_message_intent(self, conversation_id: str, message_text: str, messag
                 },
                 conversation_id=conversation_id,
             )
+
+            # Emit lead.high_intent event if score >= 80 or tier is hot or strong intent signal detected
+            has_buying_signal = any(
+                v.get("value") for k, v in (lead.intent_signals or {}).items()
+                if k in ("pricing", "purchase", "demo", "high_intent", "buying_intent") and isinstance(v, dict)
+            )
+            if (lead.score and lead.score >= 80) or lead.lead_tier == "hot" or has_buying_signal:
+                try:
+                    from app.core.event_bus import emit_event
+                    active_signals = [k for k, v in (lead.intent_signals or {}).items() if isinstance(v, dict) and v.get("value")]
+                    signals_summary = ", ".join(active_signals) if active_signals else "High score threshold reached"
+                    
+                    emit_event(
+                        event_name="lead.high_intent",
+                        payload={
+                            "lead_id": str(lead.id),
+                            "lead_name": lead.name or lead.phone or "High-Intent Lead",
+                            "lead_score": lead.score or 0,
+                            "intent_signals": signals_summary,
+                            "assigned_to": str(lead.assigned_to) if lead.assigned_to else None,
+                            "conversation_url": f"/inbox?conversation_id={conversation_id}",
+                            "action_route": f"/inbox?conversation_id={conversation_id}",
+                            "workspace_id": str(conv.workspace_id)
+                        },
+                        workspace_id=conv.workspace_id,
+                        idempotency_key=f"lead_high_intent:{lead.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H')}",
+                        db=db
+                    )
+                except Exception as notif_err:
+                    logger.error(f"Failed to emit lead.high_intent event: {notif_err}")
             
     except Exception as exc:
         db.rollback()

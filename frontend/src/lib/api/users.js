@@ -53,8 +53,11 @@ export async function getSystemHealth() {
 }
 
 export async function stopImpersonation() {
+  const adminBackupToken = typeof window !== 'undefined' ? localStorage.getItem('admin_backup_token') : null;
+  const headers = adminBackupToken ? { 'X-Admin-Backup-Token': adminBackupToken } : {};
+  const body = adminBackupToken ? { admin_backup_token: adminBackupToken } : {};
   try {
-    return await client.post('/auth/stop-impersonation');
+    return await client.post('/auth/stop-impersonation', body, { headers });
   } catch (err) {
     console.warn("stopImpersonation failed on backend, continuing...", err);
     return { status: "fallback" };

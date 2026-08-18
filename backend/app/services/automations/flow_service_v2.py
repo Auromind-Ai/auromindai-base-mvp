@@ -11,6 +11,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.exc import IntegrityError
 from collections import OrderedDict
+from app.core.event_bus import emit_event
 from app.models.automation import AutomationFlow
 from app.models.conversation import Conversation
 from app.models.flow_execution import FlowExecutionState
@@ -1236,22 +1237,23 @@ class FlowServiceV2:
                         },
                     )
                     try:
-                        NotificationService.notify_workspace(
-                            db=db,
-                            workspace_id=conversation.workspace_id,
-                            type="workflow_failed",
-                            title=None,
-                            message=None,
-                            template_key="workflow_failed",
-                            variables={
+                        emit_event(
+                            event_name="workflow.failed",
+                            payload={
                                 "workflow_name": flow.name,
                                 "node_name": node.get('label') or current_node_id,
                                 "error_message": str(node_exc),
-                                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                            }
+                                "retry_url": f"/automation/workflows",
+                                "action_route": f"/automation/workflows",
+                                "action_label": "Review Workflow",
+                                "workspace_id": str(conversation.workspace_id)
+                            },
+                            workspace_id=conversation.workspace_id,
+                            idempotency_key=f"wf_fail:{flow.id}:{current_node_id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+                            db=db
                         )
                     except Exception as notif_exc:
-                        logger.error(f"Failed to send workflow failure notification: {notif_exc}")
+                        logger.error(f"Failed to emit workflow.failed event: {notif_exc}")
 
                     #  Check for an explicit "error" branch edge first
                     error_target = next(
