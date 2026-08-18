@@ -553,7 +553,7 @@ async def _build_lead_detail_response(lead: Lead, db: Session) -> LeadDetailResp
                             media_id=media_id,
                             workspace_id=str(lead.workspace_id),
                         )
-                        meta["media_url"] = f"/inbox/media/meta/{media_id}?token={token}"
+                        meta["media_url"] = f"/api/inbox/media/meta/{media_id}?token={token}"
                     elif not meta.get("media_url"):
                         meta["media_url"] = f"/api/inbox/media/meta/{media_id}"
 

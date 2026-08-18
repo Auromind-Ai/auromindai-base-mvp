@@ -393,7 +393,7 @@ class WebhookService:
                         try:
                             from app.routers.inbox_chennal.conversations import create_media_token
                             token = create_media_token(media_id=str(media_id), workspace_id=str(workspace.id))
-                            media_url = f"/inbox/media/meta/{media_id}?token={token}"
+                            media_url = f"/api/inbox/media/meta/{media_id}?token={token}"
                         except Exception as token_err:
                             logger.error(f"Failed to generate media token: {token_err}")
 

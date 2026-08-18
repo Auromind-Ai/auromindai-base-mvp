@@ -183,8 +183,6 @@ def get_messages(
     # into actual JSON response objects before modifying media_url.
     response_messages = jsonable_encoder(messages)
 
-    media_base_url = str(request.base_url).rstrip("/")
-
     if isinstance(response_messages, dict):
         response_messages = [response_messages]
 
@@ -245,8 +243,7 @@ def get_messages(
         )
 
         signed_url = (
-            f"{media_base_url}"
-            f"/inbox/media/meta/{media_id}"
+            f"/api/inbox/media/meta/{media_id}"
             f"?token={token}"
         )
 
