@@ -28,11 +28,18 @@ const MAX_RECONNECT_DELAY_MS = 30000;
 const STALE_SOCKET_MS = 120000;
 
 function resolveWebSocketBaseUrl() {
-  const explicit = process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL;
-  if (explicit && explicit !== '/api') {
-    return explicit
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL
       .replace(/^http:/, "ws:")
       .replace(/^https:/, "wss:")
+      .replace(/\/$/, "");
+  }
+
+  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL !== '/api') {
+    return process.env.NEXT_PUBLIC_API_URL
+      .replace(/^http:/, "ws:")
+      .replace(/^https:/, "wss:")
+      .replace(/\/api\/?$/, "")
       .replace(/\/$/, "");
   }
 

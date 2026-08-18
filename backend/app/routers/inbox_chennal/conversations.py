@@ -83,6 +83,23 @@ def get_messages(
     )
 
 
+@router.post("/conversations/{conversation_id}/read")
+def mark_conversation_as_read(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_conversation_access(db, current_user, conversation_id)
+    from app.models.message import Message, SenderType
+    db.query(Message).filter(
+        Message.conversation_id == conversation_id,
+        Message.is_read == False,
+        Message.sender_type == SenderType.USER,
+    ).update({Message.is_read: True}, synchronize_session=False)
+    db.commit()
+    return {"status": "success", "conversation_id": conversation_id}
+
+
 @router.post("/send-reply")
 def send_reply(
     data: schemas.SendReply,

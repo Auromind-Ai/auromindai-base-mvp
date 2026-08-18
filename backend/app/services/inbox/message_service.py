@@ -44,7 +44,7 @@ class MessageService:
         skip: int = 0,
         limit: int = 100,
     ):
-        return (
+        messages = (
             db.query(Message)
             .join(models.Conversation, Message.conversation_id == models.Conversation.id)
             .filter(
@@ -56,6 +56,33 @@ class MessageService:
             .limit(limit)
             .all()
         )
+
+        try:
+            db.query(Message).filter(
+                Message.conversation_id == conversation_id,
+                Message.is_read == False,
+                Message.sender_type == SenderType.USER,
+            ).update({Message.is_read: True}, synchronize_session=False)
+            db.flush()
+        except Exception as e:
+            logger.warning(f"Failed to mark messages as read: {e}")
+
+        return [
+            {
+                "id": str(m.id),
+                "conversation_id": str(m.conversation_id),
+                "content": m.content,
+                "sender_type": m.sender_type.value if hasattr(m.sender_type, "value") else str(m.sender_type),
+                "status": m.status.value if hasattr(m.status, "value") else str(m.status),
+                "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                "created_at": m.timestamp.isoformat() if m.timestamp else None,
+                "is_read": m.is_read,
+                "source": m.source,
+                "external_id": m.external_id,
+                "metadata_json": m.metadata_json,
+            }
+            for m in messages
+        ]
 
     @staticmethod
     def create_message(

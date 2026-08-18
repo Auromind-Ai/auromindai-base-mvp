@@ -41,6 +41,10 @@ const FeedbackModal = dynamic(
     () => import('@/components/UserFeedback/UserFeedbackPanel'),
     { ssr: false }
 );
+const GlobalAudioNotification = dynamic(
+    () => import('@/components/GlobalAudioNotification'),
+    { ssr: false }
+);
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
 import { RealtimeProvider } from '@/context/RealtimeContext';
 import CreditRingDropdown from '@/components/CreditRingDropdown';
@@ -495,6 +499,9 @@ function AdminLayoutContent({ children }) {
 
                 {/* Global AI Chat - Hidden on Auromind AI page */}
                 {pathname !== '/user/admin/ai' && <GlobalAIChat />}
+
+                {/* Global Audio Notification for Incoming Messages */}
+                <GlobalAudioNotification />
             </div>
         </RealtimeProvider>
     );
