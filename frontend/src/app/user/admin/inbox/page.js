@@ -1103,7 +1103,10 @@ function ChatArea({
                                     >
                                         <MessageRenderer
                                             content={m.content}
-                                            metadata={(() => { try { return typeof m.metadata_json === 'string' ? JSON.parse(m.metadata_json) : (m.metadata_json || null); } catch { return null; } })()}
+                                            metadata={parsedMetadata}
+                                            media_url={m.media_url}
+                                            media_type={m.media_type}
+                                            mime_type={m.mime_type}
                                             isMe={!isUser}
                                             theme={ch}
                                             onPreviewMedia={setPreviewMedia}
