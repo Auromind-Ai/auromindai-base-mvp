@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 from app.models.flow_execution import FlowExecutionTrace
-
+from app.core.security import to_uuid
 
 class ExecutionTracer:
     def trace(
@@ -22,9 +22,10 @@ class ExecutionTracer:
         metadata: Optional[Dict[str, Any]] = None,
         error_message: Optional[str] = None,
     ) -> FlowExecutionTrace:
+
         trace = FlowExecutionTrace(
-            conversation_id=conversation_id,
-            flow_id=flow_id,
+            conversation_id=to_uuid(conversation_id) if conversation_id else None,
+            flow_id=to_uuid(flow_id) if flow_id else None,
             node_id=node_id,
             event_type=event_type,
             status=status,

@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
-
+from app.core.security import to_uuid
 
 from app.models.ai_action import Lead
 from app.models.templates import Template
@@ -46,8 +46,10 @@ def upsert_lead(
     db: Session,
 ) -> Lead:
     """Get or create a Lead for this conversation."""
+
+    ws_uuid = to_uuid(workspace_id)
     lead = db.query(Lead).filter(
-        Lead.workspace_id == str(workspace_id),
+        Lead.workspace_id == ws_uuid,
         Lead.conversation_id == conversation_id,
     ).first()
 
@@ -58,7 +60,7 @@ def upsert_lead(
 
     if not lead:
         lead = Lead(
-            workspace_id=str(workspace_id),
+            workspace_id=ws_uuid,
             conversation_id=conversation_id,
             name=conv_name,
             phone=phone,
@@ -265,11 +267,23 @@ class WebhookService:
                     except Exception as rates_exc:
                         logger.error(f"Failed to pre-fetch WCC rate cards in webhook: {rates_exc}")
                         
+                    STATUS_RANK = {
+                        "pending": 0,
+                        "queued": 10,
+                        "sending": 20,
+                        "dispatched": 30,
+                        "sent": 40,
+                        "delivered": 50,
+                        "read": 60,
+                        "failed": 70,
+                        "cancelled": 70,
+                    }
                     for status_update in statuses:
                         wamid = status_update.get("id")
                         status_str = status_update.get("status")
                         if wamid and status_str:
                             from app.models.message import Message, MessageStatus
+                            from app.models.outbound_message import OutboundMessage
                             
                             status_mapping = {
                                 "sent": MessageStatus.SENT,
@@ -278,15 +292,29 @@ class WebhookService:
                                 "failed": MessageStatus.FAILED
                             }
                             mapped_status = status_mapping.get(status_str.lower())
-                            if mapped_status:
-                                try:
-                                    msg = db.query(Message).filter(Message.external_id == wamid).first()
-                                    if msg:
+                            outbound = None
+                            try:
+                                msg = db.query(Message).filter(Message.external_id == wamid).first()
+                                if msg and mapped_status:
+                                    # Never demote an already DELIVERED message back to SENT
+                                    if not (msg.status == MessageStatus.DELIVERED and mapped_status == MessageStatus.SENT):
                                         msg.status = mapped_status
                                         db.flush()
                                         logger.info(f"Updated message status for {wamid} to {status_str}")
-                                except Exception as exc:
-                                    logger.error(f"Failed to update message status for {wamid}: {exc}")
+
+                                outbound = db.query(OutboundMessage).filter(OutboundMessage.twilio_sid == wamid).first()
+                                if outbound:
+                                    current_rank = STATUS_RANK.get(str(outbound.status).lower(), 0)
+                                    new_rank = STATUS_RANK.get(status_str.lower(), 0)
+                                    # Only advance status forward, NEVER demote delivered/read back to sent!
+                                    if new_rank >= current_rank or status_str.lower() in ("failed", "cancelled"):
+                                        outbound.status = status_str.lower()
+                                        db.flush()
+                                        logger.info(f"Updated OutboundMessage status for {wamid} to {status_str}")
+                                    else:
+                                        logger.info(f"Ignored out-of-order status update for {wamid}: current={outbound.status}, received={status_str}")
+                            except Exception as exc:
+                                logger.error(f"Failed to update message status for {wamid}: {exc}")
 
                             # WCC Wallet Debit Integration
                             pricing = status_update.get("pricing")
@@ -338,6 +366,22 @@ class WebhookService:
                             # Perform a single database commit at the end of processing this status update
                             try:
                                 db.commit()
+
+                                # Trigger next queued message on delivered/read/failed
+                                if status_str.lower() in ("delivered", "read", "failed") and (outbound or msg):
+                                    conv_id = str(outbound.conversation_id if outbound else msg.conversation_id)
+                                    try:
+                                        from app.workers.flow_execution import send_next_pending_message
+                                        send_next_pending_message.apply_async(
+                                            args=[conv_id],
+                                            countdown=0,
+                                        )
+                                    except Exception as dispatch_exc:
+                                        logger.warning(
+                                            "Meta DLR dispatcher trigger failed (non-fatal): %s",
+                                            dispatch_exc,
+                                        )
+
                             except Exception as commit_exc:
                                 db.rollback()
                                 logger.error(f"Failed to commit database updates for status {wamid}: {commit_exc}")
@@ -354,7 +398,7 @@ class WebhookService:
                 
                 for message in messages:
                     logger.info(f"Processing message ID: {message.get('id')}")
-                    body, interactive_value, interactive_label = WebhookService._extract_meta_whatsapp_body(message)
+                    (body,interactive_value,interactive_label,media_url,media_type,mime_type, media_id) = WebhookService._extract_meta_whatsapp_body(message)
                     from_number = message.get("from")
                     
                     if not from_number:
@@ -374,12 +418,16 @@ class WebhookService:
                             phone=from_number,
                             message_external_id=message.get("id"),
                             contact_name=contact_name,
-                            metadata={
-                                "interactive_value": interactive_value,
-                                "interactive_label": interactive_label,
-                                "provider": "meta_whatsapp",
-                                "phone_number_id": phone_number_id,
-                            },
+                           metadata={
+                                        "interactive_value": interactive_value,
+                                        "interactive_label": interactive_label,
+                                        "provider": "meta_whatsapp",
+                                        "phone_number_id": phone_number_id,
+                                        "media_url": media_url,
+                                        "media_type": media_type,
+                                        "mime_type": mime_type,
+                                        "media_id": media_id   
+                                    },
                         )
                         logger.info(f"Pipeline processing result: {result}")
                     except Exception as e:
@@ -491,13 +539,20 @@ class WebhookService:
             from app.models.ai_action import ConversationState
             if conversation.status != ConversationStatus.OPEN:
                 conversation.status = ConversationStatus.OPEN
-                
+
             conv_state = db.query(ConversationState).filter_by(
                 conversation_id=conversation.id,
-                workspace_id=workspace_id
+                workspace_id=to_uuid(workspace_id)
             ).first()
             if conv_state:
                 conv_state.human_takeover = False
+
+            # When a customer replies, resolve any prior in-flight/sent outbound messages in this conversation
+            from app.models.outbound_message import OutboundMessage
+            db.query(OutboundMessage).filter(
+                OutboundMessage.conversation_id == conversation.id,
+                OutboundMessage.status.in_(["sent", "dispatched", "delivered"])
+            ).update({"status": "read"}, synchronize_session=False)
 
             #  Step 2: FIX 1 — Auto upsert lead 
             source = _derive_source(metadata)
@@ -553,10 +608,14 @@ class WebhookService:
             return {"status": "error"}
 
     @staticmethod
-    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None, str | None, str | None, str | None, str | None]:
         text = (message.get("text") or {}).get("body")
         interactive_value = None
         interactive_label = None
+        media_url = None
+        media_type = None
+        mime_type = None
+        media_id = None
 
         button = message.get("button") or {}
         if button:
@@ -571,14 +630,42 @@ class WebhookService:
             interactive_label = button_reply.get("title")
             text = text or interactive_label
 
+        list_reply = interactive.get("list_reply") or {}
+        if list_reply:
+            interactive_value = list_reply.get("id")
+            interactive_label = list_reply.get("title")
+            text = text or interactive_label
+
+        msg_type = (message.get("type") or "").lower()
+
+        if msg_type in {"image", "audio", "voice", "video", "document", "sticker"}:
+            media = message.get(msg_type) or {}
+
+            # WhatsApp voice notes normally arrive as type="audio"
+            if msg_type == "voice":
+                media = message.get("audio") or media
+
+            media_id = media.get("id")
+            mime_type = media.get("mime_type")
+            caption = media.get("caption")
+
+            if media_id:
+                media_type = (
+                    "audio"
+                    if msg_type in {"audio", "voice"}
+                    else msg_type
+                )
+
+                media_url = f"/api/inbox/media/meta/{media_id}"
+                text = caption or f"[{media_type.upper()}]"
+
         if not text:
-            msg_type = message.get("type")
-            if msg_type in ["image", "audio", "video", "document", "sticker", "location", "contacts"]:
+            if msg_type in ["video", "document", "sticker", "location", "contacts"]:
                 text = f"[{msg_type.upper()}]"
             elif msg_type:
                 text = f"[{msg_type.upper()} message]"
 
-        return text, interactive_value, interactive_label
+        return (text, interactive_value, interactive_label, media_url, media_type, mime_type, media_id)
 
     @staticmethod
     def _fetch_instagram_profile(workspace, sender_id: str) -> dict[str, str | None]:

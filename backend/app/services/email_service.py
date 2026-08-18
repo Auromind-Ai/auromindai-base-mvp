@@ -47,6 +47,13 @@ class EmailService:
         return rendered
 
     @staticmethod
+    def is_smtp_configured() -> bool:
+        from app.services.config_service import config_service
+        smtp_user = str(config_service.get("smtp_user", "")).strip()
+        smtp_password = str(config_service.get("smtp_password", "")).strip()
+        return bool(smtp_user and smtp_password)
+
+    @staticmethod
     def send_email(to_email: str, subject: str, body: str, metadata: Dict[str, Any] = None):
         from app.services.config_service import config_service
         smtp_server = config_service.get("smtp_host", "smtp.gmail.com")
@@ -62,14 +69,16 @@ class EmailService:
 
         if not smtp_user or not smtp_password:
             logger.warning("SMTP credentials not configured. Simulating email send.")
-            logger.info(f"--- SIMULATING EMAIL SEND ---")
+            logger.info("--- SIMULATING EMAIL SEND ---")
             logger.info(f"To: {to_email}")
-            logger.info(f"Subject: {subject}")
-            logger.info(f"Body: {body[:200]}...")
+            safe_subj = str(subject).encode('ascii', 'replace').decode('ascii')
+            safe_body = str(body[:200]).encode('ascii', 'replace').decode('ascii')
+            logger.info(f"Subject: {safe_subj}")
+            logger.info(f"Body: {safe_body}...")
             if metadata:
                 logger.info(f"Metadata: {metadata}")
-            logger.info(f"-----------------------------")
-            return {"status": "success", "message": "Email simulation logged successfully."}
+            logger.info("-----------------------------")
+            return {"status": "simulated", "simulated": True, "message": "SMTP is not configured. Email simulation logged."}
 
         try:
             msg = MIMEMultipart()

@@ -32,19 +32,21 @@ export default function Page({ params }) {
            throw new Error("Invalid session response from server")
         }
 
-        // Clear stale admin credentials so subsequent API calls
-        // fall through to the httpOnly auth_token cookie (which the
-        // backend just set to the impersonated user's JWT).
-        // The API client uses credentials:'include', so the browser
-        // sends the cookie automatically — no Authorization header needed.
-        localStorage.removeItem("auth_token")
-        localStorage.removeItem("user")
-        localStorage.removeItem("workspace")
-        localStorage.removeItem("workspace_id")
-        sessionStorage.removeItem("ai_active")
-        sessionStorage.removeItem("last_session_id")
+        if (data.admin_backup_token) {
+          localStorage.setItem("admin_backup_token", data.admin_backup_token);
+        }
+        if (data.access_token || data.token) {
+          localStorage.setItem("auth_token", data.access_token || data.token);
+        } else {
+          localStorage.removeItem("auth_token");
+        }
+        localStorage.removeItem("user");
+        localStorage.removeItem("workspace");
+        localStorage.removeItem("workspace_id");
+        sessionStorage.removeItem("ai_active");
+        sessionStorage.removeItem("last_session_id");
 
-        // Refresh user context via cookie-only auth.
+        // Refresh user context via cookie/token auth.
         // refreshUser() calls GET /auth/me and GET /auth/workspaces,
         // which now authenticate as the impersonated target user.
         await refreshUser()
@@ -61,10 +63,14 @@ export default function Page({ params }) {
           // stop failure ignored
         }
         
-        localStorage.removeItem("auth_token");
+        const backup = typeof window !== 'undefined' ? localStorage.getItem("admin_backup_token") : null;
+        if (backup) {
+          localStorage.setItem("auth_token", backup);
+        }
         localStorage.removeItem("user");
         localStorage.removeItem("workspace");
         localStorage.removeItem("workspace_id");
+        localStorage.removeItem("admin_backup_token");
         sessionStorage.removeItem("ai_active");
         sessionStorage.removeItem("last_session_id");
         

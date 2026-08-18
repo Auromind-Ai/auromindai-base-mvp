@@ -10,13 +10,25 @@ from datetime import datetime, timezone, timedelta
 from app.utils.auth import parse_user_agent
 from app.services.notification_template_service import NotificationTemplateService
 
-# Redis client helper with graceful in-memory fallback
+_redis_instance = None
+
 def _get_redis_client():
+    global _redis_instance
+    if _redis_instance is not None:
+        return _redis_instance
     try:
         import redis
         from app.core.config import settings
         if settings.REDIS_URL:
-            return redis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
+            _redis_instance = redis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=1.0,
+                socket_timeout=1.0,
+                health_check_interval=30,
+                retry_on_timeout=True,
+            )
+            return _redis_instance
     except Exception:
         pass
     return None
@@ -188,31 +200,61 @@ class AuthService:
 
             # Initialize billing entitlement orchestrator
             from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+            from app.services.billing.entitlement_service import EntitlementService
             EntitlementOrchestrator.on_workspace_created(db, workspace.id)
             db.commit()
 
-            # Welcome notification + email for new signup using NotificationTemplate
+            # Dynamically resolve Free plan entitlements from database configuration
+            entitlement = EntitlementService.get_workspace_entitlement(db, workspace.id)
+            free_ai_credits = int(entitlement.included_ai_credits) if (entitlement and hasattr(entitlement, "included_ai_credits")) else 0
+
+            # EventBus emission for new user signup & Free Plan activation
             try:
-                from app.services.notification_service import NotificationService
-                NotificationService.notify(
-                    db=db,
-                    user_id=user.id,
-                    workspace_id=workspace.id,
-                    type="workspace_alert",
-                    title=None,
-                    message=None,
-                    send_email=True,
-                    email_subject=None,
-                    template_key="welcome_signup",
-                    variables={
-                        "user_name": user.full_name or user.email.split("@")[0].title(),
+                from app.core.event_bus import emit_event
+                user_display_name = user.full_name or user.email.split("@")[0].title()
+                
+                # 1. Emit user.signup event
+                emit_event(
+                    event_name="user.signup",
+                    payload={
+                        "user_name": user_display_name,
                         "email": user.email,
-                        "workspace_name": workspace.name
-                    }
+                        "workspace_name": workspace.name,
+                        "plan_name": "Free Plan",
+                        "credits": free_ai_credits,
+                        "action_route": "/dashboard",
+                        "whatsapp_setup_url": "/settings/channels",
+                        "user_id": str(user.id),
+                        "workspace_id": str(workspace.id)
+                    },
+                    workspace_id=workspace.id,
+                    actor_id=user.id,
+                    idempotency_key=f"signup:{user.id}:{workspace.id}",
+                    db=db
+                )
+
+                # 2. Emit plan.free_activated event
+                emit_event(
+                    event_name="plan.free_activated",
+                    payload={
+                        "user_name": user_display_name,
+                        "workspace_name": workspace.name,
+                        "plan_name": "Free Plan",
+                        "credits": free_ai_credits,
+                        "checklist_url": "/settings/channels",
+                        "action_route": "/settings/channels",
+                        "action_label": "Start Setup Checklist",
+                        "user_id": str(user.id),
+                        "workspace_id": str(workspace.id)
+                    },
+                    workspace_id=workspace.id,
+                    actor_id=user.id,
+                    idempotency_key=f"free_plan_start:{workspace.id}",
+                    db=db
                 )
             except Exception as notif_exc:
                 import logging
-                logging.getLogger("app").error(f"Failed to send welcome notification: {notif_exc}")
+                logging.getLogger("app").error(f"Failed to emit user signup/plan events: {notif_exc}")
 
         # get workspaces
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
@@ -364,27 +406,29 @@ class AuthService:
         }
            
         try:
+            from app.core.event_bus import emit_event
+            user_display = user.full_name if user else email.split("@")[0].title()
             
-            otp_tpl = NotificationTemplateService.get_template(db, "otp_code", channel="email")
-            context = {
-                "email": email,
-                "user_name": user.full_name if user else email.split("@")[0].title(),
-                "otp": otp,
-                "auth_type": auth_type.title()
-            }
-            
-            subject = NotificationTemplateService.render_text(otp_tpl["subject"], context) if (otp_tpl and otp_tpl.get("subject")) else f"Your {auth_type.title()} Verification Code"
-            body = NotificationTemplateService.render_text(otp_tpl["message"], context) if (otp_tpl and otp_tpl.get("message")) else f"Your verification code is {otp}. It will expire in 5 minutes."
-
-            EmailService.send_email(
-                to_email=email,
-                subject=subject,
-                body=body
+            # Emit user.verification_pending event via EventBus
+            emit_event(
+                event_name="user.verification_pending",
+                payload={
+                    "email": email,
+                    "user_name": user_display,
+                    "verification_url": f"/verify-otp?email={email}",
+                    "action_route": "/verify-otp",
+                    "action_label": "Verify Email",
+                    "expires_in": "5 minutes",
+                    "otp": otp,
+                    "auth_type": auth_type.title()
+                },
+                idempotency_key=f"otp:{email}:{int(time.time()) // 300}",
+                db=db
             )
         except Exception as e:
             import logging
             logger = logging.getLogger("auromind")
-            logger.error(f"Failed to send verification email via SMTP: {str(e)}.")
+            logger.error(f"Failed to emit user.verification_pending event: {str(e)}.")
         return True
 
     @staticmethod

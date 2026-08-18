@@ -54,6 +54,7 @@ export class APIClient {
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     const adminSessionToken = typeof window !== 'undefined' ? sessionStorage.getItem('admin_session_token') : null;
+    const adminBackupToken = typeof window !== 'undefined' ? localStorage.getItem('admin_backup_token') : null;
 
     const config = {
       credentials: 'include', 
@@ -63,6 +64,7 @@ export class APIClient {
         ...(isPostOrPutOrPatch && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...(adminSessionToken ? { 'X-Admin-Session': adminSessionToken } : {}),
+        ...(adminBackupToken ? { 'X-Admin-Backup-Token': adminBackupToken } : {}),
         ...options.headers,
       },
     };
@@ -157,6 +159,12 @@ export class APIClient {
         if (url.includes('/admin') && !url.includes('/admin/auth') && (response.status === 401 || response.status === 403 || response.status === 404)) {
           if (typeof window !== 'undefined') {
             window.location.href = '/admin';
+          }
+        } else if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/verify-otp') && !url.includes('/auth/send-otp') && !url.includes('/auth/google')) {
+          if (typeof window !== 'undefined' && localStorage.getItem('auromind_logged_in') === 'true') {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auromind_logged_in');
+            window.location.replace('/login');
           }
         }
 

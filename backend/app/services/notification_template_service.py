@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any, Tuple, List
 from sqlalchemy.orm import Session
 
 from app.models.notification_template import NotificationTemplate
+from app.models.notification_rule import NotificationRule
 from app.core.config import settings
 
 logger = logging.getLogger("app")
@@ -13,31 +14,257 @@ logger = logging.getLogger("app")
 _MEMORY_TEMPLATE_CACHE: Dict[Tuple[str, str], Optional[Dict[str, Any]]] = {}
 
 SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
-    "Security": {
+    "User & Onboarding": {
         "welcome_signup": {
-            "name": "Welcome Signup Notification",
-            "description": "Sent to new users immediately after successful account registration.",
+            "name": "New User & Workspace Welcome",
+            "description": "Sent immediately to workspace owner upon registration with onboarding checklist.",
             "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
-            "placeholders": ["user_name", "email", "workspace_name"],
+            "placeholders": ["user_name", "workspace_name", "plan_name", "credits", "action_route", "whatsapp_setup_url"],
             "action_route": "/dashboard",
-            "action_label": "Open Dashboard"
+            "action_label": "Go to Dashboard"
         },
+        "email_verification_pending": {
+            "name": "Email Verification Pending",
+            "description": "Sent immediately to new user with verification link.",
+            "allowed_channels": ["email"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "email", "verification_url"],
+            "action_route": "/verify-email",
+            "action_label": "Verify Email"
+        },
+        "email_verification_reminder_24h": {
+            "name": "24-Hour Verification Reminder",
+            "description": "Sent 24 hours after signup if email is still unverified.",
+            "allowed_channels": ["email"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "email", "verification_url"],
+            "action_route": "/verify-email",
+            "action_label": "Complete Verification"
+        },
+        "free_plan_activated": {
+            "name": "Free Plan Activated",
+            "description": "Sent immediately to workspace owner when Free plan is initialized with setup checklist and dynamic credits.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "workspace_name", "plan_name", "credits", "checklist_url"],
+            "action_route": "/settings/channels",
+            "action_label": "Connect First Channel"
+        },
+        "onboarding_inactivity": {
+            "name": "Onboarding Inactivity Nudge",
+            "description": "Sent after 1-2 days of inactivity to encourage connecting a channel or creating a workflow.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "workspace_name", "setup_guide_url", "action_url"],
+            "action_route": "/automation/workflows",
+            "action_label": "Create Your First Workflow"
+        }
+    },
+    "Payments & Credits": {
+        "payment_success": {
+            "name": "Subscription Payment Confirmation",
+            "description": "Sent immediately on successful subscription invoice payment with receipt details.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "amount", "plan_name", "invoice_id", "invoice_url", "renewal_date", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "View Invoices & Billing"
+        },
+        "credit_purchase_success": {
+            "name": "Credit Purchase Confirmation",
+            "description": "Sent immediately on successful AI credit recharge with new balance.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "credits_added", "current_balance", "amount", "invoice_id", "invoice_url", "workspace_name"],
+            "action_route": "/billing/usage",
+            "action_label": "View Credit Balance"
+        },
+        "credits_low_20": {
+            "name": "Credits Low (20% Balance Remaining)",
+            "description": "Sent when AI token credits drop to 20% remaining balance.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "resource_name", "remaining_balance", "used_amount", "recharge_url", "workspace_name"],
+            "action_route": "/billing/recharge",
+            "action_label": "Recharge AI Credits"
+        },
+        "credits_low_10": {
+            "name": "Credits Low (10% Balance Remaining)",
+            "description": "Sent when AI token credits drop to 10% remaining balance.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "resource_name", "remaining_balance", "used_amount", "recharge_url", "workspace_name"],
+            "action_route": "/billing/recharge",
+            "action_label": "Recharge AI Credits"
+        },
+        "credits_exhausted": {
+            "name": "Credits Exhausted (0% Balance)",
+            "description": "Sent immediately when credits reach 0 with list of affected features.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "resource_name", "affected_features", "recharge_url", "workspace_name"],
+            "action_route": "/billing/recharge",
+            "action_label": "Recharge to Resume Services"
+        },
+        "payment_failed": {
+            "name": "Payment Failure Warning (Immediate)",
+            "description": "Sent immediately when a payment attempt fails with retry link and service cutoff date.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "amount", "error_message", "retry_url", "service_impact_date", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Update Payment Method"
+        },
+        "payment_failed_reminder_24h": {
+            "name": "Payment Failed 24h Reminder",
+            "description": "Follow-up reminder 24 hours after payment failure.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "amount", "retry_url", "service_impact_date", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Retry Payment"
+        },
+        "payment_failed_reminder_72h": {
+            "name": "Payment Failed 72h Final Warning",
+            "description": "Final warning 72 hours after payment failure before service suspension.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "amount", "retry_url", "service_cutoff_date", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Pay Now to Prevent Interruption"
+        },
+        "subscription_expiring_7d": {
+            "name": "7-Day Subscription Expiry Notice",
+            "description": "Sent 7 days before subscription expiration.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["expiry_date", "action_url", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Renew Subscription"
+        },
+        "subscription_expiring_3d": {
+            "name": "3-Day Urgent Subscription Expiry Notice",
+            "description": "Sent 3 days before subscription expiration.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["expiry_date", "action_url", "workspace_name"],
+            "action_route": "/billing",
+            "action_label": "Renew Subscription"
+        }
+    },
+    "Lead Management": {
+        "lead_created": {
+            "name": "New Lead Created Alert",
+            "description": "Sent immediately to assigned sales agent when a new lead is captured.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "lead_name", "lead_phone", "lead_email", "lead_source", "lead_score", "lead_url", "workspace_name"],
+            "action_route": "/crm/leads",
+            "action_label": "Open Lead in CRM"
+        },
+        "lead_assigned": {
+            "name": "Lead Assigned / Reassigned",
+            "description": "Sent immediately to newly assigned sales agent with follow-up task details.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "lead_name", "lead_phone", "lead_url", "assigned_by", "workspace_name"],
+            "action_route": "/crm/leads",
+            "action_label": "View Assigned Lead"
+        },
+        "lead_sla_breached": {
+            "name": "Lead No First Reply (SLA Alert)",
+            "description": "Sent to assigned agent and manager if incoming lead has no reply within 10-30 minutes.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "lead_name", "waiting_time_mins", "lead_url", "workspace_name"],
+            "action_route": "/inbox",
+            "action_label": "Reply to Lead Now"
+        },
+        "lead_message_received": {
+            "name": "Lead Sent New Message",
+            "description": "Sent immediately to assigned agent when lead sends an incoming chat/message.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "lead_name", "message_snippet", "conversation_url", "workspace_name"],
+            "action_route": "/inbox",
+            "action_label": "Open Conversation"
+        },
+        "lead_high_intent": {
+            "name": "High-Intent Lead Detected",
+            "description": "Sent immediately to agent and managers when high buying intent (pricing/demo/purchase) is detected.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "lead_name", "intent_signals", "lead_score", "conversation_url", "workspace_name"],
+            "action_route": "/inbox",
+            "action_label": "Engage High-Intent Lead"
+        },
+        "lead_converted": {
+            "name": "Lead Converted Success Notice",
+            "description": "Sent to workspace owner and managers with conversion summary (source, agent, deal value).",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "lead_name", "deal_value", "source", "assigned_agent_name", "product_name", "workspace_name"],
+            "action_route": "/crm/leads",
+            "action_label": "View Conversion Details"
+        },
+        "lead_inactive_reminder": {
+            "name": "Dormant Lead Inactivity Reminder",
+            "description": "Sent to assigned agent after 1, 3, or 7 days of lead inactivity for re-engagement.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "lead_name", "days_inactive", "suggested_action", "lead_url", "workspace_name"],
+            "action_route": "/crm/leads",
+            "action_label": "Re-engage Lead"
+        }
+    },
+    "Broadcast & Workflow": {
+        "broadcast_completed": {
+            "name": "Broadcast Campaign Completed",
+            "description": "Sent to campaign creator/admin on completion with delivery and engagement metrics.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "broadcast_name", "total_sent", "delivered", "read", "failed", "report_url", "workspace_name"],
+            "action_route": "/broadcasts",
+            "action_label": "View Broadcast Report"
+        },
+        "workflow_failed": {
+            "name": "Workflow Run Execution Failure",
+            "description": "Sent immediately to technical contact/admin when an automated workflow fails.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "workflow_name", "node_name", "error_message", "retry_url", "workspace_name"],
+            "action_route": "/automation/workflows",
+            "action_label": "Review Workflow Error"
+        }
+    },
+    "Reports": {
+        "daily_dashboard_summary": {
+            "name": "Daily Dashboard Summary (Morning Brief)",
+            "description": "Sent every morning to workspace owner/manager with key performance metrics.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "date", "new_leads", "conversions", "revenue", "unanswered_messages", "credit_balance", "dashboard_url", "workspace_name"],
+            "action_route": "/dashboard",
+            "action_label": "Open Daily Dashboard"
+        },
+        "weekly_performance_report": {
+            "name": "Weekly Performance & Funnel Report",
+            "description": "Sent weekly to owner/manager with funnel stats, agent metrics, and workflow performance.",
+            "allowed_channels": ["email", "in_app"],
+            "supports_subject": True,
+            "placeholders": ["user_name", "week_range", "funnel_stats", "top_agents", "active_workflows", "report_url", "workspace_name"],
+            "action_route": "/analytics",
+            "action_label": "View Analytics Report"
+        }
+    },
+    "Security": {
         "new_device_login": {
             "name": "New Device Login Security Alert",
             "description": "Sent when a login occurs from an unrecognized device, browser, or IP location.",
             "allowed_channels": ["email", "in_app"],
             "supports_subject": True,
             "placeholders": ["user_name", "login_time", "ip_address", "device", "browser", "location"],
-            "action_route": "/settings/security",
-            "action_label": "Security Settings"
-        },
-        "known_device_login": {
-            "name": "Known Device Login Alert",
-            "description": "Sent upon user login from a verified device.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["user_name", "login_time", "ip_address", "device"],
             "action_route": "/settings/security",
             "action_label": "Security Settings"
         },
@@ -59,60 +286,6 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
             "action_route": "/settings/security",
             "action_label": "Security Settings"
         },
-        "recovery_codes": {
-            "name": "2FA Recovery Codes Generated",
-            "description": "Sent when new 2FA backup recovery codes are generated.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["user_name", "login_time"],
-            "action_route": "/settings/security",
-            "action_label": "View Recovery Codes"
-        },
-        "session_revoked": {
-            "name": "Session Revoked Alert",
-            "description": "Sent when an active login session is revoked.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["user_name", "ip_address", "device_info"],
-            "action_route": "/settings/security",
-            "action_label": "Manage Sessions"
-        },
-        "session_blocked": {
-            "name": "Session and Device Blocked",
-            "description": "Sent when a device/IP is blocked due to security violations.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["user_name", "ip_address", "device_info"],
-            "action_route": "/settings/security",
-            "action_label": "Manage Sessions"
-        },
-        "session_unblocked": {
-            "name": "Session and Device Unblocked",
-            "description": "Sent when a previously blocked session/IP is unblocked.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["user_name", "ip_address", "device_info"],
-            "action_route": "/settings/security",
-            "action_label": "Manage Sessions"
-        },
-        "account_deletion_requested": {
-            "name": "Account Deletion Scheduled Notice",
-            "description": "Sent when account deletion is requested (30-day grace period).",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["user_name", "deletion_date"],
-            "action_route": "/settings/account",
-            "action_label": "Account Settings"
-        },
-        "account_deletion_cancelled": {
-            "name": "Account Deletion Cancelled Notice",
-            "description": "Sent when account deletion is cancelled and account restored.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["user_name"],
-            "action_route": "/settings/account",
-            "action_label": "Account Settings"
-        },
         "otp_code": {
             "name": "OTP Verification Code Email",
             "description": "Sent for passwordless login or 2FA verification.",
@@ -121,115 +294,6 @@ SUPPORTED_NOTIFICATION_EVENTS: Dict[str, Dict[str, Dict[str, Any]]] = {
             "placeholders": ["user_name", "otp", "auth_type"],
             "action_route": "/login",
             "action_label": "Login"
-        }
-    },
-    "Billing": {
-        "payment_success": {
-            "name": "Payment Confirmation Notice",
-            "description": "Sent upon successful subscription or credit pack invoice payment.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["amount", "invoice_id", "payment_date", "workspace_name"],
-            "action_route": "/billing",
-            "action_label": "View Billing"
-        },
-        "payment_failed": {
-            "name": "Payment Failure Warning",
-            "description": "Sent when an invoice payment fails or card declined.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["amount", "error_message", "action_url", "workspace_name"],
-            "action_route": "/billing",
-            "action_label": "Retry Payment"
-        },
-        "subscription_expiring_7d": {
-            "name": "7-Day Subscription Expiry Notice",
-            "description": "Sent 7 days before subscription expiration.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["expiry_date", "action_url", "workspace_name"],
-            "action_route": "/billing",
-            "action_label": "Renew Subscription"
-        },
-        "subscription_expiring_3d": {
-            "name": "3-Day Urgent Subscription Expiry Notice",
-            "description": "Sent 3 days before subscription expiration.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["expiry_date", "action_url", "workspace_name"],
-            "action_route": "/billing",
-            "action_label": "Renew Subscription"
-        }
-    },
-    "Usage": {
-        "usage_80": {
-            "name": "80% AI Token Quota Notice",
-            "description": "Sent when workspace consumes 80% of allocated AI tokens.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["resource_name", "used_amount", "total_limit", "workspace_name"],
-            "action_route": "/billing/usage",
-            "action_label": "View Usage"
-        },
-        "usage_90": {
-            "name": "90% AI Token Quota Warning",
-            "description": "Sent when workspace consumes 90% of allocated AI tokens.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["resource_name", "used_amount", "total_limit", "workspace_name"],
-            "action_route": "/billing/usage",
-            "action_label": "View Usage"
-        },
-        "usage_100": {
-            "name": "100% AI Token Quota Limit Reached",
-            "description": "Sent when workspace consumes 100% of AI tokens and tasks are paused.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["resource_name", "used_amount", "total_limit", "action_url"],
-            "action_route": "/billing/upgrade",
-            "action_label": "Upgrade Plan"
-        }
-    },
-    "Workflow": {
-        "workflow_completed": {
-            "name": "Workflow Run Success Alert",
-            "description": "Sent upon successful execution of an automated workflow.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["workflow_name", "duration", "workspace_name"],
-            "action_route": "/automation/workflows",
-            "action_label": "View Workflow"
-        },
-        "workflow_failed": {
-            "name": "Workflow Run Execution Failure",
-            "description": "Sent when an automated workflow fails or throws an exception.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["workflow_name", "node_name", "error_message", "timestamp"],
-            "action_route": "/automation/workflows",
-            "action_label": "Review Workflow"
-        }
-    },
-    "CRM": {
-        "lead_alert": {
-            "name": "New Lead Captured Alert",
-            "description": "Sent when a new lead is captured via webhooks or inbox.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["lead_name", "lead_email", "lead_score", "source"],
-            "action_route": "/crm/leads",
-            "action_label": "Open Lead"
-        }
-    },
-    "AI": {
-        "human_escalation": {
-            "name": "AI Agent Human Escalation Event",
-            "description": "Sent when an AI agent escalates a conversation to human agent.",
-            "allowed_channels": ["email", "in_app"],
-            "supports_subject": True,
-            "placeholders": ["customer_name", "escalation_reason", "workspace_name"],
-            "action_route": "/inbox",
-            "action_label": "Open Conversation"
         }
     }
 }
@@ -269,24 +333,281 @@ class NotificationRegistry:
         meta = cls.get_metadata(template_key)
         if meta and "allowed_channels" in meta:
             return meta["allowed_channels"]
-        if meta and "channels" in meta:
-            return meta["channels"]
         return ["email", "in_app"]
 
 
-# Built-in Default Fallback Templates (Exactly ONE record per template_key)
 DEFAULT_NOTIFICATION_TEMPLATES = [
-    # --- Security Category ---
+    # 1. User & Onboarding
     {
-        "category": "Security",
+        "category": "User & Onboarding",
         "template_key": "welcome_signup",
-        "name": "Welcome Signup Notification",
+        "name": "New User & Workspace Welcome",
         "channel": "both",
-        "title": "Welcome to {{workspace_name}}!",
-        "subject": "Welcome to {{workspace_name}}, {{user_name}}!",
-        "message": "Hi {{user_name}},\n\nWelcome to {{workspace_name}}! We are thrilled to have you on board. Explore your workspace and start building your AI solutions today.\n\nBest regards,\nThe {{workspace_name}} Team",
+        "title": "Welcome to {{app_name}}!",
+        "subject": "Welcome to {{app_name}} — Let's Get Your Workspace Set Up",
+        "message": "Hi {{user_name}},\n\nWelcome to {{app_name}}! Your workspace '{{workspace_name}}' is active on the {{plan_name}} with {{credits}} included AI credits.\n\nNext Steps to Go Live:\n1. Connect your WhatsApp or communication channels\n2. Import or create your first lead\n3. Deploy your AI sales workflow\n\nClick below to get started.",
         "is_active": True
     },
+    {
+        "category": "User & Onboarding",
+        "template_key": "email_verification_pending",
+        "name": "Email Verification Link",
+        "channel": "email",
+        "title": "Verify Your Email Address",
+        "subject": "Verify your email for {{app_name}}",
+        "message": "Hi {{user_name}},\n\nThank you for signing up for {{app_name}}! Please verify your email address to activate your account and start building.\n\nThis verification link will expire in {{expires_in}}.",
+        "is_active": True
+    },
+    {
+        "category": "User & Onboarding",
+        "template_key": "email_verification_reminder_24h",
+        "name": "Email Verification 24h Reminder",
+        "channel": "email",
+        "title": "Reminder: Verify Your Email Address",
+        "subject": "Action Required: Complete your verification for {{app_name}}",
+        "message": "Hi {{user_name}},\n\nWe noticed you haven't verified your email yet. Verify now to secure your workspace and access all features.",
+        "is_active": True
+    },
+    {
+        "category": "User & Onboarding",
+        "template_key": "free_plan_activated",
+        "name": "Free Plan Activated",
+        "channel": "both",
+        "title": "Your {{plan_name}} is Ready!",
+        "subject": "Your {{workspace_name}} Free Plan is Active ({{credits}} AI Credits)",
+        "message": "Hi {{user_name}},\n\nYour free plan for {{workspace_name}} is initialized with {{credits}} included AI credits.\n\nSetup Checklist:\n• Connect WhatsApp Business or Twilio\n• Import or capture your first lead\n• Create an automated AI workflow",
+        "is_active": True
+    },
+    {
+        "category": "User & Onboarding",
+        "template_key": "onboarding_inactivity",
+        "name": "Onboarding Inactivity Nudge",
+        "channel": "both",
+        "title": "Need Help Getting Started with {{workspace_name}}?",
+        "subject": "Unlock your AI assistant on {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nWe noticed you haven't connected a channel or created a workflow yet. Setting up takes less than 2 minutes and helps you start capturing leads automatically.",
+        "is_active": True
+    },
+
+    # 2. Payments & Credits
+    {
+        "category": "Payments & Credits",
+        "template_key": "payment_success",
+        "name": "Subscription Payment Confirmation",
+        "channel": "both",
+        "title": "Payment Confirmed",
+        "subject": "Payment Receipt for {{workspace_name}} (Invoice #{{invoice_id}})",
+        "message": "Hi {{user_name}},\n\nThank you for your payment of {{amount}} for {{workspace_name}}.\n\nPlan: {{plan_name}}\nInvoice ID: {{invoice_id}}\nRenewal Date: {{renewal_date}}\n\nYour receipt is available at the link below.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "credit_purchase_success",
+        "name": "Credit Purchase Confirmation",
+        "channel": "both",
+        "title": "AI Credits Added Successfully",
+        "subject": "Credit Recharge Confirmed: {{credits_added}} Credits Added",
+        "message": "Hi {{user_name}},\n\nYour purchase of {{credits_added}} AI Credits (Amount: {{amount}}) for {{workspace_name}} was successful.\n\nCurrent Total Balance: {{current_balance}} Credits\nInvoice ID: {{invoice_id}}",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "credits_low_20",
+        "name": "Credits Low (20% Balance Remaining)",
+        "channel": "both",
+        "title": "Low Credit Warning (20% Remaining)",
+        "subject": "Notice: 20% AI Credits Remaining for {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nYour workspace {{workspace_name}} has 20% remaining balance ({{remaining_balance}} credits). Recharge now to prevent AI agent pauses.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "credits_low_10",
+        "name": "Credits Low (10% Balance Remaining)",
+        "channel": "both",
+        "title": "Urgent: 10% AI Credits Remaining",
+        "subject": "[Urgent] Only 10% AI Credits Remaining for {{workspace_name}}",
+        "message": "Warning: {{workspace_name}} has only 10% AI credits left ({{remaining_balance}} credits). Please recharge immediately.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "credits_exhausted",
+        "name": "Credits Exhausted (0% Balance)",
+        "channel": "both",
+        "title": "AI Credits Exhausted — Operations Paused",
+        "subject": "[Important] AI Credits Exhausted for {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nYour workspace {{workspace_name}} has exhausted all available AI credits. Automated AI responses and campaign outbound messages are temporarily paused until recharged.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "payment_failed",
+        "name": "Payment Failure Warning (Immediate)",
+        "channel": "both",
+        "title": "Payment Failed — Action Required",
+        "subject": "[Action Required] Payment Failure for {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nWe were unable to process your payment of {{amount}} for {{workspace_name}}.\n\nReason: {{error_message}}\nService Impact Date: {{service_impact_date}}\n\nPlease update your payment details or retry payment to maintain uninterrupted service.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "payment_failed_reminder_24h",
+        "name": "Payment Failed 24h Reminder",
+        "channel": "both",
+        "title": "Reminder: Outstanding Payment for {{workspace_name}}",
+        "subject": "Reminder: Update billing information for {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nYour invoice of {{amount}} remains unpaid. Please retry payment to avoid service suspension on {{service_impact_date}}.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "payment_failed_reminder_72h",
+        "name": "Payment Failed 72h Final Warning",
+        "channel": "both",
+        "title": "Final Notice: Service Cutoff Approaching",
+        "subject": "Final Notice: Immediate action required for {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nThis is the final notice regarding your unpaid invoice ({{amount}}). Service will be suspended on {{service_cutoff_date}} if payment is not completed.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "subscription_expiring_7d",
+        "name": "7-Day Subscription Expiry Notice",
+        "channel": "both",
+        "title": "Subscription Expiring Soon",
+        "subject": "Notice: Your {{workspace_name}} Subscription Expires in 7 Days",
+        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} is set to expire on {{expiry_date}} (in 7 days).\n\nPlease renew your plan at the link below.",
+        "is_active": True
+    },
+    {
+        "category": "Payments & Credits",
+        "template_key": "subscription_expiring_3d",
+        "name": "3-Day Urgent Subscription Expiry Notice",
+        "channel": "both",
+        "title": "Subscription Expiring in 3 Days",
+        "subject": "Urgent: {{workspace_name}} Subscription Expires in 3 Days!",
+        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} will expire in 3 days on {{expiry_date}}.\n\nPlease renew immediately to prevent service disruption.",
+        "is_active": True
+    },
+
+    # 3. Lead Management
+    {
+        "category": "Lead Management",
+        "template_key": "lead_created",
+        "name": "New Lead Created Alert",
+        "channel": "both",
+        "title": "New Lead Captured: {{lead_name}}",
+        "subject": "New Lead Captured: {{lead_name}} ({{lead_source}})",
+        "message": "Hi {{user_name}},\n\nA new lead has been captured for {{workspace_name}}.\n\nLead Name: {{lead_name}}\nPhone: {{lead_phone}}\nSource: {{lead_source}}\nInitial Score: {{lead_score}}",
+        "is_active": True
+    },
+    {
+        "category": "Lead Management",
+        "template_key": "lead_assigned",
+        "name": "Lead Assigned / Reassigned",
+        "channel": "both",
+        "title": "Lead Assigned to You: {{lead_name}}",
+        "subject": "Lead Assigned: {{lead_name}} is now in your queue",
+        "message": "Hi {{user_name}},\n\nYou have been assigned as the primary agent for {{lead_name}} ({{lead_phone}}).\n\nAssigned By: {{assigned_by}}\n\nPlease review their requirements and initiate follow-up.",
+        "is_active": True
+    },
+    {
+        "category": "Lead Management",
+        "template_key": "lead_sla_breached",
+        "name": "Lead No First Reply (SLA Alert)",
+        "channel": "both",
+        "title": "SLA Warning: Unreplied Lead ({{waiting_time_mins}}m)",
+        "subject": "[SLA Alert] Lead {{lead_name}} awaiting reply for {{waiting_time_mins}} mins",
+        "message": "Hi {{user_name}},\n\nLead '{{lead_name}}' has been waiting for {{waiting_time_mins}} minutes without a first response. Prompt replies increase conversion rates by over 70%.",
+        "is_active": True
+    },
+    {
+        "category": "Lead Management",
+        "template_key": "lead_message_received",
+        "name": "Lead Sent New Message",
+        "channel": "both",
+        "title": "New Message from {{lead_name}}",
+        "subject": "New Message from {{lead_name}}: \"{{message_snippet}}\"",
+        "message": "Hi {{user_name}},\n\n{{lead_name}} sent a new message in {{workspace_name}}:\n\n\"{{message_snippet}}\"\n\nClick below to open the conversation.",
+        "is_active": True
+    },
+    {
+        "category": "Lead Management",
+        "template_key": "lead_high_intent",
+        "name": "High-Intent Lead Detected",
+        "channel": "both",
+        "title": "🔥 High Buying Intent: {{lead_name}}",
+        "subject": "🔥 High-Intent Lead Detected: {{lead_name}} (Score: {{lead_score}})",
+        "message": "Hi {{user_name}},\n\nOur AI detected strong buying intent signals from {{lead_name}}.\n\nDetected Signals: {{intent_signals}}\nLead Score: {{lead_score}}\n\nImmediate engagement is recommended.",
+        "is_active": True
+    },
+    {
+        "category": "Lead Management",
+        "template_key": "lead_converted",
+        "name": "Lead Converted Success Notice",
+        "channel": "both",
+        "title": "🎉 Deal Converted: {{lead_name}} ({{deal_value}})",
+        "subject": "🎉 Lead Converted: {{lead_name}} closed for {{deal_value}}!",
+        "message": "Congratulations team!\n\nLead '{{lead_name}}' has been successfully converted in {{workspace_name}}.\n\nDeal Value: {{deal_value}}\nProduct: {{product_name}}\nAssigned Agent: {{assigned_agent_name}}\nSource: {{source}}",
+        "is_active": True
+    },
+    {
+        "category": "Lead Management",
+        "template_key": "lead_inactive_reminder",
+        "name": "Dormant Lead Inactivity Reminder",
+        "channel": "both",
+        "title": "Re-engagement Reminder: {{lead_name}} ({{days_inactive}}d Inactive)",
+        "subject": "Follow-up Reminder: {{lead_name}} has been inactive for {{days_inactive}} days",
+        "message": "Hi {{user_name}},\n\nLead '{{lead_name}}' has had no activity for {{days_inactive}} days.\n\nSuggested Action: {{suggested_action}}\n\nClick below to send a follow-up message.",
+        "is_active": True
+    },
+
+    # 4. Broadcast & Workflow
+    {
+        "category": "Broadcast & Workflow",
+        "template_key": "broadcast_completed",
+        "name": "Broadcast Campaign Completed",
+        "channel": "both",
+        "title": "Broadcast Campaign Finished: {{broadcast_name}}",
+        "subject": "Broadcast Completed: {{broadcast_name}} ({{delivered}}/{{total_sent}} delivered)",
+        "message": "Hi {{user_name}},\n\nYour broadcast '{{broadcast_name}}' has finished sending.\n\nTotal Sent: {{total_sent}}\nDelivered: {{delivered}}\nRead: {{read}}\nFailed: {{failed}}\n\nFull metrics report available below.",
+        "is_active": True
+    },
+    {
+        "category": "Broadcast & Workflow",
+        "template_key": "workflow_failed",
+        "name": "Workflow Run Execution Failure",
+        "channel": "both",
+        "title": "Workflow Execution Failed",
+        "subject": "[Alert] Workflow Failure: {{workflow_name}} in {{workspace_name}}",
+        "message": "Hi {{user_name}},\n\nWorkflow '{{workflow_name}}' failed during execution at node '{{node_name}}'.\n\nError: {{error_message}}\n\nReview the workflow execution trace and retry using the link below.",
+        "is_active": True
+    },
+
+    # 5. Reports
+    {
+        "category": "Reports",
+        "template_key": "daily_dashboard_summary",
+        "name": "Daily Dashboard Summary (Morning Brief)",
+        "channel": "email",
+        "title": "Daily Briefing: {{date}}",
+        "subject": "Daily Briefing for {{workspace_name}} — {{date}}",
+        "message": "Good morning {{user_name}},\n\nHere is your daily summary for {{workspace_name}} on {{date}}:\n\n• New Leads Captured: {{new_leads}}\n• Deals Converted: {{conversions}}\n• Total Revenue: {{revenue}}\n• Unanswered Messages: {{unanswered_messages}}\n• Remaining AI Credits: {{credit_balance}}\n\nOpen your dashboard to review details.",
+        "is_active": True
+    },
+    {
+        "category": "Reports",
+        "template_key": "weekly_performance_report",
+        "name": "Weekly Performance & Funnel Report",
+        "channel": "email",
+        "title": "Weekly Report ({{week_range}})",
+        "subject": "Weekly Performance Report for {{workspace_name}} ({{week_range}})",
+        "message": "Hi {{user_name}},\n\nHere is your weekly performance breakdown for {{workspace_name}}:\n\n• Funnel Performance: {{funnel_stats}}\n• Top Sales Agents: {{top_agents}}\n• Active Automations: {{active_workflows}}\n\nClick below to explore full analytics.",
+        "is_active": True
+    },
+
+    # 6. Security
     {
         "category": "Security",
         "template_key": "new_device_login",
@@ -294,17 +615,7 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
         "channel": "both",
         "title": "Security Alert: New Device Login",
         "subject": "[Security Alert] New Login from Unrecognized Device",
-        "message": "Hi {{user_name}},\n\nWe detected a login to your account from a new device or browser ({{device}}).\n\nIP Address: {{ip_address}}\nLocation: {{location}}\nTime: {{login_time}}\n\nIf this was not you, please reset your password immediately.\n\nSecurity Team",
-        "is_active": True
-    },
-    {
-        "category": "Security",
-        "template_key": "known_device_login",
-        "name": "Known Device Login Alert",
-        "channel": "both",
-        "title": "Successful Login",
-        "subject": "Successful Login to {{workspace_name}}",
-        "message": "Hi {{user_name}},\n\nYou successfully logged in to {{workspace_name}} from {{device}} (IP: {{ip_address}}) at {{login_time}}.",
+        "message": "Hi {{user_name}},\n\nWe detected a login to your account from a new device or browser ({{device}}).\n\nIP Address: {{ip_address}}\nLocation: {{location}}\nTime: {{login_time}}\n\nIf this was not you, please reset your password immediately.",
         "is_active": True
     },
     {
@@ -329,66 +640,6 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
     },
     {
         "category": "Security",
-        "template_key": "recovery_codes",
-        "name": "2FA Recovery Codes Generated",
-        "channel": "both",
-        "title": "New 2FA Recovery Codes",
-        "subject": "Your New 2FA Backup Recovery Codes",
-        "message": "Hi {{user_name}},\n\nNew 2FA recovery backup codes were generated for your account. Please keep them in a safe place.\n\nTime: {{login_time}}",
-        "is_active": True
-    },
-    {
-        "category": "Security",
-        "template_key": "session_revoked",
-        "name": "Session Revoked Alert",
-        "channel": "both",
-        "title": "Session Revoked",
-        "subject": "Security Notice: Session Revoked",
-        "message": "An active session from IP {{ip_address}} has been revoked.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
-        "template_key": "session_blocked",
-        "name": "Session and Device Blocked Alert",
-        "channel": "both",
-        "title": "Session and Device Blocked",
-        "subject": "Security Warning: Device Blocked",
-        "message": "Session from IP {{ip_address}} has been blocked due to security policies.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
-        "template_key": "session_unblocked",
-        "name": "Session Unblocked Notice",
-        "channel": "both",
-        "title": "Session Unblocked",
-        "subject": "Security Notice: Session Unblocked",
-        "message": "Session from IP {{ip_address}} has been unblocked.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
-        "template_key": "account_deletion_requested",
-        "name": "Account Deletion Requested Notice",
-        "channel": "both",
-        "title": "Account Deletion Scheduled",
-        "subject": "Your account is scheduled for deletion",
-        "message": "Hi {{user_name}},\n\nYour account has been scheduled for permanent deletion on {{deletion_date}}.\n\nIf you change your mind, simply log in before that date and cancel the deletion from your account settings.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
-        "template_key": "account_deletion_cancelled",
-        "name": "Account Deletion Cancelled Notice",
-        "channel": "both",
-        "title": "Account Deletion Cancelled",
-        "subject": "Account deletion cancelled — you're back!",
-        "message": "Hi {{user_name}},\n\nYour account deletion has been successfully cancelled. Your account is fully restored and active.",
-        "is_active": True
-    },
-    {
-        "category": "Security",
         "template_key": "otp_code",
         "name": "OTP Verification Code Email",
         "channel": "email",
@@ -396,127 +647,45 @@ DEFAULT_NOTIFICATION_TEMPLATES = [
         "subject": "Your {{auth_type}} Verification Code",
         "message": "Hi {{user_name}},\n\nYour verification code is {{otp}}. It will expire in 5 minutes.\n\nIf you did not request this, please ignore this message.",
         "is_active": True
-    },
-
-    # --- Billing Category ---
-    {
-        "category": "Billing",
-        "template_key": "payment_success",
-        "name": "Payment Confirmation Notice",
-        "channel": "both",
-        "title": "Payment Confirmed",
-        "subject": "Payment Received - {{workspace_name}} Invoice",
-        "message": "Hi {{user_name}},\n\nThank you for your payment of {{amount}} for {{workspace_name}}. Your subscription is active.\n\nInvoice ID: {{invoice_id}}\nDate: {{payment_date}}",
-        "is_active": True
-    },
-    {
-        "category": "Billing",
-        "template_key": "payment_failed",
-        "name": "Payment Failure Warning",
-        "channel": "both",
-        "title": "Action Required: Payment Failed",
-        "subject": "[Action Required] Payment Failure for {{workspace_name}}",
-        "message": "Hi {{user_name}},\n\nWe were unable to process your payment of {{amount}} for {{workspace_name}}.\n\nPlease update your billing information at {{action_url}} to prevent service interruption.",
-        "is_active": True
-    },
-    {
-        "category": "Billing",
-        "template_key": "subscription_expiring_7d",
-        "name": "7-Day Subscription Expiry Notice",
-        "channel": "both",
-        "title": "Subscription Expiring Soon",
-        "subject": "Notice: Your {{workspace_name}} Subscription Expires in 7 Days",
-        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} is set to expire on {{expiry_date}} (in 7 days).\n\nPlease renew your plan at {{action_url}}.",
-        "is_active": True
-    },
-    {
-        "category": "Billing",
-        "template_key": "subscription_expiring_3d",
-        "name": "3-Day Urgent Subscription Expiry Notice",
-        "channel": "both",
-        "title": "Subscription Expiring in 3 Days",
-        "subject": "Urgent: {{workspace_name}} Subscription Expires in 3 Days!",
-        "message": "Hi {{user_name}},\n\nYour subscription for {{workspace_name}} will expire in 3 days on {{expiry_date}}.\n\nPlease renew immediately to prevent service disruption.",
-        "is_active": True
-    },
-
-    # --- Usage Category ---
-    {
-        "category": "Usage",
-        "template_key": "usage_80",
-        "name": "Quota Usage 80% Notice",
-        "channel": "both",
-        "title": "Usage Warning (80%)",
-        "subject": "Usage Notice: 80% Quota Reached for {{workspace_name}}",
-        "message": "Hi {{user_name}}, {{workspace_name}} has consumed 80% of your {{resource_name}} limit. {{used_amount}} / {{total_limit}} consumed.",
-        "is_active": True
-    },
-    {
-        "category": "Usage",
-        "template_key": "usage_90",
-        "name": "Quota Usage 90% Notice",
-        "channel": "both",
-        "title": "Usage Warning (90%)",
-        "subject": "High Usage Alert: 90% Quota Reached for {{workspace_name}}",
-        "message": "Warning: {{workspace_name}} has used 90% of your {{resource_name}} quota. Consider upgrading your plan to avoid limit blocks.",
-        "is_active": True
-    },
-    {
-        "category": "Usage",
-        "template_key": "usage_100",
-        "name": "Quota Usage Limit Reached (100%)",
-        "channel": "both",
-        "title": "Quota Limit Exceeded",
-        "subject": "[Important] {{resource_name}} Limit Reached for {{workspace_name}}",
-        "message": "Hi {{user_name}},\n\nYour workspace {{workspace_name}} has reached 100% of its {{resource_name}} limit ({{total_limit}}). Upgrade your plan now to restore full operations.",
-        "is_active": True
-    },
-
-    # --- Workflow Category ---
-    {
-        "category": "Workflow",
-        "template_key": "workflow_completed",
-        "name": "Workflow Run Success Alert",
-        "channel": "both",
-        "title": "Workflow Completed",
-        "subject": "Workflow Succeeded: {{workflow_name}}",
-        "message": "Workflow '{{workflow_name}}' completed successfully in {{duration}}.",
-        "is_active": True
-    },
-    {
-        "category": "Workflow",
-        "template_key": "workflow_failed",
-        "name": "Workflow Run Execution Failure",
-        "channel": "both",
-        "title": "Workflow Failed",
-        "subject": "[Alert] Workflow Execution Failed: {{workflow_name}}",
-        "message": "Workflow '{{workflow_name}}' in workspace {{workspace_name}} failed to execute. Error: {{error_message}}.",
-        "is_active": True
-    },
-
-    # --- CRM Category ---
-    {
-        "category": "CRM",
-        "template_key": "lead_alert",
-        "name": "New Lead Captured Alert",
-        "channel": "both",
-        "title": "New Lead Alert",
-        "subject": "New Lead Captured: {{lead_name}}",
-        "message": "New lead '{{lead_name}}' ({{lead_email}}) captured for {{workspace_name}}. Lead Score: {{lead_score}}.",
-        "is_active": True
-    },
-
-    # --- AI Category ---
-    {
-        "category": "AI",
-        "template_key": "human_escalation",
-        "name": "AI Human Escalation Alert",
-        "channel": "both",
-        "title": "Human Escalation Needed",
-        "subject": "[Urgent] AI Escalation: {{customer_name}} Needs Live Agent",
-        "message": "AI Agent requires human intervention for conversation with {{customer_name}} in workspace {{workspace_name}}. Reason: {{escalation_reason}}.",
-        "is_active": True
     }
+]
+
+
+# Default Notification Rules connecting Events -> Templates -> Recipient Roles
+DEFAULT_NOTIFICATION_RULES = [
+    # User & Onboarding
+    {"event_name": "user.signup", "template_key": "welcome_signup", "recipient_roles": ["workspace_owner", "new_user"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "user.verification_pending", "template_key": "email_verification_pending", "recipient_roles": ["new_user"], "channels": ["email"], "delay_minutes": 0},
+    {"event_name": "user.verification_reminder_24h", "template_key": "email_verification_reminder_24h", "recipient_roles": ["new_user"], "channels": ["email"], "delay_minutes": 1440},
+    {"event_name": "plan.free_activated", "template_key": "free_plan_activated", "recipient_roles": ["workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "onboarding.inactivity_reminder", "template_key": "onboarding_inactivity", "recipient_roles": ["workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 1440},
+
+    # Payments & Credits
+    {"event_name": "payment.succeeded", "template_key": "payment_success", "recipient_roles": ["workspace_owner", "billing_contact"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "credits.purchased", "template_key": "credit_purchase_success", "recipient_roles": ["workspace_owner", "billing_contact"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "credits.low_20", "template_key": "credits_low_20", "recipient_roles": ["workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "credits.low_10", "template_key": "credits_low_10", "recipient_roles": ["workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "credits.exhausted", "template_key": "credits_exhausted", "recipient_roles": ["workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "payment.failed", "template_key": "payment_failed", "recipient_roles": ["billing_contact", "workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "payment.failed_reminder_24h", "template_key": "payment_failed_reminder_24h", "recipient_roles": ["billing_contact"], "channels": ["email", "in_app"], "delay_minutes": 1440},
+    {"event_name": "payment.failed_reminder_72h", "template_key": "payment_failed_reminder_72h", "recipient_roles": ["billing_contact"], "channels": ["email", "in_app"], "delay_minutes": 4320},
+
+    # Lead Management
+    {"event_name": "lead.created", "template_key": "lead_created", "recipient_roles": ["assigned_agent"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "lead.assigned", "template_key": "lead_assigned", "recipient_roles": ["assigned_agent"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "lead.sla_breached", "template_key": "lead_sla_breached", "recipient_roles": ["assigned_agent", "managers"], "channels": ["email", "in_app"], "delay_minutes": 15},
+    {"event_name": "lead.message_received", "template_key": "lead_message_received", "recipient_roles": ["assigned_agent"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "lead.high_intent", "template_key": "lead_high_intent", "recipient_roles": ["assigned_agent", "managers"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "lead.converted", "template_key": "lead_converted", "recipient_roles": ["workspace_owner", "managers"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "lead.inactive_reminder", "template_key": "lead_inactive_reminder", "recipient_roles": ["assigned_agent"], "channels": ["email", "in_app"], "delay_minutes": 1440},
+
+    # Broadcast & Workflow
+    {"event_name": "broadcast.completed", "template_key": "broadcast_completed", "recipient_roles": ["creator", "workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 0},
+    {"event_name": "workflow.failed", "template_key": "workflow_failed", "recipient_roles": ["technical_contact", "workspace_owner"], "channels": ["email", "in_app"], "delay_minutes": 0},
+
+    # Reports
+    {"event_name": "report.daily_summary", "template_key": "daily_dashboard_summary", "recipient_roles": ["workspace_owner", "managers"], "channels": ["email"], "delay_minutes": 0},
+    {"event_name": "report.weekly_performance", "template_key": "weekly_performance_report", "recipient_roles": ["workspace_owner", "managers"], "channels": ["email"], "delay_minutes": 0},
 ]
 
 
@@ -524,10 +693,6 @@ class NotificationTemplateService:
 
     @staticmethod
     def render_text(template_text: Optional[str], context: Dict[str, Any]) -> Optional[str]:
-        """
-        Replaces {{placeholder}} variables safely in template_text using context dict.
-        Missing variables default to empty string or default sample if not provided.
-        """
         if not template_text:
             return template_text
 
@@ -536,11 +701,117 @@ class NotificationTemplateService:
             val = context.get(key)
             if val is not None:
                 return str(val)
-            # If missing, check snake_case / Title variants or return empty string
             return str(context.get(key.lower(), ""))
 
         pattern = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
         return pattern.sub(replace_match, template_text)
+
+    @classmethod
+    def render_html_email(
+        cls,
+        title: str,
+        message: str,
+        context: Dict[str, Any],
+        action_url: Optional[str] = None,
+        action_label: Optional[str] = None,
+        app_name: str = "Auromind AI"
+    ) -> str:
+        """
+        Renders a modern, responsive HTML email layout with header branding,
+        card container, styled CTA button, deep links, and compliant footer.
+        """
+        app_display_name = context.get("app_name") or app_name
+        workspace_display = context.get("workspace_name") or "Your Workspace"
+        rendered_title = cls.render_text(title, context) or "Notification"
+        rendered_msg = cls.render_text(message, context) or ""
+
+        # Convert line breaks to HTML paragraphs
+        formatted_paragraphs = "".join(
+            f'<p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155; font-size: 15px;">{line.strip()}</p>'
+            for line in rendered_msg.split("\n\n") if line.strip()
+        )
+        if not formatted_paragraphs:
+            formatted_paragraphs = f'<p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155; font-size: 15px;">{rendered_msg.replace(chr(10), "<br/>")}</p>'
+
+        btn_html = ""
+        final_action_url = action_url or context.get("action_url")
+        final_action_label = action_label or context.get("action_label") or "Open Application"
+
+        if final_action_url:
+            btn_html = f"""
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 28px 0 12px 0;">
+                <tr>
+                    <td align="center" style="border-radius: 8px; background-color: #4F46E5;">
+                        <a href="{final_action_url}" target="_blank" style="font-size: 15px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);">
+                            {final_action_label} &rarr;
+                        </a>
+                    </td>
+                </tr>
+            </table>
+            """
+
+        frontend_url = context.get("frontend_url") or "https://auromind.ai"
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{rendered_title}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F8FAFC; padding: 32px 16px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                    <!-- Brand Header -->
+                    <tr>
+                        <td style="padding: 24px 32px; background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);">
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td>
+                                        <span style="font-size: 20px; font-weight: 700; color: #FFFFFF; letter-spacing: -0.5px;">{app_display_name}</span>
+                                    </td>
+                                    <td align="right">
+                                        <span style="font-size: 13px; color: #94A3B8; background-color: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px;">{workspace_display}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Main Content Card -->
+                    <tr>
+                        <td style="padding: 32px 32px 24px 32px;">
+                            <h1 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 700; color: #0F172A; line-height: 1.3;">
+                                {rendered_title}
+                            </h1>
+                            <div style="color: #334155; font-size: 15px;">
+                                {formatted_paragraphs}
+                            </div>
+                            {btn_html}
+                        </td>
+                    </tr>
+
+                    <!-- Footer Section -->
+                    <tr>
+                        <td style="padding: 20px 32px; background-color: #F8FAFC; border-top: 1px solid #F1F5F9;">
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="font-size: 12px; color: #64748B; line-height: 1.5;">
+                                        This automated message was sent by <strong>{app_display_name}</strong> for <strong>{workspace_display}</strong>.<br/>
+                                        Manage notification preferences in your <a href="{frontend_url}/settings/notifications" style="color: #4F46E5; text-decoration: none;">Account Settings</a>.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>"""
 
     @staticmethod
     def _get_cache_key(template_key: str) -> str:
@@ -548,10 +819,8 @@ class NotificationTemplateService:
 
     @classmethod
     def clear_cache(cls, template_key: Optional[str] = None, channel: Optional[str] = None):
-        """Invalidate template cache entries immediately"""
         global _MEMORY_TEMPLATE_CACHE
         if template_key:
-            # Clear memory cache entries matching template_key
             keys_to_remove = [k for k in _MEMORY_TEMPLATE_CACHE.keys() if k[0] == template_key or k == template_key]
             for k in keys_to_remove:
                 _MEMORY_TEMPLATE_CACHE.pop(k, None)
@@ -581,19 +850,15 @@ class NotificationTemplateService:
         template_key: str,
         channel: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
-        """
-        Retrieve active template dictionary for a given template_key from Redis / Memory cache or Database.
-        Exactly one template record exists per template_key.
-        """
         cache_key = (template_key, "master")
 
-        # 1. Check thread-safe memory cache
+        # 1. Memory cache
         if cache_key in _MEMORY_TEMPLATE_CACHE:
             cached_val = _MEMORY_TEMPLATE_CACHE[cache_key]
             if cached_val is not None:
                 return cached_val
 
-        # 2. Check Redis cache
+        # 2. Redis cache
         try:
             import redis
             if settings.REDIS_URL:
@@ -606,7 +871,7 @@ class NotificationTemplateService:
         except Exception:
             pass
 
-        # 3. Query Database
+        # 3. Database query
         db_tpl = db.query(NotificationTemplate).filter(
             NotificationTemplate.template_key == template_key,
             NotificationTemplate.is_active == True
@@ -648,7 +913,6 @@ class NotificationTemplateService:
 
     @classmethod
     def seed_default_templates(cls, db: Session, updated_by: str = "System Admin") -> int:
-        """Seed DB with default templates if missing (1 record per template_key)"""
         created_count = 0
         for item in DEFAULT_NOTIFICATION_TEMPLATES:
             existing = db.query(NotificationTemplate).filter(
@@ -668,13 +932,42 @@ class NotificationTemplateService:
                 )
                 db.add(new_tpl)
                 created_count += 1
+            else:
+                # Update subject / title if missing in older seed
+                if not existing.subject and item.get("subject"):
+                    existing.subject = item.get("subject")
+                if not existing.title and item.get("title"):
+                    existing.title = item.get("title")
+
         if created_count > 0:
             db.commit()
             cls.clear_cache()
         return created_count
 
     @classmethod
-    def get_supported_template_keys(cls, db: Optional[Session] = None) -> Dict[str, List[str]]:
-        """Return ONLY production-supported notification keys registered in NotificationRegistry."""
-        return NotificationRegistry.get_supported_events()
+    def seed_default_rules(cls, db: Session) -> int:
+        """Seed default notification rules into notification_rules table."""
+        created_count = 0
+        for rule_def in DEFAULT_NOTIFICATION_RULES:
+            existing = db.query(NotificationRule).filter(
+                NotificationRule.event_name == rule_def["event_name"],
+                NotificationRule.template_key == rule_def["template_key"]
+            ).first()
+            if not existing:
+                new_rule = NotificationRule(
+                    event_name=rule_def["event_name"],
+                    template_key=rule_def["template_key"],
+                    recipient_roles=rule_def["recipient_roles"],
+                    channels=rule_def.get("channels", ["email"]),
+                    delay_minutes=rule_def.get("delay_minutes", 0),
+                    is_active=True
+                )
+                db.add(new_rule)
+                created_count += 1
+        if created_count > 0:
+            db.commit()
+        return created_count
 
+    @classmethod
+    def get_supported_template_keys(cls, db: Optional[Session] = None) -> Dict[str, List[str]]:
+        return NotificationRegistry.get_supported_events()

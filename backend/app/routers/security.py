@@ -1,12 +1,13 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.database import get_db
 from app.routers.auth import get_current_user, CurrentUser
 from app.models.user_session import UserSession
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List
-from app.schemas.security import SessionResponse, SecuritySummaryResponse
+from app.schemas.security import SessionResponse, SecuritySummaryResponse, RevokeDeviceRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -18,6 +19,20 @@ async def get_sessions(
     current_user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Auto-expire unrevoked sessions older than 30 days with no recent activity
+    try:
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
+        db.query(UserSession).filter(
+            UserSession.user_id == current_user.id,
+            UserSession.revoked_at.is_(None),
+            UserSession.is_blocked == False,
+            UserSession.last_activity_at < cutoff_date
+        ).update({"revoked_at": datetime.now(timezone.utc)}, synchronize_session=False)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to cleanup stale sessions: {e}")
+        db.rollback()
+
     sessions = db.query(UserSession).filter(
         UserSession.user_id == current_user.id
     ).filter(
@@ -128,6 +143,13 @@ async def get_security_summary(
         UserSession.revoked_at.is_(None)
     ).count()
 
+    # Count distinct active devices
+    devices_count = db.query(func.count(func.distinct(UserSession.device_info))).filter(
+        UserSession.user_id == current_user.id,
+        UserSession.is_blocked == False,
+        UserSession.revoked_at.is_(None)
+    ).scalar() or 0
+
     # Blocked sessions/devices count
     blocked_devices_count = db.query(UserSession).filter(
         UserSession.user_id == current_user.id,
@@ -183,11 +205,54 @@ async def get_security_summary(
 
     return SecuritySummaryResponse(
         active_sessions_count=active_sessions_count,
+        devices_count=devices_count,
         last_login_activity=last_login_activity,
         blocked_devices_count=blocked_devices_count,
         security_score=score,
         security_score_label=score_label
     )
+
+
+@router.post("/sessions/revoke-device")
+async def revoke_device_sessions(
+    request: RevokeDeviceRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    now = datetime.now(timezone.utc)
+    sessions = db.query(UserSession).filter(
+        UserSession.user_id == current_user.id,
+        UserSession.device_info == request.device_info,
+        UserSession.revoked_at.is_(None)
+    ).all()
+
+    if not sessions:
+        return {"status": "success", "message": "No active sessions found for this device"}
+
+    for s in sessions:
+        s.revoked_at = now
+    db.commit()
+
+    try:
+        from app.services.notification_service import NotificationService
+        NotificationService.notify(
+            db=db,
+            user_id=current_user.id,
+            workspace_id=None,
+            type="security_alert",
+            title=None,
+            message=None,
+            template_key="session_revoked",
+            variables={
+                "user_name": current_user.full_name or current_user.email,
+                "ip_address": sessions[0].ip_address or "Unknown IP",
+                "device_info": request.device_info
+            }
+        )
+    except Exception as notif_exc:
+        logger.error(f"Failed to send device revocation notification: {notif_exc}")
+
+    return {"status": "success", "message": f"All sessions for '{request.device_info}' have been signed out."}
 
 
 @router.post("/sessions/{session_id}/unblock")

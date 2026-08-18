@@ -16,6 +16,10 @@ export async function revokeSession(sessionId) {
   return client.delete(`/api/user/sessions/${sessionId}`);
 }
 
+export async function revokeDeviceSessions(deviceInfo) {
+  return client.post('/api/user/sessions/revoke-device', { device_info: deviceInfo });
+}
+
 export async function blockSession(sessionId) {
   return client.post(`/api/user/sessions/${sessionId}/block`);
 }
@@ -49,8 +53,11 @@ export async function getSystemHealth() {
 }
 
 export async function stopImpersonation() {
+  const adminBackupToken = typeof window !== 'undefined' ? localStorage.getItem('admin_backup_token') : null;
+  const headers = adminBackupToken ? { 'X-Admin-Backup-Token': adminBackupToken } : {};
+  const body = adminBackupToken ? { admin_backup_token: adminBackupToken } : {};
   try {
-    return await client.post('/auth/stop-impersonation');
+    return await client.post('/auth/stop-impersonation', body, { headers });
   } catch (err) {
     console.warn("stopImpersonation failed on backend, continuing...", err);
     return { status: "fallback" };

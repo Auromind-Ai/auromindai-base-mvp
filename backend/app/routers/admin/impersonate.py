@@ -223,8 +223,30 @@ def start_impersonation(
     )
 
     # Preserve any existing backup token; otherwise store original admin token
-    existing_backup = request.cookies.get("admin_backup_token")
+    existing_backup = (
+        request.cookies.get("admin_backup_token")
+        or request.headers.get("x-admin-backup-token")
+        or request.headers.get("X-Admin-Backup-Token")
+    )
     admin_token = existing_backup or request.cookies.get("auth_token")
+    if not admin_token:
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            admin_token = auth_header.split(" ", 1)[1]
+
+    if not admin_token and admin_id:
+        admin_user_db = db.query(User).filter(User.id == admin_id).first()
+        if admin_user_db:
+            import secrets
+            csrf_token_admin = secrets.token_urlsafe(32)
+            admin_token = create_access_token(
+                data={
+                    "sub": str(admin_user_db.id),
+                    "email": admin_user_db.email,
+                    "csrf_token": csrf_token_admin
+                },
+                expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            )
 
     # Store admin token in backup cookie
     if admin_token:
@@ -233,7 +255,7 @@ def start_impersonation(
             request=request,
             key="admin_backup_token",
             value=admin_token,
-            max_age=60 * 15,
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
 
     # Set auth_token to impersonated user token
@@ -250,5 +272,8 @@ def start_impersonation(
             "id": str(user.id),
             "email": user.email,
             "name": user.full_name if hasattr(user, 'full_name') and user.full_name else user.email.split('@')[0]
-        }
+        },
+        "admin_backup_token": admin_token,
+        "access_token": token,
+        "token": token
     }

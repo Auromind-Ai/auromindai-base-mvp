@@ -18,17 +18,23 @@ from uuid import UUID
 from app.models import ChannelType, SenderType, ConversationStatus
 
 class MessageBase(BaseModel):
-    content: str
+    content: Optional[str] = None
     sender_type: SenderType = SenderType.USER
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None
+    mime_type: Optional[str] = None
 
 class MessageCreate(MessageBase):
     conversation_id: str
 
 class Message(MessageBase):
-    id: UUID
-    conversation_id: UUID
+    id: UUID | str
+    conversation_id: UUID | str
     timestamp: datetime
     is_read: bool
+    status: Optional[str] = None
+    source: Optional[str] = None
+    external_id: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -17,13 +17,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def _run_scrapy_process(url, output_file):
+def _run_scrapy_process(url, output_file, max_pages=None, max_depth=None):
     if os.path.exists(output_file):
         try:
             os.remove(output_file)
         except OSError:
             pass
 
+    
     scrapy_settings = Settings()
     scrapy_settings.setmodule(my_settings)
     scrapy_settings.set("FEEDS", {
@@ -34,6 +35,12 @@ def _run_scrapy_process(url, output_file):
             "overwrite": True,
         }
     })
+
+    if max_pages is not None:
+        scrapy_settings.set("CLOSESPIDER_PAGECOUNT", max_pages)
+    if max_depth is not None:
+        scrapy_settings.set("DEPTH_LIMIT", max_depth)
+
     process = CrawlerProcess(scrapy_settings)
     process.crawl(Scrappyweb, url=url)
     process.start()
@@ -100,13 +107,14 @@ class Webscrapper:
             
             if html_length == 0:
                 return "dynamic"
-            if tag_count > 25:
-                return "dynamic"
-
+            
             if self.soup.find(id="root") or self.soup.find(id="app"):
                 return "dynamic"
             
             if "__NEXT_DATA__" in html or "webpack" in html:
+                return "dynamic"
+            
+            if text_length < 200 and tag_count > 25:
                 return "dynamic"
             
             return "static"
@@ -126,7 +134,7 @@ class Webscrapper:
         output_file = os.path.join(temp_dir, f"dynamic_output_{uuid.uuid4().hex}.json")
         
         try:
-            process = billiard.Process(target=_run_scrapy_process, args=(self.url, output_file))
+            process = billiard.Process(target=_run_scrapy_process, args=(self.url, output_file, self.max_pages, self.max_depth))
             process.start()
             process.join()
             

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 import uuid
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from app.models.invoice import Invoice
 from app.core.enums import InvoiceStatus
 from app.services.billing.invoice_service import InvoiceService
 from datetime import datetime, timezone
+from app.core.event_bus import emit_event
 
 class WebhookService:
     def __init__(self, token_service: TokenService):
@@ -313,27 +314,26 @@ class WebhookService:
         )
 
         try:
-         
-            NotificationService.notify_workspace(
-                db=db,
-                workspace_id=subscription.workspace_id,
-                type="billing_alert",
-                title=None,
-                message=None,
-                send_email=True,
-                email_subject=None,
-                deduplication_key=f"payment_success:{payment.id}",
-                resource="subscription",
-                template_key="payment_success",
-                variables={
+       
+            emit_event(
+                event_name="payment.succeeded",
+                payload={
                     "amount": f"{payment.amount} {payment.currency}",
+                    "plan_name": getattr(plan_config, "name", "Subscription Plan") if plan_config else "Subscription Plan",
                     "invoice_id": str(payment.id),
-                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
-                }
+                    "invoice_url": f"/billing/invoices/{payment.id}",
+                    "action_route": "/billing",
+                    "action_label": "View Invoices",
+                    "renewal_date": subscription.current_period_end.strftime("%B %d, %Y") if getattr(subscription, "current_period_end", None) else "Next Billing Cycle",
+                    "workspace_id": str(subscription.workspace_id)
+                },
+                workspace_id=subscription.workspace_id,
+                idempotency_key=f"pay_success:{payment.id}",
+                db=db
             )
         except Exception as notif_exc:
             import logging
-            logging.getLogger("auromind").error(f"Failed to send payment success notification: {notif_exc}")
+            logging.getLogger("auromind").error(f"Failed to emit payment.succeeded event: {notif_exc}")
 
     def _handle_subscription_cancelled(
         self,
@@ -416,26 +416,25 @@ class WebhookService:
         try:
             target_ws_id = payment.workspace_id if payment else (subscription.workspace_id if subscription else None)
             if target_ws_id:
-                NotificationService.notify_workspace(
-                    db=db,
-                    workspace_id=target_ws_id,
-                    type="billing_alert",
-                    title=None,
-                    message=None,
-                    send_email=True,
-                    is_critical=True,
-                    email_subject=None,
-                    deduplication_key=f"payment_failed:{payment_payload.get('id')}",
-                    resource="subscription",
-                    template_key="payment_failed",
-                    variables={
+                from app.core.event_bus import emit_event
+                impact_date = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%B %d, %Y")
+                emit_event(
+                    event_name="payment.failed",
+                    payload={
                         "amount": f"{amount} {currency}",
-                        "error_message": failure_reason or "Transaction declined"
-                    }
+                        "error_message": failure_reason or "Transaction declined",
+                        "service_impact_date": impact_date,
+                        "action_route": "/billing",
+                        "action_label": "Update Payment Method",
+                        "workspace_id": str(target_ws_id)
+                    },
+                    workspace_id=target_ws_id,
+                    idempotency_key=f"payment_failed:{payment_payload.get('id')}",
+                    db=db
                 )
         except Exception as notif_exc:
             import logging
-            logging.getLogger("auromind").error(f"Failed to send payment failure notification: {notif_exc}")
+            logging.getLogger("auromind").error(f"Failed to emit payment.failed event: {notif_exc}")
 
     
 
@@ -555,26 +554,26 @@ class WebhookService:
         )
 
         try:
-            NotificationService.notify_workspace(
-                db=db,
-                workspace_id=workspace_id,
-                type="billing_alert",
-                title=None,
-                message=None,
-                send_email=True,
-                email_subject=None,
-                deduplication_key=f"credit_pack_success:{payment.id}",
-                resource="ai_tokens",
-                template_key="payment_success",
-                variables={
-                    "amount": f"{pack.credits} AI Credits ({pack.name})",
+        
+            emit_event(
+                event_name="credits.purchased",
+                payload={
+                    "credits_added": f"{pack.credits}",
+                    "current_balance": f"{pack.credits} Credits",
+                    "amount": f"{pack.amount} {pack.currency}",
                     "invoice_id": str(payment.id),
-                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
-                }
+                    "invoice_url": f"/billing/invoices/{payment.id}",
+                    "action_route": "/billing/usage",
+                    "action_label": "View Credit Balance",
+                    "workspace_id": str(workspace_id)
+                },
+                workspace_id=workspace_id,
+                idempotency_key=f"credit_purchase:{payment.id}",
+                db=db
             )
         except Exception as notif_exc:
             import logging
-            logging.getLogger("auromind").error(f"Failed to send credit pack purchase notification: {notif_exc}")
+            logging.getLogger("auromind").error(f"Failed to emit credits.purchased event: {notif_exc}")
 
     def _handle_refund_webhook(
         self,

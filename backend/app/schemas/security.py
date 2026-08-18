@@ -16,7 +16,12 @@ class SessionResponse(BaseModel):
 
 class SecuritySummaryResponse(BaseModel):
     active_sessions_count: int
+    devices_count: int = 0
     last_login_activity: str
     blocked_devices_count: int
     security_score: int
     security_score_label: str
+
+class RevokeDeviceRequest(BaseModel):
+    device_info: str
+

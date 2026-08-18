@@ -300,3 +300,6 @@ class UpdateLeadLabelsResponse(BaseModel):
 
 
 
+
+class AssignLeadRequest(BaseModel):
+    assigned_to: Optional[UUID] = None

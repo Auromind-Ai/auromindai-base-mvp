@@ -6,9 +6,11 @@ from datetime import datetime, timedelta, timezone
 from celery.exceptions import MaxRetriesExceededError
 from sqlalchemy import func
 from app.core.celery_app import celery_app
+from app.core.security import to_uuid
 from app.core.redis_lock import acquire_conversation_lock, release_conversation_lock
 from app.database import SessionLocal
 from app.models.conversation import Conversation
+from app.models.ai_action import ConversationState
 from app.models.flow_execution import FlowExecutionState
 from app.services.automations.execution_tracer import ExecutionTracer
 from app.services.automations.flow_service_v2 import ConversationExecutionBusy, FlowServiceV2
@@ -75,7 +77,7 @@ def _run_flow_task(task_self, conversation_id, tracer, db, fn, extra_meta=None):
                 conversation_id, exc,
             )
 
-@celery_app.task(bind=True, name="app.workers.flow_execution.execute_incoming_message", max_retries=30)
+@celery_app.task(bind=True, name="app.workers.flow_execution.execute_incoming_message", max_retries=5)
 def execute_incoming_message(self, conversation_id, message, metadata=None):
     db = SessionLocal()
     tracer = ExecutionTracer()
@@ -146,7 +148,7 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
 @celery_app.task(
     bind=True,
     name="app.workers.flow_execution.resume_flow_node",
-    max_retries=30,
+    max_retries=5,
 )
 def resume_flow_node(
     self,
@@ -217,44 +219,31 @@ def send_next_pending_message(self, conversation_id: str):
         return
 
     db = SessionLocal()
-    from app.models.ai_action import ConversationState
-    conv_state = db.query(ConversationState).filter_by(conversation_id=conversation_id).first()
-    if conv_state and conv_state.human_takeover:
-        logger.info("[AI_AUTOMATION_PAUSED] send_next_pending_message ignored | conversation=%s", conversation_id)
-        release_conversation_lock(conversation_id, lock_token)
-        db.close()
-        return
-
-    # BLOCK OLD AUTOMATION MESSAGES
-    state = (
-        db.query(FlowExecutionState)
-        .filter(
-            FlowExecutionState.conversation_id == conversation_id
-        )
-        .first()
-    )
-
-
-
     try:
+        conv_uuid = to_uuid(conversation_id)
+        from app.models.ai_action import ConversationState
+        conv_state = db.query(ConversationState).filter_by(conversation_id=conv_uuid).first()
+        if conv_state and conv_state.human_takeover:
+            logger.info("[AI_AUTOMATION_PAUSED] send_next_pending_message ignored | conversation=%s", conversation_id)
+            return
+
         # Billing enforcement check
-        conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
         if conv:
             from app.services.billing.billing_service import enforce_execution_policy
             if not enforce_execution_policy(db, str(conv.workspace_id)):
                 logger.warning(f"Quota exceeded for workspace {conv.workspace_id}. Aborting outbound message.")
-                release_conversation_lock(conversation_id, lock_token)
                 return
 
         state = (
             db.query(FlowExecutionState)
-            .filter(FlowExecutionState.conversation_id == conversation_id)
+            .filter(FlowExecutionState.conversation_id == conv_uuid)
             .first()
         )
         active_flow_id = state.active_flow_id if state else None
 
         base_filter = [
-            OutboundMessage.conversation_id == conversation_id,
+            OutboundMessage.conversation_id == conv_uuid,
             OutboundMessage.status == "queued",
         ]
         if (
@@ -288,7 +277,7 @@ def send_next_pending_message(self, conversation_id: str):
         prev_msg = (
             db.query(OutboundMessage)
             .filter(
-                OutboundMessage.conversation_id == conversation_id,
+                OutboundMessage.conversation_id == conv_uuid,
                 OutboundMessage.sequence < msg.sequence,
             )
             .order_by(OutboundMessage.sequence.desc())
@@ -298,7 +287,7 @@ def send_next_pending_message(self, conversation_id: str):
         if prev_msg:
             is_instagram = bool(conv and conv.channel and "INSTAGRAM" in str(conv.channel).upper())
             if is_instagram:
-                # Instagram sequencing rule: Next message allowed ONLY AFTER previous message API request finished & committed as 'sent' (or terminal state)
+                # Instagram sequencing: Next message allowed once previous message is sent / committed
                 if prev_msg.status in ("queued", "sending", "dispatched", "in_progress"):
                     logger.info(
                         "[Instagram Queue] Blocked: Prev msg seq=%d (id=%s status=%s) not sent yet | conversation=%s",
@@ -307,11 +296,11 @@ def send_next_pending_message(self, conversation_id: str):
                         prev_msg.status,
                         conversation_id,
                     )
-                    release_conversation_lock(conversation_id, lock_token)
-                    db.close()
                     return
             else:
-                # EXISTING WHATSAPP / TWILIO / META CLOUD API BEHAVIOR — UNCHANGED
+                # Strict WhatsApp / Twilio delivery gate:
+                # 'sent' means accepted by Meta API, but NOT yet delivered to user device → WAIT!
+                # Gate unlocks ONLY when previous message is 'delivered', 'read', 'failed', or 'cancelled' (or fallback timeout >45s)
                 from datetime import datetime, timezone, timedelta
                 now = datetime.now(timezone.utc)
                 updated_at = prev_msg.updated_at or prev_msg.created_at
@@ -319,18 +308,16 @@ def send_next_pending_message(self, conversation_id: str):
                     updated_at = updated_at.replace(tzinfo=timezone.utc)
                 is_stale = (now - updated_at) > timedelta(seconds=45) if updated_at else False
 
-                if prev_msg.status != "delivered" and not is_stale:
+                if prev_msg.status not in ("delivered", "read", "failed", "cancelled") and not is_stale:
                     logger.info(
-                        "[send_next_pending_message] Blocked: Prev message seq=%d (id=%s status=%s) not delivered yet | conversation=%s",
+                        "[send_next_pending_message] Blocked: Prev message seq=%d (id=%s status=%s) not delivered/read yet | conversation=%s",
                         prev_msg.sequence,
                         str(prev_msg.id),
                         prev_msg.status,
                         conversation_id,
                     )
-                    release_conversation_lock(conversation_id, lock_token)
-                    db.close()
                     return
-                elif is_stale and prev_msg.status != "delivered":
+                elif is_stale and prev_msg.status not in ("delivered", "read"):
                     logger.warning(
                         "[send_next_pending_message] Prev message seq=%d (id=%s status=%s) delivery callback timed out (>45s). Proceeding with seq=%d | conversation=%s",
                         prev_msg.sequence,
@@ -420,9 +407,11 @@ def send_whatsapp_message_task(
         buttons = metadata.get("buttons") or []
 
         # 2. Idempotency check — if we already have a Twilio SID, we
+        outbound_uuid = to_uuid(outbound_message_id)
+        conv_uuid = to_uuid(conversation_id)
         row = (
             db.query(OutboundMessage)
-            .filter(OutboundMessage.id == outbound_message_id)
+            .filter(OutboundMessage.id == outbound_uuid)
             .with_for_update()
             .first()
         )
@@ -431,6 +420,25 @@ def send_whatsapp_message_task(
                 "[send_whatsapp_message_task] Row not found | id=%s",
                 outbound_message_id,
             )
+            return
+
+        from app.core.redis_lock import _get_redis
+        redis_client = _get_redis()
+        ack_key = f"provider_ack:{outbound_message_id}"
+        cached_ack_sid = None
+        if redis_client:
+            try:
+                val = redis_client.get(ack_key)
+                if val:
+                    cached_ack_sid = val.decode("utf-8") if isinstance(val, bytes) else str(val)
+            except Exception:
+                pass
+
+        if cached_ack_sid:
+            logger.info("[Idempotency] Recovered provider SID from Redis provider_ack cache | id=%s sid=%s", outbound_message_id, cached_ack_sid)
+            row.status = "sent"
+            row.twilio_sid = cached_ack_sid
+            db.commit()
             return
 
         if row.twilio_sid or row.status not in ("sending", "queued"):
@@ -455,8 +463,8 @@ def send_whatsapp_message_task(
             )
             return
 
-        from app.models.ai_action import ConversationState
-        conv_state = db.query(ConversationState).filter_by(conversation_id=conversation_id).first()
+      
+        conv_state = db.query(ConversationState).filter_by(conversation_id=conv_uuid).first()
         if conv_state and conv_state.human_takeover and row.message_type == "automation":
             logger.info("[AI_AUTOMATION_PAUSED] cancelled dispatch of automation message | id=%s", outbound_message_id)
             row.status = "failed"
@@ -467,7 +475,7 @@ def send_whatsapp_message_task(
         if row.flow_id:
             current_state = (
                 db.query(FlowExecutionState)
-                .filter(FlowExecutionState.conversation_id == conversation_id)
+                .filter(FlowExecutionState.conversation_id == conv_uuid)
                 .first()
             )
             if current_state and current_state.active_flow_id != row.flow_id:
@@ -499,10 +507,16 @@ def send_whatsapp_message_task(
             metadata=metadata,
         )
 
+        if sid and redis_client:
+            try:
+                redis_client.set(ack_key, sid, ex=86400)
+            except Exception:
+                pass
+
         # 6. Re-acquire the lock briefly to update the status and SID
         row = (
             db.query(OutboundMessage)
-            .filter(OutboundMessage.id == outbound_message_id)
+            .filter(OutboundMessage.id == outbound_uuid)
             .with_for_update()
             .first()
         )
@@ -537,7 +551,7 @@ def send_whatsapp_message_task(
 
             if inbox_content:
                 conversation = db.query(Conversation).filter(
-                    Conversation.id == conversation_id
+                    Conversation.id == conv_uuid
                 ).first()
                 if conversation:
                     inbox_msg = MessageService.create_message(
@@ -547,6 +561,7 @@ def send_whatsapp_message_task(
                         sender_type=SenderType.AI,
                         status=MessageStatus.SENT,
                         metadata=metadata,
+                        external_id=sid,
                         source="automation_flow"
                     )
                     db.flush()
@@ -562,7 +577,7 @@ def send_whatsapp_message_task(
         db.commit()
 
         conv = db.query(Conversation).filter(
-            Conversation.id == conversation_id
+            Conversation.id == conv_uuid
         ).first()
         is_instagram = bool(conv and conv.channel and "INSTAGRAM" in str(conv.channel).upper())
 
@@ -582,9 +597,13 @@ def send_whatsapp_message_task(
                 countdown=0
             )
         else:
-            send_next_pending_message.apply_async(
-                args=[conversation_id],
-                countdown=10
+            # WhatsApp: message is now in 'sent' state awaiting Meta DLR 'delivered'/'read' callback.
+            # DLR webhook will trigger send_next_pending_message when Meta reports delivery.
+            logger.info(
+                "[send_whatsapp_message_task] seq=%d sent to Meta (sid=%s) | Awaiting DLR callback (delivered/read) to unlock next message | conv=%s",
+                row.sequence,
+                sid,
+                conversation_id,
             )
 
         #  REALTIME: notify the workspace that an outbound message was sent
@@ -609,7 +628,7 @@ def send_whatsapp_message_task(
             conversation_exists = db.query(
                 Conversation.id
             ).filter(
-                Conversation.id == conversation_id
+                Conversation.id == conv_uuid
             ).first()
 
             if conversation_exists:
@@ -700,7 +719,7 @@ def send_whatsapp_message_task(
                 db.rollback()
                 row = (
                     db.query(OutboundMessage)
-                    .filter(OutboundMessage.id == outbound_message_id)
+                    .filter(OutboundMessage.id == outbound_uuid)
                     .with_for_update()
                     .first()
                 )
@@ -735,12 +754,12 @@ def send_whatsapp_message_task(
 
             try:
                 conversation_exists = db.query(Conversation.id).filter(
-                    Conversation.id == conversation_id
+                    Conversation.id == conv_uuid
                 ).first()
                 if conversation_exists:
                     tracer.trace(
                         db,
-                        conversation_id=conversation_id,
+                        conversation_id=str(conv_uuid),
                         event_type="error",
                         status="failed",
                         error_message=str(exc),

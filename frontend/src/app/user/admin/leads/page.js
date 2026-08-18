@@ -617,7 +617,12 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
             fileName: m.fileName || null,
             fileSize: m.fileSize || null,
             caption: m.caption || null,
-            metadata: m.metadata || null
+            metadata: m.metadata || null,
+
+            // WhatsApp media
+            media_url: m.media_url || null,
+            media_type: m.media_type || null,
+            mime_type: m.mime_type || null
         }));
     };
 
@@ -778,6 +783,9 @@ function ChatSection({ lead, leadDetail, onBack, onOpenInInbox, onToggleFavorite
                                         <MessageRenderer
                                             content={m.text}
                                             metadata={m.metadata}
+                                            media_url={m.media_url}
+                                            media_type={m.media_type}
+                                            mime_type={m.mime_type}
                                             isMe={isMe}
                                             theme={theme}
                                             onPreviewMedia={setPreviewMedia}

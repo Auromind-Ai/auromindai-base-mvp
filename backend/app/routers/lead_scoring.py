@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+
 from uuid import UUID
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
 
+from sqlalchemy.orm import Session
+from app.core.event_bus import emit_event
 from app.database import get_db
 from app.models.ai_action import Lead
 from app.routers.auth import get_current_user
@@ -15,29 +17,12 @@ from app.core.security import verify_workspace_access
 from app.services.crm import lead_scoring_service
 from app.utils.intent_detection import detect_intent_signals, detect_intent_signals_async
 from app.utils.scoring_config import get_scoring_config
-from app.schemas.lead_scoring import (
-    BulkRecalcResponse,
-    ConversationLogItem,
-    LeadDetailResponse,
-    LeadScoreListResponse,
-    LeadScoreResponse,
-    MessageIntentRequest,
-    MessageIntentResponse,
-    NodeProgressRequest,
-    NodeProgressResponse,
-    ScoreCalculateRequest,
-    ScoreCalculateResponse,
-    ScoreHistoryResponse,
-    ConvertLeadRequest,
-    ConvertLeadResponse,
-    ManualLeadCreateRequest,
-    ManualLeadCreateResponse,
-    UpdateLeadLabelsRequest,
-    UpdateLeadLabelsResponse,
-)
+from app.schemas.lead_scoring import (BulkRecalcResponse,ConversationLogItem,LeadDetailResponse,LeadScoreListResponse,LeadScoreResponse,MessageIntentRequest,MessageIntentResponse,NodeProgressRequest,NodeProgressResponse,ScoreCalculateRequest,ScoreCalculateResponse,ScoreHistoryResponse,ConvertLeadRequest,ConvertLeadResponse,ManualLeadCreateRequest,ManualLeadCreateResponse,UpdateLeadLabelsRequest,UpdateLeadLabelsResponse,AssignLeadRequest)
+
 from app.models.message import Message, SenderType, MessageStatus
 from app.models.conversation import ChannelType, ConversationStatus
 from app.services.inbox.conversation_service import ConversationService
+from app.models.user import User
 
 
 router = APIRouter(prefix="/lead-scoring", tags=["lead-scoring"])
@@ -711,6 +696,31 @@ async def convert_lead(
         conversation_id=str(lead.conversation_id),
     )
 
+    # Emit lead.converted event via EventBus to owner & managers
+    try:
+        assigned_user = db.query(User).filter(User.id == lead.assigned_to).first() if lead.assigned_to else None
+        agent_name = assigned_user.full_name or assigned_user.email.split("@")[0].title() if assigned_user else "Unassigned / AI"
+        emit_event(
+            event_name="lead.converted",
+            payload={
+                "lead_id": str(lead.id),
+                "lead_name": lead.name or lead.phone or "Lead",
+                "deal_value": f"₹{float(lead.conversion_amount):,.2f}" if lead.conversion_amount else "N/A",
+                "product_name": lead.converted_product or "Standard Deal",
+                "source": lead.source or "WhatsApp",
+                "assigned_agent_name": agent_name,
+                "action_route": "/crm/leads",
+                "workspace_id": str(wid)
+            },
+            workspace_id=lead.workspace_id,
+            actor_id=current_user.id,
+            idempotency_key=f"lead_conv:{lead.id}",
+            db=db
+        )
+    except Exception as notif_err:
+        import logging
+        logging.getLogger("app").error(f"Failed to emit lead.converted event: {notif_err}")
+
     return ConvertLeadResponse(
         lead_id=lead.id,
         status=lead.status,
@@ -724,6 +734,57 @@ async def convert_lead(
         semantic_intent_score=lead.semantic_intent_score or 0,
         lead_tier=lead.lead_tier or "cold",
     )
+
+
+
+@router.post(
+    "/leads/{lead_id}/assign",
+    summary="Assign lead to agent",
+    description="Assigns or reassigns a lead to a specific team member and triggers lead.assigned notification."
+)
+async def assign_lead(
+    lead_id: UUID,
+    body: AssignLeadRequest,
+    workspace_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    wid = verify_workspace_access(current_user, db, workspace_id)
+    lead = db.query(Lead).filter(Lead.id == lead_id, Lead.workspace_id == wid).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    old_assigned = lead.assigned_to
+    lead.assigned_to = body.assigned_to
+    db.commit()
+    db.refresh(lead)
+
+    # Emit lead.assigned event if new agent assigned
+    if body.assigned_to and body.assigned_to != old_assigned:
+        try:
+            from app.core.event_bus import emit_event
+            assigner_name = current_user.full_name or current_user.email.split("@")[0].title() if hasattr(current_user, "email") else "Team Admin"
+            emit_event(
+                event_name="lead.assigned",
+                payload={
+                    "lead_id": str(lead.id),
+                    "lead_name": lead.name or lead.phone or "Assigned Lead",
+                    "lead_phone": lead.phone or "N/A",
+                    "assigned_to": str(body.assigned_to),
+                    "assigned_by": assigner_name,
+                    "action_route": "/crm/leads",
+                    "workspace_id": str(wid)
+                },
+                workspace_id=lead.workspace_id,
+                actor_id=current_user.id,
+                idempotency_key=f"lead_assign:{lead.id}:{body.assigned_to}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+                db=db
+            )
+        except Exception as notif_err:
+            import logging
+            logging.getLogger("app").error(f"Failed to emit lead.assigned event: {notif_err}")
+
+    return {"status": "success", "lead_id": str(lead.id), "assigned_to": str(lead.assigned_to) if lead.assigned_to else None}
 
 
 @router.post(

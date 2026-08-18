@@ -86,5 +86,8 @@ export async function logout() {
 }
 
 export async function stopImpersonation() {
-  return client.post('/auth/stop-impersonation', {});
+  const adminBackupToken = typeof window !== 'undefined' ? localStorage.getItem('admin_backup_token') : null;
+  const headers = adminBackupToken ? { 'X-Admin-Backup-Token': adminBackupToken } : {};
+  const body = adminBackupToken ? { admin_backup_token: adminBackupToken } : {};
+  return client.post('/auth/stop-impersonation', body, { headers });
 }

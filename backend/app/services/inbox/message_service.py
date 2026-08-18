@@ -21,7 +21,7 @@ from app.services.crm.lead_agent_local import (
 )
 from app.services.automations.flow_service_v2 import FlowServiceV2
 from app.workers.flow_execution import execute_incoming_message, send_next_pending_message
-
+from app.core.security import to_uuid
 logger = logging.getLogger(__name__)
 
 
@@ -39,23 +39,57 @@ class MessageService:
     def list_messages(
         db: Session,
         *,
-        workspace_id: str,
-        conversation_id: str,
+        workspace_id: str | uuid.UUID,
+        conversation_id: str | uuid.UUID,
         skip: int = 0,
         limit: int = 100,
     ):
-        return (
+        ws_uuid = to_uuid(workspace_id)
+        conv_uuid = to_uuid(conversation_id)
+
+        messages = (
             db.query(Message)
-            .join(models.Conversation, Message.conversation_id == models.Conversation.id)
+            .join(
+                models.Conversation,
+                Message.conversation_id == models.Conversation.id,
+            )
             .filter(
-                Message.conversation_id == conversation_id,
-                models.Conversation.workspace_id == workspace_id,
+                Message.conversation_id == conv_uuid,
+                models.Conversation.workspace_id == ws_uuid,
             )
             .order_by(Message.timestamp.asc())
             .offset(skip)
             .limit(limit)
             .all()
         )
+
+        result = []
+
+        for message in messages:
+            metadata = message.metadata_json or {}
+
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {}
+
+            result.append({
+                "id": str(message.id),
+                "conversation_id": str(message.conversation_id),
+                "content": message.content,
+                "sender_type": message.sender_type,
+                "status": message.status,
+                "timestamp": message.timestamp,
+                "is_read": message.is_read,
+                "source": message.source,
+                "external_id": message.external_id,
+                "media_url": metadata.get("media_url"),
+                "media_type": metadata.get("media_type"),
+                "mime_type": metadata.get("mime_type"),
+            })
+
+        return result
 
     @staticmethod
     def create_message(

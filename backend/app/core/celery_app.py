@@ -28,6 +28,7 @@ celery_app.conf.update(
         "app.workers.scoring_worker",
         "app.workers.billing_worker",
         "app.workers.ingestion_worker",
+        "app.workers.notification_scheduler_worker",
     ],
 
     # Reliability
@@ -41,11 +42,17 @@ celery_app.conf.update(
     # Celery 6.x broker retry
     broker_connection_retry_on_startup=True,
 
+ 
+    broker_transport_options={
+        "visibility_timeout": 1800,
+    },
+
     # Queue routing — beat vs heavy tasks on separate queues
     task_default_queue="default",
     task_routes={
         "app.workers.flow_execution.sweep_stuck_messages": {"queue": "beat"},
         "app.workers.flow_execution.poll_scheduled_resumes": {"queue": "beat"},
+        "app.workers.notification_scheduler_worker.process_scheduled_email_outbox": {"queue": "beat"},
     },
 
 
@@ -59,6 +66,17 @@ celery_app.conf.update(
 )
 
 celery_app.conf.beat_schedule = {
+    # 1. Technical Outbox Poller
+    "process-scheduled-email-outbox": {
+        "task": "app.workers.notification_scheduler_worker.process_scheduled_email_outbox",
+        "schedule": 30.0,
+    },
+    # 2. Dynamic DB-Driven Business Notification Schedules Heartbeat
+    "evaluate-dynamic-notification-schedules": {
+        "task": "app.workers.notification_scheduler_worker.evaluate_dynamic_notification_schedules",
+        "schedule": 30.0,
+    },
+    # 3. Technical Flow & Billing Jobs
     "sweep-stuck-messages": {
         "task": "app.workers.flow_execution.sweep_stuck_messages",
         "schedule": 60.0,

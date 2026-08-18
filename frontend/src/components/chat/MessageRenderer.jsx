@@ -14,10 +14,20 @@ import { FileText, Download } from 'lucide-react';
  *   1. metadata.buttons array                       (structured — preferred)
  *   2. Inline [Button1] | [Button2] text format     (legacy fallback)
  */
-export default function MessageRenderer({ content, metadata, isMe, theme, onPreviewMedia }) {
+export default function MessageRenderer({
+  content,
+  metadata,
+  media_url,
+  media_type,
+  mime_type,
+  isMe,
+  theme,
+  onPreviewMedia
+}) {
   const meta = metadata || {};
-  const mediaUrl = meta.media_url;
-  const messageType = meta.message_type;
+  const mediaUrl = media_url || meta.media_url;
+  const messageType = media_type || meta.media_type || meta.message_type;
+  const mimeType = mime_type || meta.mime_type;
   const buttons = meta.buttons;
   const templateHeader = meta.template_header;
   const templateFooter = meta.template_footer;
@@ -133,6 +143,27 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
     );
   }
 
+  if (mediaUrl && messageType === 'audio') {
+  return (
+    <div className="max-w-[280px]">
+      <audio
+        controls
+        preload="metadata"
+        src={mediaUrl}
+        className="w-full"
+      >
+        Your browser does not support audio playback.
+      </audio>
+
+      {content && !/^\[(AUDIO|VOICE)\]$/i.test(content.trim()) && (
+        <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">
+          {content}
+        </p>
+      )}
+    </div>
+  );
+}
+
   if (mediaUrl && (messageType === 'video' || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(mediaUrl))) {
     return (
       <div>
@@ -149,7 +180,7 @@ export default function MessageRenderer({ content, metadata, isMe, theme, onPrev
     );
   }
 
-  if (mediaUrl && (messageType === 'document' || messageType === 'audio' || (!messageType && mediaUrl))) {
+  if (mediaUrl && (messageType === 'document' || (!messageType && mediaUrl))) {
     const fileName = meta.file_name || meta.filename || extractFileName(mediaUrl);
     const fileSize = meta.file_size || '';
     return (

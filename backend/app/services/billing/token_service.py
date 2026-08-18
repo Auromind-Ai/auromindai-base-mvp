@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy import case, func, cast, Date, and_
 from sqlalchemy.orm import Session
 from app.models.plan import Plan
+from app.core.event_bus import emit_event
 from app.models.subscription import Subscription
 from app.models.token_ledger import TokenLedger
 from app.models.usage import Usage
@@ -310,61 +311,57 @@ class TokenService:
             balance = self._get_token_balance_locked(db, str(workspace_id))
             if balance.tokens_added > 0:
                 percent_used = (balance.tokens_used / balance.tokens_added) * 100.0
-                from app.services.notification_service import NotificationService
+                remaining = max(0, balance.tokens_added - balance.tokens_used)
+               
+
                 if percent_used >= 100.0:
-                    NotificationService.notify_workspace(
-                        db=db,
-                        workspace_id=workspace_id,
-                        type="usage_warning",
-                        title=None,
-                        message=None,
-                        send_email=True,
-                        is_critical=True,
-                        email_subject=None,
-                        deduplication_key=f"quota_warning:{workspace_id}:100",
-                        resource="ai_tokens",
-                        template_key="usage_100",
-                        variables={
+                    emit_event(
+                        event_name="credits.exhausted",
+                        payload={
                             "resource_name": "AI Tokens",
                             "used_amount": f"{balance.tokens_used:,}",
-                            "total_limit": f"{balance.tokens_added:,}"
-                        }
+                            "remaining_balance": "0",
+                            "affected_features": "AI chat responses, automated bot messages, and outbound campaigns",
+                            "recharge_url": "/billing/recharge",
+                            "action_route": "/billing/recharge",
+                            "action_label": "Recharge AI Credits",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:100",
+                        db=db
                     )
                 elif percent_used >= 90.0:
-                    NotificationService.notify_workspace(
-                        db=db,
-                        workspace_id=workspace_id,
-                        type="usage_warning",
-                        title=None,
-                        message=None,
-                        send_email=True,
-                        email_subject=None,
-                        deduplication_key=f"quota_warning:{workspace_id}:90",
-                        resource="ai_tokens",
-                        template_key="usage_90",
-                        variables={
+                    emit_event(
+                        event_name="credits.low_10",
+                        payload={
                             "resource_name": "AI Tokens",
                             "used_amount": f"{balance.tokens_used:,}",
-                            "total_limit": f"{balance.tokens_added:,}"
-                        }
+                            "remaining_balance": f"{remaining:,}",
+                            "recharge_url": "/billing/recharge",
+                            "action_route": "/billing/recharge",
+                            "action_label": "Recharge AI Credits",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:90",
+                        db=db
                     )
                 elif percent_used >= 80.0:
-                    NotificationService.notify_workspace(
-                        db=db,
-                        workspace_id=workspace_id,
-                        type="usage_warning",
-                        title=None,
-                        message=None,
-                        send_email=False,
-                        email_subject=None,
-                        deduplication_key=f"quota_warning:{workspace_id}:80",
-                        resource="ai_tokens",
-                        template_key="usage_80",
-                        variables={
+                    emit_event(
+                        event_name="credits.low_20",
+                        payload={
                             "resource_name": "AI Tokens",
                             "used_amount": f"{balance.tokens_used:,}",
-                            "total_limit": f"{balance.tokens_added:,}"
-                        }
+                            "remaining_balance": f"{remaining:,}",
+                            "recharge_url": "/billing/recharge",
+                            "action_route": "/billing/recharge",
+                            "action_label": "Recharge AI Credits",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:80",
+                        db=db
                     )
         except Exception as exc:
             import logging

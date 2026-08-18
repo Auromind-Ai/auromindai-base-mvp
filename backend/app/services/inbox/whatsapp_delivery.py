@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 from app.models.conversation import Conversation
 from app.services.inbox.channel_service import ChannelService
-
+from app.core.security import to_uuid
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +17,7 @@ def deliver_outbound_message(
 ) -> Optional[str]:
    
     metadata = metadata or {}
-    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conversation = db.query(Conversation).filter(Conversation.id == to_uuid(conversation_id)).first()
     if not conversation:
         raise RuntimeError(f"Conversation {conversation_id} not found for outbound delivery")
 
