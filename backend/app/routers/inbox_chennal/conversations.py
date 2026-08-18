@@ -684,11 +684,13 @@ def get_meta_media(
         if media_type == "audio" and mime_type.startswith("audio/ogg"):
             mime_type = "audio/ogg"
 
-        #Stream actual media from Meta
-        try:
-            range_header = request.headers.get("range")
+        # Stream actual media from Meta
+        range_header = request.headers.get("range")
 
-            upstream_headers = {}
+        try:
+            upstream_headers = {
+                "Authorization": f"Bearer {access_token}",
+            }
 
             if range_header:
                 upstream_headers["Range"] = range_header
