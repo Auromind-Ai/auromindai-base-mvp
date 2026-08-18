@@ -1,7 +1,19 @@
 import json
 import logging
 import requests
-from fastapi import APIRouter, Depends, HTTPException
+import hmac
+import hashlib
+import base64
+import time
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+)
+from app.core.config import settings
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app import schemas
@@ -18,6 +30,74 @@ from app.services.config_service import config_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Unified Inbox"])
+
+
+def create_media_token(
+    media_id: str,
+    workspace_id: str,
+    expires_in: int = 300,
+) -> str:
+    expires_at = int(time.time()) + expires_in
+
+    payload = f"{media_id}:{workspace_id}:{expires_at}".encode()
+
+    signature = hmac.new(
+        settings.MEDIA_SIGNING_SECRET.encode(),
+        payload,
+        hashlib.sha256,
+    ).digest()
+
+    encoded_payload = base64.urlsafe_b64encode(payload).decode().rstrip("=")
+    encoded_signature = base64.urlsafe_b64encode(signature).decode().rstrip("=")
+
+    return f"{encoded_payload}.{encoded_signature}"
+
+
+def verify_media_token(
+    token: str,
+    media_id: str,
+    workspace_id: str,
+) -> bool:
+    try:
+        encoded_payload, encoded_signature = token.split(".", 1)
+
+        payload = base64.urlsafe_b64decode(
+            encoded_payload + "=" * (-len(encoded_payload) % 4)
+        )
+
+        signature = base64.urlsafe_b64decode(
+            encoded_signature + "=" * (-len(encoded_signature) % 4)
+        )
+
+        expected_signature = hmac.new(
+            settings.MEDIA_SIGNING_SECRET.encode(),
+            payload,
+            hashlib.sha256,
+        ).digest()
+
+        if not hmac.compare_digest(
+            signature,
+            expected_signature,
+        ):
+            return False
+
+        payload_media_id, payload_workspace_id, expires_at = (
+            payload.decode().split(":")
+        )
+
+        if payload_media_id != str(media_id):
+            return False
+
+        if payload_workspace_id != str(workspace_id):
+            return False
+
+        if int(expires_at) < int(time.time()):
+            return False
+
+        return True
+
+    except Exception:
+        return False
 
 
 def verify_conversation_access(db: Session, current_user, conversation_id: str) -> str:
@@ -82,15 +162,143 @@ def get_conversation_by_id(
 @router.get("/messages/{conversation_id}")
 def get_messages(
     conversation_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    workspace_id = verify_conversation_access(db, current_user, conversation_id)
-    return MessageService.list_messages(
+    workspace_id = verify_conversation_access(
+        db,
+        current_user,
+        conversation_id,
+    )
+
+    messages = MessageService.list_messages(
         db,
         workspace_id=workspace_id,
         conversation_id=conversation_id,
     )
+
+    media_base_url = str(request.base_url).rstrip("/")
+
+    for message in messages:
+        try:
+            # Support dict response
+            if isinstance(message, dict):
+                metadata = message.get("metadata_json") or message.get("metadata") or {}
+
+                if isinstance(metadata, str):
+                    try:
+                        metadata = json.loads(metadata)
+                    except json.JSONDecodeError:
+                        metadata = {}
+
+                if not isinstance(metadata, dict):
+                    metadata = {}
+
+                media_id = str(
+                    metadata.get("media_id")
+                    or ""
+                ).strip()
+
+                media_type = (
+                    message.get("media_type")
+                    or metadata.get("media_type")
+                    or ""
+                ).lower()
+
+                if media_id and media_type in {
+                    "image",
+                    "audio",
+                    "voice",
+                }:
+                    token = create_media_token(
+                        media_id=media_id,
+                        workspace_id=str(workspace_id),
+                    )
+
+                    message["media_url"] = (
+                        f"{media_base_url}"
+                        f"/inbox/media/meta/{media_id}"
+                        f"?token={token}"
+                    )
+
+                    message["media_type"] = (
+                        "audio"
+                        if media_type == "voice"
+                        else media_type
+                    )
+
+                    if not message.get("mime_type"):
+                        message["mime_type"] = metadata.get("mime_type")
+
+            # Support Pydantic / object response
+            else:
+                metadata = getattr(
+                    message,
+                    "metadata_json",
+                    None,
+                ) or getattr(
+                    message,
+                    "metadata",
+                    None,
+                ) or {}
+
+                if isinstance(metadata, str):
+                    try:
+                        metadata = json.loads(metadata)
+                    except json.JSONDecodeError:
+                        metadata = {}
+
+                if not isinstance(metadata, dict):
+                    metadata = {}
+
+                media_id = str(
+                    metadata.get("media_id")
+                    or ""
+                ).strip()
+
+                media_type = (
+                    getattr(message, "media_type", None)
+                    or metadata.get("media_type")
+                    or ""
+                ).lower()
+
+                if media_id and media_type in {
+                    "image",
+                    "audio",
+                    "voice",
+                }:
+                    token = create_media_token(
+                        media_id=media_id,
+                        workspace_id=str(workspace_id),
+                    )
+
+                    signed_url = (
+                        f"{media_base_url}"
+                        f"/inbox/media/meta/{media_id}"
+                        f"?token={token}"
+                    )
+
+                    setattr(
+                        message,
+                        "media_url",
+                        signed_url,
+                    )
+
+                    setattr(
+                        message,
+                        "media_type",
+                        "audio"
+                        if media_type == "voice"
+                        else media_type,
+                    )
+
+        except Exception:
+            logger.exception(
+                "Failed to create signed media URL for message"
+            )
+
+    return messages
 
 
 @router.post("/send-reply")
@@ -276,8 +484,9 @@ def convert_conversation(
 @router.get("/inbox/media/meta/{media_id}")
 def get_meta_media(
     media_id: str,
+    request: Request,
+    token: str = Query(...),
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
 ):
 
     # Basic validation
@@ -291,27 +500,6 @@ def get_meta_media(
 
     try:
         
-        #Find message containing this Meta media ID
-        # metadata_json is cast to TEXT so this works whether
-        # the DB column is JSON/JSONB/Text.
-        # message = (
-        #     db.query(Message)
-        #     .join(
-        #         Conversation,
-        #         Conversation.id == Message.conversation_id,
-        #     )
-        #     .filter(
-        #         Conversation.workspace_id.isnot(None),
-        #         Message.metadata_json.contains(media_id),
-        #     )
-        #     .first()
-        # )
-
-        # if not message:
-        #     raise HTTPException(
-        #         status_code=404,
-        #         detail="Media not found",
-        #     )
 
         message = (
             db.query(Message)
@@ -319,12 +507,7 @@ def get_meta_media(
                 Conversation,
                 Conversation.id == Message.conversation_id,
             )
-            .join(
-                WorkspaceMember,
-                WorkspaceMember.workspace_id == Conversation.workspace_id,
-            )
             .filter(
-                WorkspaceMember.user_id == current_user.id,
                 Message.metadata_json.contains(media_id),
             )
             .first()
@@ -351,22 +534,6 @@ def get_meta_media(
             )
 
 
-        # # Verify current user belongs to conversation workspace
-        # membership = (
-        #     db.query(WorkspaceMember)
-        #     .filter(
-        #         WorkspaceMember.user_id == current_user.id,
-        #         WorkspaceMember.workspace_id == conversation.workspace_id,
-        #     )
-        #     .first()
-        # )
-
-        # if not membership:
-        #     raise HTTPException(
-        #         status_code=403,
-        #         detail="Access denied to this media",
-        #     )
-
     
         # Get workspace
         workspace = (
@@ -379,6 +546,16 @@ def get_meta_media(
             raise HTTPException(
                 status_code=404,
                 detail="Workspace not found",
+            )
+
+        if not verify_media_token(
+            token=token,
+            media_id=media_id,
+            workspace_id=str(workspace.id),
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired media token",
             )
 
      
@@ -429,12 +606,15 @@ def get_meta_media(
         media_type = metadata.get("media_type")
         stored_mime_type = metadata.get("mime_type")
 
-        # Allow image, audio, video, document, sticker
-        if media_type not in {"image", "audio", "video", "document", "sticker"}:
+        # Only image/audio are required for this task.
+        if media_type not in {"image", "audio", "voice"}:
             raise HTTPException(
                 status_code=400,
                 detail="Unsupported media type",
             )
+
+        if media_type == "voice":
+            media_type = "audio"
 
 
         # Ask Meta for temporary media URL
@@ -527,25 +707,32 @@ def get_meta_media(
             )
 
         # Prefer MIME type returned by Meta.
+        # MIME type from Meta media metadata.
         mime_type = (
             media_info.get("mime_type")
             or stored_mime_type
             or "application/octet-stream"
-        )
+        ).split(";")[0].strip()
 
         if media_type == "audio" and mime_type.startswith("audio/ogg"):
             mime_type = "audio/ogg"
 
         #Stream actual media from Meta
         try:
+            range_header = request.headers.get("range")
+
+            upstream_headers = {}
+
+            if range_header:
+                upstream_headers["Range"] = range_header
+
             media_response = requests.get(
-            temporary_url,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-            },
-            stream=True,
-            timeout=30,
-        )
+                temporary_url,
+                headers=upstream_headers,
+                stream=True,
+                timeout=30,
+            )
+
         except requests.RequestException as exc:
             logger.error(
                 "Meta media download failed for media %s: %s",
@@ -571,7 +758,7 @@ def get_meta_media(
                 detail="Meta denied media download",
             )
 
-        if not media_response.ok:
+        if media_response.status_code not in (200, 206):
             status = media_response.status_code
             media_response.close()
 
@@ -586,6 +773,12 @@ def get_meta_media(
                 detail="Meta media download failed",
             )
 
+        # Use actual Content-Type returned by Meta
+        upstream_content_type = media_response.headers.get("Content-Type")
+
+        if upstream_content_type:
+            mime_type = upstream_content_type.split(";")[0].strip()
+
         
         #Stream response to browser
         def media_stream():
@@ -598,12 +791,29 @@ def get_meta_media(
             finally:
                 media_response.close()
 
+        response_headers = {
+            "Cache-Control": "private, max-age=300",
+            "Accept-Ranges": "bytes",
+        }
+
+        content_length = media_response.headers.get("Content-Length")
+        content_range = media_response.headers.get("Content-Range")
+
+        if content_length:
+            response_headers["Content-Length"] = content_length
+
+        if content_range:
+            response_headers["Content-Range"] = content_range
+
         return StreamingResponse(
             media_stream(),
+            status_code=(
+                206
+                if media_response.status_code == 206
+                else 200
+            ),
             media_type=mime_type,
-            headers={
-                "Cache-Control": "private, no-store",
-            },
+            headers=response_headers,
         )
 
     except HTTPException:

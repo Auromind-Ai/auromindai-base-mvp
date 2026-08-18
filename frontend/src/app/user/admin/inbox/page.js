@@ -1455,16 +1455,27 @@ function InboxContent() {
         }
     }, []);
 
-    const playNotificationSound = useCallback(() => {
-        const audio = notificationAudioRef.current;
-        if (!audio) return;
+    const playNotificationSound = useCallback(async () => {
         try {
+            let audio = notificationAudioRef.current;
+            if (!audio && typeof Audio !== 'undefined') {
+                audio = new Audio('/sounds/message-notification.mp3');
+                notificationAudioRef.current = audio;
+            }
+            if (!audio) {
+                console.error("❌ Audio playback failed: audio object is null");
+                return;
+            }
+            audio.volume = 1.0;
             audio.currentTime = 0;
             const playPromise = audio.play();
             if (playPromise !== undefined) {
-                playPromise.catch(() => {});
+                await playPromise;
+                console.log("🔊 Notification sound played successfully");
             }
-        } catch (error) {}
+        } catch (error) {
+            console.error("❌ Audio playback failed:", error);
+        }
     }, []);
 
     const [templateName, setTemplateName] = useState(null);
@@ -1732,9 +1743,13 @@ function InboxContent() {
                 case 'new_message': {
                     const msgData = event.payload || {};
                     const msgId = msgData.id || event.id || event.event_id;
-                    const senderRaw = typeof msgData.sender_type === 'string' ? msgData.sender_type : (msgData.sender_type?.value || msgData.sender || event.sender_type || '');
+                    const senderRaw = typeof msgData.sender_type === 'string'
+                        ? msgData.sender_type
+                        : (msgData.sender_type?.value || msgData.sender || event.sender_type || '');
                     const msgSender = senderRaw.toLowerCase();
-                    const msgContent = msgData.content || event.content || '';
+                    const msgContent = msgData.content || msgData.message_preview || event.content || '';
+
+                    console.log("📩 Incoming WebSocket message:", event);
 
                     if (eventConversationId && msgContent) {
                         setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
@@ -1747,7 +1762,11 @@ function InboxContent() {
                         processedMessageIds.current.add(msgId);
                     }
 
-                    const isIncoming = msgSender.includes('user') || msgSender.includes('customer') || msgData.direction === 'inbound';
+                    // Genuine NEW incoming message from customer
+                    const isExplicitOutbound = msgSender.includes('agent') || msgSender.includes('ai') || msgSender.includes('system') || msgData.direction === 'outbound';
+                    const isExplicitInbound = msgSender.includes('user') || msgSender.includes('customer') || msgSender.includes('lead') || msgSender.includes('contact') || msgData.direction === 'inbound';
+                    const isIncoming = isExplicitInbound || (!isExplicitOutbound && !msgSender);
+
                     if (isIncoming) {
                         playNotificationSound();
 
@@ -1758,6 +1777,8 @@ function InboxContent() {
                                 [eventConversationId]: (prev[eventConversationId] || 0) + 1
                             }));
                         }
+                    } else {
+                        console.log("ℹ️ Outbound / non-customer message detected, skipping audio notification");
                     }
 
                     fetchConversations();
