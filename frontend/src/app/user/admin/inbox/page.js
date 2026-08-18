@@ -20,6 +20,11 @@ import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
 import CloseConversationModal from '@/components/inbox/CloseConversationModal';
 import api from '@/lib/api';
 import { SYSTEM_TIERS, AGENT_LABELS } from '@/lib/labelStyles';
+import {
+    playNotificationSound,
+    markMessageAsProcessed,
+    isMessageAlreadyProcessed,
+} from '@/lib/notificationSound';
 
 const TwilioIcon = ({ size = 16, style = {} }) => {
     const isInactive = style.color === '#666';
@@ -153,13 +158,16 @@ function ChannelIcon({ channel, size = 16 }) {
 }
 
 function UnreadBadge({ count, channel }) {
-    if (!count) return null;
-    const style = channel.gradient
+    if (!count || count <= 0) return null;
+    const style = channel?.gradient
         ? { background: channel.gradient }
-        : { backgroundColor: channel.color };
+        : { backgroundColor: channel?.color || '#F22F46' };
     return (
-        <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white flex items-center justify-center shadow-md" style={style}>
-            {count}
+        <span
+            className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white flex items-center justify-center shrink-0 ml-2 shadow-sm"
+            style={style}
+        >
+            {count > 99 ? '99+' : count}
         </span>
     );
 }
@@ -1170,15 +1178,13 @@ function ChatArea({
                                             theme={ch}
                                             onPreviewMedia={setPreviewMedia}
                                         />
-
-                                        <p className="text-[10px] text-white/40 mt-1.5 flex items-center justify-end gap-1">
-                                            <span>{timeStr}</span>
-                                            {!isUser && (
-                                                <CheckCheck
-                                                    size={14}
-                                                    className="text-white/70"
-                                                />
-                                            )}
+                                        <p className="text-[10px] text-white/40 mt-1.5">
+                                            {(() => {
+                                                const ts = m.timestamp || m.created_at;
+                                                if (!ts) return '';
+                                                const d = new Date(ts);
+                                                return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                            })()}
                                         </p>
                                     </div>
                                 )}
@@ -1427,57 +1433,7 @@ function InboxContent() {
     const [unreadCounts, setUnreadCounts] = useState({});
     const [lastMessageMap, setLastMessageMap] = useState({});
 
-    const notificationAudioRef = useRef(null);
-    const processedMessageIds = useRef(new Set());
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const audio = new Audio('/sounds/message-notification.mp3');
-            audio.volume = 0.7;
-            notificationAudioRef.current = audio;
-
-            const unlockAudio = () => {
-                if (notificationAudioRef.current) {
-                    notificationAudioRef.current.play().then(() => {
-                        notificationAudioRef.current.pause();
-                        notificationAudioRef.current.currentTime = 0;
-                    }).catch(() => {});
-                }
-            };
-
-            window.addEventListener('pointerdown', unlockAudio, { once: true });
-            window.addEventListener('keydown', unlockAudio, { once: true });
-
-            return () => {
-                window.removeEventListener('pointerdown', unlockAudio);
-                window.removeEventListener('keydown', unlockAudio);
-            };
-        }
-    }, []);
-
-    const playNotificationSound = useCallback(async () => {
-        try {
-            let audio = notificationAudioRef.current;
-            if (!audio && typeof Audio !== 'undefined') {
-                audio = new Audio('/sounds/message-notification.mp3');
-                notificationAudioRef.current = audio;
-            }
-            if (!audio) {
-                console.error("❌ Audio playback failed: audio object is null");
-                return;
-            }
-            audio.volume = 1.0;
-            audio.currentTime = 0;
-            const playPromise = audio.play();
-            if (playPromise !== undefined) {
-                await playPromise;
-                console.log("🔊 Notification sound played successfully");
-            }
-        } catch (error) {
-            console.error("❌ Audio playback failed:", error);
-        }
-    }, []);
-
+    // Template state (from HEAD)
     const [templateName, setTemplateName] = useState(null);
     const [templateVariables, setTemplateVariables] = useState([]);
     const [templateLanguage, setTemplateLanguage] = useState('en_US');
@@ -1605,7 +1561,7 @@ function InboxContent() {
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
 
             data.forEach(m => {
-                if (m.id) processedMessageIds.current.add(m.id);
+                if (m.id) markMessageAsProcessed(m.id);
             });
 
             if (data.length > 0) {
@@ -1639,22 +1595,29 @@ function InboxContent() {
 
             setConversations(data);
 
-            data.forEach(c => {
-                if (c.id) {
-                    api.get(`/api/messages/${c.id}`).then(msgs => {
-                        if (Array.isArray(msgs)) {
-                            msgs.forEach(m => {
-                                if (m.id) processedMessageIds.current.add(m.id);
-                            });
-                            if (msgs.length > 0) {
-                                const last = msgs[msgs.length - 1];
-                                if (last?.content) {
-                                    setLastMessageMap(prev => ({ ...prev, [c.id]: last.content }));
-                                }
-                            }
-                        }
-                    }).catch(() => {});
-                }
+            // Populate unreadCounts from backend for conversations not currently open
+            setUnreadCounts(prev => {
+                const next = { ...prev };
+                data.forEach(c => {
+                    if (leadRef.current?.id === c.id) {
+                        next[c.id] = 0;
+                    } else if (c.unread_count !== undefined) {
+                        next[c.id] = Math.max(prev[c.id] || 0, c.unread_count || 0);
+                    }
+                });
+                return next;
+            });
+
+            // Populate lastMessageMap directly from conversation data
+            setLastMessageMap(prev => {
+                const next = { ...prev };
+                data.forEach(c => {
+                    const text = c.last_message || c.last_message_text || c.preview;
+                    if (text) {
+                        next[c.id] = text;
+                    }
+                });
+                return next;
             });
 
             if (data.length === 0) {
@@ -1755,11 +1718,13 @@ function InboxContent() {
                         setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
                     }
 
-                    if (msgId && processedMessageIds.current.has(msgId)) {
+                    // Duplicate protection check
+                    if (msgId && isMessageAlreadyProcessed(msgId)) {
+                        console.log("⚠️ Ignored duplicate message ID:", msgId);
                         return;
                     }
                     if (msgId) {
-                        processedMessageIds.current.add(msgId);
+                        markMessageAsProcessed(msgId);
                     }
 
                     // Genuine NEW incoming message from customer
@@ -1814,7 +1779,7 @@ function InboxContent() {
                     break;
             }
         });
-    }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId, playNotificationSound]);
+    }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId]);
 
     async function sendMessage() {
         if (!msg.trim() || !lead) return;
@@ -1900,13 +1865,19 @@ function InboxContent() {
     }
 
     function handleLeadSelectTablet(l) {
+        if (!l) return;
         setLead(l); fetchMessages(l.id);
+        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
         fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
         setTabletRight('chat');
     }
 
     function handleLeadSelectMobile(l) {
+        if (!l) return;
         setLead(l); fetchMessages(l.id);
+        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
         fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
         setMobileView('chat');
     }
@@ -1954,6 +1925,7 @@ function InboxContent() {
                             onLeadSelect={(l) => {
                                 setLead(l); fetchMessages(l.id);
                                 setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                api.post(`/api/conversations/${l.id}/read`).catch(() => {});
                                 fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
                             }}
                         />
@@ -2025,6 +1997,7 @@ function InboxContent() {
                                 onLeadSelect={(l) => {
                                     setLead(l); fetchMessages(l.id);
                                     setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                    api.post(`/api/conversations/${l.id}/read`).catch(() => {});
                                     fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
                                     setIpadRight('chat');
                                 }}

@@ -44,9 +44,6 @@ class MessageService:
         skip: int = 0,
         limit: int = 100,
     ):
-        ws_uuid = to_uuid(workspace_id)
-        conv_uuid = to_uuid(conversation_id)
-
         messages = (
             db.query(Message)
             .join(
@@ -54,8 +51,8 @@ class MessageService:
                 Message.conversation_id == models.Conversation.id,
             )
             .filter(
-                Message.conversation_id == conv_uuid,
-                models.Conversation.workspace_id == ws_uuid,
+                Message.conversation_id == workspace_id,
+                models.Conversation.workspace_id == conversation_id,
             )
             .order_by(Message.timestamp.asc())
             .offset(skip)

@@ -128,16 +128,50 @@ class ConversationService:
         )
         if conversations:
             from sqlalchemy import func
-            from app.models.message import Message
+            from app.models.message import Message, SenderType
 
+            conv_ids = [c.id for c in conversations]
             counts = dict(
                 db.query(Message.conversation_id, func.count(Message.id))
-                .filter(Message.conversation_id.in_([c.id for c in conversations]))
+                .filter(Message.conversation_id.in_(conv_ids))
                 .group_by(Message.conversation_id)
                 .all()
             )
+            unread_counts = dict(
+                db.query(Message.conversation_id, func.count(Message.id))
+                .filter(
+                    Message.conversation_id.in_(conv_ids),
+                    Message.is_read == False,
+                    Message.sender_type == SenderType.USER,
+                )
+                .group_by(Message.conversation_id)
+                .all()
+            )
+            latest_msg_subq = (
+                db.query(
+                    Message.conversation_id,
+                    func.max(Message.timestamp).label("max_ts"),
+                )
+                .filter(Message.conversation_id.in_(conv_ids))
+                .group_by(Message.conversation_id)
+                .subquery()
+            )
+            latest_messages = (
+                db.query(Message.conversation_id, Message.content)
+                .join(
+                    latest_msg_subq,
+                    (Message.conversation_id == latest_msg_subq.c.conversation_id)
+                    & (Message.timestamp == latest_msg_subq.c.max_ts),
+                )
+                .all()
+            )
+            last_msg_map = {row[0]: row[1] for row in latest_messages}
+
             for c in conversations:
                 c.__dict__['message_count'] = counts.get(c.id, 0)
+                c.__dict__['unread_count'] = unread_counts.get(c.id, 0)
+                c.__dict__['last_message'] = last_msg_map.get(c.id, '')
+                c.__dict__['last_message_text'] = last_msg_map.get(c.id, '')
         return conversations
 
     @staticmethod
