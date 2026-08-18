@@ -36,7 +36,7 @@ router = APIRouter(tags=["Unified Inbox"])
 def create_media_token(
     media_id: str,
     workspace_id: str,
-    expires_in: int = 300,
+    expires_in: int = 3600,
 ) -> str:
     expires_at = int(time.time()) + expires_in
 

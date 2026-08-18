@@ -84,9 +84,11 @@ class MessageService:
                 "is_read": message.is_read,
                 "source": message.source,
                 "external_id": message.external_id,
+                "media_id": metadata.get("media_id"),
                 "media_url": metadata.get("media_url"),
                 "media_type": metadata.get("media_type"),
                 "mime_type": metadata.get("mime_type"),
+
             })
 
         return result

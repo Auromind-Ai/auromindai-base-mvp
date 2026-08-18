@@ -389,6 +389,14 @@ class WebhookService:
                         logger.warning(f"Message has no textual body (unsupported media type?). Skipping. Raw message: {message}")
                         continue
 
+                    if media_id and workspace:
+                        try:
+                            from app.routers.inbox_chennal.conversations import create_media_token
+                            token = create_media_token(media_id=str(media_id), workspace_id=str(workspace.id))
+                            media_url = f"/inbox/media/meta/{media_id}?token={token}"
+                        except Exception as token_err:
+                            logger.error(f"Failed to generate media token: {token_err}")
+
                     logger.info(f"Forwarding message from {from_number} to unified pipeline...")
                     try:
                         result = await WebhookService.process_incoming_message(
@@ -637,7 +645,8 @@ class WebhookService:
                         else "image"
                     )
 
-                    media_url = f"/api/inbox/media/meta/{media_id}"
+                   
+                    media_url = None
                     text = caption or f"[{media_type.upper()}]"
 
             if not text:

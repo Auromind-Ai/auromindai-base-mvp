@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.ai_action import Lead
 from app.routers.auth import get_current_user
 from app.core.security import verify_workspace_access
+from app.routers.inbox_chennal.conversations import create_media_token
 from app.services.crm import lead_scoring_service
 from app.utils.intent_detection import detect_intent_signals, detect_intent_signals_async
 from app.utils.scoring_config import get_scoring_config
@@ -541,6 +542,21 @@ async def _build_lead_detail_response(lead: Lead, db: Session) -> LeadDetailResp
                     meta = json.loads(msg.metadata_json) if isinstance(msg.metadata_json, str) else (msg.metadata_json or {})
                 except (json.JSONDecodeError, TypeError):
                     meta = {}
+
+            if isinstance(meta, dict):
+                media_id = str(meta.get("media_id") or "").strip()
+                if media_id:
+                    msg_type = (meta.get("message_type") or meta.get("media_type") or "").lower()
+                    meta["media_type"] = "audio" if msg_type in {"audio", "voice"} else ("image" if msg_type == "image" else "audio")
+                    if lead.workspace_id:
+                        token = create_media_token(
+                            media_id=media_id,
+                            workspace_id=str(lead.workspace_id),
+                        )
+                        meta["media_url"] = f"/inbox/media/meta/{media_id}?token={token}"
+                    elif not meta.get("media_url"):
+                        meta["media_url"] = f"/api/inbox/media/meta/{media_id}"
+
             conversation_log.append(
                 ConversationLogItem(
                     id=msg.id,
