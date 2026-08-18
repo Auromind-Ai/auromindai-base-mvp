@@ -1051,6 +1051,40 @@ function ChatArea({
 
                         const m = item;
                         const isUser = m.sender_type?.toLowerCase() === 'user';
+
+                        let parsedMetadata = {};
+                        try {
+                            if (typeof m.metadata === 'string') {
+                                parsedMetadata = JSON.parse(m.metadata);
+                            } else if (m.metadata && typeof m.metadata === 'object') {
+                                parsedMetadata = m.metadata;
+                            } else if (typeof m.metadata_json === 'string') {
+                                parsedMetadata = JSON.parse(m.metadata_json);
+                            } else if (m.metadata_json && typeof m.metadata_json === 'object') {
+                                parsedMetadata = m.metadata_json;
+                            }
+                        } catch {
+                            parsedMetadata = {};
+                        }
+
+                        const mediaUrl =
+                            m.media_url ||
+                            parsedMetadata.media_url ||
+                            null;
+
+                        const mediaType =
+                            m.media_type ||
+                            parsedMetadata.media_type ||
+                            parsedMetadata.message_type ||
+                            m.type ||
+                            null;
+
+                        const mimeType =
+                            m.mime_type ||
+                            parsedMetadata.mime_type ||
+                            null;
+
+                        
                         const isAI = m.sender_type?.toLowerCase() === 'ai';
                         const isSuggested = m.status?.toLowerCase() === 'suggested';
                         const isAudio = m.content?.includes('.mp3') || m.content?.includes('.ogg') || m.content?.includes('.wav') || m.content?.includes('/audio') || m.type === 'audio';
@@ -1105,8 +1139,8 @@ function ChatArea({
                                             content={m.content}
                                             metadata={parsedMetadata}
                                             media_url={m.media_url}
-                                            media_type={m.media_type}
-                                            mime_type={m.mime_type}
+                                            media_type={mediaType}
+                                            mime_type={mimeType}
                                             isMe={!isUser}
                                             theme={ch}
                                             onPreviewMedia={setPreviewMedia}
