@@ -223,7 +223,7 @@ def seed_settings_from_env(db: Session):
                         except Exception:
                             pass
             
-            if not setting or not db_val or db_val.strip() == "" or db_key.startswith("smtp_") or db_key == "from_email":
+            if not setting or not db_val or db_val.strip() == "" or db_key.startswith("smtp_") or db_key in ("from_email", "twilio_status_callback_url"):
                 str_value, value_type = _serialize_value(val)
                 if db_key in ["smtp_port", "system_metrics_update_interval", "billing_reservation_ttl_seconds"]:
                     try:

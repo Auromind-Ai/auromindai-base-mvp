@@ -367,91 +367,141 @@ User Message:
         return get_local_messages(user_id)
 
     @staticmethod
-    async def handle_twilio_status_callback(form_data, db: Session):
+    def handle_twilio_status_callback(form_data, db: Session, outbound_message_id: Optional[str] = None):
         message_sid = form_data.get("MessageSid") or form_data.get("SmsSid")
         message_status = (form_data.get("MessageStatus") or form_data.get("SmsStatus") or "").lower()
 
-        if not message_sid or not message_status:
+        if not message_sid and not outbound_message_id:
+            return str(MessagingResponse())
+        if not message_status:
             return str(MessagingResponse())
 
-        row = (
-            db.query(OutboundMessage)
-            .filter(OutboundMessage.twilio_sid == message_sid)
-            .with_for_update()
-            .first()
-        )
-        if not row:
-            return str(MessagingResponse())
+        row = None
+        try:
+            if outbound_message_id:
+                try:
+                    row = (
+                        db.query(OutboundMessage)
+                        .filter(OutboundMessage.id == uuid.UUID(str(outbound_message_id)))
+                        .with_for_update()
+                        .first()
+                    )
+                except Exception:
+                    db.rollback()
+                    row = None
 
-        conversation_id = str(row.conversation_id)
-        if row.status in MessageService._TERMINAL_STATES:
-            return str(MessagingResponse())
+            if not row and message_sid:
+                try:
+                    row = (
+                        db.query(OutboundMessage)
+                        .filter(OutboundMessage.twilio_sid == message_sid)
+                        .with_for_update()
+                        .first()
+                    )
+                except Exception:
+                    db.rollback()
+                    row = None
 
-        if message_status == "queued":
-            return str(MessagingResponse())
-
-        if message_status == "sent":
-            valid_priors = MessageService._VALID_PRIOR_STATES.get("sent", ())
-            if row.status not in valid_priors:
+            if not row:
+                logger.warning("[handle_twilio_status_callback] No row found for SID=%s, ID=%s", message_sid, outbound_message_id)
+                db.rollback()
                 return str(MessagingResponse())
-            row.status = "sent"
-    
 
-            metadata = row.metadata_json or {}
+            if message_sid and not row.twilio_sid:
+                row.twilio_sid = message_sid
 
-            if isinstance(metadata, str):
-                metadata = json.loads(metadata)
-
-            inbox_message_id = metadata.get("inbox_message_id")
-
-            if inbox_message_id:
-                inbox_msg = db.query(Message).filter(
-                    Message.id == uuid.UUID(str(inbox_message_id))
-                ).first()
-
-                if inbox_msg:
-                    inbox_msg.status = MessageStatus.SENT
-            db.commit()
-            send_next_pending_message.apply_async(args=[conversation_id], countdown=1)
-            return str(MessagingResponse())
-
-        if message_status == "delivered":
-            valid_priors = MessageService._VALID_PRIOR_STATES.get("delivered", ())
-            if row.status not in valid_priors:
+            conversation_id = str(row.conversation_id)
+            if row.status in MessageService._TERMINAL_STATES:
+                db.commit()
                 return str(MessagingResponse())
-            row.status = "delivered"
 
-            metadata = row.metadata_json or {}
-
-            if isinstance(metadata, str):
-                metadata = json.loads(metadata)
-
-            inbox_message_id = metadata.get("inbox_message_id")
-
-            if inbox_message_id:
-                inbox_msg = db.query(Message).filter(
-                    Message.id == uuid.UUID(str(inbox_message_id))
-                ).first()
-
-                if inbox_msg:
-                    inbox_msg.status = MessageStatus.DELIVERED
-
-            db.commit()
-
-            send_next_pending_message.apply_async(
-                args=[conversation_id],
-                countdown=1
-            )
-
-            return str(MessagingResponse())
-
-        if message_status in ("failed", "undelivered"):
-            valid_priors = MessageService._VALID_PRIOR_STATES.get("failed", ())
-            if row.status not in valid_priors:
+            if message_status == "queued":
+                db.commit()
                 return str(MessagingResponse())
-            row.status = "failed"
-            db.commit()
-            send_next_pending_message.apply_async(args=[conversation_id], countdown=2)
-            return str(MessagingResponse())
 
-        return str(MessagingResponse())
+            if message_status == "sent":
+                valid_priors = MessageService._VALID_PRIOR_STATES.get("sent", ())
+                if row.status not in valid_priors:
+                    db.commit()
+                    return str(MessagingResponse())
+                row.status = "sent"
+
+                metadata = row.metadata_json or {}
+
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+
+                inbox_message_id = metadata.get("inbox_message_id")
+
+                if inbox_message_id:
+                    inbox_msg = db.query(Message).filter(
+                        Message.id == uuid.UUID(str(inbox_message_id))
+                    ).first()
+
+                    if inbox_msg:
+                        inbox_msg.status = MessageStatus.SENT
+                db.commit()
+                # Do NOT unlock next message on 'sent'. Await 'delivered' status callback.
+                return str(MessagingResponse())
+
+            if message_status == "delivered":
+                valid_priors = MessageService._VALID_PRIOR_STATES.get("delivered", ())
+                if row.status not in valid_priors:
+                    db.commit()
+                    return str(MessagingResponse())
+                row.status = "delivered"
+
+                metadata = row.metadata_json or {}
+
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+
+                inbox_message_id = metadata.get("inbox_message_id")
+
+                if inbox_message_id:
+                    inbox_msg = db.query(Message).filter(
+                        Message.id == uuid.UUID(str(inbox_message_id))
+                    ).first()
+
+                    if inbox_msg:
+                        inbox_msg.status = MessageStatus.DELIVERED
+
+                db.commit()
+
+                # Unlock & dispatch next message ONLY when previous message is DELIVERED
+                send_next_pending_message.apply_async(
+                    args=[conversation_id],
+                    countdown=0
+                )
+
+                return str(MessagingResponse())
+
+            if message_status in ("failed", "undelivered"):
+                valid_priors = MessageService._VALID_PRIOR_STATES.get("failed", ())
+                if row.status not in valid_priors:
+                    db.commit()
+                    return str(MessagingResponse())
+                row.status = "failed"
+
+                metadata = row.metadata_json or {}
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+
+                inbox_message_id = metadata.get("inbox_message_id")
+                if inbox_message_id:
+                    inbox_msg = db.query(Message).filter(
+                        Message.id == uuid.UUID(str(inbox_message_id))
+                    ).first()
+                    if inbox_msg:
+                        inbox_msg.status = MessageStatus.FAILED
+
+                db.commit()
+                send_next_pending_message.apply_async(args=[conversation_id], countdown=1)
+                return str(MessagingResponse())
+
+            db.commit()
+            return str(MessagingResponse())
+        except Exception as e:
+            db.rollback()
+            logger.exception("[handle_twilio_status_callback] Exception in callback processing: %s", e)
+            return str(MessagingResponse())

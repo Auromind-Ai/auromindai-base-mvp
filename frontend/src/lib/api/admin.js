@@ -13,7 +13,7 @@ export async function getUserFeedback() {
 }
 
 export async function submitUserFeedback(payload) {
-  return client.post('user-feedback', payload);
+  return client.post('/user-feedback', payload);
 }
 
 export async function getAdminTokens() {

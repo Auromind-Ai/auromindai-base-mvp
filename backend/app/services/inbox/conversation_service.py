@@ -35,22 +35,39 @@ class ConversationService:
             raise HTTPException(status_code=400, detail=f"Unsupported channel: {channel}") from exc
 
     @staticmethod
-    def get_workspace_for_twilio_number(db: Session, to_number: str) -> Workspace | None:
+    def get_workspace_for_twilio_number(
+        db: Session, to_number: str, account_sid: str | None = None
+    ) -> Workspace | None:
         clean_number = (to_number or "").replace("whatsapp:", "").strip()
+        possible_numbers = {
+            clean_number,
+            f"+{clean_number.lstrip('+')}",
+            clean_number.lstrip("+"),
+        }
         workspaces = (
             db.query(Workspace)
-            .filter(Workspace.twilio_phone_number == clean_number)
+            .filter(Workspace.twilio_phone_number.in_(possible_numbers))
             .limit(2)
             .all()
         )
-        if not workspaces:
-            return None
-        if len(workspaces) > 1:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Multiple workspaces mapped for Twilio number {clean_number}",
+        if workspaces:
+            if len(workspaces) > 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Multiple workspaces mapped for Twilio number {clean_number}",
+                )
+            return workspaces[0]
+
+        if account_sid:
+            ws_by_sid = (
+                db.query(Workspace)
+                .filter(Workspace.twilio_account_sid == account_sid)
+                .first()
             )
-        return workspaces[0]
+            if ws_by_sid:
+                return ws_by_sid
+
+        return None
 
     @staticmethod
     def get_workspace_for_meta_whatsapp_phone_number_id(

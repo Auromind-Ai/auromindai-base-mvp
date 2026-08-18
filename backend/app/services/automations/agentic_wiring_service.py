@@ -169,6 +169,8 @@ BUTTON edge (one per button, sourceHandle = button.value):
     - An edge with sourceHandle = button.value MUST exist
     Both are required. Missing either breaks the flow.
 
+⚠️  TERMINAL NODE RULE: AI BRAIN QUERY NODE (type: "brain_query") is ALWAYS the final step of a flow. NEVER add outgoing edges or steps after a brain_query node.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 POSITIONING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

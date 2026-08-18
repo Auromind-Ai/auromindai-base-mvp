@@ -256,4 +256,4 @@ export default function UserFeedbackPanel({ isOpen, onClose }) {
             </div>
         </div>
     );
-}   
+}

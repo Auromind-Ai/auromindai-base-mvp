@@ -807,7 +807,7 @@ export default function AuromindAIPage() {
                 } : msg));
             } else {
                 console.warn('[AI Chat Error]:', err?.message || err);
-                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Orbionagents. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } finally {
             readerRef.current = null;           // reader is done — release the ref
@@ -963,7 +963,7 @@ export default function AuromindAIPage() {
             if (err.name === 'AbortError') { /* Silently handled */ }
             else {
                 console.error(err);
-                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Orbionagents. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } finally {
             setIsLoading(false);
@@ -1025,7 +1025,7 @@ export default function AuromindAIPage() {
             if (err.name === 'AbortError') { /* Silently handled */ }
             else {
                 console.error(err);
-                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Auromind. Please try again.", isError: true, isStreaming: false } : msg));
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Orbionagents. Please try again.", isError: true, isStreaming: false } : msg));
             }
         } finally {
             setIsLoading(false);
@@ -1106,7 +1106,7 @@ export default function AuromindAIPage() {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: 0.15, duration: 0.5 }}
-                                            className="text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight text-center mb-1 md:mb-2 text-white"
+                                            className="text-2xl md:text-4xl lg:text-5xl font-medium tracking-tight text-center mb-1 md:mb-2 text-white"
                                         >
                                             {greeting},{' '}
                                             <span
@@ -1652,7 +1652,7 @@ export default function AuromindAIPage() {
                                                 value={inputValue}
                                                 onChange={(e) => setInputValue(e.target.value)}
                                                 onKeyDown={handleKeyDown}
-                                                placeholder="Orbion Agents..."
+                                                placeholder="Reply to Orbionagents..."
                                                 className="flex-1 bg-transparent text-gray-100 placeholder:text-gray-600 text-[15px] resize-none outline-none leading-relaxed px-3"
                                                 rows={1}
                                             />

@@ -679,6 +679,9 @@ export default function ChannelsPage() {
                 localStorage.removeItem("whatsapp_connected");
                 localStorage.removeItem("whatsapp_phone");
             }
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('channel-status-changed'));
+            }
 
             // Sync Instagram Status and Info
             if (data.instagram?.connected) {
@@ -1002,9 +1005,22 @@ const disconnectIntegration = (integrationId) => {
     }
 };
 
-
-const disconnectChannel = (channelId) => {
-    setDisconnectModal(channelId);
+const disconnectChannel = async (channelId) => {
+    if (!confirm(`Disconnect ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'}?`)) return;
+    try {
+        await api.disconnectChannel(channelId, workspace.id);
+        setStatuses(prev => ({ ...prev, [channelId]: false }));
+        setConnectedInfo(prev => ({ ...prev, [channelId]: null }));
+        localStorage.removeItem(`${channelId}_connected`);
+        localStorage.removeItem(`${channelId}_phone`);
+        localStorage.removeItem(`${channelId}_username`);
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('channel-status-changed'));
+        }
+        showToast(`Disconnected ${channelId === 'whatsapp' ? 'WhatsApp Business' : channelId === 'instagram' ? 'Instagram' : 'Twilio'} successfully`);
+    } catch (err) {
+        console.error('Disconnect failed:', err);
+    }
 };
 
     // ── submitTwilio — EXISTING FUNCTION, NOT MODIFIED ──────────────────────

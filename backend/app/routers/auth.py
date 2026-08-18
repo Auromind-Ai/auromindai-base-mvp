@@ -546,7 +546,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             return response
        
         jwt_token = result["access_token"]
-        response = RedirectResponse(url=f"{frontend_url}/login")
+        response = RedirectResponse(url=f"{frontend_url}/login?token={urllib.parse.quote(jwt_token)}")
         
         max_age_val = (session_expiry_hours * 3600) if session_expiry_hours else (settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60)
         set_auth_cookie(

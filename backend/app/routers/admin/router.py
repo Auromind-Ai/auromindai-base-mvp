@@ -32,7 +32,8 @@ from . import (
     feature_rules,
     flow_packs,
     notification_templates,
-    plans
+    plans,
+    user_feedback
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -235,4 +236,4 @@ router.include_router(feature_rules.router, dependencies=admin_deps)
 router.include_router(flow_packs.router, dependencies=admin_deps)
 router.include_router(notification_templates.router, dependencies=admin_deps)
 router.include_router(plans.router, dependencies=admin_deps)
-
+router.include_router(user_feedback.router, dependencies=admin_deps)

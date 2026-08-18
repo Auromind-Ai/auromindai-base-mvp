@@ -15,6 +15,8 @@ services:
     image: pgvector/pgvector:pg16
     container_name: auromind_postgres
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -48,7 +50,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
@@ -99,10 +100,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-yogeshdb}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     volumes:
       - ./backend/logs:/app/logs
       - ./backend:/app
@@ -139,13 +140,8 @@ services:
           print('Database connection timed out!')
       '''))\" && celery -A app.core.celery_app beat --loglevel=info"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-auromindai}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      SECRET_KEY: ${SECRET_KEY}
       HF_HOME: /models/huggingface
       TRANSFORMERS_CACHE: /models/huggingface
       HF_HUB_ENABLE_HF_TRANSFER: 1

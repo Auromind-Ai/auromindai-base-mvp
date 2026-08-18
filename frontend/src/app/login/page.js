@@ -104,10 +104,16 @@ function LoginContent() {
     }, []);
 
     useEffect(() => {
-        if (!authLoading && user) {
+        const token = searchParams.get('token');
+        if (token) {
+            setToken(token);
+            refreshUser().then(() => {
+                router.push(redirectPath || '/user/admin/dashboard');
+            });
+        } else if (!authLoading && user) {
             router.push(redirectPath || '/user/admin/dashboard');
         }
-    }, [user, authLoading, router, redirectPath]);
+    }, [user, authLoading, router, redirectPath, searchParams, refreshUser]);
 
 
 

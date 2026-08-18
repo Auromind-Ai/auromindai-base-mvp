@@ -114,10 +114,11 @@ export default function ChatSidebar({
                                 </div>
                                 <button
                                     onClick={onCreateSession}
-                                    className="w-9 h-9 flex items-center justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent"
+                                    className="w-28 h-9 flex items-center gap-2 justify-center rounded-lg border border-white/[0.15] text-gray-400 hover:text-white hover:border-white/30 transition-all bg-transparent"
                                     title="New Chat"
                                 >
-                                    <Plus size={16} />
+                                    <span className="text-[12px] font-medium">New Chat</span>
+                                    <Plus size={20} />
                                 </button>
                             </div>
 
