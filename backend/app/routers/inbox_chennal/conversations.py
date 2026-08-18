@@ -26,6 +26,7 @@ from app.models.workspace import Workspace, WorkspaceMember
 from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
 from app.services.config_service import config_service
+from fastapi.encoders import jsonable_encoder
 
 logger = logging.getLogger(__name__)
 
@@ -178,127 +179,96 @@ def get_messages(
         conversation_id=conversation_id,
     )
 
+    # Convert Pydantic / SQLAlchemy / ORM objects
+    # into actual JSON response objects before modifying media_url.
+    response_messages = jsonable_encoder(messages)
+
     media_base_url = str(request.base_url).rstrip("/")
 
-    for message in messages:
-        try:
-            # Support dict response
-            if isinstance(message, dict):
-                metadata = message.get("metadata_json") or message.get("metadata") or {}
+    if isinstance(response_messages, dict):
+        response_messages = [response_messages]
 
-                if isinstance(metadata, str):
-                    try:
-                        metadata = json.loads(metadata)
-                    except json.JSONDecodeError:
-                        metadata = {}
+    for message in response_messages:
+        if not isinstance(message, dict):
+            continue
 
-                if not isinstance(metadata, dict):
-                    metadata = {}
+        # Get metadata from serialized response
+        metadata = (
+            message.get("metadata_json")
+            or message.get("metadata")
+            or {}
+        )
 
-                media_id = str(
-                    metadata.get("media_id")
-                    or ""
-                ).strip()
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                metadata = {}
 
-                media_type = (
-                    message.get("media_type")
-                    or metadata.get("media_type")
-                    or ""
-                ).lower()
+        if not isinstance(metadata, dict):
+            metadata = {}
 
-                if media_id and media_type in {
-                    "image",
-                    "audio",
-                    "voice",
-                }:
-                    token = create_media_token(
-                        media_id=media_id,
-                        workspace_id=str(workspace_id),
-                    )
+        # Find media ID
+        media_id = (
+            metadata.get("media_id")
+            or message.get("media_id")
+            or ""
+        )
 
-                    message["media_url"] = (
-                        f"{media_base_url}"
-                        f"/inbox/media/meta/{media_id}"
-                        f"?token={token}"
-                    )
+        media_id = str(media_id).strip()
 
-                    message["media_type"] = (
-                        "audio"
-                        if media_type == "voice"
-                        else media_type
-                    )
+        # Find media type
+        media_type = (
+            message.get("media_type")
+            or metadata.get("media_type")
+            or metadata.get("message_type")
+            or ""
+        ).lower()
 
-                    if not message.get("mime_type"):
-                        message["mime_type"] = metadata.get("mime_type")
+        # Normalize voice → audio
+        if media_type == "voice":
+            media_type = "audio"
 
-            # Support Pydantic / object response
-            else:
-                metadata = getattr(
-                    message,
-                    "metadata_json",
-                    None,
-                ) or getattr(
-                    message,
-                    "metadata",
-                    None,
-                ) or {}
+        if not media_id:
+            continue
 
-                if isinstance(metadata, str):
-                    try:
-                        metadata = json.loads(metadata)
-                    except json.JSONDecodeError:
-                        metadata = {}
+        if media_type not in {
+            "image",
+            "audio",
+        }:
+            continue
 
-                if not isinstance(metadata, dict):
-                    metadata = {}
+        # Create browser-safe signed URL
+        token = create_media_token(
+            media_id=media_id,
+            workspace_id=str(workspace_id),
+        )
 
-                media_id = str(
-                    metadata.get("media_id")
-                    or ""
-                ).strip()
+        signed_url = (
+            f"{media_base_url}"
+            f"/inbox/media/meta/{media_id}"
+            f"?token={token}"
+        )
 
-                media_type = (
-                    getattr(message, "media_type", None)
-                    or metadata.get("media_type")
-                    or ""
-                ).lower()
+        # IMPORTANT:
+        # overwrite serialized response itself
+        message["media_url"] = signed_url
+        message["media_type"] = media_type
 
-                if media_id and media_type in {
-                    "image",
-                    "audio",
-                    "voice",
-                }:
-                    token = create_media_token(
-                        media_id=media_id,
-                        workspace_id=str(workspace_id),
-                    )
+        # Keep mime type available to frontend
+        if not message.get("mime_type"):
+            mime = metadata.get("mime_type")
+            if mime:
+                message["mime_type"] = mime
 
-                    signed_url = (
-                        f"{media_base_url}"
-                        f"/inbox/media/meta/{media_id}"
-                        f"?token={token}"
-                    )
+        # Also update metadata copy if frontend reads meta.media_url
+        if isinstance(metadata, dict):
+            metadata["media_url"] = signed_url
+            metadata["media_type"] = media_type
 
-                    setattr(
-                        message,
-                        "media_url",
-                        signed_url,
-                    )
+            message["metadata"] = metadata
 
-                    setattr(
-                        message,
-                        "media_type",
-                        "audio"
-                        if media_type == "voice"
-                        else media_type,
-                    )
-
-        except Exception:
-            logger.exception(
-                "Failed to create signed media URL for message"
-            )
-
-    return messages
+    return response_messages
 
 
 @router.post("/send-reply")
