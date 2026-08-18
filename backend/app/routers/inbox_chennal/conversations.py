@@ -233,6 +233,7 @@ def get_messages(
         if media_type not in {
             "image",
             "audio",
+            "video",
         }:
             continue
 

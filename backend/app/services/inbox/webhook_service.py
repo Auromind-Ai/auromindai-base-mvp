@@ -627,7 +627,7 @@ class WebhookService:
 
             msg_type = (message.get("type") or "").lower()
 
-            if msg_type in {"image", "audio", "voice"}:
+            if msg_type in {"image", "audio", "voice", "video"}:
                 media = message.get(msg_type) or {}
 
                 # WhatsApp voice notes normally arrive as type="audio"
@@ -642,7 +642,7 @@ class WebhookService:
                     media_type = (
                         "audio"
                         if msg_type in {"audio", "voice"}
-                        else "image"
+                        else msg_type
                     )
 
                    
