@@ -1067,29 +1067,60 @@ function ChatArea({
                             parsedMetadata = {};
                         }
 
+                        const isAI = m.sender_type?.toLowerCase() === 'ai';
+                        const isSuggested = m.status?.toLowerCase() === 'suggested';
+
+                        const messageDate = new Date(m.timestamp || m.created_at);
+
+                        const timeStr = !isNaN(messageDate.getTime())
+                            ? messageDate.toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })
+                            : '';
+
                         const mediaUrl =
                             m.media_url ||
                             parsedMetadata.media_url ||
                             null;
 
-                        const mediaType =
+                        const mediaType = (
                             m.media_type ||
                             parsedMetadata.media_type ||
                             parsedMetadata.message_type ||
                             m.type ||
-                            null;
+                            ''
+                        ).toLowerCase();
 
-                        const mimeType =
+                        const mimeType = (
                             m.mime_type ||
                             parsedMetadata.mime_type ||
-                            null;
+                            ''
+                        ).toLowerCase();
 
-                        
-                        const isAI = m.sender_type?.toLowerCase() === 'ai';
-                        const isSuggested = m.status?.toLowerCase() === 'suggested';
-                        const isAudio = m.content?.includes('.mp3') || m.content?.includes('.ogg') || m.content?.includes('.wav') || m.content?.includes('/audio') || m.type === 'audio';
-                        const isImage = (m.content?.match(/\.(jpeg|jpg|gif|png|webp)/i) || m.type === 'image') && !isAudio;
-                        const timeStr = new Date(m.timestamp || m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const normalizedContent = (m.content || '').trim();
+
+                        const isImage =
+                            mediaType === 'image' ||
+                            mimeType.startsWith('image/') ||
+                            /\.(jpeg|jpg|gif|png|webp)(\?|$)/i.test(mediaUrl || '');
+
+                        const isAudio =
+                            mediaType === 'audio' ||
+                            mediaType === 'voice' ||
+                            mimeType.startsWith('audio/') ||
+                            /\.(mp3|ogg|wav|m4a|aac|opus)(\?|$)/i.test(mediaUrl || '');
+
+                        const isVideo =
+                            mediaType === 'video' ||
+                            mimeType.startsWith('video/') ||
+                            /\.(mp4|webm|mov|mkv)(\?|$)/i.test(mediaUrl || '');
+
+                        const isMediaPlaceholder = /^(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)$/i.test(
+                            normalizedContent.replace(/^\[|\]$/g, '')
+                        );
+
+                        const displayContent = isMediaPlaceholder ? '' : m.content;
 
                         return (
                             <motion.div
@@ -1110,44 +1141,44 @@ function ChatArea({
                                             Use reply <ChevronRight size={14} />
                                         </button>
                                     </div>
-                                ) : isAudio ? (
-                                    <div className="rounded-[18px] bg-[#d9fdd3] text-[#111b21] p-2 border border-black/5 shadow-sm">
-                                        <WhatsAppAudioMessage url={m.content} isMe={!isUser} timestamp={timeStr} />
-                                    </div>
-                                ) : isImage ? (
-                                    <div className="rounded-2xl bg-[#d9fdd3] p-2 border border-black/5 shadow-sm max-w-[75%]">
-                                        <img
-                                            src={m.content}
-                                            alt="media"
-                                            onClick={() => setPreviewMedia({ type: 'image', url: m.content })}
-                                            className="rounded-xl max-h-72 object-cover cursor-pointer hover:opacity-95 transition"
-                                        />
-                                        <div className="flex items-center justify-end gap-1 text-[10px] text-[#667781] mt-1 pr-1">
-                                            <span>{timeStr}</span>
-                                            {!isUser && <CheckCheck size={14} className="text-[#34b7f1]" />}
-                                        </div>
-                                    </div>
                                 ) : (
                                     <div
-                                        className={`max-w-[72%] px-4 py-3 ${isUser ? 'rounded-[20px_20px_20px_6px]' : 'rounded-[20px_20px_6px_20px]'}`}
-                                        style={isUser
-                                            ? { backgroundColor: '#252525', borderBottomLeftRadius: '6px' }
-                                            : { backgroundColor: '#1a7a45', borderBottomRightRadius: '6px' }
+                                        className={`max-w-[72%] px-4 py-3 ${
+                                            isUser
+                                                ? 'rounded-[20px_20px_20px_6px]'
+                                                : 'rounded-[20px_20px_6px_20px]'
+                                        }`}
+                                        style={
+                                            isUser
+                                                ? {
+                                                    backgroundColor: '#252525',
+                                                    borderBottomLeftRadius: '6px'
+                                                }
+                                                : {
+                                                    backgroundColor: '#1a7a45',
+                                                    borderBottomRightRadius: '6px'
+                                                }
                                         }
                                     >
                                         <MessageRenderer
-                                            content={m.content}
+                                            content={displayContent}
                                             metadata={parsedMetadata}
-                                            media_url={m.media_url}
+                                            media_url={mediaUrl}
                                             media_type={mediaType}
                                             mime_type={mimeType}
                                             isMe={!isUser}
                                             theme={ch}
                                             onPreviewMedia={setPreviewMedia}
                                         />
+
                                         <p className="text-[10px] text-white/40 mt-1.5 flex items-center justify-end gap-1">
                                             <span>{timeStr}</span>
-                                            {!isUser && <CheckCheck size={14} className="text-white/70" />}
+                                            {!isUser && (
+                                                <CheckCheck
+                                                    size={14}
+                                                    className="text-white/70"
+                                                />
+                                            )}
                                         </p>
                                     </div>
                                 )}

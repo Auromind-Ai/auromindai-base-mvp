@@ -65,11 +65,12 @@ export default function MessageRenderer({
           />
         )}
 
+    
         {/* Body content */}
-        {content && (
-          <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
-            {content}
-          </p>
+        {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
+            <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
+                {content}
+            </p>
         )}
 
         {/* Footer */}
@@ -136,14 +137,24 @@ export default function MessageRenderer({
           onClick={() => onPreviewMedia?.({ type: 'image', url: mediaUrl })}
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-        {content && (
-          <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">{content}</p>
+        {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
+            <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">
+                {content}
+            </p>
         )}
       </div>
     );
   }
 
-  if (mediaUrl && messageType === 'audio') {
+  if (
+    mediaUrl &&
+    (
+      messageType === 'audio' ||
+      messageType === 'voice' ||
+      mimeType.startsWith('audio/') ||
+      /\.(mp3|ogg|wav|m4a|aac|opus)(\?|$)/i.test(mediaUrl)
+    )
+  ) {
   return (
     <div className="max-w-[280px]">
       <audio
