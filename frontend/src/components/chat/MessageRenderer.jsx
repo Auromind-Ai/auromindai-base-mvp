@@ -189,7 +189,7 @@ export default function MessageRenderer({
           className="max-w-[220px] rounded-xl"
           onClick={(e) => { e.stopPropagation(); onPreviewMedia?.({ type: 'video', url: mediaUrl }); }}
         />
-        {content && (
+        {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
           <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">{content}</p>
         )}
       </div>
