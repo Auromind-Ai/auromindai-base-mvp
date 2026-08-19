@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/resources/blog",
   },
   openGraph: {
-    title: "Conversational Marketing & AI Sales Blog | Auromind AI",
+    title: "Conversational Marketing & AI Sales Blog | Orbion Agents",
     description: "Discover expert guides, technical RAG tips, and conversational sales strategies to scale customer acquisition and automate company operations.",
     url: "https://orbionagents.com/resources/blog",
     type: "website",
   },
   twitter: {
-    title: "Conversational Marketing & AI Sales Blog | Auromind AI",
+    title: "Conversational Marketing & AI Sales Blog | Orbion Agents",
     description: "Discover expert guides, technical RAG tips, and conversational sales strategies to scale customer acquisition and automate company operations.",
   },
 };

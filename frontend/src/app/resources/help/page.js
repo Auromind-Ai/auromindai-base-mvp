@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/resources/help",
   },
   openGraph: {
-    title: "Auromind Help Center - FAQs & Support | Auromind AI",
+    title: "Auromind Help Center - FAQs & Support | Orbion Agents",
     description: "Find answers, resolve issues, and explore tutorials. Search our FAQs, configure billing accounts, and troubleshoot platform integrations.",
     url: "https://orbionagents.com/resources/help",
     type: "website",
   },
   twitter: {
-    title: "Auromind Help Center - FAQs & Support | Auromind AI",
+    title: "Auromind Help Center - FAQs & Support | Orbion Agents",
     description: "Find answers, resolve issues, and explore tutorials. Search our FAQs, configure billing accounts, and troubleshoot platform integrations.",
   },
 };

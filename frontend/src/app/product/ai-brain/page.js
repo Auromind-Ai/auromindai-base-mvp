@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/product/ai-brain",
   },
   openGraph: {
-    title: "AI Brain Engine & Context-Aware RAG | Auromind AI",
+    title: "AI Brain Engine & Context-Aware RAG | Orbion Agents",
     description: "Ground your bots in business facts. Sync docs, databases, and website links securely using pgvector search and Model Context Protocol guardrails.",
     url: "https://orbionagents.com/product/ai-brain",
     type: "website",
   },
   twitter: {
-    title: "AI Brain Engine & Context-Aware RAG | Auromind AI",
+    title: "AI Brain Engine & Context-Aware RAG | Orbion Agents",
     description: "Ground your bots in business facts. Sync docs, databases, and website links securely using pgvector search and Model Context Protocol guardrails.",
   },
 };

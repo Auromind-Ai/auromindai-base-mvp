@@ -156,6 +156,14 @@ export async function getSupportedNotificationTemplateKeys() {
   return client.get('/admin/notification-templates/template-keys');
 }
 
+export async function getNotificationEventContracts() {
+  return client.get('/admin/notification-templates/contracts');
+}
+
+export async function getNotificationEventContract(templateKey) {
+  return client.get(`/admin/notification-templates/contracts/${templateKey}`);
+}
+
 // Notification Rules APIs
 export async function getNotificationRules(params = {}) {
   return client.get('/admin/notification-templates/rules', { params });

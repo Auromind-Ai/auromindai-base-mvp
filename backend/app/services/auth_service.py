@@ -308,11 +308,11 @@ class AuthService:
                     user_id=user.id,
                     workspace_id=ws_id,
                     type="security_alert",
-                    title=None,          # Loaded dynamically from DB NotificationTemplate / Fallback
-                    message=None,        # Loaded dynamically from DB NotificationTemplate / Fallback
-                    send_email=True,     # Dispatch email if template or default is configured
+                    title=None,          
+                    message=None,       
+                    send_email=True,    
                     is_critical=is_new_device,
-                    email_subject=None,  # Loaded dynamically from DB NotificationTemplate / Fallback
+                    email_subject=None, 
                     deduplication_key=dedup_key,
                     template_key=template_key,
                     variables={
@@ -416,7 +416,7 @@ class AuthService:
                     "email": email,
                     "user_name": user_display,
                     "verification_url": f"/verify-otp?email={email}",
-                    "action_route": "/verify-otp",
+                    "action_route": f"/verify-otp?email={email}",
                     "action_label": "Verify Email",
                     "expires_in": "5 minutes",
                     "otp": otp,

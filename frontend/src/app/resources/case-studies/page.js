@@ -9,19 +9,19 @@ import { Award, Target, TrendingUp, Users, CheckCircle2, ArrowRight } from 'luci
 
 export const metadata = {
   title: "AI Case Studies & Customer Success Stories",
-  description: "See how startups and enterprise brands deploy Auromind AI to scale conversion rates, recover cart revenue, and save support agent hours.",
+  description: "See how startups and enterprise brands deploy Orbion Agents to scale conversion rates, recover cart revenue, and save support agent hours.",
   alternates: {
     canonical: "/resources/case-studies",
   },
   openGraph: {
-    title: "AI Case Studies & Customer Success Stories | Auromind AI",
-    description: "See how startups and enterprise brands deploy Auromind AI to scale conversion rates, recover cart revenue, and save support agent hours.",
+    title: "AI Case Studies & Customer Success Stories | Orbion Agents",
+    description: "See how startups and enterprise brands deploy Orbion Agents to scale conversion rates, recover cart revenue, and save support agent hours.",
     url: "https://orbionagents.com/resources/case-studies",
     type: "website",
   },
   twitter: {
-    title: "AI Case Studies & Customer Success Stories | Auromind AI",
-    description: "See how startups and enterprise brands deploy Auromind AI to scale conversion rates, recover cart revenue, and save support agent hours.",
+    title: "AI Case Studies & Customer Success Stories | Orbion Agents",
+    description: "See how startups and enterprise brands deploy Orbion Agents to scale conversion rates, recover cart revenue, and save support agent hours.",
   },
 };
 

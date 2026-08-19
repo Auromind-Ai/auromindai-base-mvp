@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/solutions/saas",
   },
   openGraph: {
-    title: "AI SaaS Assistant & Developer API Support | Auromind AI",
+    title: "AI SaaS Assistant & Developer API Support | Orbion Agents",
     description: "Accelerate your SaaS pipeline. Deploy conversational AI agents to answer developer API questions, qualify signups, and book enterprise demos.",
     url: "https://orbionagents.com/solutions/saas",
     type: "website",
   },
   twitter: {
-    title: "AI SaaS Assistant & Developer API Support | Auromind AI",
+    title: "AI SaaS Assistant & Developer API Support | Orbion Agents",
     description: "Accelerate your SaaS pipeline. Deploy conversational AI agents to answer developer API questions, qualify signups, and book enterprise demos.",
   },
 };

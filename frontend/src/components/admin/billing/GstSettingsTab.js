@@ -44,7 +44,7 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
       setActionLoading(true)
       const res = await getPlatformSettings()
       setSettings({
-        supplier_name: res.supplier_name || "Auromind AI Private Limited",
+        supplier_name: res.supplier_name || "Orbion Agents Private Limited",
         supplier_gstin: res.supplier_gstin || "33ABCDE1234F1Z5",
         supplier_address: res.supplier_address || "123, FinTech Hub, Chennai, Tamil Nadu",
         supplier_state: res.supplier_state || "Tamil Nadu",
@@ -174,7 +174,7 @@ export default function GstSettingsTab({ setError, setSuccess, setActionLoading 
                   required
                   value={settings.supplier_name}
                   onChange={(e) => setSettings({ ...settings, supplier_name: e.target.value })}
-                  placeholder="e.g. Auromind AI Private Limited"
+                  placeholder="e.g. Orbion Agents Private Limited"
                   className="w-full bg-[#070709] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition"
                 />
               </div>

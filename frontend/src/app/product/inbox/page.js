@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/product/inbox",
   },
   openGraph: {
-    title: "Omnichannel Inbox & Shared Dashboard | Auromind AI",
+    title: "Omnichannel Inbox & Shared Dashboard | Orbion Agents",
     description: "Consolidate WhatsApp, Instagram, and web chats. Collaborate with team members and use AI copilot suggestions to draft replies in real-time.",
     url: "https://orbionagents.com/product/inbox",
     type: "website",
   },
   twitter: {
-    title: "Omnichannel Inbox & Shared Dashboard | Auromind AI",
+    title: "Omnichannel Inbox & Shared Dashboard | Orbion Agents",
     description: "Consolidate WhatsApp, Instagram, and web chats. Collaborate with team members and use AI copilot suggestions to draft replies in real-time.",
   },
 };

@@ -9,19 +9,19 @@ import { ShoppingBag, ShoppingCart, Percent, Share2, HelpCircle, CheckCircle2, A
 
 export const metadata = {
   title: "E-commerce AI Chatbot & Cart Recovery",
-  description: "Boost store sales. Connect Auromind AI to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
+  description: "Boost store sales. Connect Orbion Agents to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
   alternates: {
     canonical: "/solutions/ecommerce",
   },
   openGraph: {
-    title: "E-commerce AI Chatbot & Cart Recovery | Auromind AI",
-    description: "Boost store sales. Connect Auromind AI to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
+    title: "E-commerce AI Chatbot & Cart Recovery | Orbion Agents",
+    description: "Boost store sales. Connect Orbion Agents to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
     url: "https://orbionagents.com/solutions/ecommerce",
     type: "website",
   },
   twitter: {
-    title: "E-commerce AI Chatbot & Cart Recovery | Auromind AI",
-    description: "Boost store sales. Connect Auromind AI to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
+    title: "E-commerce AI Chatbot & Cart Recovery | Orbion Agents",
+    description: "Boost store sales. Connect Orbion Agents to automate cart recovery follow-ups, sync product catalogs, and send Stripe payment links directly in chat.",
   },
 };
 

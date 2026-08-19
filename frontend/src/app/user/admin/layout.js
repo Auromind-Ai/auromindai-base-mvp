@@ -477,7 +477,7 @@ function AdminLayoutContent({ children }) {
                     onClose={() => setIsFeedbackOpen(false)}
                 />
 
-                {/* Global AI Chat - Hidden on Auromind AI page */}
+                {/* Global AI Chat - Hidden on Orbion Agents page */}
                 {pathname !== '/user/admin/ai' && <GlobalAIChat />}
             </div>
         </RealtimeProvider>
