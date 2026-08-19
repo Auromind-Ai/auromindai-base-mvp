@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+from fastapi import logger
 import tiktoken
 import uuid
 from datetime import datetime, timezone
@@ -14,7 +15,7 @@ from app.models.subscription import Subscription
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.credit_pack import CreditPack
 from .gateway.base import TOKENS_PER_CREDIT, PaymentGateway, TokenBalance, TokenLimitStatus
-      
+from app.core.event_bus import emit_event
 from app.services.billing.entitlement_service import EntitlementService
 from .gateway import get_gateway
 from .token_service import TokenService
@@ -297,9 +298,10 @@ class BillingService:
             if fetched_payment.status not in {"captured", "authorized"}:
                 raise ValueError("Payment is not in a successful state")
 
-            if workspace.provider_customer_id and fetched_subscription.customer_id:
-                if workspace.provider_customer_id != fetched_subscription.customer_id:
-                    raise ValueError("Subscription customer does not match workspace")
+            if fetched_subscription.customer_id:
+                workspace.provider_customer_id = fetched_subscription.customer_id
+                db.add(workspace)
+                db.flush()
 
             local_plan = self.plan_service._get_or_create_plan(db, plan_config)
             subscription = self.subscription_service._upsert_subscription(
@@ -329,6 +331,41 @@ class BillingService:
                 payment=payment,
             )
             db.commit()
+
+            # Emit payment.succeeded event via EventBus for immediate subscription confirmation email
+            try:
+                from app.core.event_bus import emit_event
+                from app.models.user import User
+                from app.models.invoice import Invoice
+
+                user_obj = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first() if user_id else None
+                user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (workspace.name or "User"))
+                renewal_str = subscription.current_period_end.strftime("%d %b %Y") if (subscription and subscription.current_period_end) else "Next Billing Cycle"
+
+                total_paid = float(gst_calcs.get("total_amount") or payment.amount or plan_config.amount)
+                inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
+                inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
+
+                emit_event(
+                    event_name="payment.succeeded",
+                    payload={
+                        "plan_name": plan_config.name if hasattr(plan_config, "name") else plan_config.key.capitalize(),
+                        "amount": f"₹{total_paid:,.2f} INR (incl. GST)",
+                        "invoice_id": inv_num,
+                        "renewal_date": renewal_str,
+                        "user_name": user_name,
+                        "workspace_name": workspace.name,
+                        "action_route": "/billing",
+                        "action_label": "View Invoices",
+                        "workspace_id": str(workspace_id)
+                    },
+                    workspace_id=uuid.UUID(str(workspace_id)),
+                    actor_id=uuid.UUID(str(user_id)) if user_id else None,
+                    idempotency_key=f"sub_payment_verify:{payment.id}",
+                    db=db
+                )
+            except Exception as notif_exc:
+                logger.error(f"Failed to emit payment.succeeded notification in verify_payment: {notif_exc}")
 
             return {
                 "status": "ACTIVE",
@@ -508,6 +545,43 @@ class BillingService:
             description=f"Purchased AI Credit Pack: {pack.name}"
         )
         db.commit()
+
+        # Emit credits.purchased event via EventBus for immediate user notification
+        try:
+            from app.models.user import User
+            from app.models.invoice import Invoice
+
+            balance = self.token_service._get_token_balance_locked(db, str(workspace_id))
+            remaining_credits = max(0, balance.tokens_added - balance.tokens_used) if balance else pack.credits
+
+            user_obj = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first() if user_id else None
+            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (workspace.name or "User"))
+
+            total_paid = float(gst_calcs.get("total_amount") or payment.amount or pack.amount)
+            inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
+            inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
+
+            emit_event(
+                event_name="credits.purchased",
+                payload={
+                    "credits_added": f"{int(pack.credits):,}",
+                    "current_balance": f"{int(remaining_credits):,}",
+                    "amount": f"₹{total_paid:,.2f} INR (incl. GST)",
+                    "user_name": user_name,
+                    "workspace_name": workspace.name,
+                    "invoice_id": inv_num,
+                    "invoice_url": f"/billing/invoices/{payment.id}",
+                    "action_route": "/billing",
+                    "action_label": "View Invoices",
+                    "workspace_id": str(workspace_id)
+                },
+                workspace_id=uuid.UUID(str(workspace_id)),
+                actor_id=uuid.UUID(str(user_id)) if user_id else None,
+                idempotency_key=f"credit_buy:{workspace_id}:{payment_id}",
+                db=db
+            )
+        except Exception as notif_exc:
+            logger.error(f"Failed to emit credits.purchased notification in verify_credit_pack_payment: {notif_exc}")
 
         return {
             "status": "success",

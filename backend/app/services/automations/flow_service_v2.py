@@ -1326,21 +1326,21 @@ class FlowServiceV2:
         state.runtime_context["active_ai_session"] = False
 
         try:
-            
-            NotificationService.notify_workspace(
-                db=db,
-                workspace_id=conversation.workspace_id,
-                type="workflow_completed",
-                title=None,
-                message=None,
-                template_key="workflow_completed",
-                variables={
+            emit_event(
+                event_name="workflow.completed",
+                payload={
                     "workflow_name": flow.name,
-                    "duration": f"{duration_ms}ms" if 'duration_ms' in locals() else "1.2s"
-                }
+                    "duration": f"{duration_ms}ms" if 'duration_ms' in locals() else "1.2s",
+                    "workspace_id": str(conversation.workspace_id) if conversation.workspace_id else None,
+                    "action_route": "/automation/workflows",
+                    "action_label": "View Workflows"
+                },
+                workspace_id=conversation.workspace_id,
+                idempotency_key=f"flow_done:{flow.id}:{state.id}",
+                db=db
             )
         except Exception as notif_exc:
-            logger.error(f"Failed to send workflow completion notification: {notif_exc}")
+            logger.error(f"Failed to emit workflow.completed event: {notif_exc}")
 
 
     # ACTION DISPATCH

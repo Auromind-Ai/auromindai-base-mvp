@@ -2,6 +2,7 @@ from app.core.logger import logger
 from datetime import datetime
 from app.models import HumanEscalation
 import uuid
+from app.core.event_bus import emit_event
 from app.services.notification_service import NotificationService
 
 class EscalationQueue:
@@ -45,20 +46,22 @@ class EscalationQueue:
                 self.db.refresh(escalation)
 
                 try:
-                    NotificationService.notify_workspace(
-                        db=self.db,
+                    emit_event(
+                        event_name="ai_agent.human_escalation",
+                        payload={
+                            "customer_name": data.get("customer_name") or "Customer",
+                            "escalation_reason": escalation_data.get("reason", "Human intervention requested"),
+                            "channel": data.get("channel", "chat"),
+                            "action_route": f"/inbox?conversation_id={conversation_id}",
+                            "action_label": "Open Conversation",
+                            "workspace_id": str(escalation_data["workspace_id"])
+                        },
                         workspace_id=escalation_data["workspace_id"],
-                        type="ai_agent_event",
-                        title=None,
-                        message=None,
-                        template_key="human_escalation",
-                        variables={
-                            "customer_name": "Customer",
-                            "escalation_reason": escalation_data.get("reason", "Intervention required")
-                        }
+                        idempotency_key=f"escalate:{conversation_id}:{escalation.id}",
+                        db=self.db
                     )
                 except Exception as notif_exc:
-                    self.logger.error(f"Failed to send escalation notification: {notif_exc}")
+                    self.logger.error(f"Failed to emit human escalation event: {notif_exc}")
 
             else:
                 escalation = escalation_data

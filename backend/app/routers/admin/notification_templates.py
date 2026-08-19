@@ -279,6 +279,12 @@ def test_render_notification_template(
     if payload.variables:
         sample_context.update(payload.variables)
 
+    if payload.action_route:
+        sample_context["action_route"] = payload.action_route.strip()
+        sample_context["action_url"] = build_action_url(payload.action_route.strip(), sample_context.get("frontend_url"))
+    if payload.action_label:
+        sample_context["action_label"] = payload.action_label.strip()
+
     rendered_title = NotificationTemplateService.render_text(payload.title, sample_context) if payload.title else None
     rendered_subject = NotificationTemplateService.render_text(payload.subject, sample_context) if payload.subject else None
     rendered_message = NotificationTemplateService.render_text(payload.message, sample_context)
@@ -332,6 +338,13 @@ def test_send_notification_template(
 
     if payload.variables:
         sample_context.update(payload.variables)
+
+    from app.services.notifications.event_registry_service import build_action_url
+    if payload.action_route:
+        sample_context["action_route"] = payload.action_route.strip()
+        sample_context["action_url"] = build_action_url(payload.action_route.strip(), sample_context.get("frontend_url"))
+    if payload.action_label:
+        sample_context["action_label"] = payload.action_label.strip()
 
     # 2. Render Title, Subject, Message and HTML
     rendered_title = NotificationTemplateService.render_text(payload.title, sample_context) if payload.title else "Test Notification"
@@ -719,7 +732,22 @@ def update_notification_template(
 
     update_dict = data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
-        setattr(template, key, value)
+        if key not in ("action_route", "action_label") and hasattr(template, key):
+            setattr(template, key, value)
+
+    # Persist action_route and action_label to EventMetadata
+    if data.action_route is not None or data.action_label is not None:
+        from app.models.event_metadata import EventMetadata
+        from app.services.notifications.event_registry_service import EventRegistryService
+        meta = db.query(EventMetadata).filter(EventMetadata.template_key == template.template_key).first()
+        if meta:
+            if data.action_route is not None:
+                meta.action_route = data.action_route.strip()
+            if data.action_label is not None:
+                meta.action_label = data.action_label.strip()
+            db.add(meta)
+            db.commit()
+            EventRegistryService.clear_cache()
 
     admin_email = current_user.user.email if hasattr(current_user, "user") and current_user.user else "Platform Admin"
     template.updated_by = admin_email

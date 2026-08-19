@@ -289,33 +289,19 @@ class AuthService:
         db.add(user_session)
         db.commit()
 
-        # Send dynamic Login Notification (New Device vs Known Device) using Notification Template Management
-        if not is_new_user:
-          
+        # Send dynamic Security Notification only for NEW UNRECOGNIZED device logins using EventBus
+        if not is_new_user and is_new_device:
             device_name = parse_user_agent(device_info) if device_info else "Unknown Device/Browser"
-            login_time_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            
-            template_key = "new_device_login" if is_new_device else "known_device_login"
-            dedup_key = f"{template_key}:{user.id}:{session_id}"
-
-            ws_name = workspaces[0][0].name if workspaces else "Auromind"
+            login_time_str = datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC")
+            dedup_key = f"new_dev:{user.id}:{session_id}"
             ws_id = uuid.UUID(workspace_id) if workspace_id else None
 
+            ws_name = workspaces[0][0].name if workspaces else "Auromind"
             try:
-                from app.services.notification_service import NotificationService
-                NotificationService.notify(
-                    db=db,
-                    user_id=user.id,
-                    workspace_id=ws_id,
-                    type="security_alert",
-                    title=None,          
-                    message=None,       
-                    send_email=True,    
-                    is_critical=is_new_device,
-                    email_subject=None, 
-                    deduplication_key=dedup_key,
-                    template_key=template_key,
-                    variables={
+                from app.core.event_bus import emit_event
+                emit_event(
+                    event_name="security.new_device_login",
+                    payload={
                         "user_name": user.full_name or user.email.split("@")[0].title(),
                         "email": user.email,
                         "workspace_name": ws_name,
@@ -324,12 +310,20 @@ class AuthService:
                         "device": device_name,
                         "browser": device_name,
                         "location": user_session.location or "Unknown Location",
-                        "login_time": login_time_str
-                    }
+                        "login_time": login_time_str,
+                        "action_route": "/settings/security",
+                        "action_label": "Review Security",
+                        "user_id": str(user.id),
+                        "workspace_id": str(ws_id) if ws_id else None
+                    },
+                    workspace_id=ws_id,
+                    actor_id=user.id,
+                    idempotency_key=dedup_key,
+                    db=db
                 )
             except Exception as notif_exc:
                 import logging
-                logging.getLogger("app").error(f"Failed to send login notification using template '{template_key}': {notif_exc}")
+                logging.getLogger("app").error(f"Failed to emit security.new_device_login event: {notif_exc}")
 
 
 
@@ -388,6 +382,7 @@ class AuthService:
             raise ValueError("Email already registered. Please log in.")
 
         otp = str(random.randint(100000, 999999))
+       
        
         # Store in Redis if available
         try:

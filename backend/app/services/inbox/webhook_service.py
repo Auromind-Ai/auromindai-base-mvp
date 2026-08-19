@@ -73,27 +73,7 @@ def upsert_lead(
             last_activity_at=datetime.now(timezone.utc),
         )
         db.add(lead)
-        db.flush()
-
-        try:
-            NotificationService.notify_workspace(
-                db=db,
-                workspace_id=workspace_id,
-                type="lead_alert",
-                title=None,
-                message=None,
-                template_key="lead_alert",
-                variables={
-                    "lead_name": conv_name or phone or "New Lead",
-                    "lead_email": phone or "N/A",
-                    "lead_score": "0",
-                    "source": source.upper()
-                }
-            )
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"Failed to send lead alert notification: {e}")
-
+        # Emit dynamic lead.created event via EventBus (handles all recipient routing & channels)
         try:
             from app.core.event_bus import emit_event
             emit_event(
