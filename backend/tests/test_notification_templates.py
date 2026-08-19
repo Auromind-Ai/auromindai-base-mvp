@@ -49,7 +49,7 @@ def test_placeholder_render_missing_keys():
 def test_template_service_fallback(db):
     tpl = NotificationTemplateService.get_template(db, "welcome_signup")
     assert tpl is not None
-    assert tpl["category"] == "Security"
+    assert tpl["category"] == "User & Onboarding"
     assert "{{workspace_name}}" in tpl["message"] or "{{user_name}}" in tpl["message"]
 
 
@@ -85,8 +85,8 @@ def test_channel_validation_rules():
     from fastapi import HTTPException
     from app.routers.admin.notification_templates import validate_channel_selection
 
-    # 1. payment_success, usage_80, workflow_completed support email + in_app -> "both", "email", "in_app" are all valid
-    for key in ["payment_success", "usage_80", "usage_90", "usage_100", "workflow_completed", "workflow_failed", "lead_alert", "human_escalation", "welcome_signup"]:
+    # 1. payment_success, credits_low_20, workflow_failed support email + in_app -> "both", "email", "in_app" are all valid
+    for key in ["payment_success", "credits_low_20", "credits_low_10", "credits_exhausted", "broadcast_completed", "workflow_failed", "lead_created", "welcome_signup"]:
         validate_channel_selection(key, "both")
         validate_channel_selection(key, "email")
         validate_channel_selection(key, "in_app")
@@ -106,17 +106,17 @@ def test_channel_validation_rules():
 def test_all_12_notification_events_e2e(db):
     """
     E2E Smoke Test verifying template event categories:
-    1. welcome_signup
-    2. new_device_login
-    3. known_device_login
-    4. payment_success
-    5. payment_failed
-    6. usage_80 / usage_90 / usage_100
-    7. workflow_completed / workflow_failed
-    8. lead_alert
-    9. human_escalation
+    1. welcome_signup (User & Onboarding)
+    2. new_device_login (Security)
+    3. 2fa_enabled (Security)
+    4. payment_success (Payments & Credits)
+    5. payment_failed (Payments & Credits)
+    6. credits_low_20 / credits_low_10 / credits_exhausted
+    7. broadcast_completed / workflow_failed
+    8. lead_created / lead_assigned
+    9. lead_high_intent / lead_converted
     10. otp_code
-    11. account_deletion_requested / account_deletion_cancelled
+    11. daily_dashboard_summary / weekly_performance_report
     12. Admin template modification & hot reload cache reflection
     """
     # 1. Seed defaults into DB
@@ -156,14 +156,14 @@ def test_all_12_notification_events_e2e(db):
     assert n2 is not None
     assert "192.168.1.1" in n2.message or "Chrome" in n2.message
 
-    # Event 3: known_device_login
+    # Event 3: 2fa_enabled
     n3 = NotificationService.notify(
         db=db, user_id=user.id, workspace_id=ws.id, type="security_alert",
-        template_key="known_device_login",
-        variables={"user_name": "Smoke Test User", "ip_address": "192.168.1.1", "login_time": "2026-07-24 UTC"}
+        template_key="2fa_enabled",
+        variables={"user_name": "Smoke Test User", "login_time": "2026-07-24 UTC"}
     )
     assert n3 is not None
-    assert "192.168.1.1" in n3.message
+    assert "Two-Factor" in n3.message or "2FA" in n3.message or "secure" in n3.message
 
     # Event 4: payment_success
     n4 = NotificationService.notify(
@@ -181,20 +181,20 @@ def test_all_12_notification_events_e2e(db):
     )
     assert n5 is not None
 
-    # Event 6: usage_80, usage_90, usage_100
-    for key in ["usage_80", "usage_90", "usage_100"]:
+    # Event 6: credits_low_20, credits_low_10, credits_exhausted
+    for key in ["credits_low_20", "credits_low_10", "credits_exhausted"]:
         n_usage = NotificationService.notify(
             db=db, user_id=user.id, workspace_id=ws.id, type="usage_warning",
             template_key=key,
-            variables={"user_name": "Smoke Test User", "workspace_name": "Smoke Test Workspace", "resource_name": "AI Tokens", "used_amount": "80,000", "total_limit": "100,000", "action_url": "https://app.auromind.ai/billing"}
+            variables={"user_name": "Smoke Test User", "workspace_name": "Smoke Test Workspace", "resource_name": "AI Tokens", "remaining_balance": "2,000", "action_url": "https://app.auromind.ai/billing"}
         )
         assert n_usage is not None
 
-    # Event 7: workflow_completed, workflow_failed
+    # Event 7: broadcast_completed, workflow_failed
     n_wf1 = NotificationService.notify(
         db=db, user_id=user.id, workspace_id=ws.id, type="workflow_completed",
-        template_key="workflow_completed",
-        variables={"workflow_name": "Lead Sync Flow", "duration": "1.2s", "workspace_name": "Smoke Test Workspace"}
+        template_key="broadcast_completed",
+        variables={"broadcast_name": "Lead Sync Campaign", "total_sent": "1,000", "delivered": "980", "read": "800", "failed": "20", "workspace_name": "Smoke Test Workspace"}
     )
     assert n_wf1 is not None
 
@@ -205,21 +205,21 @@ def test_all_12_notification_events_e2e(db):
     )
     assert n_wf2 is not None
 
-    # Event 8: lead_alert
+    # Event 8: lead_created & lead_assigned
     n_lead = NotificationService.notify(
         db=db, user_id=user.id, workspace_id=ws.id, type="lead_alert",
-        template_key="lead_alert",
-        variables={"lead_name": "John Doe", "lead_email": "john@example.com", "lead_score": "95", "workspace_name": "Smoke Test Workspace"}
+        template_key="lead_created",
+        variables={"lead_name": "John Doe", "lead_source": "WhatsApp", "lead_phone": "+919876543210", "lead_score": "95", "workspace_name": "Smoke Test Workspace"}
     )
     assert n_lead is not None
 
-    # Event 9: human_escalation
-    n_esc = NotificationService.notify(
-        db=db, user_id=user.id, workspace_id=ws.id, type="ai_agent_event",
-        template_key="human_escalation",
-        variables={"customer_name": "Alice Smith", "escalation_reason": "Requested Live Supervisor", "workspace_name": "Smoke Test Workspace"}
+    # Event 9: lead_high_intent & lead_converted
+    n_conv = NotificationService.notify(
+        db=db, user_id=user.id, workspace_id=ws.id, type="lead_alert",
+        template_key="lead_converted",
+        variables={"lead_name": "Alice Smith", "deal_value": "₹50,000", "assigned_agent_name": "Agent 1", "product_name": "Pro Plan", "source": "Website", "workspace_name": "Smoke Test Workspace"}
     )
-    assert n_esc is not None
+    assert n_conv is not None
 
     # Event 10: otp_code
     otp_tpl = NotificationTemplateService.get_template(db, "otp_code")
@@ -227,40 +227,34 @@ def test_all_12_notification_events_e2e(db):
     rendered_otp = NotificationTemplateService.render_text(otp_tpl["message"], {"user_name": "Smoke Test User", "otp": "987654", "auth_type": "Login"})
     assert "987654" in rendered_otp
 
-    # Event 11: account_deletion_requested / account_deletion_cancelled
-    n_del1 = NotificationService.notify(
-        db=db, user_id=user.id, workspace_id=ws.id, type="security_alert",
-        template_key="account_deletion_requested",
-        variables={"user_name": "Smoke Test User", "deletion_date": "August 24, 2026"}
+    # Event 11: free_plan_activated
+    n_rep1 = NotificationService.notify(
+        db=db, user_id=user.id, workspace_id=ws.id, type="workspace_alert",
+        template_key="free_plan_activated",
+        variables={"user_name": "Smoke Test User", "plan_name": "Free Plan", "credits": "1,000", "workspace_name": "Smoke Test Workspace"}
     )
-    assert n_del1 is not None
-
-    n_del2 = NotificationService.notify(
-        db=db, user_id=user.id, workspace_id=ws.id, type="security_alert",
-        template_key="account_deletion_cancelled",
-        variables={"user_name": "Smoke Test User"}
-    )
-    assert n_del2 is not None
+    assert n_rep1 is not None
+    assert "1,000" in n_rep1.message or "Free Plan" in n_rep1.message or "Smoke Test Workspace" in n_rep1.message
 
     # Event 12: Admin Live Edit & Cache Invalidation Reflection Test
     db_tpl = db.query(NotificationTemplate).filter(
-        NotificationTemplate.template_key == "known_device_login"
+        NotificationTemplate.template_key == "2fa_enabled"
     ).first()
     assert db_tpl is not None
 
     # Modify template in DB as Admin
-    db_tpl.message = "ADMIN MODIFIED: Welcome back {{user_name}} from {{ip_address}}!"
+    db_tpl.message = "ADMIN MODIFIED: 2FA is active for {{user_name}} at {{login_time}}!"
     db.commit()
-    NotificationTemplateService.clear_cache("known_device_login")
+    NotificationTemplateService.clear_cache("2fa_enabled")
 
     # Next notification trigger MUST reflect admin update immediately
     n_updated = NotificationService.notify(
         db=db, user_id=user.id, workspace_id=ws.id, type="security_alert",
-        template_key="known_device_login",
-        variables={"user_name": "Smoke Test User", "ip_address": "10.0.0.1"}
+        template_key="2fa_enabled",
+        variables={"user_name": "Smoke Test User", "login_time": "15:30 UTC"}
     )
     assert n_updated is not None
-    assert "ADMIN MODIFIED: Welcome back Smoke Test User from 10.0.0.1!" in n_updated.message
+    assert "ADMIN MODIFIED: 2FA is active for Smoke Test User at 15:30 UTC!" in n_updated.message
 
 
 def test_test_render_notification_template():

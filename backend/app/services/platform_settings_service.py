@@ -523,7 +523,7 @@ def seed_settings_from_env(db: Session):
         "invoice_qr_action": ("view_invoice_online", "string"),
         "invoice_qr_custom_url": ("https://auromind.ai/billing", "string"),
         "invoice_qr_caption": ("Scan to view invoice online", "string"),
-        "supplier_name": ("Auromind AI Private Limited", "string"),
+        "supplier_name": ("Orbion Agents Private Limited", "string"),
         "supplier_gstin": ("33ABCDE1234F1Z5", "string"),
         "supplier_address": ("123, FinTech Hub, Chennai, Tamil Nadu - 600001, India", "string"),
         "supplier_state": ("Tamil Nadu", "string"),

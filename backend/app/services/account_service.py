@@ -1,7 +1,7 @@
 
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
-
+from app.core.event_bus import emit_event
 from app.models import User
 from app.services.email_service import EmailService
 from app.services.notification_service import NotificationService
@@ -29,24 +29,24 @@ class AccountService:
 
         formatted = deletion_date.strftime("%B %d, %Y")
         try:
-            NotificationService.notify(
-                db=db,
-                user_id=user.id,
-                workspace_id=None,
-                type="security_alert",
-                title=None,
-                message=None,
-                send_email=True,
-                is_critical=True,
-                email_subject=None,
-                template_key="account_deletion_requested",
-                variables={
+         
+            emit_event(
+                event_name="user.deletion_requested",
+                payload={
                     "user_name": user.full_name or user.email,
-                    "deletion_date": formatted
-                }
+                    "email": user.email,
+                    "deletion_date": formatted,
+                    "action_route": "/settings/account",
+                    "action_label": "Account Settings",
+                    "user_id": str(user.id),
+                    "is_critical": True
+                },
+                actor_id=user.id,
+                idempotency_key=f"del_req:{user.id}:{deletion_date.strftime('%Y%m%d')}",
+                db=db
             )
         except Exception as e:
-            logger.error(f"[AccountService] Failed to send deletion email: {e}")
+            logger.error(f"[AccountService] Failed to emit deletion requested event: {e}")
 
         return {
             "deletion_scheduled_at": deletion_date.isoformat(),
@@ -66,22 +66,21 @@ class AccountService:
         db.commit()
 
         try:
-            NotificationService.notify(
-                db=db,
-                user_id=user.id,
-                workspace_id=None,
-                type="security_alert",
-                title=None,
-                message=None,
-                send_email=True,
-                email_subject=None,
-                template_key="account_deletion_cancelled",
-                variables={
-                    "user_name": user.full_name or user.email
-                }
+            emit_event(
+                event_name="user.deletion_cancelled",
+                payload={
+                    "user_name": user.full_name or user.email,
+                    "email": user.email,
+                    "action_route": "/dashboard",
+                    "action_label": "Go to Dashboard",
+                    "user_id": str(user.id)
+                },
+                actor_id=user.id,
+                idempotency_key=f"del_cancel:{user.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+                db=db
             )
         except Exception as e:
-            logger.error(f"[AccountService] Failed to send cancellation email: {e}")
+            logger.error(f"[AccountService] Failed to emit deletion cancelled event: {e}")
 
         return {"message": "Account deletion cancelled. Your account has been fully restored."}
 

@@ -247,6 +247,55 @@ class FlowPackService:
 
             db.commit()
 
+            # Emit credits.purchased notification via EventBus for Flow Pack purchase
+            try:
+                from app.core.event_bus import emit_event
+                from app.models.invoice import Invoice
+                from app.models.user import User
+                from app.models.workspace import Workspace, WorkspaceMember
+
+                ws_obj = db.query(Workspace).filter(Workspace.id == purchase.workspace_id).first()
+                user_id = purchase.user_id if hasattr(purchase, "user_id") and purchase.user_id else None
+                user_obj = db.query(User).filter(User.id == user_id).first() if user_id else None
+                if not user_obj:
+                    owner_member = db.query(WorkspaceMember).filter(
+                        WorkspaceMember.workspace_id == purchase.workspace_id,
+                        WorkspaceMember.role == "owner"
+                    ).first()
+                    user_obj = db.query(User).filter(User.id == owner_member.user_id).first() if owner_member else None
+
+                user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (ws_obj.name if ws_obj else "User"))
+
+                inv = db.query(Invoice).filter(Invoice.flow_pack_purchase_id == purchase.id).first()
+                inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(purchase.id)
+
+                from app.services.billing.entitlement_service import EntitlementService
+                ent = EntitlementService.get_workspace_entitlement(db, purchase.workspace_id)
+                total_flows = getattr(ent, "max_active_flows", purchase.flows_count)
+
+                emit_event(
+                    event_name="credits.purchased",
+                    payload={
+                        "credits_added": f"{purchase.flows_count} AI Automation Flows",
+                        "current_balance": f"{total_flows} Active Flows",
+                        "amount": f"₹{float(purchase.total_amount):,.2f} INR (incl. GST)",
+                        "workspace_name": ws_obj.name if ws_obj else "Workspace",
+                        "user_name": user_name,
+                        "invoice_id": inv_num,
+                        "invoice_url": f"/billing/invoices/{inv.id if inv else ''}",
+                        "action_route": "/billing",
+                        "action_label": "View Invoices",
+                        "workspace_id": str(purchase.workspace_id)
+                    },
+                    workspace_id=purchase.workspace_id,
+                    actor_id=user_obj.id if user_obj else None,
+                    idempotency_key=f"flow_pack_buy:{purchase.id}",
+                    db=db
+                )
+            except Exception as notif_exc:
+                import logging
+                logging.getLogger("auromind").error(f"Failed to emit credits.purchased event for Flow Pack purchase: {notif_exc}")
+
             return {
                 "status": "success",
                 "message": f"Successfully purchased {purchase.flows_count} flows",

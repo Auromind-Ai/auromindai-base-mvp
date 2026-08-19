@@ -213,7 +213,7 @@ class CalendarExecutor:
             f"From: {sender}\n"
             f"Priority: {priority}\n"
             f"Location: {location}\n\n"
-            f"Auromind AI Generated Calendar Event"
+            f"Orbion Agents Generated Calendar Event"
         )
 
         # Participants

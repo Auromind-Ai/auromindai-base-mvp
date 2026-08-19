@@ -93,14 +93,31 @@ function AdminLayoutContent({ children }) {
 
     const handleStopImpersonation = async () => {
         try {
-            await api.stopImpersonation();
+            const res = await api.stopImpersonation();
+            if (typeof window !== 'undefined') {
+                if (res?.access_token || res?.token) {
+                    localStorage.setItem("auth_token", res.access_token || res.token);
+                } else {
+                    const backupToken = localStorage.getItem("admin_backup_token");
+                    if (backupToken) {
+                        localStorage.setItem("auth_token", backupToken);
+                    }
+                }
+            }
         } catch (err) {
             console.error("Stop impersonation failed:", err);
+            if (typeof window !== 'undefined') {
+                const backupToken = localStorage.getItem("admin_backup_token");
+                if (backupToken) {
+                    localStorage.setItem("auth_token", backupToken);
+                }
+            }
         } finally {
             if (typeof window !== 'undefined') {
                 localStorage.removeItem("user");
                 localStorage.removeItem("workspace");
                 localStorage.removeItem("workspace_id");
+                localStorage.removeItem("admin_backup_token");
                 sessionStorage.removeItem("ai_active");
                 sessionStorage.removeItem("last_session_id");
             }
@@ -489,7 +506,7 @@ function AdminLayoutContent({ children }) {
                     onClose={() => setIsFeedbackOpen(false)}
                 />
 
-                {/* Global AI Chat - Hidden on Auromind AI page */}
+                {/* Global AI Chat - Hidden on Orbion Agents page */}
                 {pathname !== '/user/admin/ai' && <GlobalAIChat />}
 
                 {/* Global Audio Notification for Incoming Messages */}

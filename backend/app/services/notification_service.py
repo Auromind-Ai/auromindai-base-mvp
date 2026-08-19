@@ -11,6 +11,7 @@ from app.models.admin_audit_log import AdminAuditLog
 from app.core.notification_metrics import notification_metrics
 from app.workers.email_retry_worker import send_email_with_retry
 from app.services.notification_template_service import NotificationTemplateService
+from app.services.notifications.event_registry_service import build_action_url
 
 logger = logging.getLogger("app")
 
@@ -124,7 +125,8 @@ class NotificationService:
             if "action_label" in reg_meta:
                 context["action_label"] = reg_meta["action_label"]
             if "action_route" in reg_meta:
-                context["action_url"] = f"{base_app_url}{reg_meta['action_route']}"
+                
+                context["action_url"] = build_action_url(reg_meta["action_route"], base_app_url)
 
         if variables:
             context.update(variables)

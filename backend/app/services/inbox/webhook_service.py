@@ -73,26 +73,27 @@ def upsert_lead(
             last_activity_at=datetime.now(timezone.utc),
         )
         db.add(lead)
-        db.flush()
-
+        # Emit dynamic lead.created event via EventBus (handles all recipient routing & channels)
         try:
-            NotificationService.notify_workspace(
-                db=db,
-                workspace_id=workspace_id,
-                type="lead_alert",
-                title=None,
-                message=None,
-                template_key="lead_alert",
-                variables={
-                    "lead_name": conv_name or phone or "New Lead",
-                    "lead_email": phone or "N/A",
-                    "lead_score": "0",
-                    "source": source.upper()
-                }
+            from app.core.event_bus import emit_event
+            emit_event(
+                event_name="lead.created",
+                payload={
+                    "lead_id": str(lead.id),
+                    "lead_name": lead.name or lead.phone or "New Lead",
+                    "lead_email": getattr(lead, "email", None) or lead.phone or "N/A",
+                    "lead_phone": lead.phone or "N/A",
+                    "source": (source or "web").upper(),
+                    "assigned_agent": getattr(lead, "assigned_to", None) or "Unassigned",
+                    "workspace_id": str(ws_uuid) if ws_uuid else None
+                },
+                workspace_id=ws_uuid,
+                idempotency_key=f"lead_created:{lead.id}",
+                db=db
             )
-        except Exception as e:
+        except Exception as evt_exc:
             import logging
-            logging.getLogger(__name__).error(f"Failed to send lead alert notification: {e}")
+            logging.getLogger(__name__).warning(f"Failed to emit lead.created event: {evt_exc}")
     else:
         lead.last_activity_at = datetime.now(timezone.utc)
         if (not lead.name or lead.name == lead.phone) and conv_name and conv_name != lead.phone:
@@ -267,6 +268,17 @@ class WebhookService:
                     except Exception as rates_exc:
                         logger.error(f"Failed to pre-fetch WCC rate cards in webhook: {rates_exc}")
                         
+                    STATUS_RANK = {
+                        "pending": 0,
+                        "queued": 10,
+                        "sending": 20,
+                        "dispatched": 30,
+                        "sent": 40,
+                        "delivered": 50,
+                        "read": 60,
+                        "failed": 70,
+                        "cancelled": 70,
+                    }
                     for status_update in statuses:
                         wamid = status_update.get("id")
                         status_str = status_update.get("status")
@@ -282,20 +294,28 @@ class WebhookService:
                             }
                             mapped_status = status_mapping.get(status_str.lower())
                             outbound = None
-                            if mapped_status:
-                                try:
-                                    msg = db.query(Message).filter(Message.external_id == wamid).first()
-                                    if msg:
+                            try:
+                                msg = db.query(Message).filter(Message.external_id == wamid).first()
+                                if msg and mapped_status:
+                                    # Never demote an already DELIVERED message back to SENT
+                                    if not (msg.status == MessageStatus.DELIVERED and mapped_status == MessageStatus.SENT):
                                         msg.status = mapped_status
                                         db.flush()
                                         logger.info(f"Updated message status for {wamid} to {status_str}")
 
-                                    outbound = db.query(OutboundMessage).filter(OutboundMessage.twilio_sid == wamid).first()
-                                    if outbound:
+                                outbound = db.query(OutboundMessage).filter(OutboundMessage.twilio_sid == wamid).first()
+                                if outbound:
+                                    current_rank = STATUS_RANK.get(str(outbound.status).lower(), 0)
+                                    new_rank = STATUS_RANK.get(status_str.lower(), 0)
+                                    # Only advance status forward, NEVER demote delivered/read back to sent!
+                                    if new_rank >= current_rank or status_str.lower() in ("failed", "cancelled"):
                                         outbound.status = status_str.lower()
                                         db.flush()
-                                except Exception as exc:
-                                    logger.error(f"Failed to update message status for {wamid}: {exc}")
+                                        logger.info(f"Updated OutboundMessage status for {wamid} to {status_str}")
+                                    else:
+                                        logger.info(f"Ignored out-of-order status update for {wamid}: current={outbound.status}, received={status_str}")
+                            except Exception as exc:
+                                logger.error(f"Failed to update message status for {wamid}: {exc}")
 
                             # WCC Wallet Debit Integration
                             pricing = status_update.get("pricing")
@@ -536,6 +556,13 @@ class WebhookService:
             if conv_state:
                 conv_state.human_takeover = False
 
+            # When a customer replies, resolve any prior in-flight/sent outbound messages in this conversation
+            from app.models.outbound_message import OutboundMessage
+            db.query(OutboundMessage).filter(
+                OutboundMessage.conversation_id == conversation.id,
+                OutboundMessage.status.in_(["sent", "dispatched", "delivered"])
+            ).update({"status": "read"}, synchronize_session=False)
+
             #  Step 2: FIX 1 — Auto upsert lead 
             source = _derive_source(metadata)
             lead = upsert_lead(
@@ -568,6 +595,27 @@ class WebhookService:
                 return {"status": "duplicate"}
 
             db.commit()
+
+            # Emit lead.message_received event
+            try:
+                from app.core.event_bus import emit_event
+                ws_id_uuid = to_uuid(workspace_id)
+                emit_event(
+                    event_name="lead.message_received",
+                    payload={
+                        "lead_id": str(lead.id) if lead else None,
+                        "lead_name": (lead.name if lead else None) or contact_name or phone or "Lead",
+                        "lead_phone": phone or (lead.phone if lead else "N/A"),
+                        "message_body": body[:500] if body else "",
+                        "channel": normalized_channel.value,
+                        "workspace_id": str(workspace_id)
+                    },
+                    workspace_id=ws_id_uuid,
+                    idempotency_key=f"lead_msg:{message.id}",
+                    db=db
+                )
+            except Exception as msg_evt_exc:
+                logger.warning(f"Failed to emit lead.message_received event: {msg_evt_exc}")
 
             # Inject message identifiers for downstream idempotency & billing keys
             message_metadata["message_id"] = str(message.id)

@@ -7,27 +7,40 @@ import api from "@/lib/api"
 export default function WorkspacesPage() {
 
   const [workspaces, setWorkspaces] = useState([])
+  const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [confirmWorkspace, setConfirmWorkspace] = useState(null)
 
   const fetchWorkspaces = useCallback(async () => {
-  try {
-    setLoading(true)
-    const data = await api.getAdminWorkspaces()
-    setWorkspaces(Array.isArray(data) ? data : data.workspaces || [])
-    setError(null)
-  } catch (err) {
-    setError(err.message)
-    setWorkspaces([])
-  } finally {
-    setLoading(false)
-  }
-}, [])
+    try {
+      setLoading(true)
+      const [data, plansData] = await Promise.all([
+        api.getAdminWorkspaces().catch((err) => {
+          console.error("Failed to fetch workspaces", err)
+          return []
+        }),
+        api.getPlansAdmin().catch((err) => {
+          console.error("Failed to fetch plans", err)
+          return []
+        })
+      ])
+      setWorkspaces(Array.isArray(data) ? data : data.workspaces || [])
+      if (Array.isArray(plansData) && plansData.length > 0) {
+        setPlans(plansData)
+      }
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+      setWorkspaces([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-useEffect(() => {
-  fetchWorkspaces()
-}, [fetchWorkspaces])
+  useEffect(() => {
+    fetchWorkspaces()
+  }, [fetchWorkspaces])
 
   const editPlan = async (id, plan) => {
     await api.editWorkspacePlan(id, plan)
@@ -59,6 +72,17 @@ useEffect(() => {
     await api.toggleWorkspaceStatus(id)
     fetchWorkspaces()
   }
+
+  const availablePlanOptions = plans.length > 0
+    ? plans.map((p) => ({
+        value: p.name.toLowerCase(),
+        label: p.display_name || p.name
+      }))
+    : [
+        { value: "free", label: "free" },
+        { value: "pro", label: "pro" },
+        { value: "enterprise", label: "enterprise" }
+      ];
 
   return (
     <div className="min-h-screen bg-black p-8">
@@ -142,69 +166,79 @@ useEffect(() => {
                 </thead>
 
                 <tbody>
-                  {workspaces.map((workspace) => (
-                    <tr key={workspace.id} className="border-b border-white/5">
+                  {workspaces.map((workspace) => {
+                    const currentPlan = (workspace.plan_type || "free").toLowerCase()
+                    const itemPlanOptions = [...availablePlanOptions]
+                    if (!itemPlanOptions.some((p) => p.value === currentPlan)) {
+                      itemPlanOptions.push({ value: currentPlan, label: currentPlan })
+                    }
 
-                      <td className="py-4 px-4 text-white">
-                        {workspace.name}
-                      </td>
+                    return (
+                      <tr key={workspace.id} className="border-b border-white/5">
 
-                      <td className="py-4 px-4 text-gray-300">
-                        {workspace.owner_email}
-                      </td>
+                        <td className="py-4 px-4 text-white">
+                          {workspace.name}
+                        </td>
 
-                      <td className="py-4 px-4 text-gray-300">
-                        {workspace.plan_type}
-                      </td>
+                        <td className="py-4 px-4 text-gray-300">
+                          {workspace.owner_email}
+                        </td>
 
-                      <td className="py-4 px-4 text-gray-300">
-                        {workspace.member_count}
-                      </td>
+                        <td className="py-4 px-4 text-gray-300">
+                          {workspace.plan_type}
+                        </td>
 
-                      <td className="py-4 px-4">
+                        <td className="py-4 px-4 text-gray-300">
+                          {workspace.member_count}
+                        </td>
 
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          workspace.is_active
-                            ? "bg-green-900/30 text-green-300"
-                            : "bg-gray-900/30 text-gray-300"
-                        }`}>
+                        <td className="py-4 px-4">
 
-                          {workspace.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-
-                      <td className="py-4 px-4 flex gap-2 items-center">
-                        <select
-                          defaultValue={workspace.plan_type}
-                          onChange={(e) =>
-                            editPlan(workspace.id, e.target.value)
-                          }
-                          className="bg-gray-900 text-white text-xs px-2 py-1 rounded border border-gray-700"
-                        >
-                          <option value="free">free</option>
-                          <option value="pro">pro</option>
-                          <option value="enterprise">enterprise</option>
-                        </select>
-                        <button
-                          onClick={() => resetLimits(workspace.id)}
-                          className="bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded text-xs"
-                        >
-                          Reset
-                        </button>
-
-                        <button
-                          onClick={() => toggleWorkspace(workspace.id)}
-                          className={`px-3 py-1 rounded text-xs ${
+                          <span className={`px-2 py-1 rounded text-xs ${
                             workspace.is_active
-                              ? "bg-red-600 hover:bg-red-500 text-white"
-                              : "bg-green-600 hover:bg-green-500 text-white"
-                          }`}
-                        >
-                          {workspace.is_active ? "Deactivate" : "Activate"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                              ? "bg-green-900/30 text-green-300"
+                              : "bg-gray-900/30 text-gray-300"
+                          }`}>
+
+                            {workspace.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-4 flex gap-2 items-center">
+                          <select
+                            value={currentPlan}
+                            onChange={(e) =>
+                              editPlan(workspace.id, e.target.value)
+                            }
+                            className="bg-gray-900 text-white text-xs px-2 py-1 rounded border border-gray-700 capitalize"
+                          >
+                            {itemPlanOptions.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => resetLimits(workspace.id)}
+                            className="bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded text-xs"
+                          >
+                            Reset
+                          </button>
+
+                          <button
+                            onClick={() => toggleWorkspace(workspace.id)}
+                            className={`px-3 py-1 rounded text-xs ${
+                              workspace.is_active
+                                ? "bg-red-600 hover:bg-red-500 text-white"
+                                : "bg-green-600 hover:bg-green-500 text-white"
+                            }`}
+                          >
+                            {workspace.is_active ? "Deactivate" : "Activate"}
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from app.database import get_db
 from app.models import User
+from app.core.event_bus import emit_event
 from app.routers.auth import get_current_user, CurrentUser
 from app.services.totp_service import (
     generate_totp_secret, generate_qr_code,
@@ -139,24 +140,24 @@ async def verify_setup(
         pass
 
     try:
-        NotificationService.notify(
-            db=db,
-            user_id=current_user.id,
-            workspace_id=None,
-            type="security_alert",
-            title=None,
-            message=None,
-            is_critical=True,
-            email_subject=None,
-            template_key="2fa_enabled",
-            variables={
+   
+        emit_event(
+            event_name="security.2fa_enabled",
+            payload={
                 "user_name": current_user.full_name or current_user.email,
-                "login_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            }
+                "email": current_user.email,
+                "login_time": datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
+                "action_route": "/settings/security",
+                "action_label": "Security Settings",
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"2fa_enable:{current_user.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+            db=db
         )
     except Exception as notif_exc:
         import logging
-        logging.getLogger("app").error(f"Failed to send 2FA enabled notification: {notif_exc}")
+        logging.getLogger("app").error(f"Failed to emit 2FA enabled event: {notif_exc}")
 
     return {"success": True, "message": "Two-factor authentication enabled.", "recovery_codes": recovery_codes}
 
@@ -273,24 +274,23 @@ async def disable(
     db.commit()
 
     try:
-        NotificationService.notify(
-            db=db,
-            user_id=current_user.id,
-            workspace_id=None,
-            type="security_alert",
-            title=None,
-            message=None,
-            is_critical=True,
-            email_subject=None,
-            template_key="2fa_disabled",
-            variables={
+        emit_event(
+            event_name="security.2fa_disabled",
+            payload={
                 "user_name": current_user.full_name or current_user.email,
-                "login_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            }
+                "email": current_user.email,
+                "login_time": datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
+                "action_route": "/settings/security",
+                "action_label": "Re-enable 2FA",
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"2fa_disable:{current_user.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+            db=db
         )
     except Exception as notif_exc:
         import logging
-        logging.getLogger("app").error(f"Failed to send 2FA disabled notification: {notif_exc}")
+        logging.getLogger("app").error(f"Failed to emit 2FA disabled event: {notif_exc}")
 
     return {"success": True, "message": "Two-factor authentication disabled."}
 
@@ -321,26 +321,24 @@ async def regenerate_recovery_codes(
     db.commit()
 
     try:
-        from app.services.notification_service import NotificationService
         from datetime import datetime, timezone
-        NotificationService.notify(
-            db=db,
-            user_id=current_user.id,
-            workspace_id=None,
-            type="security_alert",
-            title=None,
-            message=None,
-            is_critical=True,
-            email_subject=None,
-            template_key="recovery_codes",
-            variables={
+        emit_event(
+            event_name="security.recovery_codes",
+            payload={
                 "user_name": current_user.full_name or current_user.email,
-                "login_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            }
+                "email": current_user.email,
+                "login_time": datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC"),
+                "action_route": "/settings/security",
+                "action_label": "Security Settings",
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"rec_codes:{current_user.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+            db=db
         )
     except Exception as notif_exc:
         import logging
-        logging.getLogger("app").error(f"Failed to send recovery codes notification: {notif_exc}")
+        logging.getLogger("app").error(f"Failed to emit recovery codes event: {notif_exc}")
 
     return {"success": True, "recovery_codes": codes}
 

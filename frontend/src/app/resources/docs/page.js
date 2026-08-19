@@ -9,19 +9,19 @@ import { Terminal, Database, Code, Sliders, BookOpen, CheckCircle2, ArrowRight }
 
 export const metadata = {
   title: "Developer API Reference & SDK Documentation",
-  description: "Read technical guides and API specs. Integrate Auromind AI SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
+  description: "Read technical guides and API specs. Integrate Orbion Agents SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
   alternates: {
     canonical: "/resources/docs",
   },
   openGraph: {
-    title: "Developer API Reference & SDK Documentation | Auromind AI",
-    description: "Read technical guides and API specs. Integrate Auromind AI SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
+    title: "Developer API Reference & SDK Documentation | Orbion Agents",
+    description: "Read technical guides and API specs. Integrate Orbion Agents SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
     url: "https://orbionagents.com/resources/docs",
     type: "website",
   },
   twitter: {
-    title: "Developer API Reference & SDK Documentation | Auromind AI",
-    description: "Read technical guides and API specs. Integrate Auromind AI SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
+    title: "Developer API Reference & SDK Documentation | Orbion Agents",
+    description: "Read technical guides and API specs. Integrate Orbion Agents SDKs, set up Model Context Protocol (MCP) servers, and sync vector databases.",
   },
 };
 

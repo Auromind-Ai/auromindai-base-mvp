@@ -642,54 +642,142 @@ async def get_workspaces(
 @router.post("/stop-impersonation")
 async def stop_impersonation(request: Request, response: Response, db: Session = Depends(get_db)):
     logger.info("POST /stop-impersonation called")
-    admin_backup_token = request.cookies.get("admin_backup_token") or request.headers.get("x-admin-backup-token")
+    
+    # 1. Extract admin_backup_token from cookies, headers, or request body
+    admin_backup_token = (
+        request.cookies.get("admin_backup_token")
+        or request.headers.get("x-admin-backup-token")
+        or request.headers.get("X-Admin-Backup-Token")
+    )
+    
     if not admin_backup_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No active impersonation session to stop"
-        )
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                admin_backup_token = body.get("admin_backup_token") or body.get("backup_token") or body.get("token")
+        except Exception:
+            pass
 
-    # Cleanly revoke current impersonation token if present
-    auth_token = request.cookies.get("auth_token") or request.headers.get("authorization", "").replace("Bearer ", "")
+    # 2. Extract active auth_token to check current session / impersonation state
+    auth_token = request.cookies.get("auth_token")
+    if not auth_token:
+        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            auth_token = auth_header.split(" ", 1)[1]
+
+    curr_payload = None
     if auth_token:
         try:
             curr_payload = decode_access_token(auth_token)
-            if curr_payload and curr_payload.get("impersonation_id"):
-                imp_id = curr_payload["impersonation_id"]
-                r_client = _get_redis_client()
-                if r_client:
-                    try:
-                        r_client.delete(f"impersonation:{imp_id}")
-                    except Exception as e:
-                        logger.error(f"Failed to delete impersonation key from Redis: {e}")
+        except Exception:
+            pass
 
-                from app.models.impersonation import ImpersonationSession
-                imp_db = db.query(ImpersonationSession).filter(
-                    ImpersonationSession.session_id == imp_id
-                ).first()
-                if imp_db:
-                    imp_db.expires_at = datetime.now(timezone.utc)
-                    db.commit()
-                log_security_event("impersonation_stopped", request, {"impersonation_id": imp_id})
+    # Cleanly revoke current impersonation token if present
+    imp_id = curr_payload.get("impersonation_id") if curr_payload else None
+    if imp_id:
+        r_client = _get_redis_client()
+        if r_client:
+            try:
+                r_client.delete(f"impersonation:{imp_id}")
+            except Exception as e:
+                logger.error(f"Failed to delete impersonation key from Redis: {e}")
+
+        try:
+            from app.models.impersonation import ImpersonationSession
+            imp_db = db.query(ImpersonationSession).filter(
+                ImpersonationSession.session_id == imp_id
+            ).first()
+            if imp_db:
+                imp_db.expires_at = datetime.now(timezone.utc)
+                db.commit()
+            log_security_event("impersonation_stopped", request, {"impersonation_id": imp_id})
         except Exception as e:
             logger.warning(f"Failed to revoke active impersonation session during stop: {e}")
 
-    payload = decode_access_token(admin_backup_token)
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid admin backup session token"
+    # 3. If admin_backup_token is present, validate it
+    admin_payload = None
+    if admin_backup_token:
+        try:
+            admin_payload = decode_access_token(admin_backup_token)
+        except Exception:
+            admin_payload = None
+
+    # 4. If admin_backup_token is missing or invalid, try to recover admin user from curr_payload or imp_db
+    admin_user = None
+    if admin_payload and admin_payload.get("sub"):
+        from app.models.user import User
+        admin_user = db.query(User).filter(User.id == admin_payload.get("sub")).first()
+
+    if not admin_user:
+        admin_id = None
+        if curr_payload and curr_payload.get("admin_id"):
+            admin_id = curr_payload.get("admin_id")
+        elif imp_id:
+            try:
+                from app.models.impersonation import ImpersonationSession
+                imp_record = db.query(ImpersonationSession).filter(
+                    ImpersonationSession.session_id == imp_id
+                ).first()
+                if imp_record and imp_record.admin_id:
+                    admin_id = imp_record.admin_id
+            except Exception:
+                pass
+
+        if admin_id:
+            from app.models.user import User
+            admin_user = db.query(User).filter(User.id == admin_id).first()
+
+    # 5. If we have an admin user, generate a fresh valid token if needed and restore session
+    if admin_user:
+        from app.utils.auth import create_access_token
+        from datetime import timedelta
+        from app.models.workspace import Workspace, WorkspaceMember
+
+        role_val = admin_user.platform_role.value if hasattr(admin_user.platform_role, "value") else str(admin_user.platform_role)
+        
+        ws_member = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == admin_user.id).first()
+        ws_id = str(getattr(ws_member, "workspace_id", None)) if (ws_member and getattr(ws_member, "workspace_id", None)) else None
+
+        csrf_token = secrets.token_urlsafe(32)
+        restored_token = create_access_token(
+            data={
+                "sub": str(admin_user.id),
+                "email": admin_user.email,
+                "workspace_id": ws_id,
+                "csrf_token": csrf_token
+            },
+            expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
 
-    set_auth_cookie(
-        response=response,
-        request=request,
-        key="auth_token",
-        value=admin_backup_token,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+        set_auth_cookie(
+            response=response,
+            request=request,
+            key="auth_token",
+            value=restored_token,
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        )
+        delete_auth_cookie(response=response, request=request, key="admin_backup_token", path="/")
+
+        return {
+            "status": "success",
+            "message": "Impersonation ended, admin session restored",
+            "access_token": restored_token,
+            "token": restored_token,
+            "user": {
+                "id": str(admin_user.id),
+                "email": admin_user.email,
+                "full_name": admin_user.full_name,
+                "platform_role": role_val
+            }
+        }
+
+    # 6. Fallback: If no impersonation was active or already ended, clean up cookies idempotently
     delete_auth_cookie(response=response, request=request, key="admin_backup_token", path="/")
-    return {"status": "success", "message": "Impersonation ended, admin session restored"}
+    return {
+        "status": "success",
+        "message": "No active impersonation session to stop",
+        "already_stopped": True
+    }
 
 @router.post("/logout")
 async def logout(request: Request, response: Response, db: Session = Depends(get_db)):

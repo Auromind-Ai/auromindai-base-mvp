@@ -17,7 +17,7 @@ from app.core.startup import ( init_schedulers,
     shutdown_schedulers, init_llm_router,
     init_pubsub, shutdown_pubsub,
     init_metrics, shutdown_metrics,
-    init_rag,
+    init_rag, init_notification_defaults,
 )
 
 # Routers
@@ -81,6 +81,7 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to load dynamic CORS allowed origins: {e}")
 
     init_rag(app)
+    init_notification_defaults()
     init_schedulers(app)
     await init_llm_router(app)
     await init_pubsub(app)

@@ -7,6 +7,7 @@ from app.routers.auth import get_current_user, CurrentUser
 from app.models.user_session import UserSession
 from datetime import datetime, timezone, timedelta
 from typing import List
+from app.core.event_bus import emit_event
 from app.schemas.security import SessionResponse, SecuritySummaryResponse, RevokeDeviceRequest
 
 logger = logging.getLogger(__name__)
@@ -72,23 +73,22 @@ async def revoke_session(
     db.commit()
 
     try:
-        from app.services.notification_service import NotificationService
-        NotificationService.notify(
-            db=db,
-            user_id=current_user.id,
-            workspace_id=None,
-            type="security_alert",
-            title=None,
-            message=None,
-            template_key="session_revoked",
-            variables={
+        
+        emit_event(
+            event_name="security.session_revoked",
+            payload={
                 "user_name": current_user.full_name or current_user.email,
+                "email": current_user.email,
                 "ip_address": session_entry.ip_address or "Unknown IP",
-                "device_info": session_entry.device_info or "Unknown Device"
-            }
+                "device_info": session_entry.device_info or "Unknown Device",
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"sess_rev:{current_user.id}:{session_id}",
+            db=db
         )
     except Exception as notif_exc:
-        logger.error(f"Failed to send session revocation notification: {notif_exc}")
+        logger.error(f"Failed to emit session revocation event: {notif_exc}")
 
     return {"status": "success", "message": "Session revoked successfully"}
 
@@ -111,23 +111,21 @@ async def block_session(
     db.commit()
 
     try:
-        from app.services.notification_service import NotificationService
-        NotificationService.notify(
-            db=db,
-            user_id=current_user.id,
-            workspace_id=None,
-            type="security_alert",
-            title=None,
-            message=None,
-            template_key="session_blocked",
-            variables={
+        emit_event(
+            event_name="security.session_blocked",
+            payload={
                 "user_name": current_user.full_name or current_user.email,
+                "email": current_user.email,
                 "ip_address": session_entry.ip_address or "Unknown IP",
-                "device_info": session_entry.device_info or "Unknown Device"
-            }
+                "device_info": session_entry.device_info or "Unknown Device",
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"sess_blk:{current_user.id}:{session_id}",
+            db=db
         )
     except Exception as notif_exc:
-        logger.error(f"Failed to send session block notification: {notif_exc}")
+        logger.error(f"Failed to emit session block event: {notif_exc}")
 
     return {"status": "success", "message": "Session and device blocked successfully"}
 
@@ -234,23 +232,21 @@ async def revoke_device_sessions(
     db.commit()
 
     try:
-        from app.services.notification_service import NotificationService
-        NotificationService.notify(
-            db=db,
-            user_id=current_user.id,
-            workspace_id=None,
-            type="security_alert",
-            title=None,
-            message=None,
-            template_key="session_revoked",
-            variables={
+        emit_event(
+            event_name="security.session_revoked",
+            payload={
                 "user_name": current_user.full_name or current_user.email,
+                "email": current_user.email,
                 "ip_address": sessions[0].ip_address or "Unknown IP",
-                "device_info": request.device_info
-            }
+                "device_info": request.device_info,
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"signout_all:{current_user.id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}",
+            db=db
         )
     except Exception as notif_exc:
-        logger.error(f"Failed to send device revocation notification: {notif_exc}")
+        logger.error(f"Failed to emit device revocation event: {notif_exc}")
 
     return {"status": "success", "message": f"All sessions for '{request.device_info}' have been signed out."}
 
@@ -273,22 +269,20 @@ async def unblock_session(
     db.commit()
 
     try:
-        from app.services.notification_service import NotificationService
-        NotificationService.notify(
-            db=db,
-            user_id=current_user.id,
-            workspace_id=None,
-            type="security_alert",
-            title=None,
-            message=None,
-            template_key="session_unblocked",
-            variables={
+        emit_event(
+            event_name="security.session_unblocked",
+            payload={
                 "user_name": current_user.full_name or current_user.email,
+                "email": current_user.email,
                 "ip_address": session_entry.ip_address or "Unknown IP",
-                "device_info": session_entry.device_info or "Unknown Device"
-            }
+                "device_info": session_entry.device_info or "Unknown Device",
+                "user_id": str(current_user.id)
+            },
+            actor_id=current_user.id,
+            idempotency_key=f"sess_unblk:{current_user.id}:{session_id}",
+            db=db
         )
     except Exception as notif_exc:
-        logger.error(f"Failed to send session unblock notification: {notif_exc}")
+        logger.error(f"Failed to emit session unblock event: {notif_exc}")
 
     return {"status": "success", "message": "Device unblocked successfully"}

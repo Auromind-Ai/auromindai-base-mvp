@@ -200,31 +200,61 @@ class AuthService:
 
             # Initialize billing entitlement orchestrator
             from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+            from app.services.billing.entitlement_service import EntitlementService
             EntitlementOrchestrator.on_workspace_created(db, workspace.id)
             db.commit()
 
-            # Welcome notification + email for new signup using NotificationTemplate
+            # Dynamically resolve Free plan entitlements from database configuration
+            entitlement = EntitlementService.get_workspace_entitlement(db, workspace.id)
+            free_ai_credits = int(entitlement.included_ai_credits) if (entitlement and hasattr(entitlement, "included_ai_credits")) else 0
+
+            # EventBus emission for new user signup & Free Plan activation
             try:
-                from app.services.notification_service import NotificationService
-                NotificationService.notify(
-                    db=db,
-                    user_id=user.id,
-                    workspace_id=workspace.id,
-                    type="workspace_alert",
-                    title=None,
-                    message=None,
-                    send_email=True,
-                    email_subject=None,
-                    template_key="welcome_signup",
-                    variables={
-                        "user_name": user.full_name or user.email.split("@")[0].title(),
+                from app.core.event_bus import emit_event
+                user_display_name = user.full_name or user.email.split("@")[0].title()
+                
+                # 1. Emit user.signup event
+                emit_event(
+                    event_name="user.signup",
+                    payload={
+                        "user_name": user_display_name,
                         "email": user.email,
-                        "workspace_name": workspace.name
-                    }
+                        "workspace_name": workspace.name,
+                        "plan_name": "Free Plan",
+                        "credits": free_ai_credits,
+                        "action_route": "/dashboard",
+                        "whatsapp_setup_url": "/settings/channels",
+                        "user_id": str(user.id),
+                        "workspace_id": str(workspace.id)
+                    },
+                    workspace_id=workspace.id,
+                    actor_id=user.id,
+                    idempotency_key=f"signup:{user.id}:{workspace.id}",
+                    db=db
+                )
+
+                # 2. Emit plan.free_activated event
+                emit_event(
+                    event_name="plan.free_activated",
+                    payload={
+                        "user_name": user_display_name,
+                        "workspace_name": workspace.name,
+                        "plan_name": "Free Plan",
+                        "credits": free_ai_credits,
+                        "checklist_url": "/settings/channels",
+                        "action_route": "/settings/channels",
+                        "action_label": "Start Setup Checklist",
+                        "user_id": str(user.id),
+                        "workspace_id": str(workspace.id)
+                    },
+                    workspace_id=workspace.id,
+                    actor_id=user.id,
+                    idempotency_key=f"free_plan_start:{workspace.id}",
+                    db=db
                 )
             except Exception as notif_exc:
                 import logging
-                logging.getLogger("app").error(f"Failed to send welcome notification: {notif_exc}")
+                logging.getLogger("app").error(f"Failed to emit user signup/plan events: {notif_exc}")
 
         # get workspaces
         workspaces = db.query(Workspace, WorkspaceMember.role).join(
@@ -259,33 +289,19 @@ class AuthService:
         db.add(user_session)
         db.commit()
 
-        # Send dynamic Login Notification (New Device vs Known Device) using Notification Template Management
-        if not is_new_user:
-          
+        # Send dynamic Security Notification only for NEW UNRECOGNIZED device logins using EventBus
+        if not is_new_user and is_new_device:
             device_name = parse_user_agent(device_info) if device_info else "Unknown Device/Browser"
-            login_time_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            
-            template_key = "new_device_login" if is_new_device else "known_device_login"
-            dedup_key = f"{template_key}:{user.id}:{session_id}"
-
-            ws_name = workspaces[0][0].name if workspaces else "Auromind"
+            login_time_str = datetime.now(timezone.utc).strftime("%B %d, %Y at %I:%M %p UTC")
+            dedup_key = f"new_dev:{user.id}:{session_id}"
             ws_id = uuid.UUID(workspace_id) if workspace_id else None
 
+            ws_name = workspaces[0][0].name if workspaces else "Auromind"
             try:
-                from app.services.notification_service import NotificationService
-                NotificationService.notify(
-                    db=db,
-                    user_id=user.id,
-                    workspace_id=ws_id,
-                    type="security_alert",
-                    title=None,          # Loaded dynamically from DB NotificationTemplate / Fallback
-                    message=None,        # Loaded dynamically from DB NotificationTemplate / Fallback
-                    send_email=True,     # Dispatch email if template or default is configured
-                    is_critical=is_new_device,
-                    email_subject=None,  # Loaded dynamically from DB NotificationTemplate / Fallback
-                    deduplication_key=dedup_key,
-                    template_key=template_key,
-                    variables={
+                from app.core.event_bus import emit_event
+                emit_event(
+                    event_name="security.new_device_login",
+                    payload={
                         "user_name": user.full_name or user.email.split("@")[0].title(),
                         "email": user.email,
                         "workspace_name": ws_name,
@@ -294,12 +310,20 @@ class AuthService:
                         "device": device_name,
                         "browser": device_name,
                         "location": user_session.location or "Unknown Location",
-                        "login_time": login_time_str
-                    }
+                        "login_time": login_time_str,
+                        "action_route": "/settings/security",
+                        "action_label": "Review Security",
+                        "user_id": str(user.id),
+                        "workspace_id": str(ws_id) if ws_id else None
+                    },
+                    workspace_id=ws_id,
+                    actor_id=user.id,
+                    idempotency_key=dedup_key,
+                    db=db
                 )
             except Exception as notif_exc:
                 import logging
-                logging.getLogger("app").error(f"Failed to send login notification using template '{template_key}': {notif_exc}")
+                logging.getLogger("app").error(f"Failed to emit security.new_device_login event: {notif_exc}")
 
 
 
@@ -359,6 +383,7 @@ class AuthService:
 
         otp = str(random.randint(100000, 999999))
        
+       
         # Store in Redis if available
         try:
             import redis
@@ -376,27 +401,29 @@ class AuthService:
         }
            
         try:
+            from app.core.event_bus import emit_event
+            user_display = user.full_name if user else email.split("@")[0].title()
             
-            otp_tpl = NotificationTemplateService.get_template(db, "otp_code", channel="email")
-            context = {
-                "email": email,
-                "user_name": user.full_name if user else email.split("@")[0].title(),
-                "otp": otp,
-                "auth_type": auth_type.title()
-            }
-            
-            subject = NotificationTemplateService.render_text(otp_tpl["subject"], context) if (otp_tpl and otp_tpl.get("subject")) else f"Your {auth_type.title()} Verification Code"
-            body = NotificationTemplateService.render_text(otp_tpl["message"], context) if (otp_tpl and otp_tpl.get("message")) else f"Your verification code is {otp}. It will expire in 5 minutes."
-
-            EmailService.send_email(
-                to_email=email,
-                subject=subject,
-                body=body
+            # Emit user.verification_pending event via EventBus
+            emit_event(
+                event_name="user.verification_pending",
+                payload={
+                    "email": email,
+                    "user_name": user_display,
+                    "verification_url": f"/verify-otp?email={email}",
+                    "action_route": f"/verify-otp?email={email}",
+                    "action_label": "Verify Email",
+                    "expires_in": "5 minutes",
+                    "otp": otp,
+                    "auth_type": auth_type.title()
+                },
+                idempotency_key=f"otp:{email}:{int(time.time()) // 300}",
+                db=db
             )
         except Exception as e:
             import logging
             logger = logging.getLogger("auromind")
-            logger.error(f"Failed to send verification email via SMTP: {str(e)}.")
+            logger.error(f"Failed to emit user.verification_pending event: {str(e)}.")
         return True
 
     @staticmethod

@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/solutions/sales-automation",
   },
   openGraph: {
-    title: "SaaS Sales Automation & AI Sales Agent | Auromind AI",
+    title: "SaaS Sales Automation & AI Sales Agent | Orbion Agents",
     description: "Put your B2B sales pipeline on autopilot. Automate lead follow-ups, resolve customer objections, and sync conversations directly to your CRM.",
     url: "https://orbionagents.com/solutions/sales-automation",
     type: "website",
   },
   twitter: {
-    title: "SaaS Sales Automation & AI Sales Agent | Auromind AI",
+    title: "SaaS Sales Automation & AI Sales Agent | Orbion Agents",
     description: "Put your B2B sales pipeline on autopilot. Automate lead follow-ups, resolve customer objections, and sync conversations directly to your CRM.",
   },
 };

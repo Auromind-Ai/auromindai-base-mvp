@@ -1,8 +1,9 @@
-"""Subscription Expiry Job — Daily cron task to send pre-expiry reminders (7 days and 3 days)."""
+
 
 import logging
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
+from app.core.event_bus import emit_event
 from app.models.subscription import Subscription
 from app.core.enums import SubscriptionStatus
 from app.services.notification_service import NotificationService
@@ -40,19 +41,17 @@ def check_subscription_expiries(db: Session) -> dict:
 
         if day_7_start <= end_date <= day_7_end:
             try:
-                NotificationService.notify_workspace(
-                    db=db,
+                emit_event(
+                    event_name="subscription.expiring_7d",
+                    payload={
+                        "expiry_date": formatted_date,
+                        "workspace_id": str(sub.workspace_id),
+                        "action_route": "/billing",
+                        "action_label": "Renew Plan"
+                    },
                     workspace_id=sub.workspace_id,
-                    type="billing_alert",
-                    title=None,
-                    message=None,
-                    send_email=True,
-                    email_subject=None,
-                    deduplication_key=f"sub_reminder:{sub_id_str}:7day",
-                    template_key="subscription_expiring_7d",
-                    variables={
-                        "expiry_date": formatted_date
-                    }
+                    idempotency_key=f"sub_reminder:{sub_id_str}:7day",
+                    db=db
                 )
                 reminders_sent["7_day"] += 1
             except Exception as e:
@@ -60,20 +59,19 @@ def check_subscription_expiries(db: Session) -> dict:
 
         elif day_3_start <= end_date <= day_3_end:
             try:
-                NotificationService.notify_workspace(
-                    db=db,
+                from app.core.event_bus import emit_event
+                emit_event(
+                    event_name="subscription.expiring_3d",
+                    payload={
+                        "expiry_date": formatted_date,
+                        "workspace_id": str(sub.workspace_id),
+                        "action_route": "/billing",
+                        "action_label": "Renew Immediately",
+                        "is_critical": True
+                    },
                     workspace_id=sub.workspace_id,
-                    type="billing_alert",
-                    title=None,
-                    message=None,
-                    send_email=True,
-                    is_critical=True,
-                    email_subject=None,
-                    deduplication_key=f"sub_reminder:{sub_id_str}:3day",
-                    template_key="subscription_expiring_3d",
-                    variables={
-                        "expiry_date": formatted_date
-                    }
+                    idempotency_key=f"sub_reminder:{sub_id_str}:3day",
+                    db=db
                 )
                 reminders_sent["3_day"] += 1
             except Exception as e:

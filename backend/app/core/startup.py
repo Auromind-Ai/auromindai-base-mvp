@@ -22,6 +22,10 @@ def init_rag(app):
     app.state.orchestrator = orchestrator
     logger.info("[PID %d] RAG service ready.", pid)
 
+def init_notification_defaults():
+    logger.info("Notification templates, rules, and dynamic schedules are managed via Alembic migrations.")
+
+
 def init_learning_cache():
     db: Session = SessionLocal()
     try:

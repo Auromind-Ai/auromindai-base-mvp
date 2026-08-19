@@ -144,12 +144,75 @@ export async function testRenderNotificationTemplate(data) {
   return client.post('/admin/notification-templates/test-render', data);
 }
 
+export async function sendTestNotificationEmail(data) {
+  return client.post('/admin/notification-templates/test-send', data);
+}
+
 export async function seedDefaultNotificationTemplates() {
   return client.post('/admin/notification-templates/seed-defaults');
 }
 
 export async function getSupportedNotificationTemplateKeys() {
   return client.get('/admin/notification-templates/template-keys');
+}
+
+export async function getNotificationEventContracts() {
+  return client.get('/admin/notification-templates/contracts');
+}
+
+export async function getNotificationEventContract(templateKey) {
+  return client.get(`/admin/notification-templates/contracts/${templateKey}`);
+}
+
+// Notification Rules APIs
+export async function getNotificationRules(params = {}) {
+  return client.get('/admin/notification-templates/rules', { params });
+}
+
+export async function createNotificationRule(data) {
+  return client.post('/admin/notification-templates/rules', data);
+}
+
+export async function updateNotificationRule(id, data) {
+  return client.put(`/admin/notification-templates/rules/${id}`, data);
+}
+
+export async function deleteNotificationRule(id) {
+  return client.delete(`/admin/notification-templates/rules/${id}`);
+}
+
+// Dynamic Notification Schedules APIs
+export async function getNotificationSchedules(params = {}) {
+  return client.get('/admin/notification-templates/schedules', { params });
+}
+
+export async function updateNotificationSchedule(id, data) {
+  return client.put(`/admin/notification-templates/schedules/${id}`, data);
+}
+
+export async function runNotificationScheduleNow(id, data = {}) {
+  return client.post(`/admin/notification-templates/schedules/${id}/run-now`, data);
+}
+
+export async function seedDefaultNotificationSchedules() {
+  return client.post('/admin/notification-templates/schedules/seed-defaults');
+}
+
+// Email Delivery Logs & Health APIs
+export async function getEmailLogs(params = {}) {
+  return client.get('/admin/email-logs', { params });
+}
+
+export async function getEmailLogStats() {
+  return client.get('/admin/email-logs/stats');
+}
+
+export async function getEmailLogDetail(id) {
+  return client.get(`/admin/email-logs/${id}`);
+}
+
+export async function retryEmailLog(id) {
+  return client.post(`/admin/email-logs/${id}/retry`);
 }
 
 export async function getPlansAdmin() {

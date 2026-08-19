@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 import uuid
 from sqlalchemy.orm import Session
@@ -17,8 +17,14 @@ from app.services.notification_service import NotificationService
 from app.models.wcc import WCCRechargeLog
 from app.models.invoice import Invoice
 from app.core.enums import InvoiceStatus
+from decimal import Decimal
+from app.models.user import User
+from app.models.workspace import Workspace
+
+from app.services.billing.gst_service import GSTService
 from app.services.billing.invoice_service import InvoiceService
 from datetime import datetime, timezone
+from app.core.event_bus import emit_event
 
 class WebhookService:
     def __init__(self, token_service: TokenService):
@@ -306,27 +312,45 @@ class WebhookService:
         )
 
         try:
-         
-            NotificationService.notify_workspace(
-                db=db,
+            ws_obj = db.query(Workspace).filter(Workspace.id == subscription.workspace_id).first()
+            user_id = subscription_payload.get("notes", {}).get("user_id") if isinstance(subscription_payload, dict) else None
+            user_obj = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first() if user_id else None
+            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (ws_obj.name if ws_obj else "User"))
+
+            gst_calcs = GSTService.calculate_gst(
+                amount=Decimal(str(plan_config.amount)),
+                customer_state=ws_obj.billing_state if ws_obj else None,
+                customer_country=ws_obj.billing_country if ws_obj else None or "IN",
+                product_type="subscription",
+                db=db
+            )
+            total_paid = float(gst_calcs.get("total_amount") or payment.amount or plan_config.amount)
+
+            inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
+            inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
+
+            emit_event(
+                event_name="payment.succeeded",
+                payload={
+                    "amount": f"₹{total_paid:,.2f} INR (incl. GST)",
+                    "plan_name": getattr(plan_config, "name", "Subscription Plan") if plan_config else "Subscription Plan",
+                    "invoice_id": inv_num,
+                    "invoice_url": f"/billing/invoices/{payment.id}",
+                    "action_route": "/billing",
+                    "action_label": "View Invoices",
+                    "user_name": user_name,
+                    "workspace_name": ws_obj.name if ws_obj else "Workspace",
+                    "renewal_date": subscription.current_period_end.strftime("%B %d, %Y") if getattr(subscription, "current_period_end", None) else "Next Billing Cycle",
+                    "workspace_id": str(subscription.workspace_id)
+                },
                 workspace_id=subscription.workspace_id,
-                type="billing_alert",
-                title=None,
-                message=None,
-                send_email=True,
-                email_subject=None,
-                deduplication_key=f"payment_success:{payment.id}",
-                resource="subscription",
-                template_key="payment_success",
-                variables={
-                    "amount": f"{payment.amount} {payment.currency}",
-                    "invoice_id": str(payment.id),
-                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
-                }
+                actor_id=user_obj.id if user_obj else None,
+                idempotency_key=f"pay_success:{payment.id}",
+                db=db
             )
         except Exception as notif_exc:
             import logging
-            logging.getLogger("auromind").error(f"Failed to send payment success notification: {notif_exc}")
+            logging.getLogger("auromind").error(f"Failed to emit payment.succeeded event: {notif_exc}")
 
     def _handle_subscription_cancelled(
         self,
@@ -409,26 +433,25 @@ class WebhookService:
         try:
             target_ws_id = payment.workspace_id if payment else (subscription.workspace_id if subscription else None)
             if target_ws_id:
-                NotificationService.notify_workspace(
-                    db=db,
-                    workspace_id=target_ws_id,
-                    type="billing_alert",
-                    title=None,
-                    message=None,
-                    send_email=True,
-                    is_critical=True,
-                    email_subject=None,
-                    deduplication_key=f"payment_failed:{payment_payload.get('id')}",
-                    resource="subscription",
-                    template_key="payment_failed",
-                    variables={
+                from app.core.event_bus import emit_event
+                impact_date = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%B %d, %Y")
+                emit_event(
+                    event_name="payment.failed",
+                    payload={
                         "amount": f"{amount} {currency}",
-                        "error_message": failure_reason or "Transaction declined"
-                    }
+                        "error_message": failure_reason or "Transaction declined",
+                        "service_impact_date": impact_date,
+                        "action_route": "/billing",
+                        "action_label": "Update Payment Method",
+                        "workspace_id": str(target_ws_id)
+                    },
+                    workspace_id=target_ws_id,
+                    idempotency_key=f"payment_failed:{payment_payload.get('id')}",
+                    db=db
                 )
         except Exception as notif_exc:
             import logging
-            logging.getLogger("auromind").error(f"Failed to send payment failure notification: {notif_exc}")
+            logging.getLogger("auromind").error(f"Failed to emit payment.failed event: {notif_exc}")
 
     
 
@@ -503,24 +526,32 @@ class WebhookService:
         notes = payment_payload.get("notes") or {}
         workspace_id = notes.get("workspace_id")
         pack_id = notes.get("pack_id")
-        if not workspace_id or not pack_id:
-            raise ValueError("Missing workspace_id or pack_id in payment webhook notes")
+        workspace_id_str = notes.get("workspace_id")
+        
+        if not pack_id or not workspace_id_str:
+            return
+            
+        import uuid
+        try:
+            workspace_id = uuid.UUID(workspace_id_str)
+        except ValueError:
+            return
 
-        pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id, CreditPack.is_active == True).first()
-        if not pack:
-            raise ValueError(f"Unknown credit pack: {pack_id}")
-
-        # Check if already processed (idempotency check)
+        # Check if already processed
         from app.models.token_ledger import TokenLedger
         reference_key = f"purchase:{workspace_id}:{provider_payment_id}"
         existing = db.query(TokenLedger).filter(TokenLedger.reference_key == reference_key).first()
         if existing:
             return
 
-        # Fetch active subscription for the payment record
+        # Find pack
+        from app.models.credit_pack import CreditPack
+        pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id, CreditPack.is_active == True).first()
+        if not pack:
+            return
+
         subscription = self.subscription_service._get_active_subscription(db, workspace_id)
 
-        # Create mock PlanConfig for payment record helper
         class DummyPlanConfig:
             amount = pack.amount
             currency = pack.currency
@@ -548,26 +579,50 @@ class WebhookService:
         )
 
         try:
-            NotificationService.notify_workspace(
-                db=db,
+
+
+            ws_obj = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            user_id = payment_payload.get("notes", {}).get("user_id") if isinstance(payment_payload, dict) else None
+            user_obj = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first() if user_id else None
+            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (ws_obj.name if ws_obj else "User"))
+
+            gst_calcs = GSTService.calculate_gst(
+                amount=Decimal(str(pack.amount)),
+                customer_state=ws_obj.billing_state if ws_obj else None,
+                customer_country=ws_obj.billing_country if ws_obj else None or "IN",
+                product_type="ai_credits",
+                db=db
+            )
+            total_paid = float(gst_calcs.get("total_amount") or payment.amount or pack.amount)
+
+            balance = self.token_service._get_token_balance_locked(db, str(workspace_id))
+            remaining_credits = max(0, balance.tokens_added - balance.tokens_used) if balance else pack.credits
+
+            inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
+            inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
+
+            emit_event(
+                event_name="credits.purchased",
+                payload={
+                    "credits_added": f"{int(pack.credits):,}",
+                    "current_balance": f"{int(remaining_credits):,}",
+                    "amount": f"₹{total_paid:,.2f} INR (incl. GST)",
+                    "user_name": user_name,
+                    "workspace_name": ws_obj.name if ws_obj else "Workspace",
+                    "invoice_id": inv_num,
+                    "invoice_url": f"/billing/invoices/{payment.id}",
+                    "action_route": "/billing",
+                    "action_label": "View Invoices",
+                    "workspace_id": str(workspace_id)
+                },
                 workspace_id=workspace_id,
-                type="billing_alert",
-                title=None,
-                message=None,
-                send_email=True,
-                email_subject=None,
-                deduplication_key=f"credit_pack_success:{payment.id}",
-                resource="ai_tokens",
-                template_key="payment_success",
-                variables={
-                    "amount": f"{pack.credits} AI Credits ({pack.name})",
-                    "invoice_id": str(payment.id),
-                    "payment_date": datetime.now(timezone.utc).strftime("%B %d, %Y")
-                }
+                actor_id=user_obj.id if user_obj else None,
+                idempotency_key=f"credit_purchase:{payment.id}",
+                db=db
             )
         except Exception as notif_exc:
             import logging
-            logging.getLogger("auromind").error(f"Failed to send credit pack purchase notification: {notif_exc}")
+            logging.getLogger("auromind").error(f"Failed to emit credits.purchased event: {notif_exc}")
 
     def _handle_refund_webhook(
         self,
