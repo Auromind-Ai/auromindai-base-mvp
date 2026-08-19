@@ -25,6 +25,9 @@ import {
     markMessageAsProcessed,
     isMessageAlreadyProcessed,
 } from '@/lib/notificationSound';
+import EmojiPicker from 'emoji-picker-react';
+
+
 
 const TwilioIcon = ({ size = 16, style = {} }) => {
     const isInactive = style.color === '#666';
@@ -901,6 +904,21 @@ function ChatArea({
 
     const fileInputRef = useRef(null);
     const [selectedImage, setSelectedImage] = useState(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+    useEffect(() => {
+    const handleClickOutside = (event) => {
+        if (!event.target.closest('.emoji-picker-container')) {
+            setShowEmojiPicker(false);
+        }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+}, []);
 
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
@@ -1334,6 +1352,51 @@ function ChatArea({
                                         <FileText size={16} style={{ color: ch.color }} strokeWidth={2} />
                                     </button>
                                 )}
+
+                                <div className="relative emoji-picker-container">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEmojiPicker(prev => !prev)}
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0"
+                                        style={{ backgroundColor: `${ch.color}20` }}
+                                        title="Emoji"
+                                    >
+                                        <Smile
+                                            size={16}
+                                            style={{ color: ch.color }}
+                                            strokeWidth={2}
+                                        />
+                                    </button>
+
+                                    {showEmojiPicker && (
+                                        <div
+                                            className="
+                                                absolute bottom-[52px] left-0 z-[9999]
+                                                w-[280px]
+                                                max-w-[calc(100vw-32px)]
+                                                rounded-2xl overflow-hidden
+                                                border border-white/[0.08]
+                                                bg-[#1c1c1f]
+                                                shadow-[0_16px_40px_rgba(0,0,0,0.45)]
+                                            "
+                                        >
+                                            <EmojiPicker
+                                                onEmojiClick={(emojiData) => {
+                                                    setMsg(prev => prev + emojiData.emoji);
+                                                }}
+                                                theme="dark"
+                                                lazyLoadEmojis
+                                                width="100%"
+                                                height={300}
+                                                searchDisabled={false}
+                                                skinTonesDisabled={false}
+                                                previewConfig={{
+                                                    showPreview: false,
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                                 <input
                                     value={msg}
                                     onChange={(e) => setMsg(e.target.value)}
@@ -1428,6 +1491,7 @@ function InboxContent() {
     const [resolvedLeadId, setResolvedLeadId] = useState(null);
     const [leadDetail, setLeadDetail] = useState(null);
     const [msg, setMsg] = useState('');
+    
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [previewMedia, setPreviewMedia] = useState(null);
     const [unreadCounts, setUnreadCounts] = useState({});
