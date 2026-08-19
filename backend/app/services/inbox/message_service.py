@@ -104,6 +104,7 @@ class MessageService:
         external_id: str | None = None,
         source: str | None = None,
     ) -> Message:
+        now = datetime.utcnow()
         message = Message(
             id=uuid.uuid4(),
             conversation_id=conversation.id,
@@ -113,8 +114,10 @@ class MessageService:
             external_id=external_id,
             source=source,
             metadata_json=json.dumps(metadata or {}),
+            timestamp=now,
         )
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = now
+        conversation.last_message_at = now
         db.add(message)
         db.flush()
         return message

@@ -376,16 +376,18 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
         return name.includes(searchQuery.toLowerCase()) || phone.includes(searchQuery.toLowerCase());
     });
 
-    if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
-        filtered = [...filtered].sort((a, b) => {
+    filtered = [...filtered].sort((a, b) => {
+        if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
             const aPhone = (a.phone || '').toLowerCase().includes(query);
             const bPhone = (b.phone || '').toLowerCase().includes(query);
             if (aPhone && !bPhone) return -1;
             if (!aPhone && bPhone) return 1;
-            return 0;
-        });
-    }
+        }
+        const timeA = new Date(a.last_message_at || a.updated_at || a.created_at || 0).getTime();
+        const timeB = new Date(b.last_message_at || b.updated_at || b.created_at || 0).getTime();
+        return timeB - timeA;
+    });
 
     return (
         <div className="flex flex-col h-full overflow-hidden" style={{ backgroundColor: CARD_BG }}>
