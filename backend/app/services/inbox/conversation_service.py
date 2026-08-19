@@ -107,13 +107,14 @@ class ConversationService:
     def list_conversations(
         db: Session,
         *,
-        workspace_id: str,
+        workspace_id: str | UUID,
         channel: str | ChannelType | None = None,
         status: str | None = "OPEN",
         skip: int = 0,
         limit: int = 100,
     ):
-        query = db.query(Conversation).filter(Conversation.workspace_id == workspace_id)
+        ws_uuid = to_uuid(workspace_id)
+        query = db.query(Conversation).filter(Conversation.workspace_id == ws_uuid)
         if channel:
             query = query.filter(
                 Conversation.channel == ConversationService.normalize_channel(channel)

@@ -164,6 +164,10 @@ def get_conversation_by_id(
 def get_messages(
     conversation_id: str,
     request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    before_timestamp: str | None = Query(None),
+    before_id: str | None = Query(None),
+    skip: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
@@ -177,6 +181,10 @@ def get_messages(
         db,
         workspace_id=workspace_id,
         conversation_id=conversation_id,
+        limit=limit,
+        before_timestamp=before_timestamp,
+        before_id=before_id,
+        skip=skip,
     )
 
     # Convert Pydantic / SQLAlchemy / ORM objects
