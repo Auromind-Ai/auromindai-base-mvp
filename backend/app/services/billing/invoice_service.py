@@ -91,16 +91,13 @@ class InvoiceService:
         invoice_type: str = "tax_invoice",  # tax_invoice, credit_note
         subscription_id: Optional[uuid.UUID] = None
     ) -> Invoice:
-        """
-        Creates an Invoice database entry, snapshotting customer/supplier profiles,
-        calculating sequence locks, and generating/storing the PDF invoice.
-        """
+
         workspace = db.query(Workspace).filter(Workspace.id == workspace_id).with_for_update().first()
         if not workspace:
             raise ValueError(f"Workspace {workspace_id} not found")
 
         # Fetch supplier settings from database
-        supplier_name = get_setting(db, "supplier_name", "Auromind AI Private Limited")
+        supplier_name = get_setting(db, "supplier_name", "Orbion Agents Private Limited")
         supplier_gstin = get_setting(db, "supplier_gstin", "33ABCDE1234F1Z5")
         supplier_address = get_setting(db, "supplier_address", "123, FinTech Hub, Chennai, Tamil Nadu")
         supplier_state = get_setting(db, "supplier_state", "Tamil Nadu")
@@ -305,7 +302,7 @@ class InvoiceService:
         if not workspace:
             raise ValueError(f"Workspace {workspace_id} not found")
 
-        supplier_name = get_setting(db, "supplier_name", "Auromind AI Private Limited")
+        supplier_name = get_setting(db, "supplier_name", "Orbion Agents Private Limited")
         supplier_gstin = get_setting(db, "supplier_gstin", "33ABCDE1234F1Z5")
         supplier_address = get_setting(db, "supplier_address", "123, FinTech Hub, Chennai, Tamil Nadu - 600001, India")
         supplier_state = get_setting(db, "supplier_state", "Tamil Nadu")
@@ -581,7 +578,7 @@ class InvoiceService:
         elif invoice.invoice_type == "refund_invoice":
             title_text = "REFUND INVOICE"
 
-        brand_paragraph = Paragraph("<b>AUROMIND AI</b>", style_brand)
+        brand_paragraph = Paragraph("<b>ORBION AGENTS</b>", style_brand)
         brand_sub_paragraph = Paragraph("AI-powered Business Automation Platform", style_brand_sub)
         header_left = [brand_paragraph, Spacer(1, 3), brand_sub_paragraph]
 
@@ -611,7 +608,7 @@ class InvoiceService:
         date_str = invoice.issued_at.strftime("%d-%b-%Y") if invoice.issued_at else "N/A"
         
         sup_info = (
-            f"<b>{invoice.supplier_name or 'Auromind AI Private Limited'}</b><br/>"
+            f"<b>{invoice.supplier_name or 'Orbion Agents Private Limited'}</b><br/>"
             f"{invoice.supplier_address or '123, FinTech Hub, Chennai, Tamil Nadu - 600001, India'}<br/>"
             f"GSTIN: {invoice.supplier_gstin or '33ABCDE1234F1Z5'}<br/>"
             f"State: {invoice.supplier_state or 'Tamil Nadu'}"
@@ -661,7 +658,7 @@ class InvoiceService:
         supplier_card_content = [
             Paragraph("<b>SUPPLIER</b>", style_card_title),
             Spacer(1, 5),
-            Paragraph(f"<b>{invoice.supplier_name or 'Auromind AI Private Limited'}</b>", style_card_body),
+            Paragraph(f"<b>{invoice.supplier_name or 'Orbion Agents Private Limited'}</b>", style_card_body),
             Paragraph(f"{invoice.supplier_address or '123, FinTech Hub, Chennai, Tamil Nadu - 600001, India'}", style_card_body),
             Paragraph(f"GSTIN: {invoice.supplier_gstin or '33ABCDE1234F1Z5'}", style_card_body),
             Paragraph(f"State: {invoice.supplier_state or 'Tamil Nadu'}", style_card_body),
@@ -820,7 +817,7 @@ class InvoiceService:
         # --- 6. Payment Status Banner ---
         status_str = invoice.status.value.upper() if hasattr(invoice.status, "value") else str(invoice.status).upper()
         status_para = Paragraph(f"<b>PAYMENT STATUS</b><br/><font size=16 color='#0A5C2B'><b>{status_str}</b></font>", style_card_body)
-        thanks_para = Paragraph("Thank you for choosing Auromind AI.", ParagraphStyle("Thanks", parent=normal, fontName="Helvetica-Bold", fontSize=11, textColor=TEXT_DARK, alignment=2))
+        thanks_para = Paragraph("Thank you for choosing Orbion Agents.", ParagraphStyle("Thanks", parent=normal, fontName="Helvetica-Bold", fontSize=11, textColor=TEXT_DARK, alignment=2))
 
         status_table = Table([[status_para, thanks_para]], colWidths=[260, 287])
         status_table.setStyle(TableStyle([
@@ -881,7 +878,7 @@ class InvoiceService:
         story.append(Spacer(1, 10))
 
         # Dark Green Bottom Full-Width Bar
-        bottom_bar_text = Paragraph("<font color='#FFFFFF' size=8.5><b>Auromind AI Private Limited</b> &nbsp;|&nbsp; All rights reserved.</font>", ParagraphStyle("BtmBar", parent=normal, fontName="Helvetica", fontSize=8.5, alignment=1))
+        bottom_bar_text = Paragraph("<font color='#FFFFFF' size=8.5><b>Orbion Agents Private Limited</b> &nbsp;|&nbsp; All rights reserved.</font>", ParagraphStyle("BtmBar", parent=normal, fontName="Helvetica", fontSize=8.5, alignment=1))
         bottom_bar = Table([[bottom_bar_text]], colWidths=[547], rowHeights=[24])
         bottom_bar.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), DARK_GREEN),

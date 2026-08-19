@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/solutions/education",
   },
   openGraph: {
-    title: "AI Enrollment Assistant & Student Admissions | Auromind AI",
+    title: "AI Enrollment Assistant & Student Admissions | Orbion Agents",
     description: "Engage prospective students 24/7. Automate eligibility checks, showcase course catalogs, and book counselor consultations automatically.",
     url: "https://orbionagents.com/solutions/education",
     type: "website",
   },
   twitter: {
-    title: "AI Enrollment Assistant & Student Admissions | Auromind AI",
+    title: "AI Enrollment Assistant & Student Admissions | Orbion Agents",
     description: "Engage prospective students 24/7. Automate eligibility checks, showcase course catalogs, and book counselor consultations automatically.",
   },
 };

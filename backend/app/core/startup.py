@@ -13,8 +13,6 @@ import app.core.redis_pubsub as _pubsub_module
 from app.core.websockets import manager
 from app.core.metrics import init_metrics_redis, close_metrics_redis
 from app.core.deletion_scheduler import register_deletion_job
-from app.services.notification_template_service import NotificationTemplateService
-from app.services.notifications.schedule_service import NotificationScheduleService
 
 def init_rag(app):
     import os
@@ -25,16 +23,7 @@ def init_rag(app):
     logger.info("[PID %d] RAG service ready.", pid)
 
 def init_notification_defaults():
-    db: Session = SessionLocal()
-    try:
-        NotificationTemplateService.seed_default_templates(db)
-        NotificationTemplateService.seed_default_rules(db)
-        NotificationScheduleService.seed_default_schedules(db)
-        logger.info("Notification templates, rules, and dynamic schedules initialized/verified.")
-    except Exception as e:
-        logger.error(f"Notification templates initialization warning: {e}")
-    finally:
-        db.close()
+    logger.info("Notification templates, rules, and dynamic schedules are managed via Alembic migrations.")
 
 
 def init_learning_cache():

@@ -52,6 +52,9 @@ class TemplateTestRenderResponse(BaseModel):
     rendered_subject: Optional[str] = None
     rendered_message: str
     rendered_html: Optional[str] = None
+    action_label: Optional[str] = None
+    action_url: Optional[str] = None
+    action_route: Optional[str] = None
 
 
 class TemplateTestSendRequest(BaseModel):
@@ -146,3 +149,27 @@ class NotificationScheduleResponse(NotificationScheduleBase):
 class ScheduleRunNowRequest(BaseModel):
     dry_run: bool = False
     test_recipient_email: Optional[str] = None
+
+
+class EventContractVariable(BaseModel):
+    key: str
+    sample: Any
+    description: Optional[str] = None
+    required: bool = False
+
+
+class EventContractResponse(BaseModel):
+    event_name: str
+    template_key: str
+    category: str
+    name: str
+    description: str
+    allowed_channels: List[str]
+    supports_subject: bool
+    action_route: Optional[str] = None
+    action_label: Optional[str] = None
+    action_url: Optional[str] = None
+    variables: List[EventContractVariable]
+    system_variables: Optional[List[EventContractVariable]] = None
+    sample_payload: Dict[str, Any]
+    system_context: Optional[Dict[str, Any]] = None

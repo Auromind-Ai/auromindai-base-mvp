@@ -25,7 +25,9 @@ from app.schemas.notification_template import (
     NotificationRuleResponse,
     NotificationScheduleResponse,
     NotificationScheduleUpdate,
-    ScheduleRunNowRequest
+    ScheduleRunNowRequest,
+    EventContractResponse,
+    EventContractVariable
 )
 from app.services.notification_template_service import NotificationTemplateService, NotificationRegistry
 from app.services.notifications.schedule_service import NotificationScheduleService
@@ -73,6 +75,96 @@ def get_supported_template_keys(db: Session = Depends(get_db)):
     return NotificationTemplateService.get_supported_template_keys(db)
 
 
+@router.get("/contracts", response_model=List[EventContractResponse])
+def get_all_notification_event_contracts(db: Session = Depends(get_db)):
+    """Return all verified backend event payload contracts, variable schemas and sample payloads."""
+    from app.services.notifications.event_registry_service import EventRegistryService
+    contracts = EventRegistryService.get_all_merged_contracts(db=db)
+    response_list = []
+    for c in contracts.values():
+        sample_payload = EventRegistryService.get_sample_context(c["template_key"], db=db)
+        response_list.append(
+            EventContractResponse(
+                event_name=c["event_name"],
+                template_key=c["template_key"],
+                category=c["category"],
+                name=c["name"],
+                description=c["description"],
+                allowed_channels=c["allowed_channels"],
+                supports_subject=c["supports_subject"],
+                action_route=c.get("action_route"),
+                action_label=c.get("action_label"),
+                action_url=c.get("action_url"),
+                variables=[
+                    EventContractVariable(
+                        key=v["key"],
+                        sample=v["sample"],
+                        description=v.get("description"),
+                        required=v.get("required", False)
+                    )
+                    for v in c.get("variables", [])
+                ],
+                system_variables=[
+                    EventContractVariable(
+                        key=sv["key"],
+                        sample=sv["sample"],
+                        description=sv.get("description"),
+                        required=sv.get("required", False)
+                    )
+                    for sv in c.get("system_variables", [])
+                ],
+                sample_payload=sample_payload,
+                system_context=c.get("system_context")
+            )
+        )
+    return response_list
+
+
+@router.get("/contracts/{template_key}", response_model=EventContractResponse)
+def get_notification_event_contract(template_key: str, db: Session = Depends(get_db)):
+    """Return event payload contract, variables and sample payload for a specific template key."""
+    from app.services.notifications.event_registry_service import EventRegistryService
+    contract = EventRegistryService.get_merged_contract(template_key, db=db)
+    if not contract:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Event contract not found for template key '{template_key}'."
+        )
+    sample_payload = EventRegistryService.get_sample_context(template_key, db=db)
+    return EventContractResponse(
+        event_name=contract["event_name"],
+        template_key=contract["template_key"],
+        category=contract["category"],
+        name=contract["name"],
+        description=contract["description"],
+        allowed_channels=contract["allowed_channels"],
+        supports_subject=contract["supports_subject"],
+        action_route=contract.get("action_route"),
+        action_label=contract.get("action_label"),
+        action_url=contract.get("action_url"),
+        variables=[
+            EventContractVariable(
+                key=v["key"],
+                sample=v["sample"],
+                description=v.get("description"),
+                required=v.get("required", False)
+            )
+            for v in contract.get("variables", [])
+        ],
+        system_variables=[
+            EventContractVariable(
+                key=sv["key"],
+                sample=sv["sample"],
+                description=sv.get("description"),
+                required=sv.get("required", False)
+            )
+            for sv in contract.get("system_variables", [])
+        ],
+        sample_payload=sample_payload,
+        system_context=contract.get("system_context")
+    )
+
+
 def validate_channel_selection(template_key: str, channel: str):
     allowed = NotificationRegistry.get_allowed_channels(template_key)
     if not allowed:
@@ -108,6 +200,20 @@ def create_notification_template(
         )
 
     validate_channel_selection(data.template_key, data.channel)
+
+    # Validate template placeholder tags against Event Payload Contract
+    try:
+        NotificationRegistry.validate_template_placeholders(
+            template_key=data.template_key,
+            title=data.title,
+            subject=data.subject,
+            message=data.message
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
 
     # Check for existing template_key
     existing = db.query(NotificationTemplate).filter(
@@ -151,52 +257,23 @@ def create_notification_template(
     return template
 
 
-# ---------------------------------------------------------
+
 # Utility & Defaults Endpoints
-# ---------------------------------------------------------
+
 
 @router.post("/test-render", response_model=TemplateTestRenderResponse)
-def test_render_notification_template(payload: TemplateTestRenderRequest):
+def test_render_notification_template(
+    payload: TemplateTestRenderRequest,
+    db: Optional[Session] = Depends(get_db)
+):
     """
     Renders test payload for real-time live preview in Admin UI.
-    Default sample context values supplied if missing.
+    Sample context values supplied dynamically from DB event contract and DB system variables.
     """
-    sample_context = {
-        "user_name": "santhosh",
-        "workspace_name": "AuroMind AI",
-        "ip_address": "192.168.1.100",
-        "login_time": "2026-07-23 18:45:00 UTC",
-        "amount": "$49.00",
-        "invoice_id": "INV-2026-001",
-        "payment_date": "July 23, 2026",
-        "expiry_date": "July 30, 2026",
-        "reset_link": "https://app.auromind.ai/reset-password",
-        "resource_name": "AI Tokens",
-        "used_amount": "80,000",
-        "total_limit": "100,000",
-        "workflow_name": "Lead Enrichment Flow",
-        "duration": "1.4s",
-        "error_message": "Connection timeout on webhook endpoint",
-        "lead_name": "John Doe",
-        "lead_email": "john@example.com",
-        "lead_score": "92",
-        "customer_name": "Sarah Connor",
-        "escalation_reason": "Requested live human supervisor",
-        "timestamp": "2026-07-23 18:45:00 UTC",
-        "location": "Chennai, India"
-    }
+    from app.services.notifications.event_registry_service import EventRegistryService, build_action_url
 
-    # Inject registry action metadata if template_key is provided
-    if payload.template_key:
-        from app.services.notification_template_service import NotificationRegistry
-        from app.core.config import settings
-        raw_url = getattr(settings, "FRONTEND_URL", None)
-        base_app_url = (raw_url or "https://localhost:3000").rstrip("/")
-        reg_meta = NotificationRegistry.get_metadata(payload.template_key)
-        if reg_meta and "action_route" in reg_meta:
-            sample_context["action_route"] = reg_meta["action_route"]
-            sample_context["action_label"] = reg_meta.get("action_label", "")
-            sample_context["action_url"] = f"{base_app_url}{reg_meta['action_route']}"
+    # 1. Base sample context dynamically resolved from DB system variables and event payload schema
+    sample_context = EventRegistryService.get_sample_context(payload.template_key or "", db=db)
 
     # Override sample values with explicit user variables if passed
     if payload.variables:
@@ -206,19 +283,26 @@ def test_render_notification_template(payload: TemplateTestRenderRequest):
     rendered_subject = NotificationTemplateService.render_text(payload.subject, sample_context) if payload.subject else None
     rendered_message = NotificationTemplateService.render_text(payload.message, sample_context)
     
+    action_url = sample_context.get("action_url")
+    action_label = sample_context.get("action_label")
+    action_route = sample_context.get("action_route")
+
     rendered_html = NotificationTemplateService.render_html_email(
         title=rendered_title or rendered_subject or "Preview Notification",
         message=rendered_message,
         context=sample_context,
-        action_url=sample_context.get("action_url"),
-        action_label=sample_context.get("action_label")
+        action_url=action_url,
+        action_label=action_label
     )
 
     return TemplateTestRenderResponse(
         rendered_title=rendered_title,
         rendered_subject=rendered_subject,
         rendered_message=rendered_message,
-        rendered_html=rendered_html
+        rendered_html=rendered_html,
+        action_label=action_label,
+        action_url=action_url,
+        action_route=action_route
     )
 
 
@@ -240,41 +324,11 @@ def test_send_notification_template(
             detail="A valid recipient email address is required (e.g., user@example.com)."
         )
 
-    # 1. Prepare sample variables and merge with user-provided variables
-    sample_context = {
-        "user_name": "Admin Tester",
-        "workspace_name": "AuroMind AI Space",
-        "email": recipient,
-        "plan_name": "Free Plan",
-        "credits": "500",
-        "amount": "₹4,999",
-        "invoice_id": "INV-TEST-001",
-        "renewal_date": "August 30, 2026",
-        "lead_name": "Test Lead",
-        "lead_phone": "+919876543210",
-        "lead_score": "95",
-        "customer_name": "Sample Customer",
-        "total_sent": "1,000",
-        "delivered": "980",
-        "read": "750",
-        "failed": "20",
-        "date": datetime.now(timezone.utc).strftime("%B %d, %Y"),
-        "week_range": "Aug 10 - Aug 17, 2026",
-        "conversions": "25",
-        "new_leads": "120",
-        "revenue": "₹95,000",
-        "unanswered_messages": "2",
-        "credit_balance": "2,450"
-    }
+    from app.services.notifications.event_registry_service import EventRegistryService
 
-    if payload.template_key:
-        reg_meta = NotificationRegistry.get_metadata(payload.template_key)
-        if reg_meta and "action_route" in reg_meta:
-            raw_url = getattr(settings, "FRONTEND_URL", None)
-            base_app_url = (raw_url or "https://localhost:3000").rstrip("/")
-            sample_context["action_route"] = reg_meta["action_route"]
-            sample_context["action_label"] = reg_meta.get("action_label", "Open Application")
-            sample_context["action_url"] = f"{base_app_url}{reg_meta['action_route']}"
+    # 1. Prepare sample variables from event contract and merge with user-provided variables
+    sample_context = EventRegistryService.get_sample_context(payload.template_key or "", db=db)
+    sample_context["email"] = recipient
 
     if payload.variables:
         sample_context.update(payload.variables)
@@ -400,19 +454,18 @@ def seed_default_notification_templates(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    admin_email = current_user.user.email if hasattr(current_user, "user") and current_user.user else "Platform Admin"
-    count = NotificationTemplateService.seed_default_templates(db, updated_by=admin_email)
-    rules_count = NotificationTemplateService.seed_default_rules(db)
-    sched_count = NotificationScheduleService.seed_default_schedules(db)
+    """
+    Deprecated: Baseline data is managed exclusively via Alembic database migrations.
+    """
     return {
-        "status": "success",
-        "message": f"Seeded {count} templates, {rules_count} default notification rules, and {sched_count} schedules."
+        "status": "info",
+        "message": "Baseline notification data and schemas are managed exclusively via Alembic migrations."
     }
 
 
-# ---------------------------------------------------------
+
 # Notification Rules Endpoints
-# ---------------------------------------------------------
+
 
 @router.get("/rules", response_model=List[NotificationRuleResponse])
 def get_notification_rules(
@@ -495,9 +548,9 @@ def delete_notification_rule(
     return {"status": "success", "message": "Notification rule deleted successfully"}
 
 
-# ---------------------------------------------------------
+
 # Dynamic Notification Schedules Endpoints
-# ---------------------------------------------------------
+
 
 @router.get("/schedules", response_model=List[NotificationScheduleResponse])
 def get_notification_schedules(
@@ -597,15 +650,19 @@ def seed_default_notification_schedules(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    """Seed default business notification schedules if not present."""
-    count = NotificationScheduleService.seed_default_schedules(db)
-    return {"status": "success", "message": f"Seeded {count} default notification schedules."}
+    """
+    Deprecated: Baseline schedules are managed exclusively via Alembic database migrations.
+    """
+    return {
+        "status": "info",
+        "message": "Baseline notification schedules are managed exclusively via Alembic migrations."
+    }
 
 
-# ---------------------------------------------------------
+
 # Individual Template CRUD (Parameterized by template_id UUID)
 # Must remain after literal routes to prevent path collision
-# ---------------------------------------------------------
+
 
 @router.get("/{template_id}", response_model=NotificationTemplateResponse)
 def get_notification_template(
@@ -631,6 +688,24 @@ def update_notification_template(
 
     target_channel = data.channel if data.channel is not None else template.channel
     validate_channel_selection(template.template_key, target_channel)
+
+    target_title = data.title if data.title is not None else template.title
+    target_subject = data.subject if data.subject is not None else template.subject
+    target_message = data.message if data.message is not None else template.message
+
+    # Validate template placeholder tags against Event Payload Contract
+    try:
+        NotificationRegistry.validate_template_placeholders(
+            template_key=template.template_key,
+            title=target_title,
+            subject=target_subject,
+            message=target_message
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
 
     old_value = {
         "name": template.name,

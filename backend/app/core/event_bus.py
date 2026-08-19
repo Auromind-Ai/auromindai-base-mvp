@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.services.notifications.notification_rule_engine import NotificationRuleEngine
+from app.services.notifications.event_registry_service import EventRegistryService
 
 logger = logging.getLogger("app")
 
@@ -31,7 +32,14 @@ class EventBus:
             should_close_db = True
 
         try:
-           
+            # 1. Dynamic Payload Auto-Discovery: Record payload schema in registry
+            try:
+               
+                EventRegistryService.record_payload(event_name=event_name, payload=data, db=db)
+            except Exception as reg_exc:
+                logger.debug(f"[EventBus] Schema auto-discovery warning for '{event_name}': {reg_exc}")
+
+            # 2. Process Notification Rules
             logs = NotificationRuleEngine.process_event(
                 db=db,
                 event_name=event_name,

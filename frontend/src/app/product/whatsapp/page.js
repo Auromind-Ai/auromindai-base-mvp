@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/product/whatsapp",
   },
   openGraph: {
-    title: "WhatsApp Business API & Broadcast Automation | Auromind AI",
+    title: "WhatsApp Business API & Broadcast Automation | Orbion Agents",
     description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
     url: "https://orbionagents.com/product/whatsapp",
     type: "website",
   },
   twitter: {
-    title: "WhatsApp Business API & Broadcast Automation | Auromind AI",
+    title: "WhatsApp Business API & Broadcast Automation | Orbion Agents",
     description: "Scale customer interactions. Automate support, send segmented broadcasts, and share interactive catalogs using the official Meta Cloud API.",
   },
 };

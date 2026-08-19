@@ -1,3 +1,4 @@
+import uuid
 import logging
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -11,6 +12,7 @@ from app.models.email_delivery_log import EmailDeliveryLog
 from app.models.ai_action import Lead
 from app.models.conversation import Conversation, ConversationStatus
 from app.models.workspace import Workspace, WorkspaceMember
+from app.models.automation import AutomationFlow
 from app.models.subscription import Subscription
 from app.models.billing import Payment
 from app.core.enums import PaymentStatus, SubscriptionStatus
@@ -110,6 +112,19 @@ def process_scheduled_email_outbox():
             logger.info(f"[OutboxProcessor] Processed {processed_count} outbox email(s).")
     except Exception as exc:
         logger.error(f"[OutboxProcessor] Outbox polling failed: {exc}", exc_info=True)
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.workers.notification_scheduler_worker.dispatch_single_email_log_task")
+def dispatch_single_email_log_task(log_id_str: str):
+    """Asynchronously dispatches an individual EmailDeliveryLog record from outbox."""
+    db: Session = SessionLocal()
+    try:
+        log_id = uuid.UUID(log_id_str)
+        NotificationRuleEngine.dispatch_single_log(db, log_id)
+    except Exception as e:
+        logger.error(f"[AsyncEmailDispatch] Error dispatching email log {log_id_str}: {e}")
     finally:
         db.close()
 
@@ -433,13 +448,24 @@ def generate_weekly_performance_report():
             conv_rate = (conversions / total_leads * 100) if total_leads > 0 else 0
             funnel_stats = f"{total_leads} leads captured, {conversions} converted ({conv_rate:.1f}% rate)"
 
+            active_flows_count = db.query(func.count(AutomationFlow.id)).filter(
+                AutomationFlow.workspace_id == ws.id,
+                AutomationFlow.status.in_(["Active", "active", "published", "Published"])
+            ).scalar() or 0
+            active_workflows = f"{active_flows_count} active automated flow(s)" if active_flows_count > 0 else "0 active flows"
+
+            agents_count = db.query(func.count(WorkspaceMember.id)).filter(
+                WorkspaceMember.workspace_id == ws.id
+            ).scalar() or 1
+            top_agents = f"{agents_count} active team member(s)"
+
             emit_event(
                 event_name="report.weekly_performance",
                 payload={
                     "week_range": week_range,
                     "funnel_stats": funnel_stats,
-                    "top_agents": "Active sales agents",
-                    "active_workflows": "Automated WhatsApp flows",
+                    "top_agents": top_agents,
+                    "active_workflows": active_workflows,
                     "workspace_id": str(ws.id)
                 },
                 workspace_id=ws.id,

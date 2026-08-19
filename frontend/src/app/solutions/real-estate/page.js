@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/solutions/real-estate",
   },
   openGraph: {
-    title: "Real Estate AI Chatbot & Property Leads | Auromind AI",
+    title: "Real Estate AI Chatbot & Property Leads | Orbion Agents",
     description: "Engage property buyers 24/7. Show property listings, resolve neighborhood queries, and schedule viewings automatically with Real Estate AI bots.",
     url: "https://orbionagents.com/solutions/real-estate",
     type: "website",
   },
   twitter: {
-    title: "Real Estate AI Chatbot & Property Leads | Auromind AI",
+    title: "Real Estate AI Chatbot & Property Leads | Orbion Agents",
     description: "Engage property buyers 24/7. Show property listings, resolve neighborhood queries, and schedule viewings automatically with Real Estate AI bots.",
   },
 };

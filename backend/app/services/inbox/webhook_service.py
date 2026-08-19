@@ -93,6 +93,27 @@ def upsert_lead(
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"Failed to send lead alert notification: {e}")
+
+        try:
+            from app.core.event_bus import emit_event
+            emit_event(
+                event_name="lead.created",
+                payload={
+                    "lead_id": str(lead.id),
+                    "lead_name": lead.name or lead.phone or "New Lead",
+                    "lead_email": getattr(lead, "email", None) or lead.phone or "N/A",
+                    "lead_phone": lead.phone or "N/A",
+                    "source": (source or "web").upper(),
+                    "assigned_agent": getattr(lead, "assigned_to", None) or "Unassigned",
+                    "workspace_id": str(ws_uuid) if ws_uuid else None
+                },
+                workspace_id=ws_uuid,
+                idempotency_key=f"lead_created:{lead.id}",
+                db=db
+            )
+        except Exception as evt_exc:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to emit lead.created event: {evt_exc}")
     else:
         lead.last_activity_at = datetime.now(timezone.utc)
         if (not lead.name or lead.name == lead.phone) and conv_name and conv_name != lead.phone:
@@ -586,6 +607,27 @@ class WebhookService:
                 return {"status": "duplicate"}
 
             db.commit()
+
+            # Emit lead.message_received event
+            try:
+                from app.core.event_bus import emit_event
+                ws_id_uuid = to_uuid(workspace_id)
+                emit_event(
+                    event_name="lead.message_received",
+                    payload={
+                        "lead_id": str(lead.id) if lead else None,
+                        "lead_name": (lead.name if lead else None) or contact_name or phone or "Lead",
+                        "lead_phone": phone or (lead.phone if lead else "N/A"),
+                        "message_body": body[:500] if body else "",
+                        "channel": normalized_channel.value,
+                        "workspace_id": str(workspace_id)
+                    },
+                    workspace_id=ws_id_uuid,
+                    idempotency_key=f"lead_msg:{message.id}",
+                    db=db
+                )
+            except Exception as msg_evt_exc:
+                logger.warning(f"Failed to emit lead.message_received event: {msg_evt_exc}")
 
             # Inject message identifiers for downstream idempotency & billing keys
             message_metadata["message_id"] = str(message.id)

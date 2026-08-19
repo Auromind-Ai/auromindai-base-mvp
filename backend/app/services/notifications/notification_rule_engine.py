@@ -13,8 +13,7 @@ from app.core.config import settings
 from app.services.notifications.recipient_resolver import RecipientResolver, ResolvedRecipient
 from app.services.notification_template_service import (
     NotificationTemplateService,
-    NotificationRegistry,
-    DEFAULT_NOTIFICATION_RULES
+    NotificationRegistry
 )
 from app.workers.email_retry_worker import send_email_with_retry
 
@@ -44,29 +43,13 @@ class NotificationRuleEngine:
             NotificationRule.is_active == True
         ).all()
 
-        # Fallback to default rules if DB has no custom rules for this event
-        if not rules:
-            default_rule_defs = [r for r in DEFAULT_NOTIFICATION_RULES if r["event_name"] == event_name]
-            for r_def in default_rule_defs:
-                rules.append(
-                    NotificationRule(
-                        id=uuid.uuid4(),
-                        event_name=r_def["event_name"],
-                        template_key=r_def["template_key"],
-                        recipient_roles=r_def["recipient_roles"],
-                        channels=r_def.get("channels", ["email"]),
-                        delay_minutes=r_def.get("delay_minutes", 0),
-                        is_active=True
-                    )
-                )
-
         if not rules:
             logger.debug(f"No active notification rules found for event: {event_name}")
             return []
 
         # Workspace name lookup
-        ws_name = payload.get("workspace_name") or "Auromind AI"
-        if ws_id and ws_name == "Auromind AI":
+        ws_name = payload.get("workspace_name") or "Orbion Agents"
+        if ws_id and ws_name == "Orbion Agents":
             ws = db.query(Workspace).filter(Workspace.id == ws_id).first()
             if ws and ws.name:
                 ws_name = ws.name
@@ -101,10 +84,12 @@ class NotificationRuleEngine:
                 logger.warning(f"Template not found for key: {rule.template_key}")
                 continue
 
+            from app.services.notifications.event_registry_service import build_action_url
+
             reg_meta = NotificationRegistry.get_metadata(rule.template_key) or {}
             action_route = payload.get("action_route") or reg_meta.get("action_route", "/dashboard")
             action_label = payload.get("action_label") or reg_meta.get("action_label", "Open Application")
-            action_url = payload.get("action_url") or f"{base_app_url}{action_route}"
+            action_url = payload.get("action_url") or build_action_url(action_route, base_app_url)
 
             for rec in recipients:
                 # 5. Build context dictionary per recipient
@@ -196,11 +181,16 @@ class NotificationRuleEngine:
                 logger.error(f"Failed to commit EmailDeliveryLogs: {e}")
                 return []
 
-        # 9. Immediate Delivery Dispatch
+        # 9. Immediate Delivery Dispatch (Non-blocking background dispatch via Celery worker)
         if dispatch_immediately:
             for log in created_logs:
                 if not log.scheduled_for or log.scheduled_for <= datetime.now(timezone.utc):
-                    cls.dispatch_single_log(db, log.id)
+                    try:
+                        from app.workers.notification_scheduler_worker import dispatch_single_email_log_task
+                        dispatch_single_email_log_task.delay(str(log.id))
+                    except Exception as async_exc:
+                        logger.debug(f"[NotificationRuleEngine] Async Celery dispatch fallback for log {log.id}: {async_exc}")
+                        cls.dispatch_single_log(db, log.id)
 
         return created_logs
 
@@ -229,7 +219,7 @@ class NotificationRuleEngine:
             subject=log.subject,
             body=log.body_html,
             metadata={"log_id": str(log.id), "event_name": log.event_name, "template_key": log.template_key},
-            max_attempts=1  # Worker handles single attempt, retry worker/scheduler handles retry passes
+            max_attempts=1  # Single attempt per execution pass; outbox worker handles retries with backoff
         )
 
         log = db.query(EmailDeliveryLog).filter(EmailDeliveryLog.id == log_id).first()
@@ -243,7 +233,11 @@ class NotificationRuleEngine:
                 log.error_message = f"Failed after {log.attempts} attempts"
             else:
                 log.status = "RETRYING"
-                log.error_message = f"Attempt {log.attempts} failed. Queued for retry."
+                # Safe exponential backoff sequence: 30s -> 60s -> 120s -> 240s
+                backoff_delays = [30, 60, 120, 240]
+                delay_sec = backoff_delays[min(log.attempts - 1, len(backoff_delays) - 1)]
+                log.scheduled_for = datetime.now(timezone.utc) + timedelta(seconds=delay_sec)
+                log.error_message = f"Attempt {log.attempts} failed. Scheduled retry in {delay_sec}s."
 
         db.commit()
         return success

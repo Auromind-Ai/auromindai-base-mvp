@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/resources/demo-videos",
   },
   openGraph: {
-    title: "AI Platform Demo Videos & Setup Tutorials | Auromind AI",
+    title: "AI Platform Demo Videos & Setup Tutorials | Orbion Agents",
     description: "Watch step-by-step setup guides and walkthrough videos. Learn how to configure your AI Brain, build visual workflows, and connect WhatsApp.",
     url: "https://orbionagents.com/resources/demo-videos",
     type: "website",
   },
   twitter: {
-    title: "AI Platform Demo Videos & Setup Tutorials | Auromind AI",
+    title: "AI Platform Demo Videos & Setup Tutorials | Orbion Agents",
     description: "Watch step-by-step setup guides and walkthrough videos. Learn how to configure your AI Brain, build visual workflows, and connect WhatsApp.",
   },
 };

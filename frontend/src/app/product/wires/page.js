@@ -14,13 +14,13 @@ export const metadata = {
     canonical: "/product/wires",
   },
   openGraph: {
-    title: "Visual Automation Builder & Flow Canvas | Auromind AI",
+    title: "Visual Automation Builder & Flow Canvas | Orbion Agents",
     description: "Orchestrate conversational journeys. Build sales scripts, follow-up chains, and CRM webhook integrations on a drag-and-drop visual node canvas.",
     url: "https://orbionagents.com/product/wires",
     type: "website",
   },
   twitter: {
-    title: "Visual Automation Builder & Flow Canvas | Auromind AI",
+    title: "Visual Automation Builder & Flow Canvas | Orbion Agents",
     description: "Orchestrate conversational journeys. Build sales scripts, follow-up chains, and CRM webhook integrations on a drag-and-drop visual node canvas.",
   },
 };

@@ -904,6 +904,26 @@ async def create_manual_lead(
     )
     db.commit()
 
+    try:
+        from app.core.event_bus import emit_event
+        emit_event(
+            event_name="lead.created",
+            payload={
+                "lead_id": str(lead.id),
+                "lead_name": lead.name or lead.phone or "New Lead",
+                "lead_email": getattr(lead, "email", None) or lead.phone or "N/A",
+                "lead_phone": lead.phone or "N/A",
+                "source": (lead.source or "manual").upper(),
+                "assigned_agent": getattr(lead, "assigned_to", None) or "Unassigned",
+                "workspace_id": str(wid)
+            },
+            workspace_id=wid,
+            idempotency_key=f"lead_created:{lead.id}",
+            db=db
+        )
+    except Exception as evt_exc:
+        logger.warning(f"Failed to emit lead.created event: {evt_exc}")
+
     return ManualLeadCreateResponse(
         lead_id=lead.id,
         name=lead.name,

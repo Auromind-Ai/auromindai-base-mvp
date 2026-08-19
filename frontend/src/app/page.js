@@ -66,19 +66,19 @@ const WhatsAppShowcase = dynamic(
 
 export const metadata = {
   title: "AI Business Assistant for Sales Automation",
-  description: "Scale customer interactions safely. Auromind AI uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
+  description: "Scale customer interactions safely. Orbion Agents uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "AI Business Assistant for Sales Automation | Auromind AI",
-    description: "Scale customer interactions safely. Auromind AI uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
+    title: "AI Business Assistant for Sales Automation | Orbion Agents",
+    description: "Scale customer interactions safely. Orbion Agents uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
     url: "https://orbionagents.com/",
     type: "website",
   },
   twitter: {
-    title: "AI Business Assistant for Sales Automation | Auromind AI",
-    description: "Scale customer interactions safely. Auromind AI uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
+    title: "AI Business Assistant for Sales Automation | Orbion Agents",
+    description: "Scale customer interactions safely. Orbion Agents uses governed RAG agents and visual flow builders to automate sales, support, and lead qualification.",
   },
 };
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 echo "============================================="
-echo "   Running Auromind AI Security & Quality CI   "
+echo "   Running Orbion Agents Security & Quality CI   "
 echo "============================================="
 
 # 1. Pytest Unit & Integration Tests

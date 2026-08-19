@@ -9,19 +9,19 @@ import { Filter, Users, Shield, Target, Award, CheckCircle2, ArrowRight } from '
 
 export const metadata = {
   title: "AI Lead Qualification & Automated Scoring",
-  description: "Automate your inbound sales funnel. Score leads, capture critical customer details, and book qualified meetings on autopilot using Auromind AI.",
+  description: "Automate your inbound sales funnel. Score leads, capture critical customer details, and book qualified meetings on autopilot using Orbion Agents.",
   alternates: {
     canonical: "/solutions/lead-qualification",
   },
   openGraph: {
-    title: "AI Lead Qualification & Automated Scoring | Auromind AI",
-    description: "Automate your inbound sales funnel. Score leads, capture critical customer details, and book qualified meetings on autopilot using Auromind AI.",
+    title: "AI Lead Qualification & Automated Scoring | Orbion Agents",
+    description: "Automate your inbound sales funnel. Score leads, capture critical customer details, and book qualified meetings on autopilot using Orbion Agents.",
     url: "https://orbionagents.com/solutions/lead-qualification",
     type: "website",
   },
   twitter: {
-    title: "AI Lead Qualification & Automated Scoring | Auromind AI",
-    description: "Automate your inbound sales funnel. Score leads, capture critical customer details, and book qualified meetings on autopilot using Auromind AI.",
+    title: "AI Lead Qualification & Automated Scoring | Orbion Agents",
+    description: "Automate your inbound sales funnel. Score leads, capture critical customer details, and book qualified meetings on autopilot using Orbion Agents.",
   },
 };
 

@@ -84,6 +84,8 @@ function LoginContent() {
     const [deletionDate, setDeletionDate] = useState('');
     const [cancelRestoreLoading, setCancelRestoreLoading] = useState(false);
     const [showCanvas, setShowCanvas] = useState(false);
+    const [resendSuccess, setResendSuccess] = useState('');
+    const [resendLoading, setResendLoading] = useState(false);
 
     useEffect(() => {
         initTurnstileWidget();
@@ -212,22 +214,25 @@ function LoginContent() {
             setLoading(false);
         }
     };
-    const handleResend = async () => {
-        if (resendTimer > 0) return;
+        const handleResend = async () => {
+        if (resendTimer > 0 || resendLoading) return;
         setError('');
-        setLoading(true);
+        setResendSuccess('');
+        setResendLoading(true);
         try {
             const token = await executeTurnstile();
             await api.sendOTP(email, 'login', token);
             setResendTimer(60);
             setOtp('');
+            // Success message 
+            setResendSuccess('Verification code resent successfully...');
+            setTimeout(() => setResendSuccess(''), 4500);
         } catch (err) {
             setError(getErrorMessage(err));
         } finally {
-            setLoading(false);
+            setResendLoading(false);
         }
     };
-
     const handleRestoreAccount = async () => {
         setCancelRestoreLoading(true);
         setError('');
@@ -512,6 +517,17 @@ function LoginContent() {
                                 )}
                             </motion.div>
                         )}
+                        {resendSuccess && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -6 }}
+                                className="mb-5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2.5 backdrop-blur-md"
+                            >
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span className="text-emerald-400 text-xs font-medium">{resendSuccess}</span>
+                            </motion.div>
+                        )}
 
                         <AnimatePresence mode="wait">
                             {step === 'email' && (
@@ -626,8 +642,13 @@ function LoginContent() {
                                             className="text-zinc-500 hover:text-white text-xs font-semibold transition-colors">
                                             ← Change email
                                         </button>
-                                        <button type="button" onClick={handleResend} disabled={resendTimer > 0 || loading || turnstileLoading || siteKeyMissing}
-                                            className="text-indigo-400 hover:text-indigo-300 disabled:text-zinc-600 disabled:cursor-not-allowed text-xs font-semibold transition-colors">
+                                        <button 
+                                            type="button" 
+                                            onClick={handleResend} 
+                                            disabled={resendTimer > 0 || resendLoading || loading || turnstileLoading || siteKeyMissing}
+                                            className="text-indigo-400 hover:text-indigo-300 disabled:text-zinc-600 disabled:cursor-not-allowed text-xs font-semibold transition-colors flex items-center gap-1.5"
+                                        >
+                                            {resendLoading && <Loader2 className="w-3 h-3 animate-spin" />}
                                             {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend code'}
                                         </button>
                                     </div>

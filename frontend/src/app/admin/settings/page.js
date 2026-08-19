@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { 
   Settings, 
   Cpu, 
@@ -28,7 +29,8 @@ import {
   CheckCircle2,
   AlertCircle,
   HardDrive,
-  FileText
+  FileText,
+  ExternalLink
 } from "lucide-react"
 import api from "@/lib/api"
 import { useBranding } from "@/context/BrandingContext"
@@ -253,7 +255,7 @@ export default function SettingsPage() {
     invoice_qr_action: "view_invoice_online",
     invoice_qr_custom_url: "https://auromind.ai/billing",
     invoice_qr_caption: "Scan to view invoice online",
-    supplier_name: "Auromind AI Private Limited",
+    supplier_name: "Orbion Agents Private Limited",
     supplier_gstin: "33ABCDE1234F1Z5",
     supplier_address: "123, FinTech Hub, Chennai, Tamil Nadu - 600001, India",
     invoice_prefix: "AUR",
@@ -531,7 +533,6 @@ export default function SettingsPage() {
     { id: "payments", name: "Payments", icon: Layers },
     { id: "invoices", name: "Invoice Settings", icon: FileText },
     { id: "infra", name: "Infrastructure", icon: Globe },
-    { id: "emails", name: "Email Templates", icon: Mail },
     { id: "features", name: "Feature Toggles", icon: Zap },
     { id: "about", name: "About Info", icon: Info },
   ]
@@ -1955,127 +1956,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Tab: Emails */}
-            {activeTab === "emails" && (
-              <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-                <section>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                      <Mail className="text-indigo-500 w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold">Email Templates</h3>
-                      <p className="text-xs text-gray-500">Customize the subjects and HTML bodies for automated emails</p>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Template Selector Sidebar */}
-                    <div className="lg:col-span-4 space-y-4">
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Select Template</p>
-                        <div className="space-y-2">
-                          {EMAIL_TEMPLATES.map((tmpl) => {
-                            const isSelected = selectedTemplate === tmpl.key;
-                            return (
-                              <button
-                                key={tmpl.key}
-                                type="button"
-                                onClick={() => setSelectedTemplate(tmpl.key)}
-                                className={`w-full text-left px-4 py-3.5 rounded-2xl transition-all duration-200 border flex flex-col gap-1.5
-                                  ${isSelected 
-                                    ? "bg-indigo-500/5 border-indigo-500/30 text-white shadow-[0_0_15px_rgba(99,102,241,0.05)]" 
-                                    : "bg-[#050505]/40 border-white/[0.03] text-gray-400 hover:text-white hover:border-white/10 hover:bg-[#050505]"
-                                  }`}
-                              >
-                                <span className="text-xs font-bold">{tmpl.name}</span>
-                                <span className="text-[10px] text-gray-500 leading-normal font-medium">{tmpl.desc}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Template Editor */}
-                    <div className="lg:col-span-8 space-y-6">
-                      {EMAIL_TEMPLATES.map((tmpl) => {
-                        if (selectedTemplate !== tmpl.key) return null;
-                        
-                        return (
-                          <div key={tmpl.key} className="space-y-6 animate-in fade-in duration-300">
-                            {/* Subject */}
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-bold text-gray-500 uppercase px-2">Subject Line</p>
-                              <input 
-                                type="text"
-                                value={settings[`${tmpl.key}_subject`] || ""}
-                                onChange={(e) => handleInputChange(`${tmpl.key}_subject`, e.target.value)}
-                                placeholder="Enter email subject..."
-                                className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none text-white placeholder-gray-700 font-medium"
-                              />
-                            </div>
-
-                            {/* HTML Body */}
-                            <div className="space-y-2">
-                              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-2">
-                                <p className="text-[10px] font-bold text-gray-500 uppercase">HTML Template Body</p>
-                                <div className="flex gap-1.5 flex-wrap">
-                                  {tmpl.vars.map(v => (
-                                    <span key={v} className="text-[9px] bg-white/[0.03] border border-white/[0.05] text-gray-400 px-1.5 py-0.5 rounded-lg font-mono">
-                                      {`{{${v}}}`}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <textarea 
-                                rows={16}
-                                value={settings[`${tmpl.key}_body`] || ""}
-                                onChange={(e) => handleInputChange(`${tmpl.key}_body`, e.target.value)}
-                                placeholder="Write raw HTML content..."
-                                className="w-full bg-[#050505] border border-white/10 rounded-xl p-4 text-xs font-mono focus:border-indigo-500 outline-none text-white placeholder-gray-700 leading-relaxed resize-y"
-                              />
-                            </div>
-
-                            {/* Test Dispatch Form */}
-                            <div className="bg-[#0c0c0c] border border-white/[0.03] rounded-3xl p-6 space-y-4">
-                              <div>
-                                <h4 className="text-xs font-bold text-white mb-1">Test Template Delivery</h4>
-                                <p className="text-[10px] text-gray-500 leading-relaxed">Send a real test email with mock placeholder data using your configured SMTP settings.</p>
-                              </div>
-                              <div className="flex flex-col sm:flex-row gap-3">
-                                <input 
-                                  type="email"
-                                  value={testRecipient}
-                                  onChange={(e) => setTestRecipient(e.target.value)}
-                                  placeholder="test-recipient@example.com"
-                                  className="flex-1 bg-[#050505] border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:border-indigo-500 outline-none text-white placeholder-gray-700"
-                                />
-                                <button
-                                  type="button"
-                                  disabled={testingTemplate}
-                                  onClick={handleTestTemplate}
-                                  className="px-5 py-2.5 border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/5 text-indigo-400 disabled:text-indigo-400/50 disabled:border-white/5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95"
-                                >
-                                  {testingTemplate ? (
-                                    <>
-                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                      Sending...
-                                    </>
-                                  ) : (
-                                    "Send Test Email"
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </section>
-              </div>
-            )}
 
             {/* Tab: Features */}
             {activeTab === "features" && (
