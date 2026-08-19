@@ -450,7 +450,7 @@ export default function NotificationManagerPage() {
     }
   };
 
-  const renderTemplatePreview = async (templateKey, subject, message, title, variables) => {
+  const renderTemplatePreview = async (templateKey, subject, message, title, variables, actionRoute, actionLabel) => {
     setRenderingTest(true);
     try {
       const res = await testRenderNotificationTemplate({
@@ -458,6 +458,8 @@ export default function NotificationManagerPage() {
         subject,
         message,
         title,
+        action_route: actionRoute,
+        action_label: actionLabel,
         variables
       });
       setTestRenderResult(res);
@@ -470,6 +472,10 @@ export default function NotificationManagerPage() {
 
   const handleOpenEditTemplate = (tpl) => {
     setSelectedTemplate(tpl);
+    const contract = getContractForTemplate(tpl.template_key);
+    const defRoute = contract?.action_route || (tpl.template_key?.includes("verification") ? "/verify-otp" : tpl.template_key?.includes("payment") ? "/billing" : "/dashboard");
+    const defLabel = contract?.action_label || (tpl.template_key?.includes("verification") ? "Verify Email" : tpl.template_key?.includes("payment") ? "View Invoices" : "Open Application");
+
     setTemplateForm({
       name: tpl.name || "",
       category: tpl.category || "User & Onboarding",
@@ -477,12 +483,14 @@ export default function NotificationManagerPage() {
       subject: tpl.subject || "",
       message: tpl.message || "",
       channel: tpl.channel || "both",
-      is_active: tpl.is_active !== false
+      is_active: tpl.is_active !== false,
+      action_route: defRoute,
+      action_label: defLabel
     });
     const sampleVars = getSampleVariablesForTemplate(tpl.template_key);
     setTestRenderVariables(sampleVars);
     setEditTemplateModal(true);
-    renderTemplatePreview(tpl.template_key, tpl.subject, tpl.message, tpl.title, sampleVars);
+    renderTemplatePreview(tpl.template_key, tpl.subject, tpl.message, tpl.title, sampleVars, defRoute, defLabel);
   };
 
   const handleSaveTemplate = async (e) => {
@@ -577,11 +585,13 @@ export default function NotificationManagerPage() {
         templateForm.subject,
         templateForm.message,
         templateForm.title,
-        testRenderVariables
+        testRenderVariables,
+        templateForm.action_route,
+        templateForm.action_label
       );
     }, 450);
     return () => clearTimeout(timer);
-  }, [templateForm.subject, templateForm.message, templateForm.title, editTemplateModal, selectedTemplate, testRenderVariables]);
+  }, [templateForm.subject, templateForm.message, templateForm.title, templateForm.action_route, templateForm.action_label, editTemplateModal, selectedTemplate, testRenderVariables]);
 
   const handleSendTestEmail = async () => {
     const recipient = testRecipientEmail.trim();
@@ -600,6 +610,8 @@ export default function NotificationManagerPage() {
         subject: editTemplateModal ? templateForm.subject : selectedTemplate.subject,
         message: editTemplateModal ? templateForm.message : selectedTemplate.message,
         title: editTemplateModal ? templateForm.title : selectedTemplate.title,
+        action_route: editTemplateModal ? templateForm.action_route : undefined,
+        action_label: editTemplateModal ? templateForm.action_label : undefined,
         variables: testRenderVariables
       });
 
@@ -1440,25 +1452,46 @@ export default function NotificationManagerPage() {
 
               {/* Right Column: Live Rendered Preview */}
               <div className="lg:col-span-6 p-4 space-y-3 overflow-y-auto flex flex-col bg-white/[0.01]">
-                {/* CTA Action Route & Destination Info Card */}
-                <div className="p-3 bg-indigo-950/30 border border-indigo-500/20 rounded-xl space-y-1">
+                {/* CTA Action Route & Destination Info Card (Editable) */}
+                <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-2.5 shadow-sm">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-200 font-semibold flex items-center gap-1.5">
                       <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                      Email Call-To-Action (CTA) Button
+                      Email Call-To-Action (CTA) Button & Destination
                     </span>
-                    <span className="text-[10px] text-indigo-300 font-mono px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/30 rounded font-semibold">
-                      Label: &ldquo;{testRenderResult?.action_label || (selectedTemplate?.template_key?.includes("verification") ? "Verify Email" : selectedTemplate?.template_key?.includes("payment") ? "View Invoices" : "Open Dashboard")}&rdquo;
+                    <span className="text-[10px] text-emerald-400 font-mono px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded font-semibold">
+                      Editable Deep-Link
                     </span>
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs">
+                    <div className="sm:col-span-5">
+                      <label className="block text-[11px] text-gray-400 font-semibold mb-1">Button Label (CTA Text)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Verify Email →"
+                        value={templateForm.action_label || ""}
+                        onChange={(e) => setTemplateForm({ ...templateForm, action_label: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-black/50 border border-white/10 rounded-lg text-white font-medium text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="sm:col-span-7">
+                      <label className="block text-[11px] text-gray-400 font-semibold mb-1">Button Destination Route</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. /verify-otp or /dashboard"
+                        value={templateForm.action_route || ""}
+                        onChange={(e) => setTemplateForm({ ...templateForm, action_route: e.target.value })}
+                        className="w-full px-2.5 py-1.5 bg-black/50 border border-white/10 rounded-lg text-emerald-300 font-mono text-xs focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-2 pt-0.5">
-                    <span className="text-[11px] text-gray-400 whitespace-nowrap">Button Destination:</span>
-                    <code className="text-xs font-mono text-emerald-400 bg-black/60 px-2 py-0.5 rounded border border-white/10 flex-1 truncate select-all">
-                      {testRenderResult?.action_url || (typeof window !== "undefined" ? buildActionUrl(selectedTemplate?.action_route || (selectedTemplate?.template_key?.includes("verification") ? "/verify-otp" : "/billing"), window.location.origin) : "http://localhost:3000/user/admin/billing")}
+                    <span className="text-[10px] text-gray-400 whitespace-nowrap">Resolved URL:</span>
+                    <code className="text-[11px] font-mono text-cyan-300 bg-black/60 px-2 py-0.5 rounded border border-white/10 flex-1 truncate select-all">
+                      {testRenderResult?.action_url || (typeof window !== "undefined" ? buildActionUrl(templateForm.action_route || selectedTemplate?.action_route || "/dashboard", window.location.origin) : "http://localhost:3000/dashboard")}
                     </code>
-                  </div>
-                  <div className="text-[10px] text-gray-400">
-                    This deep-link is resolved dynamically from event payload context. Switch to &ldquo;HTML&rdquo; tab to preview the styled button.
                   </div>
                 </div>
 

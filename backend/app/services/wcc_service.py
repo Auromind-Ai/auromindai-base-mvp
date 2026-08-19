@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from app.core.enums import SubscriptionStatus
 from app.models.subscription import Subscription
 from app.models.plan import Plan
+from app.core.event_bus import emit_event
 
 class InsufficientWCCBalanceError(Exception):
     def __init__(self, required: Decimal, available: Decimal, shortfall: Decimal):
@@ -789,10 +790,45 @@ class WCCService:
         except Exception as invoice_err:
             logger.error(f"Failed to generate Invoice for WCC recharge {recharge_log.id}: {invoice_err}")
 
-        logger.info(
-            f"Successfully verified WCC recharge of {recharge_log.taxable_amount} INR (taxable) for workspace {workspace_id} "
-            f"via Razorpay payment {payment_id}"
-        )
+        # Emit credits.purchased event via EventBus for WhatsApp credit recharge notification
+        try:
+            from app.core.event_bus import emit_event
+            from app.models.invoice import Invoice
+            from app.models.user import User
+            from app.models.workspace import Workspace, WorkspaceMember
+
+            ws_obj = db.query(Workspace).filter(Workspace.id == recharge_log.workspace_id).first()
+            owner_member = db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == recharge_log.workspace_id,
+                WorkspaceMember.role == "owner"
+            ).first()
+            user_obj = db.query(User).filter(User.id == owner_member.user_id).first() if owner_member else None
+            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (ws_obj.name if ws_obj else "User"))
+
+            inv = db.query(Invoice).filter(Invoice.wcc_recharge_log_id == recharge_log.id).first()
+            inv_num = inv.invoice_number if (inv and inv.invoice_number) else (str(inv.id) if inv else str(recharge_log.id))
+
+            emit_event(
+                event_name="credits.purchased",
+                payload={
+                    "credits_added": f"₹{float(recharge_log.taxable_amount):,.2f} WhatsApp Balance",
+                    "current_balance": f"₹{float(wallet.balance):,.2f}",
+                    "amount": f"₹{float(recharge_log.total_amount):,.2f} INR (incl. GST)",
+                    "workspace_name": ws_obj.name if ws_obj else "Workspace",
+                    "user_name": user_name,
+                    "invoice_id": inv_num,
+                    "invoice_url": f"/billing/invoices/{inv.id if inv else ''}",
+                    "action_route": "/billing",
+                    "action_label": "View Invoices",
+                    "workspace_id": str(recharge_log.workspace_id)
+                },
+                workspace_id=recharge_log.workspace_id,
+                actor_id=user_obj.id if user_obj else None,
+                idempotency_key=f"wcc_recharge_notify:{recharge_log.id}",
+                db=db
+            )
+        except Exception as notif_exc:
+            logger.error(f"Failed to emit credits.purchased event for WCC recharge: {notif_exc}")
 
         return {
             "status": "success",

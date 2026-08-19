@@ -27,6 +27,8 @@ class NotificationTemplateUpdate(BaseModel):
     message: Optional[str] = None
     channel: Optional[str] = None
     is_active: Optional[bool] = None
+    action_route: Optional[str] = None
+    action_label: Optional[str] = None
 
 
 class NotificationTemplateResponse(NotificationTemplateBase):
@@ -34,6 +36,8 @@ class NotificationTemplateResponse(NotificationTemplateBase):
     created_at: datetime
     updated_at: datetime
     updated_by: Optional[str] = None
+    action_route: Optional[str] = None
+    action_label: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -44,6 +48,8 @@ class TemplateTestRenderRequest(BaseModel):
     subject: Optional[str] = None
     message: str
     title: Optional[str] = None
+    action_route: Optional[str] = Field(None, description="Custom button destination route e.g. /verify-otp")
+    action_label: Optional[str] = Field(None, description="Custom button CTA text e.g. Verify Email")
     variables: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -63,6 +69,7 @@ class TemplateTestSendRequest(BaseModel):
     subject: Optional[str] = Field(None, description="Subject line template or custom subject")
     message: str = Field(..., description="Message body template")
     title: Optional[str] = Field(None, description="Title header template")
+    action_route: Optional[str] = Field(None, description="Custom button destination route")
     variables: Dict[str, Any] = Field(default_factory=dict, description="Test dynamic variables")
 
 
