@@ -23,7 +23,6 @@ import {
     Shield,
     Share2,
     ChevronDown,
-    Search,
     Menu,
     Wand2,
     Plug,
@@ -257,13 +256,6 @@ function AdminLayoutContent({ children }) {
                         </span>
                     </div>
 
-                    {/* Search */}
-                    <div className="px-4 mb-4">
-                        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#202020] border border-[var(--notion-border)] text-sm text-[#9b9b9b] cursor-pointer hover:bg-[var(--notion-hover)] transition-colors">
-                            <Search size={14} />
-                            <span>Search</span>
-                        </div>
-                    </div>
 
                     {/* Nav Items */}
                     <div className="flex-1 px-3 overflow-y-auto custom-scrollbar">
