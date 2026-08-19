@@ -121,10 +121,7 @@ class ConversationService:
         if status and status.upper() != "ALL":
             query = query.filter(Conversation.status == status)
         conversations = (
-            query.order_by(
-                Conversation.last_message_at.desc().nullslast(),
-                Conversation.updated_at.desc()
-            )
+            query.order_by(Conversation.updated_at.desc())
             .offset(skip)
             .limit(limit)
             .all()
@@ -248,10 +245,8 @@ class ConversationService:
         )
 
         conversation = db.query(Conversation).filter(*filters).first()
-        now = datetime.utcnow()
         if conversation:
-            conversation.updated_at = now
-            conversation.last_message_at = now
+            conversation.updated_at = datetime.utcnow()
             if delivery_target and not conversation.phone:
                 conversation.phone = delivery_target
             if external_id and not conversation.external_id:
@@ -278,9 +273,8 @@ class ConversationService:
                     contact_name=contact_name,
                     profile_pic=profile_pic,
                     user_id=resolved_user_id,
-                    created_at=now,
-                    updated_at=now,
-                    last_message_at=now,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
                 )
                 db.add(conversation)
                 db.flush()
