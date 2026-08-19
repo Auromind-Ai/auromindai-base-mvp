@@ -55,5 +55,3 @@ pyotp
 qrcode[pil]
 redbeat
 reportlab
-
-
