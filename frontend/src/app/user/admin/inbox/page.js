@@ -8,7 +8,7 @@ import {
     ArrowRight, ChevronRight, MoreHorizontal, Info,
     ArrowLeft, SlidersHorizontal, Camera, FileText,
     PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, Check,
-    Inbox, X, Play, Pause, Mic, CheckCheck, Smile
+    Inbox, X, Play, Pause, Mic, CheckCheck, Smile, Loader2
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -895,6 +895,11 @@ function ChatArea({
     setShowTemplateSelect,
     workspace,
     onSendTemplateSuccess,
+    selectedFile,
+    setSelectedFile,
+    selectedFilePreview,
+    setSelectedFilePreview,
+    isUploadingMedia,
 }) {
     const ref = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -903,7 +908,6 @@ function ChatArea({
     const prevMessagesLenRef = useRef(messages.length);
 
     const fileInputRef = useRef(null);
-    const [selectedImage, setSelectedImage] = useState(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     useEffect(() => {
@@ -923,11 +927,27 @@ function ChatArea({
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                setSelectedImage(reader.result);
-            };
-            reader.readAsDataURL(file);
+            setSelectedFile?.(file);
+            const isImage = file.type.startsWith('image/');
+            const isVideo = file.type.startsWith('video/');
+            const isAudio = file.type.startsWith('audio/');
+            if (isImage || isVideo || isAudio) {
+                const previewUrl = URL.createObjectURL(file);
+                setSelectedFilePreview?.({
+                    url: previewUrl,
+                    type: isImage ? 'image' : isVideo ? 'video' : 'audio',
+                    name: file.name,
+                    size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+                });
+            } else {
+                setSelectedFilePreview?.({
+                    url: null,
+                    type: 'document',
+                    name: file.name,
+                    size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+                });
+            }
+            e.target.value = '';
         }
     };
 
@@ -1312,10 +1332,29 @@ function ChatArea({
                                 )}
                             </div>
 
-                            {selectedImage && (
-                                <div className="mb-2 p-2 rounded-xl bg-[#1e1e1e] border border-white/10 inline-flex items-center gap-2">
-                                    <img src={selectedImage} alt="attachment preview" className="w-12 h-12 object-cover rounded-lg" />
-                                    <button onClick={() => setSelectedImage(null)} className="p-1 text-red-400 hover:bg-white/5 rounded-full">
+                            {selectedFilePreview && (
+                                <div className="mb-2 p-2 rounded-xl bg-[#1e1e1e] border border-white/10 inline-flex items-center gap-3 max-w-full">
+                                    {selectedFilePreview.type === 'image' && (
+                                        <img src={selectedFilePreview.url} alt="attachment" className="w-12 h-12 object-cover rounded-lg shrink-0" />
+                                    )}
+                                    {selectedFilePreview.type === 'video' && (
+                                        <video src={selectedFilePreview.url} className="w-16 h-12 object-cover rounded-lg shrink-0" />
+                                    )}
+                                    {(selectedFilePreview.type === 'audio' || selectedFilePreview.type === 'document') && (
+                                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0">
+                                            <FileText size={18} />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0 pr-2">
+                                        <p className="text-[12px] text-white font-medium truncate max-w-[200px]">{selectedFilePreview.name}</p>
+                                        <p className="text-[10px] text-white/50">{selectedFilePreview.size}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSelectedFile?.(null); setSelectedFilePreview?.(null); }}
+                                        className="p-1 text-red-400 hover:bg-white/10 rounded-full cursor-pointer shrink-0"
+                                        title="Remove attachment"
+                                    >
                                         <X size={14} />
                                     </button>
                                 </div>
@@ -1326,26 +1365,29 @@ function ChatArea({
                                 <input
                                     type="file"
                                     ref={fileInputRef}
-                                    accept="image/*,audio/*"
+                                    accept="image/*,video/*,audio/*,application/pdf"
                                     onChange={handleFileSelect}
                                     className="hidden"
                                 />
                                 <button
+                                    type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0"
+                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0 hover:bg-white/5 active:scale-95 cursor-pointer"
                                     style={{ backgroundColor: `${ch.color}20` }}
+                                    title="Attach Image / Video / Media"
                                 >
                                     <Camera size={16} style={{ color: ch.color }} strokeWidth={2} />
                                 </button>
                                 {ch.id === 'whatsapp' && (
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             fetchInboxTemplates();
                                             setSelectedInboxTemplate(null);
                                             setTemplateSearchQuery('');
                                             setShowTemplateSelect(true);
                                         }}
-                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0"
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0 cursor-pointer"
                                         style={{ backgroundColor: `${ch.color}20` }}
                                         title="Use Template"
                                     >
@@ -1357,7 +1399,7 @@ function ChatArea({
                                     <button
                                         type="button"
                                         onClick={() => setShowEmojiPicker(prev => !prev)}
-                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0"
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0 cursor-pointer"
                                         style={{ backgroundColor: `${ch.color}20` }}
                                         title="Emoji"
                                     >
@@ -1401,18 +1443,27 @@ function ChatArea({
                                     value={msg}
                                     onChange={(e) => setMsg(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                                    placeholder="Message"
+                                    placeholder={selectedFilePreview ? "Add a caption..." : "Message"}
+                                    disabled={isUploadingMedia}
                                     className="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#555] outline-none px-1"
                                 />
                                 <button
+                                    type="button"
                                     onClick={sendMessage}
-                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
+                                    disabled={isUploadingMedia || (!msg.trim() && !selectedFile)}
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
+                                        isUploadingMedia || (!msg.trim() && !selectedFile) ? 'opacity-40 cursor-not-allowed' : ''
+                                    }`}
                                     style={isInstagram
                                         ? { background: 'linear-gradient(135deg, #ee2a7b, #6228d7)' }
                                         : { backgroundColor: ch.color }
                                     }
                                 >
-                                    <Send size={15} className="text-white" strokeWidth={2} />
+                                    {isUploadingMedia ? (
+                                        <Loader2 size={15} className="text-white animate-spin" />
+                                    ) : (
+                                        <Send size={15} className="text-white" strokeWidth={2} />
+                                    )}
                                 </button>
                             </div>
                         </>
@@ -1491,6 +1542,9 @@ function InboxContent() {
     const [resolvedLeadId, setResolvedLeadId] = useState(null);
     const [leadDetail, setLeadDetail] = useState(null);
     const [msg, setMsg] = useState('');
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [selectedFilePreview, setSelectedFilePreview] = useState(null);
+    const [isUploadingMedia, setIsUploadingMedia] = useState(false);
     
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [previewMedia, setPreviewMedia] = useState(null);
@@ -1709,6 +1763,7 @@ function InboxContent() {
             }
 
             setLead(nextLead);
+            leadRef.current = nextLead;
             if (nextLead) {
                 setUnreadCounts(prev => ({ ...prev, [nextLead.id]: 0 }));
             }
@@ -1846,18 +1901,52 @@ function InboxContent() {
     }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId]);
 
     async function sendMessage() {
-        if (!msg.trim() || !lead) return;
+        if ((!msg.trim() && !selectedFile) || !lead || isUploadingMedia) return;
+        setIsUploadingMedia(true);
         try {
-            const payload = { conversation_id: lead.id, message: msg };
+            let uploadedMediaUrl = null;
+            let detectedMessageType = null;
+            let detectedMimeType = null;
+
+            if (selectedFile) {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                const uploadRes = await api.post('/api/upload', formData);
+                uploadedMediaUrl = uploadRes.url;
+                detectedMessageType = uploadRes.file_type || (
+                    selectedFile.type.startsWith('video/') ? 'video' :
+                    selectedFile.type.startsWith('audio/') ? 'audio' :
+                    selectedFile.type.startsWith('image/') ? 'image' : 'document'
+                );
+                detectedMimeType = selectedFile.type;
+            }
+
+            const payload = {
+                conversation_id: lead.id,
+                message: msg.trim() || (uploadedMediaUrl ? `[${(detectedMessageType || 'IMAGE').toUpperCase()}]` : ''),
+            };
+
+            if (uploadedMediaUrl) {
+                payload.metadata = {
+                    media_url: uploadedMediaUrl,
+                    message_type: detectedMessageType,
+                    mime_type: detectedMimeType,
+                };
+            }
+
             if (templateName) {
                 payload.metadata = {
+                    ...(payload.metadata || {}),
                     template_name: templateName,
                     variables: templateVariables,
                     language: templateLanguage,
                 };
             }
+
             await api.post('/api/send-reply', payload);
             setMsg('');
+            setSelectedFile(null);
+            setSelectedFilePreview(null);
             setTemplateName(null);
             setTemplateVariables([]);
             setTemplateLanguage('en_US');
@@ -1869,6 +1958,8 @@ function InboxContent() {
             } else {
                 showToast("Failed to send message. Please try again.");
             }
+        } finally {
+            setIsUploadingMedia(false);
         }
     }
 
@@ -1930,7 +2021,9 @@ function InboxContent() {
 
     function handleLeadSelectTablet(l) {
         if (!l) return;
-        setLead(l); fetchMessages(l.id);
+        setLead(l);
+        leadRef.current = l;
+        fetchMessages(l.id);
         setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
         api.post(`/api/conversations/${l.id}/read`).catch(() => {});
         fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
@@ -1939,7 +2032,9 @@ function InboxContent() {
 
     function handleLeadSelectMobile(l) {
         if (!l) return;
-        setLead(l); fetchMessages(l.id);
+        setLead(l);
+        leadRef.current = l;
+        fetchMessages(l.id);
         setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
         api.post(`/api/conversations/${l.id}/read`).catch(() => {});
         fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
@@ -1954,6 +2049,9 @@ function InboxContent() {
         fetchInboxTemplates, setSelectedInboxTemplate,
         setTemplateSearchQuery, setShowTemplateSelect,
         workspace,
+        selectedFile, setSelectedFile,
+        selectedFilePreview, setSelectedFilePreview,
+        isUploadingMedia,
         onSendTemplateSuccess: (formattedContent) => {
             fetchMessages(lead.id);
             setMessages(prev => [...prev, {
@@ -1987,7 +2085,9 @@ function InboxContent() {
                             activeFilter={activeFilter} onFilterChange={setActiveFilter}
                             unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                             onLeadSelect={(l) => {
-                                setLead(l); fetchMessages(l.id);
+                                setLead(l);
+                                leadRef.current = l;
+                                fetchMessages(l.id);
                                 setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
                                 api.post(`/api/conversations/${l.id}/read`).catch(() => {});
                                 fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
@@ -2059,7 +2159,9 @@ function InboxContent() {
                                 activeFilter={activeFilter} onFilterChange={setActiveFilter}
                                 unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                                 onLeadSelect={(l) => {
-                                    setLead(l); fetchMessages(l.id);
+                                    setLead(l);
+                                    leadRef.current = l;
+                                    fetchMessages(l.id);
                                     setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
                                     api.post(`/api/conversations/${l.id}/read`).catch(() => {});
                                     fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));

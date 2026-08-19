@@ -44,6 +44,8 @@ class MessageService:
         skip: int = 0,
         limit: int = 100,
     ):
+        ws_uuid = to_uuid(workspace_id)
+        conv_uuid = to_uuid(conversation_id)
         messages = (
             db.query(Message)
             .join(
@@ -51,8 +53,8 @@ class MessageService:
                 Message.conversation_id == models.Conversation.id,
             )
             .filter(
-                Message.conversation_id == workspace_id,
-                models.Conversation.workspace_id == conversation_id,
+                Message.conversation_id == conv_uuid,
+                models.Conversation.workspace_id == ws_uuid,
             )
             .order_by(Message.timestamp.asc())
             .offset(skip)
@@ -265,7 +267,7 @@ class MessageService:
             source="manual_reply",
         )
         try:
-            external_id = ChannelService.send_message(conversation, message, metadata)
+            external_id = ChannelService.send_message(conversation, message, enriched_metadata)
         except RuntimeError as e:
             from fastapi import HTTPException
             raise HTTPException(
