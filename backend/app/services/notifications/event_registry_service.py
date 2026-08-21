@@ -96,6 +96,9 @@ class EventRegistryService:
         if cls._SYS_VARS_CACHE is not None:
             return cls._SYS_VARS_CACHE
 
+        if db is not None and not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
+
         def _query_db(session: Session) -> Optional[List[Dict[str, Any]]]:
             try:
                 from app.models.notification_system_variable import NotificationSystemVariable
@@ -316,11 +319,11 @@ class EventRegistryService:
         prefix = event_name.split(".")[0].lower() if "." in event_name else ""
         if prefix in ("user", "onboarding", "plan"):
             return "User & Onboarding"
-        if prefix in ("payment", "credits", "subscription", "billing", "invoice"):
+        if prefix in ("payment", "credits", "ai_credits", "wcc", "wcc_wallet", "subscription", "billing", "invoice"):
             return "Payments & Credits"
         if prefix in ("lead", "crm", "sales"):
             return "Lead Management"
-        if prefix in ("broadcast", "workflow", "automation"):
+        if prefix in ("broadcast", "workflow", "automation", "flow", "flow_executions"):
             return "Broadcast & Workflow"
         if prefix in ("report", "metrics", "analytics"):
             return "Reports"
@@ -337,6 +340,9 @@ class EventRegistryService:
         """Fetches event display and routing metadata directly from DB event_metadata table."""
         if not key_or_event:
             return None
+
+        if db is not None and not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
 
         # 1. In-Memory Cache
         if key_or_event in cls._METADATA_CACHE:
@@ -406,6 +412,9 @@ class EventRegistryService:
         """Returns dynamically discovered keys and sample payload for an event name or template key."""
         if not key_or_event:
             return {"discovered_keys": set(), "sample_payload": {}, "last_seen_at": None}
+
+        if db is not None and not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
 
         # 1. In-Memory Cache
         if key_or_event in cls._DISCOVERED_CACHE:
@@ -481,6 +490,8 @@ class EventRegistryService:
 
     @classmethod
     def get_merged_contract(cls, key_or_event: str, db: Optional[Session] = None) -> Optional[Dict[str, Any]]:
+        if db is not None and not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
         meta = cls.get_event_metadata(key_or_event, db=db)
         event_name = meta.get("event_name") if meta else (key_or_event.replace("_", ".") if "." not in key_or_event else key_or_event)
         template_key = meta.get("template_key") if meta else (key_or_event.replace(".", "_") if "_" not in key_or_event else key_or_event)
@@ -570,6 +581,8 @@ class EventRegistryService:
     @classmethod
     def get_all_merged_contracts(cls, db: Optional[Session] = None) -> Dict[str, Dict[str, Any]]:
         merged_all: Dict[str, Dict[str, Any]] = {}
+        if db is not None and not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
 
         def _fetch_all_metadata(session: Session) -> List[Any]:
             try:
@@ -609,10 +622,36 @@ class EventRegistryService:
                 if dynamic_c:
                     merged_all[t_key] = dynamic_c
 
+        # Guarantee 100% coverage of all notification templates in database
+        try:
+            from app.models.notification_template import NotificationTemplate
+            tpl_records = db.query(NotificationTemplate).all() if db is not None else []
+            for tpl in tpl_records:
+                if tpl.template_key and tpl.template_key not in merged_all:
+                    merged = cls.get_merged_contract(tpl.template_key, db=db)
+                    if merged:
+                        merged_all[tpl.template_key] = merged
+        except Exception:
+            pass
+
+        # Guarantee 100% coverage of all payload schemas in database
+        try:
+            from app.models.event_payload_schema import EventPayloadSchema
+            schema_records = db.query(EventPayloadSchema).all() if db is not None else []
+            for sch in schema_records:
+                if sch.template_key and sch.template_key not in merged_all:
+                    merged = cls.get_merged_contract(sch.template_key, db=db)
+                    if merged:
+                        merged_all[sch.template_key] = merged
+        except Exception:
+            pass
+
         return merged_all
 
     @classmethod
     def get_allowed_placeholder_keys(cls, key_or_event: str, db: Optional[Session] = None) -> Set[str]:
+        if db is not None and not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
         allowed: Set[str] = set(cls.get_system_variable_keys(db=db))
 
         # Discovered event payload variables
@@ -635,6 +674,8 @@ class EventRegistryService:
 
     @classmethod
     def get_sample_context(cls, key_or_event: str, db: Optional[Session] = None) -> Dict[str, Any]:
+        if db is not None and not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
         contract = cls.get_merged_contract(key_or_event, db=db)
         base_app_url = get_base_frontend_url()
 

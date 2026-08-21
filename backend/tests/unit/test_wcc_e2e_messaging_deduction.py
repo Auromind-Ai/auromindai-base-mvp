@@ -459,7 +459,8 @@ def test_full_meta_whatsapp_webhook_billing_integration(db):
     msg = Message(
         id=uuid.uuid4(),
         conversation_id=conv.id,
-        sender_type=SenderType.USER,
+        sender_type=SenderType.AI,
+        source="flow",
         status=MessageStatus.SENT,
         content="Welcome to our store!",
         external_id=wamid
@@ -528,3 +529,164 @@ def test_full_meta_whatsapp_webhook_billing_integration(db):
     assert tx.category == "marketing"
     assert tx.customer_price_applied == Decimal("1.2500")
     assert tx.status == "success"
+
+
+# ============================================================================
+# 8. USER <-> AGENT LIVE CONVERSATION NEVER DEDUCTS WCC WALLET
+# ============================================================================
+def test_user_and_agent_live_chat_never_deducts_wcc_wallet(db):
+    """
+    Mandate: WCC credit MUST ONLY deduct for Flow messages.
+    When a User (customer) and Agent talk, WCC wallet MUST NOT be deducted.
+    """
+    phone_id = f"meta_phone_agent_{uuid.uuid4().hex[:8]}"
+    ws, _ = _create_workspace(db, "Agent Chat WS", phone_number_id=phone_id)
+
+    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    wallet.included_balance = Decimal("0.00")
+    wallet.purchased_balance = Decimal("50.00")
+    wallet.balance = Decimal("50.00")
+    db.commit()
+
+    conv = Conversation(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        channel=ChannelType.WHATSAPP,
+        phone="+919876500001"
+    )
+    db.add(conv)
+    db.flush()
+
+    # Case A: User sends an inbound message
+    user_wamid = f"wamid.inbound_{uuid.uuid4().hex}"
+    user_msg = Message(
+        id=uuid.uuid4(),
+        conversation_id=conv.id,
+        sender_type=SenderType.USER,
+        status=MessageStatus.RECEIVED,
+        content="Hello agent, I need help with my order.",
+        external_id=user_wamid
+    )
+    db.add(user_msg)
+
+    # Case B: Human Agent sends a manual reply
+    agent_wamid = f"wamid.agent_{uuid.uuid4().hex}"
+    agent_msg = Message(
+        id=uuid.uuid4(),
+        conversation_id=conv.id,
+        sender_type=SenderType.AGENT,
+        status=MessageStatus.SENT,
+        source="manual_reply",
+        content="Hi! I am looking into your order right now.",
+        external_id=agent_wamid
+    )
+    db.add(agent_msg)
+    db.commit()
+
+    # Meta sends pricing/service conversation delivery callback for agent message
+    meta_session_id = f"meta_agent_sess_{uuid.uuid4().hex[:12]}"
+    webhook_payload = {
+        "object": "whatsapp_business_account",
+        "entry": [
+            {
+                "id": "WABA_ID_123",
+                "changes": [
+                    {
+                        "value": {
+                            "messaging_product": "whatsapp",
+                            "metadata": {
+                                "display_phone_number": "+919999999999",
+                                "phone_number_id": phone_id
+                            },
+                            "statuses": [
+                                {
+                                    "id": agent_wamid,
+                                    "status": "delivered",
+                                    "timestamp": "1700000000",
+                                    "recipient_id": "919876500001",
+                                    "conversation": {
+                                        "id": meta_session_id,
+                                        "origin": {"type": "service"}
+                                    },
+                                    "pricing": {
+                                        "billable": True,
+                                        "category": "service",
+                                        "pricing_model": "CBP"
+                                    }
+                                }
+                            ]
+                        },
+                        "field": "messages"
+                    }
+                ]
+            }
+        ]
+    }
+
+    # Process webhook
+    asyncio.run(WebhookService.handle_meta_whatsapp_webhook(webhook_payload, db))
+
+    # Message status is updated to DELIVERED
+    updated_agent_msg = db.query(Message).filter(Message.id == agent_msg.id).first()
+    assert updated_agent_msg.status == MessageStatus.DELIVERED
+
+    # WCC Wallet balance MUST REMAIN UNTOUCHED at ₹50.00
+    wallet_after = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    assert wallet_after.balance == Decimal("50.00")
+
+    # NO WCCTransaction record created for agent live reply
+    tx = db.query(WCCTransaction).filter(
+        WCCTransaction.workspace_id == ws.id,
+        WCCTransaction.meta_session_id == meta_session_id
+    ).first()
+    assert tx is None
+
+
+# ============================================================================
+# 9. AGENT CAN SEND MANUAL REPLY EVEN WITH ZERO WCC BALANCE
+# ============================================================================
+def test_agent_manual_reply_bypasses_wcc_preflight_check(db):
+    """
+    Agents conversing with users in live chat must not be blocked by zero WCC balance.
+    Pre-flight balance check is only enforced for Flow messages.
+    """
+    from app.services.inbox.channel_service import ChannelService
+    from unittest.mock import patch, MagicMock
+
+    ws, _ = _create_workspace(db, "Zero WCC Agent WS")
+    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    wallet.included_balance = Decimal("0.00")
+    wallet.purchased_balance = Decimal("0.00")
+    wallet.balance = Decimal("0.00")
+    db.commit()
+
+    conv = Conversation(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        channel=ChannelType.WHATSAPP,
+        phone="+919876543210"
+    )
+    db.add(conv)
+    db.commit()
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"messages": [{"id": "wamid.mock_agent_123"}]}
+
+    with patch("requests.post", return_value=mock_resp):
+        # 1. Agent manual reply (metadata source="manual_reply", no is_flow) -> SUCCEEDS even with ₹0 balance!
+        agent_res = ChannelService.send_message(
+            conversation=conv,
+            body="Hello from human agent!",
+            metadata={"source": "manual_reply"}
+        )
+        assert agent_res == "wamid.mock_agent_123"
+
+        # 2. Flow message (metadata is_flow=True) -> BLOCKED by pre-flight check due to ₹0 balance!
+        with pytest.raises(InsufficientWCCBalanceError):
+            ChannelService.send_message(
+                conversation=conv,
+                body="Automated flow message",
+                metadata={"is_flow": True, "source": "flow"}
+            )
+

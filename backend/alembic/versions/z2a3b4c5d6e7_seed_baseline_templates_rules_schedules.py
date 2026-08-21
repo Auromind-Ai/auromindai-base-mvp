@@ -91,7 +91,7 @@ INITIAL_TEMPLATES = [
         "channel": "both",
         "title": "AI Credits Added Successfully",
         "subject": "Credit Recharge Confirmed: {{credits_added}} Credits Added",
-        "message": "Hi {{user_name}},\n\nYour purchase of {{credits_added}} AI Credits (Amount: {{amount}}) for {{workspace_name}} was successful.\n\nCurrent Total Balance: {{current_balance}} Credits\nInvoice ID: {{invoice_id}}",
+        "message": "Hi {{user_name}},\n\nYour purchase of {{credits_added}} AI Credits (Amount: {{amount}}) for {{workspace_name}} was successful.\n\nCurrent Available Balance: {{current_balance}} Credits\nInvoice ID: {{invoice_id}}",
         "is_active": True
     },
     {

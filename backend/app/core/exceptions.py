@@ -6,6 +6,10 @@ class BillingError(AuromindException):
     """Raised when billing operations fail."""
     pass
 
+class BillingConfigurationError(BillingError):
+    """Raised when billing plan configuration or pricing is missing from the database."""
+    pass
+
 class GuardrailError(AuromindException):
     """Raised when content fails guardrails check."""
     pass

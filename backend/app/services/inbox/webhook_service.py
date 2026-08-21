@@ -23,7 +23,8 @@ from app.services.wcc_service import WCCService
 from app.models.wcc import WCCRateCard
 from app.core.logger import logger
 from app.services.notification_service import NotificationService
-
+from app.models.message import Message, MessageStatus, SenderType
+from app.models.outbound_message import OutboundMessage
 # ─
 # FIX 1: Auto-create / update Lead on every inbound message
 # ─
@@ -283,8 +284,7 @@ class WebhookService:
                         wamid = status_update.get("id")
                         status_str = status_update.get("status")
                         if wamid and status_str:
-                            from app.models.message import Message, MessageStatus
-                            from app.models.outbound_message import OutboundMessage
+                          
                             
                             status_mapping = {
                                 "sent": MessageStatus.SENT,
@@ -317,10 +317,51 @@ class WebhookService:
                             except Exception as exc:
                                 logger.error(f"Failed to update message status for {wamid}: {exc}")
 
-                            # WCC Wallet Debit Integration
+                            # WCC Wallet Debit Integration — Strictly for Flow messages, NEVER for user <-> agent conversations
+                            is_flow_message = False
+                            if outbound and (outbound.flow_id is not None or outbound.message_type == "automation"):
+                                is_flow_message = True
+                            elif outbound and outbound.metadata_json:
+                                meta_j = outbound.metadata_json
+                                if isinstance(meta_j, str):
+                                    try:
+                                        meta_j = json.loads(meta_j)
+                                    except Exception:
+                                        meta_j = {}
+                                if isinstance(meta_j, dict) and (
+                                    meta_j.get("flow_id")
+                                    or meta_j.get("is_flow")
+                                    or meta_j.get("source") in ("flow", "workflow", "broadcast", "campaign", "automation")
+                                ):
+                                    is_flow_message = True
+
+                            if not is_flow_message and msg:
+                                if msg.source in ("flow", "workflow", "broadcast", "campaign", "automation"):
+                                    is_flow_message = True
+                                elif msg.metadata_json:
+                                    try:
+                                        msg_meta = json.loads(msg.metadata_json) if isinstance(msg.metadata_json, str) else msg.metadata_json
+                                        if isinstance(msg_meta, dict) and (
+                                            msg_meta.get("flow_id")
+                                            or msg_meta.get("is_flow")
+                                            or msg_meta.get("source") in ("flow", "workflow", "broadcast", "campaign", "automation")
+                                        ):
+                                            is_flow_message = True
+                                    except Exception:
+                                        pass
+
+                            # Explicit guard: Agent manual replies and user messages MUST NEVER be debited
+                            if msg and (msg.sender_type == SenderType.AGENT or msg.source == "manual_reply"):
+                                is_flow_message = False
+
                             pricing = status_update.get("pricing")
                             conversation = status_update.get("conversation")
-                            if pricing and conversation:
+
+                            if not is_flow_message:
+                                logger.info(
+                                    f"[WCC Billing] Skipping WCC wallet debit for user/agent conversation message wamid={wamid}"
+                                )
+                            elif pricing and conversation:
                                 try:
                                     billable = pricing.get("billable", False)
                                     category = pricing.get("category", "service").lower()

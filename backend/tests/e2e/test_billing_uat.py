@@ -236,7 +236,10 @@ def uat_db():
         pro_plan = Plan(
             id=uuid.uuid4(),
             name="pro",
-            price=1000,
+            display_name="Pro",
+            price=1000.0,
+            monthly_price=1000.0,
+            yearly_price=10000.0,
             token_limit=10000,
             workspace_limit=1,
             billing_cycle="monthly",
@@ -246,13 +249,21 @@ def uat_db():
         )
         db.add(pro_plan)
         db.flush()
+    else:
+        pro_plan.price = 1000.0
+        pro_plan.monthly_price = 1000.0
+        pro_plan.yearly_price = 10000.0
+        db.flush()
 
     free_plan = db.query(Plan).filter(Plan.name == "free").first()
     if not free_plan:
         free_plan = Plan(
             id=uuid.uuid4(),
             name="free",
-            price=0,
+            display_name="Free",
+            price=0.0,
+            monthly_price=0.0,
+            yearly_price=0.0,
             token_limit=1000,
             workspace_limit=1,
             billing_cycle="monthly",
@@ -261,6 +272,11 @@ def uat_db():
             features={}
         )
         db.add(free_plan)
+        db.flush()
+    else:
+        free_plan.price = 0.0
+        free_plan.monthly_price = 0.0
+        free_plan.yearly_price = 0.0
         db.flush()
 
     free_ent = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == free_plan.id).first()
@@ -947,26 +963,19 @@ def test_13_invoice_pdf_download(seeded_user_and_workspace, uat_db):
     
     # Save the file using Storage provider (falls back to LocalStorageProvider)
     from app.services.storage.service import get_storage
-    file_name = f"invoices/AUR_UAT_TEST_{uuid.uuid4().hex}.pdf"
+    file_name = f"invoices/{invoice.id}.pdf"
     pdf_url = get_storage()._build_provider()._save_file_sync(file_name, pdf_bytes, "application/pdf")
     invoice.pdf_url = pdf_url
     uat_db.add(invoice)
     uat_db.commit()
 
-    # 2. Call download endpoint and verify redirect response code (307/302)
+    # 2. Call download endpoint and verify response
     response = client.get(
-        f"/billing/invoices/{invoice.id}/download",
-        follow_redirects=False
+        f"/billing/invoices/{invoice.id}/download"
     )
-    assert response.status_code in (302, 307)
-    redirect_url = response.headers.get("location")
-    assert "/temp_uploads/" in redirect_url
-
-    # Check file exists on local filesystem
-    local_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", redirect_url.lstrip("/")))
-    assert os.path.exists(local_path)
-    file_content = open(local_path, "rb").read()
-    assert file_content.startswith(b"%PDF")
+    assert response.status_code == 200
+    assert response.headers.get("content-type") == "application/pdf"
+    assert response.content.startswith(b"%PDF")
 
 def test_14_duplicate_invoice_prevention(seeded_user_and_workspace, uat_db):
     user, workspace = seeded_user_and_workspace

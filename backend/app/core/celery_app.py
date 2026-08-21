@@ -113,6 +113,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.billing_worker.cleanup_abandoned_wcc_recharges",
         "schedule": crontab(minute=0),
     },
+    # 4. Monthly Entitlement Reset — Refreshes AI credits + WCC wallet for active subscriptions
+    "process-monthly-entitlement-resets": {
+        "task": "app.workers.billing_worker.process_monthly_entitlement_resets",
+        "schedule": crontab(hour=6, minute=0),  # Daily 06:00 IST
+    },
 }
 
 # @celery_app.on_after_finalize.connect

@@ -8,6 +8,17 @@ from app.models.workspace import Workspace
 from app.models.invoice import Invoice
 from app.models.invoice_sequence import InvoiceSequence
 from app.core.enums import InvoiceStatus
+from app.database import engine, Base, SessionLocal
+
+
+@pytest.fixture
+def db():
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    session = SessionLocal()
+    yield session
+    session.close()
+
 
 def test_gst_calculations_intra_state():
     """

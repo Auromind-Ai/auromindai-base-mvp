@@ -3,49 +3,41 @@ from typing import Any
 from sqlalchemy.orm import Session
 from app.models.plan import Plan
 from app.services.billing.gateway.base import BillingPlanConfig
-from app.services.platform_settings_service import get_setting
 from app.services.config_service import config_service
+from app.core.exceptions import BillingConfigurationError
+
 
 class PlanService:
     def _get_plan_config(self, db: Session, plan_key: str, billing_cycle: str = "monthly") -> BillingPlanConfig:
+        if not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
+
         key = (plan_key or "free").lower().strip()
         billing_cycle = (billing_cycle or "monthly").lower().strip()
 
-        # 1. First query DB Plan table
+        # 1. Query DB Plan table - Single Source of Truth
         db_plan = db.query(Plan).filter(Plan.name == key).first()
         
-        if db_plan:
-            label = db_plan.display_name or key.title()
-            if billing_cycle == "yearly" and key != "free":
-                amount = float(db_plan.yearly_price)
-            else:
-                amount = float(db_plan.monthly_price)
-            
-            description = db_plan.description or ""
-            features = db_plan.features or []
-            tokens = db_plan.token_limit or 0
-            currency = db_plan.currency or "INR"
+        if not db_plan:
+            raise BillingConfigurationError(
+                f"Plan '{key}' is not configured in the database. Please configure the plan in the Admin Panel."
+            )
+        
+        label = db_plan.display_name or key.title()
+        if billing_cycle == "yearly" and key != "free":
+            if db_plan.yearly_price is None:
+                raise BillingConfigurationError(f"Yearly pricing for plan '{key}' is not configured in the database.")
+            amount = float(db_plan.yearly_price)
         else:
-            # Fallback to platform settings
-            label = (get_setting(db, f"{key}_plan_name", key.title()) or key.title()).strip()
-            if billing_cycle == "yearly" and key != "free":
-                yearly_override = get_setting(db, f"{key}_yearly_plan_price", None)
-                if yearly_override is not None:
-                    amount = float(yearly_override)
-                else:
-                    amount = float(get_setting(db, f"{key}_plan_price", 0) or 0) * 10
-            else:
-                amount = float(get_setting(db, f"{key}_plan_price", 0) or 0)
+            if db_plan.monthly_price is None:
+                raise BillingConfigurationError(f"Monthly pricing for plan '{key}' is not configured in the database.")
+            amount = float(db_plan.monthly_price)
+        
+        description = db_plan.description or ""
+        features = db_plan.features or []
+        tokens = db_plan.token_limit or 0
+        currency = db_plan.currency or "INR"
 
-            description = get_setting(db, f"{key}_plan_desc", "") or ""
-            features = get_setting(db, f"{key}_plan_features", []) or []
-
-            token_limits = get_setting(db, "token_limit_per_plan", {})
-            tokens_val = token_limits.get(key)
-            tokens = tokens_val if tokens_val is not None else (15000000 if key == "solo" else (100000000 if key == "pro" else 1000000))
-            currency = "INR"
-
-      
         provider_suffix = "_yearly" if billing_cycle == "yearly" else ""
         provider_plan_ids = {
             "razorpay": config_service.get(f"razorpay_{key}{provider_suffix}_plan_id") or (config_service.get(f"razorpay_{key}_plan_id") if key != "free" else None),
@@ -64,18 +56,14 @@ class PlanService:
         )
 
     def _get_or_create_plan(self, db: Session, config: BillingPlanConfig, billing_cycle: str = "monthly") -> Plan:
+        if not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
+
         billing_cycle = (billing_cycle or "monthly").lower()
         plan = db.query(Plan).filter(Plan.name == config.key).first()
         
         if plan:
-            if billing_cycle == "yearly":
-                plan.yearly_price = float(config.amount)
-            else:
-                plan.monthly_price = float(config.amount)
-                plan.price = float(config.amount)
-            plan.token_limit = config.tokens
-            plan.features = config.features
-            plan.is_active = True
+            # Plan exists in DB - do NOT mutate or overwrite Admin-configured values!
             return plan
 
         monthly_amt = float(config.amount) if billing_cycle != "yearly" else float(config.amount / 10)
@@ -101,10 +89,13 @@ class PlanService:
         return plan
 
     def _serialize_plan(self, db: Session, key: str, billing_cycle: str = "monthly") -> dict[str, Any]:
+        if not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
+            
         config = self._get_plan_config(db, key, billing_cycle)
         db_plan = db.query(Plan).filter(Plan.name == key).first()
-        monthly_price = db_plan.monthly_price if db_plan else config.amount
-        yearly_price = db_plan.yearly_price if db_plan else (config.amount * 10)
+        monthly_price = float(db_plan.monthly_price) if db_plan and db_plan.monthly_price is not None else config.amount
+        yearly_price = float(db_plan.yearly_price) if db_plan and db_plan.yearly_price is not None else (config.amount * 10)
         
         return {
             "key": config.key,

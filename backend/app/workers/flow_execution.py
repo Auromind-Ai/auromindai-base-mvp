@@ -84,7 +84,8 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
 
     def _run():
         # Billing enforcement check
-        conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        conv_uuid = to_uuid(conversation_id)
+        conv = db.query(Conversation).filter(Conversation.id == conv_uuid).first()
         if conv:
             from app.services.billing.billing_service import enforce_execution_policy
             if not enforce_execution_policy(db, str(conv.workspace_id)):
@@ -114,7 +115,7 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
         #  REALTIME: notify the workspace that a new message was processed
         try:
             conv = db.query(Conversation).filter(
-                Conversation.id == conversation_id
+                Conversation.id == conv_uuid
             ).first()
             if conv:
                 msg_id = metadata.get("message_id") if isinstance(metadata, dict) else None
@@ -499,9 +500,13 @@ def send_whatsapp_message_task(
         # Release the SELECT FOR UPDATE lock before making the blocking external network call
         db.commit()
 
-        # Inject outbound_message_id into metadata so the delivery channel can access it
+        # Inject outbound_message_id and flow indicators into metadata so the delivery channel can access it
         metadata = metadata or {}
         metadata["outbound_message_id"] = outbound_message_id
+        if row.flow_id:
+            metadata["flow_id"] = str(row.flow_id)
+        metadata["is_flow"] = True
+        metadata["source"] = "flow"
 
         # 5. Send to Twilio / Instagram
         sid = deliver_outbound_message(

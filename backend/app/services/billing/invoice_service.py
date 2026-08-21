@@ -180,7 +180,7 @@ def number_to_words_inr(amount: Any) -> str:
             return units[n // 100] + " Hundred" + (" " + _convert_below_thousand(n % 100) if n % 100 != 0 else "")
 
     try:
-        val = float(amount)
+        val = float(amount or 0.0)
         rupees = int(val)
         paise = int(round((val - rupees) * 100))
 
@@ -710,21 +710,29 @@ class InvoiceService:
         product_desc = desc_mapping.get(invoice.product_type, f"Auromind Platform Recharge ({invoice.product_type})")
 
         # Tax calculations format
-        cgst_str = f"{invoice.cgst:,.2f}<br/>({invoice.gst_rate / Decimal('2.00'):.0f}%)" if invoice.cgst and invoice.cgst > 0 else "-"
-        sgst_str = f"{invoice.sgst:,.2f}<br/>({invoice.gst_rate / Decimal('2.00'):.0f}%)" if invoice.sgst and invoice.sgst > 0 else "-"
-        if invoice.igst and invoice.igst > 0:
+        taxable_val = invoice.taxable_amount if invoice.taxable_amount is not None else Decimal("0.00")
+        gst_rate_val = invoice.gst_rate if invoice.gst_rate is not None else Decimal("0.00")
+        total_val = invoice.total_amount if invoice.total_amount is not None else Decimal("0.00")
+        cgst_val = invoice.cgst if invoice.cgst is not None else Decimal("0.00")
+        sgst_val = invoice.sgst if invoice.sgst is not None else Decimal("0.00")
+        igst_val = invoice.igst if invoice.igst is not None else Decimal("0.00")
+        currency_val = invoice.currency or "INR"
+
+        cgst_str = f"{cgst_val:,.2f}<br/>({gst_rate_val / Decimal('2.00'):.0f}%)" if cgst_val > 0 else "-"
+        sgst_str = f"{sgst_val:,.2f}<br/>({gst_rate_val / Decimal('2.00'):.0f}%)" if sgst_val > 0 else "-"
+        if igst_val > 0:
             cgst_str = "-"
-            sgst_str = f"IGST:<br/>{invoice.igst:,.2f}"
+            sgst_str = f"IGST:<br/>{igst_val:,.2f}"
 
         row_1 = [
             Paragraph("1", style_tbl_cell_center),
             Paragraph(product_desc, style_tbl_cell),
             Paragraph("997331", style_tbl_cell_center),
-            Paragraph(f"{invoice.taxable_amount:,.2f}", style_tbl_cell_right),
-            Paragraph(f"{invoice.gst_rate:.0f}%", style_tbl_cell_center),
+            Paragraph(f"{taxable_val:,.2f}", style_tbl_cell_right),
+            Paragraph(f"{gst_rate_val:.0f}%", style_tbl_cell_center),
             Paragraph(cgst_str, style_tbl_cell_center),
             Paragraph(sgst_str, style_tbl_cell_center),
-            Paragraph(f"<b>{invoice.total_amount:,.2f}</b>", style_tbl_cell_right),
+            Paragraph(f"<b>{total_val:,.2f}</b>", style_tbl_cell_right),
         ]
 
         item_table = Table([table_headers, row_1], colWidths=[30, 167, 50, 75, 45, 55, 55, 70])
@@ -743,7 +751,7 @@ class InvoiceService:
         story.append(Spacer(1, 14))
 
         # --- 5. Amount in Words, Declaration vs Summary Breakdown ---
-        amount_in_words_text = number_to_words_inr(invoice.total_amount)
+        amount_in_words_text = number_to_words_inr(total_val)
 
         left_decl_content = [
             Paragraph("<b>AMOUNT IN WORDS</b>", style_card_title),
@@ -758,16 +766,16 @@ class InvoiceService:
         ]
 
         # Right Summary Totals
-        half_rate = (invoice.gst_rate / Decimal("2.00")) if invoice.gst_rate else Decimal("9.00")
+        half_rate = (gst_rate_val / Decimal("2.00")) if gst_rate_val > 0 else Decimal("9.00")
         summary_rows = [
-            [Paragraph("Subtotal (Taxable Value)", style_card_body), Paragraph(f"{invoice.currency} {invoice.taxable_amount:,.2f}", style_tbl_cell_right)],
+            [Paragraph("Subtotal (Taxable Value)", style_card_body), Paragraph(f"{currency_val} {taxable_val:,.2f}", style_tbl_cell_right)],
         ]
 
-        if invoice.igst and invoice.igst > 0:
-            summary_rows.append([Paragraph(f"IGST ({invoice.gst_rate:.0f}%)", style_card_body), Paragraph(f"{invoice.currency} {invoice.igst:,.2f}", style_tbl_cell_right)])
+        if igst_val > 0:
+            summary_rows.append([Paragraph(f"IGST ({gst_rate_val:.0f}%)", style_card_body), Paragraph(f"{currency_val} {igst_val:,.2f}", style_tbl_cell_right)])
         else:
-            summary_rows.append([Paragraph(f"CGST ({half_rate:.0f}%)", style_card_body), Paragraph(f"{invoice.currency} {invoice.cgst:,.2f}", style_tbl_cell_right)])
-            summary_rows.append([Paragraph(f"SGST ({half_rate:.0f}%)", style_card_body), Paragraph(f"{invoice.currency} {invoice.sgst:,.2f}", style_tbl_cell_right)])
+            summary_rows.append([Paragraph(f"CGST ({half_rate:.0f}%)", style_card_body), Paragraph(f"{currency_val} {cgst_val:,.2f}", style_tbl_cell_right)])
+            summary_rows.append([Paragraph(f"SGST ({half_rate:.0f}%)", style_card_body), Paragraph(f"{currency_val} {sgst_val:,.2f}", style_tbl_cell_right)])
 
         summary_inner_table = Table(summary_rows, colWidths=[140, 100])
         summary_inner_table.setStyle(TableStyle([
@@ -781,7 +789,7 @@ class InvoiceService:
 
         grand_total_badge = Table(
             [[Paragraph(f"<b>GRAND TOTAL</b>", ParagraphStyle("GTLabel", parent=normal, fontName="Helvetica-Bold", fontSize=11, textColor=TEXT_DARK)),
-              Paragraph(f"<b>{invoice.currency} {invoice.total_amount:,.2f}</b>", style_grand_total)]],
+              Paragraph(f"<b>{currency_val} {total_val:,.2f}</b>", style_grand_total)]],
             colWidths=[105, 135]
         )
         grand_total_badge.setStyle(TableStyle([

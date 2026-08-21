@@ -20,6 +20,7 @@ from app.utils.intent_detection import detect_intent_signals, detect_intent_sign
 from app.utils.scoring_config import get_scoring_config
 from app.schemas.lead_scoring import (BulkRecalcResponse,ConversationLogItem,LeadDetailResponse,LeadScoreListResponse,LeadScoreResponse,MessageIntentRequest,MessageIntentResponse,NodeProgressRequest,NodeProgressResponse,ScoreCalculateRequest,ScoreCalculateResponse,ScoreHistoryResponse,ConvertLeadRequest,ConvertLeadResponse,ManualLeadCreateRequest,ManualLeadCreateResponse,UpdateLeadLabelsRequest,UpdateLeadLabelsResponse,AssignLeadRequest)
 
+from app.services.billing.entitlement_service import EntitlementService
 from app.models.message import Message, SenderType, MessageStatus
 from app.models.conversation import ChannelType, ConversationStatus
 from app.services.inbox.conversation_service import ConversationService
@@ -817,6 +818,13 @@ async def create_manual_lead(
 ):
     import re
     wid = verify_workspace_access(current_user, db, workspace_id)
+
+
+    ent_check = EntitlementService.check_entitlement(db, wid, "lead")
+    if not ent_check["allowed"]:
+        EntitlementService.raise_entitlement_exceeded(
+            db, wid, "lead", ent_check["limit"], 100
+        )
 
     # 1. Clean and validate phone number format
     cleaned_phone = re.sub(r"[\s\-\(\)]", "", body.phone)

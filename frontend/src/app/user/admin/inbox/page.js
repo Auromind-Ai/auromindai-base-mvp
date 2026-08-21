@@ -900,12 +900,17 @@ function ChatArea({
     selectedFilePreview,
     setSelectedFilePreview,
     isUploadingMedia,
+    onLoadOlderMessages,
+    hasMoreMessages = false,
+    isLoadingOlder = false,
 }) {
     const ref = useRef(null);
     const messagesContainerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
     const [unreadScrolledCount, setUnreadScrolledCount] = useState(0);
     const prevMessagesLenRef = useRef(messages.length);
+    const prevOldestIdRef = useRef(messages[0]?.id);
+    const prevLatestIdRef = useRef(messages[messages.length - 1]?.id);
 
     const fileInputRef = useRef(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -951,17 +956,45 @@ function ChatArea({
         }
     };
 
+    const handleScroll = async (e) => {
+        const container = e.currentTarget;
+        if (container.scrollTop < 60 && hasMoreMessages && !isLoadingOlder) {
+            const prevScrollHeight = container.scrollHeight;
+            const prevScrollTop = container.scrollTop;
+
+            await onLoadOlderMessages?.();
+
+            requestAnimationFrame(() => {
+                if (container) {
+                    const newScrollHeight = container.scrollHeight;
+                    container.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+                }
+            });
+        }
+    };
+
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
 
-        const isNewIncoming = messages.length > prevMessagesLenRef.current;
+        const currentOldestId = messages[0]?.id;
+        const currentLatestId = messages[messages.length - 1]?.id;
+
+        const isOlderPrepended = messages.length > prevMessagesLenRef.current && currentOldestId !== prevOldestIdRef.current && currentLatestId === prevLatestIdRef.current;
+        const isNewAppended = currentLatestId !== prevLatestIdRef.current;
+
         prevMessagesLenRef.current = messages.length;
+        prevOldestIdRef.current = currentOldestId;
+        prevLatestIdRef.current = currentLatestId;
+
+        if (isOlderPrepended) {
+            return;
+        }
 
         const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
         const isNearBottom = distanceFromBottom < 130;
 
-        if (isNearBottom || !isNewIncoming) {
+        if (isNearBottom || !isNewAppended) {
             ref.current?.scrollIntoView({ behavior: 'smooth' });
             setTimeout(() => setUnreadScrolledCount(0), 0);
         } else {
@@ -1082,8 +1115,13 @@ function ChatArea({
             </div>
 
             {/* Messages Area */}
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
+            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4">
                 <div className="max-w-3xl mx-auto space-y-2">
+                    {isLoadingOlder && (
+                        <div className="flex items-center justify-center py-2">
+                            <Loader2 size={18} className="text-zinc-400 animate-spin" />
+                        </div>
+                    )}
                     {messagesWithSeparators.map((item) => {
                         if (item._dateSeparator) {
                             return (
@@ -1672,10 +1710,13 @@ function InboxContent() {
         } catch { return null; }
     }, [workspace?.id]);
 
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+
     const fetchMessages = useCallback(async (id) => {
         if (!id) return;
         try {
-            const data = await api.get(`/api/messages/${id}`);
+            const data = await api.get(`/api/messages/${id}?limit=50`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
 
             data.forEach(m => {
@@ -1691,9 +1732,54 @@ function InboxContent() {
 
             if (id === leadRef.current?.id) {
                 setMessages(data);
+                setHasMoreMessages(data.length >= 50);
             }
         } catch (e) { console.error('Message fetch error:', e); }
     }, []);
+
+    const loadOlderMessages = useCallback(async () => {
+        const currentLeadId = leadRef.current?.id;
+        if (!currentLeadId || isLoadingOlder || !hasMoreMessages) return;
+
+        const oldestMsg = messages[0];
+        if (!oldestMsg) return;
+
+        const oldestTimestamp = oldestMsg.timestamp || oldestMsg.created_at;
+        const oldestId = oldestMsg.id;
+        if (!oldestTimestamp) return;
+
+        setIsLoadingOlder(true);
+        try {
+            const olderData = await api.get(
+                `/api/messages/${currentLeadId}?limit=50&before_timestamp=${encodeURIComponent(oldestTimestamp)}&before_id=${encodeURIComponent(oldestId || '')}`
+            );
+
+            if (!Array.isArray(olderData) || olderData.length === 0) {
+                setHasMoreMessages(false);
+                return;
+            }
+
+            if (olderData.length < 50) {
+                setHasMoreMessages(false);
+            }
+
+            olderData.forEach(m => {
+                if (m.id) markMessageAsProcessed(m.id);
+            });
+
+            if (currentLeadId === leadRef.current?.id) {
+                setMessages(prev => {
+                    const existingIds = new Set(prev.map(m => m.id));
+                    const newItems = olderData.filter(m => !existingIds.has(m.id));
+                    return [...newItems, ...prev];
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load older messages:', e);
+        } finally {
+            setIsLoadingOlder(false);
+        }
+    }, [hasMoreMessages, isLoadingOlder, messages]);
 
     const getStatusParam = useCallback((filterIdx) => {
         return { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' }[filterIdx] || 'OPEN';
@@ -2058,6 +2144,9 @@ function InboxContent() {
         selectedFile, setSelectedFile,
         selectedFilePreview, setSelectedFilePreview,
         isUploadingMedia,
+        onLoadOlderMessages: loadOlderMessages,
+        hasMoreMessages,
+        isLoadingOlder,
         onSendTemplateSuccess: (formattedContent) => {
             fetchMessages(lead.id);
             setMessages(prev => [...prev, {

@@ -122,6 +122,13 @@ async def save_flow(
             )
         
         # Update fields
+        if request.status and request.status.lower() == "active" and (not flow.status or flow.status.lower() != "active"):
+            ent_check = EntitlementService.check_entitlement(db, workspace_id, "automation")
+            if not ent_check["allowed"]:
+                EntitlementService.raise_entitlement_exceeded(
+                    db, workspace_id, "automation", ent_check["limit"], 50
+                )
+
         flow.name = request.name
         flow.trigger_type = request.trigger_type
         flow.nodes = request.nodes
@@ -134,10 +141,17 @@ async def save_flow(
     # Create new flow
     flow_q = EntitlementService.get_flow_quota(db, workspace_id)
     if flow_q["total_quota"] != -1 and flow_q["used_quota"] >= flow_q["total_quota"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Flow quota exceeded. Upgrade your plan or purchase additional flow packs."
+        EntitlementService.raise_entitlement_exceeded(
+            db, workspace_id, "flow", flow_q["total_quota"], 10,
+            custom_message=f"You have reached your limit of {flow_q['total_quota']} flow executions. Upgrade your plan or purchase additional flow packs."
         )
+
+    if request.status and request.status.lower() == "active":
+        ent_check = EntitlementService.check_entitlement(db, workspace_id, "automation")
+        if not ent_check["allowed"]:
+            EntitlementService.raise_entitlement_exceeded(
+                db, workspace_id, "automation", ent_check["limit"], 50
+            )
     
     new_flow = AutomationFlow(
         id=uuid.uuid4(),
@@ -151,6 +165,9 @@ async def save_flow(
     db.add(new_flow)
     db.commit()
     db.refresh(new_flow)
+
+    EntitlementService.check_flow_quota_warnings(db, workspace_id)
+
     return new_flow
 
 @router.get("/flows/{flow_id}", response_model=FlowResponseModel)
@@ -228,8 +245,17 @@ async def update_flow_status(
             detail="Flow not found or you do not have permission to update it"
         )
 
+    if request.status and request.status.lower() == "active" and (not flow.status or flow.status.lower() != "active"):
+        ent_check = EntitlementService.check_entitlement(db, workspace_id, "automation")
+        if not ent_check["allowed"]:
+            EntitlementService.raise_entitlement_exceeded(
+                db, workspace_id, "automation", ent_check["limit"], 50
+            )
+
     flow.status = request.status
     db.commit()
     db.refresh(flow)
+
+    EntitlementService.check_flow_quota_warnings(db, workspace_id)
 
     return flow

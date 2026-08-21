@@ -214,13 +214,18 @@ async def _handle_client_message(
 
 
 def _conversation_belongs_to_workspace(*, workspace_id: str, conversation_id: str) -> bool:
+    from app.core.security import to_uuid
+    ws_uuid = to_uuid(workspace_id)
+    conv_uuid = to_uuid(conversation_id)
+    if not ws_uuid or not conv_uuid:
+        return False
     db = SessionLocal()
     try:
         conversation = (
             db.query(Conversation.id)
             .filter(
-                Conversation.id == conversation_id,
-                Conversation.workspace_id == workspace_id,
+                Conversation.id == conv_uuid,
+                Conversation.workspace_id == ws_uuid,
             )
             .first()
         )

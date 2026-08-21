@@ -270,14 +270,16 @@ class FlowPackService:
                 inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(purchase.id)
 
                 from app.services.billing.entitlement_service import EntitlementService
-                ent = EntitlementService.get_workspace_entitlement(db, purchase.workspace_id)
-                total_flows = getattr(ent, "max_active_flows", purchase.flows_count)
+                flow_quota = EntitlementService.get_flow_quota(db, purchase.workspace_id)
+                total_quota = flow_quota.get("total_quota", purchase.flows_count)
+                remaining_quota = flow_quota.get("remaining_quota", total_quota)
 
                 emit_event(
-                    event_name="credits.purchased",
+                    event_name="flow_pack.purchased",
                     payload={
-                        "credits_added": f"{purchase.flows_count} AI Automation Flows",
-                        "current_balance": f"{total_flows} Active Flows",
+                        "flows_added": str(purchase.flows_count),
+                        "current_balance": f"{remaining_quota} Flow Executions",
+                        "total_quota": f"{total_quota} Flow Executions",
                         "amount": f"₹{float(purchase.total_amount):,.2f} INR (incl. GST)",
                         "workspace_name": ws_obj.name if ws_obj else "Workspace",
                         "user_name": user_name,
@@ -294,7 +296,7 @@ class FlowPackService:
                 )
             except Exception as notif_exc:
                 import logging
-                logging.getLogger("auromind").error(f"Failed to emit credits.purchased event for Flow Pack purchase: {notif_exc}")
+                logging.getLogger("auromind").error(f"Failed to emit flow_pack.purchased event for Flow Pack purchase: {notif_exc}")
 
             return {
                 "status": "success",

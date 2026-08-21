@@ -798,9 +798,9 @@ class WCCService:
             inv_num = inv.invoice_number if (inv and inv.invoice_number) else (str(inv.id) if inv else str(recharge_log.id))
 
             emit_event(
-                event_name="credits.purchased",
+                event_name="wcc_wallet.recharged",
                 payload={
-                    "credits_added": f"₹{float(recharge_log.taxable_amount):,.2f} WhatsApp Balance",
+                    "amount_added": f"₹{float(recharge_log.taxable_amount):,.2f}",
                     "current_balance": f"₹{float(wallet.balance):,.2f}",
                     "amount": f"₹{float(recharge_log.total_amount):,.2f} INR (incl. GST)",
                     "workspace_name": ws_obj.name if ws_obj else "Workspace",
@@ -817,7 +817,7 @@ class WCCService:
                 db=db
             )
         except Exception as notif_exc:
-            logger.error(f"Failed to emit credits.purchased event for WCC recharge: {notif_exc}")
+            logger.error(f"Failed to emit wcc_wallet.recharged event for WCC recharge: {notif_exc}")
 
         return {
             "status": "success",
@@ -937,7 +937,78 @@ class WCCService:
                     w.updated_at = func.now()
                     db.flush()
 
+            cls._check_wcc_quota_warnings(db, workspace_id)
+
             return transaction
+
+    @classmethod
+    def _check_wcc_quota_warnings(cls, db: Session, workspace_id: uuid.UUID | str) -> None:
+        try:
+            workspace_id = normalize_workspace_id(workspace_id)
+            wallet = cls.get_balance(db, workspace_id)
+            current_balance = Decimal(str(wallet.balance or "0.00"))
+
+            # Quota reference is strictly included_wcc_wallet from active entitlement
+            from app.services.billing.entitlement_service import EntitlementService
+            ent = EntitlementService.get_workspace_entitlement(db, workspace_id)
+            included_ref = Decimal(str(getattr(ent, "included_wcc_wallet", 0) or "0.00")) if ent else Decimal("0.00")
+
+            if current_balance <= Decimal("0.00"):
+                emit_event(
+                    event_name="wcc_wallet.exhausted",
+                    payload={
+                        "resource_name": "WhatsApp Wallet",
+                        "remaining_balance": "₹0.00",
+                        "current_balance": "₹0.00",
+                        "affected_features": "Outbound WhatsApp messaging, template delivery, and bot notifications",
+                        "recharge_url": "/billing",
+                        "action_route": "/billing",
+                        "action_label": "Recharge WhatsApp Wallet",
+                        "workspace_id": str(workspace_id)
+                    },
+                    workspace_id=workspace_id,
+                    idempotency_key=f"quota_warn:{workspace_id}:wcc:100",
+                    db=db
+                )
+            elif included_ref > Decimal("0.00"):
+                ratio = current_balance / included_ref
+                if ratio <= Decimal("0.10"):
+                    emit_event(
+                        event_name="wcc_wallet.low_10",
+                        payload={
+                            "resource_name": "WhatsApp Wallet",
+                            "remaining_balance": f"₹{float(current_balance):,.2f}",
+                            "current_balance": f"₹{float(current_balance):,.2f}",
+                            "recharge_url": "/billing",
+                            "action_route": "/billing",
+                            "action_label": "Recharge WhatsApp Wallet",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:wcc:90",
+                        db=db
+                    )
+                elif ratio <= Decimal("0.20"):
+                    emit_event(
+                        event_name="wcc_wallet.low_20",
+                        payload={
+                            "resource_name": "WhatsApp Wallet",
+                            "remaining_balance": f"₹{float(current_balance):,.2f}",
+                            "current_balance": f"₹{float(current_balance):,.2f}",
+                            "recharge_url": "/billing",
+                            "action_route": "/billing",
+                            "action_label": "Recharge WhatsApp Wallet",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:wcc:80",
+                        db=db
+                    )
+        except Exception as exc:
+            logger.error(f"Failed to check WCC quota warnings for workspace {workspace_id}: {exc}")
+
+    # Public helper alias for testing & explicit checks
+    check_wcc_quota_warnings = _check_wcc_quota_warnings
 
     # Alias for backward compatibility with test suites
     debit_conversation_charge = record_transaction

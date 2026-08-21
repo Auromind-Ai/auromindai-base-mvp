@@ -42,7 +42,6 @@ import {
   createNotificationTemplate,
   updateNotificationTemplate,
   toggleNotificationTemplate,
-  deleteNotificationTemplate,
   testRenderNotificationTemplate,
   sendTestNotificationEmail,
   getSupportedNotificationTemplateKeys,
@@ -54,7 +53,6 @@ import {
   getNotificationSchedules,
   updateNotificationSchedule,
   runNotificationScheduleNow,
-  seedDefaultNotificationSchedules,
   getEmailLogs,
   getEmailLogStats,
   retryEmailLog
@@ -98,16 +96,20 @@ const RULE_CATEGORIES = [
     events: ["user.signup", "user.verification_pending", "user.verification_reminder_24h", "plan.free_activated", "onboarding.inactivity_reminder"]
   },
   {
-    name: "Payments & Credits",
-    events: ["payment.succeeded", "credits.purchased", "credits.low_20", "credits.low_10", "credits.exhausted", "payment.failed", "payment.failed_reminder_24h", "payment.failed_reminder_72h", "subscription.expiring_7d", "subscription.expiring_3d"]
+    name: "Payments & AI Credits",
+    events: ["payment.succeeded", "ai_credits.purchased", "credits.purchased", "ai_credits.low_20", "ai_credits.low_10", "ai_credits.exhausted", "payment.failed", "payment.failed_reminder_24h", "payment.failed_reminder_72h", "subscription.expiring_7d", "subscription.expiring_3d"]
+  },
+  {
+    name: "WhatsApp Wallet & WCC",
+    events: ["wcc_wallet.recharged", "wcc_wallet.low_20", "wcc_wallet.low_10", "wcc_wallet.exhausted"]
+  },
+  {
+    name: "Flow Executions & Automations",
+    events: ["flow_pack.purchased", "flow_executions.low_20", "flow_executions.low_10", "flow_executions.exhausted", "broadcast.completed", "workflow.failed"]
   },
   {
     name: "Lead Management",
     events: ["lead.created", "lead.assigned", "lead.sla_breached", "lead.message_received", "lead.high_intent", "lead.converted", "lead.inactive_reminder"]
-  },
-  {
-    name: "Broadcast & Workflow",
-    events: ["broadcast.completed", "workflow.failed"]
   },
   {
     name: "Automated Reports",
@@ -185,8 +187,6 @@ export default function NotificationManagerPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [editTemplateModal, setEditTemplateModal] = useState(false);
-  const [deleteTemplateModal, setDeleteTemplateModal] = useState(false);
-  const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateForm, setTemplateForm] = useState({
     name: "",
@@ -523,21 +523,6 @@ export default function NotificationManagerPage() {
       fetchData(true);
     } catch (err) {
       showBanner("error", "Failed to toggle template status.");
-    }
-  };
-
-  const handleDeleteTemplate = async () => {
-    if (!selectedTemplate) return;
-    setDeletingTemplate(true);
-    try {
-      await deleteNotificationTemplate(selectedTemplate.id);
-      showBanner("success", `Template '${selectedTemplate.name}' deleted.`);
-      setDeleteTemplateModal(false);
-      fetchData(true);
-    } catch (err) {
-      showBanner("error", "Failed to delete template.");
-    } finally {
-      setDeletingTemplate(false);
     }
   };
 
@@ -904,15 +889,6 @@ export default function NotificationManagerPage() {
                         }`}
                       >
                         {tpl.is_active ? "Disable" : "Enable"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedTemplate(tpl);
-                          setDeleteTemplateModal(true);
-                        }}
-                        className="p-1.5 hover:bg-rose-500/10 text-gray-500 hover:text-rose-400 border border-transparent hover:border-rose-500/20 rounded-lg transition-all"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1293,16 +1269,30 @@ export default function NotificationManagerPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-gray-300 font-semibold mb-1">Email Subject</label>
-                    <input
-                      type="text"
-                      value={templateForm.subject}
-                      onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
-                      onBlur={handleReRenderCurrentPreview}
-                      className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
-                      required
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-gray-300 font-semibold mb-1">Email Heading (Card Title)</label>
+                      <input
+                        type="text"
+                        value={templateForm.title || ""}
+                        onChange={(e) => setTemplateForm({ ...templateForm, title: e.target.value })}
+                        onBlur={handleReRenderCurrentPreview}
+                        className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                        placeholder="e.g. AI Credits Added Successfully"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 font-semibold mb-1">Email Subject</label>
+                      <input
+                        type="text"
+                        value={templateForm.subject}
+                        onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
+                        onBlur={handleReRenderCurrentPreview}
+                        className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:border-indigo-500"
+                        placeholder="e.g. Credit Recharge Confirmed: {{credits_added}} Credits Added"
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -1887,38 +1877,7 @@ export default function NotificationManagerPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: DELETE TEMPLATE CONFIRMATION                                       */}
-      {/* ========================================================================= */}
-      {deleteTemplateModal && selectedTemplate && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0c0c12] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center gap-3 text-rose-400">
-              <Trash2 className="w-5 h-5" />
-              <h3 className="text-sm font-bold text-white">Delete Template: {selectedTemplate.name}?</h3>
-            </div>
-            <p className="text-xs text-gray-300">
-              Are you sure you want to delete template <strong className="text-white font-mono">{selectedTemplate.template_key}</strong>?
-            </p>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                onClick={() => setDeleteTemplateModal(false)}
-                disabled={deletingTemplate}
-                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl text-xs"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteTemplate}
-                disabled={deletingTemplate}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold"
-              >
-                {deletingTemplate ? "Deleting..." : "Delete Template"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* ========================================================================= */}
       {/* MODAL: DELETE RULE CONFIRMATION                                           */}
