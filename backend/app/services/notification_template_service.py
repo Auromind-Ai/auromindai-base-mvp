@@ -307,6 +307,13 @@ class NotificationTemplateService:
             NotificationTemplate.is_active == True
         ).first()
 
+        if not db_tpl:
+            cls.seed_default_templates(db)
+            db_tpl = db.query(NotificationTemplate).filter(
+                NotificationTemplate.template_key == template_key,
+                NotificationTemplate.is_active == True
+            ).first()
+
         if db_tpl:
             data = {
                 "id": str(db_tpl.id),

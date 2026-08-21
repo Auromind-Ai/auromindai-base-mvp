@@ -1,7 +1,19 @@
 import json
 import logging
 import requests
-from fastapi import APIRouter, Depends, HTTPException
+import hmac
+import hashlib
+import base64
+import time
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+)
+from app.core.config import settings
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app import schemas
@@ -13,10 +25,80 @@ from app.models.conversation import Conversation
 from app.models.workspace import Workspace, WorkspaceMember
 from app.services.inbox.conversation_service import ConversationService
 from app.services.inbox.message_service import MessageService
+from app.services.config_service import config_service
+from fastapi.encoders import jsonable_encoder
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Unified Inbox"])
+
+
+def create_media_token(
+    media_id: str,
+    workspace_id: str,
+    expires_in: int = 3600,
+) -> str:
+    expires_at = int(time.time()) + expires_in
+
+    payload = f"{media_id}:{workspace_id}:{expires_at}".encode()
+
+    signature = hmac.new(
+        settings.MEDIA_SIGNING_SECRET.encode(),
+        payload,
+        hashlib.sha256,
+    ).digest()
+
+    encoded_payload = base64.urlsafe_b64encode(payload).decode().rstrip("=")
+    encoded_signature = base64.urlsafe_b64encode(signature).decode().rstrip("=")
+
+    return f"{encoded_payload}.{encoded_signature}"
+
+
+def verify_media_token(
+    token: str,
+    media_id: str,
+    workspace_id: str,
+) -> bool:
+    try:
+        encoded_payload, encoded_signature = token.split(".", 1)
+
+        payload = base64.urlsafe_b64decode(
+            encoded_payload + "=" * (-len(encoded_payload) % 4)
+        )
+
+        signature = base64.urlsafe_b64decode(
+            encoded_signature + "=" * (-len(encoded_signature) % 4)
+        )
+
+        expected_signature = hmac.new(
+            settings.MEDIA_SIGNING_SECRET.encode(),
+            payload,
+            hashlib.sha256,
+        ).digest()
+
+        if not hmac.compare_digest(
+            signature,
+            expected_signature,
+        ):
+            return False
+
+        payload_media_id, payload_workspace_id, expires_at = (
+            payload.decode().split(":")
+        )
+
+        if payload_media_id != str(media_id):
+            return False
+
+        if payload_workspace_id != str(workspace_id):
+            return False
+
+        if int(expires_at) < int(time.time()):
+            return False
+
+        return True
+
+    except Exception:
+        return False
 
 
 def verify_conversation_access(db: Session, current_user, conversation_id: str) -> str:
@@ -81,15 +163,135 @@ def get_conversation_by_id(
 @router.get("/messages/{conversation_id}")
 def get_messages(
     conversation_id: str,
+    request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    before_timestamp: str | None = Query(None),
+    before_id: str | None = Query(None),
+    skip: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    workspace_id = verify_conversation_access(
+        db,
+        current_user,
+        conversation_id,
+    )
+
+    messages = MessageService.list_messages(
+        db,
+        workspace_id=workspace_id,
+        conversation_id=conversation_id,
+        limit=limit,
+        before_timestamp=before_timestamp,
+        before_id=before_id,
+        skip=skip,
+    )
+
+    # Convert Pydantic / SQLAlchemy / ORM objects
+    # into actual JSON response objects before modifying media_url.
+    response_messages = jsonable_encoder(messages)
+
+    if isinstance(response_messages, dict):
+        response_messages = [response_messages]
+
+    for message in response_messages:
+        if not isinstance(message, dict):
+            continue
+
+        # Get metadata from serialized response
+        metadata = (
+            message.get("metadata_json")
+            or message.get("metadata")
+            or {}
+        )
+
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except json.JSONDecodeError:
+                metadata = {}
+
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        # Find media ID
+        media_id = (
+            metadata.get("media_id")
+            or message.get("media_id")
+            or ""
+        )
+
+        media_id = str(media_id).strip()
+
+        # Find media type
+        media_type = (
+            message.get("media_type")
+            or metadata.get("media_type")
+            or metadata.get("message_type")
+            or ""
+        ).lower()
+
+        # Normalize voice → audio
+        if media_type == "voice":
+            media_type = "audio"
+
+        if not media_id:
+            continue
+
+        if media_type not in {
+            "image",
+            "audio",
+            "video",
+        }:
+            continue
+
+        # Create browser-safe signed URL
+        token = create_media_token(
+            media_id=media_id,
+            workspace_id=str(workspace_id),
+        )
+
+        signed_url = (
+            f"/api/inbox/media/meta/{media_id}"
+            f"?token={token}"
+        )
+
+        # IMPORTANT:
+        # overwrite serialized response itself
+        message["media_url"] = signed_url
+        message["media_type"] = media_type
+
+        # Keep mime type available to frontend
+        if not message.get("mime_type"):
+            mime = metadata.get("mime_type")
+            if mime:
+                message["mime_type"] = mime
+
+        # Also update metadata copy if frontend reads meta.media_url
+        if isinstance(metadata, dict):
+            metadata["media_url"] = signed_url
+            metadata["media_type"] = media_type
+
+            message["metadata"] = metadata
+
+    return response_messages
+
+
+@router.post("/conversations/{conversation_id}/read")
+def mark_conversation_as_read(
+    conversation_id: str,
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
     workspace_id = verify_conversation_access(db, current_user, conversation_id)
-    return MessageService.list_messages(
-        db,
-        workspace_id=workspace_id,
-        conversation_id=conversation_id,
-    )
+    from app.models.message import Message, SenderType
+    db.query(Message).filter(
+        Message.conversation_id == conversation_id,
+        Message.is_read == False,
+        Message.sender_type == SenderType.USER,
+    ).update({Message.is_read: True}, synchronize_session=False)
+    db.commit()
+    return {"status": "success", "conversation_id": conversation_id}
 
 
 @router.post("/send-reply")
@@ -296,8 +498,9 @@ def convert_conversation(
 @router.get("/inbox/media/meta/{media_id}")
 def get_meta_media(
     media_id: str,
+    request: Request,
+    token: str = Query(...),
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
 ):
 
     # Basic validation
@@ -311,27 +514,6 @@ def get_meta_media(
 
     try:
         
-        #Find message containing this Meta media ID
-        # metadata_json is cast to TEXT so this works whether
-        # the DB column is JSON/JSONB/Text.
-        # message = (
-        #     db.query(Message)
-        #     .join(
-        #         Conversation,
-        #         Conversation.id == Message.conversation_id,
-        #     )
-        #     .filter(
-        #         Conversation.workspace_id.isnot(None),
-        #         Message.metadata_json.contains(media_id),
-        #     )
-        #     .first()
-        # )
-
-        # if not message:
-        #     raise HTTPException(
-        #         status_code=404,
-        #         detail="Media not found",
-        #     )
 
         message = (
             db.query(Message)
@@ -339,12 +521,7 @@ def get_meta_media(
                 Conversation,
                 Conversation.id == Message.conversation_id,
             )
-            .join(
-                WorkspaceMember,
-                WorkspaceMember.workspace_id == Conversation.workspace_id,
-            )
             .filter(
-                WorkspaceMember.user_id == current_user.id,
                 Message.metadata_json.contains(media_id),
             )
             .first()
@@ -371,22 +548,6 @@ def get_meta_media(
             )
 
 
-        # # Verify current user belongs to conversation workspace
-        # membership = (
-        #     db.query(WorkspaceMember)
-        #     .filter(
-        #         WorkspaceMember.user_id == current_user.id,
-        #         WorkspaceMember.workspace_id == conversation.workspace_id,
-        #     )
-        #     .first()
-        # )
-
-        # if not membership:
-        #     raise HTTPException(
-        #         status_code=403,
-        #         detail="Access denied to this media",
-        #     )
-
     
         # Get workspace
         workspace = (
@@ -401,18 +562,26 @@ def get_meta_media(
                 detail="Workspace not found",
             )
 
+        if not verify_media_token(
+            token=token,
+            media_id=media_id,
+            workspace_id=str(workspace.id),
+        ):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired media token",
+            )
+
      
         # Workspace Meta token
-        access_token = workspace.meta_access_token
+        system_token = config_service.get("meta_system_user_token")
+
+        access_token = system_token or workspace.meta_access_token
 
         if not access_token:
-            logger.error(
-                "Meta access token missing for workspace %s",
-                workspace.id,
-            )
             raise HTTPException(
-                status_code=503,
-                detail="WhatsApp Meta connection is not configured",
+                status_code=500,
+                detail="Meta access token is not configured"
             )
         
         # Parse metadata_json
@@ -451,12 +620,15 @@ def get_meta_media(
         media_type = metadata.get("media_type")
         stored_mime_type = metadata.get("mime_type")
 
-        # Allow image, audio, video, document, sticker
-        if media_type not in {"image", "audio", "video", "document", "sticker"}:
+        # Allow image, audio, voice, video, document, sticker
+        if media_type not in {"image", "audio", "voice", "video", "document", "sticker"}:
             raise HTTPException(
                 status_code=400,
                 detail="Unsupported media type",
             )
+
+        if media_type == "voice":
+            media_type = "audio"
 
 
         # Ask Meta for temporary media URL
@@ -549,19 +721,34 @@ def get_meta_media(
             )
 
         # Prefer MIME type returned by Meta.
+        # MIME type from Meta media metadata.
         mime_type = (
             media_info.get("mime_type")
             or stored_mime_type
             or "application/octet-stream"
-        )
+        ).split(";")[0].strip()
 
-        #Stream actual media from Meta
+        if media_type == "audio" and mime_type.startswith("audio/ogg"):
+            mime_type = "audio/ogg"
+
+        # Stream actual media from Meta
+        range_header = request.headers.get("range")
+
         try:
+            upstream_headers = {
+                "Authorization": f"Bearer {access_token}",
+            }
+
+            if range_header:
+                upstream_headers["Range"] = range_header
+
             media_response = requests.get(
                 temporary_url,
+                headers=upstream_headers,
                 stream=True,
                 timeout=30,
             )
+
         except requests.RequestException as exc:
             logger.error(
                 "Meta media download failed for media %s: %s",
@@ -587,7 +774,7 @@ def get_meta_media(
                 detail="Meta denied media download",
             )
 
-        if not media_response.ok:
+        if media_response.status_code not in (200, 206):
             status = media_response.status_code
             media_response.close()
 
@@ -602,6 +789,12 @@ def get_meta_media(
                 detail="Meta media download failed",
             )
 
+        # Use actual Content-Type returned by Meta
+        upstream_content_type = media_response.headers.get("Content-Type")
+
+        if upstream_content_type:
+            mime_type = upstream_content_type.split(";")[0].strip()
+
         
         #Stream response to browser
         def media_stream():
@@ -614,12 +807,29 @@ def get_meta_media(
             finally:
                 media_response.close()
 
+        response_headers = {
+            "Cache-Control": "private, max-age=300",
+            "Accept-Ranges": "bytes",
+        }
+
+        content_length = media_response.headers.get("Content-Length")
+        content_range = media_response.headers.get("Content-Range")
+
+        if content_length:
+            response_headers["Content-Length"] = content_length
+
+        if content_range:
+            response_headers["Content-Range"] = content_range
+
         return StreamingResponse(
             media_stream(),
+            status_code=(
+                206
+                if media_response.status_code == 206
+                else 200
+            ),
             media_type=mime_type,
-            headers={
-                "Cache-Control": "private, no-store",
-            },
+            headers=response_headers,
         )
 
     except HTTPException:

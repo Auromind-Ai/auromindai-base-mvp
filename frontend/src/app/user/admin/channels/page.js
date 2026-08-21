@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Poppins } from 'next/font/google';
-import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings } from 'lucide-react';
+import { Instagram, Search, ChevronDown, Check, X, ChevronRight, Eye, EyeOff, ExternalLink, Settings, Copy } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 
@@ -456,7 +456,7 @@ function TwilioOnboardingModal({
                                     100% { transform: scale(1); opacity: 1; }
                                 }
                             `}</style>
-                            <div 
+                            <div
                                 style={{ animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
                                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 bg-green-500/15 border-2 border-green-500/30 shadow-[0_0_50px_rgba(34,197,94,0.2)]"
                             >
@@ -478,6 +478,366 @@ function TwilioOnboardingModal({
                             </button>
                         </div>
                     )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ChannelDetailsModal({
+    item,
+    onClose,
+    connectedInfo,
+    whatsappPhoneId,
+    whatsappWabaId,
+    twilioForm,
+    onDisconnect,
+    detailsRevealedSecrets,
+    toggleRevealSecret,
+    copiedKey,
+    handleCopyText
+}) {
+    if (!item) return null;
+
+    const Icon = item.icon;
+    const info = connectedInfo[item.id];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md">
+            <div className="relative w-full max-w-[480px] sm:max-w-[500px] max-h-[90vh] flex flex-col rounded-2xl overflow-hidden bg-gradient-to-br from-[#0e0a16] via-[#0d0d0d] to-[#070912] border border-white/10 shadow-[0_0_80px_rgba(124,77,255,0.15),0_24px_60px_rgba(0,0,0,0.6)]">
+                {/* Top accent glow line */}
+                <div className="h-px w-full shrink-0 bg-gradient-to-r from-transparent via-[#7C4DFF] to-transparent" />
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-white/[0.06] shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div
+                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${item.iconBg || 'from-purple-500 to-indigo-600'} flex items-center justify-center shrink-0 shadow-md`}
+                        >
+                            <Icon className="w-5 h-5 sm:w-5.5 sm:h-5.5 text-white" />
+                        </div>
+                        <div className="min-w-0">
+                            <h2 className="text-sm sm:text-base font-semibold text-white truncate">
+                                {item.name}
+                            </h2>
+                            <p className="text-[11px] text-white/50 truncate">
+                                Connection Details
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-green-500/15 border border-green-500/30 text-green-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.8)]" />
+                            Connected
+                        </span>
+                        <button
+                            onClick={onClose}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.05] border border-white/[0.07] transition-all ml-1"
+                        >
+                            <X size={13} className="text-white/50" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Body */}
+                <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto custom-scrollbar flex-1 space-y-3.5 sm:space-y-4">
+                    {/* Twilio Fields */}
+                    {item.id === 'twilio' && (
+                        <>
+                            {/* Account SID */}
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Account SID
+                                </label>
+                                <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                    <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate">
+                                        {twilioForm.sid || (info ? "Configured in Workspace" : "AC••••••••••••••••••••••••••••••••")}
+                                    </span>
+                                    {(twilioForm.sid || info) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(twilioForm.sid || info, 'twilio_sid')}
+                                            title="Copy Account SID"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'twilio_sid' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Auth Token */}
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Auth Token
+                                </label>
+                                <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                    <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate">
+                                        {detailsRevealedSecrets.twilio_token
+                                            ? (twilioForm.token || "••••••••••••••••••••••••••••••••")
+                                            : "••••••••••••••••••••••••••••••••"}
+                                    </span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        {twilioForm.token && (
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleRevealSecret('twilio_token')}
+                                                title={detailsRevealedSecrets.twilio_token ? "Hide token" : "Reveal token"}
+                                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                                            >
+                                                {detailsRevealedSecrets.twilio_token ? <EyeOff size={14} /> : <Eye size={14} />}
+                                            </button>
+                                        )}
+                                        {twilioForm.token && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCopyText(twilioForm.token, 'twilio_token')}
+                                                title="Copy Auth Token"
+                                                className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                                            >
+                                                {copiedKey === 'twilio_token' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Twilio WhatsApp / Phone */}
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    WhatsApp Phone Number
+                                </label>
+                                <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                    <span className="font-mono text-xs sm:text-[13px] text-green-400 font-medium truncate">
+                                        {info || twilioForm.phone || "Connected"}
+                                    </span>
+                                    {(info || twilioForm.phone) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(info || twilioForm.phone, 'twilio_phone')}
+                                            title="Copy Phone Number"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'twilio_phone' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* WhatsApp Business Fields */}
+                    {item.id === 'whatsapp' && (
+                        <>
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    WhatsApp Business Number
+                                </label>
+                                <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                    <span className="font-mono text-xs sm:text-[13px] text-green-400 font-medium truncate">
+                                        {info || "Connected"}
+                                    </span>
+                                    {info && info !== "Connected" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(info, 'wa_phone')}
+                                            title="Copy Phone Number"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'wa_phone' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {whatsappPhoneId && (
+                                <div>
+                                    <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                        Phone Number ID
+                                    </label>
+                                    <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                        <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate" title={whatsappPhoneId}>
+                                            {whatsappPhoneId}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(whatsappPhoneId, 'wa_phone_id')}
+                                            title="Copy Phone Number ID"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'wa_phone_id' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {whatsappWabaId && (
+                                <div>
+                                    <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                        WhatsApp Business Account ID (WABA ID)
+                                    </label>
+                                    <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                        <span className="font-mono text-xs sm:text-[13px] text-white/90 truncate" title={whatsappWabaId}>
+                                            {whatsappWabaId}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(whatsappWabaId, 'wa_waba_id')}
+                                            title="Copy WABA ID"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'wa_waba_id' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Integration Platform
+                                </label>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-[13px] text-white/70">
+                                    Meta Cloud API
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Instagram Fields */}
+                    {item.id === 'instagram' && (
+                        <>
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Connected Account
+                                </label>
+                                <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                    <span className="font-mono text-xs sm:text-[13px] text-pink-400 font-medium truncate">
+                                        {info || "Connected"}
+                                    </span>
+                                    {info && info !== "Connected" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(info, 'ig_user')}
+                                            title="Copy Account"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'ig_user' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Integration Type
+                                </label>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-[13px] text-white/70">
+                                    Meta Business Graph API (Direct Messages & Comments)
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Gmail Fields */}
+                    {item.id === 'gmail' && (
+                        <>
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Connected Email Address
+                                </label>
+                                <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                    <span className="font-mono text-xs sm:text-[13px] text-yellow-400 font-medium truncate">
+                                        {info || "Connected"}
+                                    </span>
+                                    {info && info !== "Connected" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(info, 'gmail_email')}
+                                            title="Copy Email"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'gmail_email' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Provider & Protocol
+                                </label>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-[13px] text-white/70">
+                                    Google Workspace / Gmail (OAuth 2.0)
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Google Calendar Fields */}
+                    {item.id === 'google_calendar' && (
+                        <>
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Connected Calendar Account
+                                </label>
+                                <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+                                    <span className="font-mono text-xs sm:text-[13px] text-blue-400 font-medium truncate">
+                                        {info || "Connected"}
+                                    </span>
+                                    {info && info !== "Connected" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyText(info, 'gcal_email')}
+                                            title="Copy Calendar Account"
+                                            className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                                        >
+                                            {copiedKey === 'gcal_email' ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] sm:text-[11px] text-white/50 mb-1 uppercase tracking-wider font-medium">
+                                    Provider & Protocol
+                                </label>
+                                <div className="p-2.5 sm:p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-[13px] text-white/70">
+                                    Google Calendar (OAuth 2.0)
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Security Notice */}
+                    <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] text-[11px] text-white/45 leading-relaxed">
+                        Credentials and tokens are encrypted and managed securely for your workspace.
+                    </div>
+                </div>
+
+                {/* Footer with Disconnect and Done */}
+                <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-white/[0.07] bg-black/40 flex items-center justify-between gap-3 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const channelId = item.id;
+                            onClose();
+                            onDisconnect(channelId);
+                        }}
+                        className="px-3.5 py-2 rounded-xl text-xs font-medium text-rose-400/90 border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300 transition-all duration-200"
+                    >
+                        Disconnect Channel
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-5 py-2 rounded-xl text-xs sm:text-[13px] font-semibold text-white bg-white/10 hover:bg-white/15 border border-white/10 transition-all duration-200"
+                    >
+                        Done
+                    </button>
                 </div>
             </div>
         </div>
@@ -529,6 +889,26 @@ export default function ChannelsPage() {
         return localStorage.getItem("whatsapp_waba_id") || '';
     });
 
+    const [selectedChannelDetails, setSelectedChannelDetails] = useState(null);
+    const [detailsRevealedSecrets, setDetailsRevealedSecrets] = useState({});
+    const [copiedKey, setCopiedKey] = useState(null);
+
+    const handleCopyText = (text, key) => {
+        if (!text) return;
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+            navigator.clipboard.writeText(text);
+        }
+        setCopiedKey(key);
+        showToast("Copied to clipboard");
+        setTimeout(() => {
+            setCopiedKey((prev) => (prev === key ? null : prev));
+        }, 2000);
+    };
+
+    const toggleRevealSecret = (key) => {
+        setDetailsRevealedSecrets(prev => ({ ...prev, [key]: !prev[key] }));
+    };
+
     const loadIntegrationStatus = useCallback(async () => {
         try {
             if (!workspace?.id) return;
@@ -543,7 +923,7 @@ export default function ChannelsPage() {
             }));
             if (data.gmail?.email) setConnectedInfo(prev => ({ ...prev, gmail: data.gmail.email }));
             if (data.calendar?.email) setConnectedInfo(prev => ({ ...prev, google_calendar: data.calendar.email }));
-            
+           
             if (data.whatsapp?.connected) {
                 const phone = data.whatsapp.phone || data.whatsapp.display_number || "Connected";
                 const phoneId = data.whatsapp.phone_number_id || '';
@@ -1033,7 +1413,7 @@ export default function ChannelsPage() {
 
                 {/* Channel Cards */}
                 {filteredChannels.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
                         {filteredChannels.map((item) => {
                             const isConnected = statuses[item.id];
                             const isConnecting = connecting === item.id;
@@ -1106,28 +1486,6 @@ export default function ChannelsPage() {
                                                     {item.description}
                                                 </p>
 
-                                                {/* WhatsApp Account IDs Display */}
-                                                {item.id === 'whatsapp' && isConnected && (
-                                                    <div className="mt-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.07] space-y-1 text-xs">
-                                                        <div className="flex items-center justify-between text-white/80">
-                                                            <span className="text-[11px] text-white/40 font-medium">Phone:</span>
-                                                            <span className="font-mono text-green-400 font-semibold">{info || "Connected"}</span>
-                                                        </div>
-                                                        {whatsappPhoneId && (
-                                                            <div className="flex items-center justify-between text-white/70">
-                                                                <span className="text-[11px] text-white/40 font-medium">Phone ID:</span>
-                                                                <span className="font-mono text-white/90 truncate max-w-[180px] sm:max-w-[220px]" title={whatsappPhoneId}>{whatsappPhoneId}</span>
-                                                            </div>
-                                                        )}
-                                                        {whatsappWabaId && (
-                                                            <div className="flex items-center justify-between text-white/70">
-                                                                <span className="text-[11px] text-white/40 font-medium">WABA ID:</span>
-                                                                <span className="font-mono text-white/90 truncate max-w-[180px] sm:max-w-[220px]" title={whatsappWabaId}>{whatsappWabaId}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
                                                 {isConnecting && (
                                                     <div className="flex items-center gap-2 mt-3">
                                                         <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -1150,17 +1508,6 @@ export default function ChannelsPage() {
                                                     {isConnected ? 'Connected' : item.categoryLabel}
                                                 </span>
                                             </div>
-
-                                            {isConnected && info && (
-                                                <>
-                                                    <span className="mx-3 sm:mx-4 h-4 w-px bg-white/10" />
-                                                    <div className="min-w-0">
-                                                        <span className="text-xs sm:text-[13px] text-white/60 truncate block max-w-[170px] sm:max-w-[220px]">
-                                                            {info}
-                                                        </span>
-                                                    </div>
-                                                </>
-                                            )}
                                         </div>
 
                                         <div className="flex items-center gap-1.5 shrink-0">
@@ -1181,14 +1528,21 @@ export default function ChannelsPage() {
                                                         </span>
                                                     </button>
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {}}
-                                                        title="Settings"
-                                                        className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95"
-                                                    >
-                                                        <Settings size={15} className="transition-transform duration-300 ease-out group-hover/settings:rotate-45" />
-                                                    </button>
+                                                    <div className="relative group/settings-btn">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedChannelDetails(item)}
+                                                            className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95"
+                                                        >
+                                                            <Settings size={15} className="transition-transform duration-300 ease-out group-hover/settings:rotate-45" />
+                                                        </button>
+                                                        <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden md:group-hover/settings-btn:flex flex-col items-end z-40 transition-all duration-200 opacity-0 group-hover/settings-btn:opacity-100">
+                                                            <div className="px-2.5 py-1 rounded-lg bg-[#111115] border border-white/15 text-[11px] font-medium text-white/90 whitespace-nowrap shadow-2xl backdrop-blur-md">
+                                                                View connection details
+                                                            </div>
+                                                            <div className="w-1.5 h-1.5 rotate-45 bg-[#111115] border-r border-b border-white/15 -mt-0.5 mr-3.5" />
+                                                        </div>
+                                                    </div>
                                                 </>
                                             ) : (
                                                 <button
@@ -1255,7 +1609,7 @@ export default function ChannelsPage() {
                             Connect your favourite apps and messaging platform to automate conversations and keep everything in one place.
                         </p>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-5">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-5">
                             {filteredIntegrations.map((item) => {
                                 const isConnected = statuses[item.id];
                                 const isConnecting = connecting === item.id;
@@ -1316,15 +1670,6 @@ export default function ChannelsPage() {
                                                         {isConnected ? 'Connected' : item.categoryLabel}
                                                     </span>
                                                 </div>
-
-                                                {isConnected && info && (
-                                                    <>
-                                                        <span className="h-4 w-px bg-white/10 shrink-0" />
-                                                        <span className="text-xs sm:text-[13px] text-white/60 truncate max-w-[150px] sm:max-w-[220px]">
-                                                            {info}
-                                                        </span>
-                                                    </>
-                                                )}
                                             </div>
 
                                             <div className="flex items-center gap-1.5 shrink-0">
@@ -1345,14 +1690,21 @@ export default function ChannelsPage() {
                                                             </span>
                                                         </button>
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {}}
-                                                            title="Settings"
-                                                            className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95"
-                                                        >
-                                                            <Settings size={15} className="transition-transform duration-300 ease-out group-hover/settings:rotate-45" />
-                                                        </button>
+                                                        <div className="relative group/settings-btn">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedChannelDetails(item)}
+                                                                className="group/settings w-9 h-9 rounded-full border border-white/15 bg-black/60 text-white/65 flex items-center justify-center transition-all duration-200 hover:text-white hover:border-white/30 hover:shadow-[0_0_15px_rgba(124,77,255,0.2)] active:scale-95"
+                                                            >
+                                                                <Settings size={15} className="transition-transform duration-300 ease-out group-hover/settings:rotate-45" />
+                                                            </button>
+                                                            <div className="pointer-events-none absolute bottom-full right-0 mb-2 hidden md:group-hover/settings-btn:flex flex-col items-end z-40 transition-all duration-200 opacity-0 group-hover/settings-btn:opacity-100">
+                                                                <div className="px-2.5 py-1 rounded-lg bg-[#111115] border border-white/15 text-[11px] font-medium text-white/90 whitespace-nowrap shadow-2xl backdrop-blur-md">
+                                                                    View connection details
+                                                                </div>
+                                                                <div className="w-1.5 h-1.5 rotate-45 bg-[#111115] border-r border-b border-white/15 -mt-0.5 mr-3.5" />
+                                                            </div>
+                                                        </div>
                                                     </>
                                                 ) : (
                                                     <button
@@ -1408,6 +1760,24 @@ export default function ChannelsPage() {
                     setShowAuthToken={setShowAuthToken}
                     twilioSubmitting={twilioSubmitting}
                     submitTwilio={submitTwilio}
+                />
+
+                {/* Channel Connection Details Modal */}
+                <ChannelDetailsModal
+                    item={selectedChannelDetails}
+                    onClose={() => {
+                        setSelectedChannelDetails(null);
+                        setDetailsRevealedSecrets({});
+                    }}
+                    connectedInfo={connectedInfo}
+                    whatsappPhoneId={whatsappPhoneId}
+                    whatsappWabaId={whatsappWabaId}
+                    twilioForm={twilioForm}
+                    onDisconnect={(channelId) => setDisconnectModal(channelId)}
+                    detailsRevealedSecrets={detailsRevealedSecrets}
+                    toggleRevealSecret={toggleRevealSecret}
+                    copiedKey={copiedKey}
+                    handleCopyText={handleCopyText}
                 />
 
                 {/* Disconnect Modal */}

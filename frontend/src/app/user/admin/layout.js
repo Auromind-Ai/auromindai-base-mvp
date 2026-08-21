@@ -23,7 +23,6 @@ import {
     Shield,
     Share2,
     ChevronDown,
-    Search,
     Menu,
     Wand2,
     Plug,
@@ -39,6 +38,10 @@ const GlobalAIChat = dynamic(() => import('@/components/AIChat'), { ssr: false }
 const SettingsModal = dynamic(() => import('@/components/SettingsModal'), { ssr: false });
 const FeedbackModal = dynamic(
     () => import('@/components/UserFeedback/UserFeedbackPanel'),
+    { ssr: false }
+);
+const GlobalAudioNotification = dynamic(
+    () => import('@/components/GlobalAudioNotification'),
     { ssr: false }
 );
 import { SettingsProvider, useSettings } from '@/context/SettingsContext';
@@ -270,13 +273,6 @@ function AdminLayoutContent({ children }) {
                         </span>
                     </div>
 
-                    {/* Search */}
-                    <div className="px-4 mb-4">
-                        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#202020] border border-[var(--notion-border)] text-sm text-[#9b9b9b] cursor-pointer hover:bg-[var(--notion-hover)] transition-colors">
-                            <Search size={14} />
-                            <span>Search</span>
-                        </div>
-                    </div>
 
                     {/* Nav Items */}
                     <div className="flex-1 px-3 overflow-y-auto custom-scrollbar">
@@ -512,6 +508,9 @@ function AdminLayoutContent({ children }) {
 
                 {/* Global AI Chat - Hidden on Orbion Agents page */}
                 {pathname !== '/user/admin/ai' && <GlobalAIChat />}
+
+                {/* Global Audio Notification for Incoming Messages */}
+                <GlobalAudioNotification />
             </div>
         </RealtimeProvider>
     );

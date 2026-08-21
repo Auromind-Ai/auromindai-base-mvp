@@ -21,13 +21,11 @@ from app.services.billing.entitlement_orchestrator import EntitlementOrchestrato
 
 @pytest.fixture
 def db():
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+    yield session
+    session.close()
 
 
 from app.models.plan_entitlement import PlanEntitlement

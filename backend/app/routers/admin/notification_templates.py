@@ -5,7 +5,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-
+from app.database import SessionLocal
 from app.database import get_db
 from app.models.notification_template import NotificationTemplate
 from app.models.notification_rule import NotificationRule
@@ -31,6 +31,7 @@ from app.schemas.notification_template import (
 )
 from app.services.notification_template_service import NotificationTemplateService, NotificationRegistry
 from app.services.notifications.schedule_service import NotificationScheduleService
+from app.services.notifications.event_registry_service import EventRegistryService, build_action_url
 from app.routers.auth import CurrentUser, get_current_user
 from app.core.config import settings
 
@@ -266,50 +267,55 @@ def test_render_notification_template(
     payload: TemplateTestRenderRequest,
     db: Optional[Session] = Depends(get_db)
 ):
-    """
-    Renders test payload for real-time live preview in Admin UI.
-    Sample context values supplied dynamically from DB event contract and DB system variables.
-    """
-    from app.services.notifications.event_registry_service import EventRegistryService, build_action_url
-
-    # 1. Base sample context dynamically resolved from DB system variables and event payload schema
-    sample_context = EventRegistryService.get_sample_context(payload.template_key or "", db=db)
-
-    # Override sample values with explicit user variables if passed
-    if payload.variables:
-        sample_context.update(payload.variables)
-
-    if payload.action_route:
-        sample_context["action_route"] = payload.action_route.strip()
-        sample_context["action_url"] = build_action_url(payload.action_route.strip(), sample_context.get("frontend_url"))
-    if payload.action_label:
-        sample_context["action_label"] = payload.action_label.strip()
-
-    rendered_title = NotificationTemplateService.render_text(payload.title, sample_context) if payload.title else None
-    rendered_subject = NotificationTemplateService.render_text(payload.subject, sample_context) if payload.subject else None
-    rendered_message = NotificationTemplateService.render_text(payload.message, sample_context)
     
-    action_url = sample_context.get("action_url")
-    action_label = sample_context.get("action_label")
-    action_route = sample_context.get("action_route")
+    
+    created_session = False
+    if not isinstance(db, Session):
+        db = SessionLocal()
+        created_session = True
 
-    rendered_html = NotificationTemplateService.render_html_email(
-        title=rendered_title or rendered_subject or "Preview Notification",
-        message=rendered_message,
-        context=sample_context,
-        action_url=action_url,
-        action_label=action_label
-    )
+    try:
+        # 1. Base sample context dynamically resolved from DB system variables and event payload schema
+        sample_context = EventRegistryService.get_sample_context(payload.template_key or "", db=db)
 
-    return TemplateTestRenderResponse(
-        rendered_title=rendered_title,
-        rendered_subject=rendered_subject,
-        rendered_message=rendered_message,
-        rendered_html=rendered_html,
-        action_label=action_label,
-        action_url=action_url,
-        action_route=action_route
-    )
+        # Override sample values with explicit user variables if passed
+        if payload.variables:
+            sample_context.update(payload.variables)
+
+        if payload.action_route:
+            sample_context["action_route"] = payload.action_route.strip()
+            sample_context["action_url"] = build_action_url(payload.action_route.strip(), sample_context.get("frontend_url"))
+        if payload.action_label:
+            sample_context["action_label"] = payload.action_label.strip()
+
+        rendered_title = NotificationTemplateService.render_text(payload.title, sample_context) if payload.title else None
+        rendered_subject = NotificationTemplateService.render_text(payload.subject, sample_context) if payload.subject else None
+        rendered_message = NotificationTemplateService.render_text(payload.message, sample_context)
+        
+        action_url = sample_context.get("action_url")
+        action_label = sample_context.get("action_label")
+        action_route = sample_context.get("action_route")
+
+        rendered_html = NotificationTemplateService.render_html_email(
+            title=rendered_title or rendered_subject or "Preview Notification",
+            message=rendered_message,
+            context=sample_context,
+            action_url=action_url,
+            action_label=action_label
+        )
+
+        return TemplateTestRenderResponse(
+            rendered_title=rendered_title,
+            rendered_subject=rendered_subject,
+            rendered_message=rendered_message,
+            rendered_html=rendered_html,
+            action_label=action_label,
+            action_url=action_url,
+            action_route=action_route
+        )
+    finally:
+        if created_session and db:
+            db.close()
 
 
 @router.post("/test-send", response_model=TemplateTestSendResponse)
@@ -467,13 +473,8 @@ def seed_default_notification_templates(
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    """
-    Deprecated: Baseline data is managed exclusively via Alembic database migrations.
-    """
-    return {
-        "status": "info",
-        "message": "Baseline notification data and schemas are managed exclusively via Alembic migrations."
-    }
+    """Alembic migrations manage notification templates."""
+    return {"status": "success", "message": "Notification templates are managed via Alembic migrations"}
 
 
 

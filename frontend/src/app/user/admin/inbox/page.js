@@ -8,7 +8,7 @@ import {
     ArrowRight, ChevronRight, MoreHorizontal, Info,
     ArrowLeft, SlidersHorizontal, Camera, FileText,
     PenLine, CheckSquare, UserCheck, XCircle, ChevronDown, Check,
-    Inbox, X
+    Inbox, X, Play, Pause, Mic, CheckCheck, Smile, Loader2
 } from 'lucide-react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -20,6 +20,14 @@ import ConvertLeadModal from '@/components/leads/ConvertLeadModal';
 import CloseConversationModal from '@/components/inbox/CloseConversationModal';
 import api from '@/lib/api';
 import { SYSTEM_TIERS, AGENT_LABELS } from '@/lib/labelStyles';
+import {
+    playNotificationSound,
+    markMessageAsProcessed,
+    isMessageAlreadyProcessed,
+} from '@/lib/notificationSound';
+import EmojiPicker from 'emoji-picker-react';
+
+
 
 const TwilioIcon = ({ size = 16, style = {} }) => {
     const isInactive = style.color === '#666';
@@ -58,9 +66,6 @@ const CHANNELS = [
 
 const STATUS_FILTERS = ['Open', 'Converted', 'Closed', 'All'];
 
-const PROXY_BASE = '/api';
-
-// Shared card style for all three panels
 const CARD_BG = '#15161C';
 const CARD_BORDER = 'rgba(255,255,255,0.07)';
 
@@ -82,8 +87,7 @@ const showToast = (message) => {
     toast.innerHTML = message;
 
     container.appendChild(toast);
-
-    toast.offsetHeight; // trigger reflow
+    toast.offsetHeight;
 
     toast.style.opacity = '1';
     toast.style.transform = 'translateY(0)';
@@ -97,27 +101,19 @@ const showToast = (message) => {
     }, 4000);
 };
 
-function getHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-    
-    };  
-}
-
 function getDisplayName(lead, channelId) {
     if (channelId === 'instagram') {
-        return lead.contact_name || lead.username || 'Instagram User';
+        return lead?.contact_name || lead?.username || 'Instagram User';
     }
-    return lead.phone || lead.contact_name || 'Unknown';
+    return lead?.phone || lead?.contact_name || 'Unknown';
 }
 
 function getAvatarText(lead, channelId) {
     if (channelId === 'instagram') {
-        const name = lead.contact_name || lead.username || 'U';
+        const name = lead?.contact_name || lead?.username || 'U';
         return name[0].toUpperCase();
     }
-    const phone = lead.phone || '';
+    const phone = lead?.phone || '';
     return phone.slice(-2) || 'U';
 }
 
@@ -165,13 +161,16 @@ function ChannelIcon({ channel, size = 16 }) {
 }
 
 function UnreadBadge({ count, channel }) {
-    if (!count) return null;
-    const style = channel.gradient
+    if (!count || count <= 0) return null;
+    const style = channel?.gradient
         ? { background: channel.gradient }
-        : { backgroundColor: channel.color };
+        : { backgroundColor: channel?.color || '#F22F46' };
     return (
-        <span className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white flex items-center justify-center" style={style}>
-            {count}
+        <span
+            className="min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white flex items-center justify-center shrink-0 ml-2 shadow-sm"
+            style={style}
+        >
+            {count > 99 ? '99+' : count}
         </span>
     );
 }
@@ -218,6 +217,129 @@ function getLastUserActivity(lead, messages) {
         }
     }
     return null;
+}
+
+// Screenshot Match: WhatsApp Exact Audio Bubble (Avatar left -> Play button -> Waveform with dot -> Time & Blue ticks)
+function WhatsAppAudioMessage({ url, isMe, timestamp }) {
+    const [playing, setPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const audioRef = useRef(null);
+
+    const togglePlay = () => {
+        if (!audioRef.current) return;
+        if (playing) {
+            audioRef.current.pause();
+            setPlaying(false);
+        } else {
+            audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+        }
+    };
+
+    const handleTimeUpdate = () => {
+        if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
+    };
+
+    const handleLoadedMetadata = () => {
+        if (audioRef.current) setDuration(audioRef.current.duration || 0);
+    };
+
+    const handleEnded = () => {
+        setPlaying(false);
+        setCurrentTime(0);
+    };
+
+    const formatSeconds = (sec) => {
+        if (!sec || isNaN(sec)) return '0:30';
+        const mins = Math.floor(sec / 60);
+        const secs = Math.floor(sec % 60);
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    const waveformBars = [4, 6, 8, 12, 16, 20, 24, 28, 22, 14, 8, 6, 10, 14, 18, 24, 30, 26, 18, 12, 8, 6, 8, 14, 18, 22, 26, 20, 14, 8, 6, 4, 6, 8, 12];
+    const progress = duration > 0 ? (currentTime / duration) : 0.08;
+    const activeDotIndex = Math.min(Math.floor(progress * waveformBars.length), waveformBars.length - 1);
+
+    return (
+        <div className="flex items-center gap-3 py-1 px-1 min-w-[270px] sm:min-w-[320px] select-none font-sans">
+            {url && (
+                <audio
+                    ref={audioRef}
+                    src={url}
+                    onTimeUpdate={handleTimeUpdate}
+                    onLoadedMetadata={handleLoadedMetadata}
+                    onEnded={handleEnded}
+                    className="hidden"
+                />
+            )}
+
+            {/* Left: Avatar with Mic Badge */}
+            <div className="relative shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 rounded-full bg-[#6d757d] flex items-center justify-center text-white">
+                    <User size={20} fill="currentColor" />
+                </div>
+                <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-white flex items-center justify-center">
+                    <Mic size={13} className="text-[#6d757d]" />
+                </span>
+            </div>
+
+            {/* Waveform and Play/Time Controls */}
+            <div className="flex-1 flex flex-col justify-center">
+                <div className="flex items-center gap-2.5">
+                    <button
+                        onClick={togglePlay}
+                        className="text-[#667085] hover:text-[#333] transition-transform active:scale-90 shrink-0"
+                    >
+                        {playing ? (
+                            <Pause size={24} fill="#667085" />
+                        ) : (
+                            <Play size={24} fill="#667085" className="ml-0.5" />
+                        )}
+                    </button>
+
+                    <div
+                        onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const clickX = e.clientX - rect.left;
+                            const newProgress = Math.max(0, Math.min(1, clickX / rect.width));
+                            if (audioRef.current && duration > 0) {
+                                audioRef.current.currentTime = newProgress * duration;
+                                setCurrentTime(newProgress * duration);
+                            }
+                        }}
+                        className="flex-1 flex items-center gap-[2.5px] h-7 cursor-pointer relative"
+                    >
+                        {waveformBars.map((height, i) => {
+                            const isPlayed = i <= activeDotIndex;
+                            return (
+                                <div key={i} className="flex items-center justify-center relative flex-1">
+                                    <span
+                                        className={`w-[2.5px] rounded-full transition-all duration-150 ${
+                                            isPlayed ? 'bg-[#5e6670]' : 'bg-[#a3b899]'
+                                        }`}
+                                        style={{ height: `${height}px` }}
+                                    />
+                                    {i === activeDotIndex && (
+                                        <span className="absolute w-3.5 h-3.5 rounded-full bg-[#5e6670] shadow-sm pointer-events-none" />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-[#556066] mt-1 pl-8 pr-1 font-sans">
+                    <span className="font-medium text-[#4a5568]">
+                        {formatSeconds(playing ? currentTime : (duration || 30))}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <span className="text-[11px] text-[#6b7280]">{timestamp}</span>
+                        <CheckCheck size={16} className="text-[#34B7F1]" strokeWidth={2.5} />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterChange, onLeadSelect, unreadCounts = {}, lastMessageMap = {} }) {
@@ -351,7 +473,6 @@ function ConversationSidebar({ ch, conversations, lead, activeFilter, onFilterCh
                             }
                         >
                             <div className="flex items-center gap-3">
-                                {/* Left-aligned channel icon */}
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0">
                                     <ChannelIcon channel={convChannel} size={20} />
                                 </div>
@@ -431,7 +552,6 @@ function getConversationStats(conversation, messages) {
 }
 
 function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, messages, onCloseConversation, onConvertClick, leadDetail, setLeadDetail }) {
-    const router = useRouter();
     const isInstagram = ch.id === 'instagram';
     const stats = getConversationStats(lead, messages);
 
@@ -439,8 +559,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
         if (!leadId) return;
         const currentLabels = leadDetail?.labels || [];
         const isActive = currentLabels.includes(label);
-       
-        // Optimistic UI update for single selection
         const nextLabels = isActive ? [] : [label];
         if (setLeadDetail) {
             setLeadDetail(prev => prev ? { ...prev, labels: nextLabels } : null);
@@ -526,8 +644,6 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                         </div>
                     </div>
 
-
-
                     {/* SECTION A: System Tier */}
                     <div className="mb-6 border-b border-white/[0.06] pb-6">
                         <p className="text-[14px] font-semibold text-white/90 uppercase tracking-wider mb-3">System Tier</p>
@@ -601,7 +717,8 @@ function InfoPanel({ ch, lead, onBack, showBackButton = false, resolvedLeadId, m
                                 Close Conversation
                             </button>
                         </div>
-                    </div>                </>
+                    </div>
+                </>
             )}
         </div>
     );
@@ -778,24 +895,106 @@ function ChatArea({
     setShowTemplateSelect,
     workspace,
     onSendTemplateSuccess,
+    selectedFile,
+    setSelectedFile,
+    selectedFilePreview,
+    setSelectedFilePreview,
+    isUploadingMedia,
+    onLoadOlderMessages,
+    hasMoreMessages = false,
+    isLoadingOlder = false,
 }) {
     const ref = useRef(null);
     const messagesContainerRef = useRef(null);
     const isInstagram = ch.id === 'instagram';
     const [unreadScrolledCount, setUnreadScrolledCount] = useState(0);
     const prevMessagesLenRef = useRef(messages.length);
+    const prevOldestIdRef = useRef(messages[0]?.id);
+    const prevLatestIdRef = useRef(messages[messages.length - 1]?.id);
+
+    const fileInputRef = useRef(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+    useEffect(() => {
+    const handleClickOutside = (event) => {
+        if (!event.target.closest('.emoji-picker-container')) {
+            setShowEmojiPicker(false);
+        }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+}, []);
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile?.(file);
+            const isImage = file.type.startsWith('image/');
+            const isVideo = file.type.startsWith('video/');
+            const isAudio = file.type.startsWith('audio/');
+            if (isImage || isVideo || isAudio) {
+                const previewUrl = URL.createObjectURL(file);
+                setSelectedFilePreview?.({
+                    url: previewUrl,
+                    type: isImage ? 'image' : isVideo ? 'video' : 'audio',
+                    name: file.name,
+                    size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+                });
+            } else {
+                setSelectedFilePreview?.({
+                    url: null,
+                    type: 'document',
+                    name: file.name,
+                    size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+                });
+            }
+            e.target.value = '';
+        }
+    };
+
+    const handleScroll = async (e) => {
+        const container = e.currentTarget;
+        if (container.scrollTop < 60 && hasMoreMessages && !isLoadingOlder) {
+            const prevScrollHeight = container.scrollHeight;
+            const prevScrollTop = container.scrollTop;
+
+            await onLoadOlderMessages?.();
+
+            requestAnimationFrame(() => {
+                if (container) {
+                    const newScrollHeight = container.scrollHeight;
+                    container.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
+                }
+            });
+        }
+    };
 
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (!container) return;
 
-        const isNewIncoming = messages.length > prevMessagesLenRef.current;
+        const currentOldestId = messages[0]?.id;
+        const currentLatestId = messages[messages.length - 1]?.id;
+
+        const isOlderPrepended = messages.length > prevMessagesLenRef.current && currentOldestId !== prevOldestIdRef.current && currentLatestId === prevLatestIdRef.current;
+        const isNewAppended = currentLatestId !== prevLatestIdRef.current;
+
         prevMessagesLenRef.current = messages.length;
+        prevOldestIdRef.current = currentOldestId;
+        prevLatestIdRef.current = currentLatestId;
+
+        if (isOlderPrepended) {
+            return;
+        }
 
         const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
         const isNearBottom = distanceFromBottom < 130;
 
-        if (isNearBottom || !isNewIncoming) {
+        if (isNearBottom || !isNewAppended) {
             ref.current?.scrollIntoView({ behavior: 'smooth' });
             setTimeout(() => setUnreadScrolledCount(0), 0);
         } else {
@@ -843,12 +1042,6 @@ function ChatArea({
         }
         return { whatsAppWindowState: 'window_closed', whatsAppWindowRemaining: '' };
     }, [ch.id, hasIncomingMessage, lastUserActivity, now]);
-
-    function getOutgoingStyle() {
-        if (ch.id === 'instagram') return { background: 'linear-gradient(135deg, #7c3aed, #a855f7)' };
-        if (ch.id === 'twilio') return { backgroundColor: '#F22F46' };
-        return { backgroundColor: '#1a7a45' };
-    }
 
     if (!lead) {
         return (
@@ -921,9 +1114,14 @@ function ChatArea({
                 </div>
             </div>
 
-            {/* Messages */}
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 py-4">
+            {/* Messages Area */}
+            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-5 py-4">
                 <div className="max-w-3xl mx-auto space-y-2">
+                    {isLoadingOlder && (
+                        <div className="flex items-center justify-center py-2">
+                            <Loader2 size={18} className="text-zinc-400 animate-spin" />
+                        </div>
+                    )}
                     {messagesWithSeparators.map((item) => {
                         if (item._dateSeparator) {
                             return (
@@ -937,8 +1135,76 @@ function ChatArea({
 
                         const m = item;
                         const isUser = m.sender_type?.toLowerCase() === 'user';
+
+                        let parsedMetadata = {};
+                        try {
+                            if (typeof m.metadata === 'string') {
+                                parsedMetadata = JSON.parse(m.metadata);
+                            } else if (m.metadata && typeof m.metadata === 'object') {
+                                parsedMetadata = m.metadata;
+                            } else if (typeof m.metadata_json === 'string') {
+                                parsedMetadata = JSON.parse(m.metadata_json);
+                            } else if (m.metadata_json && typeof m.metadata_json === 'object') {
+                                parsedMetadata = m.metadata_json;
+                            }
+                        } catch {
+                            parsedMetadata = {};
+                        }
+
                         const isAI = m.sender_type?.toLowerCase() === 'ai';
                         const isSuggested = m.status?.toLowerCase() === 'suggested';
+
+                        const messageDate = new Date(m.timestamp || m.created_at);
+
+                        const timeStr = !isNaN(messageDate.getTime())
+                            ? messageDate.toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })
+                            : '';
+
+                        const mediaUrl =
+                            m.media_url ||
+                            parsedMetadata.media_url ||
+                            null;
+
+                        const mediaType = (
+                            m.media_type ||
+                            parsedMetadata.media_type ||
+                            parsedMetadata.message_type ||
+                            m.type ||
+                            ''
+                        ).toLowerCase();
+
+                        const mimeType = (
+                            m.mime_type ||
+                            parsedMetadata.mime_type ||
+                            ''
+                        ).toLowerCase();
+
+                        const normalizedContent = (m.content || '').trim();
+
+                        const isImage =
+                            mediaType === 'image' ||
+                            mimeType.startsWith('image/') ||
+                            /\.(jpeg|jpg|gif|png|webp)(\?|$)/i.test(mediaUrl || '');
+
+                        const isAudio =
+                            mediaType === 'audio' ||
+                            mediaType === 'voice' ||
+                            mimeType.startsWith('audio/') ||
+                            /\.(mp3|ogg|wav|m4a|aac|opus)(\?|$)/i.test(mediaUrl || '');
+
+                        const isVideo =
+                            mediaType === 'video' ||
+                            mimeType.startsWith('video/') ||
+                            /\.(mp4|webm|mov|mkv)(\?|$)/i.test(mediaUrl || '');
+
+                        const isMediaPlaceholder = /^(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)$/i.test(
+                            normalizedContent.replace(/^\[|\]$/g, '')
+                        );
+
+                        const displayContent = isMediaPlaceholder ? '' : m.content;
 
                         return (
                             <motion.div
@@ -961,32 +1227,40 @@ function ChatArea({
                                     </div>
                                 ) : (
                                     <div
-                                        className={`max-w-[72%] px-4 py-3 ${isUser ? 'rounded-[20px_20px_20px_6px]' : 'rounded-[20px_20px_6px_20px]'}`}
-                                        style={isUser
-                                            ? { backgroundColor: '#252525', borderBottomLeftRadius: '6px' }
-                                            : { ...getOutgoingStyle(), borderBottomRightRadius: '6px' }
+                                        className={`max-w-[72%] px-4 py-3 ${
+                                            isUser
+                                                ? 'rounded-[20px_20px_20px_6px]'
+                                                : 'rounded-[20px_20px_6px_20px]'
+                                        }`}
+                                        style={
+                                            isUser
+                                                ? {
+                                                    backgroundColor: '#252525',
+                                                    borderBottomLeftRadius: '6px'
+                                                }
+                                                : {
+                                                    backgroundColor: '#1a7a45',
+                                                    borderBottomRightRadius: '6px'
+                                                }
                                         }
                                     >
                                         <MessageRenderer
-                                            content={m.content}
-                                            metadata={(() => {
-                                                try {
-                                                    return typeof m.metadata_json === 'string'
-                                                        ? JSON.parse(m.metadata_json)
-                                                        : (m.metadata_json || null);
-                                                } catch {
-                                                    return null;
-                                                }
-                                            })()}
-                                            media_url={m.media_url}
-                                            media_type={m.media_type}
-                                            mime_type={m.mime_type}
+                                            content={displayContent}
+                                            metadata={parsedMetadata}
+                                            media_url={mediaUrl}
+                                            media_type={mediaType}
+                                            mime_type={mimeType}
                                             isMe={!isUser}
                                             theme={ch}
                                             onPreviewMedia={setPreviewMedia}
                                         />
                                         <p className="text-[10px] text-white/40 mt-1.5">
-                                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {(() => {
+                                                const ts = m.timestamp || m.created_at;
+                                                if (!ts) return '';
+                                                const d = new Date(ts);
+                                                return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                            })()}
                                         </p>
                                     </div>
                                 )}
@@ -1051,7 +1325,6 @@ function ChatArea({
             <div className="px-4 pb-4 pt-2 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="max-w-2xl mx-auto">
                     {ch.id === 'whatsapp' && whatsAppWindowState === 'window_closed' ? (
-                        /* Window Closed — template-only mode */
                         <div className="p-5 rounded-2xl border border-red-500/20 bg-red-500/5 flex flex-col items-center text-center gap-3">
                             <div className="text-[#eee] text-[13px] font-medium leading-relaxed">
                                 🔒 WhatsApp 24-hour window has expired.<br />Only approved template messages can be sent.
@@ -1065,7 +1338,6 @@ function ChatArea({
                         </div>
                     ) : (
                         <>
-                            {/* Toolbar row */}
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
                                 <button
                                     onClick={generateSuggestion}
@@ -1098,46 +1370,138 @@ function ChatArea({
                                 )}
                             </div>
 
-                            {/* Input bar */}
+                            {selectedFilePreview && (
+                                <div className="mb-2 p-2 rounded-xl bg-[#1e1e1e] border border-white/10 inline-flex items-center gap-3 max-w-full">
+                                    {selectedFilePreview.type === 'image' && (
+                                        <img src={selectedFilePreview.url} alt="attachment" className="w-12 h-12 object-cover rounded-lg shrink-0" />
+                                    )}
+                                    {selectedFilePreview.type === 'video' && (
+                                        <video src={selectedFilePreview.url} className="w-16 h-12 object-cover rounded-lg shrink-0" />
+                                    )}
+                                    {(selectedFilePreview.type === 'audio' || selectedFilePreview.type === 'document') && (
+                                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0">
+                                            <FileText size={18} />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0 pr-2">
+                                        <p className="text-[12px] text-white font-medium truncate max-w-[200px]">{selectedFilePreview.name}</p>
+                                        <p className="text-[10px] text-white/50">{selectedFilePreview.size}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSelectedFile?.(null); setSelectedFilePreview?.(null); }}
+                                        className="p-1 text-red-400 hover:bg-white/10 rounded-full cursor-pointer shrink-0"
+                                        title="Remove attachment"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-2 px-2 py-2 rounded-full border"
                                 style={{ backgroundColor: '#1e1e1e', borderColor: 'rgba(255,255,255,0.07)' }}>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    accept="image/*,video/*,audio/*,application/pdf"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                />
                                 <button
-                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0"
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0 hover:bg-white/5 active:scale-95 cursor-pointer"
                                     style={{ backgroundColor: `${ch.color}20` }}
+                                    title="Attach Image / Video / Media"
                                 >
                                     <Camera size={16} style={{ color: ch.color }} strokeWidth={2} />
                                 </button>
                                 {ch.id === 'whatsapp' && (
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             fetchInboxTemplates();
                                             setSelectedInboxTemplate(null);
                                             setTemplateSearchQuery('');
                                             setShowTemplateSelect(true);
                                         }}
-                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0"
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0 cursor-pointer"
                                         style={{ backgroundColor: `${ch.color}20` }}
                                         title="Use Template"
                                     >
                                         <FileText size={16} style={{ color: ch.color }} strokeWidth={2} />
                                     </button>
                                 )}
+
+                                <div className="relative emoji-picker-container">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEmojiPicker(prev => !prev)}
+                                        className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-white/5 active:scale-95 shrink-0 cursor-pointer"
+                                        style={{ backgroundColor: `${ch.color}20` }}
+                                        title="Emoji"
+                                    >
+                                        <Smile
+                                            size={16}
+                                            style={{ color: ch.color }}
+                                            strokeWidth={2}
+                                        />
+                                    </button>
+
+                                    {showEmojiPicker && (
+                                        <div
+                                            className="
+                                                absolute bottom-[52px] left-0 z-[9999]
+                                                w-[280px]
+                                                max-w-[calc(100vw-32px)]
+                                                rounded-2xl overflow-hidden
+                                                border border-white/[0.08]
+                                                bg-[#1c1c1f]
+                                                shadow-[0_16px_40px_rgba(0,0,0,0.45)]
+                                            "
+                                        >
+                                            <EmojiPicker
+                                                onEmojiClick={(emojiData) => {
+                                                    setMsg(prev => prev + emojiData.emoji);
+                                                }}
+                                                theme="dark"
+                                                lazyLoadEmojis
+                                                width="100%"
+                                                height={300}
+                                                searchDisabled={false}
+                                                skinTonesDisabled={false}
+                                                previewConfig={{
+                                                    showPreview: false,
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                                 <input
                                     value={msg}
                                     onChange={(e) => setMsg(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                                    placeholder="Message"
+                                    placeholder={selectedFilePreview ? "Add a caption..." : "Message"}
+                                    disabled={isUploadingMedia}
                                     className="flex-1 bg-transparent text-[13px] text-white placeholder:text-[#555] outline-none px-1"
                                 />
                                 <button
+                                    type="button"
                                     onClick={sendMessage}
-                                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
+                                    disabled={isUploadingMedia || (!msg.trim() && !selectedFile)}
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 cursor-pointer ${
+                                        isUploadingMedia || (!msg.trim() && !selectedFile) ? 'opacity-40 cursor-not-allowed' : ''
+                                    }`}
                                     style={isInstagram
                                         ? { background: 'linear-gradient(135deg, #ee2a7b, #6228d7)' }
                                         : { backgroundColor: ch.color }
                                     }
                                 >
-                                    <Send size={15} className="text-white" strokeWidth={2} />
+                                    {isUploadingMedia ? (
+                                        <Loader2 size={15} className="text-white animate-spin" />
+                                    ) : (
+                                        <Send size={15} className="text-white" strokeWidth={2} />
+                                    )}
                                 </button>
                             </div>
                         </>
@@ -1198,7 +1562,6 @@ function PanelCard({ children, className = '', style = {} }) {
     );
 }
 
-// ─ Main Page Content
 function InboxContent() {
     const { workspaces, workspaceId } = useAuth();
     const workspace = workspaces?.find((item) => item.id === workspaceId) || null;
@@ -1217,62 +1580,14 @@ function InboxContent() {
     const [resolvedLeadId, setResolvedLeadId] = useState(null);
     const [leadDetail, setLeadDetail] = useState(null);
     const [msg, setMsg] = useState('');
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [selectedFilePreview, setSelectedFilePreview] = useState(null);
+    const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+    
     const [aiSuggestion, setAiSuggestion] = useState('');
     const [previewMedia, setPreviewMedia] = useState(null);
     const [unreadCounts, setUnreadCounts] = useState({});
     const [lastMessageMap, setLastMessageMap] = useState({});
-
-    const notificationAudioRef = useRef(null);
-    const processedMessageIds = useRef(new Set());
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const audio = new Audio('/sounds/message-notification.mp3');
-            audio.volume = 0.7;
-            notificationAudioRef.current = audio;
-
-            const unlockAudio = () => {
-                if (notificationAudioRef.current) {
-                    notificationAudioRef.current.play().then(() => {
-                        notificationAudioRef.current.pause();
-                        notificationAudioRef.current.currentTime = 0;
-                    }).catch(() => {});
-                }
-            };
-
-            window.addEventListener('pointerdown', unlockAudio, { once: true });
-            window.addEventListener('keydown', unlockAudio, { once: true });
-
-            return () => {
-                window.removeEventListener('pointerdown', unlockAudio);
-                window.removeEventListener('keydown', unlockAudio);
-            };
-        }
-    }, []);
-
-    const playNotificationSound = useCallback(() => {
-        const audio = notificationAudioRef.current;
-        console.log("🔊 Audio ref:", audio);
-        if (!audio) {
-            console.error("❌ Notification sound failed: audio ref is null");
-            return;
-        }
-        try {
-            audio.currentTime = 0;
-            const playPromise = audio.play();
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        console.log("✅ Notification sound played");
-                    })
-                    .catch((error) => {
-                        console.error("❌ Notification sound failed:", error);
-                    });
-            }
-        } catch (error) {
-            console.error("❌ Notification sound failed:", error);
-        }
-    }, []);
 
     // Template state (from HEAD)
     const [templateName, setTemplateName] = useState(null);
@@ -1284,13 +1599,11 @@ function InboxContent() {
     const [inboxTemplateVariables, setInboxTemplateVariables] = useState({});
     const [templateSearchQuery, setTemplateSearchQuery] = useState('');
 
-    // Modal state (from branch)
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [showCloseModal, setShowCloseModal] = useState(false);
     const [closeTargetId, setCloseTargetId] = useState(null);
     const [closingConversation, setClosingConversation] = useState(false);
 
-    const messagesContainerRef = useRef(null);
     const leadRef = useRef(null);
     const lastProcessedIdRef = useRef(null);
 
@@ -1299,13 +1612,11 @@ function InboxContent() {
     const pathname = usePathname();
     const urlConversationId = searchParams.get('conversationId') || searchParams.get('conversation');
 
-    // Tablet / mobile / desktop drawer view state
     const [tabletRight, setTabletRight] = useState('chat');
     const [ipadRight, setIpadRight] = useState('chat');
     const [mobileView, setMobileView] = useState('list');
     const [desktopDrawerOpen, setDesktopDrawerOpen] = useState(false);
 
-    //  Template helpers ─
     const fetchInboxTemplates = useCallback(async () => {
         try {
             const workspace_id = workspace?.id;
@@ -1356,7 +1667,6 @@ function InboxContent() {
         (t.content || '').toLowerCase().includes(templateSearchQuery.toLowerCase())
     );
 
-    //  URL param hydration
     useEffect(() => {
         const msgParam = searchParams.get('msg');
         const channelParam = searchParams.get('channel');
@@ -1381,7 +1691,6 @@ function InboxContent() {
 
     useEffect(() => { leadRef.current = lead; }, [lead]);
 
-    //  Lead detail fetch
     useEffect(() => {
         if (!resolvedLeadId) { setLeadDetail(null); return; }
         let active = true;
@@ -1391,7 +1700,6 @@ function InboxContent() {
         return () => { active = false; };
     }, [resolvedLeadId]);
 
-    //  Helpers
     const fetchLeadIdForConversation = useCallback(async (conversationId) => {
         if (!conversationId || !workspace?.id) return null;
         try {
@@ -1402,15 +1710,17 @@ function InboxContent() {
         } catch { return null; }
     }, [workspace?.id]);
 
+    const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+
     const fetchMessages = useCallback(async (id) => {
         if (!id) return;
         try {
-            const data = await api.get(`/api/messages/${id}`);
+            const data = await api.get(`/api/messages/${id}?limit=50`);
             if (!Array.isArray(data)) { console.warn("Messages API non-array:", data); return; }
 
-            // Populate processed message IDs to prevent sound on history load/reconnect
             data.forEach(m => {
-                if (m.id) processedMessageIds.current.add(m.id);
+                if (m.id) markMessageAsProcessed(m.id);
             });
 
             if (data.length > 0) {
@@ -1422,9 +1732,54 @@ function InboxContent() {
 
             if (id === leadRef.current?.id) {
                 setMessages(data);
+                setHasMoreMessages(data.length >= 50);
             }
         } catch (e) { console.error('Message fetch error:', e); }
     }, []);
+
+    const loadOlderMessages = useCallback(async () => {
+        const currentLeadId = leadRef.current?.id;
+        if (!currentLeadId || isLoadingOlder || !hasMoreMessages) return;
+
+        const oldestMsg = messages[0];
+        if (!oldestMsg) return;
+
+        const oldestTimestamp = oldestMsg.timestamp || oldestMsg.created_at;
+        const oldestId = oldestMsg.id;
+        if (!oldestTimestamp) return;
+
+        setIsLoadingOlder(true);
+        try {
+            const olderData = await api.get(
+                `/api/messages/${currentLeadId}?limit=50&before_timestamp=${encodeURIComponent(oldestTimestamp)}&before_id=${encodeURIComponent(oldestId || '')}`
+            );
+
+            if (!Array.isArray(olderData) || olderData.length === 0) {
+                setHasMoreMessages(false);
+                return;
+            }
+
+            if (olderData.length < 50) {
+                setHasMoreMessages(false);
+            }
+
+            olderData.forEach(m => {
+                if (m.id) markMessageAsProcessed(m.id);
+            });
+
+            if (currentLeadId === leadRef.current?.id) {
+                setMessages(prev => {
+                    const existingIds = new Set(prev.map(m => m.id));
+                    const newItems = olderData.filter(m => !existingIds.has(m.id));
+                    return [...newItems, ...prev];
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load older messages:', e);
+        } finally {
+            setIsLoadingOlder(false);
+        }
+    }, [hasMoreMessages, isLoadingOlder, messages]);
 
     const getStatusParam = useCallback((filterIdx) => {
         return { 0: 'OPEN', 1: 'CONVERTED', 2: 'CLOSED', 3: 'ALL' }[filterIdx] || 'OPEN';
@@ -1444,23 +1799,29 @@ function InboxContent() {
 
             setConversations(data);
 
-            // Fetch messages for all conversations to populate lastMessageMap
-            data.forEach(c => {
-                if (c.id) {
-                    api.get(`/api/messages/${c.id}`).then(msgs => {
-                        if (Array.isArray(msgs)) {
-                            msgs.forEach(m => {
-                                if (m.id) processedMessageIds.current.add(m.id);
-                            });
-                            if (msgs.length > 0) {
-                                const last = msgs[msgs.length - 1];
-                                if (last?.content) {
-                                    setLastMessageMap(prev => ({ ...prev, [c.id]: last.content }));
-                                }
-                            }
-                        }
-                    }).catch(() => {});
-                }
+            // Populate unreadCounts from backend for conversations not currently open
+            setUnreadCounts(prev => {
+                const next = { ...prev };
+                data.forEach(c => {
+                    if (leadRef.current?.id === c.id) {
+                        next[c.id] = 0;
+                    } else if (c.unread_count !== undefined) {
+                        next[c.id] = Math.max(prev[c.id] || 0, c.unread_count || 0);
+                    }
+                });
+                return next;
+            });
+
+            // Populate lastMessageMap directly from conversation data
+            setLastMessageMap(prev => {
+                const next = { ...prev };
+                data.forEach(c => {
+                    const text = c.last_message || c.last_message_text || c.preview;
+                    if (text) {
+                        next[c.id] = text;
+                    }
+                });
+                return next;
             });
 
             if (data.length === 0) {
@@ -1488,8 +1849,8 @@ function InboxContent() {
             }
 
             setLead(nextLead);
+            leadRef.current = nextLead;
             if (nextLead) {
-                // Clear unread on open
                 setUnreadCounts(prev => ({ ...prev, [nextLead.id]: 0 }));
             }
             fetchMessages(nextLead.id);
@@ -1497,7 +1858,6 @@ function InboxContent() {
         } catch (e) { console.error('Conversation fetch error:', e); }
     }, [workspace?.id, ch.id, activeFilter, fetchMessages, fetchLeadIdForConversation, getStatusParam, pathname, router, searchParams]);
 
-    //  URL-driven conversation selection ─
     useEffect(() => {
         if (!workspace?.id || !urlConversationId) {
             if (!urlConversationId) lastProcessedIdRef.current = null;
@@ -1518,7 +1878,6 @@ function InboxContent() {
         }).catch(e => console.error('Failed to look up conversation:', e));
     }, [workspace?.id, urlConversationId, fetchConversations]);
 
-    //  Channel / filter changes
     useEffect(() => {
         setDesktopDrawerOpen(false);
         const timer = setTimeout(() => {
@@ -1529,14 +1888,12 @@ function InboxContent() {
         return () => clearTimeout(timer);
     }, [ch.id, fetchConversations]);
 
-    //  Polling
     useEffect(() => {
         if (!lead?.id) return;
         const interval = setInterval(() => fetchMessages(lead.id), 30000);
         return () => clearInterval(interval);
     }, [lead?.id, fetchMessages]);
 
-    //  Realtime ─
     useEffect(() => {
         if (!lead?.id) return;
         subscribeConversation(lead.id);
@@ -1545,8 +1902,6 @@ function InboxContent() {
 
     useEffect(() => {
         return subscribe((event) => {
-            console.log("📨 WebSocket message received:", event);
-
             const eventWorkspaceId = event.workspace_id || event.payload?.workspace_id;
             if (eventWorkspaceId && workspace?.id && eventWorkspaceId !== workspace.id) return;
 
@@ -1556,28 +1911,33 @@ function InboxContent() {
                 case 'new_message': {
                     const msgData = event.payload || {};
                     const msgId = msgData.id || event.id || event.event_id;
-                    const senderRaw = typeof msgData.sender_type === 'string' ? msgData.sender_type : (msgData.sender_type?.value || msgData.sender || event.sender_type || '');
+                    const senderRaw = typeof msgData.sender_type === 'string'
+                        ? msgData.sender_type
+                        : (msgData.sender_type?.value || msgData.sender || event.sender_type || '');
                     const msgSender = senderRaw.toLowerCase();
-                    const msgContent = msgData.content || event.content || '';
+                    const msgContent = msgData.content || msgData.message_preview || event.content || '';
 
-                    // Update last message map for conversation preview
+                    console.log("📩 Incoming WebSocket message:", event);
+
                     if (eventConversationId && msgContent) {
                         setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
                     }
 
                     // Duplicate protection check
-                    if (msgId && processedMessageIds.current.has(msgId)) {
+                    if (msgId && isMessageAlreadyProcessed(msgId)) {
                         console.log("⚠️ Ignored duplicate message ID:", msgId);
                         return;
                     }
                     if (msgId) {
-                        processedMessageIds.current.add(msgId);
+                        markMessageAsProcessed(msgId);
                     }
 
                     // Genuine NEW incoming message from customer
-                    const isIncoming = msgSender.includes('user') || msgSender.includes('customer') || msgData.direction === 'inbound';
+                    const isExplicitOutbound = msgSender.includes('agent') || msgSender.includes('ai') || msgSender.includes('system') || msgData.direction === 'outbound';
+                    const isExplicitInbound = msgSender.includes('user') || msgSender.includes('customer') || msgSender.includes('lead') || msgSender.includes('contact') || msgData.direction === 'inbound';
+                    const isIncoming = isExplicitInbound || (!isExplicitOutbound && !msgSender);
+
                     if (isIncoming) {
-                        console.log("🔔 New incoming message detected");
                         playNotificationSound();
 
                         const isCurrentlyActive = leadRef.current?.id === eventConversationId;
@@ -1587,6 +1947,8 @@ function InboxContent() {
                                 [eventConversationId]: (prev[eventConversationId] || 0) + 1
                             }));
                         }
+                    } else {
+                        console.log("ℹ️ Outbound / non-customer message detected, skipping audio notification");
                     }
 
                     fetchConversations();
@@ -1622,27 +1984,69 @@ function InboxContent() {
                     break;
             }
         });
-    }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId, playNotificationSound]);
+    }, [fetchConversations, fetchMessages, subscribe, workspace?.id, resolvedLeadId]);
 
-    //  Actions
     async function sendMessage() {
-        if (!msg.trim() || !lead) return;
+        if ((!msg.trim() && !selectedFile) || !lead || isUploadingMedia) return;
+        setIsUploadingMedia(true);
         try {
-            const payload = { conversation_id: lead.id, message: msg };
+            let uploadedMediaUrl = null;
+            let detectedMessageType = null;
+            let detectedMimeType = null;
+
+            if (selectedFile) {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                const uploadRes = await api.post('/api/upload', formData);
+                uploadedMediaUrl = uploadRes.url;
+                detectedMessageType = uploadRes.file_type || (
+                    selectedFile.type.startsWith('video/') ? 'video' :
+                    selectedFile.type.startsWith('audio/') ? 'audio' :
+                    selectedFile.type.startsWith('image/') ? 'image' : 'document'
+                );
+                detectedMimeType = selectedFile.type;
+            }
+
+            const payload = {
+                conversation_id: lead.id,
+                message: msg.trim() || (uploadedMediaUrl ? `[${(detectedMessageType || 'IMAGE').toUpperCase()}]` : ''),
+            };
+
+            if (uploadedMediaUrl) {
+                payload.metadata = {
+                    media_url: uploadedMediaUrl,
+                    message_type: detectedMessageType,
+                    mime_type: detectedMimeType,
+                };
+            }
+
             if (templateName) {
                 payload.metadata = {
+                    ...(payload.metadata || {}),
                     template_name: templateName,
                     variables: templateVariables,
                     language: templateLanguage,
                 };
             }
+
             await api.post('/api/send-reply', payload);
             setMsg('');
+            setSelectedFile(null);
+            setSelectedFilePreview(null);
             setTemplateName(null);
             setTemplateVariables([]);
             setTemplateLanguage('en_US');
             fetchMessages(lead.id);
-        } catch (e) { console.error('Send error:', e); }
+        } catch (e) {
+            console.error('Send error:', e);
+            if (e.status === 503) {
+                showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
+            } else {
+                showToast("Failed to send message. Please try again.");
+            }
+        } finally {
+            setIsUploadingMedia(false);
+        }
     }
 
     async function generateSuggestion() {
@@ -1680,22 +2084,6 @@ function InboxContent() {
         setCloseTargetId(conversationId);
         setShowCloseModal(true);
     }
-      async function sendMessage() {
-          if (!msg.trim() || !lead) return;
-          try {
-              await api.post(`/api/send-reply`, { conversation_id: lead.id, message: msg });
-              setMsg('');
-              fetchMessages(lead.id);
-          } catch (e) {
-              console.error('Send error:', e);
-              if (e.status === 503) {
-                  showToast("This channel isn't configured for this workspace yet. Please contact admin to set up channel credentials.");
-              } else {
-                  showToast("Failed to send message. Please try again.");
-              }
-              return;
-          }
-      }
 
     async function handleConfirmClose() {
         if (!closeTargetId) return;
@@ -1718,18 +2106,27 @@ function InboxContent() {
     }
 
     function handleLeadSelectTablet(l) {
-        setLead(l); fetchMessages(l.id);
+        if (!l) return;
+        setLead(l);
+        leadRef.current = l;
+        fetchMessages(l.id);
+        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
         fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
         setTabletRight('chat');
     }
 
     function handleLeadSelectMobile(l) {
-        setLead(l); fetchMessages(l.id);
+        if (!l) return;
+        setLead(l);
+        leadRef.current = l;
+        fetchMessages(l.id);
+        setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+        api.post(`/api/conversations/${l.id}/read`).catch(() => {});
         fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
         setMobileView('chat');
     }
 
-    //  Shared ChatArea props ─
     const chatAreaProps = {
         ch, lead, messages, msg, setMsg,
         aiSuggestion, sendMessage, generateSuggestion, useSuggestion,
@@ -1738,6 +2135,12 @@ function InboxContent() {
         fetchInboxTemplates, setSelectedInboxTemplate,
         setTemplateSearchQuery, setShowTemplateSelect,
         workspace,
+        selectedFile, setSelectedFile,
+        selectedFilePreview, setSelectedFilePreview,
+        isUploadingMedia,
+        onLoadOlderMessages: loadOlderMessages,
+        hasMoreMessages,
+        isLoadingOlder,
         onSendTemplateSuccess: (formattedContent) => {
             fetchMessages(lead.id);
             setMessages(prev => [...prev, {
@@ -1758,11 +2161,10 @@ function InboxContent() {
         leadDetail, setLeadDetail,
     };
 
-    //  Render ─
     return (
         <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: '#0d0d0d', fontFamily: "'Poppins', sans-serif" }}>
 
-            {/*  DESKTOP (≥1260px)  */}
+            {/* DESKTOP (≥1260px) */}
             <div className="hidden xl:flex flex-1 overflow-hidden p-3 gap-3 relative">
                 <div className="flex flex-col gap-3" style={{ width: 400, minWidth: 380, maxWidth: 420 }}>
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1772,8 +2174,11 @@ function InboxContent() {
                             activeFilter={activeFilter} onFilterChange={setActiveFilter}
                             unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                             onLeadSelect={(l) => {
-                                setLead(l); fetchMessages(l.id);
+                                setLead(l);
+                                leadRef.current = l;
+                                fetchMessages(l.id);
                                 setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                api.post(`/api/conversations/${l.id}/read`).catch(() => {});
                                 fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
                             }}
                         />
@@ -1832,7 +2237,7 @@ function InboxContent() {
                 </AnimatePresence>
             </div>
 
-            {/*  IPAD PRO (1024px–1279px)  */}
+            {/* IPAD PRO (1024px–1279px) */}
             <div className="hidden lg:flex xl:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex flex-1 overflow-hidden p-3 gap-3">
                     <div className="flex flex-col gap-3" style={{ width: 360, minWidth: 320, maxWidth: 380 }}>
@@ -1843,8 +2248,11 @@ function InboxContent() {
                                 activeFilter={activeFilter} onFilterChange={setActiveFilter}
                                 unreadCounts={unreadCounts} lastMessageMap={lastMessageMap}
                                 onLeadSelect={(l) => {
-                                    setLead(l); fetchMessages(l.id);
+                                    setLead(l);
+                                    leadRef.current = l;
+                                    fetchMessages(l.id);
                                     setUnreadCounts(prev => ({ ...prev, [l.id]: 0 }));
+                                    api.post(`/api/conversations/${l.id}/read`).catch(() => {});
                                     fetchLeadIdForConversation(l.id).then(id => setResolvedLeadId(id));
                                     setIpadRight('chat');
                                 }}
@@ -1875,7 +2283,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/*  TABLET (768px–1023px)  */}
+            {/* TABLET (768px–1023px) */}
             <div className="hidden md:flex lg:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 px-3 pt-3 pb-2 shrink-0">
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1912,7 +2320,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/*  MOBILE (<768px)  */}
+            {/* MOBILE (<768px) */}
             <div className="flex md:hidden flex-col flex-1 overflow-hidden">
                 <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
                     <ChannelTabs ch={ch} setCh={setCh} />
@@ -1949,7 +2357,7 @@ function InboxContent() {
                 </div>
             </div>
 
-            {/*  Template Selector Modal  */}
+            {/* Template Selector Modal */}
             {showTemplateSelect && (
                 <>
                     <div onClick={() => setShowTemplateSelect(false)} className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-[6px]" />
@@ -1963,7 +2371,6 @@ function InboxContent() {
                             fontFamily: "'Poppins', sans-serif", overflow: 'hidden',
                         }}>
 
-                        {/* Header */}
                         <div className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-[#2a1f4a]/50">
                             <h2 className="m-0 text-[18px] font-bold text-[#f0f0ff] tracking-tight flex items-center gap-2">
                                 <FileText size={18} className="text-purple-400" />
@@ -1975,9 +2382,7 @@ function InboxContent() {
                             </button>
                         </div>
 
-                        {/* Split body */}
                         <div className="flex flex-1 overflow-hidden">
-                            {/* Left list */}
                             <div className="w-[320px] border-r border-[#2a1f4a]/30 flex flex-col bg-[#0b0717]/40">
                                 <div className="p-3">
                                     <div className="flex items-center gap-2 bg-[#120d22] border border-[#2a1f4a] rounded-xl px-3 py-2">
@@ -2010,7 +2415,6 @@ function InboxContent() {
                                 </div>
                             </div>
 
-                            {/* Right preview */}
                             <div className="flex-1 flex flex-col bg-[#0b081c]/10 overflow-y-auto p-6">
                                 {selectedInboxTemplate ? (
                                     <div className="flex-1 flex flex-col gap-5">
@@ -2068,7 +2472,6 @@ function InboxContent() {
                             </div>
                         </div>
 
-                        {/* Footer */}
                         <div className="px-6 py-4 border-t border-[#2a1f4a]/50 flex justify-end gap-3 bg-[#0d091e]">
                             <button onClick={() => setShowTemplateSelect(false)}
                                 className="px-5 py-2.5 rounded-xl border border-[#2a1f4a] bg-transparent text-white text-[13px] font-semibold hover:bg-white/5">
@@ -2084,7 +2487,7 @@ function InboxContent() {
                 </>
             )}
 
-            {/*  Modals  */}
+            {/* Modals */}
             {showConvertModal && (
                 <ConvertLeadModal
                     isOpen={showConvertModal}

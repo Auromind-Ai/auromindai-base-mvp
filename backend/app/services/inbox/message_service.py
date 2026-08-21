@@ -25,6 +25,8 @@ from app.core.security import to_uuid
 logger = logging.getLogger(__name__)
 
 
+from sqlalchemy import or_, and_
+
 class MessageService:
     _VALID_PRIOR_STATES = {
         "sent": ("dispatched", "in_progress"),
@@ -42,12 +44,14 @@ class MessageService:
         workspace_id: str | uuid.UUID,
         conversation_id: str | uuid.UUID,
         skip: int = 0,
-        limit: int = 100,
+        limit: int = 50,
+        before_timestamp: str | datetime | None = None,
+        before_id: str | uuid.UUID | None = None,
     ):
         ws_uuid = to_uuid(workspace_id)
         conv_uuid = to_uuid(conversation_id)
-
-        messages = (
+        
+        query = (
             db.query(Message)
             .join(
                 models.Conversation,
@@ -57,11 +61,50 @@ class MessageService:
                 Message.conversation_id == conv_uuid,
                 models.Conversation.workspace_id == ws_uuid,
             )
-            .order_by(Message.timestamp.asc())
+        )
+
+        # Parse before_timestamp if provided as string
+        parsed_before_ts = None
+        if before_timestamp:
+            if isinstance(before_timestamp, datetime):
+                parsed_before_ts = before_timestamp
+            elif isinstance(before_timestamp, str):
+                try:
+                    from dateutil.parser import isoparse
+                    parsed_before_ts = isoparse(before_timestamp)
+                except Exception:
+                    try:
+                        parsed_before_ts = datetime.fromisoformat(before_timestamp.replace("Z", "+00:00"))
+                    except Exception:
+                        parsed_before_ts = None
+
+        # Robust composite cursor: (timestamp, id)
+        if parsed_before_ts and before_id:
+            before_uuid = to_uuid(before_id)
+            if before_uuid:
+                query = query.filter(
+                    or_(
+                        Message.timestamp < parsed_before_ts,
+                        and_(
+                            Message.timestamp == parsed_before_ts,
+                            Message.id < before_uuid,
+                        ),
+                    )
+                )
+            else:
+                query = query.filter(Message.timestamp < parsed_before_ts)
+        elif parsed_before_ts:
+            query = query.filter(Message.timestamp < parsed_before_ts)
+
+        # Fetch latest messages first (descending), then reverse to return in chronological order
+        messages = (
+            query.order_by(Message.timestamp.desc(), Message.id.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
+
+        messages.reverse()
 
         result = []
 
@@ -84,9 +127,11 @@ class MessageService:
                 "is_read": message.is_read,
                 "source": message.source,
                 "external_id": message.external_id,
+                "media_id": metadata.get("media_id"),
                 "media_url": metadata.get("media_url"),
                 "media_type": metadata.get("media_type"),
                 "mime_type": metadata.get("mime_type"),
+
             })
 
         return result
@@ -266,7 +311,7 @@ class MessageService:
             source="manual_reply",
         )
         try:
-            external_id = ChannelService.send_message(conversation, message, metadata)
+            external_id = ChannelService.send_message(conversation, message, enriched_metadata)
         except RuntimeError as e:
             from fastapi import HTTPException
             raise HTTPException(

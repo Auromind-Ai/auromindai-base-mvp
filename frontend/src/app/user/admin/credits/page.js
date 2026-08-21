@@ -1017,7 +1017,7 @@ export default function CreditsPage() {
                             <div className="lg:col-span-2 bg-[#0e0e14] rounded-2xl border border-white/5 p-4 sm:p-7 shadow-xl flex flex-col">
                                 <p className="text-white/70 text-xs sm:text-[13px] font-normal sm:font-medium mb-1">Cost Calculator</p>
                                 <p className="text-white text-xs sm:text-base font-normal sm:font-semibold mb-1">What will this campaign cost?</p>
-                                <p className="text-zinc-500 text-[11px] sm:text-xs font-normal mb-4 sm:mb-5">Pick a conversation type — pricing updates as you go.</p>
+                                <p className="text-white/60 text-[11px] sm:text-xs font-normal mb-4 sm:mb-5">Pick a conversation type — pricing updates as you go.</p>
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 mb-5 sm:mb-6">
                                     {[
@@ -1030,7 +1030,7 @@ export default function CreditsPage() {
                                             key={opt.key}
                                             type="button"
                                             onClick={() => setMsgType(opt.key)}
-                                            className={`px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-[11px] sm:text-xs font-normal sm:font-bold border transition-all cursor-pointer ${
+                                            className={`px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-lg text-[13px] sm:text-xs font-normal sm:font-bold border transition-all cursor-pointer ${
                                                 msgType === opt.key
                                                     ? 'bg-[#110229] border-[#814ac8] text-white'
                                                     : 'bg-white/[0.02] border-white/5 text-white/80 hover:text-white hover:border-white/35'

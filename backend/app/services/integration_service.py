@@ -1,3 +1,4 @@
+import uuid
 from sqlalchemy.orm import Session
 from app.models.integration import Integration
 from app.services.platform_settings_service import get_setting
@@ -5,7 +6,17 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from datetime import datetime
 from app.services.email_automation.email_monitor_service import EmailMonitor
+from app.services.billing.entitlement_service import EntitlementService
 
+def _to_uuid(val):
+    if isinstance(val, uuid.UUID):
+        return val
+    if isinstance(val, str):
+        try:
+            return uuid.UUID(val)
+        except (ValueError, AttributeError):
+            return val
+    return val
 
 # Dynamic settings will be loaded at runtime
 
@@ -35,6 +46,14 @@ class IntegrationService:
 
         if not integration_flags.get(integration_type, True):
             raise PermissionError(f"{integration_type.capitalize()} integration disabled by admin")
+
+        ws_uuid = _to_uuid(workspace_id)
+        if integration_type == "gmail":
+            ent_check = EntitlementService.check_entitlement(db, ws_uuid, "gmail")
+            if not ent_check["allowed"]:
+                EntitlementService.raise_entitlement_exceeded(
+                    db, ws_uuid, "gmail", ent_check["limit"], 5
+                )
 
         from app.services.config_service import config_service
         google_client_id = config_service.get("google_client_id")
@@ -72,6 +91,7 @@ class IntegrationService:
     @staticmethod
     def handle_google_oauth_callback(db: Session, code: str, state: str):
         integration_type, workspace_id = state.split(":")
+        ws_uuid = _to_uuid(workspace_id)
         
         from app.services.config_service import config_service
         google_client_id = config_service.get("google_client_id")
@@ -99,34 +119,65 @@ class IntegrationService:
             service = build('calendar', 'v3', credentials=credentials)
             profile = service.calendarList().get(calendarId='primary').execute()
             email = profile.get('id')
+            
+            existing = db.query(Integration).filter(
+                Integration.workspace_id == ws_uuid,
+                Integration.integration_type == "google_calendar"
+            ).first()
+            
+            if existing:
+                existing.access_token = credentials.token
+                existing.refresh_token = credentials.refresh_token or existing.refresh_token
+                existing.token_expiry = credentials.expiry
+                existing.connected_email = email
+                existing.is_active = True
+                existing.updated_at = datetime.utcnow()
+            else:
+                integration = Integration(
+                    workspace_id=ws_uuid,
+                    integration_type="google_calendar",
+                    access_token=credentials.token,
+                    refresh_token=credentials.refresh_token,
+                    token_expiry=credentials.expiry,
+                    connected_email=email,
+                    is_active=True
+                )
+                db.add(integration)
         else:
             service = build('gmail', 'v1', credentials=credentials)
             profile = service.users().getProfile(userId='me').execute()
             email = profile.get('emailAddress')
-        
-        existing = db.query(Integration).filter(
-            Integration.workspace_id == workspace_id,
-            Integration.integration_type == f"google_{integration_type}"
-        ).first()
-        
-        if existing:
-            existing.access_token = credentials.token
-            existing.refresh_token = credentials.refresh_token
-            existing.token_expiry = credentials.expiry
-            existing.connected_email = email
-            existing.is_active = True
-            existing.updated_at = datetime.utcnow()
-        else:
-            integration = Integration(
-                workspace_id=workspace_id,
-                integration_type=f"google_{integration_type}",
-                access_token=credentials.token,
-                refresh_token=credentials.refresh_token,
-                token_expiry=credentials.expiry,
-                connected_email=email,
-                is_active=True
-            )
-            db.add(integration)
+            
+            existing = db.query(Integration).filter(
+                Integration.workspace_id == ws_uuid,
+                Integration.integration_type == "google_gmail",
+                Integration.connected_email == email
+            ).first()
+            
+            if existing:
+                existing.access_token = credentials.token
+                existing.refresh_token = credentials.refresh_token or existing.refresh_token
+                existing.token_expiry = credentials.expiry
+                existing.connected_email = email
+                existing.is_active = True
+                existing.updated_at = datetime.utcnow()
+            else:
+                # Check quota entitlement before creating an additional Gmail mailbox
+                ent_check = EntitlementService.check_entitlement(db, ws_uuid, "gmail")
+                if not ent_check["allowed"]:
+                    EntitlementService.raise_entitlement_exceeded(
+                        db, ws_uuid, "gmail", ent_check["limit"], 5
+                    )
+                integration = Integration(
+                    workspace_id=ws_uuid,
+                    integration_type="google_gmail",
+                    access_token=credentials.token,
+                    refresh_token=credentials.refresh_token,
+                    token_expiry=credentials.expiry,
+                    connected_email=email,
+                    is_active=True
+                )
+                db.add(integration)
         
         db.commit()
         
@@ -138,19 +189,21 @@ class IntegrationService:
 
     @staticmethod
     def get_integration_status(db: Session, workspace_id: str):
+        ws_uuid = _to_uuid(workspace_id)
         integrations = db.query(Integration).filter(
-            Integration.workspace_id == workspace_id
+            Integration.workspace_id == ws_uuid
         ).all()
         
         status = {
             "calendar": {"connected": False, "email": None},
-            "gmail": {"connected": False, "email": None},
+            "gmail": {"connected": False, "email": None, "accounts": [], "used": 0, "limit": 1},
             "zoho": {"connected": False, "account": None},
             "whatsapp": {"connected": False, "phone": None},
             "instagram": {"connected": False, "username": None},
             "twilio": {"connected": False, "phone": None}
         }
         
+        gmail_integrations = []
         for integration in integrations:
             if integration.integration_type == "google_calendar":
                 status["calendar"] = {
@@ -158,18 +211,37 @@ class IntegrationService:
                     "email": integration.connected_email
                 }
             elif integration.integration_type == "google_gmail":
-                status["gmail"] = {
-                    "connected": integration.is_active,
-                    "email": integration.connected_email
-                }
+                gmail_integrations.append(integration)
             elif integration.integration_type == "zoho_crm":
                 status["zoho"] = {
                     "connected": integration.is_active,
                     "account": integration.connected_account_id
                 }
         
+        entitlement = EntitlementService.get_workspace_entitlement(db, ws_uuid)
+        gmail_limit = getattr(entitlement, "gmail_limit", 1) if entitlement else 1
+        active_gmail = [g for g in gmail_integrations if g.is_active]
+        gmail_accounts = [
+            {
+                "id": str(g.id),
+                "email": g.connected_email,
+                "is_active": g.is_active,
+                "created_at": g.created_at.isoformat() if g.created_at else None,
+                "updated_at": g.updated_at.isoformat() if g.updated_at else None,
+            }
+            for g in gmail_integrations
+        ]
+        
+        status["gmail"] = {
+            "connected": len(active_gmail) > 0,
+            "email": active_gmail[0].connected_email if active_gmail else None,
+            "accounts": gmail_accounts,
+            "used": len(active_gmail),
+            "limit": gmail_limit,
+        }
+        
         from app.models.workspace import Workspace
-        ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+        ws = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
         if ws:
             status["whatsapp"] = {
                 "connected": bool(ws.meta_access_token and ws.meta_phone_number_id),
@@ -189,13 +261,62 @@ class IntegrationService:
         return status
 
     @staticmethod
+    def get_gmail_accounts(db: Session, workspace_id: str):
+        ws_uuid = _to_uuid(workspace_id)
+        entitlement = EntitlementService.get_workspace_entitlement(db, ws_uuid)
+        gmail_limit = getattr(entitlement, "gmail_limit", 1) if entitlement else 1
+        integrations = db.query(Integration).filter(
+            Integration.workspace_id == ws_uuid,
+            Integration.integration_type == "google_gmail"
+        ).all()
+        
+        active_count = sum(1 for i in integrations if i.is_active)
+        accounts = [
+            {
+                "id": str(i.id),
+                "email": i.connected_email,
+                "is_active": i.is_active,
+                "created_at": i.created_at.isoformat() if i.created_at else None,
+                "updated_at": i.updated_at.isoformat() if i.updated_at else None,
+            }
+            for i in integrations
+        ]
+        return {
+            "accounts": accounts,
+            "used": active_count,
+            "limit": gmail_limit,
+            "can_add_more": (gmail_limit == -1 or active_count < gmail_limit)
+        }
+
+    @staticmethod
+    def disconnect_gmail_account(db: Session, workspace_id: str, account_id: str | None = None, email: str | None = None):
+        ws_uuid = _to_uuid(workspace_id)
+        query = db.query(Integration).filter(
+            Integration.workspace_id == ws_uuid,
+            Integration.integration_type == "google_gmail"
+        )
+        if account_id:
+            query = query.filter(Integration.id == _to_uuid(account_id))
+        elif email:
+            query = query.filter(Integration.connected_email == email)
+            
+        integrations = query.all()
+        if not integrations:
+            return False
+            
+        for item in integrations:
+            db.delete(item)
+        db.commit()
+        return True
+
+    @staticmethod
     def disconnect_integration(db: Session, workspace_id: str, integration_type: str):
         from app.models.workspace import Workspace
-        
+        ws_uuid = _to_uuid(workspace_id)
         norm_type = integration_type.lower()
         
         if norm_type in ["whatsapp", "google_whatsapp"]:
-            ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            ws = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
             if ws:
                 ws.meta_access_token = None
                 ws.meta_business_id = None
@@ -207,7 +328,7 @@ class IntegrationService:
             return False
             
         elif norm_type in ["instagram", "google_instagram"]:
-            ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            ws = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
             if ws:
                 ws.meta_ig_id = None
                 db.commit()
@@ -215,7 +336,7 @@ class IntegrationService:
             return False
             
         elif norm_type in ["twilio", "google_twilio"]:
-            ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+            ws = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
             if ws:
                 ws.twilio_account_sid = None
                 ws.twilio_auth_token = None
@@ -234,13 +355,14 @@ class IntegrationService:
             elif norm_type == "zoho":
                 db_type = "zoho_crm"
                 
-            integration = db.query(Integration).filter(
-                Integration.workspace_id == workspace_id,
+            integrations = db.query(Integration).filter(
+                Integration.workspace_id == ws_uuid,
                 Integration.integration_type == db_type
-            ).first()
+            ).all()
             
-            if integration:
-                db.delete(integration)
+            if integrations:
+                for item in integrations:
+                    db.delete(item)
                 db.commit()
                 return True
             return False

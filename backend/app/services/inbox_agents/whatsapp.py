@@ -159,7 +159,9 @@ class WhatsAppService:
             }
 
             if caption and media_type in {"image", "video", "document"}:
-                payload[media_type]["caption"] = caption
+                import re
+                if not re.match(r"^\[(IMAGE|VIDEO|AUDIO|VOICE|DOCUMENT)\]$", caption.strip(), re.I):
+                    payload[media_type]["caption"] = caption
 
             if media_type == "document":
                 import os

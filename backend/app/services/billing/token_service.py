@@ -316,9 +316,9 @@ class TokenService:
 
                 if percent_used >= 100.0:
                     emit_event(
-                        event_name="credits.exhausted",
+                        event_name="ai_credits.exhausted",
                         payload={
-                            "resource_name": "AI Tokens",
+                            "resource_name": "AI Credits",
                             "used_amount": f"{balance.tokens_used:,}",
                             "remaining_balance": "0",
                             "affected_features": "AI chat responses, automated bot messages, and outbound campaigns",
@@ -328,14 +328,14 @@ class TokenService:
                             "workspace_id": str(workspace_id)
                         },
                         workspace_id=workspace_id,
-                        idempotency_key=f"quota_warn:{workspace_id}:100",
+                        idempotency_key=f"quota_warn:{workspace_id}:ai:100",
                         db=db
                     )
                 elif percent_used >= 90.0:
                     emit_event(
-                        event_name="credits.low_10",
+                        event_name="ai_credits.low_10",
                         payload={
-                            "resource_name": "AI Tokens",
+                            "resource_name": "AI Credits",
                             "used_amount": f"{balance.tokens_used:,}",
                             "remaining_balance": f"{remaining:,}",
                             "recharge_url": "/billing/recharge",
@@ -344,14 +344,14 @@ class TokenService:
                             "workspace_id": str(workspace_id)
                         },
                         workspace_id=workspace_id,
-                        idempotency_key=f"quota_warn:{workspace_id}:90",
+                        idempotency_key=f"quota_warn:{workspace_id}:ai:90",
                         db=db
                     )
                 elif percent_used >= 80.0:
                     emit_event(
-                        event_name="credits.low_20",
+                        event_name="ai_credits.low_20",
                         payload={
-                            "resource_name": "AI Tokens",
+                            "resource_name": "AI Credits",
                             "used_amount": f"{balance.tokens_used:,}",
                             "remaining_balance": f"{remaining:,}",
                             "recharge_url": "/billing/recharge",
@@ -360,7 +360,7 @@ class TokenService:
                             "workspace_id": str(workspace_id)
                         },
                         workspace_id=workspace_id,
-                        idempotency_key=f"quota_warn:{workspace_id}:80",
+                        idempotency_key=f"quota_warn:{workspace_id}:ai:80",
                         db=db
                     )
         except Exception as exc:

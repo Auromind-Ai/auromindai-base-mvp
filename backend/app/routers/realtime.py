@@ -58,6 +58,22 @@ async def websocket_endpoint(
         return
     workspace_id: str | None = payload.get("workspace_id")
     if not workspace_id:
+        db = SessionLocal()
+        try:
+            from app.models.workspace import WorkspaceMember
+            membership = (
+                db.query(WorkspaceMember.workspace_id)
+                .filter(WorkspaceMember.user_id == token_user_id)
+                .first()
+            )
+            if membership:
+                workspace_id = str(membership[0])
+        except Exception as ws_err:
+            logger.warning(f"WebSocket workspace fallback lookup error: {ws_err}")
+        finally:
+            db.close()
+
+    if not workspace_id:
         logger.error(f"WebSocket auth error: Workspace context missing for user {user_id}")
         await websocket.close(code=4001, reason="Workspace missing")
         return
@@ -198,13 +214,18 @@ async def _handle_client_message(
 
 
 def _conversation_belongs_to_workspace(*, workspace_id: str, conversation_id: str) -> bool:
+    from app.core.security import to_uuid
+    ws_uuid = to_uuid(workspace_id)
+    conv_uuid = to_uuid(conversation_id)
+    if not ws_uuid or not conv_uuid:
+        return False
     db = SessionLocal()
     try:
         conversation = (
             db.query(Conversation.id)
             .filter(
-                Conversation.id == conversation_id,
-                Conversation.workspace_id == workspace_id,
+                Conversation.id == conv_uuid,
+                Conversation.workspace_id == ws_uuid,
             )
             .first()
         )

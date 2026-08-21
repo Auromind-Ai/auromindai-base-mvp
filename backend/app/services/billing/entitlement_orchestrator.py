@@ -173,6 +173,15 @@ class EntitlementOrchestrator:
         if not subscription:
             return
 
+        # Payment-level idempotency guard: If this exact payment was already processed, exit immediately!
+        if payment and getattr(payment, "provider_payment_id", None):
+            grant_ref_key = f"token_grant:{payment.provider}:{payment.provider_payment_id}"
+            already_processed = db.query(TokenLedger).filter(TokenLedger.reference_key == grant_ref_key).first()
+            if already_processed:
+                import logging
+                logging.getLogger("app").info(f"Payment {payment.provider_payment_id} already processed for workspace {workspace_id}. Skipping duplicate entitlement renewal.")
+                return
+
         entitlement = EntitlementService.get_workspace_entitlement(db, workspace_id)
 
         # 1. AI Credits Reset Policy
@@ -227,27 +236,34 @@ class EntitlementOrchestrator:
         WCCService.get_balance(db, workspace_id)
         wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == workspace_id).with_for_update().first()
         if wallet:
-            if entitlement.included_wallet_reset_policy == "EXPIRE":
-                wallet.included_balance = Decimal("0.00")
-                db.flush()
+            if payment:
+                wcc_ref_key = f"promo_grant:{payment.provider}:{payment.provider_payment_id}"
+            else:
+                wcc_ref_key = f"promo_grant:{workspace_id}:{subscription.id}:{datetime.now(timezone.utc).timestamp()}"
 
-            promo_amount = entitlement.included_wcc_wallet
-            if promo_amount > 0:
-                recharge = WCCRechargeLog(
-                    id=uuid.uuid4(),
-                    workspace_id=workspace_id,
-                    amount=promo_amount,
-                    currency="INR",
-                    gateway_order_id=f"promo_grant:{subscription.id}:{datetime.now(timezone.utc).timestamp()}",
-                    gateway_payment_id=f"promo_grant:{workspace_id}:{subscription.id}:{datetime.now(timezone.utc).timestamp()}",
-                    status="success"
-                )
-                db.add(recharge)
-                wallet.included_balance += promo_amount
-                db.flush()
+            existing_wcc = db.query(WCCRechargeLog).filter(WCCRechargeLog.gateway_payment_id == wcc_ref_key).first()
+            if not existing_wcc:
+                if entitlement.included_wallet_reset_policy == "EXPIRE":
+                    wallet.included_balance = Decimal("0.00")
+                    db.flush()
 
-            wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
-            db.flush()
+                promo_amount = entitlement.included_wcc_wallet
+                if promo_amount > 0:
+                    recharge = WCCRechargeLog(
+                        id=uuid.uuid4(),
+                        workspace_id=workspace_id,
+                        amount=promo_amount,
+                        currency="INR",
+                        gateway_order_id=f"promo_grant:{subscription.id}",
+                        gateway_payment_id=wcc_ref_key,
+                        status="success"
+                    )
+                    db.add(recharge)
+                    wallet.included_balance += promo_amount
+                    db.flush()
+
+                wallet.balance = (wallet.included_balance or Decimal("0.00")) + (wallet.purchased_balance or Decimal("0.00"))
+                db.flush()
 
         # Update reset timestamps with calendar month math
         import calendar

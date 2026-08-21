@@ -17,7 +17,6 @@ try:
     # 3. Lead score history
     r3 = db.execute(text("DELETE FROM lead_score_history WHERE lead_id IN (SELECT id FROM leads WHERE phone LIKE '%9345660030%' OR conversation_id IN (SELECT id FROM conversations WHERE phone LIKE '%9345660030%'))"))
     print(f"Deleted {r3.rowcount} row(s) from lead_score_history.")
-    
     # 4. Leads
     r4 = db.execute(text("DELETE FROM leads WHERE phone LIKE '%9345660030%' OR conversation_id IN (SELECT id FROM conversations WHERE phone LIKE '%9345660030%')"))
     print(f"Deleted {r4.rowcount} row(s) from leads.")

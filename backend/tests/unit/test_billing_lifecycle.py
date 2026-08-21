@@ -184,3 +184,295 @@ def test_wcc_debit_order(db):
     assert w.included_balance == Decimal("0.00")
     assert w.purchased_balance == Decimal("900.00")
     assert w.balance == Decimal("900.00")
+
+
+def test_free_and_pro_default_entitlements(db):
+    """Test 1: Verify Free and Pro Plan initial seed / default values."""
+    from app.services.billing.entitlement_service import EntitlementService
+    from app.services.billing.plan_service import PlanService
+
+    EntitlementService.seed_default_entitlements(db)
+    free_plan = db.query(Plan).filter(Plan.name == "free").first()
+    pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+
+    free_ent = EntitlementService.ensure_plan_entitlement(db, free_plan)
+    pro_ent = EntitlementService.ensure_plan_entitlement(db, pro_plan)
+
+    # Free Plan Assertions
+    assert free_ent.included_ai_credits == 20000
+    assert float(free_ent.included_wcc_wallet) == 50.00
+    assert free_ent.storage_limit_mb == 100
+    assert free_ent.team_limit == 1
+    assert free_ent.knowledge_base_limit == 5
+    assert free_ent.gmail_limit == 1
+    assert free_ent.lead_limit == 50
+    assert free_ent.meeting_limit == 10
+    assert free_ent.automation_limit == 2
+    assert free_ent.flow == 2
+    assert free_ent.allow_ai_topup is False
+    assert free_ent.allow_wcc_recharge is False
+    assert free_ent.allow_flow_addon is False
+
+    # Pro Plan Assertions
+    assert pro_ent.included_ai_credits == 250000
+    assert float(pro_ent.included_wcc_wallet) == 500.00
+    assert pro_ent.storage_limit_mb == 5120
+    assert pro_ent.team_limit == 10
+    assert pro_ent.knowledge_base_limit == 100
+    assert pro_ent.gmail_limit == 5
+    assert pro_ent.lead_limit == 100
+    assert pro_ent.meeting_limit == 500
+    assert pro_ent.automation_limit == 50
+    assert pro_ent.flow == 10
+    assert pro_ent.allow_ai_topup is True
+    assert pro_ent.allow_wcc_recharge is True
+    assert pro_ent.allow_flow_addon is True
+
+
+def test_admin_update_propagation_and_seed_safety(db):
+    """Test 2 & 3: Admin update propagation from 5 -> 10 KB docs, and ensure seed never overwrites it."""
+    from app.services.billing.entitlement_service import EntitlementService
+
+    # Seed initial
+    EntitlementService.seed_default_entitlements(db)
+    free_plan = db.query(Plan).filter(Plan.name == "free").first()
+    ent = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == free_plan.id).first()
+    assert ent.knowledge_base_limit == 5
+
+    # Admin updates KB limit from 5 to 10
+    ent.knowledge_base_limit = 10
+    db.commit()
+
+    # Workspace on Free plan
+    ws = Workspace(id=uuid.uuid4(), name="Admin Prop WS")
+    db.add(ws)
+    db.commit()
+
+    # Dynamic check must immediately reflect 10
+    check = EntitlementService.check_entitlement(db, ws.id, "knowledge_base")
+    assert check["limit"] == 10
+
+    # Reseed execution must NOT overwrite the admin's edit (Seed Safety)
+    EntitlementService.seed_default_entitlements(db)
+    ent_after_reseed = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == free_plan.id).first()
+    assert ent_after_reseed.knowledge_base_limit == 10
+
+
+def test_router_entitlement_checks_and_structured_error(db):
+    """Test 4: Verify structured ENTITLEMENT_EXCEEDED error format on limits."""
+    from fastapi import HTTPException
+    from app.services.billing.entitlement_service import EntitlementService
+
+    EntitlementService.seed_default_entitlements(db)
+    ws = Workspace(id=uuid.uuid4(), name="Check WS")
+    db.add(ws)
+    db.commit()
+
+    # 1. Knowledge Base Limit check
+    with pytest.raises(HTTPException) as exc_info:
+        EntitlementService.raise_entitlement_exceeded(db, ws.id, "knowledge_base", 5, 100)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail["error"] == "ENTITLEMENT_EXCEEDED"
+    assert "Knowledge Base documents" in exc_info.value.detail["message"]
+    assert exc_info.value.detail["upgrade_url"] == "/billing"
+
+    # 2. Leads Limit check
+    with pytest.raises(HTTPException) as exc_info:
+        EntitlementService.raise_entitlement_exceeded(db, ws.id, "lead", 50, 100)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail["error"] == "ENTITLEMENT_EXCEEDED"
+    assert "leads" in exc_info.value.detail["message"]
+
+    # 3. Automations Limit check
+    with pytest.raises(HTTPException) as exc_info:
+        EntitlementService.raise_entitlement_exceeded(db, ws.id, "automation", 2, 50)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail["error"] == "ENTITLEMENT_EXCEEDED"
+    assert "active automations" in exc_info.value.detail["message"]
+
+    # 4. Gmail Limit check
+    with pytest.raises(HTTPException) as exc_info:
+        EntitlementService.raise_entitlement_exceeded(db, ws.id, "gmail", 1, 5)
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail["error"] == "ENTITLEMENT_EXCEEDED"
+    assert "Gmail accounts" in exc_info.value.detail["message"]
+
+
+def test_razorpay_subscription_charged_provisioning(db):
+    """Test 5: Verify 250k AI credits and ₹500 WCC wallet provisioning on subscription renewal/upgrade."""
+    from app.services.billing.entitlement_service import EntitlementService
+
+    EntitlementService.seed_default_entitlements(db)
+    pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+
+    ws = Workspace(id=uuid.uuid4(), name="Pro Sub WS")
+    db.add(ws)
+    db.commit()
+
+    # Active Pro subscription
+    sub = Subscription(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        plan_id=pro_plan.id,
+        status=SubscriptionStatus.active,
+        billing_cycle="monthly",
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=datetime.now(timezone.utc) + timedelta(days=30)
+    )
+    db.add(sub)
+    db.commit()
+
+    # Trigger subscription renewal (simulating subscription.charged)
+    EntitlementOrchestrator.renew_subscription(db, ws.id)
+    db.commit()
+
+    # Check AI credits ledger
+    ledger_entry = db.query(TokenLedger).filter(
+        TokenLedger.workspace_id == ws.id,
+        TokenLedger.entry_type == "token_grant",
+        TokenLedger.balance_source == "INCLUDED"
+    ).first()
+    assert ledger_entry is not None
+    assert ledger_entry.credits_delta == Decimal("250000.0000")
+
+    # Check WCC Wallet balance
+    wallet = db.query(WCCWallet).filter(WCCWallet.workspace_id == ws.id).first()
+    assert wallet is not None
+    assert wallet.included_balance == Decimal("500.00")
+    assert wallet.balance == Decimal("500.00")
+
+
+def test_monthly_entitlement_reset_and_expire_policy(db):
+    """Test 6: Verify monthly reset expires unused included credits/wallet but preserves purchased balances."""
+    from app.services.billing.entitlement_service import EntitlementService
+    from app.workers.billing_worker import process_monthly_entitlement_resets
+
+    EntitlementService.seed_default_entitlements(db)
+    pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+
+    ws = Workspace(id=uuid.uuid4(), name="Reset WS")
+    db.add(ws)
+    db.commit()
+
+    now_utc = datetime.now(timezone.utc)
+    sub = Subscription(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        plan_id=pro_plan.id,
+        status=SubscriptionStatus.active,
+        billing_cycle="monthly",
+        current_period_start=now_utc - timedelta(days=15),
+        current_period_end=now_utc + timedelta(days=15),
+        next_entitlement_reset_at=now_utc - timedelta(days=1)
+    )
+    db.add(sub)
+
+    # Add purchased balance
+    wallet = WCCWallet(
+        workspace_id=ws.id,
+        included_balance=Decimal("200.00"),
+        purchased_balance=Decimal("1500.00"),
+        balance=Decimal("1700.00")
+    )
+    db.add(wallet)
+
+    purchased_ledger = TokenLedger(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        entry_type="purchase",
+        status="posted",
+        tokens_delta=0,
+        credits_delta=Decimal("5000.00"),
+        balance_source="PURCHASED",
+        reference_key="purchased_grant_test"
+    )
+    db.add(purchased_ledger)
+    db.commit()
+
+    # Run monthly reset logic
+    EntitlementOrchestrator.renew_subscription(db, ws.id)
+    db.commit()
+
+    # Verify WCC Wallet: purchased balance is completely preserved, included reset to ₹500
+    db.refresh(wallet)
+    assert wallet.purchased_balance == Decimal("1500.00")
+    assert wallet.included_balance == Decimal("500.00")
+    assert wallet.balance == Decimal("2000.00")
+
+
+def test_billing_usage_meters_structure(db):
+    """Test 7: Verify GET /billing/usage data calculation matches the requested schema."""
+    from app.services.billing.entitlement_service import EntitlementService
+    from app.models.brain import BrainEntry
+    from app.models.ai_action import Lead
+    from app.models.automation import AutomationFlow
+    from app.models.integration import Integration
+
+    EntitlementService.seed_default_entitlements(db)
+    ws = Workspace(id=uuid.uuid4(), name="Usage Test WS")
+    db.add(ws)
+    db.commit()
+
+    ent = EntitlementService.get_workspace_entitlement(db, ws.id)
+
+    # Insert sample entities
+    db.add(BrainEntry(
+        id=uuid.uuid4(), workspace_id=ws.id, title="Doc 1", content="Text", content_type="pdf"
+    ))
+    db.add(Lead(
+        id=uuid.uuid4(), workspace_id=ws.id, conversation_id=uuid.uuid4(), name="Lead 1", phone="+919876543210"
+    ))
+    db.add(AutomationFlow(
+        id=uuid.uuid4(), workspace_id=ws.id, name="Flow 1", status="Active", nodes=[], edges=[]
+    ))
+    db.add(Integration(
+        id=uuid.uuid4(), workspace_id=ws.id, integration_type="google_gmail", is_active=True
+    ))
+    db.commit()
+
+    # Simulate usage endpoint calculation
+    from app.services.wcc_service import WCCService
+    wallet = WCCService.get_balance(db, ws.id)
+
+    usage_payload = {
+        "plan_name": "Free",
+        "ai_credits": {"used": 0, "limit": int(ent.included_ai_credits)},
+        "wcc_wallet": {"balance_inr": float(wallet.balance) if wallet else 0.0},
+        "knowledge_base": {
+            "used": db.query(BrainEntry).filter(BrainEntry.workspace_id == ws.id).count(),
+            "limit": int(ent.knowledge_base_limit)
+        },
+        "storage_mb": {"used": 0, "limit": int(ent.storage_limit_mb)},
+        "leads": {
+            "used": db.query(Lead).filter(Lead.workspace_id == ws.id).count(),
+            "limit": int(ent.lead_limit)
+        },
+        "gmail_accounts": {
+            "used": db.query(Integration).filter(
+                Integration.workspace_id == ws.id,
+                Integration.integration_type.in_(["google_gmail", "gmail"]),
+                Integration.is_active == True
+            ).count(),
+            "limit": int(ent.gmail_limit)
+        },
+        "automations": {
+            "used": db.query(AutomationFlow).filter(
+                AutomationFlow.workspace_id == ws.id,
+                AutomationFlow.status == "Active"
+            ).count(),
+            "limit": int(ent.automation_limit)
+        },
+    }
+
+    assert usage_payload["plan_name"] == "Free"
+    assert usage_payload["ai_credits"]["limit"] == 20000
+    assert usage_payload["wcc_wallet"]["balance_inr"] == 0.00
+    assert usage_payload["knowledge_base"]["used"] == 1
+    assert usage_payload["knowledge_base"]["limit"] == 5
+    assert usage_payload["leads"]["used"] == 1
+    assert usage_payload["leads"]["limit"] == 50
+    assert usage_payload["automations"]["used"] == 1
+    assert usage_payload["automations"]["limit"] == 2
+    assert usage_payload["gmail_accounts"]["used"] == 1
+    assert usage_payload["gmail_accounts"]["limit"] == 1
+

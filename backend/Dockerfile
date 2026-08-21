@@ -47,7 +47,6 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN playwright install chromium && \
     playwright install-deps chromium && \
     chmod -R 777 /ms-playwright
-
 # Copy application code
 COPY . .
 

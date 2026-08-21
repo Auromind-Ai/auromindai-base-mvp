@@ -12,10 +12,11 @@ from app.core.security import verify_workspace_access
 
 router = APIRouter()
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 ALLOWED_TYPES = {
-    "image": ["image/jpeg", "image/png", "image/jpg"],
-    "video": ["video/mp4"],
+    "image": ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"],
+    "video": ["video/mp4", "video/webm", "video/quicktime"],
+    "audio": ["audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/aac", "audio/x-m4a"],
     "document": ["application/pdf"]
 }
 
@@ -23,7 +24,14 @@ ALLOWED_TYPES = {
 _MAGIC_SIGNATURES: dict[str, list[tuple[int, bytes]]] = {
     "image/jpeg": [(0, b"\xff\xd8\xff")],
     "image/png":  [(0, b"\x89PNG\r\n\x1a\n")],
+    "image/webp": [(0, b"RIFF")],
+    "image/gif":  [(0, b"GIF87a"), (0, b"GIF89a")],
     "video/mp4":  [(4, b"ftyp"), (4, b"free"), (4, b"mdat"), (4, b"moov")],
+    "video/webm": [(0, b"\x1a\x45\xdf\xa3")],
+    "video/quicktime": [(4, b"moov"), (4, b"mdat"), (4, b"wide"), (4, b"ftypqt  ")],
+    "audio/mpeg": [(0, b"\xff\xfb"), (0, b"\xff\xf3"), (0, b"\xff\xf2"), (0, b"ID3")],
+    "audio/ogg":  [(0, b"OggS")],
+    "audio/wav":  [(0, b"RIFF")],
     "application/pdf": [(0, b"%PDF")],
 }
 
@@ -32,29 +40,32 @@ def _detect_mime_from_bytes(data: bytes) -> Optional[str]:
    
     for mime, sigs in _MAGIC_SIGNATURES.items():
         for offset, prefix in sigs:
-            if data[offset: offset + len(prefix)] == prefix:
+            if len(data) >= offset + len(prefix) and data[offset: offset + len(prefix)] == prefix:
                 return mime
     return None
 
 
-def _validate_mime(file_content: bytes) -> str:
+def _validate_mime(file_content: bytes, header_mime: Optional[str] = None) -> str:
     
     real_mime = _detect_mime_from_bytes(file_content)
+
+    if real_mime is None and header_mime:
+        cleaned_header = header_mime.split(";")[0].strip().lower()
+        allowed_flat = [m for mimes in ALLOWED_TYPES.values() for m in mimes]
+        if cleaned_header in allowed_flat:
+            real_mime = cleaned_header
 
     if real_mime is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File type could not be determined. Only JPG, PNG, MP4, and PDF are allowed.",
+            detail="File type could not be determined. Allowed formats: Images (JPG, PNG, WebP, GIF), Videos (MP4, WebM, MOV), Audio (MP3, WAV, OGG), and PDF.",
         )
 
     allowed_flat = [m for mimes in ALLOWED_TYPES.values() for m in mimes]
     if real_mime not in allowed_flat:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Detected file type '{real_mime}' is not allowed. "
-                "Allowed types: JPG, PNG, MP4, PDF."
-            ),
+            detail=f"Detected file type '{real_mime}' is not allowed.",
         )
 
     return real_mime
@@ -71,7 +82,17 @@ MIME_EXTENSION_MAP = {
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
     "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
     "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "video/quicktime": ".mov",
+    "audio/mpeg": ".mp3",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/mp4": ".m4a",
+    "audio/aac": ".aac",
+    "audio/x-m4a": ".m4a",
     "application/pdf": ".pdf",
 }
 
@@ -86,11 +107,11 @@ async def upload_file(
     if len(file_content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File too large. Maximum size is 10MB."
+            detail="File too large. Maximum size is 50MB."
         )
 
    
-    real_mime = _validate_mime(file_content)
+    real_mime = _validate_mime(file_content, file.content_type)
     file_type = get_file_type(real_mime)
 
     workspace_id = verify_workspace_access(current_user, db)

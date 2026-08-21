@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: Optional[str] = None
     """Fernet encryption key for sensitive data (auto-generated if not set)"""
     TURNSTILE_SECRET_KEY: Optional[str] = None
+    MEDIA_SIGNING_SECRET: Optional[str] = None
 
     # MESSAGE QUEUE & CACHING
     REDIS_URL: str = "redis://redis:6379/0"

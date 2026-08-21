@@ -23,7 +23,8 @@ from app.services.wcc_service import WCCService
 from app.models.wcc import WCCRateCard
 from app.core.logger import logger
 from app.services.notification_service import NotificationService
-
+from app.models.message import Message, MessageStatus, SenderType
+from app.models.outbound_message import OutboundMessage
 # ─
 # FIX 1: Auto-create / update Lead on every inbound message
 # ─
@@ -283,8 +284,7 @@ class WebhookService:
                         wamid = status_update.get("id")
                         status_str = status_update.get("status")
                         if wamid and status_str:
-                            from app.models.message import Message, MessageStatus
-                            from app.models.outbound_message import OutboundMessage
+                          
                             
                             status_mapping = {
                                 "sent": MessageStatus.SENT,
@@ -317,10 +317,51 @@ class WebhookService:
                             except Exception as exc:
                                 logger.error(f"Failed to update message status for {wamid}: {exc}")
 
-                            # WCC Wallet Debit Integration
+                            # WCC Wallet Debit Integration — Strictly for Flow messages, NEVER for user <-> agent conversations
+                            is_flow_message = False
+                            if outbound and (outbound.flow_id is not None or outbound.message_type == "automation"):
+                                is_flow_message = True
+                            elif outbound and outbound.metadata_json:
+                                meta_j = outbound.metadata_json
+                                if isinstance(meta_j, str):
+                                    try:
+                                        meta_j = json.loads(meta_j)
+                                    except Exception:
+                                        meta_j = {}
+                                if isinstance(meta_j, dict) and (
+                                    meta_j.get("flow_id")
+                                    or meta_j.get("is_flow")
+                                    or meta_j.get("source") in ("flow", "workflow", "broadcast", "campaign", "automation")
+                                ):
+                                    is_flow_message = True
+
+                            if not is_flow_message and msg:
+                                if msg.source in ("flow", "workflow", "broadcast", "campaign", "automation"):
+                                    is_flow_message = True
+                                elif msg.metadata_json:
+                                    try:
+                                        msg_meta = json.loads(msg.metadata_json) if isinstance(msg.metadata_json, str) else msg.metadata_json
+                                        if isinstance(msg_meta, dict) and (
+                                            msg_meta.get("flow_id")
+                                            or msg_meta.get("is_flow")
+                                            or msg_meta.get("source") in ("flow", "workflow", "broadcast", "campaign", "automation")
+                                        ):
+                                            is_flow_message = True
+                                    except Exception:
+                                        pass
+
+                            # Explicit guard: Agent manual replies and user messages MUST NEVER be debited
+                            if msg and (msg.sender_type == SenderType.AGENT or msg.source == "manual_reply"):
+                                is_flow_message = False
+
                             pricing = status_update.get("pricing")
                             conversation = status_update.get("conversation")
-                            if pricing and conversation:
+
+                            if not is_flow_message:
+                                logger.info(
+                                    f"[WCC Billing] Skipping WCC wallet debit for user/agent conversation message wamid={wamid}"
+                                )
+                            elif pricing and conversation:
                                 try:
                                     billable = pricing.get("billable", False)
                                     category = pricing.get("category", "service").lower()
@@ -408,6 +449,14 @@ class WebhookService:
                     if not body:
                         logger.warning(f"Message has no textual body (unsupported media type?). Skipping. Raw message: {message}")
                         continue
+
+                    if media_id and workspace:
+                        try:
+                            from app.routers.inbox_chennal.conversations import create_media_token
+                            token = create_media_token(media_id=str(media_id), workspace_id=str(workspace.id))
+                            media_url = f"/api/inbox/media/meta/{media_id}?token={token}"
+                        except Exception as token_err:
+                            logger.error(f"Failed to generate media token: {token_err}")
 
                     logger.info(f"Forwarding message from {from_number} to unified pipeline...")
                     try:
@@ -630,64 +679,86 @@ class WebhookService:
             return {"status": "error"}
 
     @staticmethod
-    def _extract_meta_whatsapp_body(message: dict[str, Any]) -> tuple[str | None, str | None, str | None, str | None, str | None, str | None, str | None]:
-        text = (message.get("text") or {}).get("body")
-        interactive_value = None
-        interactive_label = None
-        media_url = None
-        media_type = None
-        mime_type = None
-        media_id = None
+    def _extract_meta_whatsapp_body(
+            message: dict[str, Any]
+        ) -> tuple[
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+        ]:
+            text = (message.get("text") or {}).get("body")
 
-        button = message.get("button") or {}
-        if button:
-            interactive_value = button.get("payload")
-            interactive_label = button.get("text")
-            text = text or interactive_label
+            interactive_value = None
+            interactive_label = None
 
-        interactive = message.get("interactive") or {}
-        button_reply = interactive.get("button_reply") or {}
-        if button_reply:
-            interactive_value = button_reply.get("id")
-            interactive_label = button_reply.get("title")
-            text = text or interactive_label
+            media_url = None
+            media_type = None
+            mime_type = None
+            media_id = None
 
-        list_reply = interactive.get("list_reply") or {}
-        if list_reply:
-            interactive_value = list_reply.get("id")
-            interactive_label = list_reply.get("title")
-            text = text or interactive_label
+            button = message.get("button") or {}
+            if button:
+                interactive_value = button.get("payload")
+                interactive_label = button.get("text")
+                text = text or interactive_label
 
-        msg_type = (message.get("type") or "").lower()
+            interactive = message.get("interactive") or {}
+            button_reply = interactive.get("button_reply") or {}
 
-        if msg_type in {"image", "audio", "voice", "video", "document", "sticker"}:
-            media = message.get(msg_type) or {}
+            if button_reply:
+                interactive_value = button_reply.get("id")
+                interactive_label = button_reply.get("title")
+                text = text or interactive_label
 
-            # WhatsApp voice notes normally arrive as type="audio"
-            if msg_type == "voice":
-                media = message.get("audio") or media
+            msg_type = (message.get("type") or "").lower()
 
-            media_id = media.get("id")
-            mime_type = media.get("mime_type")
-            caption = media.get("caption")
+            if msg_type in {"image", "audio", "voice", "video"}:
+                media = message.get(msg_type) or {}
 
-            if media_id:
-                media_type = (
-                    "audio"
-                    if msg_type in {"audio", "voice"}
-                    else msg_type
-                )
+                # WhatsApp voice notes normally arrive as type="audio"
+                if msg_type == "voice":
+                    media = message.get("audio") or media
 
-                media_url = f"/api/inbox/media/meta/{media_id}"
-                text = caption or f"[{media_type.upper()}]"
+                media_id = media.get("id")
+                mime_type = media.get("mime_type")
+                caption = media.get("caption")
 
-        if not text:
-            if msg_type in ["video", "document", "sticker", "location", "contacts"]:
-                text = f"[{msg_type.upper()}]"
-            elif msg_type:
-                text = f"[{msg_type.upper()} message]"
+                if media_id:
+                    media_type = (
+                        "audio"
+                        if msg_type in {"audio", "voice"}
+                        else msg_type
+                    )
 
-        return (text, interactive_value, interactive_label, media_url, media_type, mime_type, media_id)
+                   
+                    media_url = None
+                    text = caption or f"[{media_type.upper()}]"
+
+            if not text:
+                if msg_type in [
+                    "video",
+                    "document",
+                    "sticker",
+                    "location",
+                    "contacts",
+                ]:
+                    text = f"[{msg_type.upper()}]"
+                elif msg_type:
+                    text = f"[{msg_type.upper()} message]"
+
+            return (
+                text,
+                interactive_value,
+                interactive_label,
+                media_url,
+                media_type,
+                mime_type,
+                media_id,
+            )
 
     @staticmethod
     def _fetch_instagram_profile(workspace, sender_id: str) -> dict[str, str | None]:

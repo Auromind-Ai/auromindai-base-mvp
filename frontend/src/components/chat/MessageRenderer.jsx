@@ -26,8 +26,18 @@ export default function MessageRenderer({
 }) {
   const meta = metadata || {};
   const mediaUrl = media_url || meta.media_url;
-  const messageType = media_type || meta.media_type || meta.message_type;
-  const mimeType = mime_type || meta.mime_type;
+  const messageType = (
+    media_type ||
+    meta.media_type ||
+    meta.message_type ||
+    ''
+  ).toLowerCase();
+
+  const mimeType = (
+      mime_type ||
+      meta.mime_type ||
+      ''
+  ).toLowerCase();
   const buttons = meta.buttons;
   const templateHeader = meta.template_header;
   const templateFooter = meta.template_footer;
@@ -65,11 +75,12 @@ export default function MessageRenderer({
           />
         )}
 
+    
         {/* Body content */}
-        {content && (
-          <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
-            {content}
-          </p>
+        {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
+            <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
+                {content}
+            </p>
         )}
 
         {/* Footer */}
@@ -136,33 +147,38 @@ export default function MessageRenderer({
           onClick={() => onPreviewMedia?.({ type: 'image', url: mediaUrl })}
           onError={(e) => { e.target.style.display = 'none'; }}
         />
-        {content && (
-          <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">{content}</p>
+        {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
+            <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">
+                {content}
+            </p>
         )}
       </div>
     );
   }
 
-  if (mediaUrl && messageType === 'audio') {
-  return (
-    <div className="max-w-[280px]">
-      <audio
-        controls
-        preload="metadata"
-        src={mediaUrl}
-        className="w-full"
-      >
-        Your browser does not support audio playback.
-      </audio>
+  const isAudio =
+    messageType === 'audio' ||
+    messageType === 'voice' ||
+    mimeType.startsWith('audio/') ||
+    /\.(mp3|ogg|wav|m4a|aac|opus)(\?|$)/i.test(mediaUrl || '');
 
-      {content && !/^\[(AUDIO|VOICE)\]$/i.test(content.trim()) && (
-        <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">
-          {content}
-        </p>
-      )}
-    </div>
-  );
-}
+  if (mediaUrl && isAudio) {
+    return (
+      <div className="max-w-[320px]">
+        <WhatsAppAudioMessage
+          url={mediaUrl}
+          isMe={isMe}
+        />
+
+        {content &&
+          !/^\[(AUDIO|VOICE)\]$/i.test(content.trim()) && (
+            <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">
+              {content}
+            </p>
+          )}
+      </div>
+    );
+  }
 
   if (mediaUrl && (messageType === 'video' || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(mediaUrl))) {
     return (
@@ -173,7 +189,7 @@ export default function MessageRenderer({
           className="max-w-[220px] rounded-xl"
           onClick={(e) => { e.stopPropagation(); onPreviewMedia?.({ type: 'video', url: mediaUrl }); }}
         />
-        {content && (
+        {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
           <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">{content}</p>
         )}
       </div>
@@ -363,6 +379,15 @@ export default function MessageRenderer({
 
   //  5. Default: Plain text 
 
+  const isMediaPlaceholder =
+    /^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(
+      (content || '').trim()
+    );
+
+  if (isMediaPlaceholder) {
+    return null;
+  }
+
   return (
     <p className="text-[13px] text-white leading-relaxed whitespace-pre-wrap break-words">
       {content}
@@ -374,6 +399,147 @@ export default function MessageRenderer({
 
 function isUrl(str) {
   return /^https?:\/\//i.test(str);
+}
+
+function WhatsAppAudioMessage({ url, isMe }) {
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [duration, setDuration] = React.useState(0);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const audioRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleLoadedMetadata = () => {
+      if (Number.isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
+
+    const handleTimeUpdate = () => {
+      setCurrentTime(audio.currentTime || 0);
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [url]);
+
+  const togglePlay = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    try {
+      if (audio.paused) {
+        await audio.play();
+        setIsPlaying(true);
+      } else {
+        audio.pause();
+        setIsPlaying(false);
+      }
+    } catch (error) {
+      console.error('Audio playback failed:', error);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress =
+    duration > 0
+      ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
+      : 0;
+
+  return (
+    <div
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl min-w-[260px] max-w-[320px] ${
+        isMe
+          ? 'bg-white/10'
+          : 'bg-white/[0.06]'
+      }`}
+    >
+      {/* Play button */}
+      <button
+        type="button"
+        onClick={togglePlay}
+        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-white text-black hover:scale-105 transition-transform"
+        aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
+      >
+        {isPlaying ? (
+          <span className="text-sm font-bold">Ⅱ</span>
+        ) : (
+          <span className="text-sm font-bold ml-0.5">▶</span>
+        )}
+      </button>
+
+      {/* Waveform */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-[3px] h-8">
+          {Array.from({ length: 32 }).map((_, index) => {
+            const barProgress = (index / 31) * 100;
+            const active = barProgress <= progress;
+
+            const heights = [
+              8, 14, 20, 11, 17, 24, 13, 19,
+              27, 15, 22, 12, 25, 18, 28, 14,
+              21, 10, 26, 17, 23, 13, 20, 28,
+              15, 24, 11, 19, 26, 14, 21, 17
+            ];
+
+            return (
+              <span
+                key={index}
+                className={`w-[3px] rounded-full transition-all ${
+                  active
+                    ? 'bg-emerald-400'
+                    : 'bg-white/30'
+                }`}
+                style={{
+                  height: `${heights[index]}px`
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[10px] text-white/60">
+            {formatTime(currentTime)}
+          </span>
+
+          <span className="text-[10px] text-white/60">
+            {formatTime(duration)}
+          </span>
+        </div>
+      </div>
+
+      {/* Hidden native audio */}
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        className="hidden"
+      />
+    </div>
+  );
 }
 
 function extractFileName(url) {

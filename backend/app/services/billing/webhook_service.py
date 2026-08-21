@@ -20,7 +20,7 @@ from app.core.enums import InvoiceStatus
 from decimal import Decimal
 from app.models.user import User
 from app.models.workspace import Workspace
-
+from app.services.billing.billing_service import BillingService
 from app.services.billing.gst_service import GSTService
 from app.services.billing.invoice_service import InvoiceService
 from datetime import datetime, timezone
@@ -584,52 +584,19 @@ class WebhookService:
             gateway_order_id=payment_payload.get("order_id") or "",
             description=f"Purchased AI Credit Pack: {pack.name}"
         )
+        db.commit()
 
-        try:
+        user_id = payment_payload.get("notes", {}).get("user_id") if isinstance(payment_payload, dict) else None
 
-
-            ws_obj = db.query(Workspace).filter(Workspace.id == workspace_id).first()
-            user_id = payment_payload.get("notes", {}).get("user_id") if isinstance(payment_payload, dict) else None
-            user_obj = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first() if user_id else None
-            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (ws_obj.name if ws_obj else "User"))
-
-            gst_calcs = GSTService.calculate_gst(
-                amount=Decimal(str(pack.amount)),
-                customer_state=ws_obj.billing_state if ws_obj else None,
-                customer_country=ws_obj.billing_country if ws_obj else None or "IN",
-                product_type="ai_credits",
-                db=db
-            )
-            total_paid = float(gst_calcs.get("total_amount") or payment.amount or pack.amount)
-
-            balance = self.token_service._get_token_balance_locked(db, str(workspace_id))
-            remaining_credits = max(0, balance.tokens_added - balance.tokens_used) if balance else pack.credits
-
-            inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
-            inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
-
-            emit_event(
-                event_name="credits.purchased",
-                payload={
-                    "credits_added": f"{int(pack.credits):,}",
-                    "current_balance": f"{int(remaining_credits):,}",
-                    "amount": f"₹{total_paid:,.2f} INR (incl. GST)",
-                    "user_name": user_name,
-                    "workspace_name": ws_obj.name if ws_obj else "Workspace",
-                    "invoice_id": inv_num,
-                    "invoice_url": f"/billing/invoices/{payment.id}",
-                    "action_route": "/billing",
-                    "action_label": "View Invoices",
-                    "workspace_id": str(workspace_id)
-                },
-                workspace_id=workspace_id,
-                actor_id=user_obj.id if user_obj else None,
-                idempotency_key=f"credit_purchase:{payment.id}",
-                db=db
-            )
-        except Exception as notif_exc:
-            import logging
-            logging.getLogger("auromind").error(f"Failed to emit credits.purchased event: {notif_exc}")
+       
+        BillingService.emit_credit_recharge_notification(
+            db=db,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            payment=payment,
+            pack=pack,
+            idempotency_key=f"credit_purchase:{payment.id}"
+        )
 
     def _handle_refund_webhook(
         self,

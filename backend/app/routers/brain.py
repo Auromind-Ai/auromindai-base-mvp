@@ -21,7 +21,7 @@ from app.schemas.brain import *
 from app.services.billing.billing_service import BillingService
 from app.services.billing.feature_billing_service import FeatureBillingService
 from app.services.ai.execution_service import AIFeatureRegistry,AIExecutionService
-from app.core.pagination import SkipLimitParams, paginate_query
+from app.services.billing.entitlement_service import EntitlementService
 
 
 
@@ -83,6 +83,13 @@ async def ingest_document(
 ):
     # verify_workspace_access now returns the verified workspace_id string directly
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
+
+    # Enforce Knowledge Base limit
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
+    if not ent_check["allowed"]:
+        EntitlementService.raise_entitlement_exceeded(
+            db, workspace_id, "knowledge_base", ent_check["limit"], 100
+        )
 
     reservation = None
     billing_service = None
@@ -220,6 +227,13 @@ async def ingest_sales_document(
 ):
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
+    # Enforce Knowledge Base limit
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
+    if not ent_check["allowed"]:
+        EntitlementService.raise_entitlement_exceeded(
+            db, workspace_id, "knowledge_base", ent_check["limit"], 100
+        )
+
     reservation = None
     billing_service = None
     try:
@@ -352,6 +366,13 @@ async def ingest_support_document(
 ):
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
 
+    # Enforce Knowledge Base limit
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
+    if not ent_check["allowed"]:
+        EntitlementService.raise_entitlement_exceeded(
+            db, workspace_id, "knowledge_base", ent_check["limit"], 100
+        )
+
     reservation = None
     billing_service = None
     try:
@@ -483,6 +504,13 @@ async def ingest_url(
 
     workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
+    # Enforce Knowledge Base limit
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
+    if not ent_check["allowed"]:
+        EntitlementService.raise_entitlement_exceeded(
+            db, workspace_id, "knowledge_base", ent_check["limit"], 100
+        )
+
     try:
         logger.info(f"[INGEST URL] user={current_user.id} workspace={workspace_id} url={request.url}")
         scraper = get_url_scraper()
@@ -575,6 +603,13 @@ async def ingest_text(
    
     workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
 
+    # Enforce Knowledge Base limit
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
+    if not ent_check["allowed"]:
+        EntitlementService.raise_entitlement_exceeded(
+            db, workspace_id, "knowledge_base", ent_check["limit"], 100
+        )
+
     try:
         logger.info(f"[INGEST TEXT] user={current_user.id} workspace={workspace_id}")
         if len(request.content.strip()) < 20:
@@ -637,6 +672,13 @@ async def crawl_website(
     current_user = Depends(get_current_user)
 ):
     workspace_id = verify_workspace_access(current_user, db, request.workspace_id)
+
+    # Enforce Knowledge Base limit
+    ent_check = EntitlementService.check_entitlement(db, workspace_id, "knowledge_base")
+    if not ent_check["allowed"]:
+        EntitlementService.raise_entitlement_exceeded(
+            db, workspace_id, "knowledge_base", ent_check["limit"], 100
+        )
 
     try:
         logger.info(f"[CRAWL WEBSITE ENQUEUE] user={current_user.id} workspace={workspace_id} url={request.url}")
