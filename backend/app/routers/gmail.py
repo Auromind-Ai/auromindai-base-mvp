@@ -12,12 +12,37 @@ from app.core.security import verify_workspace_access
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
-def get_gmail_service(workspace_id: str, db: Session):
+import uuid
 
-    integration = db.query(Integration).filter(
-        Integration.workspace_id == workspace_id,
-        Integration.integration_type == "google_gmail"
-    ).first()
+def _to_uuid(val):
+    if isinstance(val, uuid.UUID):
+        return val
+    if isinstance(val, str):
+        try:
+            return uuid.UUID(val)
+        except (ValueError, AttributeError):
+            return val
+    return val
+
+def get_gmail_service(
+    workspace_id: str,
+    db: Session,
+    account_id: str | None = None,
+    email: str | None = None
+):
+    ws_uuid = _to_uuid(workspace_id)
+    query = db.query(Integration).filter(
+        Integration.workspace_id == ws_uuid,
+        Integration.integration_type == "google_gmail",
+        Integration.is_active == True
+    )
+
+    if account_id:
+        query = query.filter(Integration.id == _to_uuid(account_id))
+    elif email:
+        query = query.filter(Integration.connected_email == email)
+
+    integration = query.first()
 
     if not integration or not integration.is_active:
         raise HTTPException(status_code=404, detail="Gmail not connected")

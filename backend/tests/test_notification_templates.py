@@ -265,7 +265,8 @@ def test_test_render_notification_template():
         template_key="welcome_signup",
         subject="Welcome {{user_name}}",
         message="Hello {{user_name}}, welcome to {{workspace_name}}!",
-        title="Welcome Title"
+        title="Welcome Title",
+        variables={"user_name": "santhosh", "workspace_name": "AuroMind AI"}
     )
     res = test_render_notification_template(req)
     assert res.rendered_subject == "Welcome santhosh"
@@ -273,7 +274,8 @@ def test_test_render_notification_template():
 
     # Test without template_key
     req_no_key = TemplateTestRenderRequest(
-        message="Test message for {{user_name}}"
+        message="Test message for {{user_name}}",
+        variables={"user_name": "santhosh"}
     )
     res_no_key = test_render_notification_template(req_no_key)
     assert "Test message for santhosh" in res_no_key.rendered_message

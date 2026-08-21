@@ -2477,10 +2477,40 @@ class PlanEntitlementUpdateRequest(BaseModel):
     included_wallet_reset_policy: str
     feature_flags: Dict[str, Any]
 
-    @validator("flow")
-    def validate_flow_quota(cls, v):
+    @validator("included_ai_credits")
+    def validate_included_ai_credits(cls, v):
         if v < 0:
-            raise ValueError("Flow quota must be a non-negative integer")
+            raise ValueError("included_ai_credits must be a non-negative integer")
+        return v
+
+    @validator("included_wcc_wallet")
+    def validate_included_wcc_wallet(cls, v):
+        if v < 0:
+            raise ValueError("included_wcc_wallet must be a non-negative number")
+        return v
+
+    @validator(
+        "storage_limit_mb",
+        "team_limit",
+        "knowledge_base_limit",
+        "gmail_limit",
+        "lead_limit",
+        "meeting_limit",
+        "automation_limit",
+        "flow",
+    )
+    def validate_limits(cls, v):
+        if v < 0 and v != -1:
+            raise ValueError("Limit must be a non-negative integer or -1 for unlimited")
+        return v
+
+    @validator("included_credit_reset_policy", "included_wallet_reset_policy")
+    def validate_reset_policies(cls, v):
+        if v is not None:
+            v_upper = v.upper()
+            if v_upper not in ("EXPIRE", "ROLLOVER"):
+                raise ValueError("Reset policy must be 'EXPIRE' or 'ROLLOVER'")
+            return v_upper
         return v
 
 

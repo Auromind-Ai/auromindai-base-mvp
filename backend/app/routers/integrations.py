@@ -20,6 +20,8 @@ async def google_oauth_init(
     try:
         url = IntegrationService.get_google_oauth_url(db, workspace_id, integration_type)
         return {"authorization_url": url}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except PermissionError as e:
@@ -68,6 +70,28 @@ async def get_integration_status(
     
     workspace_id = verify_workspace_access(current_user, db, workspace_id)
     return IntegrationService.get_integration_status(db, workspace_id)
+
+@router.get("/gmail/accounts")
+async def list_gmail_accounts(
+    workspace_id: str | None = None,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    return IntegrationService.get_gmail_accounts(db, workspace_id)
+
+@router.delete("/gmail/accounts/{account_id}")
+async def delete_gmail_account(
+    account_id: str,
+    workspace_id: str | None = None,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    workspace_id = verify_workspace_access(current_user, db, workspace_id)
+    success = IntegrationService.disconnect_gmail_account(db, workspace_id, account_id=account_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Gmail account not found")
+    return {"status": "success", "message": "Gmail account disconnected successfully"}
 
 @router.delete("/disconnect/{integration_type}")
 async def disconnect_integration(

@@ -70,6 +70,7 @@ class TemplateTestSendRequest(BaseModel):
     message: str = Field(..., description="Message body template")
     title: Optional[str] = Field(None, description="Title header template")
     action_route: Optional[str] = Field(None, description="Custom button destination route")
+    action_label: Optional[str] = Field(None, description="Custom button CTA text")
     variables: Dict[str, Any] = Field(default_factory=dict, description="Test dynamic variables")
 
 

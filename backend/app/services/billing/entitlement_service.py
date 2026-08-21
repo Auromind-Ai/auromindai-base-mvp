@@ -6,7 +6,7 @@ from app.models.plan import Plan
 from app.models.subscription import Subscription
 from app.core.enums import SubscriptionStatus
 from app.models.plan_entitlement import PlanEntitlement
-
+from app.core.event_bus import emit_event
 from app.models.flow_pack import FlowPackPurchase, PurchaseStatus
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.media import MediaFile
@@ -181,6 +181,75 @@ class EntitlementService:
         }
 
     @classmethod
+    def check_flow_quota_warnings(cls, db: Session, workspace_id: uuid.UUID | str) -> None:
+        try:
+            
+            flow_q = cls.get_flow_quota(db, workspace_id)
+            total = flow_q.get("total_quota", 0)
+            used = flow_q.get("used_quota", 0)
+            remaining = flow_q.get("remaining_quota", 0)
+
+            # -1 is unlimited, no quota warnings needed
+            if total == -1:
+                return
+
+            if total > 0:
+                percent_used = (used / total) * 100.0 if total > 0 else 100.0
+
+                if remaining <= 0 or used >= total:
+                    emit_event(
+                        event_name="flow_executions.exhausted",
+                        payload={
+                            "resource_name": "Flow Executions",
+                            "used_quota": str(used),
+                            "total_quota": str(total),
+                            "remaining_quota": "0",
+                            "affected_features": "Automated workflow execution and triggered bot actions",
+                            "action_route": "/billing",
+                            "action_label": "Buy Flow Packs / Upgrade",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:flow:100",
+                        db=db
+                    )
+                elif remaining <= max(1, int(round(total * 0.10))) or percent_used >= 90.0:
+                    emit_event(
+                        event_name="flow_executions.low_10",
+                        payload={
+                            "resource_name": "Flow Executions",
+                            "used_quota": str(used),
+                            "total_quota": str(total),
+                            "remaining_quota": str(remaining),
+                            "action_route": "/billing",
+                            "action_label": "Buy Flow Packs / Upgrade",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:flow:90",
+                        db=db
+                    )
+                elif remaining <= max(1, int(round(total * 0.20))) or percent_used >= 80.0:
+                    emit_event(
+                        event_name="flow_executions.low_20",
+                        payload={
+                            "resource_name": "Flow Executions",
+                            "used_quota": str(used),
+                            "total_quota": str(total),
+                            "remaining_quota": str(remaining),
+                            "action_route": "/billing",
+                            "action_label": "Buy Flow Packs / Upgrade",
+                            "workspace_id": str(workspace_id)
+                        },
+                        workspace_id=workspace_id,
+                        idempotency_key=f"quota_warn:{workspace_id}:flow:80",
+                        db=db
+                    )
+        except Exception as exc:
+            import logging
+            logging.getLogger("auromind").error(f"Failed to check flow quota warnings for workspace {workspace_id}: {exc}")
+
+    @classmethod
     def ensure_plan_entitlement(cls, db: Session, plan: Plan) -> PlanEntitlement:
         
         existing = db.query(PlanEntitlement).filter(PlanEntitlement.plan_id == plan.id).first()
@@ -194,13 +263,13 @@ class EntitlementService:
             ent = PlanEntitlement(
                 id=uuid.uuid4(),
                 plan_id=plan.id,
-                included_ai_credits=1000,
-                included_wcc_wallet=0.00,
-                storage_limit_mb=500,
-                team_limit=2,
+                included_ai_credits=20000,
+                included_wcc_wallet=50.00,
+                storage_limit_mb=100,
+                team_limit=1,
                 knowledge_base_limit=5,
                 gmail_limit=1,
-                lead_limit=100,
+                lead_limit=50,
                 meeting_limit=10,
                 automation_limit=2,
                 flow=2,
@@ -242,16 +311,16 @@ class EntitlementService:
             ent = PlanEntitlement(
                 id=uuid.uuid4(),
                 plan_id=plan.id,
-                included_ai_credits=100000,
-                included_wcc_wallet=0.00,
-                storage_limit_mb=10240,
+                included_ai_credits=250000,
+                included_wcc_wallet=500.00,
+                storage_limit_mb=5120,
                 team_limit=10,
                 knowledge_base_limit=100,
                 gmail_limit=5,
-                lead_limit=10000,
-                meeting_limit=-1,
-                automation_limit=20,
-                flow=20,
+                lead_limit=100,
+                meeting_limit=500,
+                automation_limit=50,
+                flow=10,
                 allow_ai_topup=True,
                 allow_purchased_ai_usage=True,
                 allow_wcc_recharge=True,
@@ -356,11 +425,8 @@ class EntitlementService:
         if not plan or (getattr(plan, "name", "") and plan.name.lower() == "free"):
             plan = db.query(Plan).filter(func.lower(Plan.name) == "free").first()
             if not plan:
-                from app.services.billing.plan_service import PlanService
-                plan_service = PlanService()
-                free_config = plan_service._get_plan_config(db, "free")
-                plan = plan_service._get_or_create_plan(db, free_config)
-                db.flush()
+                cls.seed_default_entitlements(db)
+                plan = db.query(Plan).filter(func.lower(Plan.name) == "free").first()
 
         # 3. Retrieve or ensure entitlements for the plan
         entitlement = cls.ensure_plan_entitlement(db, plan)
@@ -408,7 +474,9 @@ class EntitlementService:
             limit = entitlement.knowledge_base_limit
         elif resource == "gmail":
             usage = db.query(Integration).filter(
-                Integration.workspace_id == workspace_id, Integration.integration_type == "gmail"
+                Integration.workspace_id == workspace_id,
+                Integration.integration_type.in_(["google_gmail", "gmail"]),
+                Integration.is_active == True
             ).count()
             limit = entitlement.gmail_limit
         elif resource == "lead":
@@ -482,13 +550,77 @@ class EntitlementService:
 
     @classmethod
     def seed_default_entitlements(cls, db: Session) -> dict[str, Any]:
-        """Seed default plans and entitlements in the database."""
-        from app.services.billing.plan_service import PlanService
-        plan_service = PlanService()
+        """Seed default plans and entitlements in the database (Idempotent: Inserts missing only)."""
+        if not isinstance(db, Session):
+            raise ValueError("A valid SQLAlchemy Session is required.")
+
+        initial_plans_spec = {
+            "free": {
+                "display_name": "Free",
+                "monthly_price": 0.0,
+                "yearly_price": 0.0,
+                "token_limit": 20000000,
+                "description": "Try Orbion Agents for free and see the ROI yourself.",
+                "features": ["1,000 AI Replies", "Basic Workflows", "Meta API Included"],
+                "display_order": 0,
+            },
+            "solo": {
+                "display_name": "Solo Smart",
+                "monthly_price": 999.0,
+                "yearly_price": 9990.0,
+                "token_limit": 15000000,
+                "description": "RAG & custom knowledge base on a budget for solopreneurs.",
+                "features": ["15,000 AI Replies", "RAG Knowledge Base Enabled", "1 Gmail Integration", "Basic Automations"],
+                "display_order": 1,
+            },
+            "pro": {
+                "display_name": "Professional",
+                "monthly_price": 199.0,
+                "yearly_price": 999.0,
+                "token_limit": 250000000,
+                "description": "Advanced features for growing teams and scalable workflows.",
+                "features": ["100,000 AI Replies", "Advanced Workflows + RAG", "Priority Support", "Full Analytics"],
+                "display_order": 2,
+                "is_featured": True,
+            },
+            "enterprise": {
+                "display_name": "Enterprise",
+                "monthly_price": 24999.0,
+                "yearly_price": 249990.0,
+                "token_limit": 500000000,
+                "description": "Perfect for businesses starting with AI automation at scale.",
+                "features": ["500,000 AI Replies", "Dedicated Manager", "Custom API Access", "On-premise Options", "Global SLA"],
+                "display_order": 3,
+            },
+        }
+
         plans = {}
-        for plan_key in ["free", "solo", "pro", "enterprise"]:
-            config = plan_service._get_plan_config(db, plan_key)
-            plans[plan_key] = plan_service._get_or_create_plan(db, config)
+        for plan_key, spec in initial_plans_spec.items():
+            existing_plan = db.query(Plan).filter(Plan.name == plan_key).first()
+            if not existing_plan:
+                new_plan = Plan(
+                    id=uuid.uuid4(),
+                    name=plan_key,
+                    display_name=spec["display_name"],
+                    price=spec["monthly_price"],
+                    monthly_price=spec["monthly_price"],
+                    yearly_price=spec["yearly_price"],
+                    token_limit=spec["token_limit"],
+                    workspace_limit=1,
+                    billing_cycle="monthly",
+                    currency="INR",
+                    is_active=True,
+                    features=spec["features"],
+                    description=spec["description"],
+                    display_order=spec.get("display_order", 0),
+                    is_featured=spec.get("is_featured", False),
+                )
+                db.add(new_plan)
+                db.flush()
+                plans[plan_key] = new_plan
+            else:
+                # Existing plan in DB - strictly preserve admin-configured prices/limits!
+                plans[plan_key] = existing_plan
         db.commit()
 
         seeded_count = 0
@@ -499,17 +631,22 @@ class EntitlementService:
                     ent = PlanEntitlement(
                         id=uuid.uuid4(),
                         plan_id=plan.id,
-                        included_ai_credits=1000,
-                        included_wcc_wallet=0.00,
-                        storage_limit_mb=500,
-                        team_limit=2,
+                        included_ai_credits=20000,
+                        included_wcc_wallet=50.00,
+                        storage_limit_mb=100,
+                        team_limit=1,
                         knowledge_base_limit=5,
                         gmail_limit=1,
-                        lead_limit=100,
+                        lead_limit=50,
                         meeting_limit=10,
                         automation_limit=2,
-                        allow_ai_topup=True,
-                        allow_wcc_recharge=True,
+                        flow=2,
+                        allow_ai_topup=False,
+                        allow_purchased_ai_usage=False,
+                        allow_wcc_recharge=False,
+                        allow_purchased_wcc_usage=False,
+                        allow_flow_addon=False,
+                        allow_purchased_flow_usage=False,
                         included_credit_reset_policy='EXPIRE',
                         included_wallet_reset_policy='EXPIRE',
                         feature_flags={"has_rag": False, "has_leads": True, "has_gmail": True}
@@ -527,8 +664,13 @@ class EntitlementService:
                         lead_limit=500,
                         meeting_limit=10,
                         automation_limit=2,
+                        flow=2,
                         allow_ai_topup=True,
+                        allow_purchased_ai_usage=True,
                         allow_wcc_recharge=True,
+                        allow_purchased_wcc_usage=True,
+                        allow_flow_addon=True,
+                        allow_purchased_flow_usage=True,
                         included_credit_reset_policy='EXPIRE',
                         included_wallet_reset_policy='EXPIRE',
                         feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
@@ -537,17 +679,22 @@ class EntitlementService:
                     ent = PlanEntitlement(
                         id=uuid.uuid4(),
                         plan_id=plan.id,
-                        included_ai_credits=100000,
-                        included_wcc_wallet=0.00,
-                        storage_limit_mb=10240,
+                        included_ai_credits=250000,
+                        included_wcc_wallet=500.00,
+                        storage_limit_mb=5120,
                         team_limit=10,
                         knowledge_base_limit=100,
                         gmail_limit=5,
-                        lead_limit=10000,
-                        meeting_limit=-1,
-                        automation_limit=20,
+                        lead_limit=100,
+                        meeting_limit=500,
+                        automation_limit=50,
+                        flow=10,
                         allow_ai_topup=True,
+                        allow_purchased_ai_usage=True,
                         allow_wcc_recharge=True,
+                        allow_purchased_wcc_usage=True,
+                        allow_flow_addon=True,
+                        allow_purchased_flow_usage=True,
                         included_credit_reset_policy='EXPIRE',
                         included_wallet_reset_policy='EXPIRE',
                         feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
@@ -565,8 +712,13 @@ class EntitlementService:
                         lead_limit=-1,
                         meeting_limit=-1,
                         automation_limit=-1,
+                        flow=-1,
                         allow_ai_topup=True,
+                        allow_purchased_ai_usage=True,
                         allow_wcc_recharge=True,
+                        allow_purchased_wcc_usage=True,
+                        allow_flow_addon=True,
+                        allow_purchased_flow_usage=True,
                         included_credit_reset_policy='ROLLOVER',
                         included_wallet_reset_policy='ROLLOVER',
                         feature_flags={"has_rag": True, "has_leads": True, "has_gmail": True}
@@ -575,5 +727,54 @@ class EntitlementService:
                 seeded_count += 1
         db.commit()
         return {"status": "success", "message": f"Successfully seeded {seeded_count} entitlements."}
+
+    @classmethod
+    def raise_entitlement_exceeded(
+        cls,
+        db: Session,
+        workspace_id: uuid.UUID | str,
+        resource: str,
+        current_limit: int,
+        pro_limit: int | str = 100,
+        upgrade_price: str = "₹199/month",
+        custom_message: Optional[str] = None,
+    ):
+        from fastapi import HTTPException
+        if isinstance(workspace_id, str):
+            try:
+                workspace_id = uuid.UUID(workspace_id)
+            except ValueError:
+                pass
+
+        entitlement = cls.get_workspace_entitlement(db, workspace_id)
+        plan = db.query(Plan).filter(Plan.id == entitlement.plan_id).first() if entitlement else None
+        plan_name = plan.display_name if plan and plan.display_name else (plan.name.title() if plan else "Free")
+
+        labels = {
+            "knowledge_base": "Knowledge Base documents",
+            "kb": "Knowledge Base documents",
+            "lead": "leads",
+            "automation": "active automations",
+            "gmail": "Gmail accounts",
+            "flow": "flow executions",
+            "storage": "MB of storage",
+            "meeting": "meetings",
+        }
+        resource_label = labels.get(resource.lower(), resource)
+
+        if custom_message:
+            msg = custom_message
+        else:
+            msg = f"You have reached your {plan_name} plan limit of {current_limit} {resource_label}. Upgrade to Pro for {upgrade_price} to add up to {pro_limit} {resource_label}."
+
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "ENTITLEMENT_EXCEEDED",
+                "message": msg,
+                "upgrade_url": "/billing",
+            },
+        )
+
 
 

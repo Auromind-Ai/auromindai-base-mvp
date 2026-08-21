@@ -17,19 +17,19 @@ try:
 except ImportError:
     pass
 
-is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+is_sqlite = (settings.DATABASE_URL or "").startswith("sqlite")
 connect_args = {}
+engine_kwargs = {}
 if is_sqlite:
     connect_args["check_same_thread"] = False
-
-engine_kwargs = {
-    "pool_pre_ping": True,
-    "pool_recycle": 1800,
-    "pool_timeout": 30,
-}
-if not is_sqlite:
-    engine_kwargs["pool_size"] = 25
-    engine_kwargs["max_overflow"] = 35
+else:
+    engine_kwargs = {
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,
+        "pool_timeout": 30,
+        "pool_size": 25,
+        "max_overflow": 35,
+    }
 
 engine = create_engine(
     settings.DATABASE_URL,

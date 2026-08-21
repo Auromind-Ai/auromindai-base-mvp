@@ -1,16 +1,23 @@
 import hashlib
 import hmac
-from fastapi import logger
+import logging
 import tiktoken
 import uuid
+from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
+
+logger = logging.getLogger("app")
 from app.core.enums import PaymentStatus, SubscriptionStatus
 from app.models.billing import Payment
 from app.models.token_ledger import TokenLedger
 from app.models.plan import Plan
+from app.models.user import User
+from app.models.invoice import Invoice
+
+
 from app.models.subscription import Subscription
 from app.models.workspace import Workspace, WorkspaceMember
 from app.models.credit_pack import CreditPack
@@ -22,7 +29,6 @@ from .token_service import TokenService
 from .usage_service import UsageService
 from .subscription_service import SubscriptionService
 from .payment_service import PaymentService
-from .webhook_service import WebhookService
 from .plan_service import PlanService
 from app.utils.money import to_paise, verify_paise_amount
 
@@ -75,6 +81,7 @@ def enforce_execution_policy(db: Session, workspace_id: str | uuid.UUID, amount:
 class BillingService:
 
     def __init__(self, gateway: PaymentGateway | None = None):
+        from .webhook_service import WebhookService
         self.gateway = gateway
         self.usage_service = UsageService()
         self.token_service = TokenService(self.usage_service)
@@ -540,48 +547,21 @@ class BillingService:
             db=db,
             workspace_id=workspace_id,
             credits=float(pack.credits),
-            payment_id=str(payment.id),
+            payment_id=payment_id,
             gateway_order_id=order_id,
             description=f"Purchased AI Credit Pack: {pack.name}"
         )
         db.commit()
 
-        # Emit credits.purchased event via EventBus for immediate user notification
-        try:
-            from app.models.user import User
-            from app.models.invoice import Invoice
-
-            balance = self.token_service._get_token_balance_locked(db, str(workspace_id))
-            remaining_credits = max(0, balance.tokens_added - balance.tokens_used) if balance else pack.credits
-
-            user_obj = db.query(User).filter(User.id == uuid.UUID(str(user_id))).first() if user_id else None
-            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (workspace.name or "User"))
-
-            total_paid = float(gst_calcs.get("total_amount") or payment.amount or pack.amount)
-            inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
-            inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
-
-            emit_event(
-                event_name="credits.purchased",
-                payload={
-                    "credits_added": f"{int(pack.credits):,}",
-                    "current_balance": f"{int(remaining_credits):,}",
-                    "amount": f"₹{total_paid:,.2f} INR (incl. GST)",
-                    "user_name": user_name,
-                    "workspace_name": workspace.name,
-                    "invoice_id": inv_num,
-                    "invoice_url": f"/billing/invoices/{payment.id}",
-                    "action_route": "/billing",
-                    "action_label": "View Invoices",
-                    "workspace_id": str(workspace_id)
-                },
-                workspace_id=uuid.UUID(str(workspace_id)),
-                actor_id=uuid.UUID(str(user_id)) if user_id else None,
-                idempotency_key=f"credit_buy:{workspace_id}:{payment_id}",
-                db=db
-            )
-        except Exception as notif_exc:
-            logger.error(f"Failed to emit credits.purchased notification in verify_credit_pack_payment: {notif_exc}")
+        # Emit credits.purchased event via centralized helper
+        self.emit_credit_recharge_notification(
+            db=db,
+            workspace_id=workspace.id,
+            user_id=user_id,
+            payment=payment,
+            pack=pack,
+            idempotency_key=f"credit_buy:{workspace.id}:{payment_id}"
+        )
 
         return {
             "status": "success",
@@ -589,6 +569,80 @@ class BillingService:
             "payment_id": payment_id,
             "credits_granted": pack.credits,
         }
+
+    @classmethod
+    def emit_credit_recharge_notification(
+        cls,
+        db: Session,
+        workspace_id: uuid.UUID | str,
+        user_id: uuid.UUID | str | None,
+        payment: Payment,
+        pack: CreditPack,
+        idempotency_key: str,
+    ) -> None:
+        try:
+            
+            ws_uuid = uuid.UUID(str(workspace_id)) if not isinstance(workspace_id, uuid.UUID) else workspace_id
+            ws_obj = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+
+            user_obj = None
+            if user_id:
+                try:
+                    u_uuid = uuid.UUID(str(user_id)) if not isinstance(user_id, uuid.UUID) else user_id
+                    user_obj = db.query(User).filter(User.id == u_uuid).first()
+                except (ValueError, TypeError):
+                    user_obj = None
+
+            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (ws_obj.name if ws_obj else "User"))
+
+            # Authoritative single source of truth for wallet available balance
+            credit_summary = BillingService().get_credit_summary(db=db, workspace_id=ws_uuid)
+            raw_balance = Decimal(str(credit_summary.get("credits_balance", 0)))
+            if raw_balance % 1 == 0:
+                current_balance_str = f"{int(raw_balance):,}"
+            else:
+                current_balance_str = f"{raw_balance:,.2f}"
+
+            # Authoritative amount from persisted Invoice / Payment
+            inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
+            if inv and inv.total_amount is not None:
+                total_paid_dec = Decimal(str(inv.total_amount))
+            elif payment.total_amount is not None:
+                total_paid_dec = Decimal(str(payment.total_amount))
+            elif payment.amount is not None:
+                total_paid_dec = Decimal(str(payment.amount))
+            else:
+                total_paid_dec = Decimal(str(pack.amount))
+
+            inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
+
+            pack_credits_dec = Decimal(str(pack.credits))
+            if pack_credits_dec % 1 == 0:
+                credits_added_str = f"{int(pack_credits_dec):,}"
+            else:
+                credits_added_str = f"{pack_credits_dec:,.2f}"
+
+            emit_event(
+                event_name="ai_credits.purchased",
+                payload={
+                    "credits_added": credits_added_str,
+                    "current_balance": current_balance_str,
+                    "amount": f"₹{total_paid_dec:,.2f} INR (incl. GST)",
+                    "user_name": user_name,
+                    "workspace_name": ws_obj.name if ws_obj else "Workspace",
+                    "invoice_id": inv_num,
+                    "invoice_url": f"/billing/invoices/{payment.id}",
+                    "action_route": "/billing",
+                    "action_label": "View Invoices",
+                    "workspace_id": str(ws_uuid)
+                },
+                workspace_id=ws_uuid,
+                actor_id=user_obj.id if user_obj else None,
+                idempotency_key=idempotency_key,
+                db=db
+            )
+        except Exception as notif_exc:
+            logger.error(f"Failed to emit ai_credits.purchased notification in emit_credit_recharge_notification: {notif_exc}")
 
 
     def handle_webhook(
@@ -1030,7 +1084,7 @@ class BillingService:
         # 5. Purchased Grants & Usable Remaining Wallet (Plan-Independent)
         purchased_grants = self.token_service.get_purchased_grants(db, ws_id)
         purchased_used = self.token_service.get_purchased_usage(db, ws_id)
-        purchased_raw_remaining = max(0.0, purchased_grants - purchased_used)
+        purchased_raw_remaining = max(0.0, float(Decimal(str(purchased_grants)) - Decimal(str(purchased_used))))
 
         # 6. Current Plan Included Entitlement & Remaining
         if is_active_paid and ws_ent:
@@ -1038,27 +1092,27 @@ class BillingService:
         else:
             included_credits = 0.0
 
-        included_pool = max(0.0, included_credits - cycle_inc_used)
+        included_pool = max(0.0, float(Decimal(str(included_credits)) - Decimal(str(cycle_inc_used))))
 
         # Active reservations allocate against INCLUDED first (if active paid), then PURCHASED
         reserved_on_inc = min(total_reserved, included_pool) if is_active_paid else 0.0
         reserved_on_pur = min(total_reserved - reserved_on_inc, purchased_raw_remaining)
 
-        included_remaining = max(0.0, included_pool - reserved_on_inc)
-        purchased_remaining = max(0.0, purchased_raw_remaining - reserved_on_pur)
+        included_remaining = round(max(0.0, float(Decimal(str(included_pool)) - Decimal(str(reserved_on_inc)))), 4)
+        purchased_remaining = round(max(0.0, float(Decimal(str(purchased_raw_remaining)) - Decimal(str(reserved_on_pur)))), 4)
 
         # 7. Usable Balance, Quota Limit & Locking
         if is_active_paid:
             if allow_purchased_ai_usage or purchased_grants == 0:
                 purchased_credits_locked = False
-                credits_balance = included_remaining + purchased_remaining
-                quota_limit = included_credits + purchased_grants
+                credits_balance = round(included_remaining + purchased_remaining, 4)
+                quota_limit = round(included_credits + purchased_grants, 4)
                 spending_allowed = (credits_balance > 0)
                 status_message = None
             else:
                 purchased_credits_locked = (purchased_grants > 0)
-                credits_balance = included_remaining
-                quota_limit = included_credits
+                credits_balance = round(included_remaining, 4)
+                quota_limit = round(included_credits, 4)
                 spending_allowed = (credits_balance > 0)
                 status_message = "🔒 Purchased AI credits locked — Upgrade to Pro to use purchased credits" if (purchased_grants > 0) else None
         else:
@@ -1067,8 +1121,8 @@ class BillingService:
             included_remaining = 0.0
             if allow_purchased_ai_usage:
                 purchased_credits_locked = False
-                credits_balance = purchased_remaining
-                quota_limit = purchased_grants
+                credits_balance = round(purchased_remaining, 4)
+                quota_limit = round(purchased_grants, 4)
                 spending_allowed = (purchased_remaining > 0)
                 status_message = None
             else:

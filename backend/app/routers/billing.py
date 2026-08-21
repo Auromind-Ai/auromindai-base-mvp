@@ -7,7 +7,17 @@ from app.database import get_db
 from fastapi.responses import Response
 from app.models.invoice import Invoice
 from app.services.storage.service import get_storage
-
+from sqlalchemy import func
+from app.services.billing.entitlement_service import EntitlementService
+from app.models.plan import Plan
+from app.models.brain import BrainEntry
+from app.models.media import MediaFile
+from app.models.ai_action import Lead
+from app.models.integration import Integration
+from app.models.automation import AutomationFlow
+from app.models.subscription import Subscription
+from app.services.wcc_service import WCCService
+from app.core.enums import SubscriptionStatus
 class CreditsPurchaseRequest(BaseModel):
     pack_id: str
     workspace_id: str | None = None
@@ -267,20 +277,67 @@ def get_usage(
     )
     logger.info(f"[USAGE] user={current_user.email} workspace={resolved_ws_id}")
 
-    status = get_billing_status(
-        workspace_id=resolved_ws_id,
-         x_workspace_id=None,
-        db=db,
-        current_user=current_user,
-    )
+  
+
+    ws_uuid = uuid.UUID(resolved_ws_id)
+    ent = EntitlementService.get_workspace_entitlement(db, ws_uuid)
+
+    plan = db.query(Plan).filter(Plan.id == ent.plan_id).first() if ent else None
+    plan_name = plan.display_name if plan and plan.display_name else (plan.name.title() if plan else "Free")
+
+    # Subscription cycle start
+    active_sub = db.query(Subscription).filter(
+        Subscription.workspace_id == ws_uuid,
+        Subscription.status == SubscriptionStatus.active
+    ).first()
+    cycle_start = active_sub.current_period_start if active_sub else None
+
+    # AI Credits
+    service = get_billing_service()
+    ai_used = int(round(service.token_service.get_cycle_usage(db, ws_uuid, cycle_start)))
+    ai_limit = int(ent.included_ai_credits)
+
+    # WCC Wallet
+    wallet = WCCService.get_balance(db, ws_uuid)
+    wcc_balance = float(wallet.balance) if wallet else 0.0
+
+    # Knowledge Base
+    kb_used = db.query(BrainEntry).filter(BrainEntry.workspace_id == ws_uuid).count()
+    kb_limit = int(ent.knowledge_base_limit)
+
+    # Storage in MB
+    total_bytes = db.query(func.sum(MediaFile.file_size)).filter(MediaFile.workspace_id == ws_uuid).scalar() or 0
+    storage_mb_used = int(total_bytes // (1024 * 1024))
+    storage_mb_limit = int(ent.storage_limit_mb)
+
+    # Leads
+    leads_used = db.query(Lead).filter(Lead.workspace_id == ws_uuid).count()
+    leads_limit = int(ent.lead_limit)
+
+    # Gmail accounts
+    gmail_used = db.query(Integration).filter(
+        Integration.workspace_id == ws_uuid,
+        Integration.integration_type.in_(["google_gmail", "gmail"]),
+        Integration.is_active == True
+    ).count()
+    gmail_limit = int(ent.gmail_limit)
+
+    # Automations (Active count)
+    automations_used = db.query(AutomationFlow).filter(
+        AutomationFlow.workspace_id == ws_uuid,
+        AutomationFlow.status == "Active"
+    ).count()
+    automations_limit = int(ent.automation_limit)
 
     return {
-        "token_limit": status["token_limit"],
-        "tokens_used": status["tokens_used"],
-        "tokens_remaining": status["tokens_remaining"],
-        "percent_used": status["percent_used"],
-        "overage_tokens": status["overage_tokens"],
-        "estimated_overage_cost": status["estimated_overage_cost"],
+        "plan_name": plan_name,
+        "ai_credits": { "used": ai_used, "limit": ai_limit },
+        "wcc_wallet": { "balance_inr": wcc_balance },
+        "knowledge_base": { "used": kb_used, "limit": kb_limit },
+        "storage_mb": { "used": storage_mb_used, "limit": storage_mb_limit },
+        "leads": { "used": leads_used, "limit": leads_limit },
+        "gmail_accounts": { "used": gmail_used, "limit": gmail_limit },
+        "automations": { "used": automations_used, "limit": automations_limit },
     }
 
 
