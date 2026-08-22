@@ -1889,10 +1889,16 @@ function InboxContent() {
     }, [ch.id, fetchConversations]);
 
     useEffect(() => {
-        if (!lead?.id) return;
-        const interval = setInterval(() => fetchMessages(lead.id), 30000);
+        if (!workspace?.id) return;
+        const interval = setInterval(() => {
+        fetchConversations();
+        if (leadRef.current?.id) {
+        fetchMessages(leadRef.current.id);
+        }
+
+        }, 4000);
         return () => clearInterval(interval);
-    }, [lead?.id, fetchMessages]);
+    }, [workspace?.id, lead?.id, fetchConversations, fetchMessages]);
 
     useEffect(() => {
         if (!lead?.id) return;
@@ -1923,22 +1929,17 @@ function InboxContent() {
                         setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
                     }
 
-                    // Duplicate protection check
-                    if (msgId && isMessageAlreadyProcessed(msgId)) {
-                        console.log("⚠️ Ignored duplicate message ID:", msgId);
-                        return;
-                    }
-                    if (msgId) {
-                        markMessageAsProcessed(msgId);
-                    }
-
                     // Genuine NEW incoming message from customer
                     const isExplicitOutbound = msgSender.includes('agent') || msgSender.includes('ai') || msgSender.includes('system') || msgData.direction === 'outbound';
                     const isExplicitInbound = msgSender.includes('user') || msgSender.includes('customer') || msgSender.includes('lead') || msgSender.includes('contact') || msgData.direction === 'inbound';
                     const isIncoming = isExplicitInbound || (!isExplicitOutbound && !msgSender);
 
                     if (isIncoming) {
-                        playNotificationSound();
+                        // Play sound only if not already played for this message ID
+                        if (!msgId || !isMessageAlreadyProcessed(msgId)) {
+                            if (msgId) markMessageAsProcessed(msgId);
+                            playNotificationSound();
+                        }
 
                         const isCurrentlyActive = leadRef.current?.id === eventConversationId;
                         if (!isCurrentlyActive && eventConversationId) {

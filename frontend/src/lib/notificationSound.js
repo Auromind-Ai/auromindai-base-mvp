@@ -11,7 +11,7 @@ export const processedMessageIds = new Set();
 
 export function markMessageAsProcessed(msgId) {
     if (!msgId) return;
-    processedMessageIds.add(msgId);
+    processedMessageIds.add(String(msgId));
     if (processedMessageIds.size > 1000) {
         const [first] = processedMessageIds;
         processedMessageIds.delete(first);
@@ -20,7 +20,7 @@ export function markMessageAsProcessed(msgId) {
 
 export function isMessageAlreadyProcessed(msgId) {
     if (!msgId) return false;
-    return processedMessageIds.has(msgId);
+    return processedMessageIds.has(String(msgId));
 }
 
 function getAudioContext() {
@@ -42,46 +42,70 @@ function getAudioElement() {
             audioElement.preload = 'auto';
             audioElement.volume = 1.0;
         } catch (e) {
-            console.warn('Could not create HTML Audio element:', e);
+            console.warn('[Audio] Could not create HTML Audio element:', e);
         }
     }
     return audioElement;
 }
 
-// Explicitly unlock and resume AudioContext on user interaction
-export function unlockAudio() {
+// Explicitly unlock AudioContext and HTML5 Audio on user interaction
+export async function unlockAudio() {
     if (typeof window === 'undefined') return;
 
     try {
         const ctx = getAudioContext();
-        if (ctx && ctx.state === 'suspended') {
-            ctx.resume().then(() => {
+        if (ctx) {
+            if (ctx.state === 'suspended') {
+                await ctx.resume().catch(() => {});
+            }
+            // Play a 1-sample silent Web Audio buffer to register user-activation with the browser engine
+            try {
+                const buffer = ctx.createBuffer(1, 1, 22050);
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+            } catch (_) {}
+
+            if (ctx.state === 'running') {
                 audioUnlocked = true;
-                console.log('🔊 AudioContext resumed successfully on user interaction');
-            }).catch(() => {});
-        } else if (ctx && ctx.state === 'running') {
-            audioUnlocked = true;
+                console.log('🔊 AudioContext unlocked & active');
+            }
         }
 
         const audio = getAudioElement();
         if (audio && !audioUnlocked) {
-            audio.load();
+            // Prime HTML Audio element during user gesture
+            try {
+                audio.muted = true;
+                const p = audio.play();
+                if (p !== undefined) {
+                    await p;
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.muted = false;
+                    audioUnlocked = true;
+                }
+            } catch (_) {
+                if (audio) audio.muted = false;
+            }
         }
     } catch (err) {
-        console.warn('Audio unlock attempt warning:', err);
+        console.warn('[Audio] Unlock attempt warning:', err);
     }
 }
 
 // Auto-register gesture listeners once on client side
 if (typeof window !== 'undefined') {
     const unlockHandler = () => {
-        unlockAudio();
-        if (audioContext && audioContext.state === 'running') {
-            window.removeEventListener('pointerdown', unlockHandler);
-            window.removeEventListener('click', unlockHandler);
-            window.removeEventListener('keydown', unlockHandler);
-            window.removeEventListener('touchstart', unlockHandler);
-        }
+        unlockAudio().then(() => {
+            if (audioUnlocked || (audioContext && audioContext.state === 'running')) {
+                window.removeEventListener('pointerdown', unlockHandler);
+                window.removeEventListener('click', unlockHandler);
+                window.removeEventListener('keydown', unlockHandler);
+                window.removeEventListener('touchstart', unlockHandler);
+            }
+        }).catch(() => {});
     };
 
     window.addEventListener('pointerdown', unlockHandler, { passive: true });
@@ -91,58 +115,62 @@ if (typeof window !== 'undefined') {
 }
 
 // Synthesizer Fallback: Generates a 2-tone pleasant notification chime using Web Audio API
-export function playSynthesizedChime() {
+export async function playSynthesizedChime() {
     try {
         const ctx = getAudioContext();
         if (!ctx) return false;
 
         if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
+            try {
+                await ctx.resume();
+            } catch (e) {
+                console.warn('[Audio] Could not resume suspended AudioContext:', e);
+            }
         }
 
         const now = ctx.currentTime;
         const masterGain = ctx.createGain();
-        masterGain.gain.setValueAtTime(0.35, now);
+        masterGain.gain.setValueAtTime(0.4, now);
         masterGain.connect(ctx.destination);
 
-        // Tone 1: 1046.5 Hz (High C6) for 0.12s
+        // Tone 1: 1046.5 Hz (High C6) for 0.14s
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
         osc1.type = 'sine';
         osc1.frequency.setValueAtTime(1046.5, now);
-        gain1.gain.setValueAtTime(0.4, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        gain1.gain.setValueAtTime(0.45, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
         osc1.connect(gain1);
         gain1.connect(masterGain);
 
-        // Tone 2: 1568.0 Hz (High G6) starting at now + 0.09s for 0.25s
+        // Tone 2: 1568.0 Hz (High G6) starting at now + 0.08s for 0.28s
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
         osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(1568.0, now + 0.09);
+        osc2.frequency.setValueAtTime(1568.0, now + 0.08);
         gain2.gain.setValueAtTime(0.001, now);
-        gain2.gain.setValueAtTime(0.5, now + 0.09);
-        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        gain2.gain.setValueAtTime(0.55, now + 0.08);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
         osc2.connect(gain2);
         gain2.connect(masterGain);
 
         osc1.start(now);
-        osc1.stop(now + 0.16);
+        osc1.stop(now + 0.18);
 
-        osc2.start(now + 0.09);
-        osc2.stop(now + 0.36);
+        osc2.start(now + 0.08);
+        osc2.stop(now + 0.40);
 
         console.log('🔔 🔊 Web Audio synthesized chime played successfully');
         return true;
     } catch (err) {
-        console.warn('Synthesized chime failed:', err);
+        console.warn('[Audio] Synthesized chime failed:', err);
         return false;
     }
 }
 
 // Master Play Function: Tries HTMLAudioElement first, falls back to Web Audio API synthesizer
 export async function playNotificationSound() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return false;
 
     let played = false;
 
@@ -152,6 +180,7 @@ export async function playNotificationSound() {
         if (audio) {
             audio.currentTime = 0;
             audio.volume = 1.0;
+            audio.muted = false;
             const playPromise = audio.play();
             if (playPromise !== undefined) {
                 await playPromise;
@@ -160,12 +189,12 @@ export async function playNotificationSound() {
             }
         }
     } catch (error) {
-        console.warn('HTML Audio element play was rejected or blocked, falling back to Web Audio API:', error?.name || error);
+        console.warn('[Audio] HTML Audio element play rejected/blocked, falling back to Web Audio API:', error?.name || error);
     }
 
     // 2. If HTML Audio failed or was blocked, trigger Web Audio API Synthesizer
     if (!played) {
-        played = playSynthesizedChime();
+        played = await playSynthesizedChime();
     }
 
     return played;

@@ -222,7 +222,12 @@ class ConversationService:
         if normalized_channel == ChannelType.INSTAGRAM:
             filters.append(Conversation.external_id == external_id)
         else:
-            filters.append(Conversation.phone == delivery_target)
+            if delivery_target:
+                clean_target = delivery_target.strip().lstrip("+")
+                possible_phones = [delivery_target, f"+{clean_target}", clean_target]
+                filters.append(Conversation.phone.in_(possible_phones))
+            else:
+                filters.append(Conversation.phone == delivery_target)
         return filters
 
     @staticmethod
