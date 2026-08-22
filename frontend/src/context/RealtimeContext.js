@@ -45,16 +45,38 @@ function resolveWebSocketBaseUrl() {
 
   if (typeof window === "undefined") return "";
 
+  const hostname = window.location.hostname;
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+
+  // Production domain fallback (ensures WebSocket connects to FastAPI backend rather than Next.js serverless frontend)
+  if (hostname === "orbionagents.com" || hostname === "www.orbionagents.com") {
+    return "wss://api.orbionagents.com";
+  }
+
+  if (hostname.includes("vercel.app")) {
+    return "wss://orbion-api-staging-900605000401.asia-south1.run.app";
+  }
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "ws://127.0.0.1:8000";
+  }
+
   return `${protocol}//${window.location.host}`;
 }
 
-function buildWebSocketUrl(userId) {
+function buildWebSocketUrl(userId, workspaceId) {
   const baseUrl = resolveWebSocketBaseUrl();
   if (!baseUrl || !userId) return null;
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
-  return `${baseUrl}/ws/${encodeURIComponent(userId)}${tokenParam}`;
+  const token = typeof window !== 'undefined'
+    ? (localStorage.getItem('auth_token') || sessionStorage.getItem('admin_session_token') || '')
+    : '';
+
+  const params = new URLSearchParams();
+  if (token) params.set('token', token);
+  if (workspaceId) params.set('workspace_id', String(workspaceId));
+
+  const queryString = params.toString();
+  return `${baseUrl}/ws/${encodeURIComponent(userId)}${queryString ? `?${queryString}` : ''}`;
 }
 
 export function RealtimeProvider({ user, workspace, children }) {
@@ -126,7 +148,8 @@ export function RealtimeProvider({ user, workspace, children }) {
 
   const connect = useCallback(() => {
     const userId = user?.id;
-    const url = buildWebSocketUrl(userId);
+    const currentWorkspaceId = workspace?.id;
+    const url = buildWebSocketUrl(userId, currentWorkspaceId);
 
     if (!url) {
       setStatus(SOCKET_STATES.idle);
@@ -208,7 +231,7 @@ export function RealtimeProvider({ user, workspace, children }) {
       setStatus(SOCKET_STATES.disconnected);
       scheduleReconnect();
     };
-  }, [clearReconnectTimer, notifyHandlers, scheduleReconnect, sendJson, user?.id]);
+  }, [clearReconnectTimer, notifyHandlers, scheduleReconnect, sendJson, user?.id, workspace?.id]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -271,7 +294,7 @@ export function RealtimeProvider({ user, workspace, children }) {
       clearTimeout(timer);
       disconnect();
     };
-  }, [connect, disconnect, user?.id]);
+  }, [connect, disconnect, user?.id, workspace?.id]);
 
   useEffect(() => {
     const handleOnline = () => {
