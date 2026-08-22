@@ -2,7 +2,6 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
 from app.core.security import verify_workspace_access
 from app.database import get_db
 from app.models.feedback import Feedback
@@ -87,4 +86,4 @@ def submit_feedback(
         "message": "Feedback recorded successfully",
         "total_feedback": total_feedback,
         "learning_triggered": learning_triggered,
-    }
+    }
