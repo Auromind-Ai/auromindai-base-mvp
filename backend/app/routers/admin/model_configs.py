@@ -4,7 +4,7 @@ from app.schemas.admin import ModelConfigCreate, ModelConfigUpdate
 from app.services.model_config_service import ModelConfigService
 from app.database import  get_db
 from anthropic import Anthropic
-import google.generativeai as genai
+from google import genai
 from openai import OpenAI
 router = APIRouter(prefix="/model-configs")
 
@@ -229,15 +229,38 @@ async def get_provider_models(provider: str):
             "openai/gpt-oss-20b",
             "qwen/qwen3.6-27b"
         ],
-        "gemini": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
-        "google": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+        "gemini": [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash-8b",
+            "gemini-2.5-flash-lite",
+            "gemini-flash-latest",
+            "gemini-pro-latest",
+            "gemma-2-27b-it",
+            "gemma-2-9b-it"
+        ],
+        "google": [
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash-8b",
+            "gemini-2.5-flash-lite",
+            "gemini-flash-latest",
+            "gemini-pro-latest",
+            "gemma-2-27b-it",
+            "gemma-2-9b-it"
+        ]
     }
     
     try:
         if provider_lower in ["openai"]:
             key = config_service.get("openai_api_key")
             if key:
-               
                 client = OpenAI(api_key=key)
                 models = client.models.list()
                 return {"success": True, "models": [m.id for m in models.data if "gpt" in m.id or "o1" in m.id or "o3" in m.id]}
@@ -260,9 +283,12 @@ async def get_provider_models(provider: str):
         elif provider_lower in ["gemini", "google"]:
             key = config_service.get("google_api_key")
             if key:
-                genai.configure(api_key=key)
-                models = genai.list_models()
-                return {"success": True, "models": [m.name.replace("models/", "") for m in models]}
+                client = genai.Client(api_key=key)
+                models = list(client.models.list())
+                if models:
+                    model_names = [m.name.replace("models/", "") for m in models if hasattr(m, "name") and m.name]
+                    if model_names:
+                        return {"success": True, "models": model_names}
                 
     except Exception as e:
         # Fallback to local known models list on any error (like network or bad key)
