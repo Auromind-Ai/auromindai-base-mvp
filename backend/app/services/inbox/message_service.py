@@ -50,8 +50,7 @@ class MessageService:
     ):
         ws_uuid = to_uuid(workspace_id)
         conv_uuid = to_uuid(conversation_id)
-        
-        query = (
+        messages = (
             db.query(Message)
             .join(
                 models.Conversation,

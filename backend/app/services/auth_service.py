@@ -381,9 +381,7 @@ class AuthService:
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
 
-        otp = str(random.randint(100000, 999999))
-        print(f"Generated OTP for {email}: {otp}")  # For debugging; remove in production
-       
+        otp = str(random.randint(100000, 999999))       
        
         # Store in Redis if available
         try:

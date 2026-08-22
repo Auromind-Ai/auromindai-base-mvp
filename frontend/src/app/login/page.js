@@ -628,7 +628,7 @@ function LoginContent() {
                                     <button
                                         type="submit"
                                         disabled={loading || turnstileLoading || siteKeyMissing || otp.length < 6}
-                                        className="relative w-full rounded-xl overflow-hidden group disabled:opacity-75 disabled:cursor-not-allowed h-11"
+                                           className="relative w-full rounded-xl overflow-hidden group disabled:opacity-75 disabled:cursor-not-allowed h-11"
                                     >
                                         <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-90 group-hover:opacity-100 transition-opacity" />
                                         <div className="relative flex items-center justify-center h-full gap-2 text-white font-bold text-sm">
