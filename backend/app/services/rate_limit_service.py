@@ -6,20 +6,12 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Simple in-memory fallback rate limiter storage.
-# Format: {key: [timestamp1, timestamp2, ...]}
-# WARNING: In a horizontally scaled multi-instance production environment,
-# this fallback results in local per-instance throttling.
-# The effective rate limit across all instances becomes N * (number of instances).
-# This is a known limitation when Redis is unavailable or unconfigured.
+
 _in_memory_limits: Dict[str, list] = {}
 
 
 def _check_in_memory_limit(key: str, limit: int, window: int) -> bool:
-    """
-    Checks the rate limit in-memory as a fallback.
-    Returns True if the request is allowed (within limits), False otherwise.
-    """
+   
     now = time.time()
     if key not in _in_memory_limits:
         _in_memory_limits[key] = []
