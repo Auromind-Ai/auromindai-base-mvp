@@ -1897,10 +1897,16 @@ function InboxContent() {
     }, [ch.id, fetchConversations]);
 
     useEffect(() => {
-        if (!lead?.id) return;
-        const interval = setInterval(() => fetchMessages(lead.id), 30000);
+        if (!workspace?.id) return;
+        const interval = setInterval(() => {
+        fetchConversations();
+        if (leadRef.current?.id) {
+        fetchMessages(leadRef.current.id);
+        }
+
+        }, 4000);
         return () => clearInterval(interval);
-    }, [lead?.id, fetchMessages]);
+    }, [workspace?.id, lead?.id, fetchConversations, fetchMessages]);
 
     useEffect(() => {
         if (!lead?.id) return;
