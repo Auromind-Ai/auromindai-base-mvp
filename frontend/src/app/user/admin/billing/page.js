@@ -18,6 +18,8 @@ import {
   BarChart3,
   Infinity,
   X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 
 import { Poppins } from "next/font/google"
@@ -49,6 +51,7 @@ export default function BillingHistoryPage() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState(null)
   const [downloadingId, setDownloadingId] = useState(null)
+  const [isFeaturesExpanded, setIsFeaturesExpanded] = useState(false)
 
   // Billing Profile States
   const [profile, setProfile] = useState({
@@ -211,7 +214,6 @@ export default function BillingHistoryPage() {
 
     const cycle = rawCycle || "monthly"
 
-    // 1. Dynamic plan lookup from backend billing status payload
     const dynamicPlans = billing?.plans || pricing?.plans || []
     if (Array.isArray(dynamicPlans) && dynamicPlans.length > 0) {
       const match = dynamicPlans.find(
@@ -226,7 +228,6 @@ export default function BillingHistoryPage() {
       }
     }
 
-    // 2. Fallback to legacy pricing object structure
     if (pricing) {
       const legacyPrice = cycle === "yearly"
         ? pricing[`${planKey}_plan_yearly_price`] || pricing[`${planKey}_yearly_price`] || pricing.pro_plan_yearly_price
@@ -240,7 +241,7 @@ export default function BillingHistoryPage() {
   const activePlanFeatures = useMemo(() => {
     if (!pricing || !billing) return []
     const planKey = String(billing.current_plan || "free").toLowerCase()
-    
+   
     let rawFeatures = []
     if (planKey === "free") {
       rawFeatures = pricing.free_plan_features
@@ -351,8 +352,8 @@ export default function BillingHistoryPage() {
     if (billing?.subscription?.current_period_start) {
       const subDate = new Date(billing.subscription.current_period_start)
       items.push({
-        icon: <ShieldCheck size={16} color="#4ade80" />,
-        bg: "rgba(34,197,94,0.12)",
+        icon: <ShieldCheck size={16} className="text-emerald-400" />,
+        bg: "bg-emerald-500/15",
         title: "Plan Activated",
         desc: `${titleCase(billing?.current_plan || "Pro")} plan subscription started`,
         date: formatBillingDate(billing?.subscription?.current_period_start, true),
@@ -369,7 +370,7 @@ export default function BillingHistoryPage() {
         const rawTime = pDate && !isNaN(pDate.getTime()) ? pDate.getTime() : 0
         items.push({
           icon: meta.icon,
-          bg: meta.bg,
+          bg: meta.bg || "bg-indigo-500/15",
           title: meta.title,
           desc: p.description || meta.desc,
           date: formatBillingDate(dVal, true),
@@ -379,15 +380,13 @@ export default function BillingHistoryPage() {
       })
     }
 
-    // Sort all activity records in descending order by full timestamp (latest first)
     items.sort((a, b) => b.rawTime - a.rawTime)
-
     return items
   }, [billing])
 
   return (
-    <section className="min-h-screen bg-[#0d0d0f] text-white p-4 sm:p-6 md:p-8" style={{ fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
-      {/* Toast */}
+    <section className="min-h-screen bg-[#0d0d0f] text-white p-4 sm:p-6 md:p-8 font-sans">
+      {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-[99999] flex items-center gap-2.5 px-4 py-3.5 rounded-xl border border-white/10 bg-[#0d0d0d]/95 backdrop-blur-md shadow-2xl text-white text-sm font-semibold animate-in slide-in-from-bottom-5 duration-300">
           <span>{toastMessage}</span>
@@ -395,76 +394,93 @@ export default function BillingHistoryPage() {
       )}
 
       {/* Page Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#fff", margin: 0, letterSpacing: "-0.3px" }}>Billing & Invoices</h1>
-        <p style={{ fontSize: 13, color: "#cdd1da", marginTop: 6 }}>
+      <div className="mb-7">
+        <h1 className="text-2xl sm:text-[28px] font-bold text-white tracking-tight">Billing & Invoices</h1>
+        <p className="text-xs sm:text-[13px] text-zinc-400 mt-1.5 leading-relaxed">
           Manage your subscription plans, track monthly usage, view invoices, and monitor account activity.
         </p>
       </div>
 
       {error && (
-        <div style={{ borderRadius: 12, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", padding: "14px 18px", fontSize: 13, color: "#fca5a5", marginBottom: 20 }}>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 sm:p-4 text-xs sm:text-[13px] text-red-300 mb-5">
           {error}
         </div>
       )}
 
       {/* Top Row: Current Plan + Plan Details + Billing Profile */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         {/* Current Plan Card */}
-        <div style={cardStyle}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 6, fontWeight: 500 }}>Your current plan</p>
-              {loading ? (
-                <div style={skeletonStyle(120, 32)} />
-              ) : (
-                <>
-                  <h2 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px 0", letterSpacing: "-0.5px", color: "#fff" }}>
-                    {currentPlanLabel}
-                  </h2>
-                  <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>
-                    {isFreePlan ? "Free" : `${currentPlanPrice} / ${rawCycle === "yearly" ? "year" : "month"}`}
-                  </p>
-                </>
+        <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-xs text-zinc-400 mb-1.5 font-medium">Your current plan</p>
+                {loading ? (
+                  <div className="w-28 h-8 rounded-lg bg-white/10 animate-pulse my-1" />
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-bold tracking-tight text-white m-0">
+                      {currentPlanLabel}
+                    </h2>
+                    <p className="text-xs sm:text-[13px] text-zinc-400 mt-0.5">
+                      {isFreePlan ? "Free" : `${currentPlanPrice} / ${rawCycle === "yearly" ? "year" : "month"}`}
+                    </p>
+                  </>
+                )}
+              </div>
+              {!loading && (
+                <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
+                  Active
+                </span>
               )}
             </div>
-            {!loading && (
-              <span style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)", color: "#f5faf7", borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 600 }}>
-                Active
-              </span>
+
+            {/* Feature Pills */}
+            {!loading && activePlanFeatures.length > 0 && (
+              <div className="my-3.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {(isFeaturesExpanded ? activePlanFeatures : activePlanFeatures.slice(0, 6)).map((feat, idx) => (
+                    <span
+                      key={`${feat}-${idx}`}
+                      className="inline-flex items-center gap-1 bg-purple-500/15 border border-purple-500/25 text-purple-100 rounded-full px-2.5 py-1 text-[11px] font-medium"
+                    >
+                      {getFeatureIcon(feat)} {feat}
+                    </span>
+                  ))}
+                </div>
+
+                {activePlanFeatures.length > 6 && (
+                  <div className="flex justify-end mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsFeaturesExpanded(!isFeaturesExpanded)}
+                      className="flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300 transition-colors bg-transparent border-none cursor-pointer p-0 select-none"
+                    >
+                      {isFeaturesExpanded ? (
+                        <>
+                          <span>Show less</span>
+                          <ChevronUp size={13} />
+                        </>
+                      ) : (
+                        <>
+                          <span>+{activePlanFeatures.length - 6} more</span>
+                          <ChevronDown size={13} />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
-          {/* Feature Pills */}
-          {!loading && activePlanFeatures.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14, marginBottom: 14 }}>
-              {activePlanFeatures.map((feat, idx) => (
-                <span key={`${feat}-${idx}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.25)", color: "#f1eff7", borderRadius: 16, padding: "3px 10px", fontSize: 11, fontWeight: 500 }}>
-                  {getFeatureIcon(feat)} {feat}
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div style={{ marginTop: 26 }}>
+          <div className="mt-5">
             {loading ? (
-              <div style={skeletonStyle(120, 34)} />
+              <div className="w-28 h-9 rounded-lg bg-white/10 animate-pulse" />
             ) : (
               <a
                 href="/user/admin/billing/payment"
-                style={{
-                  display: "inline-block",
-                  background: "#814AC8",
-                  color: "#fff",
-                  borderRadius: 8,
-                  padding: "8px 20px",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  transition: "opacity 0.2s"
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-                onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                className="inline-block bg-[#814AC8] hover:bg-[#814AC8]/85 text-white rounded-lg px-5 py-2 text-[13px] font-semibold no-underline transition-opacity shadow-sm"
               >
                 Upgrade plan
               </a>
@@ -473,88 +489,88 @@ export default function BillingHistoryPage() {
         </div>
 
         {/* Plan Details Card */}
-        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
           <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 10 }}>Plan Details</p>
-          {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[1, 2, 3, 4].map(i => <div key={i} style={skeletonStyle("100%", 34)} />)}
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {[
-                {
-                  icon: <RefreshCw size={14} color="#9ca3af" />,
-                  label: "Billing Cycle",
-                  value: resolvedCycle,
-                },
-                {
-                  icon: <Calendar size={14} color="#9ca3af" />,
-                  label: "Next Billing Date",
-                  value: formatBillingDate(billing?.subscription?.current_period_end || billing?.next_billing_date),
-                },
-                {
-                  icon: <IndianRupee size={14} color="#9ca3af" />,
-                  label: "Amount",
-                  value: currentPlanPrice || "—",
-                },
-                {
-                  icon: <CreditCard size={14} color="#9ca3af" />,
-                  label: "Payment Method",
-                  value: (() => {
-                    const subMethod = billing?.subscription?.payment_method;
-                    if (subMethod) {
-                      return formatPaymentMethod(subMethod, billing?.subscription?.provider).label;
-                    }
-                    const subPayment = billing?.payments?.find(p => p.payment_type === 'subscription' && (p.status?.toUpperCase() === 'PAID' || p.status?.toUpperCase() === 'SUCCESS'));
-                    if (subPayment?.payment_method) {
-                      return formatPaymentMethod(subPayment.payment_method, subPayment.provider).label;
-                    }
-                    return "—";
-                  })(),
-                },
-              ].map((row, idx, arr) => (
-                <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {row.icon}
-                    </span>
-                    <span style={{ fontSize: 13, color: "#9ca3af" }}>{row.label}</span>
+            <p className="text-sm font-bold text-white mb-2.5">Plan Details</p>
+            {loading ? (
+              <div className="flex flex-col gap-2">
+                {[1, 2, 3, 4].map(i => <div key={i} className="w-full h-8 rounded-lg bg-white/10 animate-pulse" />)}
+              </div>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/5">
+                {[
+                  {
+                    icon: <RefreshCw size={14} className="text-zinc-400" />,
+                    label: "Billing Cycle",
+                    value: resolvedCycle,
+                  },
+                  {
+                    icon: <Calendar size={14} className="text-zinc-400" />,
+                    label: "Next Billing Date",
+                    value: formatBillingDate(billing?.subscription?.current_period_end || billing?.next_billing_date),
+                  },
+                  {
+                    icon: <IndianRupee size={14} className="text-zinc-400" />,
+                    label: "Amount",
+                    value: currentPlanPrice || "—",
+                  },
+                  {
+                    icon: <CreditCard size={14} className="text-zinc-400" />,
+                    label: "Payment Method",
+                    value: (() => {
+                      const subMethod = billing?.subscription?.payment_method;
+                      if (subMethod) {
+                        return formatPaymentMethod(subMethod, billing?.subscription?.provider).label;
+                      }
+                      const subPayment = billing?.payments?.find(p => p.payment_type === 'subscription' && (p.status?.toUpperCase() === 'PAID' || p.status?.toUpperCase() === 'SUCCESS'));
+                      if (subPayment?.payment_method) {
+                        return formatPaymentMethod(subPayment.payment_method, subPayment.provider).label;
+                      }
+                      return "—";
+                    })(),
+                  },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between py-2 text-[13px]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-md bg-white/5 flex items-center justify-center flex-shrink-0">
+                        {row.icon}
+                      </span>
+                      <span className="text-zinc-400">{row.label}</span>
+                    </div>
+                    <span className="text-zinc-200 font-medium text-right">{row.value}</span>
                   </div>
-                  <span style={{ fontSize: 13, color: "#e5e7eb", fontWeight: 500 }}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Billing Profile Card - Default Compact Summary View */}
-        <div style={cardStyle} className="relative overflow-hidden flex flex-col justify-between">
+        {/* Billing Profile Card */}
+        <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between md:col-span-2 lg:col-span-1">
           <div>
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-3">
               <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Billing Profile</p>
-                <p style={{ fontSize: 10, color: "#9ca3af", marginTop: 4, lineHeight: "1.4" }}>
+                <p className="text-[15px] font-bold text-white m-0">Billing Profile</p>
+                <p className="text-[10px] text-zinc-400 mt-1 leading-snug">
                   Invoicing & Tax Details
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2 text-xs text-zinc-300">
+            <div className="space-y-1.5 text-xs text-zinc-300">
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
                 <span className="text-zinc-400 font-medium">Business Name:</span>
-                <span className="text-white font-semibold text-right truncate max-w-[180px]">{profile.billing_name || "—"}</span>
+                <span className="text-white font-semibold text-right truncate max-w-[170px]">{profile.billing_name || "—"}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
                 <span className="text-zinc-400 font-medium">Contact:</span>
-                <span className="text-white font-medium text-right truncate max-w-[180px]">{profile.billing_contact_name || "—"}</span>
+                <span className="text-white font-medium text-right truncate max-w-[170px]">{profile.billing_contact_name || "—"}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
                 <span className="text-zinc-400 font-medium">Email:</span>
-                <span className="text-white font-medium text-right truncate max-w-[180px]">{profile.billing_email || "—"}</span>
+                <span className="text-white font-medium text-right truncate max-w-[170px]">{profile.billing_email || "—"}</span>
               </div>
 
               <div className="flex justify-between py-1 border-b border-white/[0.04]">
@@ -584,7 +600,7 @@ export default function BillingHistoryPage() {
             <button
               type="button"
               onClick={handleOpenEditModal}
-              className="text-xs px-3.5 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-semibold rounded-lg transition cursor-pointer"
+              className="text-xs px-3.5 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-semibold rounded-lg transition-colors cursor-pointer"
             >
               Edit Profile
             </button>
@@ -596,18 +612,18 @@ export default function BillingHistoryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Usage Summary */}
         {loading ? (
-          <div style={cardStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+          <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5">
+            <div className="flex justify-between items-start mb-1">
               <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Usage Summary</p>
-                <p style={{ fontSize: 12, color: "#cfd5df", marginTop: 4 }}>Current billing cycle usage</p>
+                <p className="text-[15px] font-bold text-white m-0">Usage Summary</p>
+                <p className="text-xs text-zinc-400 mt-1">Current billing cycle usage</p>
               </div>
-              <span style={{ background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.2)", color: "#f0edf8", borderRadius: 16, padding: "4px 12px", fontSize: 11, fontWeight: 500 }}>
+              <span className="bg-purple-500/15 border border-purple-500/20 text-purple-200 rounded-full px-3 py-1 text-[11px] font-medium">
                 This month
               </span>
             </div>
-            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
-              {[1, 2, 3].map(i => <div key={i} style={skeletonStyle("100%", 44)} />)}
+            <div className="mt-5 flex flex-col gap-4">
+              {[1, 2, 3].map(i => <div key={i} className="w-full h-11 rounded-lg bg-white/10 animate-pulse" />)}
             </div>
           </div>
         ) : (
@@ -615,68 +631,70 @@ export default function BillingHistoryPage() {
         )}
 
         {/* Recent Account Activity */}
-        <div style={{ ...cardStyle, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Recent Account Activity</p>
+        <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+          <p className="text-[15px] font-bold text-white mb-4">Recent Account Activity</p>
           {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[1, 2, 3, 4].map(i => <div key={i} style={skeletonStyle("100%", 56)} />)}
+            <div className="flex flex-col gap-3">
+              {[1, 2, 3, 4].map(i => <div key={i} className="w-full h-12 rounded-lg bg-white/10 animate-pulse" />)}
             </div>
           ) : (
             <div className="flex-1 max-h-[285px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-white/10 custom-scrollbar">
               {activityItems.length === 0 ? (
-                <div style={{ border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 12, padding: "24px", textAlign: "center", fontSize: 13, color: "#6b7280" }}>
+                <div className="border border-dashed border-white/10 rounded-xl p-6 text-center text-[13px] text-zinc-500">
                   No recent activity recorded yet.
                 </div>
               ) : (
-                activityItems.map((item, idx, arr) => (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: idx < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ width: 36, height: 36, borderRadius: 10, background: item.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        {item.icon}
-                      </span>
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(241, 242, 245, 0.94)", margin: 0 }}>{item.title}</p>
-                        <p style={{ fontSize: 11, color: "#b9c1cf", margin: 0, marginTop: 2 }}>{item.desc}</p>
+                <div className="divide-y divide-white/5">
+                  {activityItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-3 min-w-0 pr-2">
+                        <span className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center flex-shrink-0`}>
+                          {item.icon}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold text-zinc-100 truncate m-0">{item.title}</p>
+                          <p className="text-[11px] text-zinc-400 truncate m-0 mt-0.5">{item.desc}</p>
+                        </div>
                       </div>
+                      <span
+                        title={item.date}
+                        className="text-[11px] text-zinc-500 whitespace-nowrap ml-2 cursor-help flex-shrink-0"
+                      >
+                        {item.relativeDate || item.date}
+                      </span>
                     </div>
-                    <span
-                      title={item.date}
-                      style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap", marginLeft: 12, cursor: "help" }}
-                    >
-                      {item.relativeDate || item.date}
-                    </span>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Payment History Card (Preview top 4 records) */}
-      <div style={cardStyle}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", margin: 0 }}>Payment History</p>
+      {/* Payment History Card */}
+      <div className="bg-[#070012] border border-zinc-700/40 rounded-2xl p-4 sm:p-5">
+        <div className="flex justify-between items-center mb-5">
+          <p className="text-[15px] font-bold text-white m-0">Payment History</p>
         </div>
 
         {loading ? (
-          <div style={skeletonStyle("100%", 200)} />
+          <div className="w-full h-48 rounded-xl bg-white/10 animate-pulse" />
         ) : payments.length === 0 ? (
-          <div style={{ border: "1px dashed rgba(255,255,255,0.1)", borderRadius: 12, padding: "48px 24px", textAlign: "center", fontSize: 13, color: "#6b7280" }}>
+          <div className="border border-dashed border-white/10 rounded-xl py-12 px-6 text-center text-[13px] text-zinc-500">
             No payment history available yet.
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto rounded-xl border border-white/5 bg-[#070012]">
-              <table style={{ width: "100%", minWidth: "800px", borderCollapse: "collapse", fontSize: 13 }}>
+            <div className="overflow-x-auto rounded-xl border border-white/5 bg-[#070012] scrollbar-thin scrollbar-thumb-white/10">
+              <table className="w-full min-w-[700px] border-collapse text-[13px]">
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+                  <tr className="bg-white/[0.04]">
                     {["Invoice No", "Date", "Description", "GST", "Total", "Status", "Download"].map(h => (
-                      <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: "#6b7280", fontWeight: 600, fontSize: 12, letterSpacing: "0.02em" }}>{h}</th>
+                      <th key={h} className="py-3 px-4 text-left text-zinc-400 font-semibold text-xs tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-white/5">
                   {payments.slice(0, TABLE_PREVIEW_LIMIT).map((payment) => {
                     const meta = getActivityMeta(payment)
                     return (
@@ -686,44 +704,30 @@ export default function BillingHistoryPage() {
                           if (e.target.closest("button")) return
                           setSelectedInvoice(payment)
                         }}
-                        style={{ borderTop: "1px solid rgba(255,255,255,0.05)", transition: "background 0.15s", cursor: "pointer" }}
-                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.025)"}
-                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                        className="hover:bg-white/[0.025] transition-colors cursor-pointer"
                       >
-                        <td style={{ padding: "16px", color: "#fff", fontWeight: 600, fontFamily: "monospace" }}>
+                        <td className="p-4 text-white font-semibold font-mono">
                           {payment.invoice_number || "—"}
                         </td>
-                        <td style={{ padding: "16px", color: "#d1d5db" }}>{formatBillingDate(payment.date, true)}</td>
-                        <td style={{ padding: "16px", color: "#d1d5db", fontWeight: 500 }}>
+                        <td className="p-4 text-zinc-300">{formatBillingDate(payment.date, true)}</td>
+                        <td className="p-4 text-zinc-300 font-medium">
                           {payment.description || meta.desc}
                         </td>
-                        <td style={{ padding: "16px", color: "#d1d5db" }}>
+                        <td className="p-4 text-zinc-300">
                           {formatBillingAmount(payment.gst_amount || 0)}
                         </td>
-                        <td style={{ padding: "16px", color: "#fff", fontWeight: 600 }}>{formatBillingAmount(payment.amount)}</td>
-                        <td style={{ padding: "16px" }}>
+                        <td className="p-4 text-white font-semibold">{formatBillingAmount(payment.amount)}</td>
+                        <td className="p-4">
                           <StatusPill status={payment.status} />
                         </td>
-                        <td style={{ padding: "16px" }}>
+                        <td className="p-4">
                           <button
                             onClick={() => handleDownloadInvoice(payment)}
                             disabled={!payment.invoice_available}
                             title={payment.invoice_available ? "Download Invoice" : "Invoice Not Available"}
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 8,
-                              border: "1px solid rgba(255,255,255,0.1)",
-                              background: "rgba(255,255,255,0.04)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              cursor: payment.invoice_available ? "pointer" : "not-allowed",
-                              opacity: payment.invoice_available ? 1 : 0.4,
-                              transition: "background 0.15s"
-                            }}
+                            className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                           >
-                            {downloadingId === payment.id ? <RefreshCw size={14} color="#9ca3af" className="animate-spin" /> : <Download size={14} color="#9ca3af" />}
+                            {downloadingId === payment.id ? <RefreshCw size={14} className="text-zinc-400 animate-spin" /> : <Download size={14} className="text-zinc-400" />}
                           </button>
                         </td>
                       </tr>
@@ -733,12 +737,12 @@ export default function BillingHistoryPage() {
               </table>
             </div>
 
-            {/* View All Invoices Button -> Opens HistoryModal */}
-            <div style={{ textAlign: "center", marginTop: 24 }}>
+            {/* View All Invoices Button */}
+            <div className="text-center mt-6">
               <button
                 type="button"
                 onClick={() => setIsInvoiceModalOpen(true)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#8b5cf6", background: "transparent", border: "none", fontWeight: 600, cursor: "pointer" }}
+                className="inline-flex items-center gap-1.5 text-[13px] text-purple-400 hover:text-purple-300 bg-transparent border-none font-semibold cursor-pointer transition-colors"
               >
                 View all invoices <ArrowRight size={14} />
               </button>
@@ -822,7 +826,6 @@ export default function BillingHistoryPage() {
       {selectedInvoice && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#0b031a] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            {/* Modal Header */}
             <div className="flex justify-between items-center p-5 border-b border-white/5">
               <div>
                 <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Invoice Details</h3>
@@ -836,7 +839,6 @@ export default function BillingHistoryPage() {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -860,9 +862,9 @@ export default function BillingHistoryPage() {
                 </div>
               </div>
 
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-2">
-                <span className="text-zinc-500 block font-semibold">Transaction Description</span>
-                <span className="text-white text-[13px] font-semibold block">{selectedInvoice.description}</span>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-1">
+                <span className="text-zinc-500 block font-semibold text-[11px]">Transaction Description</span>
+                <span className="text-white text-xs font-semibold block">{selectedInvoice.description}</span>
               </div>
 
               <div className="border-t border-white/5 pt-4 space-y-2.5">
@@ -881,7 +883,6 @@ export default function BillingHistoryPage() {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="flex justify-between items-center p-5 bg-white/[0.02] border-t border-white/5 gap-3">
               <button
                 type="button"
@@ -917,7 +918,6 @@ export default function BillingHistoryPage() {
             onClick={(e) => e.stopPropagation()}
             className="bg-[#0b031a] border border-white/10 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]"
           >
-            {/* Modal Header */}
             <div className="flex justify-between items-center p-5 border-b border-white/10">
               <div>
                 <h3 className="text-sm font-bold text-white">Edit Billing Profile</h3>
@@ -932,7 +932,6 @@ export default function BillingHistoryPage() {
               </button>
             </div>
 
-            {/* Modal Body / Form */}
             <form onSubmit={handleSaveProfile} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
               <div>
                 <label className="block text-[11px] text-zinc-300 font-semibold mb-1">Business Name *</label>
@@ -1037,7 +1036,7 @@ export default function BillingHistoryPage() {
                 />
               </div>
 
-              {/* Optional Section: GST Registration Toggle */}
+              {/* GST Toggle */}
               <div className="pt-3 border-t border-white/10 mt-2">
                 <label className="flex items-center gap-2 cursor-pointer select-none py-1">
                   <input
@@ -1098,7 +1097,6 @@ export default function BillingHistoryPage() {
                 )}
               </div>
 
-              {/* Modal Footer */}
               <div className="flex justify-end items-center gap-3 pt-4 border-t border-white/10">
                 <button
                   type="button"
@@ -1153,51 +1151,25 @@ export default function BillingHistoryPage() {
 
 /* ─ Sub-components ─ */
 
-function UsageBar({ label, value, percent, barColor }) {
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ fontSize: 13, color: "#d1d5db", fontWeight: 500 }}>{label}</span>
-        <span style={{ fontSize: 13, color: "#9ca3af" }}>{value}</span>
-      </div>
-      <div style={{ height: 7, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-        <div style={{ height: "100%", borderRadius: 99, width: `${Math.max(percent, 0)}%`, background: barColor, transition: "width 0.6s ease" }} />
-      </div>
-    </div>
-  )
-}
-
 function StatusPill({ status }) {
   const normalized = String(status || "pending").toUpperCase()
-  const style =
-    normalized === "PAID" || normalized === "ACTIVE" || normalized === "SUCCESS"
-      ? { background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.25)", color: "#4ade80" }
-      : normalized === "FAILED"
-      ? { background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }
-      : { background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.25)", color: "#fbbf24" }
+  const isSuccess = normalized === "PAID" || normalized === "ACTIVE" || normalized === "SUCCESS"
+  const isFailed = normalized === "FAILED"
 
   return (
-    <span style={{ ...style, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, display: "inline-block" }}>
+    <span
+      className={`rounded-md px-2.5 py-1 text-[11px] font-semibold inline-block border ${
+        isSuccess
+          ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+          : isFailed
+          ? "bg-red-500/15 border-red-500/30 text-red-400"
+          : "bg-amber-500/15 border-amber-500/30 text-amber-400"
+      }`}
+    >
       {normalized === "PAID" || normalized === "SUCCESS" ? "Paid" : normalized === "ACTIVE" ? "Active" : normalized}
     </span>
   )
 }
-
-/* ─ Helpers ─ */
-const cardStyle = {
-  background: "#070012",
-  border: "0.43px solid rgba(157, 157, 157, 0.3)",
-  borderRadius: 16, 
-  padding: "16px 20px",
-}
-
-const skeletonStyle = (w, h) => ({
-  width: w,
-  height: h,
-  borderRadius: 10,
-  background: "rgba(255,255,255,0.06)",
-  animation: "pulse 1.5s ease-in-out infinite",
-})
 
 function titleCase(value) {
   return String(value || "")
