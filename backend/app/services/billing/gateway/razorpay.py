@@ -75,6 +75,53 @@ class RazorpayGateway(PaymentGateway):
         except Exception as e:
             raise ValueError(f"Unexpected payment gateway error: {str(e)}")
 
+    def _create_dynamic_plan(self, plan_config: BillingPlanConfig, workspace: Workspace) -> str:
+        from app.services.billing.gst_service import GSTService
+        from decimal import Decimal
+        from app.database import SessionLocal
+        from app.models.platform_setting import PlatformSetting
+        from app.services.platform_settings_service import clear_settings_cache
+
+        gst_calcs = GSTService.calculate_gst(
+            amount=Decimal(str(plan_config.amount)),
+            customer_state=workspace.billing_state,
+            customer_country=workspace.billing_country or "IN",
+            product_type="subscription",
+            db=None
+        )
+        total_amount = gst_calcs["total_amount"]
+
+        is_yearly = (plan_config.billing_cycle == "yearly")
+        plan_period = "yearly" if is_yearly else "monthly"
+        plan_data = self.client.plan.create(data={
+            "period": plan_period,
+            "interval": 1,
+            "item": {
+                "name": f"Auromind {plan_config.label} {'Annual' if is_yearly else 'Monthly'} Plan",
+                "amount": to_paise(total_amount),
+                "currency": "INR",
+                "description": plan_config.description or f"Subscription for {plan_config.label}"
+            }
+        })
+        plan_id = plan_data["id"]
+
+        try:
+            with SessionLocal() as db:
+                suffix = "_yearly" if is_yearly else ""
+                db_key = f"razorpay_{plan_config.key}{suffix}_plan_id"
+                setting = db.query(PlatformSetting).filter(PlatformSetting.key == db_key).first()
+                if setting:
+                    setting.value = plan_id
+                else:
+                    setting = PlatformSetting(key=db_key, value=plan_id, value_type="string")
+                    db.add(setting)
+                db.commit()
+            clear_settings_cache()
+        except Exception as db_err:
+            print(f"Warning: Failed to persist plan_id {plan_id} to settings DB: {db_err}")
+
+        return plan_id
+
     def create_subscription(
         self,
         plan_config: BillingPlanConfig,
@@ -83,60 +130,15 @@ class RazorpayGateway(PaymentGateway):
         user_email: str,
         user_name: str | None,
     ) -> dict[str, Any]:
+        if not self.public_key:
+            raise ValueError("Razorpay public key not configured")
+
         plan_id = plan_config.provider_plan_ids.get(self.provider)
         if not plan_id:
             try:
-                # Compute GST on the plan amount
-                from app.services.billing.gst_service import GSTService
-                from decimal import Decimal
-                gst_calcs = GSTService.calculate_gst(
-                    amount=Decimal(str(plan_config.amount)),
-                    customer_state=workspace.billing_state,
-                    customer_country=workspace.billing_country or "IN",
-                    product_type="subscription",
-                    db=None
-                )
-                total_amount = gst_calcs["total_amount"]
-
-                # Create plan dynamically in Razorpay with GST included
-                is_yearly = (plan_config.billing_cycle == "yearly")
-                plan_period = "yearly" if is_yearly else "monthly"
-                plan_data = self.client.plan.create(data={
-                    "period": plan_period,
-                    "interval": 1,
-                    "item": {
-                        "name": f"Auromind {plan_config.label} {'Annual' if is_yearly else 'Monthly'} Plan",
-                        "amount": to_paise(total_amount), # convert to paise
-                        "currency": "INR",
-                        "description": plan_config.description or f"Subscription for {plan_config.label}"
-                    }
-                })
-                plan_id = plan_data["id"]
-                
-                # Save to database
-                from app.database import SessionLocal
-                from app.models.platform_setting import PlatformSetting
-                from app.services.platform_settings_service import clear_settings_cache
-                
-                try:
-                    with SessionLocal() as db:
-                        suffix = "_yearly" if is_yearly else ""
-                        db_key = f"razorpay_{plan_config.key}{suffix}_plan_id"
-                        setting = db.query(PlatformSetting).filter(PlatformSetting.key == db_key).first()
-                        if setting:
-                            setting.value = plan_id
-                        else:
-                            setting = PlatformSetting(key=db_key, value=plan_id, value_type="string")
-                            db.add(setting)
-                        db.commit()
-                    clear_settings_cache()
-                except Exception as db_err:
-                    print(f"Warning: Failed to persist plan_id {plan_id} to settings DB: {db_err}")
+                plan_id = self._create_dynamic_plan(plan_config, workspace)
             except Exception as e:
                 raise ValueError(f"Razorpay plan is not configured for {plan_config.label} and dynamic creation failed: {str(e)}")
-
-        if not self.public_key:
-            raise ValueError("Razorpay public key not configured")
 
         is_yearly = (plan_config.billing_cycle == "yearly")
         payload = {
@@ -153,23 +155,35 @@ class RazorpayGateway(PaymentGateway):
         }
         try:
             subscription_data = self.client.subscription.create(payload)
-            return {
-                "provider": self.provider,
-                "subscription_id": subscription_data["id"],
-                "public_key": self.public_key,
-                "plan_reference": plan_id,
-                "prefill": {
-                    "email": user_email,
-                    "name": user_name or user_email,
-                },
-                "raw": subscription_data,
-            }
         except razorpay_errors.BadRequestError as e:
-            raise ValueError(f"Invalid subscription request: {str(e)}")
+            err_msg = str(e).lower()
+            # If the stored plan_id was stale/invalid on Razorpay, auto-heal by generating a new dynamic plan
+            if "invalid" in err_msg or "could not be found" in err_msg or "id provided" in err_msg:
+                try:
+                    new_plan_id = self._create_dynamic_plan(plan_config, workspace)
+                    payload["plan_id"] = new_plan_id
+                    plan_id = new_plan_id
+                    subscription_data = self.client.subscription.create(payload)
+                except Exception as retry_err:
+                    raise ValueError(f"Invalid subscription request and auto-creation failed: {str(retry_err)}")
+            else:
+                raise ValueError(f"Invalid subscription request: {str(e)}")
         except (razorpay_errors.GatewayError, razorpay_errors.ServerError) as e:
             raise ValueError(f"Razorpay gateway error: {str(e)}")
         except Exception as e:
             raise ValueError(f"Unexpected payment gateway error: {str(e)}")
+
+        return {
+            "provider": self.provider,
+            "subscription_id": subscription_data["id"],
+            "public_key": self.public_key,
+            "plan_reference": plan_id,
+            "prefill": {
+                "email": user_email,
+                "name": user_name or user_email,
+            },
+            "raw": subscription_data,
+        }
 
     def verify_payment(self, payload: dict[str, Any]) -> dict[str, str]:
         if "order_id" in payload or "razorpay_order_id" in payload:
