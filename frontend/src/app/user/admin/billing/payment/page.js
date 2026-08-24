@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import PricingPage from "@/components/PricingPage"
 import PaymentSummaryModal from "@/components/billing/PaymentSummaryModal"
+import PaymentSuccessModal from "@/components/billing/PaymentSuccessModal"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 
@@ -26,6 +27,10 @@ function BillingContent() {
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+
+  // Success Modal State
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [successDetails, setSuccessDetails] = useState(null)
 
   useEffect(() => {
     if (!workspaceId) {
@@ -124,12 +129,26 @@ function BillingContent() {
               throw new Error("Payment not activated")
             }
 
-            if (source === 'chat') {
-              router.push('/user/admin/ai')  
-            } else {
-              const updated = await api.getBillingStatus(workspaceId)
-              setCurrentPlan(updated.current_plan)
-            }
+            const isPro = planKey === "pro"
+            const basePrice = isPro ? 199 : 999
+            const cgst = Number((basePrice * 0.09).toFixed(2))
+            const sgst = Number((basePrice * 0.09).toFixed(2))
+            const totalPaid = (basePrice + cgst + sgst).toFixed(2)
+
+            setSuccessDetails({
+              planTitle: isPro ? "Pro Plan Subscription" : "Solo Smart Subscription",
+              amountPaid: totalPaid,
+              billingCycle: billingCycle === "yearly" ? "Yearly" : "Monthly",
+              nextBillingDate: new Date(Date.now() + (billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
+            })
+            setIsSuccessModalOpen(true)
+
+            const updated = await api.getBillingStatus(workspaceId)
+            setCurrentPlan(updated.current_plan)
           } catch (error) {
             console.error(LOG_PREFIX, "Payment verification failed:", error)
           }
@@ -138,6 +157,22 @@ function BillingContent() {
     } catch (error) {
       console.error(LOG_PREFIX, "Unable to start upgrade:", error)
       setIsProcessingPayment(false)
+    }
+  }
+
+  const handleCloseSuccessModal = () => {
+    setIsSuccessModalOpen(false)
+    if (source === 'chat') {
+      router.push('/user/admin/ai')
+    }
+  }
+
+  const handleGoToDashboard = () => {
+    setIsSuccessModalOpen(false)
+    if (source === 'chat') {
+      router.push('/user/admin/ai')
+    } else {
+      router.push('/user/admin/dashboard')
     }
   }
 
@@ -156,6 +191,13 @@ function BillingContent() {
         itemDetails={selectedPlanDetails}
         onProceedToPay={handleConfirmPay}
         isProcessing={isProcessingPayment}
+      />
+
+      <PaymentSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={handleCloseSuccessModal}
+        paymentDetails={successDetails}
+        onGoToDashboard={handleGoToDashboard}
       />
     </>
   )
