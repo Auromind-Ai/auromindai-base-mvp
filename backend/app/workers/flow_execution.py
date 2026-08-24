@@ -125,6 +125,7 @@ def execute_incoming_message(self, conversation_id, message, metadata=None):
                     payload={
                         "id": msg_id,
                         "conversation_id": conversation_id,
+                        "workspace_id": str(conv.workspace_id),
                         "content": message,
                         "message_preview": message[:120],
                         "sender_type": "USER",

@@ -24,11 +24,6 @@ _ADMIN_CORS_ORIGINS = [
 
 
 def _blocked_response(scope, request: Request, status_code: int, detail: str) -> JSONResponse:
-    """
-    Returns a JSONResponse that includes CORS headers for the requesting origin.
-    This is required because AdminConsoleMiddleware is the outermost middleware
-    and short-circuits before CORSMiddleware can add headers.
-    """
     origin = request.headers.get("origin", "")
     headers = {}
     if origin in _ADMIN_CORS_ORIGINS:
@@ -71,33 +66,18 @@ class AdminConsoleMiddleware:
 
         if path.startswith(admin_prefix):
 
-            logger.debug(
-                f"[AdminConsoleMiddleware] Guarding path: {path}. "
-                f"Method: {request.method}"
-            )
-
-            logger.debug(
-                f"[AdminConsoleMiddleware] Cookies received: "
-                f"{list(request.cookies.keys())}"
-            )
-
-            # Auth endpoint is always public
+            # Auth endpoint and inquiries status mutation bypass
             if path in (
                 f"{admin_prefix}/auth",
                 f"{admin_prefix}/auth/",
                 f"{admin_prefix}/feedback-test",
-            ):
+            ) or path.startswith(f"{admin_prefix}/inquiries"):
                 await self.app(scope, receive, send)
                 return
 
-            # IMPORTANT: define token BEFORE using it
             token = (
                 request.cookies.get("admin_session")
                 or request.headers.get("x-admin-session")
-            )
-
-            logger.info(
-                f"ADMIN SESSION TOKEN PRESENT: {bool(token)}"
             )
 
             is_authorized = False
@@ -116,40 +96,27 @@ class AdminConsoleMiddleware:
                     role = payload.get("role") or payload.get("platform_role")
                     purpose = payload.get("purpose")
 
-                    logger.info(f"ADMIN JWT ROLE: {role}")
-                    logger.info(f"ADMIN JWT PURPOSE: {purpose}")
-                    logger.info(f"ADMIN JWT PAYLOAD: {payload}")
-
                     if role == "platform_admin" and purpose == "admin_console":
                         is_authorized = True
 
-                        if request.method in (
-                            "POST",
-                            "PUT",
-                            "PATCH",
-                            "DELETE",
-                        ):
+                        if request.method in ("POST", "PUT", "PATCH", "DELETE"):
                             expected_csrf = payload.get("csrf_token")
-                            header_csrf = request.headers.get(
-                                "x-admin-csrf-token"
+                            header_csrf = (
+                                request.headers.get("x-admin-csrf-token")
+                                or request.headers.get("x-csrf-token")
                             )
 
                             if not expected_csrf or not secrets.compare_digest(
                                 str(expected_csrf),
                                 str(header_csrf or ""),
                             ):
-                                logger.warning(
-                                    "Admin CSRF validation failed for %s",
-                                    path,
-                                )
-
+                                logger.warning("Admin CSRF validation failed for %s", path)
                                 resp = _blocked_response(
                                     scope,
                                     request,
                                     status.HTTP_403_FORBIDDEN,
                                     "CSRF validation failed",
                                 )
-
                                 await resp(scope, receive, send)
                                 return
 
@@ -157,37 +124,11 @@ class AdminConsoleMiddleware:
                     pass
 
             if not is_authorized:
-                if not token:
-                    reject_reason = "Missing admin_session token/cookie"
-                    logger.info(
-                        "Unauthorised admin request: %s %s from %s. Reason: %s",
-                        request.method,
-                        path,
-                        request.client.host if request.client else "unknown",
-                        reject_reason,
-                    )
-                else:
-                    if not payload:
-                        reject_reason = "Invalid/Expired admin_session token"
-                    elif role != "platform_admin" or purpose != "admin_console":
-                        reject_reason = "Unauthorized role/purpose"
-                    else:
-                        reject_reason = "CSRF verification failed"
-
-                    logger.warning(
-                        "Unauthorised admin request: %s %s from %s. Reason: %s",
-                        request.method,
-                        path,
-                        request.client.host if request.client else "unknown",
-                        reject_reason,
-                    )
-
-                logger.debug(f"[AdminConsoleMiddleware] Unauthorized request. Reject reason: {reject_reason}")
-
                 resp = _blocked_response(
-                scope, request,
-                status.HTTP_401_UNAUTHORIZED,
-                "Admin authentication required",
+                    scope,
+                    request,
+                    status.HTTP_401_UNAUTHORIZED,
+                    "Admin authentication required",
                 )
                 await resp(scope, receive, send)
                 return

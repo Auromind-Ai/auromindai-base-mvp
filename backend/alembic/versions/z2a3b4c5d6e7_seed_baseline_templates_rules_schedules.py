@@ -246,6 +246,27 @@ INITIAL_TEMPLATES = [
         "message": "Hi {{user_name}},\n\nLead '{{lead_name}}' has had no activity for {{days_inactive}} days.\n\nSuggested Action: {{suggested_action}}\n\nClick below to send a follow-up message.",
         "is_active": True
     },
+    # 3. Lead Management (Append these two at the end of Lead Management)
+    {
+        "category": "Lead Management",
+        "template_key": "contact_inquiry_user_ack",
+        "name": "Contact Inquiry Confirmation (User)",
+        "channel": "both",
+        "title": "We Received Your Request 🚀",
+        "subject": "Thank you for reaching out, {{user_name}}! - Auromind",
+        "message": "Hi {{user_name}},\n\nThank you for reaching out to us regarding our Enterprise & Custom solutions. We have safely received your requirement:\n\n\"{{requirement}}\"\n\nOur team is reviewing your requirements and will get back to you within 24 business hours.",
+        "is_active": True
+    },
+    {
+        "category": "Lead Management",
+        "template_key": "contact_inquiry_sales_alert",
+        "name": "New Enterprise Lead Alert (Sales)",
+        "channel": "both",
+        "title": "🔥 New Enterprise Lead Received",
+        "subject": "🔥 New Enterprise Lead: {{user_name}} ({{company}})",
+        "message": "A new enterprise inquiry has been submitted on the Pricing Page.\n\nLead Details:\n• Name: {{user_name}}\n• Email: {{email}}\n• Phone: {{phone}}\n• Company: {{company}}\n• Budget: {{budget}}\n\nRequirement Summary:\n{{requirement}}",
+        "is_active": True
+    },
 
     # 4. Broadcast & Workflow
     {

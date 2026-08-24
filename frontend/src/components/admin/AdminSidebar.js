@@ -29,7 +29,8 @@ import {
   Key,
   Settings,
   LayoutTemplate,
-  Bell
+  Bell,
+  PhoneCall
 } from "lucide-react"
 
 export default function AdminSidebar() {
@@ -55,6 +56,7 @@ export default function AdminSidebar() {
     { name: "Templates", href: "/admin/templates", icon: LayoutTemplate },
     { name: "Notifications & Schedules", href: "/admin/notification-templates", icon: Bell },
     { name: "Feedback", href: "/admin/feedback", icon: MessageSquare },
+    { name: "Contact Inquiries", href: "/admin/inquiries", icon: PhoneCall },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ]
 

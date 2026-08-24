@@ -426,6 +426,7 @@ export default function AuromindAIPage() {
             skipNextSessionFetchRef.current = false;
             return;
         }
+        if (isStreamActiveRef.current) return;
         const fetchMessages = async () => {
             setIsInitializing(true);
             try {
@@ -535,17 +536,19 @@ export default function AuromindAIPage() {
         pollingRef.current = setInterval(async () => {
             try {
                 const history = await api.getSessionMessages(sessionId);
-                const mapped = history.map(m => ({
-                    role: m.role,
-                    content: m.content,
-                    isStreaming: false,
-                    generationStatus: m.status || 'COMPLETED',
-                }));
-                setMessages(mapped);
-                const stillActive = mapped.some(m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING');
-                if (!stillActive) {
-                    clearInterval(pollingRef.current);
-                    pollingRef.current = null;
+                if (history && history.length > 0) {
+                    const mapped = history.map(m => ({
+                        role: m.role,
+                        content: m.content,
+                        isStreaming: false,
+                        generationStatus: m.status || 'COMPLETED',
+                    }));
+                    setMessages(mapped);
+                    const stillActive = mapped.some(m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING');
+                    if (!stillActive) {
+                        clearInterval(pollingRef.current);
+                        pollingRef.current = null;
+                    }
                 }
             } catch (_) {}
         }, 2000);
@@ -586,21 +589,23 @@ export default function AuromindAIPage() {
                 }
             } else if (document.visibilityState === 'visible') {
                 const activeSid = currentSessionIdRef.current;
-                if (activeSid) {
+                if (activeSid && !isStreamActiveRef.current) {
                     try {
                         const history = await api.getSessionMessages(activeSid);
-                        const mapped = history.map(m => ({
-                            role: m.role,
-                            content: m.content,
-                            isStreaming: false,
-                            generationStatus: m.status || 'COMPLETED',
-                        }));
-                        setMessages(mapped);
-                        const hasActive = mapped.some(
-                            m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING'
-                        );
-                        if (hasActive) {
-                            startPollingSession(activeSid);
+                        if (history && history.length > 0) {
+                            const mapped = history.map(m => ({
+                                role: m.role,
+                                content: m.content,
+                                isStreaming: false,
+                                generationStatus: m.status || 'COMPLETED',
+                            }));
+                            setMessages(mapped);
+                            const hasActive = mapped.some(
+                                m => m.generationStatus === 'GENERATING' || m.generationStatus === 'PENDING'
+                            );
+                            if (hasActive) {
+                                startPollingSession(activeSid);
+                            }
                         }
                     } catch (err) {
                         console.error("Failed to sync session messages on tab focus:", err);
@@ -750,13 +755,25 @@ export default function AuromindAIPage() {
                             isAnimatingRef.current = false;
                             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                             const errStr = String(data.error).toLowerCase();
-                            const isQuotaOrUpgrade = data.error.includes('429') || errStr.includes('quota') || errStr.includes('upgrade') || errStr.includes('limit') || errStr.includes('insufficient') || errStr.includes('pro') || errStr.includes('plan') || errStr.includes('billing');
+                            const isQuotaOrUpgrade = errStr.includes('insufficient quota') || 
+                                                     errStr.includes('upgrade your plan') || 
+                                                     errStr.includes('upgrade plan') || 
+                                                     errStr.includes('insufficient credits') || 
+                                                     errStr.includes('quota exceeded') || 
+                                                     errStr.includes('billing_error') ||
+                                                     errStr.includes('enable overages');
                             
                             if (isQuotaOrUpgrade) {
                                 setShowUpgradeModal(true);
-                                setMessages(prev => prev.filter((msg, i) => i !== prev.length - 1));
+                                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? {
+                                    ...msg,
+                                    content: "You have reached your credit limit. Please upgrade your plan or add credits to continue.",
+                                    isError: true,
+                                    isQuotaError: true,
+                                    isStreaming: false
+                                } : msg));
                             } else {
-                                const errorMsg = `Error: ${data.error}`;
+                                const errorMsg = data.error.startsWith('Error:') ? data.error : `Error: ${data.error}`;
                                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: errorMsg, isError: true, isStreaming: false } : msg));
                             }
                             setIsLoading(false); return;
@@ -767,11 +784,23 @@ export default function AuromindAIPage() {
                             isAnimatingRef.current = false;
                             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
                             const lineStr = line.toLowerCase();
-                            const isQuotaOrUpgrade = line.includes('429') || lineStr.includes('quota') || lineStr.includes('upgrade') || lineStr.includes('limit') || lineStr.includes('insufficient') || lineStr.includes('pro') || lineStr.includes('plan') || lineStr.includes('billing');
+                            const isQuotaOrUpgrade = lineStr.includes('insufficient quota') || 
+                                                     lineStr.includes('upgrade your plan') || 
+                                                     lineStr.includes('upgrade plan') || 
+                                                     lineStr.includes('insufficient credits') || 
+                                                     lineStr.includes('quota exceeded') || 
+                                                     lineStr.includes('billing_error') ||
+                                                     lineStr.includes('enable overages');
                             
                             if (isQuotaOrUpgrade) {
                                 setShowUpgradeModal(true);
-                                setMessages(prev => prev.filter((msg, i) => i !== prev.length - 1));
+                                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? {
+                                    ...msg,
+                                    content: "You have reached your credit limit. Please upgrade your plan or add credits to continue.",
+                                    isError: true,
+                                    isQuotaError: true,
+                                    isStreaming: false
+                                } : msg));
                             } else {
                                 setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: `Error: ${line}`, isError: true, isStreaming: false } : msg));
                             }
@@ -790,12 +819,26 @@ export default function AuromindAIPage() {
             isStreamActiveRef.current = false;
             isAnimatingRef.current = false;
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-            const errStr = String(err?.message || err?.data?.detail || err).toLowerCase();
-            const isQuotaOrUpgrade = err?.status === 402 || err?.status === 403 || err?.status === 429 || errStr.includes('quota') || errStr.includes('upgrade') || errStr.includes('limit') || errStr.includes('insufficient') || errStr.includes('billing') || errStr.includes('pro');
+            const errDetail = err?.data?.detail || err?.data?.message || err?.message || '';
+            const errStr = String(errDetail || err).toLowerCase();
+            const isQuotaOrUpgrade = err?.status === 402 || 
+                                     err?.data?.error === 'billing_error' ||
+                                     errStr.includes('insufficient quota') || 
+                                     errStr.includes('upgrade your plan') || 
+                                     errStr.includes('upgrade plan') || 
+                                     errStr.includes('insufficient credits') || 
+                                     errStr.includes('quota exceeded') || 
+                                     errStr.includes('enable overages');
 
             if (isQuotaOrUpgrade) {
                 setShowUpgradeModal(true);
-                setMessages(prev => prev.filter((msg, i) => i !== prev.length - 1));
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? {
+                    ...msg,
+                    content: "You have reached your credit limit. Please upgrade your plan or add credits to continue.",
+                    isError: true,
+                    isQuotaError: true,
+                    isStreaming: false
+                } : msg));
             } else if (err.name === 'AbortError') {
                 // Silently handled
             } else if (err.status === 409 || (err.data && err.data.detail === 'previous_generation_stopping')) {
@@ -807,7 +850,10 @@ export default function AuromindAIPage() {
                 } : msg));
             } else {
                 console.warn('[AI Chat Error]:', err?.message || err);
-                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: "Error connecting to Orbionagents. Please try again.", isError: true, isStreaming: false } : msg));
+                const displayMsg = errDetail && typeof errDetail === 'string'
+                    ? (errDetail.startsWith('Error:') ? errDetail : `Error: ${errDetail}`)
+                    : "Error connecting to AI services. Please try again.";
+                setMessages(prev => prev.map((msg, i) => i === prev.length - 1 ? { ...msg, content: displayMsg, isError: true, isStreaming: false } : msg));
             }
         } finally {
             readerRef.current = null;           // reader is done — release the ref
@@ -1372,7 +1418,7 @@ export default function AuromindAIPage() {
                                                                             >
                                                                                 {msg.content}
                                                                             </ReactMarkdown>
-                                                                            {msg.isError && (
+                                                                            {msg.isError && msg.isQuotaError && (
                                                                                 <div className="mt-2.5">
                                                                                     <button
                                                                                         onClick={() => setShowUpgradeModal(true)}

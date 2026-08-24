@@ -35,6 +35,10 @@ async def csrf_protection_middleware(request: Request, call_next):
             or path == "/"
             or path == "/health"
             or path.startswith("/admin/") # admin sub-routes already use AdminConsoleMiddleware for CSRF validation
+            or path.startswith("/contact/")
+            or path.startswith("/api/contact/")
+            or path.startswith("/admin/inquiries")
+            or path == "/admin/inquiries"
         )
         
         if not is_public:

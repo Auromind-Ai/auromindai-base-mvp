@@ -109,7 +109,7 @@ const RULE_CATEGORIES = [
   },
   {
     name: "Lead Management",
-    events: ["lead.created", "lead.assigned", "lead.sla_breached", "lead.message_received", "lead.high_intent", "lead.converted", "lead.inactive_reminder"]
+    events: ["lead.created", "lead.assigned", "lead.sla_breached", "lead.message_received", "lead.high_intent", "lead.converted", "lead.inactive_reminder", "contact.inquiry_received", "contact.inquiry_sales_alert",]
   },
   {
     name: "Automated Reports",
@@ -473,9 +473,20 @@ export default function NotificationManagerPage() {
   const handleOpenEditTemplate = (tpl) => {
     setSelectedTemplate(tpl);
     const contract = getContractForTemplate(tpl.template_key);
-    const defRoute = contract?.action_route || (tpl.template_key?.includes("verification") ? "/verify-otp" : tpl.template_key?.includes("payment") ? "/billing" : "/dashboard");
-    const defLabel = contract?.action_label || (tpl.template_key?.includes("verification") ? "Verify Email" : tpl.template_key?.includes("payment") ? "View Invoices" : "Open Application");
-
+    const defRoute = contract?.action_route || (
+      tpl.template_key?.includes("sales_alert") ? "/admin/inquiries" :
+      tpl.template_key?.includes("inquiry") ? "/pricing" :
+      tpl.template_key?.includes("verification") ? "/verify-otp" :
+      tpl.template_key?.includes("payment") ? "/billing" :
+      "/dashboard"
+    );
+    const defLabel = contract?.action_label || (
+      tpl.template_key?.includes("sales_alert") ? "View Inquiries" :
+      tpl.template_key?.includes("inquiry") ? "View Pricing" :
+      tpl.template_key?.includes("verification") ? "Verify Email" :
+      tpl.template_key?.includes("payment") ? "View Invoices" :
+      "Open Dashboard"
+    );
     setTemplateForm({
       name: tpl.name || "",
       category: tpl.category || "User & Onboarding",

@@ -27,12 +27,16 @@ async def websocket_endpoint(
     websocket: WebSocket,
     user_id: str,
     token: str | None = Query(None, description="JWT access token"),
+    workspace_id: str | None = Query(None, description="Active workspace ID"),
 ):
-    #  1. Authenticate
+    # 1. Authenticate
     actual_token = token
     if not actual_token:
-        # Check websocket cookies dict
-        actual_token = websocket.cookies.get("auth_token")
+        actual_token = (
+            websocket.cookies.get("auth_token")
+            or websocket.cookies.get("access_token")
+            or websocket.cookies.get("token")
+        )
 
     if not actual_token:
         # Check raw Cookie header if cookies dict is empty
@@ -40,8 +44,10 @@ async def websocket_endpoint(
         import http.cookies
         try:
             simple_cookie = http.cookies.SimpleCookie(cookie_header)
-            if "auth_token" in simple_cookie:
-                actual_token = simple_cookie["auth_token"].value
+            for c_key in ("auth_token", "access_token", "token"):
+                if c_key in simple_cookie:
+                    actual_token = simple_cookie[c_key].value
+                    break
         except Exception:
             pass
 
@@ -56,44 +62,55 @@ async def websocket_endpoint(
         logger.error(f"WebSocket auth error: token subject ({token_user_id}) mismatch for user {user_id}")
         await websocket.close(code=4001, reason="Unauthorized")
         return
-    workspace_id: str | None = payload.get("workspace_id")
-    if not workspace_id:
-        db = SessionLocal()
-        try:
-            from app.models.workspace import WorkspaceMember
-            membership = (
-                db.query(WorkspaceMember.workspace_id)
-                .filter(WorkspaceMember.user_id == token_user_id)
-                .first()
-            )
-            if membership:
-                workspace_id = str(membership[0])
-        except Exception as ws_err:
-            logger.warning(f"WebSocket workspace fallback lookup error: {ws_err}")
-        finally:
-            db.close()
 
-    if not workspace_id:
+    # Find user's workspace(s)
+    resolved_workspace_id: str | None = workspace_id or payload.get("workspace_id")
+    user_workspaces: list[str] = []
+    db = SessionLocal()
+    try:
+        from app.models.workspace import WorkspaceMember
+        memberships = (
+            db.query(WorkspaceMember.workspace_id)
+            .filter(WorkspaceMember.user_id == token_user_id)
+            .all()
+        )
+        user_workspaces = [str(m[0]) for m in memberships if m[0]]
+        if not resolved_workspace_id and user_workspaces:
+            resolved_workspace_id = user_workspaces[0]
+    except Exception as ws_err:
+        logger.warning(f"WebSocket workspace lookup error: {ws_err}")
+    finally:
+        db.close()
+
+    if not resolved_workspace_id and not user_workspaces:
         logger.error(f"WebSocket auth error: Workspace context missing for user {user_id}")
         await websocket.close(code=4001, reason="Workspace missing")
         return
 
-    #  2. Register connection 
-    await manager.connect(user_id, websocket, workspace_id=workspace_id)
+    primary_ws = resolved_workspace_id or (user_workspaces[0] if user_workspaces else "")
 
-    #  3. Subscribe to Redis channel
+    # 2. Register connection
+    await manager.connect(user_id, websocket, workspace_id=primary_ws)
+
+    # 3. Subscribe to Redis channels for user and all their active workspaces
     user_redis_channel = user_channel(user_id)
-    workspace_redis_channel = workspace_channel(workspace_id) if workspace_id else None
     pubsub_service = redis_pubsub.pubsub_service
     if pubsub_service:
         await pubsub_service.subscribe(user_redis_channel)
-        if workspace_redis_channel:
-            await pubsub_service.subscribe(workspace_redis_channel)
+        if primary_ws:
+            await pubsub_service.subscribe(workspace_channel(primary_ws))
+        for ws_item in user_workspaces:
+            if ws_item != primary_ws:
+                await pubsub_service.subscribe(workspace_channel(ws_item))
 
-    #  4. Confirm connection to client
+    # 4. Confirm connection to client
     await websocket.send_json({
         "event_type": "connection_established",
-        "payload": {"user_id": user_id, "workspace_id": workspace_id},
+        "payload": {
+            "user_id": user_id,
+            "workspace_id": primary_ws,
+            "workspaces": user_workspaces,
+        },
     })
 
     #  5. Start heartbeat 
@@ -124,24 +141,24 @@ async def websocket_endpoint(
     except Exception as exc:
         logger.warning("WebSocket error | user=%s | %s", user_id, exc)
     finally:
-        #  7. Cleanup
-        heartbeat.cancel()
+        # 7. Cleanup
+        if 'heartbeat' in locals() and heartbeat:
+            heartbeat.cancel()
         removed_conversations = manager.disconnect(user_id, websocket)
 
-      
-        if not manager.is_user_connected(user_id) and pubsub_service:
-            await pubsub_service.unsubscribe(user_redis_channel)
-        if (
-            workspace_id
-            and not manager.is_workspace_connected(workspace_id)
-            and pubsub_service
-            and workspace_redis_channel
-        ):
-            await pubsub_service.unsubscribe(workspace_redis_channel)
-        if pubsub_service:
+        pubsub_svc = redis_pubsub.pubsub_service
+        if pubsub_svc:
+            if not manager.is_user_connected(user_id):
+                await pubsub_svc.unsubscribe(user_channel(user_id))
+
+            subscribed_workspaces = set([w for w in ([primary_ws] + user_workspaces) if w])
+            for ws_item in subscribed_workspaces:
+                if not manager.is_workspace_connected(ws_item):
+                    await pubsub_svc.unsubscribe(workspace_channel(ws_item))
+
             for conv_id in removed_conversations:
                 if not manager.is_conversation_subscribed(conv_id):
-                    await pubsub_service.unsubscribe(conversation_channel(conv_id))
+                    await pubsub_svc.unsubscribe(conversation_channel(conv_id))
 
         logger.info("WebSocket cleanup done | user=%s", user_id)
 

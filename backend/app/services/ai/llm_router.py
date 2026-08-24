@@ -15,11 +15,11 @@ from pydantic import ValidationError
 import time
 
 def is_retryable_provider_error(exc: Exception) -> bool:
-    # If it is a configuration or coding or database error, it is NOT retryable.
-    # Specifically check for standard programming/data exceptions.
-    if isinstance(exc, ValueError):
-        return False
+    # Non-retryable programming/schema/validation errors
     if isinstance(exc, (TypeError, AttributeError, NameError, KeyError, IndexError, ValidationError, SQLAlchemyError)):
+        return False
+    # If it is an AIProviderError with a 400 Bad Request (e.g. prompt too long), do not retry
+    if isinstance(exc, AIProviderError) and getattr(exc, "status_code", 500) == 400:
         return False
     return True
 
@@ -39,60 +39,73 @@ class LLMRouter:
         self._cache_time = 0
         self._cache_ttl = 10   
 
+    def _normalize_provider_error(self, provider_err: Exception, provider: str, model_name: str) -> Exception:
+        if isinstance(provider_err, AIProviderError):
+            return provider_err
+        err_msg = str(provider_err).lower()
+        # 1. Authentication / Invalid key errors
+        if "invalid api key" in err_msg or "invalid_api_key" in err_msg or "401" in err_msg or "unauthenticated" in err_msg or "authentication" in err_msg:
+            return AIProviderError(f"{provider.capitalize()} API key is invalid or expired. Please update it in Admin Settings.", status_code=503)
+        # 2. Rate limit / Quota errors
+        if "429" in err_msg or "rate limit" in err_msg or "tokens per minute" in err_msg or "tpm" in err_msg:
+            return AIProviderError(f"AI Provider '{provider}' rate limit reached. Please try again shortly.", status_code=429)
+        # 3. Model not found
+        if "model_not_found" in err_msg or "does not exist" in err_msg or "model not found" in err_msg:
+            return AIProviderError(f"Model '{model_name}' is not recognized or not available on provider '{provider}'.", status_code=400)
+        # 4. Clean user-friendly message
+        clean_detail = str(provider_err).splitlines()[-1] if str(provider_err).strip() else "Service unavailable"
+        if len(clean_detail) > 120:
+            clean_detail = clean_detail[:120] + "..."
+        return AIProviderError(f"AI service ({provider}) is temporarily unavailable: {clean_detail}", status_code=503)
+
     def _get_api_key(self, env_name: str, db_key: str) -> str:
         key = config_service.get(db_key)
         if key and isinstance(key, str) and key.strip():
             return key
-        raise Exception(f"{db_key} is not set in ConfigService")
+        raise AIProviderError(f"API key '{db_key}' is not configured or is empty.", status_code=503)
 
     def _get_config(self, feature_key: str, experience_level: str):
         db = SessionLocal()
         try:
             service = ModelConfigService(db)
-            config = service.get_config_for_feature(feature_key, experience_level)
-            return config
+            return service.get_config_for_feature(feature_key, experience_level)
         finally:
             db.close()
 
-    async def _execute_with_config(self, prompt: str, config: dict, media_data: bytes = None, mime_type: str = None, system_prompt: Optional[str] = None, structured_output: bool = False):
+    async def _execute_with_config(self, prompt, config, media_data: bytes = None, mime_type: str = None, system_prompt: Optional[str] = None, structured_output: bool = False):
         provider = config["provider"]
         try:
             if provider == "claude":
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "ANTHROPIC_API_KEY"
                 if not config_service.get("anthropic_api_key"):
-                    raise Exception("Claude key missing")
+                    raise AIProviderError("Anthropic API key is not configured.", status_code=503)
                 return await self._claude_call(prompt, config, system_prompt=system_prompt, structured_output=structured_output)
 
             elif provider == "openai":
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "OPENAI_API_KEY"
                 if not config_service.get("openai_api_key"):
-                    raise Exception("OpenAI key missing")
+                    raise AIProviderError("OpenAI API key is not configured.", status_code=503)
                 return await self._openai_call(prompt, config, media_data, mime_type, system_prompt=system_prompt, structured_output=structured_output)
 
             elif provider == "gemini":
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "GOOGLE_API_KEY"
                 if not config_service.get("google_api_key"):
-                    raise Exception("Gemini key missing")
+                    raise AIProviderError("Google Gemini API key is not configured.", status_code=503)
                 return await self._gemini_call(prompt, config, media_data, mime_type, system_prompt=system_prompt, structured_output=structured_output)
 
             elif provider == "groq":
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "GROQ_API_KEY"
                 if not config_service.get("groq_api_key"):
-                    raise Exception("Groq key missing")
+                    raise AIProviderError("Groq API key is not configured.", status_code=503)
                 return await self._groq_call(prompt, config, system_prompt=system_prompt, structured_output=structured_output)
             else:
                 raise ValueError(f"Unknown provider '{provider}'")
         except Exception as provider_err:
-            err_msg = str(provider_err).lower()
-            is_rate_limit = "rate" in err_msg or "limit" in err_msg or "429" in err_msg
-            # Catch model not found or invalid model errors from SDKs
-            if not is_rate_limit and ("not found" in err_msg or "model" in err_msg or "invalid" in err_msg or "bad_request" in err_msg):
-                raise ValueError(f"Provider API Configuration Error: Model '{config['model']}' not recognized by provider '{provider}'. Details: {provider_err}")
-            raise provider_err
+            raise self._normalize_provider_error(provider_err, provider, config.get("model", "unknown"))
 
     async def generate(self, prompt: str, model: str = "auto", feature_key: str = "chat", media_data: bytes = None, mime_type: str = None, config: dict = None, system_prompt: Optional[str] = None, structured_output: bool = False):
         try:
@@ -125,11 +138,12 @@ class LLMRouter:
 
             client = genai.Client(api_key=api_key)
 
-            contents = [prompt]
+            parts = [genai_types.Part.from_text(text=prompt)]
             if media_data and mime_type:
-                contents.append(
+                parts.append(
                     genai_types.Part.from_bytes(data=media_data, mime_type=mime_type)
                 )
+            contents = [genai_types.Content(role="user", parts=parts)]
 
             generation_config = genai_types.GenerateContentConfig(
                 temperature=config["temperature"],
@@ -383,7 +397,7 @@ class LLMRouter:
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "ANTHROPIC_API_KEY"
                 if not config_service.get("anthropic_api_key"):
-                    raise Exception("Claude key missing")
+                    raise AIProviderError("Anthropic API key is not configured.", status_code=503)
                 async for chunk in self._claude_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
 
@@ -391,7 +405,7 @@ class LLMRouter:
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "OPENAI_API_KEY"
                 if not config_service.get("openai_api_key"):
-                    raise Exception("OpenAI key missing")
+                    raise AIProviderError("OpenAI API key is not configured.", status_code=503)
                 async for chunk in self._openai_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
 
@@ -399,7 +413,7 @@ class LLMRouter:
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "GOOGLE_API_KEY"
                 if not config_service.get("google_api_key"):
-                    raise Exception("Gemini key missing")
+                    raise AIProviderError("Google Gemini API key is not configured.", status_code=503)
                 async for chunk in self._gemini_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
 
@@ -407,17 +421,13 @@ class LLMRouter:
                 if not config.get("api_key_env"):
                     config["api_key_env"] = "GROQ_API_KEY"
                 if not config_service.get("groq_api_key"):
-                    raise Exception("Groq key missing")
+                    raise AIProviderError("Groq API key is not configured.", status_code=503)
                 async for chunk in self._groq_call_stream(prompt, config, system_prompt=system_prompt, history=history):
                     yield chunk
             else:
                 raise ValueError(f"Unknown provider '{provider}'")
         except Exception as provider_err:
-            err_msg = str(provider_err).lower()
-            is_rate_limit = "rate" in err_msg or "limit" in err_msg or "429" in err_msg
-            if not is_rate_limit and ("not found" in err_msg or "model" in err_msg or "invalid" in err_msg or "bad_request" in err_msg):
-                raise ValueError(f"Provider API Configuration Error: Model '{config['model']}' not recognized by provider '{provider}'. Details: {provider_err}")
-            raise provider_err
+            raise self._normalize_provider_error(provider_err, provider, config.get("model", "unknown"))
 
     async def _openai_call_stream(self, prompt, config, system_prompt: Optional[str] = None, history: Optional[list] = None):
         try:
@@ -578,9 +588,22 @@ class LLMRouter:
             contents = []
             if history:
                 for h in history:
-                    role = "user" if h.role == "user" else "model"
-                    contents.append({"role": role, "parts": [h.content]})
-            contents.append({"role": "user", "parts": [prompt]})
+                    role_val = getattr(h, "role", None) or (h.get("role") if isinstance(h, dict) else "user")
+                    role = "user" if role_val == "user" else "model"
+                    content_val = getattr(h, "content", None) or (h.get("content") if isinstance(h, dict) else str(h))
+                    if content_val:
+                        contents.append(
+                            genai_types.Content(
+                                role=role,
+                                parts=[genai_types.Part.from_text(text=content_val)]
+                            )
+                        )
+            contents.append(
+                genai_types.Content(
+                    role="user",
+                    parts=[genai_types.Part.from_text(text=prompt)]
+                )
+            )
             generation_config = genai_types.GenerateContentConfig(
                 temperature=config["temperature"],
                 max_output_tokens=config["max_tokens"],

@@ -1937,22 +1937,17 @@ function InboxContent() {
                         setLastMessageMap(prev => ({ ...prev, [eventConversationId]: msgContent }));
                     }
 
-                    // Duplicate protection check
-                    if (msgId && isMessageAlreadyProcessed(msgId)) {
-                        console.log("⚠️ Ignored duplicate message ID:", msgId);
-                        return;
-                    }
-                    if (msgId) {
-                        markMessageAsProcessed(msgId);
-                    }
-
                     // Genuine NEW incoming message from customer
                     const isExplicitOutbound = msgSender.includes('agent') || msgSender.includes('ai') || msgSender.includes('system') || msgData.direction === 'outbound';
                     const isExplicitInbound = msgSender.includes('user') || msgSender.includes('customer') || msgSender.includes('lead') || msgSender.includes('contact') || msgData.direction === 'inbound';
                     const isIncoming = isExplicitInbound || (!isExplicitOutbound && !msgSender);
 
                     if (isIncoming) {
-                        playNotificationSound();
+                        // Play sound only if not already played for this message ID
+                        if (!msgId || !isMessageAlreadyProcessed(msgId)) {
+                            if (msgId) markMessageAsProcessed(msgId);
+                            playNotificationSound();
+                        }
 
                         const isCurrentlyActive = leadRef.current?.id === eventConversationId;
                         if (!isCurrentlyActive && eventConversationId) {

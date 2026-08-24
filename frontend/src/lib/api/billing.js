@@ -458,5 +458,13 @@ export async function updateWorkspaceBillingProfile(workspace_id, payload) {
   });
 }
 
+// Submit Contact Inquiry
+export async function submitContactInquiry(payload) {
+  return client.post('/api/contact/inquiry', payload);
+}
+
+export async function getContactInquiries() {
+  return client.get('/contact/admin/inquiries');
+}
 
 

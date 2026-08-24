@@ -70,10 +70,10 @@ export default function PricingPage() {
     ? settings.plans.map(p => {
         const isYearly = billing === 'annual';
         const rawPrice = isYearly ? p.yearly_price : p.monthly_price;
-        const displayPrice = (p.key === 'free' || rawPrice === 0)
+        const displayPrice = (plan.key === 'free' || rawPrice === 0)
           ? 'Free'
-          : (p.key === 'enterprise' && rawPrice === 0)
-          ? 'Custom'
+          : (plan.key === 'enterprise')
+          ? "Let's Start"
           : `₹${Number(rawPrice).toLocaleString('en-IN')}`;
 
         const repliesCount = p.credits
@@ -149,11 +149,7 @@ export default function PricingPage() {
           key: 'enterprise',
           name: settings?.enterprise_plan_name || 'Business',
           icon: '👑',
-          price: (settings?.enterprise_plan_price ?? 24999) === 0
-            ? 'Custom'
-            : (billing === 'annual'
-              ? `₹${Number(settings?.enterprise_yearly_plan_price || 249990).toLocaleString('en-IN')}`
-              : `₹${Number(settings?.enterprise_plan_price || 24999).toLocaleString('en-IN')}`),
+          price: "Let's talk",
           description: settings?.enterprise_plan_desc || 'Perfect for businesses starting with AI automation at scale.',
           features: settings?.enterprise_plan_features || [
             '500,000 monthly AI replies',
