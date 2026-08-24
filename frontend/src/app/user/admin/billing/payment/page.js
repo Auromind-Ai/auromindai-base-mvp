@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import PricingPage from "@/components/PricingPage"
 import PaymentSummaryModal from "@/components/billing/PaymentSummaryModal"
 import PaymentSuccessModal from "@/components/billing/PaymentSuccessModal"
+import PaymentFailedModal from "@/components/billing/PaymentFailedModal"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 
@@ -31,6 +32,10 @@ function BillingContent() {
   // Success Modal State
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
   const [successDetails, setSuccessDetails] = useState(null)
+
+  // Failed Modal State
+  const [isFailedModalOpen, setIsFailedModalOpen] = useState(false)
+  const [failedDetails, setFailedDetails] = useState(null)
 
   useEffect(() => {
     if (!workspaceId) {
@@ -151,12 +156,29 @@ function BillingContent() {
             setCurrentPlan(updated.current_plan)
           } catch (error) {
             console.error(LOG_PREFIX, "Payment verification failed:", error)
+            setFailedDetails({
+              errorMessage: "Payment verification failed. Your account was not charged.",
+              reason: error?.message || "Signature or activation failed",
+            })
+            setIsFailedModalOpen(true)
           }
+        },
+        ondismiss: () => {
+          setFailedDetails({
+            errorMessage: "The checkout process was closed before completion.",
+            reason: "Checkout window dismissed by user",
+          })
+          setIsFailedModalOpen(true)
         }
       })
     } catch (error) {
       console.error(LOG_PREFIX, "Unable to start upgrade:", error)
       setIsProcessingPayment(false)
+      setFailedDetails({
+        errorMessage: "Unable to initiate payment checkout.",
+        reason: error?.message || "Network or subscription initialization error",
+      })
+      setIsFailedModalOpen(true)
     }
   }
 
@@ -173,6 +195,13 @@ function BillingContent() {
       router.push('/user/admin/ai')
     } else {
       router.push('/user/admin/dashboard')
+    }
+  }
+
+  const handleRetryPayment = () => {
+    setIsFailedModalOpen(false)
+    if (selectedPlanDetails) {
+      setIsSummaryModalOpen(true)
     }
   }
 
@@ -198,6 +227,13 @@ function BillingContent() {
         onClose={handleCloseSuccessModal}
         paymentDetails={successDetails}
         onGoToDashboard={handleGoToDashboard}
+      />
+
+      <PaymentFailedModal
+        isOpen={isFailedModalOpen}
+        onClose={() => setIsFailedModalOpen(false)}
+        failureDetails={failedDetails}
+        onRetryPayment={handleRetryPayment}
       />
     </>
   )
