@@ -29,6 +29,8 @@ class SubscriptionService:
 
        
         subscription = self._get_subscription_by_provider_id(db, provider, provider_id)
+        if not subscription:
+            subscription = db.query(Subscription).filter(Subscription.workspace_id == workspace_id).first()
 
         status = override_status or self._map_subscription_status(subscription_data.get("status"))
 

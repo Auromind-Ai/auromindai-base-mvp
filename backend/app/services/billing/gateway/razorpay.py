@@ -118,17 +118,20 @@ class RazorpayGateway(PaymentGateway):
                 from app.models.platform_setting import PlatformSetting
                 from app.services.platform_settings_service import clear_settings_cache
                 
-                with SessionLocal() as db:
-                    suffix = "_yearly" if is_yearly else ""
-                    db_key = f"razorpay_{plan_config.key}{suffix}_plan_id"
-                    setting = db.query(PlatformSetting).filter(PlatformSetting.key == db_key).first()
-                    if setting:
-                        setting.value = plan_id
-                    else:
-                        setting = PlatformSetting(key=db_key, value=plan_id, value_type="string")
-                        db.add(setting)
-                    db.commit()
-                clear_settings_cache()
+                try:
+                    with SessionLocal() as db:
+                        suffix = "_yearly" if is_yearly else ""
+                        db_key = f"razorpay_{plan_config.key}{suffix}_plan_id"
+                        setting = db.query(PlatformSetting).filter(PlatformSetting.key == db_key).first()
+                        if setting:
+                            setting.value = plan_id
+                        else:
+                            setting = PlatformSetting(key=db_key, value=plan_id, value_type="string")
+                            db.add(setting)
+                        db.commit()
+                    clear_settings_cache()
+                except Exception as db_err:
+                    print(f"Warning: Failed to persist plan_id {plan_id} to settings DB: {db_err}")
             except Exception as e:
                 raise ValueError(f"Razorpay plan is not configured for {plan_config.label} and dynamic creation failed: {str(e)}")
 
