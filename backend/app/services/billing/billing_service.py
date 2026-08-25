@@ -571,6 +571,229 @@ class BillingService:
             "credits_granted": pack.credits,
         }
 
+    def initiate_plan_purchase(
+        self,
+        db: Session,
+        workspace_id: str,
+        user_id: str,
+        user_email: str,
+        user_name: str | None,
+        plan_key: str,
+        billing_cycle: str = "monthly",
+        provider: str = "razorpay",
+    ) -> dict[str, Any]:
+        workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+        plan_config = self.plan_service._get_plan_config(db, plan_key, billing_cycle=billing_cycle)
+        gateway = self._resolve_gateway(provider)
+
+        from app.services.billing.gst_service import GSTService
+        from decimal import Decimal
+        gst_calcs = GSTService.calculate_gst(
+            amount=Decimal(str(plan_config.amount)),
+            customer_state=workspace.billing_state,
+            customer_country=workspace.billing_country or "IN",
+            product_type="subscription",
+            db=db
+        )
+        amount_paise = to_paise(gst_calcs["total_amount"])
+
+        order_payload = {
+            "amount": amount_paise,
+            "currency": plan_config.currency or "INR",
+            "payment_capture": 1,
+            "notes": {
+                "workspace_id": str(workspace.id),
+                "user_id": str(user_id) if user_id else None,
+                "plan_key": plan_config.key,
+                "billing_cycle": billing_cycle,
+                "type": "plan_purchase"
+            }
+        }
+        order_data = gateway.client.order.create(order_payload)
+
+        return {
+            "provider": gateway.provider,
+            "gateway_order_id": order_data["id"],
+            "plan": plan_config.key,
+            "billing_cycle": billing_cycle,
+            "plan_label": plan_config.label,
+            "amount": amount_paise,
+            "currency": plan_config.currency or "INR",
+            "public_key": gateway.get_public_key(),
+            "prefill": {
+                "email": user_email,
+                "name": user_name or user_email,
+            }
+        }
+
+    def verify_plan_payment(
+        self,
+        db: Session,
+        workspace_id: str,
+        user_id: str,
+        plan_key: str,
+        billing_cycle: str = "monthly",
+        order_id: str | None = None,
+        payment_id: str | None = None,
+        signature: str | None = None,
+        provider: str = "razorpay",
+    ) -> dict[str, Any]:
+        try:
+            workspace = self._get_workspace_for_user(db, workspace_id, user_id)
+            plan_config = self.plan_service._get_plan_config(db, plan_key, billing_cycle=billing_cycle)
+            gateway = self._resolve_gateway(provider)
+
+            verification = gateway.verify_payment({
+                "order_id": order_id,
+                "payment_id": payment_id,
+                "signature": signature,
+            })
+
+            existing_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.provider == gateway.provider,
+                    Payment.provider_payment_id == verification["payment_id"],
+                )
+                .with_for_update()
+                .first()
+            )
+            if existing_payment and existing_payment.status == PaymentStatus.paid:
+                db.commit()
+                return {
+                    "status": "already_verified",
+                    "plan": plan_config.key,
+                    "payment_id": verification["payment_id"],
+                }
+
+            fetched_payment = gateway.fetch_payment(verification["payment_id"])
+            notes = (fetched_payment.raw or {}).get("notes") or {}
+            notes_ws_id = str(notes.get("workspace_id") or "")
+            if notes_ws_id and notes_ws_id != str(workspace.id):
+                raise ValueError("Payment does not belong to this workspace")
+
+            from app.services.billing.gst_service import GSTService
+            from decimal import Decimal
+            gst_calcs = GSTService.calculate_gst(
+                amount=Decimal(str(plan_config.amount)),
+                customer_state=workspace.billing_state,
+                customer_country=workspace.billing_country or "IN",
+                product_type="subscription",
+                db=db
+            )
+            expected_amount = to_paise(gst_calcs["total_amount"])
+            if not verify_paise_amount(fetched_payment.amount, expected_amount, max_tolerance_paise=2):
+                raise ValueError(f"Payment amount mismatch: got {fetched_payment.amount} paise, expected {expected_amount} paise")
+
+            if fetched_payment.status not in {"captured", "authorized"}:
+                raise ValueError("Payment is not in a successful state")
+
+            local_plan = self.plan_service._get_or_create_plan(db, plan_config, billing_cycle=billing_cycle)
+            
+            # Record payment
+            payment = self.payment_service._record_successful_payment(
+                db=db,
+                provider=gateway.provider,
+                payment_payload=fetched_payment.raw or {},
+                plan_config=plan_config,
+                workspace_id=str(workspace.id),
+                payment_type="subscription",
+                description=f"{plan_config.label} Plan ({billing_cycle.capitalize()})",
+            )
+
+            # Provision / Upgrade Entitlements
+            from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+            EntitlementOrchestrator.upgrade_subscription(
+                db=db,
+                workspace_id=uuid.UUID(str(workspace_id)),
+                new_plan_id=local_plan.id
+            )
+            db.commit()
+
+            # Emit notification event
+            self.emit_plan_payment_notification(
+                db=db,
+                workspace_id=workspace.id,
+                user_id=user_id,
+                payment=payment,
+                plan_config=plan_config,
+                gst_calcs=gst_calcs,
+                idempotency_key=f"pay_success:{payment.id}"
+            )
+
+            return {
+                "status": "ACTIVE",
+                "provider": gateway.provider,
+                "plan": plan_config.key,
+                "payment_id": verification["payment_id"],
+            }
+        except Exception:
+            db.rollback()
+            raise
+
+    @classmethod
+    def emit_plan_payment_notification(
+        cls,
+        db: Session,
+        workspace_id: uuid.UUID | str,
+        user_id: uuid.UUID | str | None,
+        payment: Payment,
+        plan_config: Any,
+        gst_calcs: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+    ) -> None:
+        try:
+            from app.core.event_bus import emit_event
+            from app.models.user import User
+            from app.models.invoice import Invoice
+            from app.models.workspace import Workspace
+            from app.models.subscription import Subscription
+
+            ws_uuid = uuid.UUID(str(workspace_id)) if not isinstance(workspace_id, uuid.UUID) else workspace_id
+            ws_obj = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
+
+            user_obj = None
+            if user_id:
+                try:
+                    u_uuid = uuid.UUID(str(user_id)) if not isinstance(user_id, uuid.UUID) else user_id
+                    user_obj = db.query(User).filter(User.id == u_uuid).first()
+                except (ValueError, TypeError):
+                    user_obj = None
+
+            user_name = user_obj.full_name if (user_obj and user_obj.full_name) else (user_obj.email.split("@")[0] if user_obj else (ws_obj.name if ws_obj else "User"))
+
+            active_sub = db.query(Subscription).filter(
+                Subscription.workspace_id == ws_uuid,
+                Subscription.status == SubscriptionStatus.active
+            ).order_by(Subscription.created_at.desc()).first()
+
+            renewal_str = active_sub.current_period_end.strftime("%d %b %Y") if (active_sub and active_sub.current_period_end) else "Next Billing Cycle"
+
+            total_paid = float((gst_calcs or {}).get("total_amount") or payment.amount or (plan_config.amount if plan_config else 0))
+            inv = db.query(Invoice).filter(Invoice.payment_id == payment.id).first()
+            inv_num = inv.invoice_number if (inv and inv.invoice_number) else str(payment.id)
+
+            emit_event(
+                event_name="payment.succeeded",
+                payload={
+                    "plan_name": plan_config.label if hasattr(plan_config, "label") else (plan_config.name if hasattr(plan_config, "name") else "Pro Plan"),
+                    "amount": f"₹{total_paid:,.2f} INR (incl. GST)",
+                    "invoice_id": inv_num,
+                    "renewal_date": renewal_str,
+                    "user_name": user_name,
+                    "workspace_name": ws_obj.name if ws_obj else "Workspace",
+                    "action_route": "/billing",
+                    "action_label": "View Invoices",
+                    "workspace_id": str(ws_uuid)
+                },
+                workspace_id=ws_uuid,
+                actor_id=user_obj.id if user_obj else None,
+                idempotency_key=idempotency_key or f"pay_success:{payment.id}",
+                db=db
+            )
+        except Exception as notif_exc:
+            logger.error(f"Failed to emit payment.succeeded notification: {notif_exc}")
+
     @classmethod
     def emit_credit_recharge_notification(
         cls,

@@ -31,6 +31,8 @@ from app.schemas import (
     CreateSubscriptionRequest,
     VerifyPaymentRequest,
     ReportPaymentFailureRequest,
+    PlanPurchaseRequest,
+    PlanVerifyRequest,
     PlanEntitlementResponse,
     FeatureBillingRuleResponse,
     EntitlementCheckRequest,
@@ -141,6 +143,75 @@ def verify_payment(
     except ValueError as exc:
         logger.error(f"[PAYMENT VERIFY ERROR] {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/plan/purchase")
+def purchase_plan(
+    payload: PlanPurchaseRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+    workspace_id: str | None = None,
+    x_workspace_id: str | None = Header(None),
+):
+    try:
+        resolved_ws_id = resolve_and_verify_workspace(
+            current_user, db, workspace_id, x_workspace_id, payload
+        )
+        logger.info(f"[PLAN PURCHASE] user={current_user.email} workspace={resolved_ws_id} plan={payload.plan}")
+
+        service = get_billing_service()
+        return service.initiate_plan_purchase(
+            db=db,
+            workspace_id=resolved_ws_id,
+            user_id=str(current_user.id),
+            user_email=current_user.email,
+            user_name=current_user.full_name,
+            plan_key=payload.plan,
+            billing_cycle=payload.billing_cycle or "monthly",
+            provider=payload.provider,
+        )
+
+    except ValueError as exc:
+        logger.error(f"[PLAN PURCHASE ERROR] {str(exc)}")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as e:
+        logger.error(f"[PLAN PURCHASE ERROR] {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/plan/verify")
+def verify_plan(
+    payload: PlanVerifyRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+    workspace_id: str | None = None,
+    x_workspace_id: str | None = Header(None),
+):
+    try:
+        resolved_ws_id = resolve_and_verify_workspace(
+            current_user, db, workspace_id, x_workspace_id, payload
+        )
+        logger.info(f"[PLAN VERIFY] user={current_user.email} workspace={resolved_ws_id} order={payload.razorpay_order_id}")
+
+        service = get_billing_service()
+        return service.verify_plan_payment(
+            db=db,
+            workspace_id=resolved_ws_id,
+            user_id=str(current_user.id),
+            plan_key=payload.plan,
+            billing_cycle=payload.billing_cycle or "monthly",
+            order_id=payload.razorpay_order_id,
+            payment_id=payload.razorpay_payment_id,
+            signature=payload.razorpay_signature,
+            provider=payload.provider,
+        )
+
+    except ValueError as exc:
+        logger.error(f"[PLAN VERIFY ERROR] {str(exc)}")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as e:
+        logger.error(f"[PLAN VERIFY ERROR] {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/report-failure")

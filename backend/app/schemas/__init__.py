@@ -94,6 +94,8 @@ from .billing import (
     ReportPaymentFailureRequest,
     LegacyCreateOrderRequest,
     LegacyUpgradePlanRequest,
+    PlanPurchaseRequest,
+    PlanVerifyRequest,
 )
 from .plan_entitlement import PlanEntitlementBase, PlanEntitlementCreate, PlanEntitlementUpdate, PlanEntitlementResponse, EntitlementCheckRequest, EntitlementCheckResponse
 from .feature_billing_rule import FeatureBillingRuleBase, FeatureBillingRuleCreate, FeatureBillingRuleUpdate, FeatureBillingRuleResponse

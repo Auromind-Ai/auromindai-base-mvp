@@ -59,6 +59,21 @@ export async function getWorkspaceEntitlements(workspace_id, options = {}) {
   return client.get(`/billing/entitlements?workspace_id=${workspace_id}`, { ...options, headers });
 }
 
+export async function initiatePlanPurchase(workspace_id, plan, billing_cycle = 'monthly', provider = 'razorpay', options = {}) {
+  const headers = { ...options.headers, 'X-Workspace-Id': workspace_id };
+  return client.post('/billing/plan/purchase', {
+    workspace_id,
+    plan,
+    billing_cycle,
+    provider,
+  }, { ...options, headers });
+}
+
+export async function verifyPlanPayment(payload, options = {}) {
+  const headers = { ...options.headers, 'X-Workspace-Id': payload.workspace_id };
+  return client.post('/billing/plan/verify', payload, { ...options, headers });
+}
+
 export async function createBillingSubscription(workspace_id, plan, billing_cycle = 'monthly', provider = 'razorpay', options = {}) {
   const headers = { ...options.headers, 'X-Workspace-Id': workspace_id };
   return client.post('/billing/create-subscription', {

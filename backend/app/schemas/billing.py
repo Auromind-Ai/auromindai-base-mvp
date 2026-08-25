@@ -97,3 +97,20 @@ class LegacyCreateOrderRequest(BaseModel):
 class LegacyUpgradePlanRequest(BaseModel):
     workspace_id: str
     plan: str
+
+
+class PlanPurchaseRequest(BaseModel):
+    workspace_id: Optional[str] = None
+    plan: str
+    billing_cycle: str = "monthly"
+    provider: str = "razorpay"
+
+
+class PlanVerifyRequest(BaseModel):
+    workspace_id: Optional[str] = None
+    plan: str
+    billing_cycle: str = "monthly"
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    provider: str = "razorpay"

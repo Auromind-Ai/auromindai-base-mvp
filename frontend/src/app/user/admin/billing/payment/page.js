@@ -67,32 +67,32 @@ function BillingContent() {
     })
 
     try {
-      const checkout = await api.createBillingSubscription(
+      const res = await api.initiatePlanPurchase(
         workspaceId,
         planKey,
         billingCycle,
         DEFAULT_PROVIDER
       )
+      const orderData = res.data ?? res
 
       await api.openRazorpayCheckout({
-        orderData: checkout,
+        orderData,
         workspaceId,
         name: "Auromind",
-        description: `${checkout.plan_label || "Pro"} subscription`,
-        prefill: checkout.prefill,
+        description: `${orderData.plan_label || "Pro"} Plan`,
+        prefill: orderData.prefill,
         handler: async (response) => {
           const payload = {
             workspace_id: workspaceId,
             plan: planKey,
             billing_cycle: billingCycle,
-            provider: checkout.provider,
-            payment_id: response.razorpay_payment_id,
-            subscription_id: response.razorpay_subscription_id || checkout.subscription_id,
-            signature: response.razorpay_signature,
+            provider: orderData.provider,
+            razorpay_order_id: response.razorpay_order_id || orderData.gateway_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
           }
           try {
-           const result = await api.verifyBillingPayment(payload)
-
+            const result = await api.verifyPlanPayment(payload)
 
             if (!result || (result.status !== "ACTIVE" && result.status !== "already_verified")) {
               throw new Error("Payment not activated")
@@ -100,10 +100,10 @@ function BillingContent() {
 
             //  THE MAGIC LOGIC: Chat-la irunthu vantha, angae return anuppu!
             if (source === 'chat') {
-                router.push('/user/admin/ai')  
+              router.push('/user/admin/ai')  
             } else {
-                const updated = await api.getBillingStatus(workspaceId)
-                setCurrentPlan(updated.current_plan)
+              const updated = await api.getBillingStatus(workspaceId)
+              setCurrentPlan(updated.current_plan)
             }
           } catch (error) {
             console.error(LOG_PREFIX, "Payment verification failed:", error)

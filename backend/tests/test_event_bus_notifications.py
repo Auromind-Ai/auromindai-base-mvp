@@ -306,8 +306,8 @@ def test_all_eighteen_events_seeded(db_session):
         "welcome_signup", "email_verification_pending", "email_verification_reminder_24h",
         "free_plan_activated", "onboarding_inactivity",
         # Payments & Credits
-        "payment_success", "credit_purchase_success", "credits_low_20", "credits_low_10",
-        "credits_exhausted", "payment_failed", "payment_failed_reminder_24h", "payment_failed_reminder_72h",
+        "payment_success", "ai_credits_purchase_success", "wcc_wallet_recharge_success",
+        "payment_failed", "payment_failed_reminder_24h", "payment_failed_reminder_72h",
         # Lead Management
         "lead_created", "lead_assigned", "lead_sla_breached", "lead_message_received",
         "lead_high_intent", "lead_converted", "lead_inactive_reminder",

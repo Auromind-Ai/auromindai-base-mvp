@@ -139,6 +139,8 @@ class WebhookService:
                     notes = payment_payload.get("notes") or {}
                     if notes.get("type") == "credit_pack_purchase":
                         self._handle_credit_pack_payment_webhook(db, gateway.provider, webhook.entity)
+                    elif notes.get("type") == "plan_purchase":
+                        self._handle_plan_payment_webhook(db, gateway.provider, webhook.entity)
                     else:
                         self._handle_payment_success(db, gateway.provider, webhook.entity)
 
@@ -772,6 +774,85 @@ class WebhookService:
             pack=pack,
             idempotency_key=f"credit_purchase:{payment.id}"
         )
+
+    def _handle_plan_payment_webhook(
+        self,
+        db: Session,
+        provider: str,
+        entity: dict[str, Any],
+    ) -> None:
+        import uuid
+        payment_payload = self._get_payment_payload(entity)
+        provider_payment_id = payment_payload.get("id")
+        if not provider_payment_id:
+            return
+
+        notes = payment_payload.get("notes") or {}
+        workspace_id_str = notes.get("workspace_id")
+        plan_key = notes.get("plan_key")
+        billing_cycle = notes.get("billing_cycle") or "monthly"
+        user_id_str = notes.get("user_id")
+
+        if not workspace_id_str or not plan_key:
+            return
+
+        try:
+            workspace_id = uuid.UUID(str(workspace_id_str))
+        except (ValueError, TypeError):
+            return
+
+        # Check if already processed (Idempotency Guard)
+        existing_payment = (
+            db.query(Payment)
+            .filter(
+                Payment.provider == provider,
+                Payment.provider_payment_id == provider_payment_id,
+            )
+            .with_for_update()
+            .first()
+        )
+        if existing_payment and existing_payment.status == PaymentStatus.paid:
+            return
+
+        plan_config = self.plan_service._get_plan_config(db, plan_key, billing_cycle=billing_cycle)
+        from app.services.billing.gateway import get_gateway
+        gateway = get_gateway(provider)
+        fetched_payment = gateway.fetch_payment(provider_payment_id)
+
+        if fetched_payment.status not in {"captured", "authorized"}:
+            return
+
+        local_plan = self.plan_service._get_or_create_plan(db, plan_config, billing_cycle=billing_cycle)
+        payment = self.payment_service._record_successful_payment(
+            db=db,
+            provider=provider,
+            payment_payload=fetched_payment.raw or payment_payload,
+            plan_config=plan_config,
+            workspace_id=str(workspace_id),
+            payment_type="subscription",
+            description=f"{plan_config.label} Plan ({billing_cycle.capitalize()})",
+        )
+
+        from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+        EntitlementOrchestrator.upgrade_subscription(
+            db=db,
+            workspace_id=workspace_id,
+            new_plan_id=local_plan.id
+        )
+
+        # Emit payment.succeeded event
+        try:
+            BillingService.emit_plan_payment_notification(
+                db=db,
+                workspace_id=workspace_id,
+                user_id=user_id_str,
+                payment=payment,
+                plan_config=plan_config,
+                idempotency_key=f"pay_success:{payment.id}"
+            )
+        except Exception as notif_exc:
+            import logging
+            logging.getLogger("auromind").error(f"Failed to emit payment.succeeded in plan webhook: {notif_exc}")
 
     def _handle_refund_webhook(
         self,
