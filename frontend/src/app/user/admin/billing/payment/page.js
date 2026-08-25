@@ -5,14 +5,15 @@ import Script from "next/script"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import PricingPage from "@/components/PricingPage"
+import PaymentSummaryModal from "@/components/billing/PaymentSummaryModal"
+import PaymentSuccessModal from "@/components/billing/PaymentSuccessModal"
+import PaymentFailedModal from "@/components/billing/PaymentFailedModal"
 import api from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
 
 const LOG_PREFIX = "[BILLING]"
-const FLOW_LOG_PREFIX = "[BILLING FLOW]"
 const DEFAULT_PROVIDER = "razorpay"
 
-// 1. Separate component for the actual content to use useSearchParams safely
 function BillingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -23,8 +24,20 @@ function BillingContent() {
   const [settings, setSettings] = useState(null)
   const [plans, setPlans] = useState([])
 
-  useEffect(() => {
+  // Modal State
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
+  const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
+  // Success Modal State
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false)
+  const [successDetails, setSuccessDetails] = useState(null)
+
+  // Failed Modal State
+  const [isFailedModalOpen, setIsFailedModalOpen] = useState(false)
+  const [failedDetails, setFailedDetails] = useState(null)
+
+  useEffect(() => {
     if (!workspaceId) {
       console.error(LOG_PREFIX, "Workspace not found. Please sign in again.")
       return
@@ -32,12 +45,10 @@ function BillingContent() {
 
     const loadData = async () => {
       try {
-        //  BOTH CALLS
         const [billing, settingsData] = await Promise.all([
           api.getBillingStatus(workspaceId),
           api.getPricing(), 
         ])
-
 
         setCurrentPlan(billing?.current_plan || "free")
         setSettings(settingsData)
@@ -53,18 +64,42 @@ function BillingContent() {
     loadData()
   }, [workspaceId])
 
-  const logBillingFlow = (step, data) => {
-  }
-
-  const handleUpgrade = async (planKey, billingCycle = "monthly") => {
+  // Step 1: Open Payment Summary Breakdown Modal
+  const handleUpgradeClick = (planKey, billingCycle = "monthly") => {
     if (!workspaceId || !["solo", "pro"].includes(planKey)) return
 
-    logBillingFlow("upgrade_initiated", {
-      workspaceId,
+    const isPro = planKey === "pro"
+    const basePrice = isPro ? 199 : 999
+
+    setSelectedPlanDetails({
+      title: isPro ? "Pro Plan Subscription" : "Solo Smart Subscription",
+      subtitle: "Workspace Plan Upgrade",
       planKey,
       billingCycle,
-      provider: DEFAULT_PROVIDER,
+      baseAmount: basePrice,
+      currency: "INR",
+      features: isPro ? [
+        "250,000 AI Credits / month",
+        "500 WhatsApp WCC Wallet Credits",
+        "Unlimited Agent Automation Flows",
+        "5 Team Member Seats",
+        "24/7 Priority Support"
+      ] : [
+        "15,000 AI Credits / month",
+        "Custom Knowledge Base",
+        "1 Gmail Integration"
+      ]
     })
+
+    setIsSummaryModalOpen(true)
+  }
+
+  // Step 2: Confirm and Proceed to Razorpay Checkout Gateway
+  const handleConfirmPay = async () => {
+    if (!selectedPlanDetails || !workspaceId) return
+
+    setIsProcessingPayment(true)
+    const { planKey, billingCycle } = selectedPlanDetails
 
     try {
       const checkout = await api.createBillingSubscription(
@@ -74,10 +109,13 @@ function BillingContent() {
         DEFAULT_PROVIDER
       )
 
+      setIsSummaryModalOpen(false)
+      setIsProcessingPayment(false)
+
       await api.openRazorpayCheckout({
         orderData: checkout,
-        name: "Auromind",
-        description: `${checkout.plan_label || "Pro"} subscription`,
+        name: "Auromind AI",
+        description: `${checkout.plan_label || "Pro"} Subscription Upgrade`,
         prefill: checkout.prefill,
         handler: async (response) => {
           const payload = {
@@ -90,41 +128,117 @@ function BillingContent() {
             signature: response.razorpay_signature,
           }
           try {
-           const result = await api.verifyBillingPayment(payload)
-
+            const result = await api.verifyBillingPayment(payload)
 
             if (!result || (result.status !== "ACTIVE" && result.status !== "already_verified")) {
               throw new Error("Payment not activated")
             }
 
-            //  THE MAGIC LOGIC: Chat-la irunthu vantha, angae return anuppu!
-            if (source === 'chat') {
-                router.push('/user/admin/ai')  
-            } else {
-                const updated = await api.getBillingStatus(workspaceId)
-                setCurrentPlan(updated.current_plan)
-            }
+            const isPro = planKey === "pro"
+            const basePrice = isPro ? 199 : 999
+            const cgst = Number((basePrice * 0.09).toFixed(2))
+            const sgst = Number((basePrice * 0.09).toFixed(2))
+            const totalPaid = (basePrice + cgst + sgst).toFixed(2)
+
+            setSuccessDetails({
+              planTitle: isPro ? "Pro Plan Subscription" : "Solo Smart Subscription",
+              amountPaid: totalPaid,
+              billingCycle: billingCycle === "yearly" ? "Yearly" : "Monthly",
+              nextBillingDate: new Date(Date.now() + (billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
+            })
+            setIsSuccessModalOpen(true)
+
+            const updated = await api.getBillingStatus(workspaceId)
+            setCurrentPlan(updated.current_plan)
           } catch (error) {
             console.error(LOG_PREFIX, "Payment verification failed:", error)
+            setFailedDetails({
+              errorMessage: "Payment verification failed. Your account was not charged.",
+              reason: error?.message || "Signature or activation failed",
+            })
+            setIsFailedModalOpen(true)
           }
+        },
+        ondismiss: () => {
+          setFailedDetails({
+            errorMessage: "The checkout process was closed before completion.",
+            reason: "Checkout window dismissed by user",
+          })
+          setIsFailedModalOpen(true)
         }
       })
     } catch (error) {
       console.error(LOG_PREFIX, "Unable to start upgrade:", error)
+      setIsProcessingPayment(false)
+      setFailedDetails({
+        errorMessage: "Unable to initiate payment checkout.",
+        reason: error?.message || "Network or subscription initialization error",
+      })
+      setIsFailedModalOpen(true)
+    }
+  }
+
+  const handleCloseSuccessModal = () => {
+    setIsSuccessModalOpen(false)
+    if (source === 'chat') {
+      router.push('/user/admin/ai')
+    }
+  }
+
+  const handleGoToDashboard = () => {
+    setIsSuccessModalOpen(false)
+    if (source === 'chat') {
+      router.push('/user/admin/ai')
+    } else {
+      router.push('/user/admin/dashboard')
+    }
+  }
+
+  const handleRetryPayment = () => {
+    setIsFailedModalOpen(false)
+    if (selectedPlanDetails) {
+      setIsSummaryModalOpen(true)
     }
   }
 
   return (
-    <PricingPage
-      currentPlan={currentPlan}
-      onUpgrade={handleUpgrade}
-      settings={settings} 
-      dbPlans={plans}
-    />
+    <>
+      <PricingPage
+        currentPlan={currentPlan}
+        onUpgrade={handleUpgradeClick}
+        settings={settings} 
+        dbPlans={plans}
+      />
+
+      <PaymentSummaryModal
+        isOpen={isSummaryModalOpen}
+        onClose={() => setIsSummaryModalOpen(false)}
+        itemDetails={selectedPlanDetails}
+        onProceedToPay={handleConfirmPay}
+        isProcessing={isProcessingPayment}
+      />
+
+      <PaymentSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={handleCloseSuccessModal}
+        paymentDetails={successDetails}
+        onGoToDashboard={handleGoToDashboard}
+      />
+
+      <PaymentFailedModal
+        isOpen={isFailedModalOpen}
+        onClose={() => setIsFailedModalOpen(false)}
+        failureDetails={failedDetails}
+        onRetryPayment={handleRetryPayment}
+      />
+    </>
   )
 }
 
-// 2. Main Page export wrapped in Suspense (Strict Next.js rule)
 export default function BillingPage() {
   return (
     <>

@@ -46,4 +46,4 @@ def verify_workspace_access(
             detail="Access denied or workspace not found."
         )
     
-    return check_id
+    return to_uuid(check_id) or check_id
