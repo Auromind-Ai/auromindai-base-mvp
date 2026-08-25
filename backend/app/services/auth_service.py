@@ -417,7 +417,7 @@ class AuthService:
                     "otp": otp,
                     "auth_type": auth_type.title()
                 },
-                idempotency_key=f"otp:{email}:{int(time.time()) // 300}",
+                idempotency_key=f"otp:{email}:{otp}",
                 db=db
             )
         except Exception as e:

@@ -1383,13 +1383,14 @@ class FlowServiceV2:
                 "support_agent",
             ]
 
-            agent_type = config.get("agent_type")
-
-            if agent_type not in allowed_agents:
+            raw_agent_type = config.get("agent_type") or config.get("agent")
+            if raw_agent_type and raw_agent_type not in allowed_agents:
                 logger.warning(
-                    f"Invalid agent_type '{agent_type}' fallback lead_agent"
+                    f"Invalid agent_type '{raw_agent_type}' fallback lead_agent"
                 )
                 agent_type = "lead_agent"
+            else:
+                agent_type = raw_agent_type or "lead_agent"
 
             logger.info(f"Flow forcing agent: {agent_type}")
 
@@ -1435,12 +1436,22 @@ class FlowServiceV2:
             # Commit current transaction to release all DB locks (e.g. cancelled messages) before slow LLM API call
             db.commit()
 
+            conv_channel_raw = str(getattr(conversation, "channel", "whatsapp") or "whatsapp").lower()
+            if "whatsapp" in conv_channel_raw:
+                active_channel = "whatsapp"
+            elif "instagram" in conv_channel_raw:
+                active_channel = "instagram"
+            elif "twilio" in conv_channel_raw:
+                active_channel = "twilio"
+            else:
+                active_channel = conv_channel_raw
+
             result = await execute_ai_reply(
                 db=db,
                 workspace_id=str(conversation.workspace_id),
                 contact_phone=conversation.phone,
                 user_message=inbound_text,
-                channel="twilio",
+                channel=active_channel,
                 conversation_id=str(conversation.id),
                 flow_context=flow_context
             )

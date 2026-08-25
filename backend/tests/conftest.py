@@ -159,5 +159,16 @@ def db(mock_db_session):
 
 
 @pytest.fixture
+def db_session():
+    from app.database import SessionLocal
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.rollback()
+        session.close()
+
+
+@pytest.fixture
 def client(test_app):
     return TestClient(test_app)

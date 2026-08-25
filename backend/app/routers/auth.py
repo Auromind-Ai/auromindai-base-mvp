@@ -339,7 +339,7 @@ import httpx
 async def google_login(request: Request, type: str = "login", session_expiry_hours: Optional[int] = None):
     import secrets
   
-    redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
+    redirect_uri = config_service.get("oauth_redirect_uri") or config_service.get("google_integration_redirect_uri")
 
     state_token = secrets.token_urlsafe(32)
     expiry_part = f":{session_expiry_hours}" if session_expiry_hours else ""
@@ -477,7 +477,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         auth_type = oauth_meta.get("auth_type", "login")
         frontend_url = oauth_meta.get("frontend_url") or settings.FRONTEND_URL or "http://localhost:3000"
         session_expiry_hours = oauth_meta.get("session_expiry_hours")
-        redirect_uri = oauth_meta.get("redirect_uri") or config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
+        redirect_uri = oauth_meta.get("redirect_uri") or config_service.get("oauth_redirect_uri") or config_service.get("google_integration_redirect_uri")
     else:
         try:
             parts = state.split(":", 2)
@@ -487,7 +487,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
             auth_type = "login"
             session_expiry_hours = None
         frontend_url = cookie_frontend or settings.FRONTEND_URL or "http://localhost:3000"
-        redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
+        redirect_uri = config_service.get("oauth_redirect_uri") or config_service.get("google_integration_redirect_uri")
 
     if not code:
         response = RedirectResponse(url=f"{frontend_url}/login?error=Authentication+failed")
@@ -495,7 +495,7 @@ async def google_callback(request: Request, code: str = None, state: str = "logi
         delete_auth_cookie(response=response, request=request, key="oauth_frontend_url", path="/")
         return response
 
-    redirect_uri = config_service.get("google_integration_redirect_uri") or config_service.get("oauth_redirect_uri")
+    redirect_uri = oauth_meta.get("redirect_uri") if oauth_meta else (config_service.get("oauth_redirect_uri") or config_service.get("google_integration_redirect_uri"))
 
     try:
         async with httpx.AsyncClient() as client:

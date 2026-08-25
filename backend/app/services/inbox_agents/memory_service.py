@@ -42,24 +42,28 @@ class MemoryService:
         self,
         workspace_id: str | UUID,
         conversation_id: str | UUID,
-    ) -> tuple[str, str]:
-        """Coerce both scope IDs to plain strings and validate them."""
-        ws = str(workspace_id)
-        conv = str(conversation_id)
-        if not _is_valid_uuid(ws):
-            raise ValueError(f"Invalid workspace_id: {ws!r}")
-        if not _is_valid_uuid(conv):
-            raise ValueError(f"Invalid conversation_id: {conv!r}")
-        return ws, conv
+    ) -> tuple[UUID, UUID]:
+        """Coerce both scope IDs to UUID objects and validate them."""
+        ws_str = str(workspace_id)
+        conv_str = str(conversation_id)
+        if not _is_valid_uuid(ws_str):
+            raise ValueError(f"Invalid workspace_id: {ws_str!r}")
+        if not _is_valid_uuid(conv_str):
+            raise ValueError(f"Invalid conversation_id: {conv_str!r}")
+        return (
+            workspace_id if isinstance(workspace_id, UUID) else UUID(ws_str),
+            conversation_id if isinstance(conversation_id, UUID) else UUID(conv_str)
+        )
 
     def _get_conversation(
         self,
-        workspace_id: str,
-        conversation_id: str,
+        workspace_id: str | UUID,
+        conversation_id: str | UUID,
     ) -> Conversation | None:
+        ws, conv = self._normalize_scope(workspace_id, conversation_id)
         return (
             self.db.query(Conversation)
-            .filter_by(workspace_id=workspace_id, id=conversation_id)
+            .filter_by(workspace_id=ws, id=conv)
             .first()
         )
 
@@ -208,8 +212,13 @@ class MemoryService:
                     if key == "meeting_date":
                         if isinstance(value, str) and value.strip():
                             try:
-                                from dateutil import parser
-                                setattr(lead, key, parser.parse(value))
+                                from app.services.email_automation.calender_executor import CalendarExecutor
+                                rel = CalendarExecutor.resolve_relative_date(value)
+                                if rel is not None:
+                                    setattr(lead, key, rel)
+                                else:
+                                    from dateutil import parser
+                                    setattr(lead, key, parser.parse(value))
                             except Exception:
                                 self.logger.warning(f"Failed to parse meeting_date: {value}")
                         # Skip booleans / invalid types for DateTime columns

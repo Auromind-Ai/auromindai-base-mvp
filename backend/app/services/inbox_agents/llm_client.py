@@ -15,13 +15,13 @@ class LLMClient:
         self.logger.info("LLMClient initialized (centralized)")
 
     # RAW COMPLETION
-    def generate(self, prompt, temperature=0.2, max_tokens=1024, retries=2, response_format=None):
+    def generate(self, prompt, temperature=0.2, max_tokens=1024, retries=2, response_format=None, structured_output=False):
         
 
         async def _run():
             router = LLMRouter()
             # Route via feature_key = "inbox" and experience_level = "auto"
-            return await router.generate(prompt, model="auto", feature_key="inbox")
+            return await router.generate(prompt, model="auto", feature_key="inbox", structured_output=structured_output)
 
         try:
             with ThreadPoolExecutor(max_workers=1) as executor:
@@ -78,7 +78,7 @@ class LLMClient:
             """
 
             for attempt in range(retries + 1):
-                text = self.generate(structured_prompt, response_format={"type": "json_object"})
+                text = self.generate(structured_prompt, response_format={"type": "json_object"}, structured_output=True)
 
                 if not text:
                     continue

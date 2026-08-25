@@ -253,14 +253,6 @@ def send_next_pending_message(self, conversation_id: str):
             OutboundMessage.conversation_id == conv_uuid,
             OutboundMessage.status == "queued",
         ]
-        if (
-            state
-            and state.runtime_context
-            and state.runtime_context.get("active_ai_session")
-        ):
-            base_filter.append(
-                OutboundMessage.message_type != "automation"
-            )
 
         if active_flow_id is not None:
             base_filter.append(OutboundMessage.flow_id == active_flow_id)
@@ -313,7 +305,7 @@ def send_next_pending_message(self, conversation_id: str):
                 updated_at = prev_msg.updated_at or prev_msg.created_at
                 if updated_at and updated_at.tzinfo is None:
                     updated_at = updated_at.replace(tzinfo=timezone.utc)
-                is_stale = (now - updated_at) > timedelta(seconds=45) if updated_at else False
+                is_stale = (now - updated_at) > timedelta(seconds=100) if updated_at else False
 
                 if prev_msg.status not in ("delivered", "read", "failed", "cancelled") and not is_stale:
                     logger.info(

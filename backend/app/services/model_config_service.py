@@ -10,8 +10,11 @@ ALLOWED_ENV_KEYS = [
     "OPENAI_API_KEY"
 ]
 
-# In-memory config cache
-_CONFIG_CACHE: Dict[str, Dict[str, Any]] = {}
+import time
+
+# In-memory config cache with TTL
+_CONFIG_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
+_CONFIG_CACHE_TTL = 30.0  # 30 seconds TTL for cross-process freshness
 
 
 def _normalize_api_key_env(api_key_env: str | None) -> str | None:
@@ -33,11 +36,14 @@ class ModelConfigService:
     def get_config_for_feature(self, feature_key: str, experience_level: str = "auto") -> Dict[str, Any]:
         """
         Looks up routing configuration explicitly by feature_key and experience_level.
-        Checks the in-memory cache first to avoid DB queries.
+        Checks the in-memory cache first to avoid DB queries, expiring after TTL.
         """
         cache_key = f"{feature_key}:{experience_level}"
+        now = time.time()
         if cache_key in _CONFIG_CACHE:
-            return _CONFIG_CACHE[cache_key]
+            timestamp, cached_val = _CONFIG_CACHE[cache_key]
+            if now - timestamp < _CONFIG_CACHE_TTL:
+                return cached_val
 
         config = self.db.query(ModelConfig).filter(
             ModelConfig.feature_key == feature_key,
@@ -52,7 +58,7 @@ class ModelConfigService:
             )
             
         config_dict = config.to_dict()
-        _CONFIG_CACHE[cache_key] = config_dict
+        _CONFIG_CACHE[cache_key] = (now, config_dict)
         return config_dict
     
     def get_all_configs(self, active_only: bool = False) -> List[Dict[str, Any]]:

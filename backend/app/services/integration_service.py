@@ -1,3 +1,4 @@
+import os
 import uuid
 from sqlalchemy.orm import Session
 from app.models.integration import Integration
@@ -7,6 +8,10 @@ from googleapiclient.discovery import build
 from datetime import datetime
 from app.services.email_automation.email_monitor_service import EmailMonitor
 from app.services.billing.entitlement_service import EntitlementService
+
+# Allow scope expansion and insecure transport in local / dev environments
+os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 def _to_uuid(val):
     if isinstance(val, uuid.UUID):
@@ -22,6 +27,7 @@ def _to_uuid(val):
 
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/userinfo.email",
@@ -29,14 +35,27 @@ GOOGLE_SCOPES = [
 ]
 
 SCOPES = {
-    "calendar": GOOGLE_SCOPES,
-    "gmail": GOOGLE_SCOPES
+    "calendar": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "openid"
+    ],
+    "google_calendar": [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "openid"
+    ],
+    "gmail": GOOGLE_SCOPES,
+    "google_gmail": GOOGLE_SCOPES
 }
 
 class IntegrationService:
     @staticmethod
     def get_google_oauth_url(db: Session, workspace_id: str, integration_type: str):
-        if integration_type not in ["calendar", "gmail"]:
+        norm_type = "calendar" if integration_type in ["calendar", "google_calendar"] else ("gmail" if integration_type in ["gmail", "google_gmail"] else integration_type)
+        if norm_type not in ["calendar", "gmail"]:
             raise ValueError("Invalid integration type")
 
         integration_flags = {
@@ -44,11 +63,11 @@ class IntegrationService:
             "calendar": get_setting(db, "enable_calendar_integration", True)
         }
 
-        if not integration_flags.get(integration_type, True):
-            raise PermissionError(f"{integration_type.capitalize()} integration disabled by admin")
+        if not integration_flags.get(norm_type, True):
+            raise PermissionError(f"{norm_type.capitalize()} integration disabled by admin")
 
         ws_uuid = _to_uuid(workspace_id)
-        if integration_type == "gmail":
+        if norm_type == "gmail":
             ent_check = EntitlementService.check_entitlement(db, ws_uuid, "gmail")
             if not ent_check["allowed"]:
                 EntitlementService.raise_entitlement_exceeded(
@@ -73,7 +92,7 @@ class IntegrationService:
                     "redirect_uris": [redirect_uri]
                 }
             },
-            scopes=SCOPES[integration_type],
+            scopes=SCOPES[norm_type],
             autogenerate_code_verifier=False
         )
         
@@ -83,14 +102,15 @@ class IntegrationService:
             access_type='offline',
             include_granted_scopes='true',
             prompt='consent',
-            state=f"{integration_type}:{workspace_id}"
+            state=f"{norm_type}:{workspace_id}"
         )
         
         return authorization_url
 
     @staticmethod
     def handle_google_oauth_callback(db: Session, code: str, state: str):
-        integration_type, workspace_id = state.split(":")
+        raw_type, workspace_id = state.split(":", 1)
+        integration_type = "calendar" if raw_type in ["calendar", "google_calendar"] else ("gmail" if raw_type in ["gmail", "google_gmail"] else raw_type)
         ws_uuid = _to_uuid(workspace_id)
         
         from app.services.config_service import config_service

@@ -230,30 +230,28 @@ async def get_provider_models(provider: str):
             "qwen/qwen3.6-27b"
         ],
         "gemini": [
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.5-flash",
+            "gemini-2.5-flash-lite",
             "gemini-2.5-flash",
             "gemini-2.5-pro",
-            "gemini-2.0-flash",
             "gemini-1.5-flash",
             "gemini-1.5-pro",
-            "gemini-1.5-flash-8b",
-            "gemini-2.5-flash-lite",
             "gemini-flash-latest",
-            "gemini-pro-latest",
-            "gemma-2-27b-it",
-            "gemma-2-9b-it"
+            "gemini-pro-latest"
         ],
         "google": [
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.5-flash",
+            "gemini-2.5-flash-lite",
             "gemini-2.5-flash",
             "gemini-2.5-pro",
-            "gemini-2.0-flash",
             "gemini-1.5-flash",
             "gemini-1.5-pro",
-            "gemini-1.5-flash-8b",
-            "gemini-2.5-flash-lite",
             "gemini-flash-latest",
-            "gemini-pro-latest",
-            "gemma-2-27b-it",
-            "gemma-2-9b-it"
+            "gemini-pro-latest"
         ]
     }
     
@@ -281,7 +279,7 @@ async def get_provider_models(provider: str):
                 return {"success": True, "models": [m.id for m in models.data]}
                 
         elif provider_lower in ["gemini", "google"]:
-            key = config_service.get("google_api_key")
+            key = config_service.get("google_api_key") or config_service.get("gemini_api_key")
             if key:
                 client = genai.Client(api_key=key)
                 models = list(client.models.list())
