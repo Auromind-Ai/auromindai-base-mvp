@@ -443,15 +443,30 @@ class EntitlementService:
         resource = resource.lower()
 
         # Handle feature flags
-        if resource == "feature_flags" or resource.startswith("flag_") or resource == "has_rag":
-            flag_name = resource.replace("flag_", "")
-            if flag_name == "has_rag":
-                flag_name = "has_rag"
-            flag_value = entitlement.feature_flags.get(flag_name, False)
+        flag_aliases = {
+            "has_rag": "has_rag",
+            "ai_gmail_lead_fallback": "ai_gmail_lead_fallback",
+            "ai_lead_fallback": "ai_gmail_lead_fallback",
+        }
+        res_lower = resource.lower()
+        if (
+            resource == "feature_flags"
+            or resource.startswith("flag_")
+            or res_lower in flag_aliases
+            or res_lower in [k.lower() for k in entitlement.feature_flags.keys()]
+        ):
+            flag_name = resource.replace("flag_", "").lower()
+            canonical_name = flag_aliases.get(flag_name, flag_name)
+            flag_value = (
+                entitlement.feature_flags.get(canonical_name, False)
+                or entitlement.feature_flags.get(canonical_name.upper(), False)
+                or entitlement.feature_flags.get(flag_name, False)
+                or entitlement.feature_flags.get(flag_name.upper(), False)
+            )
             limit_val = 1 if flag_value else 0
             usage_val = 0 if flag_value else 1
             allowed = bool(flag_value)
-            reason = None if allowed else f"Feature '{flag_name}' is not enabled on your plan."
+            reason = None if allowed else f"Feature '{canonical_name}' is not enabled on your plan."
             return {
                 "allowed": allowed,
                 "current": usage_val,
@@ -547,6 +562,15 @@ class EntitlementService:
             "remaining": remaining,
             "reason": reason,
         }
+
+    @classmethod
+    def is_feature_enabled(cls, db: Session, workspace_id: uuid.UUID | str, feature_key: str) -> bool:
+        """Check if a specific feature flag (e.g. ai_gmail_lead_fallback) is enabled for the workspace's plan."""
+        try:
+            check = cls.check_entitlement(db, workspace_id, feature_key)
+            return bool(check.get("allowed", False))
+        except Exception:
+            return False
 
     @classmethod
     def seed_default_entitlements(cls, db: Session) -> dict[str, Any]:

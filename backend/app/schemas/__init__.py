@@ -82,33 +82,19 @@ class Followup(FollowupBase):
     class Config:
         from_attributes = True
 
-class CreateSubscriptionRequest(BaseModel):
-    workspace_id: str
-    plan: str
-    billing_cycle: str = "monthly"
-    provider: str = "razorpay"
 
-
-class VerifyPaymentRequest(BaseModel):
-    workspace_id: str
-    plan: str
-    billing_cycle: str = "monthly"
-    provider: str = "razorpay"
-    payment_id: str | None = None
-    subscription_id: str | None = None
-    signature: str | None = None
-
-
-class LegacyCreateOrderRequest(BaseModel):
-    workspace_id: str
-    amount: int
-
-
-class LegacyUpgradePlanRequest(BaseModel):
-    workspace_id: str
-    plan: str
-
-
+from .billing import (
+    CreditsPurchaseRequest,
+    CreditsVerifyRequest,
+    UnifiedBillingItem,
+    UnifiedBillingResponse,
+    UpdateBillingProfileRequest,
+    CreateSubscriptionRequest,
+    VerifyPaymentRequest,
+    ReportPaymentFailureRequest,
+    LegacyCreateOrderRequest,
+    LegacyUpgradePlanRequest,
+)
 from .plan_entitlement import PlanEntitlementBase, PlanEntitlementCreate, PlanEntitlementUpdate, PlanEntitlementResponse, EntitlementCheckRequest, EntitlementCheckResponse
 from .feature_billing_rule import FeatureBillingRuleBase, FeatureBillingRuleCreate, FeatureBillingRuleUpdate, FeatureBillingRuleResponse
 from .plan import PlanBase, PlanCreate, PlanUpdate, PlanResponse, PlanPublicItem

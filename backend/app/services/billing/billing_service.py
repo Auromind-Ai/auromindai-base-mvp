@@ -440,6 +440,7 @@ class BillingService:
             "payment_capture": 1,
             "notes": {
                 "workspace_id": str(workspace.id),
+                "user_id": str(user_id) if user_id else None,
                 "pack_id": pack_id,
                 "type": "credit_pack_purchase"
             }

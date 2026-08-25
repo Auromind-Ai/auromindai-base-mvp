@@ -393,17 +393,21 @@ export function loadRazorpayScript(src = "https://checkout.razorpay.com/v1/check
 
 export async function openRazorpayCheckout({
   orderData,
+  workspaceId,
   name = "Auromind",
   description = "",
   prefill = {},
   handler,
-  ondismiss
+  ondismiss,
+  onfailure
 }) {
   await loadRazorpayScript();
 
   if (!window.Razorpay) {
     throw new Error("Razorpay SDK is unavailable.");
   }
+
+  const resolvedWsId = workspaceId || orderData?.workspace_id || prefill?.workspace_id || (typeof window !== 'undefined' ? (localStorage.getItem('activeWorkspaceId') || localStorage.getItem('last_active_workspace_id')) : null);
 
   const options = {
     key: orderData.public_key,
@@ -421,8 +425,54 @@ export async function openRazorpayCheckout({
   };
 
   const razorpay = new window.Razorpay(options);
+
+  if (typeof razorpay.on === 'function') {
+    razorpay.on('payment.failed', async function (response) {
+      const errorObj = response?.error || {};
+      const metadata = errorObj?.metadata || {};
+
+      try {
+        await reportPaymentFailure({
+          workspace_id: resolvedWsId,
+          payment_id: metadata.payment_id || response?.razorpay_payment_id,
+          order_id: metadata.order_id || orderData?.gateway_order_id,
+          subscription_id: orderData?.subscription_id,
+          plan: orderData?.plan_key || orderData?.plan,
+          pack_id: orderData?.pack_id,
+          amount: orderData?.amount,
+          currency: orderData?.currency || 'INR',
+          provider: orderData?.provider || 'razorpay',
+          error_code: errorObj.code,
+          error_description: errorObj.description || errorObj.reason || 'Payment failed at checkout',
+          error_reason: errorObj.reason,
+          error_source: errorObj.source,
+          error_step: errorObj.step
+        });
+      } catch (e) {
+        console.error('[Razorpay UX] Failed to report checkout failure:', e);
+      }
+
+      if (typeof onfailure === 'function') {
+        try {
+          onfailure(response);
+        } catch (e) {
+          console.error('[Razorpay UX] Error in onfailure callback:', e);
+        }
+      }
+    });
+  }
+
   razorpay.open();
   return razorpay;
+}
+
+export async function reportPaymentFailure(payload) {
+  try {
+    return await client.post('/billing/report-failure', payload);
+  } catch (error) {
+    console.error('[Billing API] Error reporting payment failure:', error);
+    return null;
+  }
 }
 
 export async function getPlatformSettings() {

@@ -16,70 +16,25 @@ from app.models.ai_action import Lead
 from app.models.integration import Integration
 from app.models.automation import AutomationFlow
 from app.models.subscription import Subscription
+from app.models.wcc import WCCRechargeLog
+from app.models.flow_pack import FlowPackPurchase
 from app.services.wcc_service import WCCService
 from app.core.enums import SubscriptionStatus
-class CreditsPurchaseRequest(BaseModel):
-    pack_id: str
-    workspace_id: str | None = None
-    provider: str = "razorpay"
-
-
-class CreditsVerifyRequest(BaseModel):
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
-    workspace_id: str | None = None
-    provider: str = "razorpay"
-
-
-class UnifiedBillingItem(BaseModel):
-    id: str
-    date: str
-    amount: float
-    status: str
-    payment_id: str | None = None
-    payment_type: str
-    payment_method: str | None = None
-    provider: str
-    description: str
-    invoice_available: bool
-    invoice_number: str | None = None
-    pdf_url: str | None = None
-    taxable_amount: float | None = None
-    gst_amount: float | None = None
-    total_amount: float | None = None
-
-
-class UnifiedBillingResponse(BaseModel):
-    payments: list[UnifiedBillingItem]
-    pagination: dict[str, int]
-
-
-class UpdateBillingProfileRequest(BaseModel):
-    billing_name: str | None = None
-    billing_contact_name: str | None = None
-    billing_email: str | None = None
-    billing_phone: str | None = None
-    billing_address: str | None = None
-    billing_city: str | None = None
-    billing_state: str | None = None
-    billing_country: str | None = None
-    billing_postal_code: str | None = None
-    has_gst_registration: bool | None = None
-    billing_gstin: str | None = None
-    legal_business_name: str | None = None
-    business_type: str | None = None
-
-
 from app.routers.auth import CurrentUser, get_current_user
 from app.services.billing import BillingService
 from app.schemas import (
+    CreditsPurchaseRequest,
+    CreditsVerifyRequest,
+    UnifiedBillingItem,
+    UnifiedBillingResponse,
+    UpdateBillingProfileRequest,
     CreateSubscriptionRequest,
     VerifyPaymentRequest,
+    ReportPaymentFailureRequest,
     PlanEntitlementResponse,
     FeatureBillingRuleResponse,
     EntitlementCheckRequest,
-    EntitlementCheckResponse
+    EntitlementCheckResponse,
 )
 from app.core.security import verify_workspace_access
 
@@ -186,6 +141,96 @@ def verify_payment(
     except ValueError as exc:
         logger.error(f"[PAYMENT VERIFY ERROR] {str(exc)}")
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/report-failure")
+def report_payment_failure(
+    payload: ReportPaymentFailureRequest,
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+    workspace_id: str | None = None,
+    x_workspace_id: str | None = Header(None),
+):
+    try:
+        resolved_ws_id = None
+        try:
+            resolved_ws_id = resolve_and_verify_workspace(
+                current_user, db, workspace_id, x_workspace_id, payload
+            )
+        except Exception:
+            resolved_ws_id = None
+
+        if not resolved_ws_id and payload.order_id:
+          
+            wcc_log = db.query(WCCRechargeLog).filter(WCCRechargeLog.gateway_order_id == payload.order_id).first()
+            if wcc_log:
+                resolved_ws_id = str(wcc_log.workspace_id)
+            else:
+                flow_log = db.query(FlowPackPurchase).filter(FlowPackPurchase.gateway_order_id == payload.order_id).first()
+                if flow_log:
+                    resolved_ws_id = str(flow_log.workspace_id)
+
+        if not resolved_ws_id and payload.subscription_id:
+            sub = db.query(Subscription).filter(Subscription.provider_subscription_id == payload.subscription_id).first()
+            if sub:
+                resolved_ws_id = str(sub.workspace_id)
+
+        if not resolved_ws_id and getattr(current_user, "workspace_id", None):
+            resolved_ws_id = str(current_user.workspace_id)
+
+        if not resolved_ws_id:
+            from app.models.workspace import WorkspaceMember
+            member = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == current_user.id).first()
+            if member:
+                resolved_ws_id = str(member.workspace_id)
+
+        logger.info(f"[PAYMENT FAILURE REPORTED] user={current_user.email} workspace={resolved_ws_id} payment_id={payload.payment_id}")
+
+        service = get_billing_service()
+        # Build canonical failure entity to reuse webhook service logic
+        failure_id = payload.payment_id or f"pay_fail_{uuid.uuid4().hex[:10]}"
+        failure_reason = payload.error_description or payload.error_reason or "Payment declined at checkout"
+
+        entity = {
+            "payment": {
+                "id": failure_id,
+                "order_id": payload.order_id,
+                "subscription_id": payload.subscription_id,
+                "amount": payload.amount,
+                "currency": payload.currency or "INR",
+                "status": "failed",
+                "error_code": payload.error_code,
+                "error_description": failure_reason,
+                "error_reason": payload.error_reason,
+                "email": current_user.email,
+                "notes": {
+                    "workspace_id": str(resolved_ws_id),
+                    "user_id": str(current_user.id),
+                    "plan": payload.plan,
+                    "pack_id": payload.pack_id,
+                }
+            },
+            "subscription": {
+                "id": payload.subscription_id,
+                "notes": {
+                    "workspace_id": str(resolved_ws_id),
+                    "user_id": str(current_user.id),
+                    "plan": payload.plan,
+                }
+            } if payload.subscription_id else None
+        }
+
+        service.webhook_service._handle_payment_failed(
+            db=db,
+            provider=payload.provider,
+            entity=entity
+        )
+        db.commit()
+        return {"status": "ok", "message": "Payment failure recorded and notification processed"}
+    except Exception as exc:
+        logger.error(f"[PAYMENT FAILURE REPORT ERROR] {str(exc)}")
+        db.rollback()
+        return {"status": "error", "detail": str(exc)}
 
 
 @router.post("/webhook/razorpay")

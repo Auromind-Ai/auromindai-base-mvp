@@ -89,6 +89,13 @@ class RecipientResolver:
                 # Direct email address passed in rule
                 resolved_map[role] = ResolvedRecipient(email=role, name=role.split("@")[0].title(), role="custom_email")
 
+        # Fallback to direct email in payload if no role recipients were resolved
+        if not resolved_map and data.get("email") and "@" in str(data.get("email")):
+            fallback_email = str(data.get("email")).strip().lower()
+            u_name = data.get("user_name") or fallback_email.split("@")[0].title()
+            u_id = to_uuid(data.get("user_id"))
+            resolved_map[fallback_email] = ResolvedRecipient(email=fallback_email, name=u_name, role="direct_recipient", user_id=u_id)
+
         # Preference filter: omit users who opted out of this event category
         category = cls._get_category_from_event(event_name)
         final_recipients: List[ResolvedRecipient] = []
@@ -129,12 +136,19 @@ class RecipientResolver:
     @classmethod
     def _resolve_workspace_owner(cls, db: Session, ws_id: Optional[UUID], data: Dict[str, Any], out: Dict[str, ResolvedRecipient]):
         if not ws_id:
+            # Fallback to payload user if workspace is unknown
+            cls._resolve_user_from_data(db, data, out)
             return
 
         founder_member = db.query(WorkspaceMember).filter(
             WorkspaceMember.workspace_id == ws_id,
-            WorkspaceMember.role == "founder"
+            WorkspaceMember.role.in_(["founder", "owner", "admin"])
         ).first()
+
+        if not founder_member:
+            founder_member = db.query(WorkspaceMember).filter(
+                WorkspaceMember.workspace_id == ws_id
+            ).first()
 
         if founder_member:
             user = db.query(User).filter(User.id == founder_member.user_id).first()
@@ -157,6 +171,10 @@ class RecipientResolver:
                     role="workspace_owner",
                     user_id=user.id
                 )
+                return
+
+        # Fallback to direct user in payload
+        cls._resolve_user_from_data(db, data, out)
 
     @classmethod
     def _resolve_billing_contact(cls, db: Session, ws_id: Optional[UUID], data: Dict[str, Any], out: Dict[str, ResolvedRecipient]):

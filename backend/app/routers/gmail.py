@@ -5,10 +5,10 @@ from app.models.integration import Integration
 from app.routers.auth import get_current_user
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-import base64
-from email.mime.text import MIMEText
+from typing import Optional
 from google.auth.transport.requests import Request
 from app.core.security import verify_workspace_access
+from app.schemas.email import (GmailSyncLeadsRequest,      GmailSyncLeadsResponse,)
 
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
@@ -71,6 +71,79 @@ def get_gmail_service(
         raise HTTPException(status_code=401, detail=f"Gmail re-auth required: {str(e)}")
 
     return build("gmail", "v1", credentials=creds)
+
+
+
+
+@router.post("/sync-leads", response_model=GmailSyncLeadsResponse)
+async def sync_gmail_leads(
+    body: Optional[GmailSyncLeadsRequest] = None,
+    workspace_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    
+    ws_uuid = verify_workspace_access(current_user, db, workspace_id)
+    payload = body or GmailSyncLeadsRequest()
+
+    from app.services.email_automation.gmail_lead_service import GmailLeadService
+    try:
+        results = GmailLeadService.sync_leads_from_gmail(
+            db=db,
+            workspace_id=ws_uuid,
+            max_messages=payload.max_messages,
+            query=payload.query,
+            integration_id=payload.integration_id,
+            newer_than_days=payload.newer_than_days
+        )
+        return results
+    except ValueError as val_err:
+        raise HTTPException(status_code=404, detail=str(val_err))
+    except PermissionError as perm_err:
+        raise HTTPException(status_code=403, detail=str(perm_err))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Lead sync failed: {str(exc)}")
+
+@router.get("/import-logs")
+async def get_gmail_import_logs(
+    workspace_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    """
+    Fetch historical Gmail message import logs for this workspace.
+    """
+    ws_uuid = verify_workspace_access(current_user, db, workspace_id)
+    from app.models.integration import GmailImportLog
+
+    bounded_limit = max(1, min(limit, 100))
+    query = (
+        db.query(GmailImportLog)
+        .filter(GmailImportLog.workspace_id == ws_uuid)
+        .order_by(GmailImportLog.processed_at.desc())
+    )
+    total = query.count()
+    logs = query.offset(offset).limit(bounded_limit).all()
+
+    return {
+        "total": total,
+        "limit": bounded_limit,
+        "offset": offset,
+        "logs": [
+            {
+                "id": str(log.id),
+                "gmail_message_id": log.gmail_message_id,
+                "integration_id": str(log.integration_id) if log.integration_id else None,
+                "processed_at": log.processed_at,
+                "status": log.status,
+                "error_code": log.error_code,
+                "lead_id": str(log.lead_id) if log.lead_id else None,
+            }
+            for log in logs
+        ]
+    }
 
 # @router.get("/messages")
 # async def get_messages(

@@ -1,5 +1,5 @@
-from pydantic import BaseModel
 from typing import Any, List, Optional
+from pydantic import BaseModel, Field
 
 class EmailItem(BaseModel):
     id: str
@@ -22,3 +22,20 @@ class InboxResponse(BaseModel):
 
 class SendReplyResponse(BaseModel):
     status: str
+
+class GmailSyncLeadsRequest(BaseModel):
+    max_messages: int = Field(default=20, ge=1, le=50, description="Max messages to inspect in this sync batch")
+    query: Optional[str] = Field(default=None, description="Optional search filter criteria (appended to restricted primary filter)")
+    integration_id: Optional[str] = Field(default=None, description="Specific Gmail integration ID to sync")
+    newer_than_days: int = Field(default=30, ge=1, le=365, description="Only fetch messages newer than N days")
+
+class GmailSyncLeadsResponse(BaseModel):
+    status: str
+    workspace_id: str
+    total_candidate_messages: int
+    created_leads: int
+    updated_leads: int
+    skipped_count: int
+    ignored_count: int
+    non_lead_count: int
+    details: List[dict]

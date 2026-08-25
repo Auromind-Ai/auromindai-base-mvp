@@ -1,16 +1,20 @@
-from email.mime.text import MIMEText
 import base64
-from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
-from app.models.integration import Integration, EmailReplyLog
+import logging
+from email.mime.text import MIMEText
 from uuid import UUID
-from app.services.platform_settings_service import get_setting
 from fastapi import HTTPException
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
+from app.models.integration import Integration, EmailReplyLog
+from app.services.platform_settings_service import get_setting
+
+logger = logging.getLogger(__name__)
+
 
 class EmailReplyExecutor:
 
     def execute(self, db, workspace_id, action):
-
         gmail_enabled = get_setting(db, "enable_gmail_integration", True)
 
         if not gmail_enabled:
@@ -19,12 +23,9 @@ class EmailReplyExecutor:
                 detail="Gmail integration disabled by admin"
             )
 
-        print("EmailReplyExecutor started")
-        print("workspace_id:", workspace_id)
-        print("action:", action)
+        logger.info(f"EmailReplyExecutor started for workspace: {workspace_id}")
 
         reply_data = self.extract_reply_data(action)
-
         integration = self.get_gmail_access_token(db, workspace_id)
 
         mime_message = self.build_reply_message(
@@ -51,7 +52,6 @@ class EmailReplyExecutor:
         )
 
     def extract_reply_data(self, action):
-
         data = action.get("data", {})
 
         reply_text = data.get("reply")
@@ -59,8 +59,6 @@ class EmailReplyExecutor:
         message_id = data.get("message_id")
         to_email = data.get("to_email")
         subject = data.get("subject")
-
-        print("Reply data extracted:", data)
 
         return {
             "reply_text": reply_text,
@@ -71,10 +69,9 @@ class EmailReplyExecutor:
         }
 
     def get_gmail_access_token(self, db, workspace_id):
+        logger.info(f"Fetching Gmail token for workspace: {workspace_id}")
 
-        print("Fetching Gmail token for workspace:", workspace_id)
-
-        workspace_uuid = UUID(workspace_id)
+        workspace_uuid = UUID(str(workspace_id)) if not isinstance(workspace_id, UUID) else workspace_id
 
         integration = (
             db.query(Integration)
@@ -86,43 +83,34 @@ class EmailReplyExecutor:
             .first()
         )
 
-        print("Integration record:", integration)
-
         if not integration:
             raise Exception("Gmail integration not found")
 
         return integration
 
     def build_reply_message(self, to_email, subject, message_id, reply_text):
-
-        print("Building reply message")
-        print("To:", to_email)
-        print("Subject:", subject)
-
         sender_email = "me"
         message = MIMEText(reply_text)
 
+        clean_subj = subject or ""
+        formatted_subject = clean_subj if clean_subj.lower().startswith("re:") else f"Re: {clean_subj}"
+
         message["To"] = to_email
         message["From"] = sender_email
-        message["Subject"] = f"Re: {subject}"
+        message["Subject"] = formatted_subject
         message["Reply-To"] = sender_email
-        message["References"] = message_id
+        if message_id:
+            message["In-Reply-To"] = message_id
+            message["References"] = message_id
 
         return message
 
     def encode_message(self, mime_message):
-
         raw_bytes = mime_message.as_bytes()
-        encoded_message = base64.urlsafe_b64encode(raw_bytes).decode()
-
-        print("Email encoded successfully")
-
-        return encoded_message
+        return base64.urlsafe_b64encode(raw_bytes).decode()
 
     def send_gmail_reply(self, integration, thread_id, encoded_message):
-
-        print("Sending Gmail reply...")
-        print("Thread ID:", thread_id)
+        logger.info(f"Sending Gmail reply for thread: {thread_id}")
 
         from app.services.config_service import config_service
         credentials = Credentials(
@@ -143,7 +131,7 @@ class EmailReplyExecutor:
             }
         ).execute()
 
-        print("Email sent successfully")
+        logger.info("Email reply sent successfully via Gmail API")
 
     def log_reply_event(
         self,
@@ -153,12 +141,10 @@ class EmailReplyExecutor:
         message_id,
         reply_text
     ):
-        print("Logging reply event")
-        print("workspace_id:", workspace_id)
-        print("thread_id:", thread_id)
+        workspace_uuid = UUID(str(workspace_id)) if not isinstance(workspace_id, UUID) else workspace_id
 
         event = EmailReplyLog(
-            workspace_id=workspace_id,
+            workspace_id=workspace_uuid,
             thread_id=thread_id,
             message_id=message_id,
             reply_text=reply_text
@@ -166,5 +152,4 @@ class EmailReplyExecutor:
 
         db.add(event)
         db.commit()
-
-        print("Reply event stored in DB")
+        logger.info("Reply event stored in DB")

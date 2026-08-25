@@ -76,6 +76,7 @@ function BillingContent() {
 
       await api.openRazorpayCheckout({
         orderData: checkout,
+        workspaceId,
         name: "Auromind",
         description: `${checkout.plan_label || "Pro"} subscription`,
         prefill: checkout.prefill,

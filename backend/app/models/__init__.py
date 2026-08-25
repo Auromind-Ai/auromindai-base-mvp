@@ -50,3 +50,4 @@ from .invoice_sequence import InvoiceSequence
 from .event_payload_schema import EventPayloadSchema
 from .event_metadata import EventMetadata
 from .notification_system_variable import NotificationSystemVariable
+from .integration import Integration, CalendarEvent, EmailReplyLog, GmailImportLog
