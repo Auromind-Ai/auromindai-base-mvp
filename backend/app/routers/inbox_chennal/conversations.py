@@ -494,6 +494,8 @@ def convert_conversation(
         "lead_id": str(lead.id)
     }
 
+FAILED_META_MEDIA_CACHE: dict[str, float] = {}
+
 @router.get("/media/meta/{media_id}")
 @router.get("/inbox/media/meta/{media_id}")
 def get_meta_media(
@@ -502,7 +504,6 @@ def get_meta_media(
     token: str = Query(...),
     db: Session = Depends(get_db),
 ):
-
     # Basic validation
     media_id = media_id.strip()
 
@@ -574,8 +575,16 @@ def get_meta_media(
 
      
         # Workspace Meta token
-        system_token = config_service.get("meta_system_user_token")
+        import os
+        import time
 
+        if FAILED_META_MEDIA_CACHE.get(media_id, 0) > time.time():
+            raise HTTPException(
+                status_code=404,
+                detail="Meta media expired or unavailable",
+            )
+
+        system_token = config_service.get("meta_system_user_token") or os.getenv("META_SYSTEM_USER_TOKEN")
         access_token = system_token or workspace.meta_access_token
 
         if not access_token:
@@ -674,12 +683,14 @@ def get_meta_media(
                 "Meta access denied for media %s",
                 media_id,
             )
+            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 300
             raise HTTPException(
                 status_code=403,
                 detail="Meta denied access to this media",
             )
 
         if meta_response.status_code in (400, 404):
+            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 300
             raise HTTPException(
                 status_code=404,
                 detail="Meta media expired or not found",
