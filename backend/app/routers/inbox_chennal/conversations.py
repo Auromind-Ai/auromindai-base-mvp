@@ -679,10 +679,10 @@ def get_meta_media(
                 detail="Meta denied access to this media",
             )
 
-        if meta_response.status_code == 404:
+        if meta_response.status_code in (400, 404):
             raise HTTPException(
                 status_code=404,
-                detail="Meta media not found",
+                detail="Meta media expired or not found",
             )
 
         if not meta_response.ok:
