@@ -550,13 +550,15 @@ def get_workspace_entitlements(
         )
         ws_uuid = to_uuid(resolved_ws_id)
         ent = EntitlementService.get_workspace_entitlement(db, ws_uuid)
-        plan = db.query(Plan).filter(Plan.id == ent.plan_id).first()
+        plan_id = getattr(ent, "plan_id", None)
+        plan = db.query(Plan).filter(Plan.id == plan_id).first() if plan_id else None
         res = PlanEntitlementResponse.from_orm(ent)
         res.plan_name = plan.name if plan else "unknown"
         return res
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
+        logger.error(f"[GET ENTITLEMENTS ERROR] {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

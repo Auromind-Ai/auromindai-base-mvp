@@ -45,13 +45,14 @@ def resolve_and_verify_workspace(
         )
 
     import uuid
-    try:
-        uuid.UUID(ws_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid workspace_id UUID format: '{ws_id}'"
-        )
+    if not isinstance(ws_id, uuid.UUID):
+        try:
+            uuid.UUID(str(ws_id))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid workspace_id UUID format: '{ws_id}'"
+            )
 
     return verify_workspace_access(current_user, db, ws_id)
 
