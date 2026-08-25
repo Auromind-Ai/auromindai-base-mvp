@@ -5,7 +5,7 @@ from typing import List
 
 from app.database import get_db
 from app.routers.auth import CurrentUser, get_current_user
-from app.core.security import verify_workspace_access
+from app.core.security import verify_workspace_access, to_uuid
 from app.services.wcc_service import WCCService
 from app.schemas.wcc import (
     WCCBalanceResponse,
@@ -156,7 +156,7 @@ def initiate_wcc_recharge(
         )
         from app.services.billing.entitlement_service import EntitlementService
         import uuid
-        ent = EntitlementService.get_workspace_entitlement(db, uuid.UUID(resolved_ws_id))
+        ent = EntitlementService.get_workspace_entitlement(db, to_uuid(resolved_ws_id))
         if not ent.allow_wcc_recharge:
             raise HTTPException(
                 status_code=403,
@@ -311,7 +311,7 @@ def get_user_wcc_recharges(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id
         )
-        ws_uuid = uuid.UUID(resolved_ws_id)
+        ws_uuid = to_uuid(resolved_ws_id)
 
         query = db.query(WCCRechargeLog).filter(WCCRechargeLog.workspace_id == ws_uuid)
 
