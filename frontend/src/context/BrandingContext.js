@@ -6,7 +6,7 @@ import api from '@/lib/api';
 
 const CACHE_KEY = 'branding_cache';
 
-/** Read cached branding synchronously from sessionStorage (safe on client only). */
+/** Read cached branding synchronously from sessionStorage (safe on client only)*/
 function readCache() {
   if (typeof window === 'undefined') return null;
   try {
