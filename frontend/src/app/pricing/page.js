@@ -8,7 +8,6 @@ import NavigationSection from '@/components/LandingPageNew/NavigationSection/Nav
 import ModernSaaSBackground from '@/components/LandingPageNew/ModernSaaSBackground/ModernSaaSBackground';
 import FooterSection from '@/components/LandingPageNew/FooterSection/Footer';
 import api from '@/lib/api';
-import PricingComparisonTable from '@/components/LandingPageNew/PricingSectionNewSection/PricingComparisonTable';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -340,7 +339,7 @@ export default function PricingPage() {
   const plans = dynamicPlans;
 
   return (
-    <main className={`${poppins.className} min-h-screen bg-black text-white relative overflow-x-clip`}>
+    <main className={`${poppins.className} min-h-screen bg-black text-white relative overflow-x-hidden`}>
       <ModernSaaSBackground />
       <NavigationSection />
 
@@ -355,15 +354,6 @@ export default function PricingPage() {
           <p className="mt-5 max-w-2xl mx-auto text-sm sm:text-base md:text-lg text-white/70 leading-relaxed font-normal">
             Choose the perfect plan for your business and scale your AI-powered sales system with confidence.
           </p>
-          {/* Compare Scroll Button */}
-          <div className="mt-10 md:mt-12 flex justify-center items-center gap-6 px-2">
-            <button
-              onClick={scrollToCompare}
-              className="border border-white/10 bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full text-xs md:text-sm font-medium transition-all duration-300 shadow-md cursor-pointer"
-            >
-              📊 Compare Features & Plans
-            </button>
-          </div>
         </div>
 
         {/* 3-Column Plan Grid matching Image 1 */}
@@ -385,8 +375,8 @@ export default function PricingPage() {
         </motion.div>
 
         {/* Detailed Plan Comparison Section */}
-        <div ref={compareRef} className="mt-20">
-          <div className="mx-auto max-w-4xl text-center mb-12">
+        <div ref={compareRef} className="mt-32 border-t border-white/10 pt-20">
+          <div className="mx-auto max-w-4xl text-center mb-16">
             <h2 className="font-['Poppins'] text-[24px] font-medium text-white tracking-[-0.03em] leading-[1.2em] sm:text-[40px]">
               Detailed Feature Comparison
             </h2>
@@ -395,8 +385,151 @@ export default function PricingPage() {
             </p>
           </div>
 
-          <PricingComparisonTable />
-        </div>
+          <div className="overflow-x-auto rounded-3xl border border-white/10 bg-neutral-950/40 backdrop-blur-xl p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <table className="w-full text-left border-collapse min-w-[750px]">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="py-5 text-sm font-bold uppercase tracking-wider text-white/40 w-1/3">
+                    Features
+                  </th>
+                  <th className="py-5 text-sm font-bold uppercase tracking-wider text-white/70 text-center">
+                    Free
+                    <div className="text-xs text-white/40 font-normal mt-0.5">₹0</div>
+                  </th>
+                  <th className="py-5 text-sm font-bold uppercase tracking-wider text-[#A78BFA] text-center">
+                    Solo Smart
+                    <div className="text-xs text-[#A78BFA]/75 font-normal mt-0.5">
+                      {billing === 'annual' ? '₹799/mo' : '₹999/mo'}
+                    </div>
+                  </th>
+                  <th className="py-5 text-sm font-bold uppercase tracking-wider text-[#9B5DE5] text-center">
+                    Pro
+                    <div className="text-xs text-[#9B5DE5]/75 font-normal mt-0.5">
+                      {billing === 'annual' ? '₹4,999/mo' : '₹5,999/mo'}
+                    </div>
+                  </th>
+                  <th className="py-5 text-sm font-bold uppercase tracking-wider text-white/70 text-center">
+                    Business
+                    <div className="text-xs text-white/40 font-normal mt-0.5">
+                      {billing === 'annual' ? '₹19,999/mo' : '₹24,999/mo'}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td
+                    colSpan="5"
+                    className="py-5 text-xs font-bold text-[#9B5DE5] uppercase tracking-wider bg-white/[0.02] px-3 rounded-lg"
+                  >
+                    LIMITS & SCALE
+                  </td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Messaging speed</td>
+                  <td className="py-4 text-sm text-white/60 text-center">5/sec</td>
+                  <td className="py-4 text-sm text-[#A78BFA] text-center font-medium">10/sec</td>
+                  <td className="py-4 text-sm text-white text-center font-medium">40/sec</td>
+                  <td className="py-4 text-sm text-white/60 text-center">1,000/sec</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Tags allowed</td>
+                  <td className="py-4 text-sm text-white/60 text-center">2</td>
+                  <td className="py-4 text-sm text-[#A78BFA] text-center font-medium">20</td>
+                  <td className="py-4 text-sm text-white text-center font-medium">100</td>
+                  <td className="py-4 text-sm text-white/60 text-center">500</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Custom attributes</td>
+                  <td className="py-4 text-sm text-white/60 text-center">5</td>
+                  <td className="py-4 text-sm text-[#A78BFA] text-center font-medium">20</td>
+                  <td className="py-4 text-sm text-white text-center font-medium">50</td>
+                  <td className="py-4 text-sm text-white/60 text-center">100</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Agent seats included</td>
+                  <td className="py-4 text-sm text-white/60 text-center">2</td>
+                  <td className="py-4 text-sm text-[#A78BFA] text-center font-medium">1</td>
+                  <td className="py-4 text-sm text-white text-center font-medium">10</td>
+                  <td className="py-4 text-sm text-white/60 text-center">50</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Webhooks</td>
+                  <td className="py-4 text-sm text-white/30 text-center">-</td>
+                  <td className="py-4 text-sm text-white/30 text-center">-</td>
+                  <td className="py-4 text-sm text-white text-center font-medium">1</td>
+                  <td className="py-4 text-sm text-white/60 text-center">3</td>
+                </tr>
+
+                <tr>
+                  <td
+                    colSpan="5"
+                    className="py-5 text-xs font-bold text-[#9B5DE5] uppercase tracking-wider bg-white/[0.02] px-3 rounded-lg mt-4"
+                  >
+                    INCLUDED ON EVERY PLAN
+                  </td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Unlimited contacts</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Multi-agent live chat</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Broadcasting & retargeting</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Click-to-WhatsApp Ads Manager</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                </tr>
+
+                <tr>
+                  <td
+                    colSpan="5"
+                    className="py-5 text-xs font-bold text-[#9B5DE5] uppercase tracking-wider bg-white/[0.02] px-3 rounded-lg mt-4"
+                  >
+                    CAMPAIGNS & AUTOMATION
+                  </td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Campaign Scheduler</td>
+                  <td className="py-4 text-center text-white/30">-</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">RAG Knowledge Base (Custom AI)</td>
+                  <td className="py-4 text-center text-white/30">-</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-4 text-sm text-white/80 pl-3">Governed MCP Actions</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                  <td className="py-4 text-center text-emerald-500">✓</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
