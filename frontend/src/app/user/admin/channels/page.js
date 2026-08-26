@@ -976,6 +976,31 @@ export default function ChannelsPage() {
         loadIntegrationStatus();
     }, [workspace?.id, loadIntegrationStatus]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        const status = params.get('status');
+        const integration = params.get('integration');
+
+        if (status) {
+            const displayName = (integration === 'calendar' || integration === 'google_calendar')
+                ? 'Google Calendar'
+                : (integration === 'gmail' || integration === 'google_gmail')
+                ? 'Gmail'
+                : (integration || 'Integration');
+
+            if (status === 'success') {
+                showToast(`✓ ${displayName} connected successfully!`);
+                loadIntegrationStatus();
+            } else if (status === 'error') {
+                showToast(`✕ Failed to connect ${displayName}. Please check your credentials.`);
+            }
+
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+        }
+    }, [loadIntegrationStatus]);
+
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('default');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -1210,7 +1235,7 @@ export default function ChannelsPage() {
 
     const submitTwilio = async () => {
         const { sid, token, phone } = twilioForm;
-       
+        
         if (!sid.trim()) {
             showToast("⚠️ Twilio Account SID is required");
             return;

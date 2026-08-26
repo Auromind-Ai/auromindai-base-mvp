@@ -101,6 +101,14 @@ const showToast = (message) => {
     }, 4000);
 };
 
+function getHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+    
+    };  
+}
+
 function getDisplayName(lead, channelId) {
     if (channelId === 'instagram') {
         return lead?.contact_name || lead?.username || 'Instagram User';

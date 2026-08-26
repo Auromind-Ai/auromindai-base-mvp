@@ -196,7 +196,7 @@ function PhonePreview({ form, actionMode }) {
 
                 {/* Name + status */}
                 <div style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}>
-                  <div style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: '600', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Auromind</div>
+                  <div style={{ color: '#FFFFFF', fontSize: '13px', fontWeight: '600', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Orbion Agents</div>
                   <div style={{ color: '#8E8E93', fontSize: '10px' }}>Business account</div>
                 </div>
 
@@ -433,12 +433,19 @@ export default function CreateTemplatePage() {
       setGeneratedTemplates(templates);
     } catch (err) {
       console.warn('[Template Generator Handler]:', err?.message || err);
-      const errStr = String(err?.message || err?.data?.detail || err).toLowerCase();
-      const isQuotaOrLimit = err?.status === 402 || err?.status === 403 || err?.status === 429 || errStr.includes('quota') || errStr.includes('limit') || errStr.includes('insufficient') || errStr.includes('upgrade') || errStr.includes('overages');
+      const errStr = String(err?.message || err?.data?.detail || err?.data?.message || err).toLowerCase();
+      const isQuotaOrLimit = err?.status === 402 || 
+        err?.data?.error === 'billing_error' ||
+        errStr.includes('insufficient quota') || 
+        errStr.includes('upgrade your plan') || 
+        errStr.includes('upgrade plan') || 
+        errStr.includes('insufficient credits') || 
+        errStr.includes('quota exceeded') || 
+        errStr.includes('enable overages');
       if (isQuotaOrLimit) {
         setShowUpgradeModal(true);
       } else {
-        alert(err.message || 'Failed to generate template');
+        alert(err?.data?.detail || err?.data?.message || err.message || 'Failed to generate template');
       }
     }
   };
@@ -684,7 +691,7 @@ export default function CreateTemplatePage() {
                         }`}
                     >
                       <Icon d={icons.sparkle} size={14} />
-                      ✨ Generate ($10 WCC)
+                      ✨ Generate (10 WCC)
                     </button>
                   </div>
                   {generatedTemplates.length > 0 && (

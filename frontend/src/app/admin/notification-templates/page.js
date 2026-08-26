@@ -109,7 +109,7 @@ const RULE_CATEGORIES = [
   },
   {
     name: "Lead Management",
-    events: ["lead.created", "lead.assigned", "lead.sla_breached", "lead.message_received", "lead.high_intent", "lead.converted", "lead.inactive_reminder"]
+    events: ["lead.created", "lead.assigned", "lead.sla_breached", "lead.message_received", "lead.high_intent", "lead.converted", "lead.inactive_reminder", "contact.inquiry_received", "contact.inquiry_sales_alert",]
   },
   {
     name: "Automated Reports",
@@ -262,11 +262,11 @@ export default function NotificationManagerPage() {
     if (contract?.sample_payload) {
       Object.keys(contract.sample_payload).forEach(k => eventAllowed.add(k));
     }
-    
+   
     // System variables strictly from DB contract
     const sysVars = getSystemVariablesForContract(contract);
     const systemKeys = new Set(sysVars.map(v => v.key));
-    
+   
     // ALLOWED PLACEHOLDERS = EVENT PAYLOAD KEYS ∪ DB SYSTEM VARIABLE KEYS
     const allowed = new Set([
       ...eventAllowed,
@@ -334,8 +334,8 @@ export default function NotificationManagerPage() {
       setTemplates(prev => prev.map(t => t.id === tpl.id ? { ...t, channel: newChannel } : t));
       showBanner("success", `Channel updated to '${newChannel}' for ${tpl.name}`);
     } catch (err) {
-      showBanner("error", "Failed to update channel.");
-    }
+      showBanner("error", "Channel modification is not permitted for this event.");
+    } 
   };
 
   const handleOpenEditSchedule = (sched) => {
@@ -473,9 +473,20 @@ export default function NotificationManagerPage() {
   const handleOpenEditTemplate = (tpl) => {
     setSelectedTemplate(tpl);
     const contract = getContractForTemplate(tpl.template_key);
-    const defRoute = contract?.action_route || (tpl.template_key?.includes("verification") ? "/verify-otp" : tpl.template_key?.includes("payment") ? "/billing" : "/dashboard");
-    const defLabel = contract?.action_label || (tpl.template_key?.includes("verification") ? "Verify Email" : tpl.template_key?.includes("payment") ? "View Invoices" : "Open Application");
-
+    const defRoute = contract?.action_route || (
+      tpl.template_key?.includes("sales_alert") ? "/admin/inquiries" :
+      tpl.template_key?.includes("inquiry") ? "/pricing" :
+      tpl.template_key?.includes("verification") ? "/verify-otp" :
+      tpl.template_key?.includes("payment") ? "/billing" :
+      "/dashboard"
+    );
+    const defLabel = contract?.action_label || (
+      tpl.template_key?.includes("sales_alert") ? "View Inquiries" :
+      tpl.template_key?.includes("inquiry") ? "View Pricing" :
+      tpl.template_key?.includes("verification") ? "Verify Email" :
+      tpl.template_key?.includes("payment") ? "View Invoices" :
+      "Open Dashboard"
+    );
     setTemplateForm({
       name: tpl.name || "",
       category: tpl.category || "User & Onboarding",

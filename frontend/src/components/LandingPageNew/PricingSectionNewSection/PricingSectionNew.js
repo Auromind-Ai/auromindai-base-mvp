@@ -381,7 +381,7 @@ export default function PricingSectionNew() {
       <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-purple-900/15 blur-[150px]" />
 
       <div className="max-w-[1440px] mx-auto w-full flex flex-col items-center relative z-10">
-       
+        
         {/* Header Section */}
         <div className="mx-auto max-w-4xl text-center mb-12 md:mb-16">
           <h2 className="font-['Poppins'] text-3xl sm:text-5xl lg:text-6xl font-semibold text-white tracking-tight leading-[1.15]">

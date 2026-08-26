@@ -1169,6 +1169,18 @@ class BillingService:
             "plans": [self.plan_service._serialize_plan(db, p.name) for p in db.query(Plan).filter(Plan.is_active == True).order_by(Plan.display_order.asc(), Plan.created_at.asc()).all()] or [self.plan_service._serialize_plan(db, key) for key in ("free", "solo", "pro", "enterprise")],
         }
     def check_token_limit(self, db: Session, workspace_id: str) -> TokenLimitStatus:
+        import uuid
+        def _to_uuid(val):
+            if val is None:
+                return None
+            if isinstance(val, uuid.UUID):
+                return val
+            try:
+                return uuid.UUID(str(val).strip())
+            except (ValueError, TypeError, AttributeError):
+                return None
+
+        ws_uuid = _to_uuid(workspace_id)
         subscription = self.subscription_service._get_active_subscription(db, workspace_id)
         if subscription is None or subscription.plan_id is None:
             # Fall back to free plan
@@ -1184,7 +1196,7 @@ class BillingService:
             tokens_used = (
                 db.query(func.sum(TokenLedger.tokens_used))
                 .filter(
-                    TokenLedger.workspace_id == workspace_id,
+                    TokenLedger.workspace_id == (ws_uuid or workspace_id),
                     TokenLedger.status == "posted",
                     TokenLedger.entry_type == "usage",
                     TokenLedger.created_at >= period_start,

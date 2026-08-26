@@ -35,12 +35,19 @@ export default function AiMagicBar({
       }
     } catch (e) {
       console.warn('[AI Generation Handler]:', e?.message || e);
-      const errStr = String(e?.message || e?.data?.detail || e).toLowerCase();
-      const isQuotaOrLimit = e?.status === 402 || e?.status === 403 || e?.status === 429 || errStr.includes('quota') || errStr.includes('limit') || errStr.includes('insufficient') || errStr.includes('upgrade') || errStr.includes('unable to generate') || errStr.includes('overages');
+      const errStr = String(e?.message || e?.data?.detail || e?.data?.message || e).toLowerCase();
+      const isQuotaOrLimit = e?.status === 402 || 
+        e?.data?.error === 'billing_error' ||
+        errStr.includes('insufficient quota') || 
+        errStr.includes('upgrade your plan') || 
+        errStr.includes('upgrade plan') || 
+        errStr.includes('insufficient credits') || 
+        errStr.includes('quota exceeded') || 
+        errStr.includes('enable overages');
       if (isQuotaOrLimit) {
         setShowUpgradeModal(true);
       } else {
-        setError(e.message || "Failed to connect to AI engine.");
+        setError(e?.data?.detail || e?.data?.message || e.message || "Failed to connect to AI engine.");
       }
     } finally {
       setIsGenerating(false);

@@ -164,10 +164,6 @@ def get_conversation_by_id(
 def get_messages(
     conversation_id: str,
     request: Request,
-    limit: int = Query(50, ge=1, le=200),
-    before_timestamp: str | None = Query(None),
-    before_id: str | None = Query(None),
-    skip: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: CurrentUser = Depends(get_current_user),
 ):
@@ -181,10 +177,6 @@ def get_messages(
         db,
         workspace_id=workspace_id,
         conversation_id=conversation_id,
-        limit=limit,
-        before_timestamp=before_timestamp,
-        before_id=before_id,
-        skip=skip,
     )
 
     # Convert Pydantic / SQLAlchemy / ORM objects
@@ -494,6 +486,8 @@ def convert_conversation(
         "lead_id": str(lead.id)
     }
 
+FAILED_META_MEDIA_CACHE: dict[str, float] = {}
+
 @router.get("/media/meta/{media_id}")
 @router.get("/inbox/media/meta/{media_id}")
 def get_meta_media(
@@ -502,7 +496,6 @@ def get_meta_media(
     token: str = Query(...),
     db: Session = Depends(get_db),
 ):
-
     # Basic validation
     media_id = media_id.strip()
 
@@ -574,8 +567,16 @@ def get_meta_media(
 
      
         # Workspace Meta token
-        system_token = config_service.get("meta_system_user_token")
+        import os
+        import time
 
+        if FAILED_META_MEDIA_CACHE.get(media_id, 0) > time.time():
+            raise HTTPException(
+                status_code=404,
+                detail="Meta media expired or unavailable",
+            )
+
+        system_token = config_service.get("meta_system_user_token") or os.getenv("META_SYSTEM_USER_TOKEN")
         access_token = system_token or workspace.meta_access_token
 
         if not access_token:
@@ -674,15 +675,17 @@ def get_meta_media(
                 "Meta access denied for media %s",
                 media_id,
             )
+            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 300
             raise HTTPException(
                 status_code=403,
                 detail="Meta denied access to this media",
             )
 
-        if meta_response.status_code == 404:
+        if meta_response.status_code in (400, 404):
+            FAILED_META_MEDIA_CACHE[media_id] = time.time() + 300
             raise HTTPException(
                 status_code=404,
-                detail="Meta media not found",
+                detail="Meta media expired or not found",
             )
 
         if not meta_response.ok:

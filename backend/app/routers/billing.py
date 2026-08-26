@@ -38,7 +38,7 @@ from app.schemas import (
     EntitlementCheckRequest,
     EntitlementCheckResponse,
 )
-from app.core.security import verify_workspace_access
+from app.core.security import verify_workspace_access, to_uuid
 
 from typing import Any
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -71,15 +71,27 @@ def resolve_and_verify_workspace(
         )
 
     import uuid
-    try:
-        uuid.UUID(ws_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid workspace_id UUID format: '{ws_id}'"
-        )
+    if not isinstance(ws_id, uuid.UUID):
+        try:
+            uuid.UUID(str(ws_id))
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid workspace_id UUID format: '{ws_id}'"
+            )
 
     return verify_workspace_access(current_user, db, ws_id)
+
+
+def _safe_to_uuid(val):
+    if not val:
+        return None
+    if isinstance(val, uuid.UUID):
+        return val
+    try:
+        return uuid.UUID(str(val).strip())
+    except Exception:
+        return None
 
 
 @router.post("/create-subscription")
@@ -395,7 +407,7 @@ def get_usage(
 
   
 
-    ws_uuid = uuid.UUID(resolved_ws_id)
+    ws_uuid = to_uuid(resolved_ws_id)
     ent = EntitlementService.get_workspace_entitlement(db, ws_uuid)
 
     plan = db.query(Plan).filter(Plan.id == ent.plan_id).first() if ent else None
@@ -547,7 +559,7 @@ def purchase_credit_pack(
         )
         from app.services.billing.entitlement_service import EntitlementService
         import uuid
-        ent = EntitlementService.get_workspace_entitlement(db, uuid.UUID(resolved_ws_id))
+        ent = EntitlementService.get_workspace_entitlement(db, to_uuid(resolved_ws_id))
         if not ent.allow_ai_topup:
             raise HTTPException(
                 status_code=403,
@@ -652,15 +664,17 @@ def get_workspace_entitlements(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id
         )
-        ws_uuid = uuid.UUID(resolved_ws_id)
+        ws_uuid = to_uuid(resolved_ws_id)
         ent = EntitlementService.get_workspace_entitlement(db, ws_uuid)
-        plan = db.query(Plan).filter(Plan.id == ent.plan_id).first()
+        plan_id = getattr(ent, "plan_id", None)
+        plan = db.query(Plan).filter(Plan.id == plan_id).first() if plan_id else None
         res = PlanEntitlementResponse.from_orm(ent)
         res.plan_name = plan.name if plan else "unknown"
         return res
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as e:
+        logger.error(f"[GET ENTITLEMENTS ERROR] {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -698,7 +712,7 @@ def check_workspace_entitlement(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id
         )
-        ws_uuid = uuid.UUID(resolved_ws_id)
+        ws_uuid = to_uuid(resolved_ws_id)
         res_dict = EntitlementService.check_entitlement(
             db, ws_uuid, resource, value
         )
@@ -729,7 +743,7 @@ def check_workspace_entitlement_post(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id, payload
         )
-        ws_uuid = uuid.UUID(resolved_ws_id)
+        ws_uuid = to_uuid(resolved_ws_id)
         return EntitlementService.check_entitlement(
             db, ws_uuid, payload.resource, payload.value
         )
@@ -760,7 +774,7 @@ def get_user_invoices(
         resolved_ws_id = resolve_and_verify_workspace(
             current_user, db, workspace_id, x_workspace_id
         )
-        ws_uuid = uuid.UUID(resolved_ws_id)
+        ws_uuid = to_uuid(resolved_ws_id)
 
         invoice_query = db.query(Invoice).filter(Invoice.workspace_id == ws_uuid)
 
@@ -852,7 +866,7 @@ def download_invoice(
 ):
     
     try:
-        inv_uuid = uuid.UUID(invoice_id)
+        inv_uuid = to_uuid(invoice_id)
         invoice = db.query(Invoice).filter(Invoice.id == inv_uuid).first()
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
@@ -979,7 +993,7 @@ def get_workspace_billing_profile(
             current_user, db, workspace_id
         )
         import uuid
-        ws_uuid = uuid.UUID(resolved_ws_id)
+        ws_uuid = to_uuid(resolved_ws_id)
         
         from app.models.workspace import Workspace
         workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()
@@ -1017,7 +1031,7 @@ def update_workspace_billing_profile(
             current_user, db, workspace_id
         )
         import uuid
-        ws_uuid = uuid.UUID(resolved_ws_id)
+        ws_uuid = to_uuid(resolved_ws_id)
         
         from app.models.workspace import Workspace
         workspace = db.query(Workspace).filter(Workspace.id == ws_uuid).first()

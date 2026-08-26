@@ -141,24 +141,24 @@ async def websocket_endpoint(
     except Exception as exc:
         logger.warning("WebSocket error | user=%s | %s", user_id, exc)
     finally:
-        #  7. Cleanup
-        heartbeat.cancel()
+        # 7. Cleanup
+        if 'heartbeat' in locals() and heartbeat:
+            heartbeat.cancel()
         removed_conversations = manager.disconnect(user_id, websocket)
 
-      
-        if not manager.is_user_connected(user_id) and pubsub_service:
-            await pubsub_service.unsubscribe(user_redis_channel)
-        if (
-            workspace_id
-            and not manager.is_workspace_connected(workspace_id)
-            and pubsub_service
-            and workspace_redis_channel
-        ):
-            await pubsub_service.unsubscribe(workspace_redis_channel)
-        if pubsub_service:
+        pubsub_svc = redis_pubsub.pubsub_service
+        if pubsub_svc:
+            if not manager.is_user_connected(user_id):
+                await pubsub_svc.unsubscribe(user_channel(user_id))
+
+            subscribed_workspaces = set([w for w in ([primary_ws] + user_workspaces) if w])
+            for ws_item in subscribed_workspaces:
+                if not manager.is_workspace_connected(ws_item):
+                    await pubsub_svc.unsubscribe(workspace_channel(ws_item))
+
             for conv_id in removed_conversations:
                 if not manager.is_conversation_subscribed(conv_id):
-                    await pubsub_service.unsubscribe(conversation_channel(conv_id))
+                    await pubsub_svc.unsubscribe(conversation_channel(conv_id))
 
         logger.info("WebSocket cleanup done | user=%s", user_id)
 

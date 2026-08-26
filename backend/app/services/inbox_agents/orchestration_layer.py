@@ -10,6 +10,18 @@ from app.services.inbox_agents.escalation_queue import EscalationQueue
 from app.services.inbox.twilio_service import TwilioService
 from app.models.flow_execution import FlowExecutionState
 from app.models import Conversation, TokenLedger
+import uuid
+
+
+def _to_uuid(val):
+    if isinstance(val, uuid.UUID):
+        return val
+    if isinstance(val, str):
+        try:
+            return uuid.UUID(val)
+        except (ValueError, AttributeError):
+            return val
+    return val
 
 
 class AgentOrchestration:
@@ -262,7 +274,7 @@ class AgentOrchestration:
         # Determine agent
         conversation = None
         if db and conversation_id:
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            conversation = db.query(Conversation).filter(Conversation.id == _to_uuid(conversation_id)).first()
 
         if conversation and conversation.agent_locked and conversation.active_agent:
             agent_type = conversation.active_agent
@@ -354,58 +366,68 @@ class AgentOrchestration:
         stage  = result.get("stage",  "lead")
         action = result.get("action")
 
-        # ─ DEMO BOOKING ─
+        # ─ DEMO BOOKING, RESCHEDULING & CANCELLATION ─
         if action == "book_demo":
             from app.services.email_automation.calender_executor import CalendarExecutor
             calendar = CalendarExecutor()
+            
+            client_name = lead_data.get("name") or payload.get("user_name") or "Valued Client"
+            client_email = lead_data.get("email")
+            client_phone = lead_data.get("phone") or payload.get("from")
+            meeting_date = result.get("meeting_date")
+            meeting_time = result.get("meeting_time")
+            meeting_tz = result.get("timezone")
+            
             calendar_result = calendar.execute(
                 db=db,
                 workspace_id=workspace_id,
                 action={
                     "data": {
-                        "meeting_date": result.get("meeting_date"),
-                        "meeting_time": result.get("meeting_time"),
-                        "timezone":     result.get("timezone"),
-                        "location":     result.get("location", "Online")
+                        "meeting_date": meeting_date,
+                        "meeting_time": meeting_time,
+                        "timezone":     meeting_tz,
+                        "name":         client_name,
+                        "email":        client_email,
+                        "phone":        client_phone,
+                        "location":     result.get("location", "Google Meet / Online"),
+                        "conversation_id": conversation_id,
+                        "duration_minutes": 30
                     },
                     "sender": payload.get("from")
                 },
                 decision={
-                    "summary":  "AI Demo Meeting",
+                    "summary":  f"Demo Meeting with {client_name}",
                     "priority": "high"
                 }
             )
             demo_details = None
-            if calendar_result:
+            if calendar_result and calendar_result.get("status") == "success":
                 meet_link = calendar_result.get("meet_link")
-                if meet_link:
-                    result["response"] += f"\n\nGoogle Meet Link:\n{meet_link}"
-                else:
-                    result["response"] += "\n\nMeeting scheduled successfully."
-                demo_details = f"Demo Booked for {result.get('meeting_date')} at {result.get('meeting_time')} ({result.get('timezone')})"
+                f_date = calendar_result.get("formatted_display") or f"{meeting_date} at {meeting_time}"
+                f_tz = calendar_result.get("timezone") or meeting_tz or "IST"
+                
+                meet_text = f"\n🎥 Google Meet: {meet_link}" if meet_link else ""
+                result["response"] = (
+                    f"✅ Appointment Confirmed!\n\n"
+                    f"📅 Schedule: {f_date} ({f_tz})\n"
+                    f"👤 Name: {client_name}\n"
+                    f"📧 Email: {client_email or 'On File'}\n"
+                    f"📱 Phone: {client_phone or 'On File'}"
+                    f"{meet_text}\n\n"
+                    f"A calendar invitation has been sent to your email. Looking forward to speaking with you!"
+                )
+                demo_details = f"Demo Booked for {f_date} ({f_tz})"
 
-                # Charge 10 credits for successful booking by lead_agent / unified_agent
+                # Charge 10 credits for successful booking
                 if agent_type in ["lead_agent", "unified_agent"]:
                     try:
                         from app.services.billing.billing_service import BillingService
                         from app.models.token_ledger import TokenLedger
 
-                        meeting_date = result.get("meeting_date")
-                        meeting_time = result.get("meeting_time")
                         ref_key = f"demo-booking:{workspace_id}:{conversation_id}:{meeting_date}:{meeting_time}"
 
-                        # Check if duplicate transaction exists to prevent double charge risk
                         existing_charge = db.query(TokenLedger).filter(TokenLedger.reference_key.like(f"{ref_key}%")).first()
-                        if existing_charge:
-                            print(
-                                f"\n=========================================\n"
-                                f"CALENDAR BOOKING BILLING DEBIT LOG:\n"
-                                f"Workspace: {workspace_id}\n"
-                                f"Calendar Event already charged (Ref: {ref_key}). Skipping duplicate charge.\n"
-                                f"=========================================\n",
-                                flush=True
-                            )
-                        else:
+                        if not existing_charge:
                             billing_service = BillingService()
                             booking_reservation = billing_service.token_service.reserve_feature_credits(
                                 db=db,
@@ -421,25 +443,72 @@ class AgentOrchestration:
                                     reservation_id=booking_reservation.id,
                                     actual_units=1.0
                                 )
-                                print(
-                                    f"\n=========================================\n"
-                                    f"CALENDAR BOOKING BILLING DEBIT LOG:\n"
-                                    f"Workspace: {workspace_id}\n"
-                                    f"Calendar Event Successfully Created / Confirmed\n"
-                                    f"Credits Deducted: -10.0000 credits\n"
-                                    f"=========================================\n",
-                                    flush=True
-                                )
                     except Exception as booking_bill_err:
                         self.logger.error(f"Failed to charge for calendar booking: {booking_bill_err}")
-            else:
-                result["response"] += "\n\nFailed to schedule meeting automatically. Our team will follow up to manually confirm the schedule."
-                demo_details = "Demo Booking Failed (Automatic scheduling failed)"
 
-            # After booking demo, escalate to human
+                result["escalate"] = True
+                result["close"]    = True
+                result["demo_details"] = demo_details
+
+            elif calendar_result and calendar_result.get("status") == "conflict":
+                # Conflict detected - do not close, prompt user to pick an open slot
+                result["response"] = calendar_result.get("message")
+                result["escalate"] = False
+                result["close"]    = False
+            else:
+                result["response"] += "\n\nI was unable to automatically confirm that time slot. Our team will follow up to manually confirm your appointment."
+                demo_details = "Demo Booking Failed (Automatic scheduling failed)"
+                result["escalate"] = True
+                result["close"]    = True
+                result["demo_details"] = demo_details
+
+        elif action == "reschedule_demo":
+            from app.services.email_automation.calender_executor import CalendarExecutor
+            calendar = CalendarExecutor()
+            reschedule_result = calendar.reschedule_appointment(
+                db=db,
+                workspace_id=workspace_id,
+                new_date=result.get("meeting_date"),
+                new_time=result.get("meeting_time"),
+                new_timezone=result.get("timezone"),
+                conversation_id=conversation_id,
+                client_email=lead_data.get("email")
+            )
+            if reschedule_result.get("status") == "success":
+                meet_link = reschedule_result.get("meet_link")
+                meet_text = f"\n🎥 Google Meet: {meet_link}" if meet_link else ""
+                result["response"] = (
+                    f"✅ Appointment Rescheduled!\n\n"
+                    f"📅 New Schedule: {reschedule_result.get('formatted_display')} ({reschedule_result.get('timezone')})"
+                    f"{meet_text}\n\n"
+                    f"An updated calendar invitation has been sent to your email."
+                )
+                result["escalate"] = True
+                result["close"] = True
+            elif reschedule_result.get("status") == "conflict":
+                result["response"] = reschedule_result.get("message")
+                result["escalate"] = False
+                result["close"] = False
+            else:
+                result["response"] = "Could not find an active appointment to reschedule. Our team will contact you shortly."
+                result["escalate"] = True
+                result["close"] = True
+
+        elif action == "cancel_demo":
+            from app.services.email_automation.calender_executor import CalendarExecutor
+            calendar = CalendarExecutor()
+            cancel_result = calendar.cancel_appointment(
+                db=db,
+                workspace_id=workspace_id,
+                conversation_id=conversation_id,
+                client_email=lead_data.get("email")
+            )
+            if cancel_result.get("status") == "success":
+                result["response"] = "✅ Your appointment has been cancelled successfully. Let us know if you'd like to book another time in the future."
+            else:
+                result["response"] = "No active appointment was found to cancel. Let us know if you need any other assistance."
             result["escalate"] = True
-            result["close"]    = True
-            result["demo_details"] = demo_details
+            result["close"] = True
 
         # ─ PAYMENT LINK: Close the deal ─
         if action == "send_payment_link":

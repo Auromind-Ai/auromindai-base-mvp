@@ -381,8 +381,7 @@ class AuthService:
         if auth_type == "signup" and user:
             raise ValueError("Email already registered. Please log in.")
 
-        otp = str(random.randint(100000, 999999))
-       
+        otp = str(random.randint(100000, 999999))       
        
         # Store in Redis if available
         try:
@@ -417,7 +416,7 @@ class AuthService:
                     "otp": otp,
                     "auth_type": auth_type.title()
                 },
-                idempotency_key=f"otp:{email}:{int(time.time()) // 300}",
+                idempotency_key=f"otp:{email}:{otp}",
                 db=db
             )
         except Exception as e:

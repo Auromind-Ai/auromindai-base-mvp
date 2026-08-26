@@ -137,14 +137,15 @@ class PlanEntitlementUpdate(BaseModel):
 
 
 class PlanEntitlementResponse(PlanEntitlementBase):
-    id: UUID
-    plan_id: UUID
+    id: Optional[UUID] = None
+    plan_id: Optional[UUID] = None
     plan_name: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+        orm_mode = True
 
 
 class EntitlementCheckRequest(BaseModel):

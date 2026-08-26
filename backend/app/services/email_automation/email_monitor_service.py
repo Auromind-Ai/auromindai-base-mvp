@@ -1,15 +1,25 @@
-#shedular always run background 5 minutes once call EmailMonitor
 import logging
 import uuid
+from datetime import datetime
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.models.integration import Integration
+from app.models.integration import Integration, EmailState
 from app.services.email_automation.email_automation_engine import AutomationEngine
 from app.services.email_automation.email_mcp_service import EmailMCPService
 from app.services.email_automation.emails_crawler_service import EmailsCrawlerService
+
+def _to_uuid(val):
+    if isinstance(val, uuid.UUID):
+        return val
+    if isinstance(val, str):
+        try:
+            return uuid.UUID(val)
+        except (ValueError, AttributeError):
+            return val
+    return val
 
 # Dynamic settings will be loaded at runtime
 
@@ -189,27 +199,56 @@ class EmailMonitor:
             return []
         
     def get_last_processed_id(self, db, workspace_id):
-        record = db.execute(
-           text("SELECT last_email_id FROM email_states WHERE workspace_id = :wid"),
-            {"wid": workspace_id}
-        ).fetchone()
-
-        return record[0] if record else None
+        try:
+            ws_uuid = _to_uuid(workspace_id)
+            state = db.query(EmailState).filter(EmailState.workspace_id == ws_uuid).first()
+            return state.last_email_id if state else None
+        except Exception as e:
+            logger.warning(f"Error querying EmailState model: {e}")
+            try:
+                record = db.execute(
+                    text("SELECT last_email_id FROM email_states WHERE workspace_id = :wid"),
+                    {"wid": str(workspace_id)}
+                ).fetchone()
+                return record[0] if record else None
+            except Exception:
+                return None
 
 
     def update_last_processed_id(self, db, workspace_id, message_id):
-        db.execute(
-            text("""
-                INSERT INTO email_states (id, workspace_id, last_email_id, created_at, updated_at)
-                VALUES (:id, :wid, :mid, NOW(), NOW())
-                ON CONFLICT (workspace_id)
-                DO UPDATE SET
-                    last_email_id = :mid,
-                    updated_at = NOW()
-            """),
-            {"id": str(uuid.uuid4()), "wid": workspace_id, "mid": message_id}
-        )
-        db.commit()
+        try:
+            ws_uuid = _to_uuid(workspace_id)
+            state = db.query(EmailState).filter(EmailState.workspace_id == ws_uuid).first()
+            if state:
+                state.last_email_id = message_id
+                state.updated_at = datetime.utcnow()
+            else:
+                state = EmailState(
+                    id=uuid.uuid4(),
+                    workspace_id=ws_uuid,
+                    last_email_id=message_id
+                )
+                db.add(state)
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error updating EmailState: {e}")
+            db.rollback()
+            try:
+                db.execute(
+                    text("""
+                        INSERT INTO email_states (id, workspace_id, last_email_id, created_at, updated_at)
+                        VALUES (:id, :wid, :mid, NOW(), NOW())
+                        ON CONFLICT (workspace_id)
+                        DO UPDATE SET
+                            last_email_id = :mid,
+                            updated_at = NOW()
+                    """),
+                    {"id": str(uuid.uuid4()), "wid": str(workspace_id), "mid": message_id}
+                )
+                db.commit()
+            except Exception as sql_err:
+                logger.error(f"SQL fallback update_last_processed_id failed: {sql_err}")
+                db.rollback()
 
     
     def tool_caller(self, db, email_data):

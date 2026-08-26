@@ -14,6 +14,8 @@ import { FileText, Download } from 'lucide-react';
  *   1. metadata.buttons array                       (structured — preferred)
  *   2. Inline [Button1] | [Button2] text format     (legacy fallback)
  */
+const FAILED_MEDIA_URLS = new Set();
+
 export default function MessageRenderer({
   content,
   metadata,
@@ -26,6 +28,13 @@ export default function MessageRenderer({
 }) {
   const meta = metadata || {};
   const mediaUrl = media_url || meta.media_url;
+  const [hasError, setHasError] = React.useState(() => mediaUrl ? FAILED_MEDIA_URLS.has(mediaUrl) : false);
+
+  const handleMediaError = () => {
+    if (mediaUrl) FAILED_MEDIA_URLS.add(mediaUrl);
+    setHasError(true);
+  };
+
   const messageType = (
     media_type ||
     meta.media_type ||
@@ -140,13 +149,19 @@ export default function MessageRenderer({
   if (mediaUrl && (messageType === 'image' || /\.(jpe?g|png|gif|webp)(\?|$)/i.test(mediaUrl))) {
     return (
       <div>
-        <img
-          src={mediaUrl}
-          alt="image"
-          className="max-w-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition"
-          onClick={() => onPreviewMedia?.({ type: 'image', url: mediaUrl })}
-          onError={(e) => { e.target.style.display = 'none'; }}
-        />
+        {!hasError ? (
+          <img
+            src={mediaUrl}
+            alt="image"
+            className="max-w-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90 transition"
+            onClick={() => onPreviewMedia?.({ type: 'image', url: mediaUrl })}
+            onError={handleMediaError}
+          />
+        ) : (
+          <div className="text-[11px] text-zinc-400 italic bg-white/5 px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5">
+            📷 Media expired on WhatsApp
+          </div>
+        )}
         {content && !/^\[(IMAGE|AUDIO|VOICE|VIDEO|DOCUMENT)\]$/i.test(content.trim()) && (
             <p className="text-[13px] text-white/80 mt-2 leading-relaxed whitespace-pre-wrap">
                 {content}

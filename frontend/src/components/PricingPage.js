@@ -59,15 +59,15 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
     checkScroll();
   }, [plan.features]);
 
-  // 🔹 Custom Ultra-Slow & Smooth Line-by-Line Scroll
+  // Smooth Line-by-Line Scroll
   const handleScrollDown = (e) => {
     e.stopPropagation();
     const el = scrollContainerRef.current;
     if (!el) return;
 
     const start = el.scrollTop;
-    const distance = 42; // Oru line/feature-oda height
-    const duration = 400; // 400ms - slow and pleasing speed
+    const distance = 42;
+    const duration = 400;
     let startTime = null;
 
     const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
@@ -90,7 +90,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
   };
 
   const handleClick = () => {
-    if (isCurrent || isEnterprise || typeof onUpgrade !== 'function') return;
+    if (isCurrent || typeof onUpgrade !== 'function') return;
     onUpgrade(plan.key, isAnnual ? 'yearly' : 'monthly');
   };
 
@@ -98,7 +98,8 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
     if (currentPlan === planKey) return 'Current Plan';
     if (planKey === 'solo')       return 'Upgrade to Solo Smart';
     if (planKey === 'pro')        return 'Upgrade to Pro';
-    return 'Contact Sales';
+    if (planKey === 'enterprise') return "Let's Talk";
+    return 'Choose this plan';
   };
 
   const isFeatured = plan.featured;
@@ -113,10 +114,10 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
   const buttonClass = isCurrent
     ? 'cursor-not-allowed border border-[#814AC8]/30 bg-[#814AC8]/10 text-[#C4A0F0]'
     : isEnterprise
-    ? 'cursor-not-allowed border border-white/10 bg-white/[0.04] text-zinc-400'
+    ? 'bg-gradient-to-r from-[#7C3AED] to-[#9B5DE5] text-white hover:opacity-95 shadow-[0_10px_25px_rgba(124,58,237,0.35)] cursor-pointer'
     : isFeatured
-    ? 'bg-[#814AC8] text-white hover:bg-[#9B5DE5] shadow-[0_15px_35px_rgba(129,74,200,0.4)]'
-    : 'border border-white/10 bg-white/10 text-white hover:bg-white hover:text-black';
+    ? 'bg-[#814AC8] text-white hover:bg-[#9B5DE5] shadow-[0_15px_35px_rgba(129,74,200,0.4)] cursor-pointer'
+    : 'border border-white/10 bg-white/10 text-white hover:bg-white hover:text-black cursor-pointer';
 
   return (
     <motion.div
@@ -172,9 +173,10 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
           {shouldShowActionButton && (
             <div className="mt-5">
               <button
+                type="button"
                 onClick={handleClick}
-                disabled={isCurrent || isEnterprise}
-                className={`w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center justify-center ${buttonClass}`}
+                disabled={isCurrent}
+                className={`relative z-20 w-full h-11 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center ${buttonClass}`}
               >
                 {getCTA(plan.key)}
               </button>
@@ -182,7 +184,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
           )}
         </div>
 
-        {/* 🔹 What's included Section */}
+        {/* What's included Section */}
         <div className="mt-8 pt-5 border-t border-white/10 relative">
           <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-3.5">
             What&#39;s included
@@ -211,7 +213,7 @@ function PricingCard({ plan, currentPlan, onUpgrade, index, isAnnual }) {
             ))}
           </div>
 
-          {/* Gentle Floating Double Down Arrow Indicator */}
+          {/* Floating Double Down Arrow Indicator */}
           {canScrollDown && (
             <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0c] via-[#0a0a0c]/80 to-transparent flex items-end justify-center pb-1 pointer-events-none rounded-b-[24px]">
               <motion.button

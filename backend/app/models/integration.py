@@ -60,9 +60,22 @@ class CalendarEvent(Base):
 
     sync_status = Column(String, default="pending")
 
+    client_name = Column(String, nullable=True)
+    client_email = Column(String, nullable=True)
+    client_phone = Column(String, nullable=True)
+    meet_link = Column(String, nullable=True)
+
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True
+    )
+
     status = Column(String, default="scheduled")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
 
@@ -83,7 +96,24 @@ class EmailReplyLog(Base):
 
     message_id = Column(String, index=True)
 
-    reply_text = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# Email State (Last processed email tracking)
+class EmailState(Base):
+    __tablename__ = "email_states"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+
+    last_email_id = Column(String(255), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

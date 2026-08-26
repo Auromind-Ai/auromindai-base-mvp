@@ -280,7 +280,7 @@ function BillingContent() {
       try {
         const [billing, settingsData] = await Promise.all([
           api.getBillingStatus(workspaceId),
-          api.getPricing(), 
+          api.getPricing(),
         ])
 
         setCurrentPlan(billing?.current_plan || "free")
@@ -362,10 +362,10 @@ function BillingContent() {
             workspace_id: workspaceId,
             plan: planKey,
             billing_cycle: billingCycle,
-            provider: checkout.provider,
-            payment_id: response.razorpay_payment_id,
-            subscription_id: response.razorpay_subscription_id || checkout.subscription_id,
-            signature: response.razorpay_signature,
+            provider: checkout.provider || DEFAULT_PROVIDER,
+            razorpay_order_id: response.razorpay_order_id || checkout.gateway_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
           }
           try {
             // NOTE: renamed from api.verifyBillingPayment
@@ -379,10 +379,11 @@ function BillingContent() {
             const basePrice = isPro ? 199 : 999
             const cgst = Number((basePrice * 0.09).toFixed(2))
             const sgst = Number((basePrice * 0.09).toFixed(2))
-            const totalPaid = (basePrice + cgst + sgst).toFixed(2)
+            const calculatedTotal = (basePrice + cgst + sgst).toFixed(2)
+            const totalPaid = checkout?.amount ? (checkout.amount / 100).toFixed(2) : calculatedTotal
 
             setSuccessDetails({
-              planTitle: isPro ? "Pro Plan Subscription" : "Solo Smart Subscription",
+              planTitle: checkout?.plan_label ? `${checkout.plan_label} Plan Subscription` : (isPro ? "Pro Plan Subscription" : "Solo Smart Subscription"),
               amountPaid: totalPaid,
               billingCycle: billingCycle === "yearly" ? "Yearly" : "Monthly",
               nextBillingDate: new Date(Date.now() + (billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", {
@@ -451,7 +452,7 @@ function BillingContent() {
       <PricingPage
         currentPlan={currentPlan}
         onUpgrade={handleUpgradeClick}
-        settings={settings} 
+        settings={settings}
         dbPlans={plans}
       />
 

@@ -22,7 +22,7 @@ async def execute_ai_reply(
     workspace_id: str,
     contact_phone: str,         
     user_message: str,           
-    channel: str = "twilio",   
+    channel: str = "whatsapp",   
     flow_context: dict = None,
     conversation_id: str = None,
 ) -> dict:
