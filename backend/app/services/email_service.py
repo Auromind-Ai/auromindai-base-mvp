@@ -107,3 +107,115 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to send email to {to_email}: {str(e)}")
             raise ValueError(f"Failed to send email: {str(e)}")
+
+    @staticmethod
+    def get_workspace_gmail_service(db, workspace_id):
+        """
+        Builds an authenticated Google Gmail API service for the workspace.
+        Automatically handles token refresh.
+        """
+        import uuid as uuid_pkg
+        from app.models.integration import Integration
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+        from datetime import datetime, timezone as dt_timezone
+
+        try:
+            ws_uuid = uuid_pkg.UUID(str(workspace_id)) if isinstance(workspace_id, (str, uuid_pkg.UUID)) else workspace_id
+        except Exception:
+            return None, None
+
+        integration = db.query(Integration).filter(
+            Integration.workspace_id == ws_uuid,
+            Integration.integration_type.in_(["google_gmail", "gmail"]),
+            Integration.is_active == True
+        ).first()
+
+        if not integration or not integration.access_token:
+            return None, None
+
+        try:
+            from app.services.config_service import config_service
+            client_id = config_service.get("google_client_id")
+            client_secret = config_service.get("google_client_secret")
+
+            creds = Credentials(
+                token=integration.access_token,
+                refresh_token=integration.refresh_token,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=client_id,
+                client_secret=client_secret
+            )
+
+            if creds.expired and creds.refresh_token:
+                logger.info(f"Auto-refreshing expired Gmail token for workspace {workspace_id}...")
+                creds.refresh(Request())
+                integration.access_token = creds.token
+                if creds.expiry:
+                    integration.token_expiry = creds.expiry
+                integration.updated_at = datetime.now(dt_timezone.utc)
+                db.commit()
+
+            service = build("gmail", "v1", credentials=creds)
+            return service, integration.connected_email
+        except Exception as e:
+            logger.warning(f"Unable to initialize Gmail API service for workspace {workspace_id}: {e}")
+            return None, None
+
+    @staticmethod
+    def send_email_for_workspace(
+        db,
+        workspace_id,
+        to_email: str,
+        subject: str,
+        body: str,
+        plain_text: str = None,
+        metadata: Dict[str, Any] = None
+    ):
+        """
+        Sends an email prioritizing the workspace's connected Gmail OAuth account.
+        Falls back to platform SMTP / simulated delivery if Gmail is not connected.
+        """
+        if not to_email or "@" not in str(to_email):
+            logger.warning(f"Cannot send email: invalid recipient '{to_email}'")
+            return {"status": "skipped", "reason": "Invalid recipient email"}
+
+        if db and workspace_id:
+            try:
+                gmail_service, sender_email = EmailService.get_workspace_gmail_service(db, workspace_id)
+                if gmail_service:
+                    import base64
+                    import re
+                    msg = MIMEMultipart("alternative")
+                    msg["Subject"] = subject
+                    msg["From"] = sender_email or "me"
+                    msg["To"] = to_email
+
+                    is_html = body.strip().startswith("<") or "<html>" in body.lower() or "</div>" in body.lower()
+                    if is_html:
+                        text_part = MIMEText(plain_text or re.sub(r'<[^>]+>', '', body), "plain")
+                        html_part = MIMEText(body, "html")
+                        msg.attach(text_part)
+                        msg.attach(html_part)
+                    else:
+                        msg.attach(MIMEText(body, "plain"))
+
+                    raw_bytes = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+                    sent_msg = gmail_service.users().messages().send(
+                        userId="me",
+                        body={"raw": raw_bytes}
+                    ).execute()
+
+                    logger.info(f"Email sent via workspace connected Gmail to {to_email} (Msg ID: {sent_msg.get('id')})")
+                    return {
+                        "status": "success",
+                        "provider": "gmail",
+                        "sender": sender_email or "me",
+                        "message_id": sent_msg.get("id")
+                    }
+            except Exception as ge:
+                logger.warning(f"Gmail API send failed ({ge}). Falling back to SMTP...")
+
+        # Fallback to SMTP / Simulation
+        return EmailService.send_email(to_email=to_email, subject=subject, body=body, metadata=metadata)

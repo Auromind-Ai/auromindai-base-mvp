@@ -12,6 +12,12 @@ class ConfigService:
         if val is not None and val != "":
             return val
 
+        if db_key in ("google_api_key", "gemini_api_key"):
+            alt_key = "gemini_api_key" if db_key == "google_api_key" else "google_api_key"
+            alt_val = db_get_setting(None, alt_key, None)
+            if alt_val is not None and alt_val != "":
+                return alt_val
+
         bootstrap_key = key.upper()
         if bootstrap_key == "SMTP_PASSWORD":
             val = getattr(settings, "SMTP_PASSWORD", None) or getattr(settings, "SMTP_PASS", None)
@@ -21,6 +27,13 @@ class ConfigService:
             val = getattr(settings, bootstrap_key)
             if val is not None and val != "":
                 return val
+
+        if bootstrap_key in ("GOOGLE_API_KEY", "GEMINI_API_KEY"):
+            alt_bkey = "GEMINI_API_KEY" if bootstrap_key == "GOOGLE_API_KEY" else "GOOGLE_API_KEY"
+            if hasattr(settings, alt_bkey):
+                alt_val = getattr(settings, alt_bkey)
+                if alt_val is not None and alt_val != "":
+                    return alt_val
 
         import os
         val = os.getenv(bootstrap_key)

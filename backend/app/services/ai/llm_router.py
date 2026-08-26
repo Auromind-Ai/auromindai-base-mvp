@@ -149,6 +149,7 @@ class LLMRouter:
                 temperature=config["temperature"],
                 max_output_tokens=config["max_tokens"],
                 system_instruction=system_prompt if system_prompt else None,
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
             )
             if structured_output:
                 generation_config.response_mime_type = "application/json"

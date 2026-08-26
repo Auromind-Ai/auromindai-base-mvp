@@ -382,8 +382,9 @@ class AuthService:
             raise ValueError("Email already registered. Please log in.")
 
         otp = str(random.randint(100000, 999999))
-       
-       
+        import logging
+        logging.getLogger("auromind").info(f"🔑 [AUTH OTP] OTP for {email}: {otp}")
+
         # Store in Redis if available
         try:
             import redis
@@ -417,7 +418,7 @@ class AuthService:
                     "otp": otp,
                     "auth_type": auth_type.title()
                 },
-                idempotency_key=f"otp:{email}:{int(time.time()) // 300}",
+                idempotency_key=f"otp:{email}:{otp}",
                 db=db
             )
         except Exception as e:

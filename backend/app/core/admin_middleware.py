@@ -14,9 +14,6 @@ _ADMIN_CORS_ORIGINS = [
     "https://www.orbionagents.com",
     "http://www.orbionagents.com",
     "https://staging.orbionagents.com",
-    "https://growwdigitel.cloud",
-    "http://growwdigitel.cloud",
-    "https://www.growwdigitel.cloud",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://hkfpvzwm-3000.inc1.devtunnels.ms"
