@@ -8,6 +8,11 @@ import HeroSectionNew from '../components/LandingPageNew/HeroSection/HeroSection
 import IntegrationsSection from '@/components/LandingPageNew/IntegrationsSection/IntegrationsSection';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
+const HeroShowcaseSection = dynamic(
+  () => import('../components/LandingPageNew/HeroShowcaseSection/HeroShowcaseSection'),
+  { ssr: true, loading: () => <div className="min-h-[400px]" /> }
+);
+
 
 const MessageManagementSection = dynamic(
   () => import('../components/LandingPageNew/MessageManagementSection/Messagemanagementsection'),
@@ -95,9 +100,13 @@ export default function LandingPage() {
           <ModernSaaSBackground />
         </ErrorBoundary>
 
-        <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">Hero Error</div>}>
-          <HeroSectionNew />
+        <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">Hero Showcase Error</div>}>
+          <HeroShowcaseSection />
         </ErrorBoundary>
+
+        {/* <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">Hero Error</div>}>
+          <HeroSectionNew />
+        </ErrorBoundary> */}
 
         <ErrorBoundary fallback={<div className="p-10 text-red-500 bg-black z-50 relative">MessageManagement Error</div>}>
           <MessageManagementSection />

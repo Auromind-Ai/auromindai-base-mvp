@@ -282,7 +282,7 @@ export default function CanvasGrid({
                         >
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${branch.value === 'true' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`} />
-                            <p className={`text-[10px] font-black uppercase tracking-[2px] ${branch.value === 'true' ? 'text-emerald-400' : 'text-rose-400'}`}>{branch.label}</p>
+                            <p className={`text-xs font-medium ${branch.value === 'true' ? 'text-emerald-400' : 'text-rose-400'}`}>{branch.label}</p>
                           </div>
                           <div className="absolute -right-2 top-1/2 -translate-y-1/2 z-20">
                             <motion.div

@@ -685,7 +685,7 @@ export default function NodeInspector({
                       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                          <span className="text-[10px] font-black uppercase tracking-[2px] text-emerald-400">If True</span>
+                          <span className="text-xs font-medium text-emerald-400">If True</span>
                         </div>
                         <select
                           value={getNodeBranches(activeNode).find(b => b.value === 'true')?.target || ''}
@@ -713,7 +713,7 @@ export default function NodeInspector({
                       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
                         <div className="flex items-center gap-2 mb-2">
                           <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
-                          <span className="text-[10px] font-black uppercase tracking-[2px] text-rose-400">If False</span>
+                          <span className="text-xs font-medium text-rose-400">If False</span>
                         </div>
                         <select
                           value={getNodeBranches(activeNode).find(b => b.value === 'false')?.target || ''}
