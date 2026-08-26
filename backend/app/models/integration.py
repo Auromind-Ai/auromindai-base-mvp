@@ -1,9 +1,8 @@
-from sqlalchemy import Column, String, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy import Column, String, DateTime, Text, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
-from sqlalchemy.sql import func
 
 
 class Integration(Base):
@@ -117,4 +116,44 @@ class EmailState(Base):
     last_email_id = Column(String(255), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+# Gmail Import Logs
+class GmailImportLog(Base):
+    __tablename__ = "gmail_import_logs"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "gmail_message_id", name="uq_gmail_import_workspace_msg"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    workspace_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+
+    gmail_message_id = Column(String(255), index=True, nullable=False)
+
+    integration_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("integrations.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+
+    processed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # processed / ignored / non_lead / skipped / error
+    status = Column(String(50), nullable=False, default="processed")
+
+    error_code = Column(String(100), nullable=True)
+
+    lead_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("leads.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+

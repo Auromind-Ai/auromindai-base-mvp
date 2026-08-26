@@ -139,6 +139,8 @@ class WebhookService:
                     notes = payment_payload.get("notes") or {}
                     if notes.get("type") == "credit_pack_purchase":
                         self._handle_credit_pack_payment_webhook(db, gateway.provider, webhook.entity)
+                    elif notes.get("type") == "plan_purchase":
+                        self._handle_plan_payment_webhook(db, gateway.provider, webhook.entity)
                     else:
                         self._handle_payment_success(db, gateway.provider, webhook.entity)
 
@@ -392,7 +394,18 @@ class WebhookService:
         entity: dict[str, Any],
     ) -> None:
         payment_payload = self._get_payment_payload(entity)
-        provider_subscription_id = payment_payload.get("subscription_id")
+        subscription_payload = self._get_subscription_payload(entity)
+        provider_payment_id = payment_payload.get("id")
+        provider_subscription_id = payment_payload.get("subscription_id") or (
+            subscription_payload.get("id") if isinstance(subscription_payload, dict) else None
+        )
+        provider_order_id = payment_payload.get("order_id")
+
+        notes = payment_payload.get("notes") or (
+            subscription_payload.get("notes") if isinstance(subscription_payload, dict) else {}
+        ) or {}
+
+        # 1. Resolve Subscription
         subscription = (
             self.subscription_service._get_subscription_by_provider_id(db, provider, provider_subscription_id)
             if provider_subscription_id
@@ -401,54 +414,225 @@ class WebhookService:
         if subscription:
             subscription.status = SubscriptionStatus.past_due
 
-        payment = self.payment_service._get_payment_by_payment_id(db, provider, payment_payload.get("id"))
-        if payment is None and subscription is None:
-            return
+        # 2. Resolve Workspace & User context across all payment flows
+        target_ws_id = None
+        user_id = None
+        user_email = payment_payload.get("email")
+        payment_type = "subscription" if (subscription or provider_subscription_id) else "one_time"
+        description = None
 
-        amount = int((payment_payload.get("amount") or 0) / 100)
+        if subscription and subscription.workspace_id:
+            target_ws_id = subscription.workspace_id
+
+        if not target_ws_id and notes.get("workspace_id"):
+            try:
+                target_ws_id = uuid.UUID(str(notes["workspace_id"]))
+            except (ValueError, TypeError):
+                target_ws_id = None
+
+        if not user_id and notes.get("user_id"):
+            try:
+                user_id = uuid.UUID(str(notes["user_id"]))
+            except (ValueError, TypeError):
+                user_id = None
+
+        # Check WCC Recharge Log
+        if provider_order_id:
+            recharge_log = db.query(WCCRechargeLog).filter(
+                WCCRechargeLog.gateway_order_id == provider_order_id
+            ).first()
+            if recharge_log:
+                if not target_ws_id:
+                    target_ws_id = recharge_log.workspace_id
+                payment_type = "wcc_recharge"
+                description = "WhatsApp Wallet Recharge"
+                if recharge_log.status == "pending":
+                    raw_method = payment_payload.get("method")
+                    recharge_log.payment_method = str(raw_method) if raw_method else "online"
+                    recharge_log.gateway_payment_id = provider_payment_id
+                    recharge_log.status = "failed"
+                    recharge_log.updated_at = datetime.now(timezone.utc)
+                    db.flush()
+
+            # Check Flow Pack Purchase
+            from app.models.flow_pack import FlowPackPurchase, PurchaseStatus
+            flow_purchase = db.query(FlowPackPurchase).filter(
+                FlowPackPurchase.gateway_order_id == provider_order_id
+            ).first()
+            if flow_purchase:
+                if not target_ws_id:
+                    target_ws_id = flow_purchase.workspace_id
+                if not user_id and flow_purchase.user_id:
+                    user_id = flow_purchase.user_id
+                payment_type = "flow_pack_purchase"
+                description = "Flow Pack Purchase"
+                if flow_purchase.status == PurchaseStatus.INITIATED.value:
+                    flow_purchase.status = PurchaseStatus.FAILED.value
+                    flow_purchase.failure_reason = payment_payload.get("error_description") or payment_payload.get("error_reason")
+                    flow_purchase.gateway_payment_id = provider_payment_id
+                    db.flush()
+
+        # Check AI Credit Pack Purchase
+        if notes.get("type") == "credit_pack_purchase":
+            payment_type = "ai_credit_recharge"
+            pack_id = notes.get("pack_id")
+            pack = db.query(CreditPack).filter(CreditPack.pack_id == pack_id).first() if pack_id else None
+            description = f"AI Credit Pack ({pack.name})" if pack else "AI Credit Pack Purchase"
+
+        # Fallback customer lookup
+        if not target_ws_id and payment_payload.get("customer_id"):
+            ws_by_cust = db.query(Workspace).filter(Workspace.provider_customer_id == payment_payload.get("customer_id")).first()
+            if ws_by_cust:
+                target_ws_id = ws_by_cust.id
+
+        # Fallback user email lookup
+        if not target_ws_id and user_email:
+            user_by_email = db.query(User).filter(User.email == user_email.strip().lower()).first()
+            if user_by_email:
+                if not user_id:
+                    user_id = user_by_email.id
+                from app.models.workspace import WorkspaceMember
+                member = db.query(WorkspaceMember).filter(WorkspaceMember.user_id == user_by_email.id).first()
+                if member:
+                    target_ws_id = member.workspace_id
+
+        # 3. Currency and failure reason
+        amount_raw = payment_payload.get("amount") or 0
+        if amount_raw:
+            # If amount is passed in paise (e.g. 50000 paise = 500 INR), convert to rupees
+            amount = float(amount_raw) / 100.0 if float(amount_raw) >= 100 else float(amount_raw)
+        else:
+            amount = 0.0
+
         currency = (payment_payload.get("currency") or "INR").upper()
-        failure_reason = payment_payload.get("error_description") or payment_payload.get("error_reason")
 
-        if payment is None:
-            import uuid
+        # Fallback to domain entity amounts if amount was missing or 0 in payment payload
+        if amount == 0.0:
+            if provider_order_id:
+                recharge_log_lookup = db.query(WCCRechargeLog).filter(
+                    WCCRechargeLog.gateway_order_id == provider_order_id
+                ).first()
+                if recharge_log_lookup and (recharge_log_lookup.total_amount or recharge_log_lookup.amount):
+                    amount = float(recharge_log_lookup.total_amount or recharge_log_lookup.amount)
+                    currency = (recharge_log_lookup.currency or currency).upper()
+
+                from app.models.flow_pack import FlowPackPurchase
+                flow_lookup = db.query(FlowPackPurchase).filter(
+                    FlowPackPurchase.gateway_order_id == provider_order_id
+                ).first()
+                if flow_lookup and (flow_lookup.total_amount or flow_lookup.amount_paid):
+                    amount = float(flow_lookup.total_amount or flow_lookup.amount_paid)
+                    currency = (flow_lookup.currency or currency).upper()
+
+            if amount == 0.0 and subscription:
+                plan = db.query(Plan).filter(Plan.id == subscription.plan_id).first()
+                if plan and plan.price:
+                    amount = float(plan.price)
+                    currency = (plan.currency or currency).upper()
+
+            if amount == 0.0 and notes.get("pack_id"):
+                pack = db.query(CreditPack).filter(CreditPack.pack_id == notes.get("pack_id")).first()
+                if pack and pack.amount:
+                    amount = float(pack.amount)
+                    currency = (pack.currency or currency).upper()
+
+            if amount == 0.0 and notes.get("plan"):
+                plan = db.query(Plan).filter(Plan.name == notes.get("plan")).first()
+                if plan and plan.price:
+                    amount = float(plan.price)
+                    currency = (plan.currency or currency).upper()
+
+        failure_reason = payment_payload.get("error_description") or payment_payload.get("error_reason") or "Payment transaction declined"
+        raw_method = payment_payload.get("method")
+
+        # 4. Record or update Payment in DB (with Idempotency Guard)
+        payment = self.payment_service._get_payment_by_payment_id(db, provider, provider_payment_id)
+        already_failed = payment is not None and payment.status == PaymentStatus.failed
+
+        if payment is None and provider_payment_id:
             payment = Payment(
                 id=uuid.uuid4(),
-                workspace_id=subscription.workspace_id,
-                subscription_id=subscription.id,
-                amount=amount,
+                workspace_id=target_ws_id,
+                subscription_id=subscription.id if subscription else None,
+                amount=int(round(amount)),
                 currency=currency,
                 provider=provider,
+                payment_method=str(raw_method) if raw_method else None,
+                payment_type=payment_type,
+                description=description or ("Pro Plan Subscription" if payment_type == "subscription" else "Payment"),
                 status=PaymentStatus.failed,
-                provider_payment_id=payment_payload.get("id"),
-                provider_order_id=provider_subscription_id,
+                provider_payment_id=provider_payment_id,
+                provider_order_id=provider_order_id or provider_subscription_id,
                 failure_reason=failure_reason,
-                idempotency_key=f"{provider}:failed:{payment_payload.get('id')}",
+                idempotency_key=f"{provider}:failed:{provider_payment_id}",
             )
             db.add(payment)
-        else:
+        elif payment:
             payment.status = PaymentStatus.failed
             payment.failure_reason = failure_reason
+            if raw_method:
+                payment.payment_method = str(raw_method)
+            if target_ws_id and not payment.workspace_id:
+                payment.workspace_id = target_ws_id
         db.flush()
 
+        # Check if email notification was already staged/sent for this payment failure
+        from app.models.email_delivery_log import EmailDeliveryLog
+        event_idemp_key = f"payment_failed:{provider_payment_id or (payment.id if payment else uuid.uuid4().hex)}"
+        existing_log = db.query(EmailDeliveryLog).filter(
+            EmailDeliveryLog.idempotency_key.like(f"{event_idemp_key}%")
+        ).first()
+
+        if already_failed and existing_log:
+            # Duplicate webhook event retry — exit without re-emitting
+            return
+
+        # 5. Fetch rich workspace & user variables for notification template
+        ws_obj = db.query(Workspace).filter(Workspace.id == target_ws_id).first() if target_ws_id else None
+        ws_name = ws_obj.name if ws_obj else "Your Workspace"
+        user_name = None
+
+        if user_id:
+            user_obj = db.query(User).filter(User.id == user_id).first()
+            if user_obj:
+                user_name = user_obj.full_name or (user_obj.email.split("@")[0] if user_obj.email else "User")
+                user_email = user_obj.email or user_email
+        elif ws_obj and ws_obj.created_by:
+            creator = db.query(User).filter(User.id == ws_obj.created_by).first()
+            if creator:
+                user_name = creator.full_name or (creator.email.split("@")[0] if creator.email else "User")
+                user_email = creator.email or user_email
+                user_id = creator.id
+
+        if not user_name:
+            user_name = (user_email.split("@")[0].title() if user_email and "@" in str(user_email) else "Valued Customer")
+
+        # 6. Single Canonical Event Emission via EventBus
         try:
-            target_ws_id = payment.workspace_id if payment else (subscription.workspace_id if subscription else None)
-            if target_ws_id:
-                from app.core.event_bus import emit_event
-                impact_date = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%B %d, %Y")
-                emit_event(
-                    event_name="payment.failed",
-                    payload={
-                        "amount": f"{amount} {currency}",
-                        "error_message": failure_reason or "Transaction declined",
-                        "service_impact_date": impact_date,
-                        "action_route": "/billing",
-                        "action_label": "Update Payment Method",
-                        "workspace_id": str(target_ws_id)
-                    },
-                    workspace_id=target_ws_id,
-                    idempotency_key=f"payment_failed:{payment_payload.get('id')}",
-                    db=db
-                )
+            impact_date = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%B %d, %Y")
+            cutoff_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%B %d, %Y")
+            formatted_amount = f"₹{amount:,.2f} {currency}" if currency == "INR" else f"{amount:,.2f} {currency}"
+
+            emit_event(
+                event_name="payment.failed",
+                payload={
+                    "amount": formatted_amount,
+                    "error_message": failure_reason,
+                    "service_impact_date": impact_date,
+                    "service_cutoff_date": cutoff_date,
+                    "action_route": "/billing",
+                    "action_label": "Update Payment Method",
+                    "workspace_id": str(target_ws_id) if target_ws_id else None,
+                    "workspace_name": ws_name,
+                    "user_name": user_name,
+                    "email": user_email,
+                    "is_critical": True
+                },
+                workspace_id=target_ws_id,
+                actor_id=user_id,
+                idempotency_key=event_idemp_key,
+                db=db
+            )
         except Exception as notif_exc:
             import logging
             logging.getLogger("auromind").error(f"Failed to emit payment.failed event: {notif_exc}")
@@ -590,6 +774,85 @@ class WebhookService:
             pack=pack,
             idempotency_key=f"credit_purchase:{payment.id}"
         )
+
+    def _handle_plan_payment_webhook(
+        self,
+        db: Session,
+        provider: str,
+        entity: dict[str, Any],
+    ) -> None:
+        import uuid
+        payment_payload = self._get_payment_payload(entity)
+        provider_payment_id = payment_payload.get("id")
+        if not provider_payment_id:
+            return
+
+        notes = payment_payload.get("notes") or {}
+        workspace_id_str = notes.get("workspace_id")
+        plan_key = notes.get("plan_key")
+        billing_cycle = notes.get("billing_cycle") or "monthly"
+        user_id_str = notes.get("user_id")
+
+        if not workspace_id_str or not plan_key:
+            return
+
+        try:
+            workspace_id = uuid.UUID(str(workspace_id_str))
+        except (ValueError, TypeError):
+            return
+
+        # Check if already processed (Idempotency Guard)
+        existing_payment = (
+            db.query(Payment)
+            .filter(
+                Payment.provider == provider,
+                Payment.provider_payment_id == provider_payment_id,
+            )
+            .with_for_update()
+            .first()
+        )
+        if existing_payment and existing_payment.status == PaymentStatus.paid:
+            return
+
+        plan_config = self.plan_service._get_plan_config(db, plan_key, billing_cycle=billing_cycle)
+        from app.services.billing.gateway import get_gateway
+        gateway = get_gateway(provider)
+        fetched_payment = gateway.fetch_payment(provider_payment_id)
+
+        if fetched_payment.status not in {"captured", "authorized"}:
+            return
+
+        local_plan = self.plan_service._get_or_create_plan(db, plan_config, billing_cycle=billing_cycle)
+        payment = self.payment_service._record_successful_payment(
+            db=db,
+            provider=provider,
+            payment_payload=fetched_payment.raw or payment_payload,
+            plan_config=plan_config,
+            workspace_id=str(workspace_id),
+            payment_type="subscription",
+            description=f"{plan_config.label} Plan ({billing_cycle.capitalize()})",
+        )
+
+        from app.services.billing.entitlement_orchestrator import EntitlementOrchestrator
+        EntitlementOrchestrator.upgrade_subscription(
+            db=db,
+            workspace_id=workspace_id,
+            new_plan_id=local_plan.id
+        )
+
+        # Emit payment.succeeded event
+        try:
+            BillingService.emit_plan_payment_notification(
+                db=db,
+                workspace_id=workspace_id,
+                user_id=user_id_str,
+                payment=payment,
+                plan_config=plan_config,
+                idempotency_key=f"pay_success:{payment.id}"
+            )
+        except Exception as notif_exc:
+            import logging
+            logging.getLogger("auromind").error(f"Failed to emit payment.succeeded in plan webhook: {notif_exc}")
 
     def _handle_refund_webhook(
         self,

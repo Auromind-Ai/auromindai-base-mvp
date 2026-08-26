@@ -102,58 +102,47 @@ function BillingContent() {
     const { planKey, billingCycle } = selectedPlanDetails
 
     try {
-      const checkout = await api.createBillingSubscription(
+      const res = await api.initiatePlanPurchase(
         workspaceId,
         planKey,
         billingCycle,
         DEFAULT_PROVIDER
       )
+      const orderData = res.data ?? res
 
       setIsSummaryModalOpen(false)
       setIsProcessingPayment(false)
 
       await api.openRazorpayCheckout({
-        orderData: checkout,
-        name: "Auromind AI",
-        description: `${checkout.plan_label || "Pro"} Subscription Upgrade`,
-        prefill: checkout.prefill,
+        orderData,
+        workspaceId,
+        name: "Auromind",
+        description: `${orderData.plan_label || "Pro"} Plan`,
+        prefill: orderData.prefill,
         handler: async (response) => {
           const payload = {
             workspace_id: workspaceId,
             plan: planKey,
             billing_cycle: billingCycle,
-            provider: checkout.provider,
-            payment_id: response.razorpay_payment_id,
-            subscription_id: response.razorpay_subscription_id || checkout.subscription_id,
-            signature: response.razorpay_signature,
+            provider: orderData.provider,
+            razorpay_order_id: response.razorpay_order_id || orderData.gateway_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
           }
           try {
-            const result = await api.verifyBillingPayment(payload)
+            const result = await api.verifyPlanPayment(payload)
 
             if (!result || (result.status !== "ACTIVE" && result.status !== "already_verified")) {
               throw new Error("Payment not activated")
             }
 
-            const isPro = planKey === "pro"
-            const basePrice = isPro ? 199 : 999
-            const cgst = Number((basePrice * 0.09).toFixed(2))
-            const sgst = Number((basePrice * 0.09).toFixed(2))
-            const totalPaid = (basePrice + cgst + sgst).toFixed(2)
-
-            setSuccessDetails({
-              planTitle: isPro ? "Pro Plan Subscription" : "Solo Smart Subscription",
-              amountPaid: totalPaid,
-              billingCycle: billingCycle === "yearly" ? "Yearly" : "Monthly",
-              nextBillingDate: new Date(Date.now() + (billingCycle === "yearly" ? 365 : 30) * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }),
-            })
-            setIsSuccessModalOpen(true)
-
-            const updated = await api.getBillingStatus(workspaceId)
-            setCurrentPlan(updated.current_plan)
+            //  THE MAGIC LOGIC: Chat-la irunthu vantha, angae return anuppu!
+            if (source === 'chat') {
+              router.push('/user/admin/ai')  
+            } else {
+              const updated = await api.getBillingStatus(workspaceId)
+              setCurrentPlan(updated.current_plan)
+            }
           } catch (error) {
             console.error(LOG_PREFIX, "Payment verification failed:", error)
             setFailedDetails({

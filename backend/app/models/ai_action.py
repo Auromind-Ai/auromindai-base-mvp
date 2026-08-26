@@ -108,6 +108,7 @@ class Lead(Base):
     __tablename__ = "leads"
     __table_args__ = (
         UniqueConstraint("workspace_id", "conversation_id", name="uq_leads_scope"),
+        UniqueConstraint("workspace_id", "normalized_email", name="uq_leads_workspace_normalized_email"),
     )
 
     id = Column(
@@ -125,13 +126,18 @@ class Lead(Base):
     conversation_id = Column(
         UUID(as_uuid=True),
         ForeignKey("conversations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
     name = Column(String(255))
+    email = Column(String(255), index=True, nullable=True)
+    normalized_email = Column(String(255), index=True, nullable=True)
     phone = Column(String(50), index=True, nullable=True)
-    source = Column(String(100), nullable=True)  # whatsapp / instagram / sms / web
+    normalized_phone = Column(String(50), index=True, nullable=True)
+    company = Column(String(255), nullable=True)
+    source = Column(String(100), nullable=True)  # whatsapp / instagram / sms / web / gmail
+    source_message_id = Column(String(255), index=True, nullable=True)
     requirement = Column(Text)
     budget = Column(String(100))
     timeline = Column(String(100))
@@ -215,6 +221,11 @@ class Lead(Base):
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        nullable=True
     )
 
 

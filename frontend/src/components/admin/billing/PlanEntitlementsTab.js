@@ -22,6 +22,7 @@ export default function PlanEntitlementsTab({
     if (flags.has_rag === undefined) flags.has_rag = false
     if (flags.has_leads === undefined) flags.has_leads = true
     if (flags.has_gmail === undefined) flags.has_gmail = true
+    if (flags.ai_gmail_lead_fallback === undefined) flags.ai_gmail_lead_fallback = false
     setFeatureFlags(flags)
     setShowAddFlag(false)
     setNewFlagKey("")
@@ -128,7 +129,21 @@ export default function PlanEntitlementsTab({
             <tbody className="divide-y divide-white/5 text-gray-300">
               {planEntitlements.map((ent) => (
                 <tr key={ent.id} className="hover:bg-white/[0.01] transition-colors">
-                  <td className="py-3 font-semibold text-white capitalize">{ent.plan_name}</td>
+                  <td className="py-3 font-semibold text-white capitalize">
+                    <div>{ent.plan_name}</div>
+                    <div className="flex flex-wrap gap-1 mt-1 font-normal">
+                      {ent.feature_flags?.has_rag ? (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-900/30 text-purple-300 border border-purple-500/20">
+                          RAG
+                        </span>
+                      ) : null}
+                      {ent.feature_flags?.ai_gmail_lead_fallback ? (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-500/20">
+                          AI Lead Fallback
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="py-3 text-right">
                     <span className="font-bold text-white">
                       {Number(ent.included_ai_credits ?? 0).toLocaleString()}
@@ -419,7 +434,7 @@ export default function PlanEntitlementsTab({
                   ) : null}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
                     <span className="text-gray-300">RAG Brain</span>
                     <input
@@ -447,10 +462,19 @@ export default function PlanEntitlementsTab({
                       className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
                     />
                   </div>
+                  <div className="flex items-center justify-between p-2 bg-white/[0.02] border border-white/5 rounded-xl text-[11px]">
+                    <span className="text-gray-300">AI Lead Fallback</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(featureFlags.ai_gmail_lead_fallback)}
+                      onChange={() => toggleFeatureFlag("ai_gmail_lead_fallback")}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 bg-black border-white/10"
+                    />
+                  </div>
 
                   {/* Any custom dynamic feature flags */}
                   {Object.keys(featureFlags)
-                    .filter((k) => !["has_rag", "has_leads", "has_gmail"].includes(k))
+                    .filter((k) => !["has_rag", "has_leads", "has_gmail", "ai_gmail_lead_fallback"].includes(k))
                     .map((k) => (
                       <div
                         key={k}

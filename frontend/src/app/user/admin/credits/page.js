@@ -306,6 +306,7 @@ export default function CreditsPage() {
 
             await api.openRazorpayCheckout({
                 orderData,
+                workspaceId,
                 name: 'Auromind',
                 description: `WCC Wallet Recharge - ₹${amount}`,
                 handler: async (response) => {
@@ -370,6 +371,7 @@ export default function CreditsPage() {
 
             await api.openRazorpayCheckout({
                 orderData,
+                workspaceId,
                 name: 'Auromind',
                 description: `AI Credit Pack - ${packName}`,
                 handler: async (response) => {

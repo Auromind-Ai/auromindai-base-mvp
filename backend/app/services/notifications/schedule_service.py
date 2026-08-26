@@ -84,6 +84,99 @@ class NotificationScheduleService:
         # Fallback to 1 day ahead
         return now_utc + timedelta(days=1)
 
+    @classmethod
+    def seed_default_schedules(cls, db: Session) -> int:
+        """
+        Idempotently seeds baseline dynamic notification schedules into the database.
+        """
+        initial_schedules = [
+            {
+                "event_name": "report.daily_summary",
+                "display_name": "Daily Dashboard Summary",
+                "description": "Morning briefing email with leads, revenue, unanswered chats, and credit balance.",
+                "schedule_type": "daily",
+                "time_of_day": "08:00",
+                "day_of_week": None,
+                "interval_minutes": None,
+                "default_timezone": "Asia/Kolkata",
+                "is_active": True
+            },
+            {
+                "event_name": "report.weekly_performance",
+                "display_name": "Weekly Performance Report",
+                "description": "Weekly funnel conversion rates, top sales agents, and automation statistics.",
+                "schedule_type": "weekly",
+                "time_of_day": "08:30",
+                "day_of_week": "monday",
+                "interval_minutes": None,
+                "default_timezone": "Asia/Kolkata",
+                "is_active": True
+            },
+            {
+                "event_name": "onboarding.milestones",
+                "display_name": "Onboarding & Payment Reminders",
+                "description": "Scans onboarding inactivity (1-2d) and payment failure followups (24h/72h).",
+                "schedule_type": "daily",
+                "time_of_day": "09:00",
+                "day_of_week": None,
+                "interval_minutes": None,
+                "default_timezone": "Asia/Kolkata",
+                "is_active": True
+            },
+            {
+                "event_name": "lead.inactive_scan",
+                "display_name": "Inactive Lead Scanner",
+                "description": "Scans dormant leads at 1, 3, and 7-day intervals and sends re-engagement follow-up tasks.",
+                "schedule_type": "daily",
+                "time_of_day": "10:00",
+                "day_of_week": None,
+                "interval_minutes": None,
+                "default_timezone": "Asia/Kolkata",
+                "is_active": True
+            },
+            {
+                "event_name": "lead.sla_scan",
+                "display_name": "Lead SLA Breach Monitor",
+                "description": "Monitors unreplied incoming leads waiting more than 15 minutes.",
+                "schedule_type": "interval_minutes",
+                "time_of_day": None,
+                "day_of_week": None,
+                "interval_minutes": 1,
+                "default_timezone": "Asia/Kolkata",
+                "is_active": True
+            }
+        ]
+
+        inserted = 0
+        now_utc = datetime.now(timezone.utc)
+        for s in initial_schedules:
+            existing = db.query(NotificationSchedule).filter(
+                NotificationSchedule.event_name == s["event_name"]
+            ).first()
+            if not existing:
+                new_sched = NotificationSchedule(
+                    id=uuid.uuid4(),
+                    event_name=s["event_name"],
+                    display_name=s["display_name"],
+                    description=s["description"],
+                    schedule_type=s["schedule_type"],
+                    time_of_day=s["time_of_day"],
+                    day_of_week=s["day_of_week"],
+                    interval_minutes=s["interval_minutes"],
+                    default_timezone=s["default_timezone"],
+                    is_active=s["is_active"],
+                    next_run_at=now_utc
+                )
+                db.add(new_sched)
+                inserted += 1
+
+        if inserted > 0:
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+        return inserted
+
     @staticmethod
     def get_workspace_timezone(workspace: Optional[Workspace]) -> str:
         """
