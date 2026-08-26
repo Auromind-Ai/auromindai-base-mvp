@@ -22,6 +22,7 @@ export const SettingsProvider = ({ children }) => {
         setSelectedModel(model);
         localStorage.setItem('auromind_default_model', model);
     };
+    
     return (
         <SettingsContext.Provider value={{
             isSettingsOpen,
