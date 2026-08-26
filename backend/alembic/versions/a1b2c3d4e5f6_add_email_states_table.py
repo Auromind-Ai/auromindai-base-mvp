@@ -17,17 +17,38 @@ depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        'email_states',
-        sa.Column('id', UUID(as_uuid=True), primary_key=True),
-        sa.Column('workspace_id', UUID(as_uuid=True), sa.ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('last_email_id', sa.String(length=255), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-    )
-    op.create_index('ix_email_states_workspace_id', 'email_states', ['workspace_id'], unique=True)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    tables = inspector.get_table_names()
+
+    if 'email_states' not in tables:
+        op.create_table(
+            'email_states',
+            sa.Column('id', UUID(as_uuid=True), primary_key=True),
+            sa.Column('workspace_id', UUID(as_uuid=True), sa.ForeignKey('workspaces.id', ondelete='CASCADE'), nullable=False),
+            sa.Column('last_email_id', sa.String(length=255), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        )
+
+    inspector = sa.inspect(bind)
+    if 'email_states' in inspector.get_table_names():
+        indexes = [ix['name'] for ix in inspector.get_indexes('email_states')]
+        if 'ix_email_states_workspace_id' not in indexes:
+            try:
+                op.create_index('ix_email_states_workspace_id', 'email_states', ['workspace_id'], unique=True)
+            except Exception:
+                pass
 
 
 def downgrade():
-    op.drop_index('ix_email_states_workspace_id', table_name='email_states')
-    op.drop_table('email_states')
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if 'email_states' in inspector.get_table_names():
+        indexes = [ix['name'] for ix in inspector.get_indexes('email_states')]
+        if 'ix_email_states_workspace_id' in indexes:
+            try:
+                op.drop_index('ix_email_states_workspace_id', table_name='email_states')
+            except Exception:
+                pass
+        op.drop_table('email_states')
