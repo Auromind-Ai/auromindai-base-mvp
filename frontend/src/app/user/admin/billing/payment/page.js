@@ -358,13 +358,6 @@ function BillingContent() {
         description: `${checkout.plan_label || "Pro"} Subscription Upgrade`,
         prefill: checkout.prefill,
         handler: async (response) => {
-          // TODO: confirm with backend which payload shape
-          // api.verifyPlanPayment actually expects. This still sends the
-          // subscription-style fields (payment_id / subscription_id /
-          // signature). An earlier version paired verifyPlanPayment with
-          // order-style fields instead (razorpay_order_id,
-          // razorpay_payment_id, razorpay_signature). Mismatch here will
-          // silently fail payment verification.
           const payload = {
             workspace_id: workspaceId,
             plan: planKey,
