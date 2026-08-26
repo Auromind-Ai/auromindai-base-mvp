@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronsDown } from 'lucide-react';
 
 import api from '@/lib/api';
+import PricingComparisonTable from './PricingComparisonTable';
 
 const TOKENS_PER_CREDIT = 1000;
 
@@ -376,7 +377,7 @@ export default function PricingSectionNew() {
   const plans = dynamicPlans;
 
   return (
-    <section id="pricing" className="relative overflow-hidden bg-[#050507] min-h-screen py-16 md:py-24 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
+    <section id="pricing" className="relative bg-[#050507] min-h-screen py-16 md:py-24 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
       {/* Background radial glow */}
       <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-purple-900/15 blur-[150px]" />
 
@@ -445,6 +446,8 @@ export default function PricingSectionNew() {
           ))}
         </motion.div>
 
+        {/* Feature Comparison Table matching requested design */}
+        <PricingComparisonTable onSelectPlan={handlePlanClick} />
       </div>
     </section>
   );
